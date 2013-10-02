@@ -1,0 +1,33 @@
+begintemplate CellCategoryInfo
+	public setCellTypeParams, setCellTypeDist
+	public dist, cellType_string, cellStartGid, cellEndGid, numCells, updateGidRange, addPosVec, killflag, CellList, addCell, numCons
+	objref dist, cellpos, f1, CellList, numCons
+	strdef cellType_string, tempString
+		
+	proc setCellTypeParams(){
+		cellType_string = $s1
+		cellStartGid = $2 //determine GID assignment start numbers for each cell type so that each cell can have a unique id #
+		numCells = $3
+		cellEndGid =  $2 + $3 -1
+		killflag = $4
+		
+		objref CellList[numCells]
+	}
+
+	proc setCellTypeDist(){
+		f1 = new File()
+		dist = new Vector()
+		sprint(tempString,"dist_%s.hoc",cellType_string)
+		f1.ropen(tempString)
+		sizeofvec = f1.scanvar
+		dist.resize(sizeofvec)
+		dist.scanf(f1)
+		f1.close()
+	}
+	
+	proc updateGidRange() {
+		cellStartGid = $1
+		cellEndGid = $1 + numCells -1
+	}
+		
+endtemplate CellCategoryInfo
