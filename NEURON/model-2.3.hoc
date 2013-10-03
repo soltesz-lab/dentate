@@ -1,18 +1,5 @@
 /************************************************************
-Current version:
-Model-2.3
-	more print options by MC		2009-10-15
-Model-2.2
-	Option-print ConMat/Pos by MC	2009-09-28
-Model-2.1
-	Print outs ASAP by Marianne		2009-09-08
-Model-2.0
-	Restructured by Marianne Case	2009-09-02
-	Parallelized by Michael Hines	2009-08-03
-
-Previous version:
-50knet
-	Inherited from Rob Morgan		2009-04-20
+Dentate Gyrus model from the Soltesz Lab
 
 For the following details, consult the README.txt file:
 Version History
@@ -21,7 +8,7 @@ Input files
 Output files
 Code Outline
 
-For even more information, consult ModelDoc.pdf
+For even more information, consult Instruction Manual.pdf
 ************************************************************/
 
 loadstart = startsw()					// record the start time of the set up
@@ -29,47 +16,37 @@ loadstart = startsw()					// record the start time of the set up
 I.  LOAD LIBRARIES & PARAMETERS
 ***********************************************************************************************/
 {load_file("nrngui.hoc")}				// Standard definitions - NEURON library file
-{load_file("netparmpi.hoc")}			// Contains the template that defines the properties of the
-										// 	ParallelNetManager class
-{load_file("./setupfiles/ranstream.hoc")}			// Defines a RandomStream class used to produce random numbers
-										// 	for the cell noise
-{load_file("./setupfiles/CellCategoryInfo.hoc")}		// Defines a CellCategoryInfo class used to store
-										// 	celltype-specific parameters
-{load_file("./setupfiles/parameters.hoc")}			// Loads in operational and model parameters
+
+{load_file("netparmpi.hoc")}			// Contains the template that defines the properties of
+										//  the ParallelNetManager class, which is used to set
+										//   up a network that runs on parallel processors
+										
+{load_file("./setupfiles/ranstream.hoc")}	// Contains the template that defines a RandomStream
+											//  class used to produce random numbers
+											// 	for the cell noise (what type of noise?)
+											
+{load_file("./setupfiles/CellCategoryInfo.hoc")}	// Contains the template that defines a 
+													//  CellCategoryInfo class used to store
+													// 	celltype-specific parameters
+													
+{load_file("./setupfiles/defaultvar.hoc")}	// Contains the proc definition for default_var proc
+
+{load_file("./setupfiles/parameters.hoc")}	// Loads in operational and model parameters that can
+											//  be changed at command line											
+{load_file("./setupfiles/set_other_parameters.hoc")}// Loads in operational and model parameters
+													//  that can't be changed at command line
+
 
 /***********************************************************************************************
 II. SET MODEL SIZE, CELL DEFINITIONS
 ***********************************************************************************************/
-objref f2								// Define object reference for the cells2include file
-objref celltypestring[1], cellType[1]	// Define placeholder objects, redefine with correct size in fcn
-double cellnumvar[1], cellLayerflag[1], numCellTypes[1]	// Define placeholder doubles, redefine with correct size in fcn
-proc loadCellCategoryInfo() {local i, startpos	// Load celltype info into a CellCategoryInfo object, 1 per cell type 
-	f2 = new File()
-	f2.ropen("./cells/cells2include.hoc")
-	numCellTypes = f2.scanvar			// # cell types, including pp cells
+{load_file("./setupfiles/load_cell_category_info.hoc")}	// Reads the 'cells2include.hoc' file and
+														//  loads the information into one
+														//  'CellCategoryInfo' object for each cell
+														//  type (bio or art cells?). Info includes
+														//  number of cells, gid ranges, type name 
 
-	objref celltypestring[numCellTypes], cellType[numCellTypes]	// Define variables to temporarily hold data scanned from file
-	double cellnumvar[numCellTypes], cellLayerflag[numCellTypes]
-
-	for i=0, numCellTypes-1 {
-		celltypestring[i]= new String()
-		f2.scanstr(celltypestring[i].s)	// Scan in the cell name
-		cellnumvar[i]=f2.scanvar			// Scan in the initial (before sclerosis) number of each cell type
-		cellLayerflag[i]=f2.scanvar			// Scan the layer flag (hilar=1, granular=0), where hilar cells
-											//	are subject to sclerosis
-	}
-	f2.close()
-
-	startpos=0
-	for i=0, numCellTypes-1 {
-	cellType[i] = new CellCategoryInfo(i)	// Make one object for each cell type to store cell type info
-	cellType[i].setCellTypeParams(celltypestring[i].s, startpos, cellnumvar[i], cellLayerflag[i])	// Set parameters
-	cellType[i].numCons = new Vector(numCellTypes,0)
-	if (i>0) {cellType[i].setCellTypeDist}	// Load distribution file
-	startpos = startpos + cellnumvar[i]		// Increment the startGid for the next cell type's call to setCellTypeParams
-	}
-}
-loadCellCategoryInfo()
+{load_file("./setupfiles/load_cell_conns.hoc")}	// Load in the cell connectivity info
 
 strdef tempFileStr						// Define string reference for the names of the cell template files
 proc loadCellTemplates(){local i		// Define one template for each cell type in cells2include, plus perforant path cell(s)
@@ -85,10 +62,6 @@ proc calcNetSize(){local i				// Calculate final network size after sclerosis
 	totalCells = 0						// Initialize totalCells so we can add to it iteratively in the for loop
 	ncell = cellType[0].numCells		// Initialize ncell so we can add to it iteratively in the for loop
 	for i=1,numCellTypes-1 {			// Run the following code for non ppstim cell types only
-		if (cellType[i].killflag==1) {	// For cell types that are susceptible to sclerosis
-			cellType[i].numCells = int(cellType[i].numCells * ((100-percentSclerosis)/100))	// Calculate the # of cells after sclerosis
-			if (cellType[i].numCells == 0) {cellType[i].numCells = 1}		// If all cells of a type are killed, add 1 back
-		}
 		cellType[i].updateGidRange(cellType[i-1].cellEndGid+1)	// Update the gid ranges for each cell type
 		totalCells = totalCells + cellType[i].numCells			// Total number of cells after sclerosis, not including pp cells
 		ncell = ncell + cellType[i].numCells 					// Total # cells including pp cells
@@ -98,6 +71,22 @@ proc calcNetSize(){local i				// Calculate final network size after sclerosis
 											// 	is the # of times this thing will be called per cell x random type
 }
 calcNetSize()
+
+proc calcBinSize(){local NumGCells
+
+	for i=0, numCellTypes-1 {		// Using the specified dimensions of the network (in um) and
+									//  the total number of cells of each type, set the number
+									//  of bins in X, Y, Z dimensions such that the cells will be
+									//  evenly distributed throughout the allotted volume
+									// just changed this so even the stim cells will be allotted, as now we have some
+									// stimulation protocols that incorporate stim cell position
+	
+		cellType[i].setBins(LongitudinalLength,TransverseLength,LayerVector.x[cellType[i].layerflag])  
+									// For the z length, use the height of the layer in which the
+									// cell somata are found for this cell type
+	}
+}
+calcBinSize()
 
 /***********************************************************************************************
 III.SET UP PARALLEL CAPABILITY
@@ -112,25 +101,54 @@ proc parallelizer() {
 }
 parallelizer()
 
-iterator pcitr() {local i2, startgid	// Create iterator for use as a standard 'for' loop throughout given # cells
-// usage:
-// for pcitr(&i, &gid, it_start, it_end) {do stuff}	// it_start and it_end let you define range over which to iterate
-	i1 = 0
-	numcycles = int($3/pc.nhost)
-	extra = $3%pc.nhost
+
+iterator pcitr() {local i2, startgid	// Create iterator for use as a standard 'for' loop
+										//  throughout given # cells usage:
+										//  for pcitr(&i1, &i2, &gid, it_start, it_end) {do stuff}
+										//  it_start and it_end let you define range over
+										//  which to iterate
+										//  i1 is the index of the cell on the cell list for that host
+										//  i2 is the index of that cell for that cell type on that host
+	numcycles = int($4/pc.nhost)
+	extra = $4%pc.nhost
 	addcycle=0
 	if (extra>pc.id) {addcycle=1}
 	startgid=(numcycles+addcycle)*pc.nhost+pc.id
-	if (startgid<=$4) {
-		for (i2=startgid; i2 <= $4; i2 += pc.nhost) {	// Just iterate through the cells on this host
-														//	(this works because of the roundrobin call made earlier)
+	i1 = numcycles+addcycle // the index into the cell # on this host.
+	i2 = 0 // the index of the cell in that cell type's list on that host
+	if (startgid<=$5) {
+		for (i3=startgid; i3 <= $5; i3 += pc.nhost) {	// Just iterate through the cells on
+														//  this host(this simple statement
+														//  iterates through all the cells on
+														//  this host and only these cells because 
+														//  the roundrobin call made earlier dealt
+														//  the cells among the processors in an
+														//  orderly manner (like a deck of cards)
 				$&1 = i1
 				$&2 = i2
+				$&3 = i3
 				iterator_statement
 				i1 += 1
+				i2 += 1
 		}
 	}
 }
+
+
+objref  strobj
+strobj = new StringFunctions()
+strdef direx
+if (strcmp(UID,"0")==0 && pc.id==0) {
+	type = unix_mac_pc() // 1 if unix, 2 if mac, 3 if mswin, or 4 if mac osx darwin
+	if (type<3) {
+		{system("uuidgen", direx)} // unix or mac
+		strobj.left(direx, strobj.len(direx)-1)
+	} else {
+		{system("cscript //NoLogo setupfiles/uuid.vbs", direx)} // pc
+	}
+	UID = direx
+}
+
 
 proc typeout() {local i, rank, gid, srcid localobj tgt, f, cell// Write out the cell types & gid ranges
 	pc.barrier()					// Wait for all ranks to get to this point
@@ -157,82 +175,18 @@ objref cells, ranconlist, ransynlist
 cells = new List()						
 ranconlist = new List()
 ransynlist = new List()
-proc createCells(){ local i, si, pci, cellind, runresult, gid	// Create cells and assign a GID to each cell
-	for cellind=1, numCellTypes-1 {
-		if (strcmp(cellType[cellind].cellType_string,"mossycell")==0) {	// Update the seed for the random # generators
-			usedseeds=noise_random_stream_offset_*(cellType[cellind].numCells+1)+1	// Calculate which section(s) of the random
-		}																			//	number stream have already been used
-	}
 
-	for cellind=0, numCellTypes-1 {
-		for pcitr(&i, &gid, cellType[cellind].cellStartGid, cellType[cellind].cellEndGid) {// use the pciter over all cells of this type
-			if (pc.gid_exists(gid)) {
-				sprint(cmd, "cellType[%g].CellList[%g]=new %s(%g)", cellind, i, cellType[cellind].cellType_string, gid+cellType[cellind].cellStartGid)
-				runresult=execute1(cmd) 		// This command was written as a string so
-												//	the cell object doesn't have to be hard coded
-				cells.append(cellType[cellind].CellList[i])	// Append each cell to cells list
-				ranconlist.append(new RandomStream(usedseeds+(gid*2)*random_stream_offset_))	// Create a new random number generator for each cell,
-																	//	with a unique stream section defined by the starting location.  This
-																	//	will be used to determinewhich connections are made
-				ranconlist.object(int(gid/pc.nhost)).r.uniform(0,1)// Set up the generator to pick a uniform dist of numbers between 0 and 1
+{load_file("./setupfiles/position_functions.hoc")}	// Defines the algorithm used to set the
+													//  positions of the cells
+													
+{load_file("./setupfiles/create_cells_pos.hoc")}	// Creates each cell on its assigned host
+													//  and sets its position using the algorithm
+													//  defined above
 
-				ransynlist.append(new RandomStream(usedseeds+(gid*2+1)*random_stream_offset_))	// Create a new random number generator for each cell,
-																								//	with a unique stream. This will be used to determine
-																								//	what type of synapse is used in connections
-				cellType[cellind].CellList[i].connect_pre(nil, nc)	// Create an empty connection for use by the spike detector
-				pc.cell(gid, nc)									// Associate the cell with its gid and its spike generation location
-				
-				if (cellind>0) {									// For non ppstim cells, assign position, initialize synapse cid and sid
-					for si=0, cellType[cellind].CellList[i].pre_list.count-1 {	// Iterate over each pre cell type's synapse list
-						for j=0, cellType[cellind].CellList[i].pre_list.o(si).count-1 {		// Iterate through each synapse in the list
-							cellType[cellind].CellList[i].pre_list.o(si).o(j).cid=gid			// Set the cell id for each synapse
-																								//  Note: Parameters added to Syn2Gid mechanism
-						}
-					}
-					xpos=pos_algorithm(gid,cellType[cellind].numCells,cellType[cellind].cellStartGid)	// Algorithmically generate cell position
-					cellType[cellind].CellList[i].position(xpos,0,0)									// Record cell position in cell object
-					
-					if ((i%int(cellType[cellind].numCells/10+1) == 0) && (flagprint>1)) {print cellType[cellind].cellType_string, ": ", i}
-				}
-			}
-		} 
-	}
+strdef cmd
+{load_file("./setupfiles/write_positions.hoc")}		// Defines the proc to write the position
 
-	nc = nil // Then clear the reference to the netcon object, which should destroy the netcon (because all refs would have been removed)
-	if  (flagprint>0) {print "Host ", pc.id, " created cells."}
-}
-/**/func pos_algorithm() {local addamt CellNum // Arguments: gid, numCells, startGid; Return: x position of cell
-		addamt=1
-		CellNum=$1 - $3+1
-		if ((dentateBins*CellNum)%$2==0) {addamt=0}
-		return (int(dentateBins*CellNum/$2)+addamt-1)*dentateBinSize+dentateBinSize/2
-	}
-createCells()
-
-proc posout() {local pci, rank, gid, srcid localobj tgt, f, cell	// Write out the 3d position coordinates of each cell
-	pc.barrier()					// Wait for all ranks to get to this point
-	f = new File("position.dat")
-	if (pc.id == 0) { 				// Write header to file 1 time only
-		f.wopen()
-		f.printf("cell\tx\ty\tz\thost\n")
-		f.close()
-	}
-	for rank = 0, pc.nhost-1 {				// For each processor, allow processor to append to file the positions of its cells
-		if (rank == pc.id) {				// Ensure that each processor runs once
-			f.aopen() 						// Open for appending to file
-			for pcitr(&pci, &gid, cellType[1].cellStartGid, cellType[numCellTypes-1].cellEndGid) {		// Use the pciter over all non ppStim cells
-				if (pc.gid_exists(gid)) {	// If cell exists on this machine
-					cell = pc.gid2cell(gid)	// Refer to cell
-					f.printf("%d\t%d\t%d\t%d\t%d\n", gid, cell.xx, cell.yy, cell.zz, pc.id)
-				}
-			}		
-			f.close()
-		}
-		pc.barrier()
-	}
-}
-if (printPosition>0) {posout()}	// Write the 3d position of each cell (gid, x, y, z), "position.dat"
-
+if (PrintCellPositions>0) {posout()}	// Calls the proc that writes the position of each cell to the
 
 createtime = startsw() - createstart	// Calculate time taken to create the cells
 if (pc.id == 0) {printf("\nTIME HOST 0: %g seconds (created cells)\n************\n", createtime)}
@@ -249,7 +203,7 @@ V.	CONNECT THE CELLS AND CONNECT THE PERFORANT PATH TO SOME CELLS
 
 strdef cmd
 
-{sprint(cmd,"./setupfiles/%s_connections.hoc", Connectivity)}
+{sprint(cmd,"./connections/%s_connections.hoc", Connectivity)}
 {load_file(cmd)}
 
 {sprint(cmd,"./stimulation/%s_stimulation.hoc", Stimulation)}
@@ -281,7 +235,7 @@ proc init() { local dtsav, temp, secsav, secondordersav	// initialize the simula
 	temp= cvode.active()
 	if (temp!=0) {cvode.active(0)}	// If cvode is on, turn off temporarily to do large fixed step
 	// Now, do a large pre run from t = -500 to t = -100 to set the network 'settle' and all components to reach steady state
-	while(t<-100) { fadvance() if (flagprint>1) {print t}}	// Integrate all section equations over the interval dt. increment t by dt
+	while(t<-100) { fadvance() if (PrintTerminal>1) {print t}}	// Integrate all section equations over the interval dt. increment t by dt
 															//	and repeat till t at -100
 	if (temp!=0) {cvode.active(1)}	// If cvode was on and then turned off, turn it back on now
 	

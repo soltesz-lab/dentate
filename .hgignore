@@ -2,6 +2,7 @@ syntax: glob
 NEURON/*.c
 NEURON/*.o
 NEURON/results/*
+NEURON/datasets/*
 NEURON/nrnmech.dll
 *.bak
 neuroConstruct/generated*

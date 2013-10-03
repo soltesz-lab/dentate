@@ -1,36 +1,33 @@
-// Operational parameters
-flagprint= 1		// controls how many notes print to screen. 0=few, 1=some, 2=many
-PrintConnSummary = 1		// Controls whether to print the Number of Connections (1=yes, 0=no)
-PrintConnDetails = 0		// Controls whether to print the detailed Connection list (2=yes immediately, 1=yes at end of program, 0=no)
-printPosition = 1	// Controls whether to print the position list (1=yes, 0=no)
+default_var("RunName","none")		// Name of simulation run
+default_var("UID","0")		// Unique ID for this simulation run
+default_var("Stimulation","pulse")		// Filename of the stimulation protocol used to stimulate the network
+default_var("Connectivity","newslow")		// Filename of the connection protocol used to connect the cells of the network
+default_var("connectionFactor",500)		// Set factor to control # connections formed in the network; changes depending on total # cells
+default_var("Scale",1)		// Network scale (1:Scale)
+default_var("SimDuration",100)		// Duration of time simulated, in milliseconds
+default_var("RandomSeeds",0)		// Method used to assign seeds to random processors
+default_var("Positioning","")		// Algorithm used to position the cells
+default_var("PrintVoltage",1)		// Flag for recording and printing intracellular voltage traces for select cells
+default_var("PrintTerminal",1)		// Level of printouts to screen (affects run time) 0: minimal, 1: some, 2: max printouts
+default_var("PrintConnDetails",0)		// Flag for printing the detailed connection matrix
+default_var("PrintCellPositions",1)		// Flag for printing the cell positions
+default_var("PrintConnSummary",1)		// Flag for printing the summary connection matrix
+default_var("TransverseLength",1000)		// Length of the network subfield in the transverse direction in microns
+default_var("LongitudinalLength",6000)		// Length of the network subfield in the longitudinal direction in microns
+default_var("LayerHeights","4;500;100;400;100;")		// Vector of heights of each network subfield layer in microns (from basal to molecular layer)
+default_var("SpatialResolution",100)		// Spatial discretization method or resolution
+default_var("ConnData",100)		// Number of the connection dataset to use
+default_var("SynData",100)		// Number of the synapse kinetics dataset that was used to prepare the cell definition files
+default_var("NumData",100)		// Number of the cells dataset to use
+default_var("TemporalResolution",0.1)		// Temporal resolution of the simulation (in ms)
+default_var("NumTraces",10)		// The maximum number of cells to record intracellularly, for each cell type
+default_var("FracTraces",50)		// The percent of cells to record intracellularly, for each cell type
+default_var("DegreeStim",10)		// Degree of stimulation; meaning depends on Stimulation type
+default_var("Onint",6000)		// Duration of burst (in ms) when burst stimulation is used
+default_var("Offint",0)		// Duration of rest interval between bursts (in ms) when burst stimulation is used
 
-// Model parameters
-percentSclerosis = 50	// Set % of cell death, for cells flagged as susceptible to death
-connectionFactor = 500	// Set factor to control # connections formed in the network;
-						// 	changes depending on total # cells
-randnet = 0		// If 0, decrease probability of self-connection based on sclerosis amount,
-				// 	for cell types flagged as susceptible
-secondorder= 2	// A global variable which specifies the time integration method
-				// 	(see NEURON reference)
-tstart= 0		// Start time of simulation
-tstop= 100		// Stop time of simulation
-dt= 0.1			// Integration interval for fadvance (see NEURON reference)
-
-v_init = -60						// All voltages of all sections are initialized to this voltage (mV)
-N = 1								// Specifies step resolution (see NEURON reference for steps_per_ms),
-									// 	sometimes 1, sometimes 4
-steps_per_ms = 1*N/(dt)				// Controls the intervals at which points are plotted
-
-dentateBins = 100					// Equivalent subdivisions of the dentate
-dentateLength = 6000				// Length of dentate in microns
-dentateBinSize = int(dentateLength/dentateBins)	// Length of each bin (along x dimension) in microns
-
-noise_random_stream_offset_ = (tstop - tstart)/dt + 1	// Each noise generator picks a number every
-														// 	dt for the full time range, so stream
-														// 	sections must be at least this long to
-														// 	prevent overlap
-														
-strdef Stimulation
-Stimulation="pulse"
-strdef Connectivity
-Connectivity="slow"
+default_var("PercentCellDeath",50)		// Percent of cells that are killed (removed), for cell types flagged for cell death
+default_var("PercentAxonSprouting",50)		// Probability of connection between granule cells, given as a percent of connections to make out of all possible granule cell connections
+default_var("RipStim",200)		// Degree of ripple CA3 stimulation; Higher=more
+default_var("CatFlag",1)		// Whether to concatenate and remove trace connection files
+default_var("JobNumber",0)		// Job number assigned by supercomputer
