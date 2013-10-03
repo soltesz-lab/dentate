@@ -74,17 +74,4 @@ proc makeConnections () {local precellType, postcellType, precellStart, precellE
 			 if ((strcmp($s1,"granulecell")==0) && (strcmp($s2,"granulecell")==0) && (randnet==0)) {synProb = synProb * percentSclerosis/100}
 		}	 	// Reduce the probability of granule cell connection by the same degree as the sclerosis
 				//	because mossy fibers connecting back to granule cells are subject to sclerosis (?)
-		objref nclist
-		nclist = new List()
-/**/	func nc_append() { localobj cell, nc	// Connect cell to synapse and set synapse properties
-
-			if (pc.gid_exists($2)) {			// Check if cell exists on this machine
-				cell = pc.gid2cell($2)
-				nc = pc.gid_connect($1, cell.pre_list.o($3).o($4))	// Connect the soma of the pre cell to the synapse on the post cell
-				nc.weight = $5					// Set a synaptic connection weight
-				nc.delay = $6					// Set a delay time (axonal delay)
-				nclist.append(nc)
-			}
-			return nclist.count-1
-		}
 makeConnections()								// Try making connections between every type of cell

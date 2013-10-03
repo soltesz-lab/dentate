@@ -1,7 +1,7 @@
 // Operational parameters
 flagprint= 1		// controls how many notes print to screen. 0=few, 1=some, 2=many
-printNumCon = 1		// Controls whether to print the Number of Connections (1=yes, 0=no)
-printConMat = 0		// Controls whether to print the detailed Connection list (2=yes immediately, 1=yes at end of program, 0=no)
+PrintConnSummary = 1		// Controls whether to print the Number of Connections (1=yes, 0=no)
+PrintConnDetails = 0		// Controls whether to print the detailed Connection list (2=yes immediately, 1=yes at end of program, 0=no)
 printPosition = 1	// Controls whether to print the position list (1=yes, 0=no)
 
 // Model parameters
