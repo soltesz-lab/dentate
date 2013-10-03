@@ -74,7 +74,7 @@ loadCellCategoryInfo()
 strdef tempFileStr						// Define string reference for the names of the cell template files
 proc loadCellTemplates(){local i		// Define one template for each cell type in cells2include, plus perforant path cell(s)
 	for i=0, numCellTypes-1 {
-		sprint(tempFileStr,"class_%s.hoc",cellType[i].cellType_string)
+		sprint(tempFileStr,"./cells/class_%s.hoc",cellType[i].cellType_string)
 		load_file(tempFileStr)			// Load the cell type's class template
 	}
 }	

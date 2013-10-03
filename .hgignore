@@ -1,5 +1,8 @@
 syntax: glob
-
+NEURON/*.c
+NEURON/*.o
+NEURON/results/*
+NEURON/nrnmech.dll
 *.bak
 neuroConstruct/generated*
 neuroConstruct/simulations
