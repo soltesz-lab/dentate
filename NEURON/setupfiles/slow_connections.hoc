@@ -1,0 +1,90 @@
+objref distribution
+strdef precellType_string, postcellType_string
+proc makeConnections () {local precellType, postcellType, precellStart, precellEnd, postcellStart, postcellEnd, i, j
+	distribution = new Vector()
+	// Attempt to connect all cells of each pre and post type
+	for i = 1, numCellTypes-1 {		// Don't connect pp stim cells here - they have own function later
+		distribution = cellType[i].dist						// Load axon distribution vector for this cell type
+		precellType_string =  cellType[i].cellType_string	// Load cell type string used to grab connection-specific properties later
+		precellStart = cellType[i].cellStartGid				// Load cell type start gid
+		precellEnd = cellType[i].cellEndGid					// Load cell type end gid
+
+		for j = 1, numCellTypes-1 {	// ppstim cells are never the post synaptic cell in a connection, so exclude here
+			postcellStart = cellType[j].cellStartGid		// Load cell type start gid
+			postcellEnd = cellType[j].cellEndGid			// Load cell type end gid
+			postcellType_string = cellType[j].cellType_string	// Load cell type string used to grab connection-specific properties later
+			cellType[i].numCons.x[j]=connectCells (i, j, precellStart, precellEnd, postcellStart, postcellEnd, precellType_string, postcellType_string)
+		}			
+	}
+	if ((flagprint>0)) {print "Host ", pc.id, " connected cells."}
+}
+	objref randnum, synRand
+/**/func connectCells () {local counter, preNum, postNum, pcj, igid, jgid, xrand, precellType, postcellType, precellStart, precellEnd, postcellStart, postcellEnd, i, j, randSynNumber, pre_xpos, post_xpos, numSynTypes localobj cell
+		// Args: precellType, postcellType, precellStart, precellEnd, postcellStart
+		// 		 postcellEnd, precellType_string, postcellType_string.
+		 precellType = $1
+		 postcellType = $2
+		 precellStart = $3
+		 precellEnd = $4
+		 postcellStart = $5
+		 postcellEnd = $6
+		 preNum =cellType[precellType].numCells		// Look up the number of cells of the pre-synaptic type
+		 postNum =cellType[postcellType].numCells	// Look up the number of cells of the post-synaptic type
+		 counter=0
+
+		getSynapseData($s7, $s8)	// Given the pre and post cell types, look up the weight, delay,
+									//	and probability of connection between these two types
+
+		if (flagprint>1) {print "Host ", pc.id, " is connecting: ", $s7, "s to ", $s8, "s."}
+
+		if (synProb != 0) {
+			for pcitr(&j, &jgid, postcellStart, postcellEnd) {	// For each post-syn cell on this host (limit only the
+																//	post-syn cell to ensure we try all connection possibilities
+																//	(this limit ensures the hosts don't duplicate work)
+				pcj=int(jgid/pc.nhost)
+				numSynTypes = pc.gid2cell(jgid).pre_list.o(precellType).count
+				post_xpos = pos_algorithm(jgid,postNum,postcellStart)	// Calculate the position algorithmically rather than trying to look it up
+				ransynlist.object(pcj).r.discunif(0,numSynTypes-1)		// Create a uniform random INTEGER variable over the range specified (0 to # synapse types-1),
+				for igid = precellStart, precellEnd {					// For each pre-syn cell
+					pre_xpos=pos_algorithm(igid,preNum,precellStart)	// Calculate the position algorithmically
+					distNumber = dentateBins + ((pre_xpos - post_xpos) / dentateBinSize) 	// This arrangement and the distribution file
+																							//	arrangement mimics an absolute value function
+																							//	for the # bins between cells
+					if (ranconlist.object(pcj).repick < (connectionFactor * synProb * distribution.x[distNumber-1])) { // Determine whether a
+																							//	connection will be made between these two cells
+						randSynNumber = ransynlist.object(pcj).repick	// Randomly pick a synapse type from the available synapse types
+						nc_append(igid, jgid, precellType, randSynNumber, synWeight, synDelay)	// Make the connection
+						counter +=1
+					}
+				}    
+			} 
+		}
+		return counter
+	}
+		objref  f2
+/**/	proc getSynapseData () {	// Args: precelltype name, postcelltype name
+			 strdef tempString
+			 f2 = new File()
+
+			 sprint(tempString,"%s.%s",$s1,$s2)	// Get the file that specifies connection properties between these two cell types
+			 f2.ropen(tempString)
+			 synWeight = f2.scanvar
+			 synDelay = f2.scanvar
+			 synProb = f2.scanvar
+			 if ((strcmp($s1,"granulecell")==0) && (strcmp($s2,"granulecell")==0) && (randnet==0)) {synProb = synProb * percentSclerosis/100}
+		}	 	// Reduce the probability of granule cell connection by the same degree as the sclerosis
+				//	because mossy fibers connecting back to granule cells are subject to sclerosis (?)
+		objref nclist
+		nclist = new List()
+/**/	func nc_append() { localobj cell, nc	// Connect cell to synapse and set synapse properties
+
+			if (pc.gid_exists($2)) {			// Check if cell exists on this machine
+				cell = pc.gid2cell($2)
+				nc = pc.gid_connect($1, cell.pre_list.o($3).o($4))	// Connect the soma of the pre cell to the synapse on the post cell
+				nc.weight = $5					// Set a synaptic connection weight
+				nc.delay = $6					// Set a delay time (axonal delay)
+				nclist.append(nc)
+			}
+			return nclist.count-1
+		}
+makeConnections()								// Try making connections between every type of cell

@@ -17,7 +17,7 @@ begintemplate CellCategoryInfo
 	proc setCellTypeDist(){
 		f1 = new File()
 		dist = new Vector()
-		sprint(tempString,"dist_%s.hoc",cellType_string)
+		sprint(tempString,"./cells/dist_%s.hoc",cellType_string)
 		f1.ropen(tempString)
 		sizeofvec = f1.scanvar
 		dist.resize(sizeofvec)

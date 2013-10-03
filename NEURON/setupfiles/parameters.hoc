@@ -29,3 +29,8 @@ noise_random_stream_offset_ = (tstop - tstart)/dt + 1	// Each noise generator pi
 														// 	dt for the full time range, so stream
 														// 	sections must be at least this long to
 														// 	prevent overlap
+														
+strdef Stimulation
+Stimulation="pulse"
+strdef Connectivity
+Connectivity="slow"
