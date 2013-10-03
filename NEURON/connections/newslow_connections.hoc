@@ -59,7 +59,7 @@ proc makeConnections () {local precellType, postcellType, precellStart, precellE
 						gapDelay=dt // Use this for gap junction synapses
 						// Two possible approaches
 						// DETERMINE WHETHER TO MAKE CONNECTION, THEN WHICH TYPE TO MAKE  - how Rob did it
-						if (ranconlist.object(pcj).repick < (connectionFactor * 10 * synProb * distprob)) { // Determine whether a
+						if (ranconlist.object(pcj).repick < (connectionFactor * 1 * synProb * distprob)) { // Determine whether a
 																								//	connection will be made between these two cells
 							randSynNumber = ransynlist.object(pcj).repick	// Randomly pick a synapse type from the available synapse types
 							nc_append(igid, jgid, precellType, randSynNumber, synWeight, conDelay)	// Make the connection
