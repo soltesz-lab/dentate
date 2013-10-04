@@ -4,6 +4,14 @@ NEURON/*.o
 NEURON/results/*
 NEURON/datasets/*
 NEURON/nrnmech.dll
+NEURON/test/*.dat
 *.bak
 neuroConstruct/generated*
 neuroConstruct/simulations
+x86_64
+i386
+umac
+
+celltype.dat
+runtimes.dat
+spikeraster.dat
