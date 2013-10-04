@@ -1,0 +1,16 @@
+
+proc printNeuroML2Network() {localobj f
+
+    if (pc.id == 0) {
+            nrnpython("import sys")
+            nrnpython("import neuron")
+            nrnpython("h = neuron.hoc.HocObject()")
+            nrnpython("sys.path.append('setupfiles')")
+            nrnpython("from generateNeuroML import generate")
+            nrnpython("print 'Writing NeuroML 2 to file: results/%s/network.nml'%h.RunName")
+
+            nrnpython("generate('results/%s'%h.RunName,h.RunName, 'network.nml')")
+
+    }
+
+}

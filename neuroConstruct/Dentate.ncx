@@ -299,6 +299,18 @@ Max allowed electrotonic length of 0.21 is probably too long...
     <void method="add">
      <object class="ucl.physiol.neuroconstruct.project.packing.RandomCellPackingAdapter"/>
     </void>
+    <void method="add">
+     <object class="ucl.physiol.neuroconstruct.project.packing.RandomCellPackingAdapter"/>
+    </void>
+    <void method="add">
+     <object class="ucl.physiol.neuroconstruct.project.packing.RandomCellPackingAdapter"/>
+    </void>
+    <void method="add">
+     <object class="ucl.physiol.neuroconstruct.project.packing.RandomCellPackingAdapter"/>
+    </void>
+    <void method="add">
+     <object class="ucl.physiol.neuroconstruct.project.packing.RandomCellPackingAdapter"/>
+    </void>
    </void>
    <void method="get">
     <string>Cell Type</string>
@@ -325,6 +337,18 @@ Max allowed electrotonic length of 0.21 is probably too long...
     </void>
     <void method="add">
      <string>MossyCell</string>
+    </void>
+    <void method="add">
+     <string>BasketCell</string>
+    </void>
+    <void method="add">
+     <string>HIPPCell</string>
+    </void>
+    <void method="add">
+     <string>MossyCell</string>
+    </void>
+    <void method="add">
+     <string>GranuleCell</string>
     </void>
     <void method="add">
      <string>BasketCell</string>
@@ -364,6 +388,18 @@ Max allowed electrotonic length of 0.21 is probably too long...
     </void>
     <void method="add">
      <int>-4</int>
+    </void>
+    <void method="add">
+     <int>0</int>
+    </void>
+    <void method="add">
+     <int>-1</int>
+    </void>
+    <void method="add">
+     <int>-2</int>
+    </void>
+    <void method="add">
+     <int>-3</int>
     </void>
    </void>
    <void method="get">
@@ -448,6 +484,38 @@ Max allowed electrotonic length of 0.21 is probably too long...
       <int>255</int>
      </object>
     </void>
+    <void method="add">
+     <object class="java.awt.Color">
+      <int>169</int>
+      <int>164</int>
+      <int>213</int>
+      <int>255</int>
+     </object>
+    </void>
+    <void method="add">
+     <object class="java.awt.Color">
+      <int>65</int>
+      <int>10</int>
+      <int>31</int>
+      <int>255</int>
+     </object>
+    </void>
+    <void method="add">
+     <object class="java.awt.Color">
+      <int>216</int>
+      <int>130</int>
+      <int>244</int>
+      <int>255</int>
+     </object>
+    </void>
+    <void method="add">
+     <object class="java.awt.Color">
+      <int>208</int>
+      <int>158</int>
+      <int>118</int>
+      <int>255</int>
+     </object>
+    </void>
    </void>
    <void method="get">
     <string>Region Name</string>
@@ -481,6 +549,18 @@ Max allowed electrotonic length of 0.21 is probably too long...
     <void method="add">
      <string>GranuleCellLayer</string>
     </void>
+    <void method="add">
+     <string>MossyCellLayer</string>
+    </void>
+    <void method="add">
+     <string>GranuleCellLayer</string>
+    </void>
+    <void method="add">
+     <string>BasketCellLayer</string>
+    </void>
+    <void method="add">
+     <string>HIPPCellLayer</string>
+    </void>
    </void>
    <void method="get">
     <string>Cell Group Name</string>
@@ -513,6 +593,18 @@ Max allowed electrotonic length of 0.21 is probably too long...
     </void>
     <void method="add">
      <string>OneHC</string>
+    </void>
+    <void method="add">
+     <string>Pop_mossycell</string>
+    </void>
+    <void method="add">
+     <string>Pop_granulecell</string>
+    </void>
+    <void method="add">
+     <string>Pop_basketcell</string>
+    </void>
+    <void method="add">
+     <string>Pop_hippcell</string>
     </void>
    </void>
   </void>
@@ -1538,6 +1630,118 @@ Max allowed electrotonic length of 0.21 is probably too long...
      </void>
     </object>
    </void>
+   <void method="add">
+    <object class="ucl.physiol.neuroconstruct.project.SimPlot">
+     <void property="cellGroup">
+      <string>Pop_mossycell</string>
+     </void>
+     <void property="cellNumber">
+      <string>*</string>
+     </void>
+     <void property="graphWindow">
+      <string>Pop_mossycell_v</string>
+     </void>
+     <void property="maxValue">
+      <float>50.0</float>
+     </void>
+     <void property="minValue">
+      <float>-90.0</float>
+     </void>
+     <void property="plotAndOrSave">
+      <string>Plot and save</string>
+     </void>
+     <void property="plotReference">
+      <string>Pop_mossycell_v</string>
+     </void>
+     <void property="segmentId">
+      <string>0</string>
+     </void>
+    </object>
+   </void>
+   <void method="add">
+    <object class="ucl.physiol.neuroconstruct.project.SimPlot">
+     <void property="cellGroup">
+      <string>Pop_granulecell</string>
+     </void>
+     <void property="cellNumber">
+      <string>*</string>
+     </void>
+     <void property="graphWindow">
+      <string>Pop_granulecell_v</string>
+     </void>
+     <void property="maxValue">
+      <float>50.0</float>
+     </void>
+     <void property="minValue">
+      <float>-90.0</float>
+     </void>
+     <void property="plotAndOrSave">
+      <string>Plot and save</string>
+     </void>
+     <void property="plotReference">
+      <string>Pop_granulecell_v</string>
+     </void>
+     <void property="segmentId">
+      <string>0</string>
+     </void>
+    </object>
+   </void>
+   <void method="add">
+    <object class="ucl.physiol.neuroconstruct.project.SimPlot">
+     <void property="cellGroup">
+      <string>Pop_basketcell</string>
+     </void>
+     <void property="cellNumber">
+      <string>*</string>
+     </void>
+     <void property="graphWindow">
+      <string>Pop_basketcell_v</string>
+     </void>
+     <void property="maxValue">
+      <float>50.0</float>
+     </void>
+     <void property="minValue">
+      <float>-90.0</float>
+     </void>
+     <void property="plotAndOrSave">
+      <string>Plot and save</string>
+     </void>
+     <void property="plotReference">
+      <string>Pop_basketcell_v</string>
+     </void>
+     <void property="segmentId">
+      <string>0</string>
+     </void>
+    </object>
+   </void>
+   <void method="add">
+    <object class="ucl.physiol.neuroconstruct.project.SimPlot">
+     <void property="cellGroup">
+      <string>Pop_hippcell</string>
+     </void>
+     <void property="cellNumber">
+      <string>*</string>
+     </void>
+     <void property="graphWindow">
+      <string>Pop_hippcell_v</string>
+     </void>
+     <void property="maxValue">
+      <float>50.0</float>
+     </void>
+     <void property="minValue">
+      <float>-90.0</float>
+     </void>
+     <void property="plotAndOrSave">
+      <string>Plot and save</string>
+     </void>
+     <void property="plotReference">
+      <string>Pop_hippcell_v</string>
+     </void>
+     <void property="segmentId">
+      <string>0</string>
+     </void>
+    </object>
+   </void>
   </void>
  </object>
  <object class="ucl.physiol.neuroconstruct.project.ProjectProperties"/>
@@ -1591,11 +1795,11 @@ Max allowed electrotonic length of 0.21 is probably too long...
     <string></string>
    </void>
    <void method="put">
-    <float>1.0</float>
+    <float>-1.0</float>
     <string></string>
    </void>
    <void method="put">
-    <float>-1.0</float>
+    <float>1.0</float>
     <string></string>
    </void>
    <void method="put">

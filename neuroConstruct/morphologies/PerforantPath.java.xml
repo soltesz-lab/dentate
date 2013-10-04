@@ -229,7 +229,7 @@
     </object>
    </void>
    <void method="put">
-    <string>PPMCSyn</string>
+    <string>PPBCSyn</string>
     <object class="java.util.Vector">
      <void method="add">
       <string>SynLoc</string>
@@ -237,7 +237,7 @@
     </object>
    </void>
    <void method="put">
-    <string>PPBCSyn</string>
+    <string>PPMCSyn</string>
     <object class="java.util.Vector">
      <void method="add">
       <string>SynLoc</string>

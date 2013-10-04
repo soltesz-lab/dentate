@@ -285,10 +285,15 @@ proc rrun(){									// Run the network simulation and write out the results
 
 	//if ((PrintConnDetails==0) && (PrintVoltage==1)) {tracecellsfast()}	// Same as tracecells below, but each processor writes its own file and they get concat if CatFlag==1
 	if ((PrintConnDetails==0) && (PrintVoltage==1)) {tracecells()}	// If detailed connections are not being written out, at least write them out for cells that are being traced
-
+	
 	sumnumout(runtime)	// Write out a file with the total number of cells, spikes, and connections (including contributions from artificial cells)
-}
 
+        if (PrintNeuroML2==1) {
+            {load_file("./setupfiles/write_neuroml2.hoc")}
+            printNeuroML2Network()  // Write out the structure of the network in NeuroML 2 in  network.nml
+        }
+}
+		
 rrun()	// Run the network simulation
 {pc.runworker()} 	// Everything after this line is executed only by the host node
 					//  The NEURON website describes this as "The master host returns immediately. Worker hosts

@@ -15,3 +15,4 @@ umac
 celltype.dat
 runtimes.dat
 spikeraster.dat
+NEURON/setupfiles/generateNeuroML.pyc
