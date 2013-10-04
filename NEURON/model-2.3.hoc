@@ -149,20 +149,7 @@ if (strcmp(UID,"0")==0 && pc.id==0) {
 	UID = direx
 }
 
-
-proc typeout() {local i, rank, gid, srcid localobj tgt, f, cell// Write out the cell types & gid ranges
-	pc.barrier()					// Wait for all ranks to get to this point
-	f = new File("celltype.dat")
-	if (pc.id == 0) { 				// Write header to file 1 time only
-		f.wopen()
-		f.printf("celltype\ttypeIndex\trangeStart\trangeEnd\n")
-		for i=0, numCellTypes-1 {
-			f.printf("%s\t%d\t%d\t%d\n", cellType[i].cellType_string, i, cellType[i].cellStartGid, cellType[i].cellEndGid)
-		}
-		f.close()
-	}
-}
-typeout()
+{load_file("./setupfiles/save_run_info.hoc")}
 
 loadtime = startsw() - loadstart		// Calculate the set up time (now - recorded start time) in seconds
 if (pc.id == 0) {printf("\nTIME HOST 0: %g seconds (set up)\n************\n", loadtime)}
@@ -202,7 +189,6 @@ V.	CONNECT THE CELLS AND CONNECT THE PERFORANT PATH TO SOME CELLS
 													//  (synapse)
 
 strdef cmd
-
 {sprint(cmd,"./connections/%s_connections.hoc", Connectivity)}
 {load_file(cmd)}
 
@@ -250,6 +236,55 @@ proc init() { local dtsav, temp, secsav, secondordersav	// initialize the simula
 	}
 }
 
+
+{load_file("./setupfiles/write_results_functions.hoc")}		// Defines the procs spikeout() and timeout()
+															//  which write out the spikeraster (spikeout)
+															//  and the time taken to run each section of
+															//  the code (timeout)
+proc rrun(){									// Run the network simulation and write out the results
+
+	pnm.want_all_spikes() 						// Record all spikes of all cells on this machine into the
+												//  vectors pnm.spikevec (spiketimes) and pnm.idvec (gids)
+												
+	pc.set_maxstep(10)							// Set every machine's max step size to minimum delay of
+												//  all netcons created on pc using pc.gid_connect, but
+												//  not larger than 10
+												
+	stdinit()									// Call the init fcn (which is redefined in this code) and
+												//  then make other standard calls (to stop watch, etc)
+
+	runstart = startsw()							// grab start time of the simulation
+	pc.psolve(tstop)							// Equivalent to calling cvode.solve(tstop) but for parallel NEURON;
+												//  solve will be broken into steps determined by the result of
+												//  set_maxstep
+
+	runtime = startsw() - runstart				// Calculate runtime of simulation
+												// Print a time summary message to screen
+	comptime = pc.step_time
+	avgcomp = pc.allreduce(comptime, 1)/pc.nhost
+	maxcomp = pc.allreduce(comptime, 2)
+	if (maxcomp>0) {
+		if (pc.id == 0) { printf("load_balance = %g\n", avgcomp/maxcomp)}
+		if (pc.id == 0) { printf("exchange_time = %g\n",  runtime - maxcomp) }
+	} else {
+		if (pc.id == 0) { printf("no load balance info available\nno spike exchange info available\n")}
+	}
+	
+	if (pc.id == 0) {printf("****\nTIME SUMMARY for host 0\nset up in %g seconds\ncreated cells in %g seconds\nconnected cells in %g seconds\nran simulation in %g seconds\n************\nThis run is called: %s\n************\n", loadtime, createtime, connecttime, runtime, RunName)}
+		
+	spikeout()	// Write the spike times (in ms) and spiking cells (by gid) into a file called "spikeraster.dat"
+	
+	timeout()	// Write out a file of run times for each code section
+
+	//if (PrintVoltage==1) {voltageout()}	// Write out any voltages that were recorded during simulation
+	//if (PrintConnDetails==1) {tracenetfast()}	// Write the file of all cell connections (pre and post gids, synapse type,
+										//  host on which cell exists), "connections.dat"
+
+	//if ((PrintConnDetails==0) && (PrintVoltage==1)) {tracecellsfast()}	// If detailed connections are not being written out, at least write them out for cells that are being traced
+	
+	sumnumout(runtime)	// Write out a file with the total number of cells, spikes, and connections (including contributions from artificial cells)
+}
+/*
 proc rrun(){												// Run the network simulation
 	pnm.want_all_spikes() 						// Record all spikes of all cells on this machine into the pnm.spikevec (spiketimes) and pnm.idvec (gids)
 	pc.set_maxstep(10)							// Set every machine's max step size to minimum delay of all netcons created on pc using pc.gid_connect, but not larger than 10
@@ -261,7 +296,7 @@ proc rrun(){												// Run the network simulation
 	timeout()	// Write out a file of run times for each code section
 	if (PrintConnDetails==1) {tracenet()}	// Write the file of all cell connections (pre and post gids, synapse type, host on which cell exists), "connections.dat"
 }
-/**/proc spikeout() {local i, rank  localobj f				// Write out a spike raster (cell, spike time)
+/*proc spikeout() {local i, rank  localobj f				// Write out a spike raster (cell, spike time)
 		pc.barrier()									// Wait for all ranks to get to this point
 		f = new File("spikeraster.dat")
 		if (pc.id == 0) { 								// Write header to file 1 time only
@@ -281,7 +316,7 @@ proc rrun(){												// Run the network simulation
 		}
 	}
 
-/**/proc timeout() {local i, rank, gid, srcid localobj tgt, f, cell// Write out the 3d position coordinates of each cell
+/*proc timeout() {local i, rank, gid, srcid localobj tgt, f, cell// Write out the 3d position coordinates of each cell
 		pc.barrier()					// Wait for all ranks to get to this point
 		f = new File("runtimes.dat")
 		if (pc.id == 0) { 				// Write header to file 1 time only
@@ -298,7 +333,13 @@ proc rrun(){												// Run the network simulation
 			}
 			pc.barrier()
 		}
-	}
+	}*/
 
 rrun()	// Run the network simulation
-quit()	// Quit the program when finished to return control to command line
+{pc.runworker()} 	// Everything after this line is executed only by the host node
+					//  The NEURON website describes this as "The master host returns immediately. Worker hosts
+					//  start an infinite loop of requesting tasks for execution." 
+					
+{pc.done()}			// Sends the quit message to the worker processors, which then quit NEURON
+
+quit()	// Sends the quit message to the host processor, which then quits NEURON

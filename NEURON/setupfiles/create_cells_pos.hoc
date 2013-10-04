@@ -1,10 +1,10 @@
-	objref tblf						
+/*	objref tblf						
 		tblf = new File("ranseeds.dat")
 if (pc.id == 0) { 								// Write header to file 1 time only
 		tblf.wopen()
 		tblf.printf("host\tcell\tseed\n")
 		tblf.close()
-	}
+	}*/
 
 proc createCells(){ local i, reli, si, pci, cellind, runresult, gid	// Create cells and assign a GID to each cell	
 	for cellind=0, numCellTypes-1 {
@@ -25,9 +25,9 @@ proc createCells(){ local i, reli, si, pci, cellind, runresult, gid	// Create ce
 																	//	with a unique stream section defined by the starting location.  This
 																	//	will be used to determine which connections are made
 							//if (precellType==1 && postcellType==2) {
-								tblf.aopen()
+							/*	tblf.aopen()
 								tblf.printf("%d\t%d\t%d\n",  pc.id, gid, usedseeds+(gid*2*4)*random_stream_offset_)
-								tblf.close()
+								tblf.close()*/
 							//}
 
 				//ranconlist.object(int(gid/pc.nhost)).r.uniform(0,1)// Set up the generator to pick a uniform dist of numbers between 0 and 1
