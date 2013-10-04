@@ -206,6 +206,8 @@ runstart = startsw()							// grab start time of the simulation
 /***********************************************************************************************
 VI.	INITIALIZE AND RUN NETWORK, OUTPUT RESULT FILES
 ***********************************************************************************************/
+if (PrintVoltage==1) {load_file("./setupfiles/recordvoltageauto.hoc")}	// If we are going to record some voltages, then set up the recordings
+
 proc init() { local dtsav, temp, secsav, secondordersav	// initialize the simulation
 	dtsav = dt						// Save desired dt value to reset after temporarily changing dt
 	secondordersav = secondorder	// Save desired secondorder value to reset after temporarily changing secondorder
@@ -276,64 +278,16 @@ proc rrun(){									// Run the network simulation and write out the results
 	
 	timeout()	// Write out a file of run times for each code section
 
-	//if (PrintVoltage==1) {voltageout()}	// Write out any voltages that were recorded during simulation
-	//if (PrintConnDetails==1) {tracenetfast()}	// Write the file of all cell connections (pre and post gids, synapse type,
+	if (PrintVoltage==1) {voltageout()}	// Write out any voltages that were recorded during simulation
+	//if (PrintConnDetails==1) {tracenetfast()}	// Same as tracenet below but each processor writes its own file and they get concatenated if CatFlag==1
+	if (PrintConnDetails==1) {tracenet()}	// Write one file of all cell connections (pre and post gids, synapse type,
 										//  host on which cell exists), "connections.dat"
 
-	//if ((PrintConnDetails==0) && (PrintVoltage==1)) {tracecellsfast()}	// If detailed connections are not being written out, at least write them out for cells that are being traced
-	
+	//if ((PrintConnDetails==0) && (PrintVoltage==1)) {tracecellsfast()}	// Same as tracecells below, but each processor writes its own file and they get concat if CatFlag==1
+	if ((PrintConnDetails==0) && (PrintVoltage==1)) {tracecells()}	// If detailed connections are not being written out, at least write them out for cells that are being traced
+
 	sumnumout(runtime)	// Write out a file with the total number of cells, spikes, and connections (including contributions from artificial cells)
 }
-/*
-proc rrun(){												// Run the network simulation
-	pnm.want_all_spikes() 						// Record all spikes of all cells on this machine into the pnm.spikevec (spiketimes) and pnm.idvec (gids)
-	pc.set_maxstep(10)							// Set every machine's max step size to minimum delay of all netcons created on pc using pc.gid_connect, but not larger than 10
-	stdinit()									// Call the init fcn (which is redefined in this code) and then make other standard calls (to stop watch, etc)
-	pc.psolve(tstop)							// Equivalent to calling cvode.solve(tstop), for parallel NEURON, where solve will be broken into steps determined by the result of set_maxstep
-	runtime = startsw() - runstart				// Calculate runtime of simulation
-	if (pc.id == 0) {printf("****\nTIME SUMMARY for host 0\nset up in %g seconds\ncreated cells in %g seconds\nconnected cells in %g seconds\nran simulation in %g seconds\n************\n", loadtime, createtime, connecttime, runtime)}
-	spikeout()	// Write the file of spike times and spiking cells, "spikeraster.dat"
-	timeout()	// Write out a file of run times for each code section
-	if (PrintConnDetails==1) {tracenet()}	// Write the file of all cell connections (pre and post gids, synapse type, host on which cell exists), "connections.dat"
-}
-/*proc spikeout() {local i, rank  localobj f				// Write out a spike raster (cell, spike time)
-		pc.barrier()									// Wait for all ranks to get to this point
-		f = new File("spikeraster.dat")
-		if (pc.id == 0) { 								// Write header to file 1 time only
-			f.wopen()
-			f.close()
-		}
-		
-		for rank = 0, pc.nhost-1 {				// For each processor, allow processor to append to file the positions of its cells
-			if (rank == pc.id) {				// Ensure that each processor runs once
-				f.aopen() 						// Open for appending to file
-				for i=0, pnm.idvec.size-1 {
-					f.printf("%.3f %d\n", pnm.spikevec.x[i], pnm.idvec.x[i])	// Print the spike time and spiking cell gid
-				}
-				f.close()
-			}
-			pc.barrier()
-		}
-	}
-
-/*proc timeout() {local i, rank, gid, srcid localobj tgt, f, cell// Write out the 3d position coordinates of each cell
-		pc.barrier()					// Wait for all ranks to get to this point
-		f = new File("runtimes.dat")
-		if (pc.id == 0) { 				// Write header to file 1 time only
-			f.wopen()
-			f.printf("host\tset up\tcreated cells\tconnected cells\tran simulation\t\n")
-			f.close()
-		}
-		
-		for rank = 0, pc.nhost-1 {				// For each processor, allow processor to append its runtimes to file
-			if (rank == pc.id) {				// Ensure that each processor runs once
-				f.aopen() 						// Open for appending to file
-				f.printf("%g\t%g\t%g\t%g\t%g\n", pc.id, loadtime, createtime, connecttime, runtime)
-				f.close()
-			}
-			pc.barrier()
-		}
-	}*/
 
 rrun()	// Run the network simulation
 {pc.runworker()} 	// Everything after this line is executed only by the host node

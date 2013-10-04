@@ -1,4 +1,3 @@
-
 proc printNumConFile() {local i, j localobj f
 	pc.barrier()									// Wait for all ranks to get to this point
 	sprint(cmd,"./results/%s/numcons.dat", RunName)
@@ -24,13 +23,14 @@ proc printNumConFile() {local i, j localobj f
 
 proc tracenet() {local i, rank, srcid localobj tgt, f	// Write out the connections list, including synapse type
 	pc.barrier()									// Wait for all ranks to get to this point
-	f = new File("connections.dat")
+	sprint(cmd,"./results/%s/connections.dat", RunName)
+	f = new File(cmd)
 	if (pc.id == 0) { 								// Write header to file 1 time only
 		f.wopen()
 		f.printf("source\ttarget\tsynapse\n")
 		f.close()
 	}
-	for rank = 0, pc.nhost-1 {				// For each processor, allow processor to append to file the positions of its cells
+	for rank = 0, pc.nhost-1 {				// For each processor, allow processor to append to file its connection info
 		if (rank == pc.id) {				// Ensure that each processor runs once
 			f.aopen() 						// Open for appending to file
 			for i=0, nclist.count -1 {		// For each connection in the list
@@ -41,5 +41,134 @@ proc tracenet() {local i, rank, srcid localobj tgt, f	// Write out the connectio
 			f.close()
 		}		
 		pc.barrier()
+	}
+}
+
+
+proc tracenetfast() {local i, g, rank, srcid localobj tgt, f	// Write out the connections list, including synapse type
+	pc.barrier()									// Wait for all ranks to get to this point
+
+	sprint(cmd,"./results/%s/suballconns_%g.dat", RunName, pc.id)
+	f = new File(cmd)
+	f.wopen()
+	for i=0, nclist.count -1 {		// For each connection in the list
+		srcid = nclist.o(i).srcgid()	// Get the gid of the source cell
+		tgt = nclist.o(i).syn			// Get a reference to the target cell
+		f.printf("%d\t%d\t%d\n", srcid, tgt.cid, tgt.sid)	// Print source gid, target gid, synapse id
+	}
+	f.close()
+	pc.barrier()
+	
+	g=1
+	if (CatFlag==1) {
+		while (pc.nhost>g) {
+			g=g*2
+			if ((pc.id/g - int(pc.id/g))==0.5) {
+				sprint(dircmd,"cat ./results/%s/suballconns_%g.dat >> ./results/%s/suballconns_%g.dat", RunName, pc.id, RunName, int(pc.id-g/2))
+				{system(dircmd, direx)}			
+				sprint(dircmd,"rm ./results/%s/suballconns_%g.dat", RunName, pc.id)
+				{system(dircmd, direx)}			
+			}
+			pc.barrier()
+		}
+	}
+	if (pc.id==0) {
+		sprint(cmd,"./results/%s/connections.dat", RunName)
+		f = new File(cmd)
+		if (pc.id == 0) { 								// Write header to file 1 time only
+			f.wopen()
+			f.printf("source\ttarget\tsynapse\n")
+			f.close()
+			if (CatFlag==1) {		
+				sprint(dircmd,"cat ./results/%s/suballconns_0.dat >> ./results/%s/connections.dat", RunName, RunName)
+				{system(dircmd, direx)}		
+				sprint(dircmd,"rm ./results/%s/suballconns_%g.dat", RunName, pc.id)
+				{system(dircmd, direx)}	
+			}	
+		}
+	}	
+}
+
+objref traceidxlist
+traceidxlist = new Vector()
+proc tracecells() {local i, tr, rank, srcid localobj tgt, f	// Write out the connections list, including synapse type
+	pc.barrier()									// Wait for all ranks to get to this point
+	sprint(cmd,"./results/%s/cell_syns.dat", RunName)
+	f = new File(cmd)
+	if (pc.id == 0) { 								// Write header to file 1 time only
+		f.wopen()
+		f.printf("source\ttarget\tsynapse\n")
+		f.close()
+	}
+	for rank = 0, pc.nhost-1 {				// For each processor, allow processor to append to file its connection info
+		if (rank == pc.id) {				// Ensure that each processor runs once
+			f.aopen() 						// Open for appending to file
+			for i=0, nclist.count -1 {		// For each connection in the list
+				tgt = nclist.o(i).syn			// Get a reference to the target cell
+				srcid = nclist.o(i).srcgid()	// Get the gid of the source cell
+				myflag=0
+				for tr = 0, numtrace-1 {
+					if (traceidxlist.x[tr]==tgt.cid || traceidxlist.x[tr]==srcid) {	// If this is a cell of interest
+						myflag=1					
+					}
+				}
+				if (myflag==1) {
+					f.printf("%d\t%d\t%d\n", srcid, tgt.cid, tgt.sid)	// Print source gid, target gid, synapse id
+				}
+			}
+			f.close()
+		}		
+		pc.barrier()
+	}
+}
+
+proc tracecellsfast() {local i, tr, rank, srcid localobj tgt, f	// Write out the connections list, including synapse type
+	pc.barrier()									// Wait for all ranks to get to this point
+	sprint(cmd,"./results/%s/subconns_%g.dat", RunName, pc.id)
+	f = new File(cmd)
+	f.wopen()
+	for i=0, nclist.count -1 {		// For each connection in the list
+		srcid = nclist.o(i).srcgid()	// Get the gid of the source cell
+		tgt = nclist.o(i).syn			// Get a reference to the target cell
+		myflag=0
+		for tr = 0, numtrace-1 {
+			if (traceidxlist.x[tr]==tgt.cid || traceidxlist.x[tr]==srcid) {	// If this is a cell of interest
+				myflag=1					
+			}
+		}
+		if (myflag==1) {
+			f.printf("%d\t%d\t%d\n", srcid, tgt.cid, tgt.sid)	// Print source gid, target gid, synapse id
+		}
+	}
+	f.close()
+	pc.barrier()
+	
+	g=1
+	if (CatFlag==1) {
+		while (pc.nhost>g) {
+			g=g*2
+			if ((pc.id/g - int(pc.id/g))==0.5) {
+				sprint(dircmd,"cat ./results/%s/subconns_%g.dat >> ./results/%s/subconns_%g.dat", RunName, pc.id, RunName, int(pc.id-g/2))
+				{system(dircmd, direx)}			
+				sprint(dircmd,"rm ./results/%s/subconns_%g.dat", RunName, pc.id)
+				{system(dircmd, direx)}		
+			}
+			pc.barrier()
+		}	
+	}
+	if (pc.id==0) {
+		sprint(cmd,"./results/%s/cell_syns.dat", RunName)
+		f = new File(cmd)
+		if (pc.id == 0) { 								// Write header to file 1 time only
+			f.wopen()
+			f.printf("source\ttarget\tsynapse\n")
+			f.close()
+			if (CatFlag==1) {		
+				sprint(dircmd,"cat ./results/%s/subconns_0.dat >> ./results/%s/cell_syns.dat", RunName, RunName)
+				{system(dircmd, direx)}		
+				sprint(dircmd,"rm ./results/%s/subconns_%g.dat", RunName, pc.id)
+				{system(dircmd, direx)}	
+			}	
+		}
 	}
 }
