@@ -5,7 +5,9 @@ NEURON/results/*
 NEURON/datasets/*
 NEURON/nrnmech.dll
 NEURON/test/*.dat
+NEURON/test/*0
 *.bak
+*.*~
 neuroConstruct/generated*
 neuroConstruct/simulations
 x86_64
