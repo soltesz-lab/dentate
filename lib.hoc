@@ -1,0 +1,24 @@
+
+proc graphout() { local i,j,node localobj f, v
+  f = new File($s1)
+  f.wopen()
+  for i=0, conlist.count()-1 {
+      v = conlist.object(i)
+      node = v.x[0]
+      for j=1, v.size()-1 {
+          f.printf("%d %d\n", node, v.x[j])
+      }
+  }
+  f.close()
+}
+
+
+proc spikeout() { local i localobj f
+    
+    f = new File($s1)
+    f.wopen()
+    for i=0, pnm.spikevec.size-1 {
+	f.printf("%g %d\n", pnm.spikevec.x[i], pnm.idvec.x[i])
+    }
+    f.close()
+}

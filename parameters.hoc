@@ -1,0 +1,9 @@
+
+// whether to create per-node connectivity graphs
+makegraph = 1
+
+// simulation time
+tstop = 1000
+
+// total number of cells in the network
+ncells = 128

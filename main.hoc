@@ -1,0 +1,114 @@
+{load_file("nrngui.hoc")}  // load the GUI and standard run libraries
+{load_file("netparmpi.hoc")} // ParallelNetManager
+
+{xopen("lib.hoc")}
+{xopen("parameters.hoc")}
+
+objref pnm
+
+// pnm.cells will be a List that holds 
+// all instances of network cells that exist on this host
+
+// pnm.nclist will hold all NetCon instances that exist on this host
+// and connect network spike sources to targets on this host (nclist)
+
+pnm = new ParallelNetManager(ncells)
+
+pnm.round_robin()
+
+// node-local connectivity list
+objref conlist
+if (makegraph > 0) {
+    conlist = new List()
+}
+
+/* Step 1: Define the cell classes */
+
+{load_file("cell.hoc")}
+
+/* Steps 2 and 3 are to create the cells and connect the cells */
+
+proc mknet() { strdef fname
+    mkcells($1)  // create the cells
+    connectcells()  // connect them together
+    sprint(fname, "ringnet_%d.txt", pnm.myid)
+    if (makegraph > 0) {
+        graphout(fname)
+    }
+}
+
+// creates the cells and appends them to a List called cells
+// argument is the number of cells to be created
+proc mkcells() {local i  localobj cell, nc, nil
+    
+    ncells = $1
+    for i=0, ncells-1 if (pnm.gid_exists(i)) {
+        cell = new B_BallStick()
+	pnm.register_cell(i, cell)
+    }
+}
+
+// connects the cells
+// appends the NetCons to a List called nclist
+proc connectcells() {local i, srcid, destid, ncid  localobj nc, edges
+    for i=0, ncells-1 {
+        edges = new Vector(1)
+        srcid = i
+        destid = (i+1)%ncells
+        edges.x[0] = srcid
+        if (!pnm.gid_exists(destid)) { continue }
+        // The third argument is synapse index or -1 for artificial cells
+	ncid = pnm.nc_append(srcid, destid, 0, 0.01, 2)
+        edges.append(destid)
+        conlist.prepend(edges)
+    }
+}
+
+mknet(ncells)
+
+/* Stimulation and recording */
+
+// stim will be an artificial spiking cell that generates a "spike" event
+// that is delivered to the first cell in the net by ncstim
+// in order to initiate network spiking.
+// We won't bother including this "external stimulus source" or its NetCon
+// in the network's lists of cells or NetCons.
+objref stim, ncstim
+proc mkstim() { local i
+    // stimulate
+    objref stim, ncstim
+    i = ncells/2
+    if (pnm.gid_exists(i)) {
+        printf ("mkstim: i = %d\n", i)
+        stim = new NetStim(.5)
+        ncstim = new NetCon(stim, pnm.pc.gid2obj(i).synlist.object(0))
+        ncstim.weight = 10.1
+        ncstim.delay = 0.1
+        stim.number=10
+        stim.start=1
+    }
+}
+
+mkstim()
+        
+
+/* Simulation control */
+
+pnm.set_maxstep(100)
+pnm.want_all_spikes()
+
+stdinit()
+runtime = startsw()
+pnm.psolve(tstop)
+runtime = startsw() - runtime
+
+/* Write simulation results */
+
+strdef spikeout_fname
+sprint(spikeout_fname, "spikeout_%d.txt", pnm.myid)
+spikeout(spikeout_fname)
+
+pnm.pc.runworker()
+pnm.pc.done()
+
+quit()
