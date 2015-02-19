@@ -1,9 +1,17 @@
 
+strdef modelName, datasetName
+
+verbose=1
+
+// The name of this model
+modelName = "ringnet"
+
+// The dataset to use for constructing the network
+datasetName = "test0000"
+
 // whether to create per-node connectivity graphs
 makegraph = 1
 
 // simulation time
 tstop = 1000
 
-// total number of cells in the network
-ncells = 128

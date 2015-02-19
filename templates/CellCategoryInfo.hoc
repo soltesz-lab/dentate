@@ -1,0 +1,18 @@
+
+// A template to describe a cell class which is used to create 
+// the populations of the network model.
+
+begintemplate CellCategoryInfo
+
+public cellTypeName, templateName, numCells
+strdef cellTypeName, templateName
+
+numCells = 0
+
+proc init() {
+    cellTypeName = $s1
+    templateName = $s2
+    numCells = $3
+}
+
+endtemplate CellCategoryInfo

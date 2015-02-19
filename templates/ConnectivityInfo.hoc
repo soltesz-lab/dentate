@@ -1,0 +1,18 @@
+
+// A template to describe a connectivity matrix
+
+begintemplate ConnectivityInfo
+
+public connectivityName, synIndex
+strdef connectivityName
+
+synIndex = -1
+
+proc init() {
+    connectivityName = $s1
+    if (numarg() > 1) {
+        synIndex = $2
+    }
+}
+
+endtemplate ConnectivityInfo

@@ -1,67 +1,91 @@
 
-proc graphout() { local i,j,node localobj f, v
-  f = new File($s1)
-  f.wopen()
-  for i=0, conlist.count()-1 {
-      v = conlist.object(i)
-      node = v.x[0]
-      for j=1, v.size()-1 {
-          f.printf("%d %d\n", node, v.x[j])
-      }
-  }
-  f.close()
-}
-
-
-proc spikeout() { local i localobj f
-    
+proc graphout() { local i,j,node localobj f, v, conlist
     f = new File($s1)
+    conlist = $o2
     f.wopen()
-    for i=0, pnm.spikevec.size-1 {
-	f.printf("%g %d\n", pnm.spikevec.x[i], pnm.idvec.x[i])
+    for i=0, conlist.count()-1 {
+        v = conlist.object(i)
+        node = v.x[0]
+        for j=1, v.size()-1 {
+            f.printf("%d %d\n", node, v.x[j])
+        }
     }
     f.close()
 }
 
 
-// Load celltype info into a CellCategoryInfo template
-proc loadCellCategoryInfo() { local i, startpos 
+proc spikeout() { local i localobj f, spikevec, idvec
     
-    //  object (one object per cell type)
-    f2 = new File()
-    sprint(cmdstr, "datasets/cellnumbers_%g.dat", $1)
-    f2.ropen(cmdstr)
+    f = new File($s1)
+    spikevec = $o2
+    idvec = $o3
     
-    // Scan the first line, which contains a number giving the
-    // # cell types, including stimulating (artificial) cells (still?)
-    numCellTypes = f2.scanvar
-    
-    // Define variables to temporarily hold data scanned from file
-    objref celltypestring[numCellTypes], techstring[numCellTypes], cellType[numCellTypes]
-    double cellnumvar[numCellTypes], cellLayerflag[numCellTypes], cellArtflag[numCellTypes]
-    
-    for i=0, numCellTypes-1 {
-        
-	celltypestring[i]= new String()
-	techstring[i] = new String()
-	f2.scanstr(celltypestring[i].s)				
-        // Scan in the cell name
-	f2.scanstr(techstring[i].s)
-	cellnumvar[i]=f2.scanvar					// Scan in the initial (before sclerosis) number of each cell type
-	cellLayerflag[i]=f2.scanvar					// Scan the layer flag (hilar=2, granular=1, molecular=0), where hilar cells
-        
-	cellArtflag[i]=f2.scanvar					// Scan the artificial flag, 1 = artificial cell, 0 = real cell
+    f.wopen()
+    for i=0, spikevec.size-1 {
+	f.printf("%g %d\n", spikevec.x[i], idvec.x[i])
     }
-    f2.close()
-    
-    startpos=0
-    for i=0, numCellTypes-1 {
-	cellType[i] = new CellCategoryInfo(i)	// Make one object for each cell type to store cell type info
-	cellType[i].setCellTypeParams(celltypestring[i].s, techstring[i].s, startpos, cellnumvar[i], cellLayerflag[i], cellArtflag[i])	// Set parameters
-	cellType[i].numCons = new Vector(numCellTypes,0)
-	//if (cellType[i].is_art==0) {cellType[i].setCellTypeDist}	// Load distribution file
-	cellType[i].setCellTypeDist	// Load distribution file
-	startpos = startpos + cellnumvar[i]		// Increment the startGid for the next cell type's call to setCellTypeParams
-    }
+    f.close()
 }
 
+// CellCategoryInfo template
+{xopen("./templates/CellCategoryInfo.hoc")}
+
+// Load celltype info into a CellCategoryInfo template
+proc loadCellCategoryInfo() { local i, cellNumber localobj f, cellTypes, cellType
+    
+    strdef cellTypeName, cellTypeTemplateName
+    
+    // The first argument must be a list
+    cellTypes = $o1
+    
+    // The second argument must be the path to the cell types file 
+    f = new File()
+    f.ropen($s2)
+    
+    // Scan the first line, which contains the number of cell types
+    numCellTypes = f.scanvar()
+    
+    for i=0, numCellTypes-1 {
+        
+        // Scan in the cell name, template name, number of cells
+	f.scanstr(cellTypeName)
+	f.scanstr(cellTypeTemplateName)
+	cellNumber = f.scanvar()
+        cellType = new CellCategoryInfo(cellTypeName,cellTypeTemplateName,cellNumber)
+        cellTypes.append(cellType)
+    }
+    f.close()
+    
+}
+
+
+// ConnectionInfo template
+{xopen("./templates/ConnectivityInfo.hoc")}
+
+proc loadConnectivityInfo() { local i, synIndex, numConnectivityTypes localobj f, connectivityTypes, connectivityType
+    
+    strdef connectivityName
+    
+    // The first argument must be a list
+    connectivityTypes = $o1
+    
+    // The second argument must be the path to the main connection file 
+    f = new File()
+    f.ropen($s2)
+    
+    // Scan the first line, which contains the number of connectivity matrices
+    numConnectivityTypes = f.scanvar()
+    
+    print "numConnectivityTypes = ", numConnectivityTypes
+    
+    for i=0, numConnectivityTypes-1 {
+        
+        // Scan in the connectivity name and synapse index
+	f.scanstr(connectivityName)
+	synIndex = f.scanvar()
+        connectivityType = new ConnectivityInfo(connectivityName,synIndex)
+        connectivityTypes.append(connectivityType)
+    }
+    f.close()
+    
+}

@@ -1,75 +1,146 @@
-{load_file("nrngui.hoc")}  // load the GUI and standard run libraries
-{load_file("netparmpi.hoc")} // ParallelNetManager
+{load_file("nrngui.hoc")}  // Loads the GUI and standard run libraries
+{load_file("netparmpi.hoc")} // ParallelNetManager definitions
 
 {xopen("lib.hoc")}
-{xopen("parameters.hoc")}
+{load_file("parameters.hoc")}
+
+
+// Used for executing command strings
+strdef cmd
+
+// Path to the dataset directory
+strdef datasetPath
+sprint(datasetPath, "./datasets/%s", datasetName)
+
+// Path for various datafiles (used for multiple files)
+strdef datafilePath
 
 // RandomStream template
 {load_file("./templates/ranstream.hoc")}
 
+// List with cell type information
+objref cellTypes
+cellTypes = new List()
 
+// Reads the cell types file and populates cellTypes with the information
+sprint (datafilePath, "%s/celltypes.dat", datasetPath)
+loadCellCategoryInfo (cellTypes, datafilePath)
+
+// Total number of cells in the network
+ncells = 0
+for i=0, cellTypes.count()-1 {
+    ncells = ncells + cellTypes.o(i).numCells
+}
+if (verbose > 0) {
+    printf ("%s: ncells = %d\n", modelName, ncells)
+}
+
+
+// List with connectivity information
+objref connectivityTypes
+connectivityTypes = new List()
+
+// Reads the connectivity types file and populates connectivityTypes with the information
+sprint (datafilePath, "%s/connectivity.dat", datasetPath)
+loadConnectivityInfo (connectivityTypes, datafilePath)
+
+// pnm.cells is a list that holds all instances of network cells that
+// exist on this host
+
+// pnm.nclist holds all NetCon instances that exist on this host
 
 objref pnm
-
-// pnm.cells will be a List that holds 
-// all instances of network cells that exist on this host
-
-// pnm.nclist will hold all NetCon instances that exist on this host
-// and connect network spike sources to targets on this host (nclist)
 
 pnm = new ParallelNetManager(ncells)
 
 pnm.round_robin()
 
-// node-local connectivity list
+// connectivity list local to the current MPI process
 objref conlist
 if (makegraph > 0) {
     conlist = new List()
 }
 
-/* Step 1: Define the cell classes */
+/* mkcells and connectcells create the cells and connect the cells */
 
-{load_file("cell.hoc")}
-
-/* Steps 2 and 3 are to create the cells and connect the cells */
-
-proc mknet() { strdef fname
-    mkcells($1)  // create the cells
-    connectcells()  // connect them together
-    sprint(fname, "ringnet_%d.txt", pnm.myid)
-    if (makegraph > 0) {
-        graphout(fname)
-    }
-}
+// used for the creation of cells
+objref cell
 
 // creates the cells and appends them to a List called cells
 // argument is the number of cells to be created
-proc mkcells() {local i  localobj cell, nc, nil
+proc mkcells() { local nCellTypes, ncells, i, k, bot  localobj cellTypes, cellType
     
-    ncells = $1
-    for i=0, ncells-1 if (pnm.gid_exists(i)) {
-        cell = new B_BallStick()
-	pnm.register_cell(i, cell)
+    cellTypes = $o1
+    nCellTypes = cellTypes.count()
+    
+    bot=0
+    i=0
+    for k=0, nCellTypes-1 { 
+        cellType = cellTypes.o(k)
+        if (strcmp(cellType.templateName, "NetStim") != 0) {
+            sprint(cmd, "xopen(\"./templates/%s.hoc\")", cellType.templateName)
+        }
+        execute(cmd)
+        for i=0, cellType.numCells-1 { 
+            if (pnm.gid_exists(bot+i)) {
+                sprint(cmd, "cell = new %s()", cellType.templateName)
+                execute(cmd)
+	        pnm.register_cell(bot+i, cell)
+            }
+        }
+        bot = bot + cellType.numCells
     }
 }
+
+// used to load connectivity from a file
+ 
 
 // connects the cells
-// appends the NetCons to a List called nclist
-proc connectcells() {local i, srcid, destid, ncid  localobj nc, edges
-    for i=0, ncells-1 {
-        edges = new Vector(1)
-        srcid = i
-        destid = (i+1)%ncells
-        edges.x[0] = srcid
-        if (!pnm.gid_exists(destid)) { continue }
-        // The third argument is synapse index or -1 for artificial cells
-	ncid = pnm.nc_append(srcid, destid, 0, 0.01, 2)
-        edges.append(destid)
-        conlist.prepend(edges)
+// appends the NetCon objects to nclist
+proc connectcells() {local i, k, srcid, destid, w, del, ncid, synIndex  localobj connectivityType, nc, edges, m, f
+    
+    strdef connectivityPath
+    connectivityTypes = $o1
+    nConnectivityTypes = connectivityTypes.count()
+    
+    for k=0, nConnectivityTypes-1 { 
+        connectivityType = connectivityTypes.o(k)
+        synIndex = connectivityType.synIndex
+        sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityType.connectivityName)
+        m = new Matrix()
+        f = new File(connectivityPath)
+        f.ropen()
+        m.scanf(f)
+        f.close()
+        for i=0, m.nrow-1 {
+            srcid = m.x[i][0]
+            destid = m.x[i][1]
+            if (!pnm.gid_exists(destid)) { continue }
+            w = m.x[i][2]
+            del = m.x[i][3]
+            // The third argument is synapse index or -1 for point processes
+	    ncid = pnm.nc_append(srcid, destid, synIndex, w, del)
+            edges = new Vector(2)
+            edges.x[0] = srcid
+            edges.x[1] = destid
+            conlist.prepend(edges)
+        }
     }
 }
 
+
+proc mknet() { strdef fname
+    mkcells(cellTypes)  // create the cells
+    connectcells(connectivityTypes)  // connect them together
+    sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
+    if (makegraph > 0) {
+        graphout(fname,conlist)
+    }
+}
+
+
 mknet(ncells)
+
 
 /* Stimulation and recording */
 
@@ -84,7 +155,6 @@ proc mkstim() { local i
     objref stim, ncstim
     i = ncells/2
     if (pnm.gid_exists(i)) {
-        printf ("mkstim: i = %d\n", i)
         stim = new NetStim(.5)
         ncstim = new NetCon(stim, pnm.pc.gid2obj(i).synlist.object(0))
         ncstim.weight = 10.1
@@ -110,8 +180,8 @@ runtime = startsw() - runtime
 /* Write simulation results */
 
 strdef spikeout_fname
-sprint(spikeout_fname, "spikeout_%d.txt", pnm.myid)
-spikeout(spikeout_fname)
+sprint(spikeout_fname, "./results/%s_spikeout_%d.dat", modelName, pnm.myid)
+spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
 
 pnm.pc.runworker()
 pnm.pc.done()
