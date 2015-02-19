@@ -4,6 +4,11 @@
 {xopen("lib.hoc")}
 {xopen("parameters.hoc")}
 
+// RandomStream template
+{load_file("./templates/ranstream.hoc")}
+
+
+
 objref pnm
 
 // pnm.cells will be a List that holds 
