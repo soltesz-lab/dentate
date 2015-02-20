@@ -62,7 +62,7 @@ proc loadCellCategoryInfo() { local i, cellNumber localobj f, cellTypes, cellTyp
 // ConnectionInfo template
 {xopen("./templates/ConnectivityInfo.hoc")}
 
-proc loadConnectivityInfo() { local i, synIndex, numConnectivityTypes localobj f, connectivityTypes, connectivityType
+proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj f, connectivityTypes, connectivityType
     
     strdef connectivityName
     
@@ -83,8 +83,16 @@ proc loadConnectivityInfo() { local i, synIndex, numConnectivityTypes localobj f
         // Scan in the connectivity name and synapse index
 	f.scanstr(connectivityName)
 	synIndex = f.scanvar()
-        connectivityType = new ConnectivityInfo(connectivityName,synIndex)
-        connectivityTypes.append(connectivityType)
+	wdType = f.scanvar()
+        if (wdType == 1) {
+            connectivityType = new ConnectivityInfo(connectivityName,synIndex,wdType)
+            connectivityTypes.append(connectivityType)
+        } else if (wdType == 2) {
+            standardWeight = f.scanvar()
+            standardVelocity = f.scanvar()
+            connectivityType = new ConnectivityInfo(connectivityName,synIndex,wdType,standardWeight,standardVelocity)
+            connectivityTypes.append(connectivityType)
+        }
     }
     f.close()
     

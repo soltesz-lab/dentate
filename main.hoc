@@ -97,7 +97,7 @@ proc mkcells() { local nCellTypes, ncells, i, k, bot  localobj cellTypes, cellTy
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, w, del, ncid, synIndex  localobj connectivityType, nc, edges, m, f
+proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, synIndex  localobj connectivityType, nc, edges, m, f
     
     strdef connectivityPath
     connectivityTypes = $o1
@@ -112,18 +112,36 @@ proc connectcells() {local i, k, srcid, destid, w, del, ncid, synIndex  localobj
         f.ropen()
         m.scanf(f)
         f.close()
-        for i=0, m.nrow-1 {
-            srcid = m.x[i][0]
-            destid = m.x[i][1]
-            if (!pnm.gid_exists(destid)) { continue }
-            w = m.x[i][2]
-            del = m.x[i][3]
-            // The third argument is synapse index or -1 for point processes
-	    ncid = pnm.nc_append(srcid, destid, synIndex, w, del)
-            edges = new Vector(2)
-            edges.x[0] = srcid
-            edges.x[1] = destid
-            conlist.prepend(edges)
+        if (connectivityType.wdType == 1) {
+            for i=0, m.nrow-1 {
+                srcid = m.x[i][0]
+                destid = m.x[i][1]
+                if (!pnm.gid_exists(destid)) { continue }
+                w = m.x[i][2]
+                del = m.x[i][3]
+                // The third argument is synapse index or -1 for point processes
+	        ncid = pnm.nc_append(srcid, destid, synIndex, w, del)
+                edges = new Vector(2)
+                edges.x[0] = srcid
+                edges.x[1] = destid
+                conlist.prepend(edges)
+            }
+        } else if (connectivityType.wdType == 2) {
+            w = connectivityType.standardWeight
+            velocity = connectivityType.standardVelocity
+            for i=0, m.nrow-1 {
+                srcid = m.x[i][0]
+                destid = m.x[i][1]
+                if (!pnm.gid_exists(destid)) { continue }
+                dist = m.x[i][2] + m.x[i][3]
+                del = dist / velocity
+                // The third argument is synapse index or -1 for point processes
+	        ncid = pnm.nc_append(srcid, destid, synIndex, w, del)
+                edges = new Vector(2)
+                edges.x[0] = srcid
+                edges.x[1] = destid
+                conlist.prepend(edges)
+            }
         }
     }
 }

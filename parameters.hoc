@@ -1,7 +1,8 @@
 
 strdef modelName, datasetName
 
-verbose=1
+// print verbose diagnostic messages while constructing the network
+verbose = 1
 
 // The name of this model
 modelName = "ringnet"
