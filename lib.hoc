@@ -76,8 +76,6 @@ proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standar
     // Scan the first line, which contains the number of connectivity matrices
     numConnectivityTypes = f.scanvar()
     
-    print "numConnectivityTypes = ", numConnectivityTypes
-    
     for i=0, numConnectivityTypes-1 {
         
         // Scan in the connectivity name and synapse index
@@ -98,10 +96,11 @@ proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standar
     
 }
 
-proc loadStimulationParameters() {      
+proc loadStimulationParameters() { localobj f, m strdef stimulationPath
     
-    m = new Matrix()
-    f = new File(connectivityPath)
+    m = $o1
+    stimulationPath = $s2
+    f = new File(stimulationPath)
     f.ropen()
     m.scanf(f)
     f.close()

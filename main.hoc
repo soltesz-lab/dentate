@@ -161,22 +161,26 @@ mknet(ncells)
 
 // Configuration of artificial spiking cells
 
-proc mkstim() { local i localobj stim, stimulationParameters
+proc mkstim() { local i, nCellTypes localobj stim, stimulationParameters, cellType
     
     stimulationParameters = new Matrix()
     // Reads the stimulation parameters file and populates the
     // stimulationParameters matrix with the information
     loadStimulationParameters (stimulationParameters, $s1)
-
+    
+    nCellTypes = cellTypes.count()
+    
     bot = 0
     for k = 0, nCellTypes-1 { 
         cellType = cellTypes.o(k)
         if (strcmp(cellType.templateName, "NetStim") == 0) {
             
-            for i = bot, bot+cellType.numCells-1 {
+            for i = 0, cellType.numCells-1 {
                 if (pnm.gid_exists(i)) {
-                    stim.number=m[i][0]
-                    stim.start=m[i][1]
+                    stim = pnm.pc.gid2cell(bot+i)
+                    stim.noise=stimulationParameters.x[i][0]
+                    stim.number=stimulationParameters.x[i][1]
+                    stim.start=stimulationParameters.x[i][2]
                 }
             }
             break
@@ -188,7 +192,7 @@ proc mkstim() { local i localobj stim, stimulationParameters
 }
 
 sprint (datafilePath, "%s/stimulation.dat", datasetPath)
-mkstim(datasetPath)
+mkstim(datafilePath)
         
 
 /* Simulation control */
