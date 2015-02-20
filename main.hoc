@@ -216,6 +216,7 @@ mkstim(datafilePath)
 pnm.set_maxstep(100)
 pnm.want_all_spikes()
 
+cvode.active(1)
 stdinit()
 startsw()
 pnm.psolve(tstop)
