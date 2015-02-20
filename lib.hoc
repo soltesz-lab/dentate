@@ -97,3 +97,13 @@ proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standar
     f.close()
     
 }
+
+proc loadStimulationParameters() {      
+    
+    m = new Matrix()
+    f = new File(connectivityPath)
+    f.ropen()
+    m.scanf(f)
+    f.close()
+    
+}

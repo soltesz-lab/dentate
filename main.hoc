@@ -159,16 +159,36 @@ proc mknet() { strdef fname
 
 mknet(ncells)
 
+// Configuration of artificial spiking cells
 
-// Cell properties
-objref cell
-proc mkproperties() { local i
-    if (pnm.gid_exists(i)) {
-        
+proc mkstim() { local i localobj stim, stimulationParameters
+    
+    stimulationParameters = new Matrix()
+    // Reads the stimulation parameters file and populates the
+    // stimulationParameters matrix with the information
+    loadStimulationParameters (stimulationParameters, $s1)
+
+    bot = 0
+    for k = 0, nCellTypes-1 { 
+        cellType = cellTypes.o(k)
+        if (strcmp(cellType.templateName, "NetStim") == 0) {
+            
+            for i = bot, bot+cellType.numCells-1 {
+                if (pnm.gid_exists(i)) {
+                    stim.number=m[i][0]
+                    stim.start=m[i][1]
+                }
+            }
+            break
+            
+        }
+        bot = bot + cellType.numCells
     }
+    
 }
 
-mkstim()
+sprint (datafilePath, "%s/stimulation.dat", datasetPath)
+mkstim(datasetPath)
         
 
 /* Simulation control */
