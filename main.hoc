@@ -160,25 +160,11 @@ proc mknet() { strdef fname
 mknet(ncells)
 
 
-/* Stimulation and recording */
-
-// stim will be an artificial spiking cell that generates a "spike" event
-// that is delivered to the first cell in the net by ncstim
-// in order to initiate network spiking.
-// We won't bother including this "external stimulus source" or its NetCon
-// in the network's lists of cells or NetCons.
-objref stim, ncstim
-proc mkstim() { local i
-    // stimulate
-    objref stim, ncstim
-    i = ncells/2
+// Cell properties
+objref cell
+proc mkproperties() { local i
     if (pnm.gid_exists(i)) {
-        stim = new NetStim(.5)
-        ncstim = new NetCon(stim, pnm.pc.gid2obj(i).synlist.object(0))
-        ncstim.weight = 10.1
-        ncstim.delay = 0.1
-        stim.number=10
-        stim.start=1
+        
     }
 }
 
