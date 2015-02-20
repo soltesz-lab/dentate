@@ -4,6 +4,8 @@
 {xopen("lib.hoc")}
 {load_file("parameters.hoc")}
 
+nrn_load_dll("mechanisms/x86_64/.libs/libnrnmech.so")
+
 // Used to calculate model construction times and run time
 mkcellstime = 0
 connectcellstime = 0
@@ -157,12 +159,12 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
 }
 
 proc mknet() { strdef fname
-    mkcellstime = startsw()
+    startsw()
     mkcells(cellTypes)  // create the cells
-    mkcellstime = startsw()-mkcellstime
-    connectcellstime = startsw()
+    mkcellstime = stopsw()
+    startsw()
     connectcells(connectivityTypes)  // connect them together
-    connectcellstime = startsw()-connectcellstime
+    connectcellstime = stopsw()
     sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
     if (makegraph > 0) {
         graphout(fname,conlist)
@@ -213,9 +215,9 @@ pnm.set_maxstep(100)
 pnm.want_all_spikes()
 
 stdinit()
-runtime = startsw()
+startsw()
 pnm.psolve(tstop)
-runtime = startsw() - runtime
+runtime = stopsw()
 
 /* Write simulation results */
 
