@@ -35,7 +35,7 @@ loadCellCategoryInfo (cellTypes, datafilePath)
 // Total number of cells in the network
 ncells = 0
 for i=0, cellTypes.count()-1 {
-    ncells = ncells + cellTypes.o(i).numCells
+    ncells = ncells + cellTypes.o(i).getPropertyScalar("numCells")
 }
 if (verbose > 0) {
     printf ("%s: ncells = %d\n", modelName, ncells)
@@ -80,7 +80,7 @@ objref cell
 
 // creates the cells and appends them to a List called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, ncells, i, k, bot  localobj cellTypes, cellType
+proc mkcells() { local nCellTypes, numCells, i, k, bot  localobj cellTypes, cellType strdef templateName
     
     cellTypes = $o1
     nCellTypes = cellTypes.count()
@@ -89,18 +89,20 @@ proc mkcells() { local nCellTypes, ncells, i, k, bot  localobj cellTypes, cellTy
     i=0
     for k=0, nCellTypes-1 { 
         cellType = cellTypes.o(k)
-        if (strcmp(cellType.templateName, "NetStim") != 0) {
-            sprint(cmd, "xopen(\"./templates/%s.hoc\")", cellType.templateName)
+        templateName = cellType.getPropertyString("templateName").s
+        numCells = cellType.getPropertyScalar("numCells")
+        if (strcmp(templateName, "NetStim") != 0) {
+            sprint(cmd, "xopen(\"./templates/%s.hoc\")", templateName)
         }
         execute(cmd)
-        for i=0, cellType.numCells-1 { 
+        for i=0, numCells-1 { 
             if (pnm.gid_exists(bot+i)) {
-                sprint(cmd, "cell = new %s()", cellType.templateName)
+                sprint(cmd, "cell = new %s()", templateName)
                 execute(cmd)
 	        pnm.register_cell(bot+i, cell)
             }
         }
-        bot = bot + cellType.numCells
+        bot = bot + numCells
     }
 }
 
@@ -109,22 +111,24 @@ proc mkcells() { local nCellTypes, ncells, i, k, bot  localobj cellTypes, cellTy
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, synIndex  localobj connectivityType, nc, edges, m, f
+proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, synIndex, wdType  localobj connectivityType, nc, edges, m, f
     
-    strdef connectivityPath
+    strdef connectivityPath, connectivityName
     connectivityTypes = $o1
     nConnectivityTypes = connectivityTypes.count()
     
     for k=0, nConnectivityTypes-1 { 
         connectivityType = connectivityTypes.o(k)
-        synIndex = connectivityType.synIndex
-        sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityType.connectivityName)
+        synIndex = connectivityType.getPropertyScalar("synIndex")
+        wdType = connectivityType.getPropertyScalar("wdType")
+        connectivityName = connectivityType.getPropertyString("name").s
+        sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
         m = new Matrix()
         f = new File(connectivityPath)
         f.ropen()
         m.scanf(f)
         f.close()
-        if (connectivityType.wdType == 1) {
+        if (wdType == 1) {
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
@@ -138,9 +142,9 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
                 edges.x[1] = destid
                 conlist.prepend(edges)
             }
-        } else if (connectivityType.wdType == 2) {
-            w = connectivityType.standardWeight
-            velocity = connectivityType.standardVelocity
+        } else if (wdType == 2) {
+            w = connectivityType.getPropertyScalar("standardWeight")
+            velocity = connectivityType.getPropertyScalar("standardVelocity")
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
@@ -176,7 +180,7 @@ mknet(ncells)
 
 // Configuration of artificial spiking cells
 
-proc mkstim() { local i, nCellTypes localobj stim, stimulationParameters, cellType
+proc mkstim() { local i, nCellTypes, numCells localobj stim, stimulationParameters, cellType
     
     stimulationParameters = new Matrix()
     // Reads the stimulation parameters file and populates the
@@ -188,9 +192,9 @@ proc mkstim() { local i, nCellTypes localobj stim, stimulationParameters, cellTy
     bot = 0
     for k = 0, nCellTypes-1 { 
         cellType = cellTypes.o(k)
-        if (strcmp(cellType.templateName, "NetStim") == 0) {
-            
-            for i = 0, cellType.numCells-1 {
+        numCells = cellType.getPropertyScalar("numCells")
+        if (strcmp(cellType.getPropertyString("templateName").s, "NetStim") == 0) {
+            for i = 0, numCells-1 {
                 if (pnm.gid_exists(i)) {
                     stim = pnm.pc.gid2cell(bot+i)
                     stim.noise  = stimulationParameters.x[i][0]
@@ -201,7 +205,7 @@ proc mkstim() { local i, nCellTypes localobj stim, stimulationParameters, cellTy
             break
             
         }
-        bot = bot + cellType.numCells
+        bot = bot + numCells
     }
     
 }
@@ -226,8 +230,8 @@ sprint(spikeout_fname, "./results/%s_spikeout_%d.dat", modelName, pnm.myid)
 spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
 
 comptime = pnm.pc.step_time
-avgcomp = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
-maxcomp = pnm.pc.allreduce(comptime, 2)
+avgcomp  = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
+maxcomp  = pnm.pc.allreduce(comptime, 2)
 
 if (pnm.myid == 0) {
     printf("Execution time summary for host 0:\n")

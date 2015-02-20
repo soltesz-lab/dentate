@@ -1,6 +1,6 @@
 begintemplate MossyCell
 
-public pre_list, connect_pre, subsets, is_art, is_connected
+public connect2target, subsets, is_art, is_connected
 public soma, mcdend1, mcdend2, mcdend3, mcdend4
 public all, adend, bdend, cdend, ddend
 public stim
@@ -174,14 +174,14 @@ proc biophys() {
     
 }
 
+func is_art()  { return 0 }
+
 obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
   soma nc = new NetCon(&v(1), $o1)
   nc.threshold = 10
   if (numarg() == 2) { $o2 = nc } // for backward compatibility
   return nc
 }
-
-func is_art()  { return 0 }
 
 proc position() { local i
     
@@ -193,9 +193,11 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-  /* E0 */   dend syn_ = new ExpSyn(0.8)  synlist.append(syn_)
+    /* E0 */   dend syn_ = new ExpSyn(0.8)  
+    synlist.append(syn_)
     syn_.tau = 2
-  /* I1 */   dend syn_ = new ExpSyn(0.1)  synlist.append(syn_)
+    /* I1 */   dend syn_ = new ExpSyn(0.1)  
+    synlist.append(syn_)
     syn_.tau = 5
     syn_.e = -80
 }

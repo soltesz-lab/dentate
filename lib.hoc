@@ -1,4 +1,7 @@
 
+// Dict template
+{xopen("./templates/Dict.hoc")}
+
 proc graphout() { local i,j,node localobj f, v, conlist
     f = new File($s1)
     conlist = $o2
@@ -27,11 +30,8 @@ proc spikeout() { local i localobj f, spikevec, idvec
     f.close()
 }
 
-// CellCategoryInfo template
-{xopen("./templates/CellCategoryInfo.hoc")}
-
-// Load celltype info into a CellCategoryInfo template
-proc loadCellCategoryInfo() { local i, cellNumber localobj f, cellTypes, cellType
+// Load celltype info into a Dict
+proc loadCellCategoryInfo() { local i, numCells localobj f, cellTypes, cellType
     
     strdef cellTypeName, cellTypeTemplateName
     
@@ -50,17 +50,17 @@ proc loadCellCategoryInfo() { local i, cellNumber localobj f, cellTypes, cellTyp
         // Scan in the cell name, template name, number of cells
 	f.scanstr(cellTypeName)
 	f.scanstr(cellTypeTemplateName)
-	cellNumber = f.scanvar()
-        cellType = new CellCategoryInfo(cellTypeName,cellTypeTemplateName,cellNumber)
+	numCells = f.scanvar()
+        cellType = new Dict(cellTypeName)
+        cellType.addPropertyString("typeName",cellTypeName)
+        cellType.addPropertyString("templateName",cellTypeTemplateName)
+        cellType.addPropertyScalar("numCells",numCells)
         cellTypes.append(cellType)
     }
     f.close()
     
 }
 
-
-// ConnectionInfo template
-{xopen("./templates/ConnectivityInfo.hoc")}
 
 proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj f, connectivityTypes, connectivityType
     
@@ -83,12 +83,20 @@ proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standar
 	synIndex = f.scanvar()
 	wdType = f.scanvar()
         if (wdType == 1) {
-            connectivityType = new ConnectivityInfo(connectivityName,synIndex,wdType)
+            connectivityType = new Dict(connectivityName)
+            connectivityType.addPropertyString("name",connectivityName)
+            connectivityType.addPropertyScalar("synIndex",synIndex)
+            connectivityType.addPropertyScalar("wdType",wdType)
             connectivityTypes.append(connectivityType)
         } else if (wdType == 2) {
             standardWeight = f.scanvar()
             standardVelocity = f.scanvar()
-            connectivityType = new ConnectivityInfo(connectivityName,synIndex,wdType,standardWeight,standardVelocity)
+            connectivityType = new Dict(connectivityName)
+            connectivityType.addPropertyString("name",connectivityName)
+            connectivityType.addPropertyScalar("synIndex",synIndex)
+            connectivityType.addPropertyScalar("wdType",wdType)
+            connectivityType.addPropertyScalar("standardWeight",standardWeight)
+            connectivityType.addPropertyScalar("standardVelocity",standardVelocity)
             connectivityTypes.append(connectivityType)
         }
     }

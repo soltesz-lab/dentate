@@ -1,36 +1,77 @@
 
-// A template to describe individual cell properties 
+// A template to describe key/value pairs 
 
-begintemplate CellPropertyInfo
+begintemplate Dict
 
-public cellTypeName, cellProperties, addProperty, getProperty
-strdef cellTypeName
-objref cellProperties
+public dictName, addPropertyScalar, addPropertyString, addPropertyObject, getPropertyScalar, getPropertyString, getPropertyObject
+strdef dictName
+objref dictList, returnVal
 
 proc init() {
-    cellTypeName = $s1
-    cellProperties = new List()
+    dictName = $s1
+    dictList = new List()
 }
 
-proc addProperty () { local value localobj kv strdef name
-    name = $s1
-    value = $2
+proc addPropertyScalar () { localobj kv, name, value
+    name = new String($s1)
+    value = new Vector(1)
+    value.x[0] = $2
     kv = new List()
     kv.append(name)
     kv.append(value)
-    cellProperties.prepend(kv)
+    dictList.prepend(kv)
 }
 
-func getProperty () { local i, value localobj kv strdef name
+proc addPropertyString () { localobj kv, name, value
+    name = new String($s1)
+    value = new String($s2)
+    kv = new List()
+    kv.append(name)
+    kv.append(value)
+    dictList.prepend(kv)
+}
+
+proc addPropertyObject () { localobj kv, value, name
+    name = new String($s1)
+    value = $o2
+    kv = new List()
+    kv.append(name)
+    kv.append(value)
+    dictList.prepend(kv)
+}
+
+func getPropertyScalar () { local i localobj value strdef name
     name = $s1
-    value = 0
-    for i=0, cellProperties.count()-1 {
-        if (strcmp(name,cellProperties.o(i).o(0)) == 0) {
-            value = cellProperties.o(i).o(1)
+    for i=0, dictList.count()-1 {
+        if (strcmp(name,dictList.o(i).o(0).s) == 0) {
+            value = dictList.o(i).o(1)
+            break
+        }
+    }
+    return value.x[0]
+}
+
+obfunc getPropertyString () { local i localobj value strdef name 
+    name = $s1
+    for i=0, dictList.count()-1 {
+        if (strcmp(name,dictList.o(i).o(0).s) == 0) {
+            value = dictList.o(i).o(1)
             break
         }
     }
     return value
 }
 
-endtemplate CellPropertyInfo
+obfunc getPropertyObject () { local i localobj value strdef name
+    name = $s1
+    value = 0
+    for i=0, dictList.count()-1 {
+        if (strcmp(name,dictList.o(i).o(0).s) == 0) {
+            value = dictList.o(i).o(1)
+            break
+        }
+    }
+    return value
+}
+
+endtemplate Dict
