@@ -4,6 +4,10 @@
 {xopen("lib.hoc")}
 {load_file("parameters.hoc")}
 
+// Used to calculate model construction times and run time
+mkcellstime = 0
+connectcellstime = 0
+runtime = 0
 
 // Used for executing command strings
 strdef cmd
@@ -146,10 +150,13 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
     }
 }
 
-
 proc mknet() { strdef fname
+    mkcellstime = startsw()
     mkcells(cellTypes)  // create the cells
+    mkcellstime = startsw()-mkcellstime
+    connectcellstime = startsw()
     connectcells(connectivityTypes)  // connect them together
+    connectcellstime = startsw()-connectcellstime
     sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
     if (makegraph > 0) {
         graphout(fname,conlist)
@@ -178,9 +185,9 @@ proc mkstim() { local i, nCellTypes localobj stim, stimulationParameters, cellTy
             for i = 0, cellType.numCells-1 {
                 if (pnm.gid_exists(i)) {
                     stim = pnm.pc.gid2cell(bot+i)
-                    stim.noise=stimulationParameters.x[i][0]
-                    stim.number=stimulationParameters.x[i][1]
-                    stim.start=stimulationParameters.x[i][2]
+                    stim.noise  = stimulationParameters.x[i][0]
+                    stim.number = stimulationParameters.x[i][1]
+                    stim.start  = stimulationParameters.x[i][2]
                 }
             }
             break
@@ -193,7 +200,6 @@ proc mkstim() { local i, nCellTypes localobj stim, stimulationParameters, cellTy
 
 sprint (datafilePath, "%s/stimulation.dat", datasetPath)
 mkstim(datafilePath)
-        
 
 /* Simulation control */
 
@@ -210,6 +216,21 @@ runtime = startsw() - runtime
 strdef spikeout_fname
 sprint(spikeout_fname, "./results/%s_spikeout_%d.dat", modelName, pnm.myid)
 spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
+
+comptime = pnm.pc.step_time
+avgcomp = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
+maxcomp = pnm.pc.allreduce(comptime, 2)
+
+if (pnm.myid == 0) {
+    printf("Execution time summary for host 0:\n")
+    printf("  created cells in %g seconds\n", mkcellstime)
+    printf("  connected cells in %g seconds\n", connectcellstime)
+    printf("  ran simulation in %g seconds\n", runtime)
+    if (maxcomp > 0) {
+        if (pnm.myid == 0) { printf("  load_balance = %g\n", avgcomp/maxcomp) }
+        if (pnm.myid == 0) { printf("  exchange_time = %g\n",  runtime - maxcomp) }
+    }
+}
 
 pnm.pc.runworker()
 pnm.pc.done()
