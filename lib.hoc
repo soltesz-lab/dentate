@@ -1,7 +1,8 @@
 
-// Dict template
+// Dictionary template
 {xopen("./templates/Dict.hoc")}
 
+// Writes out connectivity graph
 proc graphout() { local i,j,node localobj f, v, conlist
     f = new File($s1)
     conlist = $o2
@@ -16,7 +17,7 @@ proc graphout() { local i,j,node localobj f, v, conlist
     f.close()
 }
 
-
+// Writes out spike time information
 proc spikeout() { local i localobj f, spikevec, idvec
     
     f = new File($s1)
@@ -30,7 +31,7 @@ proc spikeout() { local i localobj f, spikevec, idvec
     f.close()
 }
 
-// Load celltype info into a Dict
+// Loads cell type info into a Dict
 proc loadCellCategoryInfo() { local i, numCells localobj f, cellTypes, cellType
     
     strdef cellTypeName, cellTypeTemplateName
@@ -61,7 +62,7 @@ proc loadCellCategoryInfo() { local i, numCells localobj f, cellTypes, cellType
     
 }
 
-
+// Loads connectivity info into a Dict
 proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj f, connectivityTypes, connectivityType
     
     strdef connectivityName

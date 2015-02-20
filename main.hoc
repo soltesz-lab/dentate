@@ -106,8 +106,6 @@ proc mkcells() { local nCellTypes, numCells, i, k, bot  localobj cellTypes, cell
     }
 }
 
-// used to load connectivity from a file
- 
 
 // connects the cells
 // appends the NetCon objects to nclist

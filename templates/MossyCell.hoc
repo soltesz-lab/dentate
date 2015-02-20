@@ -9,7 +9,7 @@ public xx, yy, zz, position
 external noise_random_stream_offset_
 create soma, mcdend1[ndend1], mcdend2[ndend2], mcdend3[ndend3], mcdend4[ndend4]
 
-objref syn, pre_list, templist, fl, rs
+objref syn, fl, rs
 objref stim[nst]
 objref all, pdend, ddend
 
@@ -24,7 +24,6 @@ ndend4=4
 proc init() { // arg is mossy cell # (gid - first mossy cell gid)
     
     cellid = $1
-    pre_list = new List()
     subsets()
     geom()
     biophys(cellid)
