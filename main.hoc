@@ -59,6 +59,12 @@ pnm = new ParallelNetManager(ncells)
 
 pnm.round_robin()
 
+// Each noise generator picks a number every
+// dt for the full time range, so stream
+// sections must be at least this long to
+// prevent overlap
+noise_random_stream_offset_ = tstop/dt + 1	
+
 // connectivity list local to the current MPI process
 objref conlist
 if (makegraph > 0) {
