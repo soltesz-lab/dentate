@@ -76,7 +76,7 @@ if (makegraph > 0) {
 /* mkcells and connectcells create the cells and connect the cells */
 
 // used for the creation of cells
-objref cell
+objref cell, nc
 
 // creates the cells and appends them to a List called cells
 // argument is the number of cells to be created
@@ -93,13 +93,19 @@ proc mkcells() { local nCellTypes, numCells, i, k, bot  localobj cellTypes, cell
         numCells = cellType.getPropertyScalar("numCells")
         if (strcmp(templateName, "NetStim") != 0) {
             sprint(cmd, "xopen(\"./templates/%s.hoc\")", templateName)
-        }
-        execute(cmd)
-        for i=0, numCells-1 { 
-            if (pnm.gid_exists(bot+i)) {
+            execute(cmd)
+            for i=0, numCells-1 { 
+                if (pnm.gid_exists(bot+i)) {
+                    sprint(cmd, "cell = new %s()", templateName)
+                    execute(cmd)
+	            pnm.register_cell(bot+i, cell)
+                }
+            }
+        } else {
+            // TODO: add to local stimlist 
+            for i=0, numCells-1 { 
                 sprint(cmd, "cell = new %s()", templateName)
                 execute(cmd)
-	        pnm.register_cell(bot+i, cell)
             }
         }
         bot = bot + numCells
@@ -213,10 +219,11 @@ mkstim(datafilePath)
 
 /* Simulation control */
 
+cvode.active(1)
+
 pnm.set_maxstep(100)
 pnm.want_all_spikes()
 
-cvode.active(1)
 stdinit()
 startsw()
 pnm.psolve(tstop)
