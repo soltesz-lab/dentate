@@ -51,7 +51,7 @@ external lambda_f
 proc geom_nseg() {
   forsec all { nseg = int((L/(0.1*lambda_f(100))+.9)/2)*2 + 1  }
 }
-proc biophys() {
+proc biophys() { localobj stim1
   forsec all {
     Ra = 100
     cm = 1

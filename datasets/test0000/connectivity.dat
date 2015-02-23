@@ -1,2 +1,4 @@
-1
-ringnet 0 1
+2
+ringnet ballstick ballstick 0 1
+netstim stim ballstick 0 1
+

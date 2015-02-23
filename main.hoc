@@ -1,59 +1,66 @@
-{load_file("nrngui.hoc")}  // Loads the GUI and standard run libraries
-{load_file("netparmpi.hoc")} // ParallelNetManager definitions
+{load_file("nrngui.hoc")}  // loads the gui and standard run libraries
+{load_file("netparmpi.hoc")} // parallelnetmanager definitions
 
 {xopen("lib.hoc")}
 {load_file("parameters.hoc")}
 
 nrn_load_dll("mechanisms/x86_64/.libs/libnrnmech.so")
 
-// Used to calculate model construction times and run time
+// used to calculate model construction times and run time
 mkcellstime = 0
 connectcellstime = 0
 runtime = 0
 
-// Used for executing command strings
+
+// used for executing command strings
 strdef cmd
 
-// Path to the dataset directory
+// path to the dataset directory
 strdef datasetPath
 sprint(datasetPath, "./datasets/%s", datasetName)
 
-// Path for various datafiles (used for multiple files)
+// path for various datafiles (used for multiple files)
 strdef datafilePath
 
-// RandomStream template
+// randomstream template
 {load_file("./templates/ranstream.hoc")}
 
-// List with cell type information
+// list with cell type information
 objref cellTypes
 cellTypes = new List()
 
-// Reads the cell types file and populates cellTypes with the information
+// used to keep track of artificial stimulus cells
+objref ncstimlist
+
+// reads the cell types file and populates celltypes with the information
 sprint (datafilePath, "%s/celltypes.dat", datasetPath)
 loadCellCategoryInfo (cellTypes, datafilePath)
 
-// Total number of cells in the network
+// total number of cells in the network
 ncells = 0
-for i=0, cellTypes.count()-1 {
-    ncells = ncells + cellTypes.o(i).getPropertyScalar("numCells")
+strdef templatename
+objref celltype
+for i=0, cellTypes.count()-1 { 
+    celltype = cellTypes.o(i)
+    ncells = ncells + celltype.getPropertyScalar("numCells")
 }
 if (verbose > 0) {
     printf ("%s: ncells = %d\n", modelName, ncells)
 }
 
 
-// List with connectivity information
+// list with connectivity information
 objref connectivityTypes
 connectivityTypes = new List()
 
-// Reads the connectivity types file and populates connectivityTypes with the information
+// reads the connectivity types file and populates connectivitytypes with the information
 sprint (datafilePath, "%s/connectivity.dat", datasetPath)
 loadConnectivityInfo (connectivityTypes, datafilePath)
 
 // pnm.cells is a list that holds all instances of network cells that
 // exist on this host
 
-// pnm.nclist holds all NetCon instances that exist on this host
+// pnm.nclist holds all netcon instances that exist on this host
 
 objref pnm
 
@@ -61,13 +68,13 @@ pnm = new ParallelNetManager(ncells)
 
 pnm.round_robin()
 
-// Each noise generator picks a number every
+// each noise generator picks a number every
 // dt for the full time range, so stream
 // sections must be at least this long to
 // prevent overlap
 noise_random_stream_offset_ = tstop/dt + 1	
 
-// connectivity list local to the current MPI process
+// connectivity list local to the current mpi process
 objref conlist
 if (makegraph > 0) {
     conlist = new List()
@@ -78,47 +85,54 @@ if (makegraph > 0) {
 // used for the creation of cells
 objref cell, nc
 
-// creates the cells and appends them to a List called cells
+// creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, k, bot  localobj cellTypes, cellType strdef templateName
+proc mkcells() { local nCellTypes, numCells, i, k  localobj cellTypes, cellType strdef templateName, typeName
     
     cellTypes = $o1
     nCellTypes = cellTypes.count()
     
-    bot=0
-    i=0
     for k=0, nCellTypes-1 { 
         cellType = cellTypes.o(k)
         templateName = cellType.getPropertyString("templateName").s
         numCells = cellType.getPropertyScalar("numCells")
+        offset = cellType.getPropertyScalar("offset")
         if (strcmp(templateName, "NetStim") != 0) {
             sprint(cmd, "xopen(\"./templates/%s.hoc\")", templateName)
             execute(cmd)
             for i=0, numCells-1 { 
-                if (pnm.gid_exists(bot+i)) {
+                if (pnm.gid_exists(offset+i)) {
                     sprint(cmd, "cell = new %s()", templateName)
                     execute(cmd)
-	            pnm.register_cell(bot+i, cell)
+	            pnm.register_cell(offset+i, cell)
                 }
             }
         } else {
-            // TODO: add to local stimlist 
+            // Used to keep track of artificial stimulus cells
+            typeName = cellType.getPropertyString("typeName").s
+            sprint (cmd, "objref %slist, nc%slist", typeName, typeName)
+            execute(cmd)
+            sprint (cmd, "%slist = new List()", typeName)
+            execute(cmd)
+            sprint (cmd, "nc%slist = new List()", typeName)
+            execute(cmd)
             for i=0, numCells-1 { 
-                sprint(cmd, "cell = new %s()", templateName)
-                execute(cmd)
+                if (pnm.gid_exists(offset+i)) {
+                    cell = new NetStim(0.0)
+                    pnm.register_cell(offset+i, cell)
+                }
             }
         }
-        bot = bot + numCells
     }
 }
 
-
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, synIndex, wdType  localobj connectivityType, nc, edges, m, f
+proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, synIndex, wdType, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim
     
-    strdef connectivityPath, connectivityName
+    strdef connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
+    cellTypes = $o2
     nConnectivityTypes = connectivityTypes.count()
     
     for k=0, nConnectivityTypes-1 { 
@@ -126,24 +140,76 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
         synIndex = connectivityType.getPropertyScalar("synIndex")
         wdType = connectivityType.getPropertyScalar("wdType")
         connectivityName = connectivityType.getPropertyString("name").s
+        if (verbose > 0) {
+            printf ("connectivityName = %s\n", connectivityName)
+        }
+        presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
+        postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
+        presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
+        postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
+        presynapticSize = presynapticType.getPropertyScalar("numCells")
+        postsynapticSize = postsynapticType.getPropertyScalar("numCells")
+        presynapticOffset = presynapticType.getPropertyScalar("offset")
+        postsynapticOffset = postsynapticType.getPropertyScalar("offset")
+        if (verbose > 0) {
+            printf ("presynaptic population = %s\n", presynapticPopulation)
+            printf ("presynaptic size = %d\n", presynapticSize)
+            printf ("postsynaptic population = %s\n", postsynapticPopulation)
+            printf ("postsynaptic size = %d\n", postsynapticSize)
+        }
+        if (strcmp(presynapticType.getPropertyString("templateName").s, "NetStim") == 0) {
+            stimsrc = 1
+            sprint(cmd, "ncstimlist = nc%slist", presynapticPopulation)
+            execute(cmd)
+        } else {
+            stimsrc = 0
+        }
         sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
         m = new Matrix()
         f = new File(connectivityPath)
         f.ropen()
         m.scanf(f)
         f.close()
-        if (wdType == 1) {
+        if ((stimsrc == 1) && (wdType == 1)) {
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
-                if (!pnm.gid_exists(destid)) { continue }
+                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                if (!pnm.gid_exists(destid+postsynapticOffset)) { continue }
+                nc = pnm.pc.gid_connect(srcid+presynapticOffset, pnm.pc.gid2obj(destid+postsynapticOffset).synlist.object(synIndex))
+                w = m.x[i][2]
+                del = m.x[i][3]
+                nc.weight = w
+                nc.delay = del
+                ncstimlist.append(nc)
+                if (verbose > 0) {
+                    printf ("artificial stimulus: srcid = %d destid = %d weight = %g delay = %g\n", srcid+presynapticOffset, destid+postsynapticOffset, nc.weight, nc.delay)
+                    print "postsynaptic cell = ", pnm.pc.gid2obj(destid)
+                }
+                edges = new Vector(2)
+                edges.x[0] = srcid+presynapticOffset
+                edges.x[1] = destid+postsynapticOffset
+                conlist.prepend(edges)
+            }
+        } else if (wdType == 1) {
+            for i=0, m.nrow-1 {
+                srcid = m.x[i][0]
+                destid = m.x[i][1]
+                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                if (!pnm.gid_exists(destid+postsynapticOffset)) { continue }
                 w = m.x[i][2]
                 del = m.x[i][3]
                 // The third argument is synapse index or -1 for point processes
-	        ncid = pnm.nc_append(srcid, destid, synIndex, w, del)
+	        ncid = pnm.nc_append(srcid+presynapticOffset, destid+postsynapticOffset, synIndex, w, del)
+                nc = pnm.nclist.o(ncid)
+                if (verbose > 0) {
+                    printf ("connection: srcid = %d destid = %d weight = %g delay = %g\n", srcid, destid, nc.weight, nc.delay)
+                }
                 edges = new Vector(2)
-                edges.x[0] = srcid
-                edges.x[1] = destid
+                edges.x[0] = srcid+presynapticOffset
+                edges.x[1] = destid+postsynapticOffset
                 conlist.prepend(edges)
             }
         } else if (wdType == 2) {
@@ -152,14 +218,16 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
-                if (!pnm.gid_exists(destid)) { continue }
+                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                if (!pnm.gid_exists(destid+postsynapticOffset)) { continue }
                 dist = m.x[i][2] + m.x[i][3]
                 del = dist / velocity
                 // The third argument is synapse index or -1 for point processes
-	        ncid = pnm.nc_append(srcid, destid, synIndex, w, del)
+	        ncid = pnm.nc_append(srcid+presynapticOffset, destid+postsynapticOffset, synIndex, w, del)
                 edges = new Vector(2)
-                edges.x[0] = srcid
-                edges.x[1] = destid
+                edges.x[0] = srcid+presynapticOffset
+                edges.x[1] = destid+postsynapticOffset
                 conlist.prepend(edges)
             }
         }
@@ -171,7 +239,7 @@ proc mknet() { strdef fname
     mkcells(cellTypes)  // create the cells
     mkcellstime = stopsw()
     startsw()
-    connectcells(connectivityTypes)  // connect them together
+    connectcells(connectivityTypes,cellTypes)  // connect them together
     connectcellstime = stopsw()
     sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
     if (makegraph > 0) {
@@ -184,38 +252,42 @@ mknet(ncells)
 
 // Configuration of artificial spiking cells
 
-proc mkstim() { local i, nCellTypes, numCells localobj stim, stimulationParameters, cellType
+proc mkstim() { local i, k, nCellTypes, numCells, offset localobj stim, stimulationParameters, cellType, cellTypes
     
-    stimulationParameters = new Matrix()
-    // Reads the stimulation parameters file and populates the
-    // stimulationParameters matrix with the information
-    loadStimulationParameters (stimulationParameters, $s1)
+    strdef templateName, typeName
     
+    datasetPath = $s1
+    cellTypes = $o2
     nCellTypes = cellTypes.count()
     
-    bot = 0
-    for k = 0, nCellTypes-1 { 
+    for k=0, nCellTypes-1 { 
+        
         cellType = cellTypes.o(k)
+        typeName = cellType.getPropertyString("typeName").s
+        templateName = cellType.getPropertyString("templateName").s
         numCells = cellType.getPropertyScalar("numCells")
-        if (strcmp(cellType.getPropertyString("templateName").s, "NetStim") == 0) {
-            for i = 0, numCells-1 {
-                if (pnm.gid_exists(i)) {
-                    stim = pnm.pc.gid2cell(bot+i)
+        offset = cellType.getPropertyScalar("offset")
+        
+        if (strcmp(templateName, "NetStim") == 0) {
+            sprint (datafilePath, "%s/%s.dat", datasetPath, typeName)
+            stimulationParameters = new Matrix()
+            // Reads the stimulation parameters file and populates the
+            // stimulationParameters matrix with the information
+            loadStimulationParameters (stimulationParameters, datafilePath)
+
+            for i=0, numCells-1 { 
+                if (pnm.gid_exists(offset+i)) {
+                    stim = pnm.pc.gid2obj(offset+i)
                     stim.noise  = stimulationParameters.x[i][0]
                     stim.number = stimulationParameters.x[i][1]
                     stim.start  = stimulationParameters.x[i][2]
                 }
             }
-            break
-            
         }
-        bot = bot + numCells
     }
-    
 }
 
-sprint (datafilePath, "%s/stimulation.dat", datasetPath)
-mkstim(datafilePath)
+mkstim(datasetPath, cellTypes, ncells)
 
 /* Simulation control */
 

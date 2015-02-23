@@ -2,6 +2,16 @@
 // Dictionary template
 {xopen("./templates/Dict.hoc")}
 
+proc assert() { local test strdef errmsg
+    
+    test = $1
+    errmsg = $s2
+    
+    if (!test) {
+        execerror ("Assertion failed: ", errmsg)
+    }
+}
+
 // Writes out connectivity graph
 proc graphout() { local i,j,node localobj f, v, conlist
     f = new File($s1)
@@ -31,8 +41,32 @@ proc spikeout() { local i localobj f, spikevec, idvec
     f.close()
 }
 
+// Returns the index of the named cell type or -1 if the type was not found
+func findCellType() { local i, result localobj cellTypes, cellType
+    
+    strdef typeName
+    
+    cellTypes = $o1
+    typeName = $s2
+    
+    
+    result = -1
+    
+    for i=0, cellTypes.count()-1 {
+        
+        cellType = cellTypes.o(i)
+        if (strcmp(typeName, cellType.getPropertyString("typeName").s) == 0) {
+            result = i
+            break
+        }
+        
+    }
+    
+    return result
+}
+
 // Loads cell type info into a Dict
-proc loadCellCategoryInfo() { local i, numCells localobj f, cellTypes, cellType
+proc loadCellCategoryInfo() { local i, numCells, offset localobj f, cellTypes, cellType
     
     strdef cellTypeName, cellTypeTemplateName
     
@@ -46,6 +80,7 @@ proc loadCellCategoryInfo() { local i, numCells localobj f, cellTypes, cellType
     // Scan the first line, which contains the number of cell types
     numCellTypes = f.scanvar()
     
+    offset = 0
     for i=0, numCellTypes-1 {
         
         // Scan in the cell name, template name, number of cells
@@ -56,7 +91,9 @@ proc loadCellCategoryInfo() { local i, numCells localobj f, cellTypes, cellType
         cellType.addPropertyString("typeName",cellTypeName)
         cellType.addPropertyString("templateName",cellTypeTemplateName)
         cellType.addPropertyScalar("numCells",numCells)
+        cellType.addPropertyScalar("offset",offset)
         cellTypes.append(cellType)
+        offset = offset + numCells
     }
     f.close()
     
@@ -65,7 +102,7 @@ proc loadCellCategoryInfo() { local i, numCells localobj f, cellTypes, cellType
 // Loads connectivity info into a Dict
 proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj f, connectivityTypes, connectivityType
     
-    strdef connectivityName
+    strdef connectivityName, preSynapticPopulation, postSynapticPopulation
     
     // The first argument must be a list
     connectivityTypes = $o1
@@ -79,13 +116,21 @@ proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standar
     
     for i=0, numConnectivityTypes-1 {
         
-        // Scan in the connectivity name and synapse index
+        // Read in the connectivity name
 	f.scanstr(connectivityName)
+        // Read in the name of the presynaptic population
+	f.scanstr(preSynapticPopulation)
+        // Read in the name of the postsynaptic population
+	f.scanstr(postSynapticPopulation)
+        // Read in the post-synaptic index (-1 for artificial cells)
 	synIndex = f.scanvar()
+        // Read in the type of weight+delay specification
 	wdType = f.scanvar()
         if (wdType == 1) {
             connectivityType = new Dict(connectivityName)
             connectivityType.addPropertyString("name",connectivityName)
+            connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
+            connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
             connectivityType.addPropertyScalar("synIndex",synIndex)
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityTypes.append(connectivityType)
@@ -94,6 +139,8 @@ proc loadConnectivityInfo() { local i, synIndex, wdType, standardWeight, standar
             standardVelocity = f.scanvar()
             connectivityType = new Dict(connectivityName)
             connectivityType.addPropertyString("name",connectivityName)
+            connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
+            connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
             connectivityType.addPropertyScalar("synIndex",synIndex)
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("standardWeight",standardWeight)
