@@ -11,7 +11,7 @@ proc init() {
 }
 
 func start() {
-    return r.MCellRan4(rseed)
+    return r.Random123(rseed)
 }
 
 func repick() {
