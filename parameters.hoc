@@ -18,3 +18,6 @@ tstop = 1000
 
 // time step
 dt = 0.025
+
+use_cvode=1
+use_cache_efficient=1
