@@ -128,7 +128,7 @@ proc mkcells() { local nCellTypes, numCells, i, k  localobj cellTypes, cellType 
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, synIndex, wdType, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim
+proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, velocity, ncid, synIndex, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim
     
     strdef connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
@@ -137,6 +137,7 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
     
     for k=0, nConnectivityTypes-1 { 
         connectivityType = connectivityTypes.o(k)
+        order = connectivityType.getPropertyScalar("order")
         synIndex = connectivityType.getPropertyScalar("synIndex")
         wdType = connectivityType.getPropertyScalar("wdType")
         connectivityName = connectivityType.getPropertyString("name").s
@@ -174,42 +175,60 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
-                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
-                if (!pnm.gid_exists(destid+postsynapticOffset)) { continue }
-                nc = pnm.pc.gid_connect(srcid+presynapticOffset, pnm.pc.gid2obj(destid+postsynapticOffset).synlist.object(synIndex))
+                if (order == 0) {
+                    // relative numbering of pre/post synaptic cells -- add the respective offsets
+                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                    srcid1 = srcid + presynapticOffset
+                    destid1 = destid + postsynapticOffset
+                } else {
+                    // absolute numbering of pre/post synaptic cells
+                    srcid1 = srcid
+                    destid1 = destid
+                }
+                if (!pnm.gid_exists(destid1)) { continue }
+                nc = pnm.pc.gid_connect(srcid1, pnm.pc.gid2obj(destid1).synlist.object(synIndex))
                 w = m.x[i][2]
                 del = m.x[i][3]
                 nc.weight = w
                 nc.delay = del
                 ncstimlist.append(nc)
                 if (verbose > 0) {
-                    printf ("artificial stimulus: srcid = %d destid = %d weight = %g delay = %g\n", srcid+presynapticOffset, destid+postsynapticOffset, nc.weight, nc.delay)
+                    printf ("artificial stimulus: srcid = %d destid = %d weight = %g delay = %g\n", srcid1, destid1, nc.weight, nc.delay)
                     print "postsynaptic cell = ", pnm.pc.gid2obj(destid)
                 }
                 edges = new Vector(2)
-                edges.x[0] = srcid+presynapticOffset
-                edges.x[1] = destid+postsynapticOffset
+                edges.x[0] = srcid1
+                edges.x[1] = destid1
                 conlist.prepend(edges)
             }
         } else if (wdType == 1) {
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
-                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
-                if (!pnm.gid_exists(destid+postsynapticOffset)) { continue }
+                if (order == 0) {
+                    // relative numbering of pre/post synaptic cells -- add the respective offsets
+                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                    srcid1 = srcid + presynapticOffset
+                    destid1 = destid + postsynapticOffset
+                } else {
+                    // absolute numbering of pre/post synaptic cells
+                    srcid1 = srcid
+                    destid1 = destid
+                }
+                if (!pnm.gid_exists(destid1)) { continue }
                 w = m.x[i][2]
                 del = m.x[i][3]
                 // The third argument is synapse index or -1 for point processes
-	        ncid = pnm.nc_append(srcid+presynapticOffset, destid+postsynapticOffset, synIndex, w, del)
+	        ncid = pnm.nc_append(srcid1, destid1, synIndex, w, del)
                 nc = pnm.nclist.o(ncid)
                 if (verbose > 0) {
-                    printf ("connection: srcid = %d destid = %d weight = %g delay = %g\n", srcid, destid, nc.weight, nc.delay)
+                    printf ("connection: srcid = %d destid = %d weight = %g delay = %g\n", srcid1, destid1, nc.weight, nc.delay)
                 }
                 edges = new Vector(2)
-                edges.x[0] = srcid+presynapticOffset
-                edges.x[1] = destid+postsynapticOffset
+                edges.x[0] = srcid1
+                edges.x[1] = destid1
                 conlist.prepend(edges)
             }
         } else if (wdType == 2) {
@@ -218,16 +237,25 @@ proc connectcells() {local i, k, srcid, destid, w, del, dist, velocity, ncid, sy
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
-                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
-                if (!pnm.gid_exists(destid+postsynapticOffset)) { continue }
+                if (order == 0) {
+                    // relative numbering of pre/post synaptic cells -- add the respective offsets
+                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                    srcid1 = srcid + presynapticOffset
+                    destid1 = destid + postsynapticOffset
+                } else {
+                    // absolute numbering of pre/post synaptic cells
+                    srcid1 = srcid
+                    destid1 = destid
+                }
+                if (!pnm.gid_exists(destid1)) { continue }
                 dist = m.x[i][2] + m.x[i][3]
                 del = dist / velocity
                 // The third argument is synapse index or -1 for point processes
-	        ncid = pnm.nc_append(srcid+presynapticOffset, destid+postsynapticOffset, synIndex, w, del)
+	        ncid = pnm.nc_append(srcid1, destid1, synIndex, w, del)
                 edges = new Vector(2)
-                edges.x[0] = srcid+presynapticOffset
-                edges.x[1] = destid+postsynapticOffset
+                edges.x[0] = srcid1
+                edges.x[1] = destid1
                 conlist.prepend(edges)
             }
         }
