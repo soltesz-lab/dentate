@@ -7,7 +7,7 @@ nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
 
-// Load the granule cell template
+// Load the cell template
 xopen("./templates/MossyCell.hoc")
 
 
