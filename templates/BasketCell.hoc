@@ -18,6 +18,7 @@ create soma, bcdend1[ndend1], bcdend2[ndend2], bcdend3[ndend3], bcdend4[ndend4]
 proc init() {
     synlist = new List()
     subsets()
+    topol()
     geom()
     biophys()
     synapses()
@@ -85,7 +86,28 @@ proc geom() {
     bcdend4 [3] {nseg=1 L=50 diam=1} 	
     
 }
+
+proc topol() {
+    connect bcdend1[0](0), soma(1)
+    connect bcdend2[0](0), soma(1)
+    connect bcdend3[0](0), soma(0)
+    connect bcdend4[0](0), soma(0)
     
+    for i=1,3 {
+	connect bcdend1[i](0), bcdend1[i-1](1)
+    }
+    for i=1,3 {
+	connect bcdend2[i](0), bcdend2[i-1](1)
+    }
+    for i=1,3 {
+	connect bcdend3[i](0), bcdend3[i-1](1)
+    }
+    for i=1,3 {
+	connect bcdend4[i](0), bcdend4[i-1](1)
+    }
+}    
+
+
 proc biophys() {
     
     forsec all {
@@ -143,24 +165,6 @@ proc biophys() {
 	cm=1.4
     }
     
-    
-    connect bcdend1[0](0), soma(1)
-    connect bcdend2[0](0), soma(1)
-    connect bcdend3[0](0), soma(0)
-    connect bcdend4[0](0), soma(0)
-    
-    for i=1,3 {
-	connect bcdend1[i](0), bcdend1[i-1](1)
-    }
-    for i=1,3 {
-	connect bcdend2[i](0), bcdend2[i-1](1)
-    }
-    for i=1,3 {
-	connect bcdend3[i](0), bcdend3[i-1](1)
-    }
-    for i=1,3 {
-	connect bcdend4[i](0), bcdend4[i-1](1)
-    }
     
     forsec all {Ra=100}
     forsec all {
