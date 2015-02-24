@@ -174,6 +174,25 @@ proc subsets() { local i
 }
 
 
+func lambda_f() { local i, x1, x2, d1, d2, lam
+        if (n3d() < 2) {
+                return 1e5*sqrt(diam/(4*PI*$1*Ra*cm))
+        }
+        x1 = arc3d(0)
+        d1 = diam3d(0)
+        lam = 0
+        for i=1, n3d()-1 {
+                x2 = arc3d(i)
+                d2 = diam3d(i)
+                lam += (x2 - x1)/sqrt(d1 + d2)
+                x1 = x2   d1 = d2
+        }
+        //  length of the section in units of lambda
+        lam *= sqrt(2) * 1e-5*sqrt(4*PI*$1*Ra*cm)
+
+        return L/lam
+}
+
 proc geom_nseg() { local freq, d_lambda
     
     freq = 50      // Hz, frequency at which AC length constant will be computed
@@ -290,13 +309,13 @@ proc biophys() {
 //		insert ch_Kdrslow
 //	gmax_ch_Kdrslow=kdrf 
 	
-	insert ch_leak
-	gmax_ch_leak = gleak
+	insert pas
+	g_pas = gleak
     } 
     
     soma { distance() }
     
-    forsec dendrite_list {
+    forsec dendrites {
 	for (x,0) {
 	    if (distance(x)<100) {
 		insert ch_Navngf
@@ -321,8 +340,8 @@ proc biophys() {
     }	
     
     forsec dendrites {
-	insert ch_leak
-	gmax_ch_leak = gleak
+	insert pas
+	g_pas = gleak
     }
     
     forsec all {Ra=myRa}
@@ -350,7 +369,16 @@ proc position(){ local i
 	    pt3dchange(i, $1-x+x3d(i), $2-y+y3d(i), $3-z+z3d(i), diam3d(i))
 	}
     }
-    x = $1  y = $2  z = $3	
+    xx = $1  yy = $2  zz = $3	
+}
+
+objref syn_
+proc synapses() {
+  /* E0 */   dend[1] syn_ = new ExpSyn(0.8)  synlist.append(syn_)
+    syn_.tau = 2
+  /* I1 */   dend[2] syn_ = new ExpSyn(0.1)  synlist.append(syn_)
+    syn_.tau = 5
+    syn_.e = -80
 }
 
 endtemplate NGFCell
