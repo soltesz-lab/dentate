@@ -107,7 +107,7 @@ tlog.record (&t)
 
 objref logfile
 logfile = new File()
-logfile.wopen ( "BasketCell_protocol.dat" )
+logfile.wopen ( "HIPPCell_protocol.dat" )
 
 simulate(logfile,tlog,Vlog)
 logfile.close()
