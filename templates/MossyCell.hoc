@@ -6,12 +6,8 @@ public all, adend, bdend, cdend, ddend
 public stim
 public xx, yy, zz, position
 
-external noise_random_stream_offset_
-create soma, mcdend1[ndend1], mcdend2[ndend2], mcdend3[ndend3], mcdend4[ndend4]
-
-objref syn, fl, rs
-objref stim[nst]
-objref all, pdend, ddend
+cellid = -1
+random_stream_offset = 0
 
 nst=10
 
@@ -20,13 +16,21 @@ ndend2=4
 ndend3=4
 ndend4=4
 
+create soma, mcdend1[ndend1], mcdend2[ndend2], mcdend3[ndend3], mcdend4[ndend4]
 
-proc init() { // arg is mossy cell # (gid - first mossy cell gid)
+objref syn, fl, rs
+objref stim[nst]
+objref all, pdend, ddend
+objref synlist
+
+proc init() { // arguments are gid, random_stream_offset
     
     cellid = $1
+    random_stream_offset = $2
+    synlist = new List()
     subsets()
     geom()
-    biophys(cellid)
+    biophys()
     synapses()
 }
 
@@ -161,9 +165,9 @@ proc biophys() {
     soma fl = new Gfluct2(0.5)
     
     // Generate a new random stream, setting
-    //	aside 'noise_random_stream_offset_' random numbers
+    //	aside 'random_stream_offset' random numbers
     //	for this cell based on its gid
-    rs = new RandomStream($1*noise_random_stream_offset_+1)
+    rs = new RandomStream(cellid*random_stream_offset+1)
     
     // set the stream to generate a gaussian distribution with mean 0 and variance 1
     rs.r.normal(0, 1)
@@ -192,10 +196,10 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-    /* E0 */   dend syn_ = new ExpSyn(0.8)  
+    /* E0 */   mcdend1 syn_ = new ExpSyn(0.8)  
     synlist.append(syn_)
     syn_.tau = 2
-    /* I1 */   dend syn_ = new ExpSyn(0.1)  
+    /* I1 */   mcdend1 syn_ = new ExpSyn(0.1)  
     synlist.append(syn_)
     syn_.tau = 5
     syn_.e = -80

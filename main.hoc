@@ -322,6 +322,7 @@ mkstim(datasetPath, cellTypes, ncells)
 /* Simulation control */
 
 {cvode.active(use_cvode)}
+{cvode.use_local_dt(use_local_dt)}
 {cvode.cache_efficient(use_cache_efficient)}
 
 pnm.set_maxstep(10)
