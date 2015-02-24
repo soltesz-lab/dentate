@@ -1,3 +1,4 @@
+
 begintemplate HIPPCell
 
 ndend1=3
@@ -11,18 +12,19 @@ public all, pdend, ddend
 public xx, yy, zz, position
 
 create soma, hcdend1[ndend1], hcdend2[ndend2], hcdend3[ndend3], hcdend4[ndend4]
-objref syn_
+objref synlist
+
+objref all, pdend, ddend
 
 
 proc init() {
     
+    synlist = new List()
     subsets()
     geom()
     biophys()
-    synapse()
+    synapses()
 }
-
-objref all, pdend, ddend
 
 proc subsets() { local i 
     
@@ -156,10 +158,10 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-    /* E0 */   dend syn_ = new ExpSyn(0.8)  
+    /* E0 */   hcdend1 syn_ = new ExpSyn(0.8)  
     synlist.append(syn_)
     syn_.tau = 2
-    /* I1 */   dend syn_ = new ExpSyn(0.1)  
+    /* I1 */   hcdend2 syn_ = new ExpSyn(0.1)  
     synlist.append(syn_)
     syn_.tau = 5
     syn_.e = -80
