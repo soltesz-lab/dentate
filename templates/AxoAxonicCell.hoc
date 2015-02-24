@@ -18,7 +18,8 @@ create soma, bcdend1[ndend1], bcdend2[ndend2], bcdend3[ndend3], bcdend4[ndend4]
 
 proc init() {
     subsets()
-    temp()
+    geom()
+    biophys()
     synapse()
 }
 
