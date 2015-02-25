@@ -11,16 +11,17 @@ public soma, aadend1, aadend2, aadend3, aadend4
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
 
-objref syn, pre_list, templist
+objref synlist
 
 create soma, aadend1[ndend1], aadend2[ndend2], aadend3[ndend3], aadend4[ndend4]
 
 
 proc init() {
+    synlist = new List()
     subsets()
     geom()
     biophys()
-    synapse()
+    synapses()
 }
 
 objref all, adend, bdend, cdend, ddend
@@ -193,9 +194,9 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-  /* E0 */   dend syn_ = new ExpSyn(0.8)  synlist.append(syn_)
+  /* E0 */   aadend1 syn_ = new ExpSyn(0.8)  synlist.append(syn_)
     syn_.tau = 2
-  /* I1 */   dend syn_ = new ExpSyn(0.1)  synlist.append(syn_)
+  /* I1 */   aadend2 syn_ = new ExpSyn(0.1)  synlist.append(syn_)
     syn_.tau = 5
     syn_.e = -80
 }
