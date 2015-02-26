@@ -1,0 +1,8 @@
+,Granule Cells,Mossy Cells,HIPP Cells,PV+ Basket Cells,Axo-Axonic Cells,HICAP Cells,Neurogliaform Cells
+Granule Cells,GCL/IML,Hilus,Hilus,Hilus,Hilus,Hilus,None
+Mossy Cells,IML,Hilus,Hilus,IML,IML,IML,None
+HIPP Cells,MOML,MOML,Hilus,MOML,MOML,None,MOML
+PV+ Basket Cells,GCL,GCL,GCL,GCL,None,GCL,None
+Axo-Axonic Cells,GCL,GCL,None,None,None,None,None
+HICAP Cells,IML,IML,None,IML,None,IML,None
+Neurogliaform Cells,MOML,None,None,MOML,MOML,MOML,MOML
