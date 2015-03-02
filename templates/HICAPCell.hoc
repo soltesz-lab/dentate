@@ -2,7 +2,7 @@
 begintemplate HICAPCell
 
 public connect2target, subsets, is_art, is_connected
-public soma, bcdend1, bcdend2, bcdend3, bcdend4
+public soma, dend
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
 
@@ -297,9 +297,9 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-  /* E0 */   bcdend1 syn_ = new ExpSyn(0.8)  synlist.append(syn_)
+  /* E0 */   dend syn_ = new ExpSyn(0.8)  synlist.append(syn_)
     syn_.tau = 2
-  /* I1 */   bcdend1 syn_ = new ExpSyn(0.1)  synlist.append(syn_)
+  /* I1 */   dend syn_ = new ExpSyn(0.1)  synlist.append(syn_)
     syn_.tau = 5
     syn_.e = -80
 }
