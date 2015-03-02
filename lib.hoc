@@ -124,7 +124,7 @@ proc loadConnectivityInfo() { local i, order, synIndex, wdType, standardWeight, 
 	f.scanstr(preSynapticPopulation)
         // Read in the name of the postsynaptic population
 	f.scanstr(postSynapticPopulation)
-        // Read in the post-synaptic index (-1 for artificial cells)
+        // Read in the post-synaptic index (-1 for artificial cells, -2 random selection)
 	synIndex = f.scanvar()
         // Read in the type of weight+delay specification
 	wdType = f.scanvar()
