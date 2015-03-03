@@ -12,6 +12,34 @@ proc assert() { local test strdef errmsg
     }
 }
 
+// Finds and loads a template located either in ./template or in externalPaths
+proc find_template() { local status localobj externalPaths strdef cmd, path, templatePath
+
+  externalPaths = $o1
+  templateName = $s2
+
+  path = "./templates"
+  sprint(templatePath, "%s/%s.hoc", path, templateName)
+  sprint(cmd, "test -e %s", templatePath) // check if the path exist
+  status = system(cmd)
+  if (status == 0) {
+    sprint(cmd, "xopen(\"%s\")", templatePath)
+    execute(cmd)
+  } else {
+    for i =0,exernalPaths.count()-1 {
+      path = externalPaths.o(i).s
+      sprint(templatePath, "%s/%s.hoc", path, templateName)
+      sprint(cmd, "test -e %s", templatePath) // check if the path exist
+      status = system(cmd)
+      if (status == 0) {
+        sprint(cmd, "xopen(\"%s\")", templatePath)
+        execute(cmd)
+        break
+      }
+    }
+  }
+}
+
 // Writes out connectivity graph
 proc graphout() { local i,j,node localobj f, v, conlist
     f = new File($s1)

@@ -26,4 +26,4 @@ use_cache_efficient=1
 use_local_dt=1
 
 externalPaths = new List()
-externalPaths.append ("../DGC/Mateos-Aparicio2014")
+externalPaths.append ("../dgc/Mateos-Aparicio2014")

@@ -6,7 +6,13 @@
 
 nrn_load_dll("mechanisms/x86_64/.libs/libnrnmech.so")
 
-use_cache_efficient=1
+strdef path, mechanismsPath
+// Load mechanisms from external location
+for i =0,exernalPaths.count()-1 {
+    path = externalPaths.o(i).s
+    sprint(mechanismsPath, "%s/x86_64/.libs/libnrnmech.so", path)
+    nrn_load_dll(path)
+}
 
 // used to calculate model construction times and run time
 mkcellstime = 0
@@ -100,8 +106,7 @@ proc mkcells() { local nCellTypes, numCells, i, k  localobj cellTypes, cellType 
         numCells = cellType.getPropertyScalar("numCells")
         offset = cellType.getPropertyScalar("offset")
         if (strcmp(templateName, "NetStim") != 0) {
-            sprint(cmd, "xopen(\"./templates/%s.hoc\")", templateName)
-            execute(cmd)
+            find_template(externalPaths, templateName)
             for i=0, numCells-1 { 
                 if (pnm.gid_exists(offset+i)) {
                     sprint(cmd, "cell = new %s()", templateName)
