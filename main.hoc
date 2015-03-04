@@ -95,7 +95,7 @@ objref cell, nc
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, k  localobj cellTypes, cellType strdef templateName, typeName
+proc mkcells() { local nCellTypes, numCells, i, j, k, p, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex strdef templateName, typeName, datadir
     
     cellTypes = $o1
     nCellTypes = cellTypes.count()
@@ -107,12 +107,42 @@ proc mkcells() { local nCellTypes, numCells, i, k  localobj cellTypes, cellType 
         offset = cellType.getPropertyScalar("offset")
         if (strcmp(templateName, "NetStim") != 0) {
             find_template(externalPaths, templateName)
-            for i=0, numCells-1 { 
-                if (pnm.gid_exists(offset+i)) {
-                    sprint(cmd, "cell = new %s(%d, %d, \"./datasets/%s\")", 
-                           offset+i, randomStreamOffset, datasetName, templateName)
-                    execute(cmd)
-	            pnm.register_cell(offset+i, cell)
+            // For cell templates that load their morphologies from
+            // external files, set the maximum number of files per
+            // directory to 5000, and calculate the maximum height (or
+            // depth) of the directory tree necessary to store all
+            // files for that cell type.
+            nodeSize = 5000 
+            if (numCells > nodeSize) {
+                nodeNumber = int(numCells / nodeSize)
+                treeHeight = int((log10(nodeNumber+1) / log10(2))+1)
+                datadir=""
+                for i=0, numCells-1 { 
+                    if (pnm.gid_exists(offset+i)) {
+                        k=int(i/nodeSize)
+                        for j=0, treeHeight-1 {
+                            p = 2^j
+                            if (k >= p) {
+                                k = k-p
+                                sprint(datadir, "1/%s", datadir)
+                            } else {
+                                sprint(datadir, "0/%s", datadir)
+                            }
+                        }
+                        sprint(cmd, "cell = new %s(%d, %d, \"./datasets/%s/%s/%s\", %d, %d)", 
+                               templateName, offset+i, randomStreamOffset, datasetName, cellType, datadir)
+                        execute(cmd)
+	                pnm.register_cell(offset+i, cell)
+                    }
+                }
+            } else {
+                for i=0, numCells-1 { 
+                    if (pnm.gid_exists(offset+i)) {
+                        sprint(cmd, "cell = new %s(%d, %d, \"./datasets/%s/%s/%s\", %d, %d)", 
+                               templateName, offset+i, randomStreamOffset, datasetName, cellType)
+                        execute(cmd)
+	                pnm.register_cell(offset+i, cell)
+                    }
                 }
             }
         } else {
