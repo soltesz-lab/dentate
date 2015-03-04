@@ -109,7 +109,8 @@ proc mkcells() { local nCellTypes, numCells, i, k  localobj cellTypes, cellType 
             find_template(externalPaths, templateName)
             for i=0, numCells-1 { 
                 if (pnm.gid_exists(offset+i)) {
-                    sprint(cmd, "cell = new %s()", templateName)
+                    sprint(cmd, "cell = new %s(%d, %d, \"./datasets/%s\")", 
+                           offset+i, randomStreamOffset, datasetName, templateName)
                     execute(cmd)
 	            pnm.register_cell(offset+i, cell)
                 }
