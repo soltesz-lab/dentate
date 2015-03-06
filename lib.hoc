@@ -13,8 +13,8 @@ proc assert() { local test strdef errmsg
 }
 
 // Finds and loads a template located either in ./template or in externalPaths
-proc find_template() { local status localobj externalPaths strdef cmd, path, templatePath
-
+proc find_template() { local status localobj externalPaths strdef cmd, path, templatePath, templateName
+    
   externalPaths = $o1
   templateName = $s2
 
@@ -26,7 +26,7 @@ proc find_template() { local status localobj externalPaths strdef cmd, path, tem
     sprint(cmd, "xopen(\"%s\")", templatePath)
     execute(cmd)
   } else {
-    for i =0,exernalPaths.count()-1 {
+    for i =0,externalPaths.count()-1 {
       path = externalPaths.o(i).s
       sprint(templatePath, "%s/%s.hoc", path, templateName)
       sprint(cmd, "test -e %s", templatePath) // check if the path exist
@@ -183,6 +183,44 @@ proc loadConnectivityInfo() { local i, order, synIndex, wdType, standardWeight, 
     f.close()
     
 }
+
+
+// Loads gap junction info into a Dict
+proc loadGapJunctionInfo() { local i, order, numGJTypes localobj f, gjTypes, gjType
+    
+    strdef gjName, srcPopulation, destPopulation
+    
+    // The first argument must be a list
+    gjTypes = $o1
+    
+    // The second argument must be the path to the main connection file 
+    f = new File()
+    f.ropen($s2)
+    
+    // Scan the first line, which contains the number of connectivity matrices
+    numGJTypes = f.scanvar()
+    
+    for i=0, numGJTypes-1 {
+        
+        // Read in the cell id numbering (0 - relative, 1 - absolute)
+	order = f.scanvar()
+        // Read in the gap junction connectivity name
+	f.scanstr(gjName)
+        // Read in the name of the source population
+	f.scanstr(srcPopulation)
+        // Read in the name of the destination population
+	f.scanstr(destPopulation)
+        gjType = new Dict(gjName)
+        gjType.addPropertyString("name",gjName)
+        gjType.addPropertyString("srcPopulation",srcPopulation)
+        gjType.addPropertyString("destPopulation",destPopulation)
+        gjType.addPropertyScalar("order",order)
+        gjTypes.append(gjType)
+    }
+    f.close()
+    
+}
+
 
 proc loadStimulationParameters() { localobj f, m strdef stimulationPath
     

@@ -6,7 +6,7 @@ verbose = 1
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "."
+datasetPrefix = "./datasets"
 
 // The dataset to use for constructing the network
 datasetName = "test0000"
@@ -20,9 +20,9 @@ tstop = 1000
 // time step
 dt = 0.025
 
-use_cvode=1
+use_cvode=0
 use_cache_efficient=1
 use_local_dt=1
 
 externalPaths = new List()
-externalPaths.append ("../DGC/Mateos-Aparicio2014")
+//externalPaths.append (new String("../DGC/Mateos-Aparicio2014"))
