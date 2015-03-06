@@ -2,7 +2,7 @@
 : Conductance-based gap junction model
 
 NEURON {
-    POINT_PROCESS Gap
+    POINT_PROCESS gGap
     RANGE g, i, vgap
     ELECTRODE_CURRENT i
 }
