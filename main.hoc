@@ -330,9 +330,11 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     
     cell = pnm.pc.gid2cell(gid)
     
-    cell.soma { gj = new ggap(0.5) }
-    pnm.pc.target_var(gj, &gj.vgap, dgid)
-    pnm.pc.source_var(&cell.soma.v(0.5), sgid)
+    cell.soma { 
+        gj = new ggap(0.5) 
+        pnm.pc.target_var(gj, &gj.vgap, dgid)
+        pnm.pc.source_var(&cell.soma.v(0.5), sgid)
+    }
     
     gjlist.append(gj)
     gj.g = w
