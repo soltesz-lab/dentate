@@ -4,7 +4,7 @@
 NEURON {
     POINT_PROCESS gGap
     RANGE g, i, vgap
-    ELECTRODE_CURRENT i
+    NONSPECIFIC_CURRENT i
 }
 
 PARAMETER { g = 1e-10 (1/megohm) }
