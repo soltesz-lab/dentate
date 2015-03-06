@@ -8,6 +8,8 @@ projections = {'GCtoGC';'MCtoGC';'HCtoGC';'BCtoGC';'AACtoGC';
                'HCCtoBC';'NGFCtoBC';'GCtoAAC';'MCtoAAC';'HCtoAAC';'NGFCtoAAC';
                'GCtoHCC';'MCtoHCC';'HCCtoHCC';'NGFCtoHCC';'HCtoNGFC';'NGFCtoNGFC'}
 
+gjprojections = {'HCtoHC';'BCtoBC';'HCCtoHCC';'NGFCtoNGFC'}
+
 m = load(args{1});
 
 GCtoGC   = m.connection_M{1,1};
@@ -57,9 +59,35 @@ for i = 1:numel(projections)
     filename = sprintf('%s.dat', name);
     fid = fopen (filename,'w+');
     data = eval(name);
-    fprintf(fid, '%d %d\n', size(data)(1), size(data)(2));
+    fprintf(fid, '%d %d\n', size(data,1), size(data,2));
     fclose(fid);
     save('-ascii', '-append', filename, name);
     
 end
+
+
+if (size(args,1) > 1)
+
     
+    gjms = load(args{2});
+    
+    gjHCtoHC     = gjms.gap_junctions{3,3};
+    gjBCtoBC     = gjms.gap_junctions{4,4};
+    gjHCCtoHCC   = gjms.gap_junctions{6,6};
+    gjNGFCtoNGFC = gjms.gap_junctions{7,7};
+
+    for i = 1:numel(gjprojections)
+        
+        name = gjprojections{i}
+        
+        filename = sprintf('gj%s.dat', name);
+        fid  = fopen (filename,'w+');
+        data = eval(name);
+        fprintf(fid, '%d %d\n', size(data,1), size(data,2));
+        fclose(fid);
+        save('-ascii', '-append', filename, name);
+        
+    end
+    
+    
+end
