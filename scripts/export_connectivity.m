@@ -1,6 +1,13 @@
 #! /usr/bin/octave -qf
 args = argv ();
 
+projections = {'GCtoGC';'MCtoGC';'HCtoGC';'BCtoGC';'AACtoGC';
+               'HCCtoGC';'NGFCtoGC';'GCtoMC';'MCtoMC';'HCtoMC';
+               'BCtoMC';'AACtoMC';'HCCtoMC';'GCtoHC';'MCtoHC';
+               'HCtoHC';'BCtoHC';'GCtoBC';'MCtoBC';'HCtoBC';'BCtoBC';
+               'HCCtoBC';'NGFCtoBC';'GCtoAAC';'MCtoAAC';'HCtoAAC';'NGFCtoAAC';
+               'GCtoHCC';'MCtoHCC';'HCCtoHCC';'NGFCtoHCC';'HCtoNGFC';'NGFCtoNGFC'}
+
 m = load(args{1});
 
 GCtoGC   = m.connection_M{1,1};
@@ -43,8 +50,16 @@ NGFCtoHCC = m.connection_M{7,6};
 HCtoNGFC   = m.connection_M{3,7};
 NGFCtoNGFC = m.connection_M{7,7};
 
-fid = fopen ('MCtoGC.dat','w+');
-fprintf(fid, '%d %d\n', size(MCtoGC)(1), size(MCtoGC)(2));
-fclose(fid);
-save('-ascii', '-append', 'MCtoGC.dat', 'MCtoGC');
+for i = 1:numel(projections)
 
+    name = projections{i}
+
+    filename = sprintf('%s.dat', name);
+    fid = fopen (filename,'w+');
+    data = eval(name);
+    fprintf(fid, '%d %d\n', size(data)(1), size(data)(2));
+    fclose(fid);
+    save('-ascii', '-append', filename, name);
+    
+end
+    
