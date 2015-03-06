@@ -1,8 +1,15 @@
 {load_file("nrngui.hoc")}  // loads the gui and standard run libraries
 {load_file("netparmpi.hoc")} // parallelnetmanager definitions
 
+ // directories external to this project that contain additional templates and mechanisms
+objref externalPaths
+strdef modelName, datasetPrefix, datasetName, datasetPath
+
 {xopen("lib.hoc")}
 {load_file("parameters.hoc")}
+
+// path to the dataset directory
+sprint(datasetPath, "%s/%s", datasetPrefix, datasetName)
 
 nrn_load_dll("mechanisms/x86_64/.libs/libnrnmech.so")
 
@@ -17,21 +24,21 @@ for i =0,exernalPaths.count()-1 {
 // used to calculate model construction times and run time
 mkcellstime = 0
 connectcellstime = 0
+connectgjstime = 0
 runtime = 0
 
 
 // used for executing command strings
 strdef cmd
 
-// path to the dataset directory
-strdef datasetPath
-sprint(datasetPath, "./datasets/%s", datasetName)
-
 // path for various datafiles (used for multiple files)
 strdef datafilePath
 
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
+
+// gap junction template
+{load_file("./templates/gap.hoc")}
 
 // list with cell type information
 objref cellTypes
@@ -88,6 +95,16 @@ if (makegraph > 0) {
     conlist = new List()
 }
 
+// gap junction connectivity list local to the current mpi process
+objref gjconlist
+if (makegraph > 0) {
+    gjconlist = new List()
+}
+
+// gap junction list local to the current mpi process
+objref gjlist
+gjlist = new List()
+
 /* mkcells and connectcells create the cells and connect the cells */
 
 // used for the creation of cells
@@ -95,7 +112,7 @@ objref cell, nc
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, k, p, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex strdef templateName, typeName, datadir
+proc mkcells() { local nCellTypes, numCells, i, j, p, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex strdef templateName, typeName, datadir
     
     cellTypes = $o1
     nCellTypes = cellTypes.count()
@@ -119,18 +136,18 @@ proc mkcells() { local nCellTypes, numCells, i, j, k, p, nodeSize, nodeNumber, t
                 datadir=""
                 for i=0, numCells-1 { 
                     if (pnm.gid_exists(offset+i)) {
-                        k=int(i/nodeSize)
+                        node=int(i/nodeSize)
                         for (j=treeHeight-1; j >= 0; j = j-1) {
                             p = 2^j
-                            if (k >= p) {
-                                k = k-p
+                            if (node >= p) {
+                                node = node-p
                                 sprint(datadir, "%s/1", datadir)
                             } else {
                                 sprint(datadir, "%s/0", datadir)
                             }
                         }
-                        sprint(cmd, "cell = new %s(%d, %d, \"./datasets/%s/%s/%s\", %d, %d)", 
-                               templateName, offset+i, randomStreamOffset, datasetName, cellType, datadir)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", 
+                               templateName, offset+i, randomStreamOffset, datasetPath, cellType, datadir)
                         execute(cmd)
 	                pnm.register_cell(offset+i, cell)
                     }
@@ -138,8 +155,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, k, p, nodeSize, nodeNumber, t
             } else {
                 for i=0, numCells-1 { 
                     if (pnm.gid_exists(offset+i)) {
-                        sprint(cmd, "cell = new %s(%d, %d, \"./datasets/%s/%s/%s\", %d, %d)", 
-                               templateName, offset+i, randomStreamOffset, datasetName, cellType)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", 
+                               templateName, offset+i, randomStreamOffset, datasetPath, cellType)
                         execute(cmd)
 	                pnm.register_cell(offset+i, cell)
                     }
@@ -300,13 +317,93 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
     }
 }
 
+
+// creates the gap junctions between cells
+proc connectgjs() {local i, k, sgid, dgid, srcid, destid, srcid1, destid1, g, order, srcSize, destSize localobj gj, cell, srcType, destType, cellTypes, gjType, gjTypes, edges, m, f
+    
+    strdef gjPath, gjName, srcPopulation, destPopulation
+    gjTypes = $o1
+    cellTypes = $o2
+    nGJTypes = gjTypes.count()
+    
+    for k=0, nGJTypes-1 { 
+        gjType = gjTypes.o(k)
+        order  = gjType.getPropertyScalar("order")
+        gjName = gjType.getPropertyString("name").s
+        if (verbose > 0) {
+            printf ("gjName = %s\n", gjName)
+        }
+        srcPopulation  = connectivityType.getPropertyString("srcPopulation").s
+        destPopulation = connectivityType.getPropertyString("destPopulation").s
+        srcType    = cellTypes.o(findCellType(cellTypes,srcPopulation))
+        destType   = cellTypes.o(findCellType(cellTypes,destPopulation))
+        srcSize    = srcType.getPropertyScalar("numCells")
+        destSize   = destType.getPropertyScalar("numCells")
+        srcOffset  = srcType.getPropertyScalar("offset")
+        destOffset = destType.getPropertyScalar("offset")
+        if (verbose > 0) {
+            printf ("src population = %s\n", srcPopulation)
+            printf ("src size = %d\n", srcSize)
+            printf ("dest population = %s\n", destPopulation)
+            printf ("dest size = %d\n", destSize)
+        }
+        sprint(gjPath, "%s/gj%s.dat", datasetPath, connectivityName)
+        m = new Matrix()
+        f = new File(gjPath)
+        f.ropen()
+        m.scanf(f)
+        f.close()
+        for i=0, m.nrow-1 {
+            srcid = m.x[i][0]
+            destid = m.x[i][1]
+            w = m.x[i][2]
+            if (order == 0) {
+                // relative numbering of pre/post synaptic cells -- add the respective offsets
+                assert (srcid < srcSize, "source cell id is greater than the size of the src population")
+                assert (destid < destSize, "destination cell id is greater than the size of the dest population")
+                srcid1 = srcid + srcOffset
+                destid1 = destid + destOffset
+            } else {
+                // absolute numbering of pre/post synaptic cells
+                srcid1 = srcid
+                destid1 = destid
+            }
+            
+            if (!(pnm.gid_exists(srcid1))) { continue }
+            
+            gj = new ggap(0.5)
+            gjlist.prepend(gj)
+            gj.g = w
+            
+            sgid = 2*((srcid1 + 2*(i - .5)) % ncells) + (1 - i)
+            dgid = 2*srcid1 + i
+            
+            cell = pnm.pc.gid2cell(srcid1)
+            pnm.pc.target_var(&gj.vgap, sgid)
+            pnm.pc.source_var(&cell.soma.v(.5), dgid)
+                        
+            if (verbose > 0) {
+                printf ("gap junction: srcid = %d destid = %d coupling = %g sgid = %d dgid = %d\n", srcid1, destid1, w, sgid, dgid)
+            }
+            edges = new Vector(2)
+            edges.x[0] = srcid1
+            edges.x[1] = destid1
+            gjconlist.prepend(edges)
+        }
+    }
+}
+
+
 proc mknet() { strdef fname
     startsw()
     mkcells(cellTypes)  // create the cells
     mkcellstime = stopsw()
     startsw()
     connectcells(connectivityTypes,cellTypes)  // connect them together
-    connectcellstime = stopsw()
+    connectgjstime = stopsw()
+    startsw()
+    connectgjs(connectivityTypes,cellTypes)  // creates the gap junctions
+    connectgjstime = stopsw()
     sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
     if (makegraph > 0) {
         graphout(fname,conlist)
@@ -363,6 +460,7 @@ mkstim(datasetPath, cellTypes, ncells)
 
 pnm.set_maxstep(10)
 pnm.want_all_spikes()
+pnm.pc.setup_transfer()
 
 stdinit()
 startsw()

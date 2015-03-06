@@ -71,10 +71,10 @@ if (size(args,1) > 1)
     
     gjms = load(args{2});
     
-    gjHCtoHC     = gjms.gap_junctions{3,3};
-    gjBCtoBC     = gjms.gap_junctions{4,4};
-    gjHCCtoHCC   = gjms.gap_junctions{6,6};
-    gjNGFCtoNGFC = gjms.gap_junctions{7,7};
+    HCtoHC     = gjms.gap_junctions{3,3};
+    BCtoBC     = gjms.gap_junctions{4,4};
+    HCCtoHCC   = gjms.gap_junctions{6,6};
+    NGFCtoNGFC = gjms.gap_junctions{7,7};
 
     for i = 1:numel(gjprojections)
         

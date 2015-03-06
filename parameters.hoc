@@ -1,13 +1,12 @@
 
- // directories external to this project that contain additional templates and mechanisms
-objref externalPaths
-strdef modelName, datasetName
-
 // print verbose diagnostic messages while constructing the network
 verbose = 1
 
 // The name of this model
 modelName = "dentatenet"
+
+// The location of all datasets
+datasetPrefix = "."
 
 // The dataset to use for constructing the network
 datasetName = "test0000"
