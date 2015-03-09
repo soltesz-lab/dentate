@@ -32,7 +32,7 @@ proc find_template() { local status localobj externalPaths strdef cmd, path, tem
       sprint(cmd, "test -e %s", templatePath) // check if the path exist
       status = system(cmd)
       if (status == 0) {
-        sprint(cmd, "xopen(\"%s\")", templatePath)
+        sprint(cmd, "load_file(\"%s\")", templatePath)
         execute(cmd)
         break
       }

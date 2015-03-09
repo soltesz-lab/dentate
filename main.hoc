@@ -128,6 +128,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, node, nodeSize, nodeNumber
     
     for k=0, nCellTypes-1 { 
         cellType = cellTypes.o(k)
+        typeName = cellType.getPropertyString("typeName").s
         templateName = cellType.getPropertyString("templateName").s
         numCells = cellType.getPropertyScalar("numCells")
         offset = cellType.getPropertyScalar("offset")
@@ -142,8 +143,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, node, nodeSize, nodeNumber
             if (numCells > nodeSize) {
                 nodeNumber = int(numCells / nodeSize)
                 treeHeight = int((log10(nodeNumber+1) / log10(2))+1)
-                datadir=""
                 for i=0, numCells-1 { 
+                    datadir=""
                     if (pnm.gid_exists(offset+i)) {
                         node=int(i/nodeSize)
                         for (j=treeHeight-1; j >= 0; j = j-1) {
@@ -155,7 +156,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, node, nodeSize, nodeNumber
                                 sprint(datadir, "%s/0", datadir)
                             }
                         }
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, offset+i, noise_random_stream_offset_, datasetPath, cellType, datadir)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s%s\")", templateName, offset+i, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
 	                pnm.register_cell(offset+i, cell)
                     }
@@ -163,7 +164,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, node, nodeSize, nodeNumber
             } else {
                 for i=0, numCells-1 { 
                     if (pnm.gid_exists(offset+i)) {
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, offset+i, noise_random_stream_offset_, datasetPath, cellType)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, offset+i, noise_random_stream_offset_, datasetPath, typeName)
                         execute(cmd)
 	                pnm.register_cell(offset+i, cell)
                     }
