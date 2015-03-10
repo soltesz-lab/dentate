@@ -13,7 +13,8 @@
 #PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 #export PATH
 
-module load neuron/7.3
+module load neuron/7.4alpha
+
 mpirun -np $CORES nrniv -mpi -nobanner -nogui \
 -c "strdef parameters" -c "parameters=\"./parameters/slice0000.hoc\"" \
 main.hoc
