@@ -88,7 +88,7 @@ objectvar stim1
 hcc.soma stim1 = new IClamp(0.5)
 stim1.del = prelength
 stim1.dur = stimdur
-stim1.amp = 0.5
+stim1.amp = 0.2
 
 /*
 objref  iklog
