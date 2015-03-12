@@ -77,7 +77,6 @@ func findCellType() { local i, result localobj cellTypes, cellType
     cellTypes = $o1
     typeName = $s2
     
-    
     result = -1
     
     for i=0, cellTypes.count()-1 {
@@ -141,7 +140,10 @@ proc loadConnectivityInfo() { local i, order, synIndex, wdType, standardWeight, 
     
     // Scan the first line, which contains the number of connectivity matrices
     numConnectivityTypes = f.scanvar()
-    
+    if (verbose > 0) {
+       printf ("numConnectivityTypes = %d\n", numConnectivityTypes)
+    }
+
     for i=0, numConnectivityTypes-1 {
         
         // Read in the connectivity cell id numbering (0 - relative, 1 - absolute)

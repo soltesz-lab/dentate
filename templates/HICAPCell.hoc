@@ -68,7 +68,7 @@ proc subsets() { local i
 
 proc geom() {
     
-    soma {nseg=1 L=20 diam=20} // changed L & diam
+    soma {nseg=1 L=20 diam=15} // changed L & diam
     
     hcdend1 [0] {nseg=1 L=75 diam=4}	// hcdend 1 and 2 are apical
     hcdend1 [1] {nseg=1 L=75 diam=3}
@@ -114,28 +114,29 @@ proc topol() {
 
 
 proc biophys() {
-	g_k = 0.00182
-	g_na = 0.0689
-	g_leak = 0.0000296
+    g_na = 0.079
+	g_k = 0.0035
+	g_leak  = 0.0000318
 	forsec all {
 		insert ccanl
 	catau_ccanl = 10
 	caiinf_ccanl = 5.e-6
 		insert borgka
-	gkabar_borgka=0.0008
+	gkabar_borgka=0.0004
 		insert nca  // HAV-N- Ca channel
 	gncabar_nca=0.0  
 		insert lca
 	glcabar_lca=0.0015
 		insert gskch
-	gskbar_gskch=0.00069
+	gskbar_gskch=0.001
 		insert cagk
-	gkbar_cagk=0.003
+	gkbar_cagk=0.0002
 		insert hyperde3
 	ghyfbar_hyperde3=0.000035
 	ghysbar_hyperde3=0.000035
-	cm=0.91
+	cm = 0.95
 	}
+	
 	soma {insert ichan2  //ildikos ichan
 	gnatbar_ichan2=g_na
 	gkfbar_ichan2=g_k
@@ -168,7 +169,7 @@ proc biophys() {
 	
 	forsec all {Ra=100}
 	forsec all {enat = 55 ekf = -90  ek=-90  esk=-90 elca=130
-		 el_ichan2 =-63.6	ehyf=-40 ehys=-40
+		 el_ichan2 =-64	ehyf=-40 ehys=-40
 		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
 }
 
