@@ -72,6 +72,9 @@ connectivityTypes = new List()
 // reads the connectivity types file and populates connectivitytypes with the information
 sprint (datafilePath, "%s/connectivity.dat", datasetPath)
 loadConnectivityInfo (connectivityTypes, datafilePath)
+if (verbose > 0) {
+    printf ("connectivityTypes.count = %d\n", connectivityTypes.count())
+}
 
 // list with gap junction information
 objref gjTypes
@@ -209,6 +212,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
         connectivityName = connectivityType.getPropertyString("name").s
         if (verbose > 0) {
             printf ("connectivityName = %s\n", connectivityName)
+            printf ("wdType = %d\n", wdType)
         }
         presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
         postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
@@ -272,6 +276,9 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
+                if (verbose > 0) {
+                    printf ("connection: srcid = %d destid = %d\n", srcid, destid)
+                }
                 if (order == 0) {
                     // relative numbering of pre/post synaptic cells -- add the respective offsets
                     assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
