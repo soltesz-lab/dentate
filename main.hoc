@@ -427,7 +427,7 @@ proc mknet() { strdef fname
     connectcells(connectivityTypes,cellTypes)  // connect them together
     connectgjstime = stopsw()
     startsw()
-    connectgjs(gjTypes,cellTypes)  // creates the gap junctions
+    //connectgjs(gjTypes,cellTypes)  // creates the gap junctions
     connectgjstime = stopsw()
     sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
     if (makegraph > 0) {
