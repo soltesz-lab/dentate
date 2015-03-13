@@ -3,7 +3,7 @@
 
 begintemplate Dict
 
-public dictName, addPropertyScalar, addPropertyString, addPropertyObject, getPropertyScalar, getPropertyString, getPropertyObject
+public dictName, addPropertyScalar, addPropertyString, addPropertyObject, getPropertyScalar, getPropertyString, getPropertyObject, hasProperty
 strdef dictName
 objref dictList, returnVal
 
@@ -72,6 +72,18 @@ obfunc getPropertyObject () { local i localobj value strdef name
         }
     }
     return value
+}
+
+func hasProperty () { local i, result strdef name
+    name = $s1
+    result = 0
+    for i=0, dictList.count()-1 {
+        if (strcmp(name,dictList.o(i).o(0).s) == 0) {
+            result = 1
+            break
+        }
+    }
+    return result
 }
 
 endtemplate Dict

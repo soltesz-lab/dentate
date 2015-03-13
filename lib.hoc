@@ -93,9 +93,9 @@ func findCellType() { local i, result localobj cellTypes, cellType
 }
 
 // Loads cell type info into a Dict
-proc loadCellCategoryInfo() { local i, numCells, offset localobj f, cellTypes, cellType
+proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex localobj f, ff, cellTypes, cellType, indices
     
-    strdef cellTypeName, cellTypeTemplateName
+    strdef cellTypeName, cellTypeTemplateName, indexType, indexFileName, datasetPath, indexPath, errmsg
     
     // The first argument must be a list
     cellTypes = $o1
@@ -104,23 +104,57 @@ proc loadCellCategoryInfo() { local i, numCells, offset localobj f, cellTypes, c
     f = new File()
     f.ropen($s2)
     
+    // The third argument must be the path to the directory containing all datasets
+    datasetPath = $s3
+    
     // Scan the first line, which contains the number of cell types
     numCellTypes = f.scanvar()
     
     offset = 0
     for i=0, numCellTypes-1 {
         
+        cellType = new Dict(cellTypeName)
+
         // Scan in the cell name, template name, number of cells
+	f.scanstr(indexType)
+        
+        // population size is specified as cardinality (= set size)
+        if (strcmp(indexType,"cardinality:") == 0) {
+	    numCells = f.scanvar()
+            
+            cellType.addPropertyScalar("offset",offset)
+            offset = offset + numCells
+        } else if (strcmp(indexType,"indexfile:") == 0) {
+	    f.scanstr(indexFileName)
+            cellType.addPropertyString("indexFileName",indexFileName)
+            sprint(indexPath,"%s/%s",datasetPath,indexFileName)
+            indices = new Vector()
+            ff = new File()
+            ff.ropen(indexPath)
+	    numCells = f.scanvar()
+            indices.buffer_size(numCells)
+            indices.scanf(ff,numCells)
+            ff.close(indexPath)
+            minIndex = indices.min()
+            maxIndex = indices.max()
+            if (offset > minIndex) {
+                sprint(errmsg,"loadCellCategoryInfo: current offset %d overlaps with minimum index (%d) in file %s",offset,minIndex,indexPath)
+                execerror(errmsg)
+            } 
+            cellType.addPropertyScalar("offset",minIndex)
+            cellType.addPropertyObject("indices",indices)
+            offset = maxIndex+1
+        } else {
+            sprint(errmsg, "loadCellCategoryInfo: unknown index type %s", indexType)
+            execerror(errmsg)
+        }
 	f.scanstr(cellTypeName)
 	f.scanstr(cellTypeTemplateName)
-	numCells = f.scanvar()
-        cellType = new Dict(cellTypeName)
+        cellType.addPropertyScalar("numCells",numCells) 
         cellType.addPropertyString("typeName",cellTypeName)
         cellType.addPropertyString("templateName",cellTypeTemplateName)
-        cellType.addPropertyScalar("numCells",numCells)
-        cellType.addPropertyScalar("offset",offset)
+        
         cellTypes.append(cellType)
-        offset = offset + numCells
     }
     f.close()
     

@@ -1,0 +1,25 @@
+
+// print verbose diagnostic messages while constructing the network
+verbose = 1
+
+// The name of this model
+modelName = "test"
+
+// The location of all datasets
+datasetPrefix = "/home/igr/src/model/dentate/datasets"
+
+// The dataset to use for constructing the network
+datasetName = "test0000"
+
+// whether to create per-node connectivity graphs
+makegraph = 1
+
+// simulation time
+tstop = 1
+
+// time step
+dt = 0.025
+
+use_cvode=1
+use_cache_efficient=1
+use_local_dt=1

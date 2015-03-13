@@ -1,3 +1,4 @@
 2
-ballstick B_BallStick 128
-stim NetStim 1
+cardinality: 128 ballstick B_BallStick
+cardinality: 1 stim NetStim
+
