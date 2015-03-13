@@ -131,7 +131,7 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
             indices = new Vector()
             ff = new File()
             ff.ropen(indexPath)
-	    numCells = f.scanvar()
+	    numCells = ff.scanvar()
             indices.buffer_size(numCells)
             indices.scanf(ff,numCells)
             ff.close(indexPath)
