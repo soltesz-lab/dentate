@@ -77,7 +77,6 @@ func findCellType() { local i, result localobj cellTypes, cellType
     cellTypes = $o1
     typeName = $s2
     
-    
     result = -1
     
     for i=0, cellTypes.count()-1 {
@@ -141,9 +140,12 @@ proc loadConnectivityInfo() { local i, order, synIndex, wdType, standardWeight, 
     
     // Scan the first line, which contains the number of connectivity matrices
     numConnectivityTypes = f.scanvar()
-    
+    if (verbose > 0) {
+       printf ("numConnectivityTypes = %d\n", numConnectivityTypes)
+    }
+
     for i=0, numConnectivityTypes-1 {
-        
+
         // Read in the connectivity cell id numbering (0 - relative, 1 - absolute)
 	order = f.scanvar()
         // Read in the connectivity name
@@ -156,6 +158,14 @@ proc loadConnectivityInfo() { local i, order, synIndex, wdType, standardWeight, 
 	synIndex = f.scanvar()
         // Read in the type of weight+delay specification
 	wdType = f.scanvar()
+        if (verbose > 0) {
+          printf ("ConnectivityType: i = %d\n", i)
+          printf ("ConnectivityType: name = %s\n", connectivityName)
+          printf ("ConnectivityType: pre = %s\n", preSynapticPopulation)
+          printf ("ConnectivityType: post = %s\n", postSynapticPopulation)
+          printf ("ConnectivityType: synIndex = %d\n", synIndex)
+          printf ("ConnectivityType: wdType = %d\n", wdType)
+        }
         if (wdType == 1) {
             connectivityType = new Dict(connectivityName)
             connectivityType.addPropertyString("name",connectivityName)

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#$ -q som,asom,pub64,free64
-#$ -pe openmp 64
+#$ -q som,asom,pub64
+#$ -pe mpi 64
 #$ -cwd
 #$ -j y
 #$ -S /bin/bash
