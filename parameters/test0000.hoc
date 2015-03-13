@@ -3,7 +3,7 @@
 verbose = 1
 
 // The name of this model
-modelName = "test"
+modelName = "testnet"
 
 // The location of all datasets
 datasetPrefix = "/home/igr/src/model/dentate/datasets"
@@ -15,11 +15,11 @@ datasetName = "test0000"
 makegraph = 1
 
 // simulation time
-tstop = 1
+tstop = 500
 
 // time step
 dt = 0.025
 
 use_cvode=1
 use_cache_efficient=1
-use_local_dt=1
+use_local_dt=0

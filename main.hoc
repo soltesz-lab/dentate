@@ -526,6 +526,16 @@ mkstim(datasetPath, cellTypes, ncells)
 {pnm.want_all_spikes()}
 {pnm.pc.setup_transfer()}
 
+for i=0,pnm.nclist.count()-1 {
+    nc = pnm.nclist.o(i)
+    printf ("host %d: connection: srcid = %d weight = %g delay = %g\n", pnm.myid, nc.srcgid, nc.weight, nc.delay)
+}
+
+for i=0,ncstimlist.count()-1 {
+    nc = ncstimlist.o(i)
+    printf ("host %d: stim connection: srcid = %d weight = %g delay = %g\n", pnm.myid, nc.srcgid, nc.weight, nc.delay)
+}
+
 
 stdinit()
 startsw()
