@@ -62,14 +62,17 @@ obfunc getPropertyString () { local i localobj value strdef name
     return value
 }
 
-obfunc getPropertyObject () { local i localobj value strdef name
+obfunc getPropertyObject () { local i localobj value, nil strdef name
     name = $s1
-    value = 0
     for i=0, dictList.count()-1 {
         if (strcmp(name,dictList.o(i).o(0).s) == 0) {
             value = dictList.o(i).o(1)
             break
         }
+    }
+    if (value == nil) {
+        sprint(errmsg,"getPropertyObject: %s not found",name)
+        execerror(errmsg)
     }
     return value
 }
