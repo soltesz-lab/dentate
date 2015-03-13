@@ -22,7 +22,7 @@ for i = 1:numel(populations)
     data = eval(sprintf('%sinds', name));
     fprintf(fid, '%d %d\n', size(data,1), size(data,2));
     fclose(fid);
-    save('-ascii', '-append', filename, name);
+    save('-ascii', '-append', filename, sprintf('%sinds', name));
     
 end
 
