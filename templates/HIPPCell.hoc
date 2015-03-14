@@ -10,6 +10,7 @@ public connect2target, subsets, is_art, is_connected
 public soma, hcdend1, hcdend2, hcdend3, hcdend4
 public all, pdend, ddend
 public xx, yy, zz, position
+public synlist
 
 create soma, hcdend1[ndend1], hcdend2[ndend2], hcdend3[ndend3], hcdend4[ndend4]
 objref synlist

@@ -4,6 +4,7 @@ public connect2target, subsets, is_art, is_connected
 public soma, bcdend1, bcdend2, bcdend3, bcdend4
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
+public synlist
 
 objref syn, pre_list, synlist
 

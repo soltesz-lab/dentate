@@ -3,6 +3,7 @@ begintemplate MossyCell
 public connect2target, subsets, is_art, is_connected
 public soma, mcdend1, mcdend2, mcdend3, mcdend4
 public all, adend, bdend, cdend, ddend
+public synlist
 public stim
 public xx, yy, zz, position
 
