@@ -18,7 +18,7 @@ makegraph = 1
 tstop = 1
 
 // time step
-dt = 0.025
+dt = 0.0005
 
 use_cvode=0
 use_cache_efficient=1

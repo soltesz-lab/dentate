@@ -277,3 +277,18 @@ proc loadStimulationParameters() { localobj f, m strdef stimulationPath
     f.close()
     
 }
+
+mindelay_ = 1e9
+func mindelay() { local i, md localobj pnm
+  pnm = $o1
+  if (pnm.pc.nhost > 1) {   
+     pnm.pc.context("{pnm.pc.post(\"mindelay\", mindelay_)}")
+     for i=1, pnm.pc.nhost-1 {
+        pnm.pc.take("mindelay", &md)
+        if (md < mindelay_) {
+          mindelay_ = md
+     }
+  }
+ }
+ return mindelay_ 
+} 
