@@ -79,7 +79,7 @@ ASSIGNED {
 ? currents
 BREAKPOINT {
 
-	SOLVE states
+	SOLVE states METHOD cnexp
 
 	ghyf = ghyfbar * hyf*hyf
 	ihyf = ghyf * (v-ehyf)
@@ -90,8 +90,8 @@ BREAKPOINT {
 	ihyhtf = ghyhtf * (v-ehyhtf)
 	ghyhts = ghyhtsbar * hyhts* hyhts
 	ihyhts = ghyhts * (v-ehyhts)
-		
-		}
+	
+    }
  
 UNITSOFF
  
@@ -99,26 +99,20 @@ INITIAL {
 	trates(v)
 	
 	hyf = hyfinf
-      hys = hysinf
+        hys = hysinf
 	hyhtf = hyhtfinf
 	hyhts = hyhtsinf
-	VERBATIM
-	return 0;
-	ENDVERBATIM
 }
 
 ? states
-PROCEDURE states() {	:Computes state variables m, h, and n 
+DERIVATIVE states {	:Computes state variables m, h, and n 
         trates(v)	:      at the current v and dt.
         
-        hyf = hyf + hyfexp*(hyfinf-hyf)
-        hys = hys + hysexp*(hysinf-hys)
-	  hyhtf = hyhtf + hyhtfexp*(hyhtfinf-hyhtf)
-	  hyhts = hyhts + hyhtsexp*(hyhtsinf-hyhts)
+        hyf' = (hyfinf-hyf) / hyftau
+        hys' = (hysinf-hys) / hystau
+        hyhtf' = (hyhtfinf-hyhtf) / hyhtftau
+	hyhts' = (hyhtsinf-hyhts) / hyhtstau
 
-        VERBATIM
-        return 0;
-        ENDVERBATIM
 }
  
 LOCAL q10
@@ -148,21 +142,11 @@ PROCEDURE rates(v) {  :Computes rate and other constants at current v.
  
 PROCEDURE trates(v) {  :Computes rate and other constants at current v.
                       :Call once from HOC to initialize inf at resting v.
-	LOCAL tinc
-      TABLE hyfinf, hyhtfinf, hyfexp, hyhtfexp, hyftau, hyhtftau, 
-		hysinf, hyhtsinf, hysexp, hyhtsexp, hystau, hyhtstau	
-	DEPEND dt, celsius FROM -120 TO 100 WITH 220
                            
 	rates(v)	: not consistently executed from here if usetable_hh == 1
 		: so don't expect the tau values to be tracking along with
 		: the inf values in hoc
 
-	       tinc = -dt * q10
-        
-        hyfexp = 1 - exp(tinc/hyftau)
-	  hysexp = 1 - exp(tinc/hystau)
-	  hyhtfexp = 1 - exp(tinc/hyhtftau)
-	  hyhtsexp = 1 - exp(tinc/hyhtstau)
 }
  
 FUNCTION vtrap(x,y) {  :Traps for 0 in denominator of rate eqns.
