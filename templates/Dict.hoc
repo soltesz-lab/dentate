@@ -63,6 +63,7 @@ obfunc getPropertyString () { local i localobj value strdef name
 }
 
 obfunc getPropertyObject () { local i localobj value, nil strdef name
+    strdef errmsg
     name = $s1
     for i=0, dictList.count()-1 {
         if (strcmp(name,dictList.o(i).o(0).s) == 0) {

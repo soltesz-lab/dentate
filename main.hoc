@@ -65,10 +65,10 @@ for i=0, cellTypes.count()-1 {
        indices = celltype.getPropertyObject("indices")
        maxindex = indices.max()
        if (ncells < maxindex) {
-          ncells = maxindex
+          ncells = maxindex+1
        }
     } else {
-       ncells = ncells + celltype.getPropertyScalar("numCells")
+       ncells = ncells + celltype.getPropertyScalar("numCells") + 1
     }
 }
 if (verbose > 0) {
@@ -114,13 +114,13 @@ for i=0, cellTypes.count()-1 {
        }
        maxindex = indices.max()
        if (ncells < maxindex) {
-          ncells = maxindex
+          ncells = maxindex+1
        }
     } else {
        for j = ncells, ncells+celltype.getPropertyScalar("numCells")-1 {
           pnm.set_gid2node(j, j % pnm.pc.nhost)
        }
-       ncells = ncells + celltype.getPropertyScalar("numCells")
+       ncells = ncells + celltype.getPropertyScalar("numCells") + 1
     }
 }
 
@@ -179,9 +179,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
             }
         }
 
-       printf ("host %d: cell type %s: indices.size = %d\n", pnm.myid, typeName, indices.size())
-        
-        
         if (strcmp(templateName, "NetStim") != 0) {
             find_template(externalPaths, templateName)
             // For cell templates that load their morphologies from
@@ -211,7 +208,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         execute(cmd)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
-                        printf ("host %d: register_cell(%d)\n", pnm.myid, gid)
                     }
                 }
             } else {
@@ -222,7 +218,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         execute(cmd)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
-                        printf ("host %d: register_cell(%d)\n", pnm.myid, gid)
                     }
                 }
             }
@@ -340,7 +335,6 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                     destid1 = destid
                 }
                 if (!pnm.gid_exists(destid1)) { continue }
-                printf("host %d: connection type 1 (%d,%d)\n", pnm.myid, srcid1, destid1)
                 w = m.x[i][2]
                 del = m.x[i][3]
                 // The third argument is synapse index or -1 for point processes
@@ -377,7 +371,6 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                 // The third argument is synapse index or -1 for point processes
 	        ncid = pnm.nc_append(srcid1, destid1, synIndex, w, del)
                 nc = pnm.nclist.o(ncid)
-                printf("host %d: connection type 2 (%d,%d) w = %g del = %g\n", pnm.myid, srcid1, destid1, nc.weight, nc.delay)
 		if (makegraph > 0) {
                   edges = new Vector(2)
                   edges.x[0] = srcid1
@@ -410,7 +403,7 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     gj.g = w
     
     if (verbose > 0) {
-        printf ("gap junction: gid = %d coupling = %g sgid = %d dgid = %d\n", gid, w, sgid, dgid)
+        printf ("host %d: gap junction: gid = %d coupling = %g sgid = %d dgid = %d\n", pnm.myid, gid, w, sgid, dgid)
     }
     
 }
@@ -470,6 +463,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, s
                 srcid1 = srcid
                 destid1 = destid
             }
+
             
 	    if (pnm.gid_exists(srcid1)) { 
 		mkgap(gjlist, srcid1, ggid+1, ggid, w)

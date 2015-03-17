@@ -15,10 +15,10 @@ datasetName = "slice0000"
 makegraph = 1
 
 // simulation time
-tstop = 1
+tstop = 100
 
 // time step
-dt = 0.0005
+dt = 0.001
 
 use_cvode=0
 use_cache_efficient=1
