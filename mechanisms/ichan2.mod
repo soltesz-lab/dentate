@@ -69,7 +69,7 @@ ASSIGNED {
 
 ? currents
 BREAKPOINT {
-	SOLVE states
+	SOLVE states METHOD cnexp
         gnat = gnatbar*m*m*m*h  
         inat = gnat*(v - enat)
         gkf = gkfbar*nf*nf*nf*nf
@@ -87,24 +87,17 @@ INITIAL {
 	
 	m = minf
 	h = hinf
-      nf = nfinf
-      ns = nsinf
-	
-	VERBATIM
-	return 0;
-	ENDVERBATIM
+        nf = nfinf
+        ns = nsinf
 }
 
 ? states
-PROCEDURE states() {	:Computes state variables m, h, and n 
-        trates(v)	:      at the current v and dt.
-        m = m + mexp*(minf-m)
-        h = h + hexp*(hinf-h)
-        nf = nf + nfexp*(nfinf-nf)
-        ns = ns + nsexp*(nsinf-ns)
-        VERBATIM
-        return 0;
-        ENDVERBATIM
+DERIVATIVE states {	:Computes state variables m, h, and n 
+    trates(v)	:      at the current v and dt.
+    m' = (minf - m) / mtau
+    h' = (hinf - h) / htau
+    nf' = (nfinf - nf) / nftau
+    ns' = (nsinf - ns) / nstau
 }
  
 LOCAL q10
@@ -140,19 +133,10 @@ PROCEDURE rates(v) {  :Computes rate and other constants at current v.
  
 PROCEDURE trates(v) {  :Computes rate and other constants at current v.
                       :Call once from HOC to initialize inf at resting v.
-	LOCAL tinc
-        TABLE minf, mexp, hinf, hexp, nfinf, nfexp, nsinf, nsexp, mtau, htau, nftau, nstau
-	DEPEND dt, celsius FROM -100 TO 100 WITH 200
-                           
 	rates(v)	: not consistently executed from here if usetable_hh == 1
 		: so don't expect the tau values to be tracking along with
 		: the inf values in hoc
 
-	       tinc = -dt * q10
-        mexp = 1 - exp(tinc/mtau)
-        hexp = 1 - exp(tinc/htau)
-	nfexp = 1 - exp(tinc/nftau)
-	nsexp = 1 - exp(tinc/nstau)
 }
  
 FUNCTION vtrap(x,y) {  :Traps for 0 in denominator of rate eqns.
