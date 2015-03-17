@@ -15,6 +15,9 @@
 
 module load neuron/7.4alpha
 
+mkdir -p ./results/$JOB_ID
+
 mpirun -np $CORES nrniv -mpi -nobanner -nogui \
 -c "strdef parameters" -c "parameters=\"./parameters/slice0000.hoc\"" \
+-c "strdef resultsPath" -c "resultsPath=\"./results/$JOB_ID\"" \
 main.hoc

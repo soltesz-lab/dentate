@@ -9,6 +9,9 @@ strdef modelName, datasetPrefix, datasetName, datasetPath
 // as follows: nrniv -c "strdef parameters" -c "parameters=\"parameters.hoc\""
 {load_file(parameters)}
 
+{cvode.active(use_cvode)}
+{cvode.use_local_dt(use_local_dt)}
+{cvode.cache_efficient(use_cache_efficient)}
 
 {xopen("lib.hoc")}
 
@@ -31,7 +34,6 @@ if (!(externalPaths == nil)) {
 mkcellstime = 0
 connectcellstime = 0
 connectgjstime = 0
-runtime = 0
 
 // used for executing command strings
 strdef cmd
@@ -499,7 +501,7 @@ proc mknet() { strdef fname
     connectgjs(gjTypes,cellTypes)  // creates the gap junctions
     connectgjstime = stopsw()
     printf ("*** Gap junctions created\n")
-    sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
+    sprint(fname, "%s/%s_%d.dat", resultsPath, modelName, pnm.myid)
     if (makegraph > 0) {
         graphout(fname,conlist)
     }
@@ -552,10 +554,6 @@ printf ("*** Stimulus sources initialized\n")
 /* Simulation control */
 
 
-{cvode.active(use_cvode)}
-{cvode.use_local_dt(use_local_dt)}
-{cvode.cache_efficient(use_cache_efficient)}
-
 {pnm.pc.setup_transfer()}
 {pnm.pc.set_maxstep(10)}
 
@@ -569,14 +567,13 @@ stdinit()
 printf ("*** Initialization completed\n")
 
 pnm.psolve(tstop)
-runtime = stopsw()
 
 printf ("*** Simulation completed\n")
 
 /* Write simulation results */
 
 strdef spikeout_fname
-sprint(spikeout_fname, "./results/%s_spikeout_%d.dat", modelName, pnm.myid)
+sprint(spikeout_fname, "%s/%s_spikeout_%d.dat", resultsPath, modelName, pnm.myid)
 spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
 
 comptime = pnm.pc.step_time
@@ -588,10 +585,9 @@ if (pnm.myid == 0) {
     printf("  created cells in %g seconds\n", mkcellstime)
     printf("  connected cells in %g seconds\n", connectcellstime)
     printf("  created gap junctions in %g seconds\n", connectgjstime)
-    printf("  ran simulation in %g seconds\n", runtime)
+    printf("  ran simulation in %g seconds\n", comptime)
     if (maxcomp > 0) {
         if (pnm.myid == 0) { printf("  load_balance = %g\n", avgcomp/maxcomp) }
-        if (pnm.myid == 0) { printf("  exchange_time = %g\n",  runtime - maxcomp) }
     }
 }
 
