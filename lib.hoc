@@ -281,9 +281,10 @@ proc loadStimulationParameters() { localobj f, m strdef stimulationPath
 status_dt = 1.0
 walltime = 0
 proc simstatus() { local wt
-
      wt = startsw()
-     printf("*** at interval %g time at t=%g ms was %g s\n", status_dt, t, wt-walltime)
-     cvode.event(t + status_dt, "simstatus()")
+     if (walltime > 0) {
+       printf("*** computation time at t=%g ms was %g s\n", t, wt-walltime)
+     }
      walltime = wt
+     cvode.event(t + status_dt, "simstatus()")
 }

@@ -470,7 +470,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, s
 
             
 	    if (pnm.gid_exists(srcid1)) { 
-		mkgap(gjlist, srcid1, ggid+1, ggid, w)
+		mkgap(gjlist, srcid1, ggid+1, ggid, 1e-6)
                 edges = new Vector(2)
                 edges.x[0] = srcid1
                 edges.x[1] = destid1
@@ -478,7 +478,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, s
 	    }
             
 	    if (pnm.gid_exists(destid1)) {
-		mkgap(gjlist, destid1, ggid, ggid+1, w)
+		mkgap(gjlist, destid1, ggid, ggid+1, 1e-6)
 	    }
             ggid = ggid+2
         }
@@ -496,7 +496,7 @@ proc mknet() { strdef fname
     connectcellstime = stopsw()
     printf ("*** Synaptic connections created\n")
     startsw()
-    //connectgjs(gjTypes,cellTypes)  // creates the gap junctions
+    connectgjs(gjTypes,cellTypes)  // creates the gap junctions
     connectgjstime = stopsw()
     printf ("*** Gap junctions created\n")
     sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
