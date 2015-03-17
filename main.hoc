@@ -33,7 +33,6 @@ connectcellstime = 0
 connectgjstime = 0
 runtime = 0
 
-
 // used for executing command strings
 strdef cmd
 
@@ -339,6 +338,9 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                 del = m.x[i][3]
                 // The third argument is synapse index or -1 for point processes
 	        ncid = pnm.nc_append(srcid1, destid1, synIndex, w, del)
+                if (verbose > 0) {
+                   printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
+                }
                 nc = pnm.nclist.o(ncid)
 		if (makegraph > 0) {
                   edges = new Vector(2)
@@ -367,10 +369,12 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                 }
                 if (!pnm.gid_exists(destid1)) { continue }
                 dist = m.x[i][2] + m.x[i][3]
-                del = dist / velocity
+                del = (dist / velocity) + 1.0
                 // The third argument is synapse index or -1 for point processes
 	        ncid = pnm.nc_append(srcid1, destid1, synIndex, w, del)
-                nc = pnm.nclist.o(ncid)
+                if (verbose > 0) {
+                   printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
+                }
 		if (makegraph > 0) {
                   edges = new Vector(2)
                   edges.x[0] = srcid1
@@ -415,7 +419,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, s
     gjTypes = $o1
     cellTypes = $o2
     nGJTypes = gjTypes.count()
-    ggid = 2*(ncells+2)
+    ggid = 2*ncells
     
     for k=0, nGJTypes-1 { 
         gjType = gjTypes.o(k)
@@ -492,7 +496,7 @@ proc mknet() { strdef fname
     connectcellstime = stopsw()
     printf ("*** Synaptic connections created\n")
     startsw()
-    connectgjs(gjTypes,cellTypes)  // creates the gap junctions
+    //connectgjs(gjTypes,cellTypes)  // creates the gap junctions
     connectgjstime = stopsw()
     printf ("*** Gap junctions created\n")
     sprint(fname, "./results/%s_%d.dat", modelName, pnm.myid)
@@ -552,12 +556,14 @@ printf ("*** Stimulus sources initialized\n")
 {cvode.use_local_dt(use_local_dt)}
 {cvode.cache_efficient(use_cache_efficient)}
 
-print "dt = ", dt
-
 {pnm.pc.setup_transfer()}
 {pnm.pc.set_maxstep(10)}
 
-startsw()
+print "dt = ", dt
+
+objref fi
+fi = new FInitializeHandler("simstatus()")
+
 stdinit()
 
 printf ("*** Initialization completed\n")

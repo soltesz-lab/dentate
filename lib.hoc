@@ -278,17 +278,12 @@ proc loadStimulationParameters() { localobj f, m strdef stimulationPath
     
 }
 
-mindelay_ = 1e9
-func mindelay() { local i, md localobj pnm
-  pnm = $o1
-  if (pnm.pc.nhost > 1) {   
-     pnm.pc.context("{pnm.pc.post(\"mindelay\", mindelay_)}")
-     for i=1, pnm.pc.nhost-1 {
-        pnm.pc.take("mindelay", &md)
-        if (md < mindelay_) {
-          mindelay_ = md
-     }
-  }
- }
- return mindelay_ 
-} 
+status_dt = 1.0
+walltime = 0
+proc simstatus() { local wt
+
+     wt = startsw()
+     printf("*** at interval %g time at t=%g ms was %g s\n", status_dt, t, wt-walltime)
+     cvode.event(t + status_dt, "simstatus()")
+     walltime = wt
+}
