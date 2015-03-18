@@ -161,6 +161,7 @@ FUNCTION mynormrand(mean, std) {
 VERBATIM
 	if (_p_donotuse) {
 		// corresponding hoc Random distrubution must be Random.normal(0,1)
+                
 		double x;
 		x = nrn_random_pick(_p_donotuse);
 		x = _lmean + _lstd*x;

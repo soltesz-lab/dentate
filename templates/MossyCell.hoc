@@ -1,8 +1,8 @@
 begintemplate MossyCell
 
 public connect2target, subsets, is_art, is_connected
-public soma, mcdend1, mcdend2, mcdend3, mcdend4
-public all, adend, bdend, cdend, ddend
+public soma, dend
+public all, pdend, ddend
 public synlist
 public stim
 public xx, yy, zz, position
@@ -12,12 +12,10 @@ random_stream_offset = 0
 
 nst=10
 
-ndend1=4
-ndend2=4
-ndend3=4
-ndend4=4
+ndends=4
+ndendsec=4
 
-create soma, mcdend1[ndend1], mcdend2[ndend2], mcdend3[ndend3], mcdend4[ndend4]
+create soma, dend[ndends][ndend1]
 
 objref syn, fl, rs
 objref stim[nst]
@@ -40,22 +38,19 @@ proc subsets() { local i
     
     all = new SectionList()
     soma all.append()
-    for i=0, 3 mcdend1 [i] all.append()
-    for i=0, 3 mcdend2 [i] all.append()
-    for i=0, 3 mcdend3 [i] all.append()
-    for i=0, 3 mcdend4 [i] all.append()
+    for i=0, ndends-1 {
+        for j=0, ndendsec-1 { dends[i][j] all.append() }
+    }
     
     pdend  = new SectionList()
-    mcdend1 [0] pdend.append()
-    mcdend2 [0] pdend.append()
-    mcdend3 [0] pdend.append()
-    mcdend4 [0] pdend.append()
+    for i=0, ndends-1 {
+        dend[i][0] pdend.append()
+    }
     
     ddend  = new SectionList()
-    for i=1, 3 mcdend1 [i] ddend.append()
-    for i=1, 3 mcdend2 [i] ddend.append()
-    for i=1, 3 mcdend3 [i] ddend.append()
-    for i=1, 3 mcdend4 [i] ddend.append()
+    for i=0, ndends-1 {
+        for j=1, dendsec-1 dend[i][j] ddend.append()
+    }
     
 }
 
@@ -63,25 +58,12 @@ proc geom() {
     
     soma {nseg=1 L=20 diam=20} // changed L & diam
     
-    mcdend1 [0] {nseg=1 L=50 diam=5.78}
-    mcdend1 [1] {nseg=1 L=50 diam=4}
-    mcdend1 [2] {nseg=1 L=50 diam=2.5}
-    mcdend1 [3] {nseg=1 L=50 diam=1}
-    
-    mcdend2 [0] {nseg=1 L=50 diam=5.78}
-    mcdend2 [1] {nseg=1 L=50 diam=4}
-    mcdend2 [2] {nseg=1 L=50 diam=2.5}
-    mcdend2 [3] {nseg=1 L=50 diam=1}
-    
-    mcdend3 [0] {nseg=1 L=50 diam=5.78}
-    mcdend3 [1] {nseg=1 L=50 diam=4}
-    mcdend3 [2] {nseg=1 L=50 diam=2.5}
-    mcdend3 [3] {nseg=1 L=50 diam=1} 
-    
-    mcdend4 [0] {nseg=1 L=50 diam=5.78}
-    mcdend4 [1] {nseg=1 L=50 diam=4}
-    mcdend4 [2] {nseg=1 L=50 diam=2.5}
-    mcdend4 [3] {nseg=1 L=50 diam=1} 	
+    for i=0, ndends-1 {
+        dends[i][0] {nseg=1 L=50 diam=5.78}
+        dends[i][1] {nseg=1 L=50 diam=4}
+        dends[i][2] {nseg=1 L=50 diam=2.5}
+        dends[i][3] {nseg=1 L=50 diam=1}
+    }
     
 }
 
@@ -130,15 +112,14 @@ proc biophys() {
 	cm=2.4
     }
     
-    connect mcdend1[0](0), soma(1)
-    connect mcdend2[0](0), soma(1)
-    connect mcdend3[0](0), soma(0)
-    connect mcdend4[0](0), soma(0)
+    connect dends[0][0](0), soma(1)
+    connect dends[1][0](0), soma(1)
+    connect dends[2][0](0), soma(0)
+    connect dends[3][0](0), soma(0)
     
-    for i=1,3 {connect mcdend1[i](0), mcdend1[i-1](1)}
-    for i=1,3 {connect mcdend2[i](0), mcdend2[i-1](1)}
-    for i=1,3 {connect mcdend3[i](0), mcdend3[i-1](1)}
-    for i=1,3 {connect mcdend4[i](0), mcdend4[i-1](1)}
+    for i = 0,ndends-1 {
+        for j=1,3 {connect dends[i][j](0), dends[i][j-1](1)}
+    }
     
     forsec all {Ra=100}
     forsec all {
@@ -171,7 +152,7 @@ proc biophys() {
     rs = new RandomStream(cellid*random_stream_offset+1)
     
     // set the stream to generate a gaussian distribution with mean 0 and variance 1
-    rs.r.normal(0, 1)
+    //rs.r.normal(0, 1)
     // use the random Gaussian distribution stream in the Gfluct2 mechanism
     fl.noiseFromRandom(rs.r)
     
@@ -197,7 +178,7 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-    /* E0 */   mcdend1 syn_ = new ExpSyn(0.8)  
+    /* E0 */   dend1 syn_ = new ExpSyn(0.8)  
     synlist.append(syn_)
     syn_.tau = 2
     /* I1 */   mcdend1 syn_ = new ExpSyn(0.1)  

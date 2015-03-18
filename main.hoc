@@ -392,10 +392,12 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
 proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     
     gjlist = $o1
-    gid  = $2
-    dgid = $3
-    sgid = $4
-    w    = $5
+    gid    = $2
+    branch = $3
+    sec    = $4
+    dgid   = $5
+    sgid   = $6
+    w      = $7
     
     cell = pnm.pc.gid2cell(gid)
     
@@ -415,7 +417,7 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
 }
 
 // creates the gap junctions between cells
-proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, srcSize, destSize localobj srcType, destType, cellTypes, gjType, gjTypes, edges, m, f
+proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranch, destbranch, srcsec, destsec, order, srcSize, destSize localobj srcType, destType, cellTypes, gjType, gjTypes, edges, m, f
     
     strdef gjPath, gjName, srcPopulation, destPopulation
     gjTypes = $o1
@@ -457,7 +459,11 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, s
         for i=0, m.nrow-1 {
             srcid = m.x[i][0]
             destid = m.x[i][1]
-            w = m.x[i][2]
+            srcbranch = m.x[i][2]
+            srcsec = m.x[i][3]
+            destbranch = m.x[i][4]
+            destsec = m.x[i][5]
+            w = m.x[i][6]
             if (order == 0) {
                 // relative numbering of pre/post synaptic cells -- add the respective offsets
                 assert (srcid < srcSize, "source cell id is greater than the size of the src population")
@@ -472,7 +478,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, s
 
             
 	    if (pnm.gid_exists(srcid1)) { 
-		mkgap(gjlist, srcid1, ggid+1, ggid, 1e-6)
+		mkgap(gjlist, srcid1, srcbranch, srcsec, ggid+1, ggid, w)
                 edges = new Vector(2)
                 edges.x[0] = srcid1
                 edges.x[1] = destid1
@@ -480,7 +486,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, order, s
 	    }
             
 	    if (pnm.gid_exists(destid1)) {
-		mkgap(gjlist, destid1, ggid, ggid+1, 1e-6)
+		mkgap(gjlist, destid1, srcbranch, srcsec, ggid, ggid+1, w)
 	    }
             ggid = ggid+2
         }
