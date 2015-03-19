@@ -404,7 +404,7 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     cell.dendrites[branch][sec] { 
         gj = new ggap(0.5) 
         pnm.pc.target_var(gj, &gj.vgap, dgid)
-        pnm.pc.source_var(&cell.soma.v(0.5), sgid)
+        pnm.pc.source_var(&cell.dendrites[branch][sec].v(0.5), sgid)
     }
     
     gjlist.append(gj)
