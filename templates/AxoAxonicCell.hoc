@@ -1,26 +1,28 @@
 
 begintemplate AxoAxonicCell
 
-ndend1=4
-ndend2=4
-ndend3=4
-ndend4=4
-
 public connect2target, subsets, is_art, is_connected
-public soma, aadend1, aadend2, aadend3, aadend4
+public soma, dendrites
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
 public synlist
 
 objref synlist
 
-create soma, aadend1[ndend1], aadend2[ndend2], aadend3[ndend3], aadend4[ndend4]
+create soma, dendrites[1][1]
 
 
 proc init() {
+    
+    ndends=4
+    ndendsec=4
+    
+    create dendrites[ndends][ndendsec]
+    
     synlist = new List()
-    subsets()
+    subsets(ndends,ndendsec)
     geom()
+    topol(ndends,ndendsec)
     biophys()
     synapses()
 }
@@ -29,65 +31,80 @@ objref all, adend, bdend, cdend, ddend
 
 proc subsets() { local i
     
+    ndends=$1
+    ndendsec=$2
+    
     objref all, adend, bdend, cdend, ddend
     all = new SectionList()
     soma all.append()
-    for i=0, 3 aadend1 [i] all.append()
-    for i=0, 3 aadend2 [i] all.append()
-    for i=0, 3 aadend3 [i] all.append()
-    for i=0, 3 aadend4 [i] all.append()
     
+    for i=0, ndends-1 {
+        for j=0, ndendsec-1 {
+            dendrites [i][j] all.append()
+        }
+    }
+     
     adend  = new SectionList()
-    aadend1 [0] adend.append()
-    aadend2 [0] adend.append()
-    aadend3 [0] adend.append()
-    aadend4 [0] adend.append()
+    for i=0, ndends-1 { 
+        dendrites[i][0] adend.append() 
+    }
     
     bdend  = new SectionList()
-    aadend1 [1] bdend.append()
-    aadend2 [1] bdend.append()
-    aadend3 [1] bdend.append()
-    aadend4 [1] bdend.append()
+    for i=0, ndends-1 { 
+        dendrites[i][1] bdend.append() 
+    }
     
     cdend  = new SectionList()
-    aadend1 [2] cdend.append()
-    aadend2 [2] cdend.append()
-    aadend3 [2] cdend.append()
-    aadend4 [2] cdend.append()
+    for i=0, ndends-1 { 
+        dendrites[i][2] cdend.append() 
+    }
     
     ddend  = new SectionList()
-    aadend1 [3] ddend.append()
-    aadend2 [3] ddend.append()
-    aadend3 [3] ddend.append()
-    aadend4 [3] ddend.append()
+    for i=0, ndends-1 { 
+        dendrites[i][3] ddend.append() 
+    }
+   
 }
 
 proc geom() {
     
     soma {nseg=1 L=20 diam=15} // changed L & diam
     
-    aadend1 [0] {nseg=1 L=75 diam=4}	// aadend 1 and 2 are apical
-    aadend1 [1] {nseg=1 L=75 diam=3}
-    aadend1 [2] {nseg=1 L=75 diam=2}
-    aadend1 [3] {nseg=1 L=75 diam=1}
     
-    aadend2 [0] {nseg=1 L=75 diam=4}
-    aadend2 [1] {nseg=1 L=75 diam=3}
-    aadend2 [2] {nseg=1 L=75 diam=2}
-    aadend2 [3] {nseg=1 L=75 diam=1}
-    
-    aadend3 [0] {nseg=1 L=50 diam=4} 	// aadend 3 and 4 are basal
-    aadend3 [1] {nseg=1 L=50 diam=3}
-    aadend3 [2] {nseg=1 L=50 diam=2}
-    aadend3 [3] {nseg=1 L=50 diam=1} 
-    
-    aadend4 [0] {nseg=1 L=50 diam=4}
-    aadend4 [1] {nseg=1 L=50 diam=3}
-    aadend4 [2] {nseg=1 L=50 diam=2}
-    aadend4 [3] {nseg=1 L=50 diam=1} 	
+    for i = 0,1 {
+        dendrites[i][0] {nseg=1 L=75 diam=4}	// dend 1 and 2 are apical
+        dendrites[i][1] {nseg=1 L=75 diam=3}
+        dendrites[i][2] {nseg=1 L=75 diam=2}
+        dendrites[i][3] {nseg=1 L=75 diam=1}
+    }
+        
+    for i = 2,3 {
+        dendrites[i][0] {nseg=1 L=50 diam=4} 	// dend 3 and 4 are basal
+        dendrites[i][1] {nseg=1 L=50 diam=3}
+        dendrites[i][2] {nseg=1 L=50 diam=2}
+        dendrites[i][3] {nseg=1 L=50 diam=1} 
+    }
     
 }
+
+
+proc topol() {
     
+    ndends = $1
+    ndendsec = $2
+    
+    connect dendrites[0][0](0), soma(1)
+    connect dendrites[1][0](0), soma(1)
+    connect dendrites[2][0](0), soma(0)
+    connect dendrites[3][0](0), soma(0)
+    
+    for i=0,ndends-1 {
+        for j=1,ndendsec-1 {
+	    connect dendrites[i][j](0), dendrites[i][j-1](1)
+        }
+    }
+}    
+
 proc biophys() {
     
     forsec all {
@@ -145,24 +162,6 @@ proc biophys() {
 	cm=1.4
     }
     
-    
-    connect aadend1[0](0), soma(1)
-    connect aadend2[0](0), soma(1)
-    connect aadend3[0](0), soma(0)
-    connect aadend4[0](0), soma(0)
-    for i=1,3 {
-	connect aadend1[i](0), aadend1[i-1](1)
-    }
-    for i=1,3 {
-	connect aadend2[i](0), aadend2[i-1](1)
-    }
-    for i=1,3 {
-	connect aadend3[i](0), aadend3[i-1](1)
-    }
-    for i=1,3 {
-	connect aadend4[i](0), aadend4[i-1](1)
-    }
-    
     forsec all {Ra=100}
     forsec all {
         enat = 55 
@@ -195,11 +194,10 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-  /* E0 */   aadend1 syn_ = new ExpSyn(0.8)  synlist.append(syn_)
+    
+    /* E0 */   
+    dendrites[0][0] syn_ = new ExpSyn(0.8)  synlist.append(syn_)
     syn_.tau = 2
-  /* I1 */   aadend2 syn_ = new ExpSyn(0.1)  synlist.append(syn_)
-    syn_.tau = 5
-    syn_.e = -80
 }
 
 

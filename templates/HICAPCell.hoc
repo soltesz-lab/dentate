@@ -1,26 +1,27 @@
 begintemplate HICAPCell
 
 public connect2target, subsets, is_art, is_connected
-public soma, hcdend1, hcdend2, hcdend3, hcdend4
-public all, adend, bdend, cdend, ddend, dendrite_list
+public soma, dendrites
+public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
 public synlist
 
 objref syn, pre_list, synlist
 
-ndend1=4
-ndend2=4
-ndend3=4
-ndend4=4
+create soma, dendrites[1][1]
 
-create soma, hcdend1[ndend1], hcdend2[ndend2], hcdend3[ndend3], hcdend4[ndend4]
-
-objref all, adend, bdend, cdend, ddend, dendrite_list
+objref all, adend, bdend, cdend, ddend
 
 proc init() {
+    
+    ndends=4
+    ndendsec=4
+    
+    create dendrites[ndends][ndendsec]
+    
     synlist = new List()
-    subsets()
-    topol()
+    subsets(ndends,ndendsec)
+    topol(ndends,ndendsec)
     geom()
     biophys()
     synapses()
@@ -29,89 +30,74 @@ proc init() {
 proc subsets() { local i
     
     objref all, adend, bdend, cdend, ddend
+    
     all = new SectionList()
     soma all.append()
-    for i=0, 3 hcdend1 [i] all.append()
-    for i=0, 3 hcdend2 [i] all.append()
-    for i=0, 3 hcdend3 [i] all.append()
-    for i=0, 3 hcdend4 [i] all.append()
-	
-	dendrite_list = new SectionList()
-    for i=0, 3 hcdend1 [i] dendrite_list.append()
-    for i=0, 3 hcdend2 [i] dendrite_list.append()
-    for i=0, 3 hcdend3 [i] dendrite_list.append()
-    for i=0, 3 hcdend4 [i] dendrite_list.append()
+    
+    for i=0, ndends-1 { 
+        for j=0, ndendsec-1 {
+            dendrites[i][j] all.append() 
+        }
+    }
     
     adend  = new SectionList()
-    hcdend1 [0] adend.append()
-    hcdend2 [0] adend.append()
-    hcdend3 [0] adend.append()
-    hcdend4 [0] adend.append()
+    for i=0, ndends-1 { 
+        dendrites[i][0] adend.append() 
+    }
     
     bdend  = new SectionList()
-    hcdend1 [1] bdend.append()
-    hcdend2 [1] bdend.append()
-    hcdend3 [1] bdend.append()
-    hcdend4 [1] bdend.append()
+    for i=0, ndends-1 { 
+        dendrites[i][1] bdend.append() 
+    }
     
     cdend  = new SectionList()
-    hcdend1 [2] cdend.append()
-    hcdend2 [2] cdend.append()
-    hcdend3 [2] cdend.append()
-    hcdend4 [2] cdend.append()
+    for i=0, ndends-1 { 
+        dendrites[i][2] cdend.append() 
+    }
     
     ddend  = new SectionList()
-    hcdend1 [3] ddend.append()
-    hcdend2 [3] ddend.append()
-    hcdend3 [3] ddend.append()
-    hcdend4 [3] ddend.append()
-}
+    for i=0, ndends-1 { 
+        dendrites[i][3] ddend.append() 
+    }
 
+    
+}
 proc geom() {
     
     soma {nseg=1 L=20 diam=15} // changed L & diam
     
-    hcdend1 [0] {nseg=1 L=75 diam=4}	// hcdend 1 and 2 are apical
-    hcdend1 [1] {nseg=1 L=75 diam=3}
-    hcdend1 [2] {nseg=1 L=75 diam=2}
-    hcdend1 [3] {nseg=1 L=75 diam=1}
-    
-    hcdend2 [0] {nseg=1 L=75 diam=4}
-    hcdend2 [1] {nseg=1 L=75 diam=3}
-    hcdend2 [2] {nseg=1 L=75 diam=2}
-    hcdend2 [3] {nseg=1 L=75 diam=1}
-    
-    hcdend3 [0] {nseg=1 L=50 diam=4} 	// hcdend 3 and 4 are basal
-    hcdend3 [1] {nseg=1 L=50 diam=3}
-    hcdend3 [2] {nseg=1 L=50 diam=2}
-    hcdend3 [3] {nseg=1 L=50 diam=1} 
-    
-    hcdend4 [0] {nseg=1 L=50 diam=4}
-    hcdend4 [1] {nseg=1 L=50 diam=3}
-    hcdend4 [2] {nseg=1 L=50 diam=2}
-    hcdend4 [3] {nseg=1 L=50 diam=1} 	
+    for i = 0,1 {
+        dendrites[i][0]  {nseg=1 L=75 diam=4}	// bcdend 1 and 2 are apical
+        dendrites[i][1] {nseg=1 L=75 diam=3}
+        dendrites[i][2] {nseg=1 L=75 diam=2}
+        dendrites[i][3] {nseg=1 L=75 diam=1}
+    }
+        
+    for i = 2,3 {
+        dendrites[i][0] {nseg=1 L=50 diam=4} 	// bcdend 3 and 4 are basal
+        dendrites[i][1] {nseg=1 L=50 diam=3}
+        dendrites[i][2] {nseg=1 L=50 diam=2}
+        dendrites[i][3] {nseg=1 L=50 diam=1} 
+    }
     
 }
 
 proc topol() {
-    connect hcdend1[0](0), soma(1)
-    connect hcdend2[0](0), soma(1)
-    connect hcdend3[0](0), soma(0)
-    connect hcdend4[0](0), soma(0)
     
-    for i=1,3 {
-	connect hcdend1[i](0), hcdend1[i-1](1)
+    ndends = $1
+    ndendsec = $2
+    
+    connect dendrites[0][0](0), soma(1)
+    connect dendrites[1][0](0), soma(1)
+    connect dendrites[2][0](0), soma(0)
+    connect dendrites[3][0](0), soma(0)
+    
+    for i=0,ndends-1 {
+        for j=1,ndendsec-1 {
+	    connect dendrites[i][j](0), dendrites[i][j-1](1)
+        }
     }
-    for i=1,3 {
-	connect hcdend2[i](0), hcdend2[i-1](1)
-    }
-    for i=1,3 {
-	connect hcdend3[i](0), hcdend3[i-1](1)
-    }
-    for i=1,3 {
-	connect hcdend4[i](0), hcdend4[i-1](1)
-    }
-}    
+}
 
 
 proc biophys() {
@@ -194,11 +180,9 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-  /* E0 */   hcdend1 syn_ = new ExpSyn(0.8)  synlist.append(syn_)
+    /* E0 */   
+    dendrites[0][0] syn_ = new ExpSyn(0.8)  synlist.append(syn_)
     syn_.tau = 2
-  /* I1 */   hcdend1 syn_ = new ExpSyn(0.1)  synlist.append(syn_)
-    syn_.tau = 5
-    syn_.e = -80
 }
 
 

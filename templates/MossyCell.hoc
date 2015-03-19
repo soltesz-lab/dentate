@@ -1,7 +1,7 @@
 begintemplate MossyCell
 
-public connect2target, subsets, is_art, is_connected
-public soma, dend
+public connect2target, subsets,is_art, is_connected
+public soma, dendrites
 public all, pdend, ddend
 public synlist
 public stim
@@ -12,10 +12,8 @@ random_stream_offset = 0
 
 nst=10
 
-ndends=4
-ndendsec=4
-
-create soma, dend[ndends][ndend1]
+// dends is properly created in init()
+create soma, dendrites[1][1]
 
 objref syn, fl, rs
 objref stim[nst]
@@ -24,32 +22,48 @@ objref synlist
 
 proc init() { // arguments are gid, random_stream_offset
     
+    ndends=4
+    ndendsec=4
+    create dendrites[ndends][ndendsec]
+    
     cellid = $1
     random_stream_offset = $2
     synlist = new List()
-    subsets()
+    subsets(ndends,ndendsec)
     geom()
-    biophys()
+    biophys(ndends,ndendsec)
     synapses()
 }
 
 
-proc subsets() { local i
+proc subsets() { local i, ndends, ndendsec
+    
+    ndends = $1
+    ndendsec = $2
     
     all = new SectionList()
     soma all.append()
     for i=0, ndends-1 {
-        for j=0, ndendsec-1 { dends[i][j] all.append() }
+        printf ("i = %d\n", i)
+        for j=0, ndendsec-1 { 
+            dendrites[i][j] { all.append() }
+        }
+    }
+    
+    forsec all {
+        psection()
     }
     
     pdend  = new SectionList()
     for i=0, ndends-1 {
-        dend[i][0] pdend.append()
+        dendrites[i][0] pdend.append()
     }
     
     ddend  = new SectionList()
     for i=0, ndends-1 {
-        for j=1, dendsec-1 dend[i][j] ddend.append()
+        for j=1, ndendsec-1 {
+            dendrites[i][j] ddend.append()
+        }
     }
     
 }
@@ -59,15 +73,18 @@ proc geom() {
     soma {nseg=1 L=20 diam=20} // changed L & diam
     
     for i=0, ndends-1 {
-        dends[i][0] {nseg=1 L=50 diam=5.78}
-        dends[i][1] {nseg=1 L=50 diam=4}
-        dends[i][2] {nseg=1 L=50 diam=2.5}
-        dends[i][3] {nseg=1 L=50 diam=1}
+        dendrites[i][0] {nseg=1 L=50 diam=5.78}
+        dendrites[i][1] {nseg=1 L=50 diam=4}
+        dendrites[i][2] {nseg=1 L=50 diam=2.5}
+        dendrites[i][3] {nseg=1 L=50 diam=1}
     }
     
 }
 
-proc biophys() {
+proc biophys() { local ndends, ndendsec
+    
+    ndends = $1
+    ndendsec = $2
     
     forsec all {
 	insert ccanl
@@ -112,13 +129,15 @@ proc biophys() {
 	cm=2.4
     }
     
-    connect dends[0][0](0), soma(1)
-    connect dends[1][0](0), soma(1)
-    connect dends[2][0](0), soma(0)
-    connect dends[3][0](0), soma(0)
+    connect dendrites[0][0](0), soma(1)
+    connect dendrites[1][0](0), soma(1)
+    connect dendrites[2][0](0), soma(0)
+    connect dendrites[3][0](0), soma(0)
     
     for i = 0,ndends-1 {
-        for j=1,3 {connect dends[i][j](0), dends[i][j-1](1)}
+        for j=1,ndendsec-1 {
+            connect dendrites[i][j](0), dendrites[i][j-1](1)
+        }
     }
     
     forsec all {Ra=100}
@@ -152,10 +171,9 @@ proc biophys() {
     rs = new RandomStream(cellid*random_stream_offset+1)
     
     // set the stream to generate a gaussian distribution with mean 0 and variance 1
-    //rs.r.normal(0, 1)
+    rs.r.normal(0, 1)
     // use the random Gaussian distribution stream in the Gfluct2 mechanism
     fl.noiseFromRandom(rs.r)
-    
     
 }
 
@@ -178,13 +196,9 @@ proc position() { local i
 
 objref syn_
 proc synapses() {
-    /* E0 */   dend1 syn_ = new ExpSyn(0.8)  
+    dendrites[0][0] syn_ = new ExpSyn(0.8)  
     synlist.append(syn_)
     syn_.tau = 2
-    /* I1 */   mcdend1 syn_ = new ExpSyn(0.1)  
-    synlist.append(syn_)
-    syn_.tau = 5
-    syn_.e = -80
 }
 
 endtemplate MossyCell

@@ -1,26 +1,27 @@
 begintemplate NGFCell
 
 public connect2target, subsets, is_art, is_connected
-public soma, ncdend1, ncdend2, ncdend3, ncdend4
-public all, adend, bdend, cdend, ddend, dendrite_list
+public soma, dendrites
+public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
 public synlist
 
 objref syn, pre_list, synlist
 
-ndend1=1
-ndend2=1
-ndend3=1
-ndend4=1
+create soma, dendrites[1][1]
 
-create soma, ncdend1[ndend1], ncdend2[ndend2], ncdend3[ndend3], ncdend4[ndend4]
-
-objref all, adend, bdend, cdend, ddend, dendrite_list
+objref all, alldendrites
 
 proc init() {
+    
+    ndends=4
+    ndendsec=1
+    
+    create dendrites[ndends][ndendsec]
+    
     synlist = new List()
-    subsets()
-    topol()
+    subsets(ndends,ndendsec)
+    topol(ndends,ndendsec)
     geom()
     biophys()
     synapses()
@@ -28,117 +29,120 @@ proc init() {
 
 proc subsets() { local i
     
-    objref all, adend, bdend, cdend, ddend
+    objref all, alldendrites
+    
     all = new SectionList()
     soma all.append()
-	dendrite_list = new SectionList()
-    ncdend1 [0] all.append()
-    ncdend2 [0] all.append()
-    ncdend3 [0] all.append()
-    ncdend4 [0] all.append()
-	
-	dendrite_list = new SectionList()
-    ncdend1 [0] dendrite_list.append()
-    ncdend2 [0] dendrite_list.append()
-    ncdend3 [0] dendrite_list.append()
-    ncdend4 [0] dendrite_list.append()
+    
+    for i=0, ndends-1 {
+        for j=0, ndendsec-1 {
+            dendrites[i][j] all.append()
+        }
+    }
+    
+    alldendrites = new SectionList()
+    for i=0, ndends-1 {
+        for j=0, ndendsec-1 {
+            dendrites[i][j] alldendrites.append()
+        }
+    }
 }
 
 proc geom() {
     
     soma {nseg=1 L=20 diam=10} // changed L & diam
     
-    ncdend1 [0] {nseg=1 L=100 diam=3}	// ncdend 1 and 2 are apical
-    
-    ncdend2 [0] {nseg=1 L=100 diam=3}
-    
-    ncdend3 [0] {nseg=1 L=100 diam=3} 	// ncdend 3 and 4 are basal
-    
-    ncdend4 [0] {nseg=1 L=100 diam=3}
+    dendrites[0][0] {nseg=1 L=100 diam=3}	// ncdend 1 and 2 are apical
+    dendrites[1][0] {nseg=1 L=100 diam=3}
+    dendrites[2][0] {nseg=1 L=100 diam=3} 	// ncdend 3 and 4 are basal
+    dendrites[3][0] {nseg=1 L=100 diam=3}
     
 }
 
 proc topol() {
-    connect ncdend1[0](0), soma(1)
-    connect ncdend2[0](0), soma(1)
-    connect ncdend3[0](0), soma(0)
-    connect ncdend4[0](0), soma(0)
+    
+    ndends=$1
+    ndendsec=$2
+    
+    connect dendrites[0][0](0), soma(1)
+    connect dendrites[1][0](0), soma(1)
+    connect dendrites[2][0](0), soma(0)
+    connect dendrites[3][0](0), soma(0)
 }    
 
 
 proc biophys() {
-gna=0.05
-gkdr=0.0132
-gka=0.00001
-
-forsec all {
-
+    gna=0.05
+    gkdr=0.0132
+    gka=0.00001
+    
+    forsec all {
+        
 	insert ccanl
-catau_ccanl = 10
-caiinf_ccanl = 5.e-6
+        catau_ccanl = 10
+        caiinf_ccanl = 5.e-6
 	insert borgka
-gkabar_borgka=gka
+        gkabar_borgka=gka
 	insert nca  // HAV-N- Ca channel
-gncabar_nca=0.0  
+        gncabar_nca=0.0  
 	insert lca
-glcabar_lca=0.0015
+        glcabar_lca=0.0015
 	insert gskch
-gskbar_gskch=0.00475
+        gskbar_gskch=0.00475
 	insert cagk
-gkbar_cagk=0.00001
+        gkbar_cagk=0.00001
 	cm=1.329
-}
-	soma {
+    }
+    soma {
 	insert ichan2
 	insert na3
 	gbar_na3=gna
 	gnatbar_ichan2=0
 	gkfbar_ichan2=gkdr
 	gl_ichan2 = 0.0001063
-	} 
-	
-forsec dendrite_list {   
-				insert ichan2
-				insert na3           
-              gbar_na3=gna*0.2
-              //gkdrbar_kdr=gkdr*0.2
-              //gkabar_kap = gka*0.2
-			  gkabar_borgka=gka*0.2
-			  gkfbar_ichan2=gkdr*0.2
-			  gnatbar_ichan2=0
-			  gl_ichan2 = 0.0001063
-   }
-	forsec all {Ra=100}
-	forsec all {ena = 55 ekf = -90  ek=-90  esk=-90 elca=130
-		 el_ichan2 =-63.1	
-		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
-
-		}
+    } 
+    
+    forsec alldendrites {   
+        
+	insert ichan2
+	insert na3           
+        gbar_na3=gna*0.2
+        //gkdrbar_kdr=gkdr*0.2
+        //gkabar_kap = gka*0.2
+	gkabar_borgka=gka*0.2
+	gkfbar_ichan2=gkdr*0.2
+	gnatbar_ichan2=0
+	gl_ichan2 = 0.0001063
+    }
+    forsec all {Ra=100}
+    forsec all {ena = 55 ekf = -90  ek=-90  esk=-90 elca=130
+	el_ichan2 =-63.1	
+    cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+    
+}
 
 func is_art()  { return 0 }
 
 obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
-  soma nc = new NetCon(&v(1), $o1)
-  nc.threshold = 10
-  if (numarg() == 2) { $o2 = nc } // for backward compatibility
-  return nc
+    soma nc = new NetCon(&v(1), $o1)
+    nc.threshold = 10
+    if (numarg() == 2) { $o2 = nc } // for backward compatibility
+    return nc
 }
 
 proc position() { local i
     
-  soma for i = 0, n3d()-1 {
-    pt3dchange(i, $1-xx+x3d(i), $2-yy+y3d(i), $3-zz+z3d(i), diam3d(i))
-  }
-  xx = $1  yy = $2  zz = $3
+    soma for i = 0, n3d()-1 {
+        pt3dchange(i, $1-xx+x3d(i), $2-yy+y3d(i), $3-zz+z3d(i), diam3d(i))
+    }
+    xx = $1  yy = $2  zz = $3
 }
 
 objref syn_
 proc synapses() {
-  /* E0 */   ncdend1 syn_ = new ExpSyn(0.8)  synlist.append(syn_)
+    /* E0 */   
+    dendrites[0][0] syn_ = new ExpSyn(0.8)  synlist.append(syn_)
     syn_.tau = 2
-  /* I1 */   ncdend1 syn_ = new ExpSyn(0.1)  synlist.append(syn_)
-    syn_.tau = 5
-    syn_.e = -80
 }
 
 
