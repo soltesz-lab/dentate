@@ -411,7 +411,7 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     gj.g = w
     
     if (verbose > 0) {
-        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pnm.myid, gid, branch sec w, sgid, dgid)
+        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pnm.myid, gid, branch, sec, w, sgid, dgid)
     }
     
 }
