@@ -401,7 +401,7 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     
     cell = pnm.pc.gid2cell(gid)
     
-    cell.soma { 
+    cell.dendrites[branch][sec] { 
         gj = new ggap(0.5) 
         pnm.pc.target_var(gj, &gj.vgap, dgid)
         pnm.pc.source_var(&cell.soma.v(0.5), sgid)
@@ -411,7 +411,7 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     gj.g = w
     
     if (verbose > 0) {
-        printf ("host %d: gap junction: gid = %d coupling = %g sgid = %d dgid = %d\n", pnm.myid, gid, w, sgid, dgid)
+        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pnm.myid, gid, branch sec w, sgid, dgid)
     }
     
 }
@@ -486,7 +486,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
 	    }
             
 	    if (pnm.gid_exists(destid1)) {
-		mkgap(gjlist, destid1, srcbranch, srcsec, ggid, ggid+1, w)
+		mkgap(gjlist, destid1, destbranch, destsec, ggid, ggid+1, w)
 	    }
             ggid = ggid+2
         }
