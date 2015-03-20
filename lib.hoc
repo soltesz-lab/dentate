@@ -164,7 +164,7 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
 // Loads connectivity info into a Dict
 proc loadConnectivityInfo() { local i, order, synIndex, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj f, connectivityTypes, connectivityType
     
-    strdef connectivityName, preSynapticPopulation, postSynapticPopulation
+    strdef orderType, connectivityName, preSynapticPopulation, postSynapticPopulation
     
     // The first argument must be a list
     connectivityTypes = $o1
@@ -182,7 +182,14 @@ proc loadConnectivityInfo() { local i, order, synIndex, wdType, standardWeight, 
     for i=0, numConnectivityTypes-1 {
 
         // Read in the connectivity cell id numbering (0 - relative, 1 - absolute)
-	order = f.scanvar()
+        f.scanstr(orderType)
+        if (strcmp(orderType,"absolute:") == 0) {
+            order = 1
+        } else if (strcmp(orderType,"relative:") == 0) {
+            order = 0
+        } else {
+            execerror ("unknown connectivity order type")
+        }
         // Read in the connectivity name
 	f.scanstr(connectivityName)
         // Read in the name of the presynaptic population
