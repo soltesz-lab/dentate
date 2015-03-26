@@ -244,7 +244,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, velocity, ncid, synIndex, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim
+proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, synName, nc, edges, m, f, stim
     
     strdef connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
@@ -257,7 +257,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
     for k=0, nConnectivityTypes-1 { 
         connectivityType = connectivityTypes.o(k)
         order = connectivityType.getPropertyScalar("order")
-        synIndex = connectivityType.getPropertyScalar("synIndex")
+        synName = connectivityType.getPropertyScalar("synName")
         wdType = connectivityType.getPropertyScalar("wdType")
         connectivityName = connectivityType.getPropertyString("name").s
         if (verbose > 0) {
@@ -307,7 +307,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                     destid1 = destid
                 }
                 if (!pnm.gid_exists(destid1)) { continue }
-                nc = pnm.pc.gid_connect(srcid1, pnm.pc.gid2obj(destid1).synlist.object(synIndex))
+                nc = pnm.pc.gid_connect(srcid1, pnm.pc.gid2obj(destid1).syn)
                 w = m.x[i][2]
                 del = m.x[i][3]
                 nc.weight = w
@@ -338,8 +338,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                 if (!pnm.gid_exists(destid1)) { continue }
                 w = m.x[i][2]
                 del = m.x[i][3]
-                // The third argument is synapse index or -1 for point processes
-	        ncid = pnm.nc_append(srcid1, destid1, synIndex, w, del)
+	        ncid = pnm.nc_append(srcid1, destid1, synName, w, del)
                 if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
                 }
@@ -372,8 +371,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                 if (!pnm.gid_exists(destid1)) { continue }
                 dist = m.x[i][2] + m.x[i][3]
                 del = (dist / velocity) + 1.0
-                // The third argument is synapse index or -1 for point processes
-	        ncid = pnm.nc_append(srcid1, destid1, synIndex, w, del)
+	        ncid = pnm.nc_append(srcid1, destid1, synName, w, del)
                 if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
                 }

@@ -3,7 +3,7 @@ begintemplate MossyCell
 public connect2target, subsets,is_art, is_connected
 public soma, dendrites
 public all, pdend, ddend
-public synlist
+public syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
 public stim
 public xx, yy, zz, position
 
@@ -18,7 +18,7 @@ create soma, dendrites[1][1]
 objref syn, fl, rs
 objref stim[nst]
 objref all, pdend, ddend
-objref synlist
+objref syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
 
 proc init() { // arguments are gid, random_stream_offset
     
