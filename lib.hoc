@@ -2,6 +2,11 @@
 // Dictionary template
 {xopen("./templates/Dict.hoc")}
 
+// Number template
+{xopen("./templates/Number.hoc")}
+
+
+
 proc assert() { local test strdef errmsg
     
     test = $1
@@ -129,7 +134,7 @@ func findCellType() { local i, result localobj cellTypes, cellType
     return result
 }
 
-// Loads cell type info into a Dict
+// Loads cell/synapse type info into a Dict
 proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex localobj f, ff, cellTypes, cellType, indices
     
     strdef cellTypeName, cellTypeTemplateName, indexType, indexFileName, datasetPath, indexPath, errmsg
@@ -198,6 +203,127 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
     
 }
 
+
+// Reads in a single synapse matrix, regardless of which type of data is stored in it,
+// and stores it in a Dict
+obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValue, status localobj nil, f, synapseNames, synapseName, synapseCells, synapseCell, dict, value
+    
+    strdef str, propertyName, valueString
+    
+    // the first argument should be the opened file
+    f = $o1
+    // the second argument is the name of this type of synaptic property
+    propertyName = $s2
+    // Scan the first line, which contains the number of synapse types
+    numSynapseTypes = f.scanvar()
+    
+    synapseNames = new List()
+    synapseCells = new List()
+    for i=0, numSynapseTypes-1 {
+        f.scanstr(str)
+        synapseName = new String(str)
+        synapseNames.append(synapseName)
+        synapseCells.append(new List())
+    }
+    
+    for i=0, numSynapseTypes-1 {
+        synapseCell = synapseCells.o(i)
+        for j=0, numSynapseTypes-1 {
+            f.scanstr(valueString)
+            if (strcmp(valueString,"NA") == 0) {
+                synapseCell.append(nil)
+            } else {
+                status = sscanf(valueString,"%f",numValue)
+                if (status > 0) {
+                    value = new Number(numValue)
+                    synapseCell.append(value)
+                } else {
+                    value = new String(valueString)
+                    synapseCell.append(value)
+                }
+            }
+        }
+    }
+
+    dict = new Dict(propertyName)
+    
+    dict.addPropertyString("name",propertyName)
+    dict.addPropertyObject("synapseNames",synapseNames)
+    dict.addPropertyObject("synapseCells",synapseCells)
+    
+    return dict
+}
+
+
+// Loads synapse info into a Dict
+proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synProps, fileList, propList
+    
+    strdef path, datasetPath
+    
+    // The first argument must be a list
+    synapsePropertyTypes = $o1
+    // The second argument must be the path that contains the synapse properties files
+    datasetPath = $s2
+    
+    // The list of synaptic properties names
+    propList = new List()
+    propList.append(new String("weight"))
+    propList.append(new String("rise time"))
+    propList.append(new String("decay time"))
+    propList.append(new String("reversal potential"))
+    propList.append(new String("dendrite"))
+    propList.append(new String("compartment"))
+    
+    // The list of synaptic properties files
+    fileList = new List()
+    fileList.append(new String("synweight.dat"))
+    fileList.append(new String("synrise.dat"))
+    fileList.append(new String("syndecay.dat"))
+    fileList.append(new String("synerev.dat"))
+    fileList.append(new String("syndend.dat"))
+    fileList.append(new String("syncomp.dat"))
+    
+    for i=0, fileList.count()-1 {
+        sprint(path,"%s/%s",datasetPath,fileList.o(i).s)
+        f = new File()
+        f.ropen(path)
+        synProps = loadSynapseMatrix(f,propList.o(i))
+        synapsePropertyTypes.append(synProps)
+        f.close()
+    }
+}
+
+// Retrieves the synaptic properties for a given cell type
+obfunc getSynapseProperties() { local i, j localobj synProps, synapticTypes, synapticType, synapseNames, synapseCells, synIndex
+    
+    strdef cellType
+    
+    synapticTypes = $o1
+    cellType = $s2
+    
+    synProps = new Dict()
+    for i=0, synapticTypes.count()-1 {
+        synapticType = synapticTypes.o(i)
+        synapseNames = synapticType.getPropertyObject("synapseNames")
+        synapseCells = synapticType.getPropertyObject("synapseCells")
+        synIndex  = -1
+        for j = 0, synapseNames.count()-1 {
+            if (strcmp(synapseNames.o(j).s) == 0) {
+                synIndex = j
+                break
+            }
+        }
+        if (synIndex >= 0) {
+            synProps.addPropertyObject(synapticType.dictName, synapseCells.o(synIndex))
+        }
+    }
+    
+    return synProps
+}
+    
+
+
+
 // Loads connectivity info into a Dict
 proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj synName, f, connectivityTypes, connectivityType
     
@@ -233,11 +359,9 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
 	f.scanstr(preSynapticPopulation)
         // Read in the name of the postsynaptic population
 	f.scanstr(postSynapticPopulation)
-        // Read in the post-synaptic mechanism name
-	f.scanstr(synName)
         // Read in the type of weight+delay specification
 	f.scanstr(wdTypeString)
-        if (strcmp(wdTypeString,"long+trans.dist") == 0) {
+        if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
             wdType = 2
         } else if (strcmp(wdTypeString,"weight+delay") == 0) {
             wdType = 1
@@ -249,7 +373,6 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
           printf ("ConnectivityType: name = %s\n", connectivityName)
           printf ("ConnectivityType: pre = %s\n", preSynapticPopulation)
           printf ("ConnectivityType: post = %s\n", postSynapticPopulation)
-          printf ("ConnectivityType: synName = %s\n", synName)
           printf ("ConnectivityType: wdType = %d\n", wdType)
         }
         if (wdType == 1) {
@@ -257,7 +380,7 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
             connectivityType.addPropertyString("name",connectivityName)
             connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
             connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
-            connectivityType.addPropertyString("synName",synName)
+            connectivityType.addPropertyString("synName",preSynapticPopulation)
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("order",order)
             connectivityTypes.append(connectivityType)
@@ -268,7 +391,7 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
             connectivityType.addPropertyString("name",connectivityName)
             connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
             connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
-            connectivityType.addPropertyString("synName",synName)
+            connectivityType.addPropertyString("synName",preSynapticPopulation)
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("standardWeight",standardWeight)
             connectivityType.addPropertyScalar("standardVelocity",standardVelocity)
@@ -279,6 +402,7 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
     f.close()
     
 }
+
 
 
 // Loads gap junction info into a Dict

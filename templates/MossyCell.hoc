@@ -3,7 +3,7 @@ begintemplate MossyCell
 public connect2target, subsets,is_art, is_connected
 public soma, dendrites
 public all, pdend, ddend
-public syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
 public stim
 public xx, yy, zz, position
 
@@ -15,10 +15,10 @@ nst=10
 // dends is properly created in init()
 create soma, dendrites[1][1]
 
-objref syn, fl, rs
+objref fl, rs
 objref stim[nst]
 objref all, pdend, ddend
-objref syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
 
 proc init() { // arguments are gid, random_stream_offset
     
@@ -194,11 +194,11 @@ proc position() { local i
   xx = $1  yy = $2  zz = $3
 }
 
-objref syn_
+objref syn
 proc synapses() {
-    dendrites[0][0] syn_ = new ExpSyn(0.8)  
-    synlist.append(syn_)
-    syn_.tau = 2
+    dendrites[0][0] syn = new ExpSyn(0.8)  
+    synlist.append(syn)
+    
 }
 
 endtemplate MossyCell

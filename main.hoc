@@ -55,6 +55,12 @@ objref ncstimlist
 sprint (datafilePath, "%s/celltypes.dat", datasetPath)
 loadCellCategoryInfo (cellTypes, datafilePath, datasetPath)
 
+// used for synapse information
+objref synapseTypes
+synapseTypes = new List()
+// reads the synapse types file and populates synapseTypes with the information
+loadSynapseInfo (synapseTypes, datasetPath)
+
 // total number of cells in the network
 ncells = 0
 maxindex = 0
@@ -153,9 +159,23 @@ gjlist = new List()
 // used for the creation of cells
 objref cell, nc
 
+// helper function for synapse configuration
+proc mksyn() { local i localobj cell, riseTime, decayTime, erev
+    
+    cell = $o1
+    riseTime = $o2
+    decayTime = $o3
+    erev = $o4
+    
+    
+}
+
+
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices strdef templateName, typeName, datadir
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps
+    
+    strdef templateName, typeName, datadir
     
     cellTypes = $o1
     nCellTypes = cellTypes.count()
@@ -164,11 +184,10 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
     for k=0, nCellTypes-1 { 
         cellType = cellTypes.o(k)
         
-        
         typeName = cellType.getPropertyString("typeName").s
         templateName = cellType.getPropertyString("templateName").s
         numCells = cellType.getPropertyScalar("numCells")
-        offset = cellType.getPropertyScalar("offset")
+        offset   = cellType.getPropertyScalar("offset")
         
         if (cellType.hasProperty("indices")) {
             indices = cellType.getPropertyObject("indices")
@@ -179,13 +198,18 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                 indices.x[i] = i+offset
             }
         }
-
+        
+        synProps = getSynapseProperties(synapseTypes,typeName)
+        synRiseTime = synProps.getPropertyObject("rise time")
+        synDecayTime = synProps.getPropertyObject("decay time")
+        synErev = synProps.getPropertyObject("reversal potential")
+        
         if (strcmp(templateName, "NetStim") != 0) {
             find_template(externalPaths, templateName)
             // For cell templates that load their morphologies from
             // external files, set the maximum number of files per
-            // directory to 5000, and calculate the maximum height (or
-            // depth) of the directory tree necessary to store all
+            // directory to nodeSize, and calculate the maximum height
+            // (or depth) of the directory tree necessary to store all
             // files for that cell type.
             nodeSize = 5000 
             if (numCells > nodeSize) {
@@ -207,6 +231,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         }
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s%s\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -217,6 +242,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                     if (pnm.gid_exists(gid)) {
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                         execute(cmd)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -265,12 +291,12 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
             printf ("wdType = %d\n", wdType)
         }
         presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
-        postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
         presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
-        postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
         presynapticSize = presynapticType.getPropertyScalar("numCells")
-        postsynapticSize = postsynapticType.getPropertyScalar("numCells")
         presynapticOffset = presynapticType.getPropertyScalar("offset")
+        postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
+        postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
+        postsynapticSize = postsynapticType.getPropertyScalar("numCells")
         postsynapticOffset = postsynapticType.getPropertyScalar("offset")
         if (verbose > 0) {
             printf ("presynaptic population = %s\n", presynapticPopulation)
