@@ -44,12 +44,19 @@ strdef datafilePath
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
 
+
+// used to keep track of artificial stimulus cells
+objref stimTypes
+stimTypes = new List()
+objref ncstimlist
+
+// reads the cell types file and populates celltypes with the information
+sprint (datafilePath, "%s/stim.dat", datasetPath)
+loadStimulationInfo (stimTypes, datafilePath, datasetPath)
+
 // list with cell type information
 objref cellTypes
 cellTypes = new List()
-
-// used to keep track of artificial stimulus cells
-objref ncstimlist
 
 // reads the cell types file and populates celltypes with the information
 sprint (datafilePath, "%s/celltypes.dat", datasetPath)
@@ -228,9 +235,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
     cellTypes = $o1
     nCellTypes = cellTypes.count()
     
-    
     for k=0, nCellTypes-1 { 
-        
         
         cellType = cellTypes.o(k)
         
@@ -259,67 +264,48 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         // used for choosing dendrite and compartment for synapses
         rs = new RandomStream(k)
         rs.r.discunif(0,3)
-
         
-        if (strcmp(templateName, "NetStim") != 0) {
-            find_template(externalPaths, templateName)
-            // For cell templates that load their morphologies from
-            // external files, set the maximum number of files per
-            // directory to nodeSize, and calculate the maximum height
-            // (or depth) of the directory tree necessary to store all
-            // files for that cell type.
-            nodeSize = 5000 
-            if (numCells > nodeSize) {
-                nodeNumber = int(numCells / nodeSize)
-                treeHeight = int((log10(nodeNumber+1) / log10(2))+1)
-                for i=0, numCells-1 { 
-                    datadir=""
-                    gid = indices.x(i)
-                    if (pnm.gid_exists(gid)) {
-                        node=int(i/nodeSize)
-                        for (j=treeHeight-1; j >= 0; j = j-1) {
-                            p = 2^j
-                            if (node >= p) {
-                                node = node-p
-                                sprint(datadir, "%s/1", datadir)
-                            } else {
-                                sprint(datadir, "%s/0", datadir)
-                            }
+        find_template(externalPaths, templateName)
+        // For cell templates that load their morphologies from
+        // external files, set the maximum number of files per
+        // directory to nodeSize, and calculate the maximum height
+        // (or depth) of the directory tree necessary to store all
+        // files for that cell type.
+        nodeSize = 5000 
+        if (numCells > nodeSize) {
+            nodeNumber = int(numCells / nodeSize)
+            treeHeight = int((log10(nodeNumber+1) / log10(2))+1)
+            for i=0, numCells-1 { 
+                datadir=""
+                gid = indices.x(i)
+                if (pnm.gid_exists(gid)) {
+                    node=int(i/nodeSize)
+                    for (j=treeHeight-1; j >= 0; j = j-1) {
+                        p = 2^j
+                        if (node >= p) {
+                            node = node-p
+                            sprint(datadir, "%s/1", datadir)
+                        } else {
+                            sprint(datadir, "%s/0", datadir)
                         }
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s%s\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName, datadir)
-                        execute(cmd)
-                        // TODO: Temporarily disabled making of synapses for GC cells
-                        //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
-	                pnm.register_cell(gid, cell)
-                        pnm.spike_record(gid)
                     }
-                }
-            } else {
-                for i=0, numCells-1 { 
-                    gid = indices.x(i)
-                    if (pnm.gid_exists(gid)) {
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
-                        execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs)
-	                pnm.register_cell(gid, cell)
-                        pnm.spike_record(gid)
-                    }
+                    sprint(cmd, "cell = new %s(%d, %d, \"%s/%s%s\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName, datadir)
+                    execute(cmd)
+                    // TODO: Temporarily disabled making of synapses for GC cells
+                    //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
+	            pnm.register_cell(gid, cell)
+                    pnm.spike_record(gid)
                 }
             }
         } else {
-            // Used to keep track of artificial stimulus cells
-            typeName = cellType.getPropertyString("typeName").s
-            sprint (cmd, "objref %slist, nc%slist", typeName, typeName)
-            execute(cmd)
-            sprint (cmd, "%slist = new List()", typeName)
-            execute(cmd)
-            sprint (cmd, "nc%slist = new List()", typeName)
-            execute(cmd)
             for i=0, numCells-1 { 
                 gid = indices.x(i)
                 if (pnm.gid_exists(gid)) {
-                    cell = new NetStim(0.0)
-                    pnm.register_cell(gid, cell)
+                    sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
+                    execute(cmd)
+                    mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs)
+	            pnm.register_cell(gid, cell)
+                    pnm.spike_record(gid)
                 }
             }
         }
@@ -328,7 +314,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, velocity, ncid, wdType, synType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim
+proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType
     
     strdef connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
@@ -341,7 +327,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
     for k=0, nConnectivityTypes-1 { 
         connectivityType = connectivityTypes.o(k)
         order = connectivityType.getPropertyScalar("order")
-        synType = connectivityType.getPropertyScalar("synType")
+        synType = connectivityType.getPropertyObject("synType")
         wdType = connectivityType.getPropertyScalar("wdType")
         connectivityName = connectivityType.getPropertyString("name").s
         if (verbose > 0) {
@@ -375,36 +361,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
         f.ropen()
         m.scanf(f)
         f.close()
-        if ((stimsrc == 1) && (wdType == 1)) {
-            for i=0, m.nrow-1 {
-                srcid = m.x[i][0]
-                destid = m.x[i][1]
-                if (order == 0) {
-                    // relative numbering of pre/post synaptic cells -- add the respective offsets
-                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
-                    srcid1 = srcid + presynapticOffset
-                    destid1 = destid + postsynapticOffset
-                } else {
-                    // absolute numbering of pre/post synaptic cells
-                    srcid1 = srcid
-                    destid1 = destid
-                }
-                if (!pnm.gid_exists(destid1)) { continue }
-                nc = pnm.pc.gid_connect(srcid1, pnm.pc.gid2obj(destid1).syn_stim)
-                w = m.x[i][2]
-                del = m.x[i][3]
-                nc.weight = w
-                nc.delay = del
-                ncstimlist.append(nc)
-		if (makegraph > 0) {
-                  edges = new Vector(2)
-                  edges.x[0] = srcid1
-                  edges.x[1] = destid1
-                  conlist.prepend(edges)
-		}	
-            }
-        } else if (wdType == 1) {
+        if (wdType == 1) {
             for i=0, m.nrow-1 {
                 srcid = m.x[i][0]
                 destid = m.x[i][1]
@@ -600,42 +557,64 @@ mknet(ncells)
 
 // Configuration of artificial spiking cells
 
-proc mkstim() { local i, k, nCellTypes, numCells, offset localobj stim, stimulationParameters, cellType, cellTypes
+proc mkstim() { local i, k, nCellTypes, nStimTypes, gid, weight, noise, number, start localobj stim, stimulationParameters, cellType, cellTypes, stimType, stimTypes
     
     strdef templateName, typeName
     
     datasetPath = $s1
     cellTypes = $o2
     nCellTypes = cellTypes.count()
+    stimTypes = $o3
+    nStimTypes = stimTypes.count()
     
-    for k=0, nCellTypes-1 { 
+    // Used to keep track of artificial stimulus cells
+    typeName = "stim"
+    sprint (cmd, "objref %slist, nc%slist", typeName, typeName)
+    execute(cmd)
+    sprint (cmd, "%slist = new List()", typeName)
+    execute(cmd)
+    sprint (cmd, "nc%slist = new List()", typeName)
+    execute(cmd)
+    
+    stimgid = maxindex+1
+    
+    for i=0, numStimTypes-1 { 
         
-        cellType = cellTypes.o(k)
-        typeName = cellType.getPropertyString("typeName").s
-        templateName = cellType.getPropertyString("templateName").s
-        numCells = cellType.getPropertyScalar("numCells")
-        offset = cellType.getPropertyScalar("offset")
+        stimType = stimTypes.o(i)
         
-        if (strcmp(templateName, "NetStim") == 0) {
-            sprint (datafilePath, "%s/%s.dat", datasetPath, typeName)
-            stimulationParameters = new Matrix()
-            // Reads the stimulation parameters file and populates the
-            // stimulationParameters matrix with the information
-            loadStimulationParameters (stimulationParameters, datafilePath)
-
-            for i=0, numCells-1 { 
-                if (pnm.gid_exists(offset+i)) {
-                    stim = pnm.pc.gid2obj(offset+i)
-                    stim.noise  = stimulationParameters.x[i][0]
-                    stim.number = stimulationParameters.x[i][1]
-                    stim.start  = stimulationParameters.x[i][2]
-                }
+        indices = stimType.getPropertyObject("indices")
+        weight = stimType.getPropertyScalar("weight")
+        noise = stimType.getPropertyScalar("noise")
+        number = stimType.getPropertyScalar("number")
+        start = stimType.getPropertyScalar("start")
+        
+        for j=0, indices.count()-1 {
+            
+            gid = indices.x(j)
+            if (pnm.gid_exists(gid)) {
+                stim = new NetStim(0.0)
+                stim.noise = noise
+                stim.number = number
+                stim.start = start
+                pnm.register_cell(stimgid, stim)
+                nc = pnm.pc.gid_connect(stimgid, pnm.pc.gid2obj(gid).syn_stim)
+                nc.weight = weight
+                nc.delay = 0.1
+                ncstimlist.append(nc)
+                
+	        if (makegraph > 0) {
+                    edges = new Vector(2)
+                    edges.x[0] = stimgid
+                    edges.x[1] = gid
+                    conlist.prepend(edges)
+	        }	
+                
             }
         }
     }
 }
 
-mkstim(datasetPath, cellTypes, ncells)
+mkstim(datasetPath, cellTypes, stimTypes)
 
 printf ("*** Stimulus sources initialized\n")
 

@@ -27,8 +27,13 @@ func nc_appendsyn() {local i, se, lsrc, ltar, w, ww localobj nc, pnm, cell, synl
         // target in this subset
         // source may be on this or another machine
         cell = pnm.pc.gid2cell($3)
-        synType = $4
-        mknetcon(pnm, $2, cell, cell.syns.o(synType), $5, $6)
+        synType = $o4
+        if (synType.is_number) {
+            mknetcon(pnm, $2, cell, cell.syns.o(synType.n), $5, $6)
+        } else {
+            mknetcon(pnm, $2, cell, cell.syns.o(synType.l.o(0).n), $5, $6)
+            mknetcon(pnm, $2, cell, cell.syns.o(synType.l.o(1).n), $5, $6)
+        }
         i = pnm.nclist.count
     } else if ((se = pnm.gid_exists($1)) > 0) {
         // source exists but not the target
@@ -239,7 +244,7 @@ obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValues[4], count local
                     } else {
                         lst = new List()
                         for i=0, i<count {
-                            lst.append(numValues[i])
+                            lst.append(new Value(0,numValues[i]))
                         }
                         value = new Value(2,lst)
                     }
@@ -332,9 +337,9 @@ obfunc getSynapseProperties() { local i, j localobj synProps, synapticTypes, syn
 
 
 // Loads connectivity info into a Dict
-proc loadConnectivityInfo() { local i, order, wdType, synType, standardWeight, standardVelocity, numConnectivityTypes localobj f, connectivityTypes, connectivityType
+proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj f, l, connectivityTypes, connectivityType, synType
     
-    strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation
+    strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation, synTypeString
     
     // The first argument must be a list
     connectivityTypes = $o1
@@ -367,7 +372,8 @@ proc loadConnectivityInfo() { local i, order, wdType, synType, standardWeight, s
         // Read in the name of the postsynaptic population
 	f.scanstr(postSynapticPopulation)
         // Read in the synapse type index
-        synType = f.scanvar()
+        f.scanstr(synTypeString)
+        synCount = sscanf(synTypeString,"%lf:%lf",&synType1,&synType2)
         // Read in the type of weight+delay specification
 	f.scanstr(wdTypeString)
         if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
@@ -389,20 +395,36 @@ proc loadConnectivityInfo() { local i, order, wdType, synType, standardWeight, s
             connectivityType.addPropertyString("name",connectivityName)
             connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
             connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
-            connectivityType.addPropertyString("synType",synType)
+            if (synCount > 1) {
+                l = new List()
+                l.append(new Value(0,synType1))
+                l.append(new Value(0,synType2))
+                connectivityType.addPropertyObject("synType",new Value(2,l))
+            } else {
+                connectivityType.addPropertyObject("synType",new Value(0,synType1))
+            }
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("order",order)
             connectivityTypes.append(connectivityType)
         } else if (wdType == 2) {
-            standardWeight = f.scanvar()
-            standardVelocity = f.scanvar()
             connectivityType = new Dict(connectivityName)
+            if (synCount > 1) {
+                f.scanstr(wdTypeString)
+                sscanf(wdTypeString,"%lf:%lf",&standardWeight1,&standardWeight2)
+                l = new List()
+                l.append(new Value(0,standardWeight1))
+                l.append(new Value(0,standardWeight2))
+                connectivityType.addPropertyObject("standardWeight",new Value(2,l))
+            } else {
+                standardWeight1 = f.scanvar()
+                connectivityType.addPropertyObject("standardWeight",new Value(0,standardWeight1))
+            }
+            standardVelocity = f.scanvar()
             connectivityType.addPropertyString("name",connectivityName)
             connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
             connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
-            connectivityType.addPropertyString("synType",synType)
+            connectivityType.addPropertyScalar("synType",synType1)
             connectivityType.addPropertyScalar("wdType",wdType)
-            connectivityType.addPropertyScalar("standardWeight",standardWeight)
             connectivityType.addPropertyScalar("standardVelocity",standardVelocity)
             connectivityType.addPropertyScalar("order",order)
             connectivityTypes.append(connectivityType)
@@ -451,13 +473,52 @@ proc loadGapJunctionInfo() { local i, order, numGJTypes localobj f, gjTypes, gjT
 }
 
 
-proc loadStimulationParameters() { localobj f, m strdef stimulationPath
+proc loadStimulationInfo() { local i, weight, number, start, noise localobj f, ff, m, indices, stimType
     
-    m = $o1
-    stimulationPath = $s2
-    f = new File(stimulationPath)
-    f.ropen()
-    m.scanf(f)
+    strdef stimTypeName, cellTypeName, datasetPath, indexPath, errmsg
+    
+    // The first argument must be a list
+    stimTypes = $o1
+    
+    // The second argument must be the path to the stim types file 
+    f = new File()
+    f.ropen($s2)
+    
+    // The third argument must be the path to the directory containing all datasets
+    datasetPath = $s3
+    
+    // Scan the first line, which contains the number of stim types
+    numStimTypes = f.scanvar()
+    
+    for i=0, numCellTypes-1 {
+        
+        // Scan in the cell name, template name, number of cells
+	f.scanstr(stimTypeName)
+        stimType = new Dict(stimTypeName)
+        stimType.addPropertyString("typeName",stimTypeName)
+        
+        sprint(indexPath,"%s/%s",datasetPath,stimTypeName)
+        indices = new Vector()
+        ff = new File()
+        ff.ropen(indexPath)
+	numCells = ff.scanvar()
+        ff.scanvar()
+        indices.buffer_size(numCells)
+        indices.scanf(ff,numCells)
+        ff.close(indexPath)
+        stimType.addPropertyObject("indices",indices)
+	f.scanstr(cellTypeName)
+        stimType.addPropertyString("cellTypeName",cellTypeName)
+        weight = f.scanvar()
+        stimType.addPropertyScalar("weight",weight)
+        noise = f.scanvar()
+        stimType.addPropertyScalar("noise",noise)
+        number = f.scanvar()
+        stimType.addPropertyScalar("number",number)
+        start = f.scanvar()
+        stimType.addPropertyScalar("start",start)
+        stimTypes.append(stimType)
+    }
     f.close()
     
 }
