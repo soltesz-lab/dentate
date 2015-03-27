@@ -1,0 +1,32 @@
+
+// A template to allow storing variant datatypes in a list (numbers, strings, and objects)
+begintemplate Value
+
+public n, s, l, is_number, is_string, is_object
+strdef s
+objref l
+
+is_number = 1
+is_string = 0
+is_object = 0
+
+// The first argument is the type flag
+// 0 -> number, 1 -> string, 2 -> object
+proc init() { local type
+    type = $1
+    if (type == 0) {
+        n = $2
+        is_number = 1
+    } else if (type == 1) {
+        s = $s2
+        is_number = 0
+        is_string = 1
+    } else if (type == 2) {
+        l = $o2
+        is_number = 0
+        is_object = 2
+    }
+}
+
+endtemplate Value
+
