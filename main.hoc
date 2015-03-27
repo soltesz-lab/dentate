@@ -157,23 +157,48 @@ gjlist = new List()
 /* mkcells and connectcells create the cells and connect the cells */
 
 // used for the creation of cells
-objref cell, nc
+objref cell, nc, syn
 
-// helper function for synapse configuration
-proc mksyn() { local i localobj cell, riseTime, decayTime, erev
-    
+// helper function to create synapses
+proc mksyn() { local i, dendindex, compindex localobjccell, riseTime, decayTime, erev, dend, comp, nil
+
     cell = $o1
     riseTime = $o2
     decayTime = $o3
     erev = $o4
-    
-    
+    dend = $o5 
+    comp = $o6
+
+    for i = 0, syns.count()-1 {
+
+        dendindex = dend.o(i)
+        compindex = comp.o(i)
+
+        if (dendindex == nil) { continue }
+
+        if (dendindex.is_number) {
+          cell.dendrites[dendindex.n][compindex.n] {
+	        syn = new ExpSyn(0.5)
+                syn.tau1 = riseTime.o(i).n
+                syn.tau2 = decayTime.o(i).n
+                syn.e = erev.o(i).n
+    		syns.o(i).append(syn)
+ 	} else {
+          cell.soma {
+	        syn = new ExpSyn(0.5)
+                syn.tau1 = riseTime.o(i).n
+                syn.tau2 = decayTime.o(i).n
+                syn.e = erev.o(i).n
+    		syns.o(i).append(syn)
+        }
+    }
+
 }
 
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp
     
     strdef templateName, typeName, datadir
     
@@ -203,6 +228,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         synRiseTime = synProps.getPropertyObject("rise time")
         synDecayTime = synProps.getPropertyObject("decay time")
         synErev = synProps.getPropertyObject("reversal potential")
+        synDend = synProps.getPropertyObject("dendrite")
+        synComp = synProps.getPropertyObject("compartment")
         
         if (strcmp(templateName, "NetStim") != 0) {
             find_template(externalPaths, templateName)
@@ -231,7 +258,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         }
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s%s\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -242,7 +269,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                     if (pnm.gid_exists(gid)) {
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                         execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }

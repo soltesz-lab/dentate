@@ -4,13 +4,13 @@ public connect2target, subsets, is_art, is_connected
 public soma, dendrites
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
-public synlist
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
 
-objref syn, pre_list, synlist
+objref all, adend, bdend, cdend, ddend
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
 
 create soma, dendrites[1][1]
 
-objref all, adend, bdend, cdend, ddend
 
 proc init() {
     
@@ -24,7 +24,21 @@ proc init() {
     topol(ndends,ndendsec)
     geom()
     biophys()
-    synapses()
+
+    syns_GC = new List()
+    syns_MC = new List()
+    syns_HC = new List()
+    syns_BC = new List()
+    syns_AA = new List()
+    syns_HCC = new List()
+    syns = new List()
+    syns.append(syns_GC)
+    syns.append(syns_MC)
+    syns.append(syns_HC)
+    syns.append(syns_BC)
+    syns.append(syns_AA)
+    syns.append(syns_HCC)
+
 }
 
 proc subsets() { local i

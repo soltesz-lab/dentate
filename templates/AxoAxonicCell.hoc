@@ -5,12 +5,12 @@ public connect2target, subsets, is_art, is_connected
 public soma, dendrites
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
-public synlist
 
-objref synlist
+objref all, adend, bdend, cdend, ddend
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
 
 create soma, dendrites[1][1]
-
 
 proc init() {
     
@@ -24,10 +24,23 @@ proc init() {
     geom()
     topol(ndends,ndendsec)
     biophys()
-    synapses()
+
+    syns_GC = new List()
+    syns_MC = new List()
+    syns_HC = new List()
+    syns_BC = new List()
+    syns_AA = new List()
+    syns_HCC = new List()
+    syns = new List()
+    syns.append(syns_GC)
+    syns.append(syns_MC)
+    syns.append(syns_HC)
+    syns.append(syns_BC)
+    syns.append(syns_AA)
+    syns.append(syns_HCC)
+
 }
 
-objref all, adend, bdend, cdend, ddend
 
 proc subsets() { local i
     
@@ -191,15 +204,5 @@ proc position() { local i
   }
   xx = $1  yy = $2  zz = $3
 }
-
-objref syn_
-proc synapses() {
-    
-    /* E0 */   
-    dendrites[0][0] syn_ = new ExpSyn(0.8)  synlist.append(syn_)
-    syn_.tau = 2
-}
-
-
 
 endtemplate AxoAxonicCell
