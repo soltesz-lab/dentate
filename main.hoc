@@ -160,7 +160,7 @@ gjlist = new List()
 objref cell, nc, syn
 
 // helper function to create synapses
-proc mksyn() { local i, dendindex, compindex localobjccell, riseTime, decayTime, erev, dend, comp, nil
+proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, riseTime, decayTime, erev, dend, comp, rs, nil
 
     cell = $o1
     riseTime = $o2
@@ -168,37 +168,60 @@ proc mksyn() { local i, dendindex, compindex localobjccell, riseTime, decayTime,
     erev = $o4
     dend = $o5 
     comp = $o6
-
+    rs = $o7
+    
     for i = 0, syns.count()-1 {
 
         dendindex = dend.o(i)
         compindex = comp.o(i)
 
         if (dendindex == nil) { continue }
-
-        if (dendindex.is_number) {
-          cell.dendrites[dendindex.n][compindex.n] {
+        
+        if (dendindex.is_object) {
+            
+            dendnum = rs.repick() % dendindex.lst.o(i)
+            compnum = rs.repick() % compindex.lst.o(i)
+            
+            cell.dendrites[dendnum][compnum] {
+                
 	        syn = new ExpSyn(0.5)
                 syn.tau1 = riseTime.o(i).n
                 syn.tau2 = decayTime.o(i).n
                 syn.e = erev.o(i).n
     		syns.o(i).append(syn)
- 	} else {
-          cell.soma {
-	        syn = new ExpSyn(0.5)
-                syn.tau1 = riseTime.o(i).n
-                syn.tau2 = decayTime.o(i).n
-                syn.e = erev.o(i).n
-    		syns.o(i).append(syn)
+                
+ 	    } else if (dendindex.is_number) {
+                
+                dendnum = dendindex.n
+                compnum = compindex.n
+                
+                cell.dendrites[dendnum][compnum] {
+	            syn = new ExpSyn(0.5)
+                    syn.tau1 = riseTime.o(i).n
+                    syn.tau2 = decayTime.o(i).n
+                    syn.e = erev.o(i).n
+    		    syns.o(i).append(syn)
+                    
+ 	        } else {
+                    
+                    cell.soma {
+	                syn = new ExpSyn(0.5)
+                        syn.tau1 = riseTime.o(i).n
+                        syn.tau2 = decayTime.o(i).n
+                        syn.e = erev.o(i).n
+    		        syns.o(i).append(syn)
+                    }
+                }
+                
+            }
         }
     }
-
 }
 
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
     strdef templateName, typeName, datadir
     
@@ -207,6 +230,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
     
     
     for k=0, nCellTypes-1 { 
+        
+        
         cellType = cellTypes.o(k)
         
         typeName = cellType.getPropertyString("typeName").s
@@ -230,6 +255,11 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         synErev = synProps.getPropertyObject("reversal potential")
         synDend = synProps.getPropertyObject("dendrite")
         synComp = synProps.getPropertyObject("compartment")
+        
+        // used for choosing dendrite and compartment for synapses
+        rs = new RandomStream(k)
+        rs.r.discunif(0,3)
+
         
         if (strcmp(templateName, "NetStim") != 0) {
             find_template(externalPaths, templateName)
@@ -258,7 +288,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         }
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s%s\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
+                        // TODO: Temporarily disabled making of synapses for GC cells
+                        //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -269,7 +300,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                     if (pnm.gid_exists(gid)) {
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                         execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -297,7 +328,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, synName, nc, edges, m, f, stim
+proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, velocity, ncid, wdType, synType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim
     
     strdef connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
@@ -310,7 +341,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
     for k=0, nConnectivityTypes-1 { 
         connectivityType = connectivityTypes.o(k)
         order = connectivityType.getPropertyScalar("order")
-        synName = connectivityType.getPropertyScalar("synName")
+        synType = connectivityType.getPropertyScalar("synType")
         wdType = connectivityType.getPropertyScalar("wdType")
         connectivityName = connectivityType.getPropertyString("name").s
         if (verbose > 0) {
@@ -360,7 +391,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                     destid1 = destid
                 }
                 if (!pnm.gid_exists(destid1)) { continue }
-                nc = pnm.pc.gid_connect(srcid1, pnm.pc.gid2obj(destid1).syn)
+                nc = pnm.pc.gid_connect(srcid1, pnm.pc.gid2obj(destid1).syn_stim)
                 w = m.x[i][2]
                 del = m.x[i][3]
                 nc.weight = w
@@ -391,7 +422,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                 if (!pnm.gid_exists(destid1)) { continue }
                 w = m.x[i][2]
                 del = m.x[i][3]
-	        ncid = pnm.nc_append(srcid1, destid1, synName, w, del)
+	        ncid = nc_appendsyn(pnm,srcid1, destid1, synType, w, del)
                 if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
                 }
@@ -424,7 +455,7 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, w, del, dist, v
                 if (!pnm.gid_exists(destid1)) { continue }
                 dist = m.x[i][2] + m.x[i][3]
                 del = (dist / velocity) + 1.0
-	        ncid = pnm.nc_append(srcid1, destid1, synName, w, del)
+	        ncid = nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
                 if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
                 }

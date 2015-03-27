@@ -4,10 +4,12 @@ public connect2target, subsets, is_art, is_connected
 public soma, dendrites
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
-public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC
+public syn_stim
 
 objref all, adend, bdend, cdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC
+objref syn_stim
 
 create soma, dendrites[1][1]
 
@@ -31,13 +33,21 @@ proc init() {
     syns_BC = new List()
     syns_AA = new List()
     syns_HCC = new List()
+    syns_NGFC = new List()
     syns = new List()
+    
     syns.append(syns_GC)
     syns.append(syns_MC)
     syns.append(syns_HC)
     syns.append(syns_BC)
     syns.append(syns_AA)
     syns.append(syns_HCC)
+    syns.append(syns_NGFC)
+    
+    soma {
+        syn_stim = new ExpSyn(0.5)
+        syn_stim.tau = 1
+    }
 
 }
 
@@ -190,13 +200,6 @@ proc position() { local i
     pt3dchange(i, $1-xx+x3d(i), $2-yy+y3d(i), $3-zz+z3d(i), diam3d(i))
   }
   xx = $1  yy = $2  zz = $3
-}
-
-objref syn_
-proc synapses() {
-    /* E0 */   
-    dendrites[0][0] syn_ = new ExpSyn(0.8)  synlist.append(syn_)
-    syn_.tau = 2
 }
 
 

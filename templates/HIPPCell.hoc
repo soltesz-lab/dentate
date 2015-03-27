@@ -6,9 +6,11 @@ public soma, dendrites
 public all, pdend, ddend
 public xx, yy, zz, position
 public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+public syn_stim
 
 objref all, pdend, ddend
 objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+objref syn_stim
 
 create soma, dendrites[1][1]
 
@@ -39,6 +41,11 @@ proc init() {
     syns.append(syns_BC)
     syns.append(syns_AA)
     syns.append(syns_HCC)
+    
+    soma {
+        syn_stim = new ExpSyn(0.5)
+        syn_stim.tau = 1
+    }
 
 }
 
@@ -175,14 +182,5 @@ proc position() { local i
   }
   xx = $1  yy = $2  zz = $3
 }
-
-objref syn_
-proc synapses() {
-    /* E0 */   
-    dendrites[0][0] syn_ = new ExpSyn(0.8)  
-    synlist.append(syn_)
-    syn_.tau = 2
-}
-
 
 endtemplate HIPPCell

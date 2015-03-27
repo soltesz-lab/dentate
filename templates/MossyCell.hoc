@@ -4,6 +4,7 @@ public connect2target, subsets,is_art, is_connected
 public soma, dendrites
 public all, pdend, ddend
 public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+public syn_stim
 public stim
 public xx, yy, zz, position
 
@@ -19,6 +20,7 @@ objref fl, rs
 objref stim[nst]
 objref all, pdend, ddend
 objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+objref syn_stim
 
 proc init() { // arguments are gid, random_stream_offset
     
@@ -46,7 +48,11 @@ proc init() { // arguments are gid, random_stream_offset
     syns.append(syns_BC)
     syns.append(syns_AA)
     syns.append(syns_HCC)
-
+    
+    soma {
+        syn_stim = new ExpSyn(0.5)
+        syn_stim.tau = 1
+    }
 }
 
 

@@ -6,7 +6,6 @@
 {xopen("./templates/Value.hoc")}
 
 
-
 proc assert() { local test strdef errmsg
     
     test = $1
@@ -17,19 +16,19 @@ proc assert() { local test strdef errmsg
     }
 }
 
+
+
 // A variant of ParallelNetManager.nc_append that takes in a synaptic
 // point process as an argument (as opposed to the index of a synapse in cell.synlist)
 func nc_appendsyn() {local i, se, lsrc, ltar, w, ww localobj nc, pnm, cell, synlist
-    strdef stmt
     i = -1
     pnm = $o1
     if (pnm.gid_exists($3)) {
         // target in this subset
         // source may be on this or another machine
         cell = pnm.pc.gid2cell($3)
-        sprint(stmt,"syn = cell.syns_%s",$s4)
-        execute(stmt)
-        mknetcon(pnm, $2, cell, synlist, $5, $6)
+        synType = $4
+        mknetcon(pnm, $2, cell, cell.syns.o(synType), $5, $6)
         i = pnm.nclist.count
     } else if ((se = pnm.gid_exists($1)) > 0) {
         // source exists but not the target
@@ -206,7 +205,7 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
 
 // Reads in a single synapse matrix, regardless of which type of data is stored in it,
 // and stores it in a Dict
-obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValue, status localobj nil, f, synapseNames, synapseName, synapseCells, synapseCell, dict, value
+obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValues[4], count localobj nil, f, synapseNames, synapseName, synapseCells, synapseCell, dict, value, lst
     
     strdef str, propertyName, valueString
     
@@ -233,9 +232,17 @@ obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValue, status localobj
             if (strcmp(valueString,"NA") == 0) {
                 synapseCell.append(nil)
             } else {
-                status = sscanf(valueString,"%f",numValue)
-                if (status > 0) {
-                    value = new Value(0,numValue)
+                count = sscanf(valueString,"%lf:%lf",&numValues[0],&numValues[1])
+                if (count > 0) {
+                    if (count == 1) {
+                        value = new Value(0,numValues[0])
+                    } else {
+                        lst = new List()
+                        for i=0, i<count {
+                            lst.append(numValues[i])
+                        }
+                        value = new Value(2,lst)
+                    }
                     synapseCell.append(value)
                 } else {
                     value = new Value(1,valueString)
@@ -325,7 +332,7 @@ obfunc getSynapseProperties() { local i, j localobj synProps, synapticTypes, syn
 
 
 // Loads connectivity info into a Dict
-proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj synName, f, connectivityTypes, connectivityType
+proc loadConnectivityInfo() { local i, order, wdType, synType, standardWeight, standardVelocity, numConnectivityTypes localobj f, connectivityTypes, connectivityType
     
     strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation
     
@@ -359,6 +366,8 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
 	f.scanstr(preSynapticPopulation)
         // Read in the name of the postsynaptic population
 	f.scanstr(postSynapticPopulation)
+        // Read in the synapse type index
+        synType = f.scanvar()
         // Read in the type of weight+delay specification
 	f.scanstr(wdTypeString)
         if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
@@ -380,7 +389,7 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
             connectivityType.addPropertyString("name",connectivityName)
             connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
             connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
-            connectivityType.addPropertyString("synName",preSynapticPopulation)
+            connectivityType.addPropertyString("synType",synType)
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("order",order)
             connectivityTypes.append(connectivityType)
@@ -391,7 +400,7 @@ proc loadConnectivityInfo() { local i, order, wdType, standardWeight, standardVe
             connectivityType.addPropertyString("name",connectivityName)
             connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
             connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
-            connectivityType.addPropertyString("synName",preSynapticPopulation)
+            connectivityType.addPropertyString("synType",synType)
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("standardWeight",standardWeight)
             connectivityType.addPropertyScalar("standardVelocity",standardVelocity)

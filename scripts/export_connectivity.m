@@ -6,7 +6,7 @@ projections = {'GCtoGC';'MCtoGC';'HCtoGC';'BCtoGC';'AACtoGC';
                'BCtoMC';'AACtoMC';'HCCtoMC';'GCtoHC';'MCtoHC';
                'HCtoHC';'BCtoHC';'GCtoBC';'MCtoBC';'HCtoBC';'BCtoBC';
                'HCCtoBC';'NGFCtoBC';'GCtoAAC';'MCtoAAC';'HCtoAAC';'NGFCtoAAC';
-               'GCtoHCC';'MCtoHCC';'HCCtoHCC';'NGFCtoHCC';'HCtoNGFC';'NGFCtoNGFC'}
+               'GCtoHCC';'MCtoHCC';'BCtoHCC';'HCCtoHCC';'NGFCtoHCC';'HCtoNGFC';'NGFCtoNGFC'}
 
 gjprojections = {'HCtoHC';'BCtoBC';'HCCtoHCC';'NGFCtoNGFC'}
 
@@ -46,6 +46,7 @@ NGFCtoAAC = m.connection_M{7,5};
 
 GCtoHCC   = m.connection_M{1,6};
 MCtoHCC   = m.connection_M{2,6};
+BCtoHCC   = m.connection_M{4,6};
 HCCtoHCC  = m.connection_M{6,6};
 NGFCtoHCC = m.connection_M{7,6};
 
