@@ -2,8 +2,8 @@
 // Dictionary template
 {xopen("./templates/Dict.hoc")}
 
-// Number template
-{xopen("./templates/Number.hoc")}
+// Value template
+{xopen("./templates/Value.hoc")}
 
 
 
@@ -235,10 +235,10 @@ obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValue, status localobj
             } else {
                 status = sscanf(valueString,"%f",numValue)
                 if (status > 0) {
-                    value = new Number(numValue)
+                    value = new Value(0,numValue)
                     synapseCell.append(value)
                 } else {
-                    value = new String(valueString)
+                    value = new Value(1,valueString)
                     synapseCell.append(value)
                 }
             }
