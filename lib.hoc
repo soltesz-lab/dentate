@@ -210,8 +210,7 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
 
 // Reads in a single synapse matrix, regardless of which type of data is stored in it,
 // and stores it in a Dict
-double numValues[4]
-obfunc loadSynapseMatrix() { local i, j, k, numSynapseTypes, count localobj nil, f, synapseNames, synapseName, synapseCells, synapseCell, dict, value, lst
+obfunc loadSynapseMatrix() { local i, j, k, numValue, numCellTypes, numSynapseTypes, count localobj f, synapseNames, synapseName, synapseCells, synapseCell, synapseRows, synapseRow, dict, value, lst
     
     strdef str, propertyName, valueString
     
@@ -219,46 +218,56 @@ obfunc loadSynapseMatrix() { local i, j, k, numSynapseTypes, count localobj nil,
     f = $o1
     // the second argument is the name of this type of synaptic property
     propertyName = $s2
-    // Scan the first line, which contains the number of synapse types
+    // Scan the first line, which contains the numbers of cell/synapse types
     numSynapseTypes = f.scanvar()
+    numCellTypes = f.scanvar()
     
     synapseNames = new List()
     synapseCells = new List()
+    synapseRows = new List()
+
     for i=0, numSynapseTypes-1 {
         f.scanstr(str)
         synapseName = new String(str)
         synapseNames.append(synapseName)
+        synapseRows.append(new List())
+    }
+    for i=0, numCellTypes-1 {
         synapseCells.append(new List())
     }
 
-    print "numSynapseTypes = ", numSynapseTypes    
     for i=0, numSynapseTypes-1 {
-        synapseCell = synapseCells.o(i)
-        for j=0, numSynapseTypes-1 {
+        synapseRow = synapseRows.o(i)
+        for j=0, numCellTypes-1 {
             f.scanstr(valueString)
-            print "valueString = ", valueString
             if (strcmp(valueString,"NA") == 0) {
-                synapseCell.append(nil)
+                synapseRow.append(new Value(-1))
             } else {
-                count = sscanf(valueString,"%lf:%lf",&numValues[0],&numValues[1])
-                print "count = ", count
+                count = sscanf(valueString,"%lf",&numValue)
                 if (count > 0) {
-                    if (count == 1) {
-                        value = new Value(0,numValues[0])
-                    } else {
-                        lst = new List()
-                        for k=0, k<count {
-                            lst.append(new Value(0,numValues[k]))
-                        }
-                        value = new Value(2,lst)
-                    }
-                    synapseCell.append(value)
+                    value = new Value(0,numValue)
+                    synapseRow.append(value)
                 } else {
                     value = new Value(1,valueString)
-                    synapseCell.append(value)
+                    synapseRow.append(value)
                 }
             }
         }
+    }
+
+    for j=0, numSynapseTypes-1 {
+      for i=0, numCellTypes-1 {
+            synapseCell = synapseCells.o(i)
+            synapseRow = synapseRows.o(j)
+	    synapseCell.append(synapseRow.o(i))
+	}
+    }
+
+    for i=0, numCellTypes-1 {
+      synapseCell = synapseCells.o(i)
+      for j=0, numSynapseTypes-1 {
+	    synapseCell.append(synapseCell.o(j))
+	}
     }
 
     dict = new Dict(propertyName)
@@ -310,27 +319,31 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
 }
 
 // Retrieves the synaptic properties for a given cell type
-obfunc getSynapseProperties() { local i, j localobj synProps, synapticTypes, synapticType, synapseNames, synapseCells, synIndex
+obfunc getSynapseProperties() { local i, j, synIndex localobj synProps, synapticTypes, synapticType, synapseNames, synapseCells
     
     strdef cellType
     
     synapticTypes = $o1
     cellType = $s2
     
-    synProps = new Dict()
+    synProps = new Dict(cellType)
     for i=0, synapticTypes.count()-1 {
+       
         synapticType = synapticTypes.o(i)
         synapseNames = synapticType.getPropertyObject("synapseNames")
         synapseCells = synapticType.getPropertyObject("synapseCells")
         synIndex  = -1
         for j = 0, synapseNames.count()-1 {
-            if (strcmp(synapseNames.o(j).s) == 0) {
+            if (strcmp(cellType,synapseNames.o(j).s) == 0) {
                 synIndex = j
                 break
             }
         }
         if (synIndex >= 0) {
             synProps.addPropertyObject(synapticType.dictName, synapseCells.o(synIndex))
+        } else {
+          sprint(errmsg,"getSynapseProperties: synaptic type %s not found",cellType)
+          execerror(errmsg)
         }
     }
     

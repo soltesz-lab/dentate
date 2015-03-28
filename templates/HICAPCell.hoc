@@ -21,7 +21,6 @@ proc init() {
     
     create dendrites[ndends][ndendsec]
     
-    synlist = new List()
     subsets(ndends,ndendsec)
     topol(ndends,ndendsec)
     geom()

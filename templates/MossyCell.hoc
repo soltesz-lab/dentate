@@ -30,7 +30,7 @@ proc init() { // arguments are gid, random_stream_offset
     
     cellid = $1
     random_stream_offset = $2
-    synlist = new List()
+
     subsets(ndends,ndendsec)
     geom()
     biophys(ndends,ndendsec)

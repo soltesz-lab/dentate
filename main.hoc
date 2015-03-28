@@ -179,7 +179,7 @@ gjlist = new List()
 objref cell, nc, syn
 
 // helper function to create synapses
-proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, erev, dend, comp, rs, nil, dendindex, compindex
+proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, erev, dend, comp, rs, dendindex, compindex strdef cellTypeName
 
     cell = $o1
     riseTime = $o2
@@ -188,22 +188,25 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
     dend = $o5 
     comp = $o6
     rs = $o7
+    cellTypeName = $s8
     
     for i = 0, cell.syns.count()-1 {
 
         dendindex = dend.o(i)
         compindex = comp.o(i)
 
-        if (dendindex == nil) { continue }
+        if (dendindex.is_nil) { continue }
         
         if (dendindex.is_object) {
             
-            dendnum = rs.repick() % dendindex.lst.o(i)
-            compnum = rs.repick() % compindex.lst.o(i)
+            dendnum = rs.repick() % dendindex.l.o(i).n
+            compnum = rs.repick() % compindex.l.o(i).n
+
+            print "dendnum = ", dendnum, " compnum = ", compnum
             
             cell.dendrites[dendnum][compnum] {
                 
-	        syn = new ExpSyn(0.5)
+	        syn = new Exp2Syn(0.5)
                 syn.tau1 = riseTime.o(i).n
                 syn.tau2 = decayTime.o(i).n
                 syn.e = erev.o(i).n
@@ -214,18 +217,21 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
                 
                 dendnum = dendindex.n
                 compnum = compindex.n
+
+                print "cellType =", cellTypeName, " dendnum = ", dendnum, " compnum = ", compnum
                 
                 cell.dendrites[dendnum][compnum] {
-	            syn = new ExpSyn(0.5)
+	            syn = new Exp2Syn(0.5)
                     syn.tau1 = riseTime.o(i).n
                     syn.tau2 = decayTime.o(i).n
                     syn.e = erev.o(i).n
     		    cell.syns.o(i).append(syn)
                     }
+
  	        } else {
                     
                     cell.soma {
-	                syn = new ExpSyn(0.5)
+	                syn = new Exp2Syn(0.5)
                         syn.tau1 = riseTime.o(i).n
                         syn.tau2 = decayTime.o(i).n
                         syn.e = erev.o(i).n
@@ -256,6 +262,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         templateName = cellType.getPropertyString("templateName").s
         numCells = cellType.getPropertyScalar("numCells")
         offset   = cellType.getPropertyScalar("offset")
+
+        print "typeName = ", typeName
         
         if (cellType.hasProperty("indices")) {
             indices = cellType.getPropertyObject("indices")
@@ -316,7 +324,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                 if (pnm.gid_exists(gid)) {
                     sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                     execute(cmd)
-                    mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs)
+                    mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
 	            pnm.register_cell(gid, cell)
                     pnm.spike_record(gid)
                 }
@@ -489,8 +497,6 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
         if (verbose > 0) {
             printf ("src population = %s\n", srcPopulation)
             printf ("dest population = %s\n", destPopulation)
-            print "src population index = ", findCellType(cellTypes,srcPopulation)
-            print "dest population index = ", findCellType(cellTypes,destPopulation)
         }
         srcType    = cellTypes.o(findCellType(cellTypes,srcPopulation))
         destType   = cellTypes.o(findCellType(cellTypes,destPopulation))
