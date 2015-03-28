@@ -226,14 +226,14 @@ obfunc loadSynapseMatrix() { local i, j, k, numValue, numCellTypes, numSynapseTy
     synapseCells = new List()
     synapseRows = new List()
 
-    for i=0, numSynapseTypes-1 {
+    for i=0, numCellTypes-1 {
         f.scanstr(str)
         synapseName = new String(str)
         synapseNames.append(synapseName)
-        synapseRows.append(new List())
-    }
-    for i=0, numCellTypes-1 {
         synapseCells.append(new List())
+    }
+    for i=0, numSynapseTypes-1 {
+        synapseRows.append(new List())
     }
 
     for i=0, numSynapseTypes-1 {
@@ -260,13 +260,6 @@ obfunc loadSynapseMatrix() { local i, j, k, numValue, numCellTypes, numSynapseTy
             synapseCell = synapseCells.o(i)
             synapseRow = synapseRows.o(j)
 	    synapseCell.append(synapseRow.o(i))
-	}
-    }
-
-    for i=0, numCellTypes-1 {
-      synapseCell = synapseCells.o(i)
-      for j=0, numSynapseTypes-1 {
-	    synapseCell.append(synapseCell.o(j))
 	}
     }
 
