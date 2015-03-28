@@ -179,7 +179,7 @@ gjlist = new List()
 objref cell, nc, syn
 
 // helper function to create synapses
-proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, riseTime, decayTime, erev, dend, comp, rs, nil
+proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, erev, dend, comp, rs, nil, dendindex, compindex
 
     cell = $o1
     riseTime = $o2
@@ -208,7 +208,8 @@ proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, ri
                 syn.tau2 = decayTime.o(i).n
                 syn.e = erev.o(i).n
     		cell.syns.o(i).append(syn)
-                
+                }
+
  	    } else if (dendindex.is_number) {
                 
                 dendnum = dendindex.n
@@ -220,7 +221,7 @@ proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, ri
                     syn.tau2 = decayTime.o(i).n
                     syn.e = erev.o(i).n
     		    cell.syns.o(i).append(syn)
-                    
+                    }
  	        } else {
                     
                     cell.soma {
@@ -229,13 +230,13 @@ proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, ri
                         syn.tau2 = decayTime.o(i).n
                         syn.e = erev.o(i).n
     		        cell.syns.o(i).append(syn)
+
                     }
                 }
                 
             }
         }
-    }
-}
+
 
 
 // creates the cells and appends them to a list called cells
