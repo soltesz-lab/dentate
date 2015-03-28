@@ -20,7 +20,7 @@ proc assert() { local test strdef errmsg
 
 // A variant of ParallelNetManager.nc_append that takes in a synaptic
 // point process as an argument (as opposed to the index of a synapse in cell.synlist)
-func nc_appendsyn() {local i, se, lsrc, ltar, w, ww localobj nc, pnm, cell, synlist, synType
+func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pnm, cell, synlist, synType
     i = -1
     pnm = $o1
     if (pnm.gid_exists($3)) {
@@ -28,11 +28,12 @@ func nc_appendsyn() {local i, se, lsrc, ltar, w, ww localobj nc, pnm, cell, synl
         // source may be on this or another machine
         cell = pnm.pc.gid2cell($3)
         synType = $o4
+        w = $o5
         if (synType.is_number) {
-            mknetcon(pnm, $2, cell, cell.syns.o(synType.n), $5, $6)
+            mknetcon(pnm, $2, cell.syns.o(synType.n), w.n, $6)
         } else {
-            mknetcon(pnm, $2, cell, cell.syns.o(synType.l.o(0).n), $5, $6)
-            mknetcon(pnm, $2, cell, cell.syns.o(synType.l.o(1).n), $5, $6)
+            mknetcon(pnm, $2, cell.syns.o(synType.l.o(0).n), w.l.o(0).n, $6)
+            mknetcon(pnm, $2, cell.syns.o(synType.l.o(1).n), w.l.o(1).n, $6)
         }
         i = pnm.nclist.count
     } else if ((se = pnm.gid_exists($1)) > 0) {
@@ -46,8 +47,8 @@ func nc_appendsyn() {local i, se, lsrc, ltar, w, ww localobj nc, pnm, cell, synl
 }
 
 proc mknetcon() { local i localobj nc, synlist, pnm
-    pnm = $1
-    synlist = $o4
+    pnm = $o1
+    synlist = $o3
     for i=0, synlist.count()-1 {
         nc = pnm.pc.gid_connect($2, synlist.o(i))
         nc.weight = $4
@@ -347,7 +348,7 @@ obfunc getSynapseProperties() { local i, j, synIndex localobj synProps, synaptic
 
 
 // Loads connectivity info into a Dict
-proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1, standardWeight2, standardVelocity, numConnectivityTypes, synType1, synType2 localobj f, l, connectivityTypes, connectivityType
+proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1, standardWeight2, standardVelocity, numConnectivityTypes, synType1, synType2 localobj f, l, connectivityTypes, connectivityType, value
     
     strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation, synTypeString
     
@@ -409,9 +410,11 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
                 l = new List()
                 l.append(new Value(0,synType1))
                 l.append(new Value(0,synType2))
-                connectivityType.addPropertyObject("synType",new Value(2,l))
+                value = new Value(2,l)
+                connectivityType.addPropertyObject("synType",value)
             } else {
-                connectivityType.addPropertyObject("synType",new Value(0,synType1))
+                value = new Value(0,synType1)
+                connectivityType.addPropertyObject("synType",value)
             }
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("order",order)
@@ -424,16 +427,29 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
                 l = new List()
                 l.append(new Value(0,standardWeight1))
                 l.append(new Value(0,standardWeight2))
-                connectivityType.addPropertyObject("standardWeight",new Value(2,l))
+                value = new Value(2,l)
+                connectivityType.addPropertyObject("standardWeight",value)
             } else {
                 standardWeight1 = f.scanvar()
-                connectivityType.addPropertyObject("standardWeight",new Value(0,standardWeight1))
+                value = new Value(0,standardWeight1)
+                connectivityType.addPropertyObject("standardWeight",value)
             }
             standardVelocity = f.scanvar()
             connectivityType.addPropertyString("name",connectivityName)
             connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
             connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
-            connectivityType.addPropertyScalar("synType",synType1)
+
+            if (synCount > 1) {
+                l = new List()
+                l.append(new Value(0,synType1))
+                l.append(new Value(0,synType2))
+                value = new Value(2,l)
+                connectivityType.addPropertyObject("synType",value)
+            } else {
+                value = new Value(0,synType1)
+                connectivityType.addPropertyObject("synType",value)
+            }
+
             connectivityType.addPropertyScalar("wdType",wdType)
             connectivityType.addPropertyScalar("standardVelocity",standardVelocity)
             connectivityType.addPropertyScalar("order",order)
