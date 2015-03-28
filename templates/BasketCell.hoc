@@ -10,7 +10,7 @@ public syn_stim
 create soma, dendrites[1][1]
 
 objref all, adend, bdend, cdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
 objref syn_stim
 
 proc init() {
@@ -31,6 +31,7 @@ proc init() {
     syns_AA = new List()
     syns_HCC = new List()
     syns_NGFC = new List()
+    syns_NGFCB = new List()
     syns = new List()
 
     syns.append(syns_GC)
@@ -40,6 +41,7 @@ proc init() {
     syns.append(syns_AA)
     syns.append(syns_HCC)
     syns.append(syns_NGFC)
+    syns.append(syns_NGFCB)
     
     soma {
         syn_stim = new ExpSyn(0.5)

@@ -3,7 +3,7 @@ begintemplate MossyCell
 public connect2target, subsets,is_art, is_connected
 public soma, dendrites
 public all, pdend, ddend
-public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC
 public syn_stim
 public stim
 public xx, yy, zz, position
@@ -19,7 +19,7 @@ create soma, dendrites[1][1]
 objref fl, rs
 objref stim[nst]
 objref all, pdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
 objref syn_stim
 
 proc init() { // arguments are gid, random_stream_offset
@@ -41,6 +41,8 @@ proc init() { // arguments are gid, random_stream_offset
     syns_BC = new List()
     syns_AA = new List()
     syns_HCC = new List()
+    syns_NGFC = new List()
+    syns_NGFCB = new List()
     syns = new List()
     syns.append(syns_GC)
     syns.append(syns_MC)
@@ -48,6 +50,8 @@ proc init() { // arguments are gid, random_stream_offset
     syns.append(syns_BC)
     syns.append(syns_AA)
     syns.append(syns_HCC)
+    syns.append(syns_NGFC)
+    syns.append(syns_NGFCB)
     
     soma {
         syn_stim = new ExpSyn(0.5)

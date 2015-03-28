@@ -189,8 +189,10 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
     comp = $o6
     rs = $o7
     cellTypeName = $s8
+
+    print "mksyn: erev.count() = ", erev.count(), " dend.count() = ", dend.count(), " comp.count() = ", comp.count()
     
-    for i = 0, cell.syns.count()-1 {
+    for i = 0, dend.count()-1 {
 
         dendindex = dend.o(i)
         compindex = comp.o(i)
@@ -363,13 +365,6 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, del, dist, velo
             printf ("presynaptic size = %d\n", presynapticSize)
             printf ("postsynaptic population = %s\n", postsynapticPopulation)
             printf ("postsynaptic size = %d\n", postsynapticSize)
-        }
-        if (strcmp(presynapticType.getPropertyString("templateName").s, "NetStim") == 0) {
-            stimsrc = 1
-            sprint(cmd, "ncstimlist = nc%slist", presynapticPopulation)
-            execute(cmd)
-        } else {
-            stimsrc = 0
         }
         sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
         m = new Matrix()
@@ -571,7 +566,7 @@ mknet(ncells)
 
 // Configuration of artificial spiking cells
 
-proc mkstim() { local i, k, nCellTypes, nStimTypes, gid, weight, noise, number, start localobj stim, stimulationParameters, cellType, cellTypes, stimType, stimTypes, edges
+proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number, start localobj stim, stimulationParameters, cellType, cellTypes, stimType, stimTypes, edges
     
     strdef templateName, typeName
     
@@ -579,7 +574,7 @@ proc mkstim() { local i, k, nCellTypes, nStimTypes, gid, weight, noise, number, 
     cellTypes = $o2
     nCellTypes = cellTypes.count()
     stimTypes = $o3
-    nStimTypes = stimTypes.count()
+    numStimTypes = stimTypes.count()
     
     // Used to keep track of artificial stimulus cells
     typeName = "stim"
