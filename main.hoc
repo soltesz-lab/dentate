@@ -54,6 +54,10 @@ objref ncstimlist
 sprint (datafilePath, "%s/stim.dat", datasetPath)
 loadStimulationInfo (stimTypes, datafilePath, datasetPath)
 
+if (verbose > 0) {
+    printf ("%s: loaded stimulation info\n", modelName)
+}
+
 // list with cell type information
 objref cellTypes
 cellTypes = new List()
@@ -62,11 +66,19 @@ cellTypes = new List()
 sprint (datafilePath, "%s/celltypes.dat", datasetPath)
 loadCellCategoryInfo (cellTypes, datafilePath, datasetPath)
 
+if (verbose > 0) {
+    printf ("%s: loaded cell info\n", modelName)
+}
+
 // used for synapse information
 objref synapseTypes
 synapseTypes = new List()
 // reads the synapse types file and populates synapseTypes with the information
 loadSynapseInfo (synapseTypes, datasetPath)
+
+if (verbose > 0) {
+    printf ("%s: loaded synapse info\n", modelName)
+}
 
 // total number of cells in the network
 ncells = 0
@@ -177,7 +189,7 @@ proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, ri
     comp = $o6
     rs = $o7
     
-    for i = 0, syns.count()-1 {
+    for i = 0, cell.syns.count()-1 {
 
         dendindex = dend.o(i)
         compindex = comp.o(i)
@@ -195,7 +207,7 @@ proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, ri
                 syn.tau1 = riseTime.o(i).n
                 syn.tau2 = decayTime.o(i).n
                 syn.e = erev.o(i).n
-    		syns.o(i).append(syn)
+    		cell.syns.o(i).append(syn)
                 
  	    } else if (dendindex.is_number) {
                 
@@ -207,7 +219,7 @@ proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, ri
                     syn.tau1 = riseTime.o(i).n
                     syn.tau2 = decayTime.o(i).n
                     syn.e = erev.o(i).n
-    		    syns.o(i).append(syn)
+    		    cell.syns.o(i).append(syn)
                     
  	        } else {
                     
@@ -216,7 +228,7 @@ proc mksyn() { local i, dendnum, compnum, dendindex, compindex localobj cell, ri
                         syn.tau1 = riseTime.o(i).n
                         syn.tau2 = decayTime.o(i).n
                         syn.e = erev.o(i).n
-    		        syns.o(i).append(syn)
+    		        cell.syns.o(i).append(syn)
                     }
                 }
                 

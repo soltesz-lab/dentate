@@ -20,7 +20,7 @@ proc assert() { local test strdef errmsg
 
 // A variant of ParallelNetManager.nc_append that takes in a synaptic
 // point process as an argument (as opposed to the index of a synapse in cell.synlist)
-func nc_appendsyn() {local i, se, lsrc, ltar, w, ww localobj nc, pnm, cell, synlist
+func nc_appendsyn() {local i, se, lsrc, ltar, w, ww localobj nc, pnm, cell, synlist, synType
     i = -1
     pnm = $o1
     if (pnm.gid_exists($3)) {
@@ -210,7 +210,8 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
 
 // Reads in a single synapse matrix, regardless of which type of data is stored in it,
 // and stores it in a Dict
-obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValues[4], count localobj nil, f, synapseNames, synapseName, synapseCells, synapseCell, dict, value, lst
+double numValues[4]
+obfunc loadSynapseMatrix() { local i, j, k, numSynapseTypes, count localobj nil, f, synapseNames, synapseName, synapseCells, synapseCell, dict, value, lst
     
     strdef str, propertyName, valueString
     
@@ -229,22 +230,25 @@ obfunc loadSynapseMatrix() { local i, numSynapseTypes, numValues[4], count local
         synapseNames.append(synapseName)
         synapseCells.append(new List())
     }
-    
+
+    print "numSynapseTypes = ", numSynapseTypes    
     for i=0, numSynapseTypes-1 {
         synapseCell = synapseCells.o(i)
         for j=0, numSynapseTypes-1 {
             f.scanstr(valueString)
+            print "valueString = ", valueString
             if (strcmp(valueString,"NA") == 0) {
                 synapseCell.append(nil)
             } else {
                 count = sscanf(valueString,"%lf:%lf",&numValues[0],&numValues[1])
+                print "count = ", count
                 if (count > 0) {
                     if (count == 1) {
                         value = new Value(0,numValues[0])
                     } else {
                         lst = new List()
-                        for i=0, i<count {
-                            lst.append(new Value(0,numValues[i]))
+                        for k=0, k<count {
+                            lst.append(new Value(0,numValues[k]))
                         }
                         value = new Value(2,lst)
                     }
@@ -299,7 +303,7 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
         sprint(path,"%s/%s",datasetPath,fileList.o(i).s)
         f = new File()
         f.ropen(path)
-        synProps = loadSynapseMatrix(f,propList.o(i))
+        synProps = loadSynapseMatrix(f,propList.o(i).s)
         synapsePropertyTypes.append(synProps)
         f.close()
     }
@@ -337,7 +341,7 @@ obfunc getSynapseProperties() { local i, j localobj synProps, synapticTypes, syn
 
 
 // Loads connectivity info into a Dict
-proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight, standardVelocity, numConnectivityTypes localobj f, l, connectivityTypes, connectivityType, synType
+proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1, standardWeight2, standardVelocity, numConnectivityTypes, synType1, synType2 localobj f, l, connectivityTypes, connectivityType
     
     strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation, synTypeString
     
@@ -473,7 +477,7 @@ proc loadGapJunctionInfo() { local i, order, numGJTypes localobj f, gjTypes, gjT
 }
 
 
-proc loadStimulationInfo() { local i, weight, number, start, noise localobj f, ff, m, indices, stimType
+proc loadStimulationInfo() { local i, weight, number, start, noise localobj f, ff, m, indices, stimType, stimTypes
     
     strdef stimTypeName, cellTypeName, datasetPath, indexPath, errmsg
     
