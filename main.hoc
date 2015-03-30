@@ -190,7 +190,6 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
     rs = $o7
     cellTypeName = $s8
 
-    print "mksyn: erev.count() = ", erev.count(), " dend.count() = ", dend.count(), " comp.count() = ", comp.count()
     
     for i = 0, dend.count()-1 {
 
@@ -203,6 +202,10 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
             
             dendnum = rs.repick() % dendindex.l.o(i).n
             compnum = rs.repick() % compindex.l.o(i).n
+            
+            if (verbose > 0) {
+                printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+            }
 
             cell.dendrites[dendnum][compnum] {
                 
@@ -217,6 +220,10 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
                 
                 dendnum = dendindex.n
                 compnum = compindex.n
+                
+                if (verbose > 0) {
+                    printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+                }
 
                 cell.dendrites[dendnum][compnum] {
 	            syn = new Exp2Syn(0.5)
@@ -227,6 +234,10 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
                     }
 
  	        } else {
+                    
+                    if (verbose > 0) {
+                        printf ("mksyn: cellTypeName = %s synapse in soma\n", cellTypeName)
+                    }
                     
                     cell.soma {
 	                syn = new Exp2Syn(0.5)
