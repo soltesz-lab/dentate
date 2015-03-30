@@ -516,7 +516,7 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, interval loc
     // Scan the first line, which contains the number of stim types
     numStimTypes = f.scanvar()
     
-    for i=0, numCellTypes-1 {
+    for i=0, numStimTypes-1 {
         
         // Scan in the cell name, template name, number of cells
 	f.scanstr(stimTypeName)
