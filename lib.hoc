@@ -523,7 +523,7 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, interval loc
         stimType = new Dict(stimTypeName)
         stimType.addPropertyString("typeName",stimTypeName)
         
-        sprint(indexPath,"%s/%s",datasetPath,stimTypeName)
+        sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
         indices = new Vector()
         ff = new File()
         ff.ropen(indexPath)
