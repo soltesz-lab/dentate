@@ -62,6 +62,7 @@ if (verbose > 0) {
 objref cellTypes
 cellTypes = new List()
 
+vtraceidx = -1
 vec_size = (tstop)/dt + 1 // recorded traces are all this size
 objref vlog, tlog
 
@@ -263,7 +264,7 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight, vtrace  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
     strdef templateName, typeName, datadir
     
@@ -289,11 +290,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
             }
         }
         
-        if (strcmp("templateName","DGC") == 0) {
-           vtrace = 1
-        } else {
-           vtrace = 0
-        }
         synProps = getSynapseProperties(synapseTypes,typeName)
         synRiseTime = synProps.getPropertyObject("rise time")
         synDecayTime = synProps.getPropertyObject("decay time")
@@ -335,11 +331,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                     //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
 	            pnm.register_cell(gid, cell)
                     pnm.spike_record(gid)
-                    if ((pnm.myid == 0) && (vtrace > 0)) {
-                       vlog = new Vector(vec_size)
-                       vlog.record(&cell.soma.v(0.5))
-                       vtrace = 0
-                    }
                 }
             }
         } else {
@@ -702,7 +693,7 @@ spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
 
 objref trace_file
 strdef trace_fname
-if (pnm.myid == 0) {
+if ((pnm.myid == 0) && (vtraceidx > -1))  {
 
    trace_file = new File()
    sprint (trace_fname, "%s/vtrace.dat", resultsPath)
