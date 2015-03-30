@@ -211,7 +211,7 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
 
 // Reads in a single synapse matrix, regardless of which type of data is stored in it,
 // and stores it in a Dict
-obfunc loadSynapseMatrix() { local i, j, k, numValue, numCellTypes, numSynapseTypes, count localobj f, synapseNames, synapseName, synapseCells, synapseCell, synapseRows, synapseRow, dict, value, lst
+obfunc loadSynapseMatrix() { local i, j, k, numValue, numValueOpt, numCellTypes, numSynapseTypes, count localobj f, synapseNames, synapseName, synapseCells, synapseCell, synapseRows, synapseRow, dict, value, lst
     
     strdef str, propertyName, valueString
     
@@ -244,10 +244,18 @@ obfunc loadSynapseMatrix() { local i, j, k, numValue, numCellTypes, numSynapseTy
             if (strcmp(valueString,"NA") == 0) {
                 synapseRow.append(new Value(-1))
             } else {
-                count = sscanf(valueString,"%lf",&numValue)
+                count = sscanf(valueString,"%lf:%lf",&numValue,&numValueOpt)
                 print "valueString = ", valueString, " count = ", count
                 if (count > 0) {
                     value = new Value(0,numValue)
+                    synapseRow.append(value)
+                } if (count > 1) {
+                    lst = new List()
+                    value = new Value(0,numValue)
+                    lst.append(value)
+                    value = new Value(0,numValueOpt)
+                    lst.append(value)
+                    value = new Value(2,lst)
                     synapseRow.append(value)
                 } else {
                     value = new Value(1,valueString)
