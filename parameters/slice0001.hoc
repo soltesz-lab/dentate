@@ -14,8 +14,10 @@ datasetName = "slice0001"
 // whether to create per-node connectivity graphs
 makegraph = 1
 
+v_init = -75
+
 // simulation time
-tstop = 100
+tstop = 40
 
 // time step
 dt = 0.1

@@ -245,6 +245,7 @@ obfunc loadSynapseMatrix() { local i, j, k, numValue, numCellTypes, numSynapseTy
                 synapseRow.append(new Value(-1))
             } else {
                 count = sscanf(valueString,"%lf",&numValue)
+                print "valueString = ", valueString, " count = ", count
                 if (count > 0) {
                     value = new Value(0,numValue)
                     synapseRow.append(value)

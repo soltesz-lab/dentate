@@ -62,6 +62,9 @@ if (verbose > 0) {
 objref cellTypes
 cellTypes = new List()
 
+vec_size = (tstop)/dt + 1 // recorded traces are all this size
+objref vlog, tlog
+
 // reads the cell types file and populates celltypes with the information
 sprint (datafilePath, "%s/celltypes.dat", datasetPath)
 loadCellCategoryInfo (cellTypes, datafilePath, datasetPath)
@@ -150,6 +153,10 @@ for i=0, cellTypes.count()-1 {
     }
 }
 
+if (pnm.myid == 0) {
+  vlog = new Vector(vec_size)
+  tlog = new Vector(vec_size)
+}
 
 // each noise generator picks a number every
 // dt for the full time range, so stream
@@ -256,7 +263,7 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight, vtrace  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
     strdef templateName, typeName, datadir
     
@@ -282,6 +289,11 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
             }
         }
         
+        if (strcmp("templateName","DGC") == 0) {
+           vtrace = 1
+        } else {
+           vtrace = 0
+        }
         synProps = getSynapseProperties(synapseTypes,typeName)
         synRiseTime = synProps.getPropertyObject("rise time")
         synDecayTime = synProps.getPropertyObject("decay time")
@@ -323,6 +335,11 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                     //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
 	            pnm.register_cell(gid, cell)
                     pnm.spike_record(gid)
+                    if ((pnm.myid == 0) && (vtrace > 0)) {
+                       vlog = new Vector(vec_size)
+                       vlog.record(&cell.soma.v(0.5))
+                       vtrace = 0
+                    }
                 }
             }
         } else {
@@ -593,7 +610,7 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
     sprint (cmd, "nc%slist = new List()", typeName)
     execute(cmd)
     
-    stimgid = maxindex+1
+    stimgid = maxindex+pnm.myid()+1
     
     if (verbose > 0) {
         printf ("mkstim: numStimTypes = %d stimgid = %d\n", numStimTypes, stimgid)
@@ -619,7 +636,13 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
         stim.number = number
         stim.start = start
         stim.interval = interval
+
+        if (verbose > 0) {
+            printf ("mkstim: noise = %g number = %g start = %g interval = %g\n", stim.noise, stim.number, stim.start, stim.interval)
+        }
+
         pnm.register_cell(stimgid, stim)
+        pnm.spike_record(stimgid) 
         
         for j=0, indices.size()-1 {
             
@@ -662,6 +685,7 @@ print "dt = ", dt
 objref fi
 fi = new FInitializeHandler("simstatus()")
 
+
 stdinit()
 
 printf ("*** Initialization completed\n")
@@ -675,6 +699,23 @@ printf ("*** Simulation completed\n")
 strdef spikeout_fname
 sprint(spikeout_fname, "%s/%s_spikeout_%d.dat", resultsPath, modelName, pnm.myid)
 spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
+
+objref trace_file
+strdef trace_fname
+if (pnm.myid == 0) {
+
+   trace_file = new File()
+   sprint (trace_fname, "%s/vtrace.dat", resultsPath)
+   trace_file.wopen ( trace_fname )
+    
+    for i=0,tlog.size()-1 {
+      trace_file.printf("%g %g\n", tlog.x[i], vlog.x[i])
+    }
+
+    trace_file.close()
+}
+
+
 
 comptime = pnm.pc.step_time
 avgcomp  = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
