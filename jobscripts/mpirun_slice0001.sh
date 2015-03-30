@@ -5,8 +5,8 @@
 #$ -cwd
 #$ -j y
 #$ -S /bin/bash
-#$ -N dentate_slice
-#$ -o ./results/dentate_slice.$JOB_ID.o
+#$ -N dentate_slice0001
+#$ -o ./results/dentate_slice0001.$JOB_ID.o
 #$ -R y
 
 #module load openmpi-1.6.5/gcc-4.7.3
@@ -18,6 +18,6 @@ module load neuron/7.4alpha
 mkdir -p ./results/$JOB_ID
 
 mpirun -np $CORES nrniv -mpi -nobanner -nogui \
--c "strdef parameters" -c "parameters=\"./parameters/slice0000.hoc\"" \
--c "strdef resultsPath" -c "resultsPath=\"./results/$JOB_ID\"" \
+-c "strdef parameters" -c "parameters=\"./parameters/slice0001.hoc\"" \
+-c "strdef resultsPath" -c "resultsPath=\"./results/slice0001_$JOB_ID\"" \
 main.hoc
