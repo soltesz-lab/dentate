@@ -598,6 +598,10 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
     
     stimgid = maxindex+1
     
+    if (verbose > 0) {
+        printf ("mkstim: numStimTypes = %d stimgid = %d\n", numStimTypes, stimgid)
+    }
+    
     for i=0, numStimTypes-1 { 
         
         stimType = stimTypes.o(i)
@@ -634,7 +638,7 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
                     edges.x[1] = gid
                     conlist.prepend(edges)
 	        }	
-                
+                stimgid = stimgid+1
             }
         }
     }
