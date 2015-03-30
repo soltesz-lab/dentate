@@ -614,16 +614,17 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
             printf ("mkstim:  weight = %g noise = %g number = %g start = %g interval = %g\n", weight, noise, number, start, interval)
         }
         
+        stim = new NetStim(0.0)
+        stim.noise = noise
+        stim.number = number
+        stim.start = start
+        stim.interval = interval
+        pnm.register_cell(stimgid, stim)
+        
         for j=0, indices.size()-1 {
             
             gid = indices.x(j)
             if (pnm.gid_exists(gid)) {
-                stim = new NetStim(0.0)
-                stim.noise = noise
-                stim.number = number
-                stim.start = start
-                stim.interval = interval
-                pnm.register_cell(stimgid, stim)
                 nc = pnm.pc.gid_connect(stimgid, pnm.pc.gid2obj(gid).syn_stim)
                 nc.weight = weight
                 nc.delay = 0.1
@@ -635,9 +636,10 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
                     edges.x[1] = gid
                     conlist.prepend(edges)
 	        }	
-                stimgid = stimgid+1
             }
         }
+        stimgid = stimgid+1
+                        
     }
 }
 
