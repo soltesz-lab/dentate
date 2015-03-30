@@ -499,7 +499,7 @@ proc loadGapJunctionInfo() { local i, order, numGJTypes localobj f, gjTypes, gjT
 }
 
 
-proc loadStimulationInfo() { local i, weight, number, start, noise localobj f, ff, m, indices, stimType, stimTypes
+proc loadStimulationInfo() { local i, weight, number, start, noise, interval localobj f, ff, m, indices, stimType, stimTypes
     
     strdef stimTypeName, cellTypeName, datasetPath, indexPath, errmsg
     
@@ -543,6 +543,9 @@ proc loadStimulationInfo() { local i, weight, number, start, noise localobj f, f
         stimType.addPropertyScalar("number",number)
         start = f.scanvar()
         stimType.addPropertyScalar("start",start)
+        stimTypes.append(stimType)
+        interval = f.scanvar()
+        stimType.addPropertyScalar("interval",interval)
         stimTypes.append(stimType)
     }
     f.close()

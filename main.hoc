@@ -596,6 +596,7 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
         noise = stimType.getPropertyScalar("noise")
         number = stimType.getPropertyScalar("number")
         start = stimType.getPropertyScalar("start")
+        interval = stimType.getPropertyScalar("interval")
         
         for j=0, indices.size()-1 {
             
@@ -605,6 +606,7 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
                 stim.noise = noise
                 stim.number = number
                 stim.start = start
+                stim.interval = interval
                 pnm.register_cell(stimgid, stim)
                 nc = pnm.pc.gid_connect(stimgid, pnm.pc.gid2obj(gid).syn_stim)
                 nc.weight = weight
