@@ -204,7 +204,7 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
             compnum = rs.repick() % compindex.l.o(i).n
             
             if (verbose > 0) {
-                printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+                printf ("mksyn: cellTypeName = %s dendindex.l.o(i).n = %d dendnum = %d compnum = %d\n", cellTypeName, dendindex.l.o(i).n, dendnum, compnum)
             }
 
             cell.dendrites[dendnum][compnum] {
@@ -567,9 +567,6 @@ proc mknet() { strdef fname
     connectgjstime = stopsw()
     printf ("*** Gap junctions created\n")
     sprint(fname, "%s/%s_%d.dat", resultsPath, modelName, pnm.myid)
-    if (makegraph > 0) {
-        graphout(fname,conlist)
-    }
 }
 
 
@@ -647,6 +644,10 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
 mkstim(datasetPath, cellTypes, stimTypes)
 
 printf ("*** Stimulus sources initialized\n")
+
+if (makegraph > 0) {
+        graphout(fname,conlist)
+}
 
 /* Simulation control */
 
