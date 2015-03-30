@@ -609,6 +609,10 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
         start = stimType.getPropertyScalar("start")
         interval = stimType.getPropertyScalar("interval")
         
+        if (verbose > 0) {
+            printf ("mkstim:  weight = %g noise = %g number = %g start = %g interval = %g\n", weight, noise, number, start, interval)
+        }
+        
         for j=0, indices.size()-1 {
             
             gid = indices.x(j)
