@@ -68,14 +68,9 @@ proc subsets() { local i, ndends, ndendsec
     all = new SectionList()
     soma all.append()
     for i=0, ndends-1 {
-        printf ("i = %d\n", i)
         for j=0, ndendsec-1 { 
             dendrites[i][j] { all.append() }
         }
-    }
-    
-    forsec all {
-        psection()
     }
     
     pdend  = new SectionList()
@@ -167,12 +162,12 @@ proc biophys() { local ndends, ndendsec
     forsec all {Ra=100}
     forsec all {
         enat = 55
-        ekf = -90
-        ek=-90
-        esk=-90
-        elca=130
-	ehyf=-40
-        ehys=-40
+        ekf  = -90
+        ek   = -90
+        esk  = -90
+        elca = 130
+	ehyf = -40
+        ehys = -40
 	el_ichan2 =-59
         cao_ccanl=2 
     }

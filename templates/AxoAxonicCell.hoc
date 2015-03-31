@@ -189,10 +189,10 @@ proc biophys() {
     forsec all {Ra=100}
     forsec all {
         enat = 55 
-        ekf = -90  
-        ek=-90  
-        elca=130
-        esk=-90
+        ekf  = -90  
+        ek   = -90  
+        elca = 130
+        esk  = -90
 	el_ichan2 =-60.06
         
         cao_ccanl=2

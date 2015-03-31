@@ -180,7 +180,9 @@ proc biophys() {
 	}	
 	
 	forsec all {Ra=100}
-	forsec all {enat = 55 ekf = -90  ek=-90  esk=-90 elca=130
+	forsec all {enat = 55 
+                 ekf = -90  ek=-90  esk=-90 
+                 elca=130
 		 el_ichan2 =-64	ehyf=-40 ehys=-40
 		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
 }

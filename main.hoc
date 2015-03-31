@@ -198,6 +198,9 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
     rs = $o7
     cellTypeName = $s8
 
+    if (verbose > 0) {
+        printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
+    }
     
     for i = 0, dend.count()-1 {
 
@@ -207,12 +210,16 @@ proc mksyn() { local i, dendnum, compnum localobj cell, riseTime, decayTime, ere
         if (dendindex.is_nil) { continue }
 
         if (dendindex.is_object) {
-            
-            dendnum = rs.repick() % dendindex.l.o(i).n
-            compnum = rs.repick() % compindex.l.o(i).n
+
+            dendnum = rs.repick() % (dendindex.l.o(0).n+1)
+            if (compindex.is_object) {
+              compnum = rs.repick() % (compindex.l.o(0).n+1)
+            } else {
+              compnum = compindex.n
+            }
             
             if (verbose > 0) {
-                printf ("mksyn: cellTypeName = %s dendindex.l.o(i).n = %d dendnum = %d compnum = %d\n", cellTypeName, dendindex.l.o(i).n, dendnum, compnum)
+                printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
             }
 
             cell.dendrites[dendnum][compnum] {
@@ -299,7 +306,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         
         // used for choosing dendrite and compartment for synapses
         rs = new RandomStream(k)
-        rs.r.discunif(0,3)
+        rs.r.discunif(1,4)
         
         find_template(externalPaths, templateName)
         // For cell templates that load their morphologies from
@@ -339,6 +346,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                 if (pnm.gid_exists(gid)) {
                     sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                     execute(cmd)
+                    forsec cell.all { ek = -75 }
                     mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
 	            pnm.register_cell(gid, cell)
                     pnm.spike_record(gid)

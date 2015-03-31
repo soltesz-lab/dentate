@@ -6,6 +6,8 @@ public n, s, l, is_number, is_string, is_object, is_nil
 strdef s
 objref l
 
+n = -1
+
 is_nil = 0
 is_number = 1
 is_string = 0
@@ -28,7 +30,7 @@ proc init() { local type
     } else if (type == 2) {
         l = $o2
         is_number = 0
-        is_object = 2
+        is_object = 1
     }
 }
 
