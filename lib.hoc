@@ -29,6 +29,7 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pnm, cell, synlist,
         cell = pnm.pc.gid2cell($3)
         synType = $o4
         w = $o5
+        assert (synType.is_undefined == 0)
         if (synType.is_number) {
             mknetcon(pnm, $2, cell.syns.o(synType.n), w.n/1000.0, $6)
         } else {
@@ -57,6 +58,90 @@ proc mknetcon() { local i localobj nc, synlist, pnm
     }
 }
 
+
+// helper function to create synapses
+proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn riseTime, decayTime, erev, dend, comp, rs, dendindex, compindex strdef cellTypeName
+
+    cell = $o1
+    riseTime = $o2
+    decayTime = $o3
+    erev = $o4
+    dend = $o5 
+    comp = $o6
+    rs = $o7
+    cellTypeName = $s8
+
+    if (verbose > 0) {
+        printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
+    }
+    
+    for i = 0, dend.count()-1 {
+
+        dendindex = dend.o(i)
+        compindex = comp.o(i)
+        
+        assert (dendindex.is_undefined == 0)
+        assert (compindex.is_undefined == 0)
+        
+        if (dendindex.is_nil) { continue }
+
+        if (dendindex.is_list) {
+
+            dendnum = rs.repick() % (dendindex.l.o(0).n+1)
+            if (compindex.is_list) {
+              compnum = rs.repick() % (compindex.l.o(0).n+1)
+            } else {
+              compnum = compindex.n
+            }
+            
+            if (verbose > 0) {
+                printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+            }
+
+            cell.dendrites[dendnum][compnum] {
+                
+	        syn = new Exp2Syn(0.5)
+                syn.tau1 = riseTime.o(i).n
+                syn.tau2 = decayTime.o(i).n
+                syn.e = erev.o(i).n
+    		cell.syns.o(i).append(syn)
+                }
+
+ 	    } else if (dendindex.is_number) {
+                
+                dendnum = dendindex.n
+                compnum = compindex.n
+                
+                if (verbose > 0) {
+                    printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+                }
+
+                cell.dendrites[dendnum][compnum] {
+	            syn = new Exp2Syn(0.5)
+                    syn.tau1 = riseTime.o(i).n
+                    syn.tau2 = decayTime.o(i).n
+                    syn.e = erev.o(i).n
+    		    cell.syns.o(i).append(syn)
+                    }
+
+ 	        } else {
+                    
+                    if (verbose > 0) {
+                        printf ("mksyn: cellTypeName = %s synapse in soma\n", cellTypeName)
+                    }
+                    
+                    cell.soma {
+	                syn = new Exp2Syn(0.5)
+                        syn.tau1 = riseTime.o(i).n
+                        syn.tau2 = decayTime.o(i).n
+                        syn.e = erev.o(i).n
+    		        cell.syns.o(i).append(syn)
+
+                    }
+                }
+                
+            }
+        }
 
 
 // Finds and loads a template located either in ./template or in externalPaths
