@@ -18,7 +18,7 @@ makegraph = 1
 v_init = -75
 
 // simulation time
-tstop = 100
+tstop = 10
 
 // time step
 dt = 0.1

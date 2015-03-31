@@ -87,8 +87,8 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
 
         if (dendindex.is_list) {
 
-            printf("dendindex.l.o(0).n = %d\n",dendindex.l.o(0).n)
-            printf("dendindex.l.o(1).n = %d\n",dendindex.l.o(1).n)
+            printf("mksyn: cellTypeName = %s dendindex.l.o(0).n = %d\n",cellTypeName,dendindex.l.o(0).n)
+            printf("mksyn: cellTypeName = %s dendindex.l.o(1).n = %d\n",cellTypeName,dendindex.l.o(1).n)
 
             dendnum = rs.repick() % (dendindex.l.o(1).n+1)
             if (compindex.is_list) {
@@ -113,10 +113,14 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
  	    } else if (dendindex.is_number) {
                 
                 dendnum = dendindex.n
-                compnum = compindex.n
+		if (compindex.is_list) {
+                  compnum = rs.repick() % (compindex.l.o(1).n+1)
+                } else {
+                  compnum = compindex.n
+                }
                 
                 if (verbose > 0) {
-                    printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+                    printf ("mksyn (dendindex is a number): cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
                 }
 
                 cell.dendrites[dendnum][compnum] {
@@ -333,14 +337,14 @@ obfunc loadSynapseMatrix() { local i, j, k, numValue, numValueOpt, numCellTypes,
                 synapseRow.append(new Value(-1))
             } else {
                 count = sscanf(valueString,"%lf:%lf",&numValue,&numValueOpt)
-                if (count > 0) {
-                    value = new Value(0,numValue)
-                    synapseRow.append(value)
-                } if (count > 1) {
+                if (count > 1) {
                     lst = new List()
                     lst.append(new Value(0,numValue))
                     lst.append(new Value(0,numValueOpt))
                     value = new Value(2,lst)
+                    synapseRow.append(value)
+                } else if (count > 0) {
+                    value = new Value(0,numValue)
                     synapseRow.append(value)
                 } else {
                     value = new Value(1,valueString)
