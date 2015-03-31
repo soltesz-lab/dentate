@@ -29,7 +29,7 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pnm, cell, synlist,
         cell = pnm.pc.gid2cell($3)
         synType = $o4
         w = $o5
-        assert (synType.is_undefined == 0)
+        assert (synType.is_undefined == 0,"synType is undefined")
         if (synType.is_number) {
             mknetcon(pnm, $2, cell.syns.o(synType.n), w.n/1000.0, $6)
         } else {
@@ -60,7 +60,7 @@ proc mknetcon() { local i localobj nc, synlist, pnm
 
 
 // helper function to create synapses
-proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn riseTime, decayTime, erev, dend, comp, rs, dendindex, compindex strdef cellTypeName
+proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, rs, dendindex, compindex strdef cellTypeName
 
     cell = $o1
     riseTime = $o2
@@ -80,16 +80,19 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn riseTime, decayT
         dendindex = dend.o(i)
         compindex = comp.o(i)
         
-        assert (dendindex.is_undefined == 0)
-        assert (compindex.is_undefined == 0)
+        assert (dendindex.is_undefined == 0,"mksyn: dendindex is undefined")
+        assert (compindex.is_undefined == 0,"mksyn: compindex is undefined")
         
         if (dendindex.is_nil) { continue }
 
         if (dendindex.is_list) {
 
-            dendnum = rs.repick() % (dendindex.l.o(0).n+1)
+            printf("dendindex.l.o(0).n = %d\n",dendindex.l.o(0).n)
+            printf("dendindex.l.o(1).n = %d\n",dendindex.l.o(1).n)
+
+            dendnum = rs.repick() % (dendindex.l.o(1).n+1)
             if (compindex.is_list) {
-              compnum = rs.repick() % (compindex.l.o(0).n+1)
+              compnum = rs.repick() % (compindex.l.o(1).n+1)
             } else {
               compnum = compindex.n
             }

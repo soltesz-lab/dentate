@@ -183,7 +183,7 @@ gjlist = new List()
 
 /* mkcells and connectcells create the cells and connect the cells */
 
-
+objref cell
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
@@ -262,7 +262,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                 if (pnm.gid_exists(gid)) {
                     sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                     execute(cmd)
-                    forsec cell.all { ek = -75 }
                     mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
 	            pnm.register_cell(gid, cell)
                     pnm.spike_record(gid)
@@ -507,6 +506,8 @@ proc mknet() { strdef fname
 mknet(ncells)
 
 // Configuration of artificial spiking cells
+
+objref nc
 
 proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number, start localobj stim, stimulationParameters, cellType, cellTypes, stimType, stimTypes, edges
     

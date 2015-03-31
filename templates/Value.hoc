@@ -23,7 +23,8 @@ proc init() { local type
         is_undefined = 0
     } else if (type == 0) {
         n = $2
-        is_undefined = 1
+        is_undefined = 0
+        is_number = 1
     } else if (type == 1) {
         s = $s2
         is_undefined = 0
