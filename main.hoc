@@ -290,10 +290,12 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, del, dist, velo
         synType = connectivityType.getPropertyObject("synType")
         wdType = connectivityType.getPropertyScalar("wdType")
         connectivityName = connectivityType.getPropertyString("name").s
+        assert(synType.is_undefined == 0, "synType is undefined")
         if (verbose > 0) {
             printf ("connectivityName = %s\n", connectivityName)
             printf ("wdType = %d\n", wdType)
-	    print "synType = ", synType
+	    print "synType.is_number = ", synType.is_number
+	    print "synType.is_list = ", synType.is_list
         }
         presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
         presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
