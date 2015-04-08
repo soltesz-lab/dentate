@@ -48,6 +48,13 @@ IMPLEMENTATION
 
   This mechanism is implemented as a nonspecific current defined as a
   point process.
+  
+  Modified 4/7/2015 by Ted Carnevale 
+  
+  Uses events to control times at which conductances are updated, so
+  this mechanism can be used with adaptive integration.  Produces
+  exactly same results as original Gfluct2 does if h is set equal to
+  dt by a hoc or Python statement and fixed dt integration is used.
 
 
 PARAMETERS
@@ -67,7 +74,7 @@ PARAMETERS
      tau_i = 10.49 (ms)		: time constant of inhibitory conductance
 
 
-Gfluct3: conductance cannot be negative
+Gfluct2: conductance cannot be negative
 
 
 REFERENCE
@@ -90,7 +97,7 @@ INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
 
 NEURON {
 	POINT_PROCESS Gfluct3
-	RANGE g_e, g_i, E_e, E_i, g_e0, g_i0, g_e1, g_i1
+	RANGE h, g_e, g_i, E_e, E_i, g_e0, g_i0, g_e1, g_i1
 	RANGE std_e, std_i, tau_e, tau_i, D_e, D_i
 	RANGE new_seed
 	NONSPECIFIC_CURRENT i
@@ -104,6 +111,9 @@ UNITS {
 }
 
 PARAMETER {
+     
+     h = 0.025 (ms) : interval at which conductances are to be updated
+                    : for fixed dt simulation, should be an integer multiple of dt
 
      E_e = 0  (mV)		: reversal potential of excitatory conductance
      E_i = -75 (mV)		: reversal potential of inhibitory conductance
@@ -116,8 +126,7 @@ PARAMETER {
 
      tau_e = 2.728 (ms)		: time constant of excitatory conductance
      tau_i = 10.49 (ms)		: time constant of inhibitory conductance
-     
-     randinterval = 0.025 (ms)
+
 
 }
 
@@ -142,15 +151,17 @@ INITIAL {
 	g_i1 = 0
 	if(tau_e != 0) {
 		D_e = 2 * std_e * std_e / tau_e
-		exp_e = exp(-randinterval/tau_e)
-		amp_e = std_e * sqrt( (1-exp(-2*randinterval/tau_e)) )
+		exp_e = exp(-h/tau_e)
+		amp_e = std_e * sqrt( (1-exp(-2*h/tau_e)) )
 	}
 	if(tau_i != 0) {
 		D_i = 2 * std_i * std_i / tau_i
-		exp_i = exp(-randinterval/tau_i)
-		amp_i = std_i * sqrt( (1-exp(-2*randinterval/tau_i)) )
-        }
-        net_send(0,1)
+		exp_i = exp(-h/tau_i)
+		amp_i = std_i * sqrt( (1-exp(-2*h/tau_i)) )
+	    }
+       if ((tau_e != 0) || (tau_i != 0)) {
+           net_send(h, 1)
+       }
 }
 
 VERBATIM
@@ -160,7 +171,8 @@ ENDVERBATIM
 
 FUNCTION mynormrand(mean, std) {
 VERBATIM
-	if (_p_donotuse) { /* corresponding hoc Random distrubution must be Random.normal(0,1) */
+	if (_p_donotuse) {
+		// corresponding hoc Random distrubution must be Random.normal(0,1)
                 
 		double x;
 		x = nrn_random_pick(_p_donotuse);
@@ -170,32 +182,27 @@ VERBATIM
 ENDVERBATIM
 	mynormrand = normrand(mean, std)
 }
-    
-    
-NET_RECEIVE (w) {
-    
-    if(tau_e!=0) {
-	g_e1 =  exp_e * g_e1 + amp_e * mynormrand(0,1)
-    }
-    if(tau_i!=0) {
-	g_i1 =  exp_i * g_i1 + amp_i * mynormrand(0,1)
-    }
-    
-    if(tau_e==0) {
-	g_e = std_e * mynormrand(0,1)
-    }
-    if(tau_i==0) {
-	g_i = std_i * mynormrand(0,1)
-    }
-    g_e = g_e0 + g_e1
-    if(g_e < 0) { g_e = 0 }
-    g_i = g_i0 + g_i1
-    if(g_i < 0) { g_i = 0 }
-    i = g_e * (v - E_e) + g_i * (v - E_i)
-    
-    printf("oup: t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", t, v, i, g_e, g_i, E_e, E_i)
 
-    net_send(randinterval,1)
+BREAKPOINT {
+	g_e = g_e0 + g_e1
+	if(g_e < 0) { g_e = 0 }
+	g_i = g_i0 + g_i1
+	if(g_i < 0) { g_i = 0 }
+	i = g_e * (v - E_e) + g_i * (v - E_i)
+        
+        :printf("t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", t, v, i, g_e, g_i, E_e, E_i)
+
+   
+    }
+
+
+PROCEDURE oup() {		: use Scop function normrand(mean, std_dev)
+   if(tau_e!=0) {
+	g_e1 =  exp_e * g_e1 + amp_e * mynormrand(0,1)
+   }
+   if(tau_i!=0) {
+	g_i1 =  exp_i * g_i1 + amp_i * mynormrand(0,1)
+   }
 }
 
 
@@ -219,3 +226,9 @@ VERBATIM
 ENDVERBATIM
 }
 
+NET_RECEIVE (w) {
+    if (flag==1) {
+        oup()
+        net_send(h, 1)
+    }
+}
