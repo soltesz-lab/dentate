@@ -9,7 +9,7 @@ modelName = "dentatenet"
 datasetPrefix = "/pub/iraikov/dentate"
 
 // The dataset to use for constructing the network
-datasetName = "slice0000"
+datasetName = "Slice_50_300_Epileptic"
 
 // whether to create per-node connectivity graphs
 makegraph = 1
