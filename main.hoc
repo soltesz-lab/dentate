@@ -273,9 +273,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, srcid, destid, srcid1, destid1, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w
+proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w
     
-    strdef connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
+    strdef cmd, connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
     cellTypes = $o2
     nConnectivityTypes = connectivityTypes.count()
@@ -311,9 +311,17 @@ proc connectcells() {local i, k, srcid, destid, srcid1, destid1, del, dist, velo
             printf ("postsynaptic size = %d\n", postsynapticSize)
         }
         sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
-        m = new Matrix()
-        f = new File(connectivityPath)
+        sprint(cmd, "test -e %s", connectivityPath) // check if the path exist
+        status = system(cmd)
+        if (status == 0) {
+            f = new File(connectivityPath)
+        } else {
+            // Try connectivity file local to this MPI node
+            sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid)
+            f = new File(connectivityPath)
+        }
         f.ropen()
+        m = new Matrix()
         m.scanf(f)
         f.close()
         if (wdType == 1) {
