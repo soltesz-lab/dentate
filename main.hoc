@@ -590,7 +590,11 @@ printf ("*** Stimulus sources initialized\n")
 
 if (makegraph > 0) {
         graphout(fname,conlist)
+        conlist = nil
 }
+
+connectivityTypes = nil
+cellTypes = nil
 
 /* Simulation control */
 
