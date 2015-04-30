@@ -20,15 +20,17 @@ projections = [ 1 1; 2 1; 3 1; 4 1; 5 1; 6 1; 7 1; % GC
 		1 6; 2 6; 4 6; 6 6; 7 6;  % AAC
 		3 7; 7 7 ]; % NGFC
 
-
+tic;
 m = load(syn_input_file);
+toc;
 
 for i = 1:size(projections,1)
 
     name = projection_names{i}
     r = projections(i,1); c = projections(i,2);
-    connmatrix_export(name,m.connection_M{r,c},batch_index,batch_size);
-    
+    if (not (isempty(m.connection_M{r,c})))
+      connmatrix_export(name,double(m.connection_M{r,c}),batch_index,batch_size,output_dir);
+    end
 end
 
 gjprojection_names = {'HCtoHC';'BCtoBC';'HCCtoHCC';'NGFCtoNGFC'};
@@ -41,11 +43,11 @@ for i = 1:numel(gjprojections)
         name = gjprojections{i}
         r = gjprojections(i,1); c = gjprojections(i,2);
         
-        filename = sprintf('gj%s.dat', name);
+        filename = sprintf('%s/gj%s.dat', output_dir, name);
         fid  = fopen (filename,'w+');
+        data = gjms.gap_junctions{r,c};
         fprintf(fid, '%d %d\n', size(data,1), size(data,2));
         fclose(fid);
-        data = gjms.gap_junctions{r,c};
         save('-ascii', '-append', filename, 'data');
         
 end
