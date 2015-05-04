@@ -29,26 +29,31 @@ for i = 1:size(projections,1)
     name = projection_names{i}
     r = projections(i,1); c = projections(i,2);
     if (not (isempty(m.connection_M{r,c})))
-      connmatrix_export(name,double(m.connection_M{r,c}),batch_index,batch_size,output_dir);
+      export_connmatrix(name,double(m.connection_M{r,c}),batch_index,batch_size,output_dir);
     end
 end
 
 gjprojection_names = {'HCtoHC';'BCtoBC';'HCCtoHCC';'NGFCtoNGFC'};
 gjprojections = [ 3 3; 4 4; 6 6; 7 7; ];
 
+if (batch_index == 1)
+
 gjms = load(gj_input_file);
 data = [];
-for i = 1:numel(gjprojections)
-        
-        name = gjprojections{i}
+for i = 1:size(gjprojections,1)
+
+        name = gjprojection_names{i}
         r = gjprojections(i,1); c = gjprojections(i,2);
         
         filename = sprintf('%s/gj%s.dat', output_dir, name);
         fid  = fopen (filename,'w+');
         data = gjms.gap_junctions{r,c};
-        fprintf(fid, '%d %d\n', size(data,1), size(data,2));
-        fclose(fid);
-        save('-ascii', '-append', filename, 'data');
-        
+        if (not (isempty(data)))
+          fprintf(fid, '%d %d\n', size(data,1), size(data,2));
+          fclose(fid);
+          save('-ascii', '-append', filename, 'data');
+        end        
+end
+
 end
 
