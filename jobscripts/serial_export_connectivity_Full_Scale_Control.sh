@@ -2,7 +2,7 @@
 #
 #$ -q asom,som,free64,pub64
 #$ -pe openmp 12
-#$ -t 1-300
+#$ -t 1-320
 #$ -cwd
 #$ -j y
 #$ -S /bin/bash
