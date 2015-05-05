@@ -227,28 +227,18 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         find_template(externalPaths, templateName)
         // For cell templates that load their morphologies from
         // external files, set the maximum number of files per
-        // directory to nodeSize, and calculate the maximum height
-        // (or depth) of the directory tree necessary to store all
-        // files for that cell type.
-        nodeSize = 5000 
+        // directory to nodeSize, and calculate the number of 
+        // directories necessary to store all files for that cell type.
+        nodeSize = 1000 
         if (numCells > nodeSize) {
             nodeNumber = int(numCells / nodeSize)
-            treeHeight = int((log10(nodeNumber+1) / log10(2))+1)
             for i=0, numCells-1 { 
                 datadir=""
                 gid = indices.x(i)
                 if (pnm.gid_exists(gid)) {
-                    node=int(i/nodeSize)
-                    for (j=treeHeight-1; j >= 0; j = j-1) {
-                        p = 2^j
-                        if (node >= p) {
-                            node = node-p
-                            sprint(datadir, "%s/1", datadir)
-                        } else {
-                            sprint(datadir, "%s/0", datadir)
-                        }
-                    }
-                    sprint(cmd, "cell = new %s(%d, %d, \"%s/%s%s\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName, datadir)
+                    node=int(i/nodeSize)+1
+                    sprint(datadir, "%d", node)
+                    sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s/%s\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName, datadir, typeName)
                     execute(cmd)
                     // TODO: Temporarily disabled making of synapses for GC cells
                     //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
