@@ -1,6 +1,6 @@
 
 // print verbose diagnostic messages while constructing the network
-verbose = 1
+verbose = 0
 
 // The name of this model
 modelName = "dentatenet"

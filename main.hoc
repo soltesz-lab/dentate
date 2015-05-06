@@ -309,7 +309,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
             f = new File(connectivityPath)
         } else {
             // Try connectivity file local to this MPI node
-            sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid)
+            sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid+1)
             f = new File(connectivityPath)
         }
         f.ropen()

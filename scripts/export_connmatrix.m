@@ -1,7 +1,7 @@
-function export_connmatrix(name,m,batch_index,batch_size,output_dir)
+function export_connmatrix(name,m,offset,batch_index,batch_size,output_dir)
 
     size(m)
-    range = batch_index:batch_size:size(m,1);
+    range = offset+(batch_index:batch_size:size(m,1));
     data = m(ismembc(m(:,2),range),:);
     filename = sprintf('%s/%s.%d.dat', output_dir, name, batch_index);
 
