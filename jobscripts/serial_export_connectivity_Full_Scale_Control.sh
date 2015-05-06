@@ -2,13 +2,13 @@
 #
 #$ -q asom,som,free64,pub64
 #$ -pe openmp 12
-#$ -t 1-320
+#$ -t 1-256
 #$ -cwd
 #$ -j y
 #$ -S /bin/bash
 #$ -N dentate_serial_export_connectivity
 #$ -o ./results/serial_export_dentate_conn.$JOB_ID.o
-#$ -v BATCH_SIZE=300
+#$ -v BATCH_SIZE=256
 #$ -ckpt restart
 #$ -l mem_free=350G
 
