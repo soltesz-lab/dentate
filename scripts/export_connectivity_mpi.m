@@ -8,7 +8,7 @@ batch_index=str2double(getenv('SGE_TASK_ID'))
 
 
 populations = {'GC';'MC';'HC';'BC';'AAC';'HCC';'NGFC'}
-msize = size(populations,1);
+msize = size(populations,1)
 
 tic;
 loc = load(loc_input_file);
@@ -19,22 +19,22 @@ m = load(syn_input_file);
 toc;
 
 offset = 0;
-for i = 1:msize
- for j = 1:msize
+for j = 1:msize
+ for i = 1:msize
     name = sprintf('%sto%s',populations{i},populations{j})
     if (not (isempty(m.connection_M{i,j})))
       export_connmatrix(name,double(m.connection_M{i,j}),offset,batch_index,batch_size,output_dir);
     end
  end
- offset = offset+size(loc.locations{i,1},1);
+ offset = offset+size(loc.locations{j,1},1)
 end
 
 if (batch_index == 1)
 
 gjms = load(gj_input_file);
 data = [];
-for i = 1:size(populations,1)
- for j = 1:size(populations,1)
+for j = 1:size(populations,1)
+ for i = 1:size(populations,1)
         name = sprintf('%sto%s',populations{i},populations{j})
         data = gjms.gap_junctions{i,j};
         if (not (isempty(data)))

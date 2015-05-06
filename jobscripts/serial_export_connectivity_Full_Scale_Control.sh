@@ -14,10 +14,12 @@
 
 module load MATLAB/r2014b
 
+LOC_INPUT_FILE=/som/iraikov/dentate/Full_Scale_Control/Locations.mat
 SYN_INPUT_FILE=/som/iraikov/dentate/Full_Scale_Control/Syn_Connections.mat
 GJ_INPUT_FILE=/som/iraikov/dentate/Full_Scale_Control/GJ_Connections.mat
 OUTPUT_DIR=/som/iraikov/dentate/Full_Scale_Control
 
+export LOC_INPUT_FILE
 export SYN_INPUT_FILE
 export GJ_INPUT_FILE
 export OUTPUT_DIR
