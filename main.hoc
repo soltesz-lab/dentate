@@ -474,7 +474,9 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
                 edges = new Vector(2)
                 edges.x[0] = srcid1
                 edges.x[1] = destid1
-                gjconlist.prepend(edges)
+                if (makegraph > 0) {
+                  gjconlist.prepend(edges)
+                }
 	    }
             
 	    if (pnm.gid_exists(destid1)) {
@@ -490,11 +492,11 @@ proc mknet() { strdef fname
     startsw()
     mkcells(cellTypes)  // create the cells
     mkcellstime = stopsw()
-    printf ("*** Cells created\n")
+    printf ("*** Cells created in %g seconds\n", mkcellstime)
     startsw()
     connectcells(connectivityTypes,cellTypes)  // connect them together
     connectcellstime = stopsw()
-    printf ("*** Synaptic connections created\n")
+    printf ("*** Synaptic connections created in %g seconds\n", connectcellstime)
     startsw()
     connectgjs(gjTypes,cellTypes)  // creates the gap junctions
     connectgjstime = stopsw()
