@@ -187,7 +187,7 @@ objref cell
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight, templateType  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
     strdef templateName, typeName, datadir
     
@@ -202,6 +202,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         templateName = cellType.getPropertyString("templateName").s
         numCells = cellType.getPropertyScalar("numCells")
         offset   = cellType.getPropertyScalar("offset")
+        templateType   = cellType.getPropertyScalar("templateType")
 
         if (cellType.hasProperty("indices")) {
             indices = cellType.getPropertyObject("indices")
@@ -230,35 +231,48 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         // external files, set the maximum number of files per
         // directory to nodeSize, and calculate the number of 
         // directories necessary to store all files for that cell type.
-        nodeSize = 1000 
-        if (numCells > nodeSize) {
-            nodeNumber = int(numCells / nodeSize)
-            for i=0, numCells-1 { 
-                datadir=""
-                gid = indices.x(i)
-                if (pnm.gid_exists(gid)) {
-                    node=int(i/nodeSize)+1
-                    p=int(i%nodeSize)
-                    sprint(datadir, "%d", node)
-                    sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
-                    execute(cmd)
-                    // TODO: Temporarily disabled making of synapses for GC cells
-                    //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
-	            pnm.register_cell(gid, cell)
-                    pnm.spike_record(gid)
+        if (templateType == 1) {
+            nodeSize = 1000 
+            if (numCells > nodeSize) {
+                nodeNumber = int(numCells / nodeSize)
+                for i=0, numCells-1 { 
+                    datadir=""
+                    gid = indices.x(i)
+                    if (pnm.gid_exists(gid)) {
+                        node=int(i/nodeSize)+1
+                        p=int(i%nodeSize)
+                        sprint(datadir, "%d", node)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
+                        execute(cmd)
+                        // TODO: Temporarily disabled making of synapses for GC cells
+                        //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
+	                pnm.register_cell(gid, cell)
+                        pnm.spike_record(gid)
+                    }
+                }
+            } else {
+                for i=0, numCells-1 { 
+                    gid = indices.x(i)
+                    if (pnm.gid_exists(gid)) {
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
+                        execute(cmd)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+	                pnm.register_cell(gid, cell)
+                        pnm.spike_record(gid)
+                    }
                 }
             }
         } else {
-            for i=0, numCells-1 { 
-                gid = indices.x(i)
-                if (pnm.gid_exists(gid)) {
-                    sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
-                    execute(cmd)
-                    mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
-	            pnm.register_cell(gid, cell)
-                    pnm.spike_record(gid)
+                for i=0, numCells-1 { 
+                    gid = indices.x(i)
+                    if (pnm.gid_exists(gid)) {
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
+                        execute(cmd)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+	                pnm.register_cell(gid, cell)
+                        pnm.spike_record(gid)
+                    }
                 }
-            }
         }
     }
 }
