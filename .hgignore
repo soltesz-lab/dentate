@@ -7,6 +7,7 @@ NEURON/nrnmech.dll
 NEURON/test/*.dat
 NEURON/test/*0
 *.bak
+*.log
 *.*~
 neuroConstruct/generated*
 neuroConstruct/simulations
@@ -14,7 +15,5 @@ x86_64
 i386
 umac
 
-celltype.dat
-runtimes.dat
-spikeraster.dat
+results
 NEURON/setupfiles/generateNeuroML.pyc
