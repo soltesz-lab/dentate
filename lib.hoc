@@ -242,7 +242,7 @@ func findCellType() { local i, result localobj cellTypes, cellType
 // Loads cell/synapse type info into a Dict
 proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex localobj f, ff, cellTypes, cellType, indices
     
-    strdef cellTypeName, cellTypeTemplateName, indexType, indexFileName, datasetPath, indexPath, errmsg
+    strdef templateType, cellTypeName, cellTypeTemplateName, indexType, indexFileName, datasetPath, indexPath, errmsg
     
     // The first argument must be a list
     cellTypes = $o1
@@ -300,8 +300,17 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
 	f.scanstr(cellTypeTemplateName)
         cellType.addPropertyScalar("numCells",numCells) 
         cellType.addPropertyString("typeName",cellTypeName)
-        cellType.addPropertyString("templateName",cellTypeTemplateName)
         
+	f.scanstr(templateType)
+        if (strcmp(templateType,"forest:") == 0) { 
+            cellType.addPropertyScalar("templateType",1)
+        } else if (strcmp(templateType,"single:") == 0) {
+            cellType.addPropertyScalar("templateType",0)
+        } else {
+            sprint(errmsg,"invalid template type %s",templateType)
+            execerror(errmsg)
+        }
+        cellType.addPropertyString("templateName",cellTypeTemplateName)
         cellTypes.append(cellType)
     }
     f.close()
