@@ -187,7 +187,7 @@ objref cell
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight, templateType, hasTar  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight, templateType  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
     strdef templateName, typeName, datadir, nodePath
     
@@ -243,18 +243,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         p=int(i%nodeSize)
                         sprint(datadir, "%d", node)
                         sprint(nodePath,"%s/%s/%d.tar",datasetPath,typeName,node)
-                        sprint(cmd, "test -e %s", nodePath) // check if the path exists
-                        hasTar = (system(cmd) == 0)
-                        if (hasTar) {
-                          sprint(cmd, "tar xf %s -C %s/%s --wildcards --no-anchored '*%06d.dat'", datasetPath, typeName, nodePath, p) // extract the data files for this cell template
-                          system(cmd)
-                        }
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
-                        if (hasTar) {
-                          sprint(cmd, "rm %s/%s/%s/*%06d.dat", datasetPath, typeName, p) // remove the extracted file
-                          system(cmd)
-                        }
                         // TODO: Temporarily disabled making of synapses for GC cells
                         //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
 	                pnm.register_cell(gid, cell)
