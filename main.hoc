@@ -242,11 +242,11 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         node=int(i/nodeSize)+1
                         p=int(i%nodeSize)
                         sprint(datadir, "%d", node)
-                        sprint(nodePath,"%s/%s/%s/%d.tar",datasetPath,typeName,datadir,node)
+                        sprint(nodePath,"%s/%s/%d.tar",datasetPath,typeName,node)
                         sprint(cmd, "test -e %s", nodePath) // check if the path exists
                         hasTar = (system(cmd) == 0)
                         if (hasTar) {
-                          sprint(cmd, "tar xf %s --wildcards --no-anchored '*%06d.dat'", nodePath, p) // extract the data files for this cell template
+                          sprint(cmd, "tar xf %s -C %s/%s --wildcards --no-anchored '*%06d.dat'", datasetPath, typeName, nodePath, p) // extract the data files for this cell template
                           system(cmd)
                         }
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
