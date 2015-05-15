@@ -87,9 +87,6 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
 
         if (dendindex.is_list) {
 
-            printf("mksyn: cellTypeName = %s dendindex.l.o(0).n = %d\n",cellTypeName,dendindex.l.o(0).n)
-            printf("mksyn: cellTypeName = %s dendindex.l.o(1).n = %d\n",cellTypeName,dendindex.l.o(1).n)
-
             dendnum = rs.repick() % (dendindex.l.o(1).n+1)
             if (compindex.is_list) {
               compnum = rs.repick() % (compindex.l.o(1).n+1)
