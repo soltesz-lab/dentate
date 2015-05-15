@@ -294,7 +294,6 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
             execerror(errmsg)
         }
 	f.scanstr(cellTypeName)
-	f.scanstr(cellTypeTemplateName)
         cellType.addPropertyScalar("numCells",numCells) 
         cellType.addPropertyString("typeName",cellTypeName)
         
@@ -307,6 +306,7 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
             sprint(errmsg,"invalid template type %s",templateType)
             execerror(errmsg)
         }
+	f.scanstr(cellTypeTemplateName)
         cellType.addPropertyString("templateName",cellTypeTemplateName)
         cellTypes.append(cellType)
     }
