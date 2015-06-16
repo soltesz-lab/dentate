@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #$ -q som,asom,pub64
-#$ -pe mpi 64
+#$ -pe mpi 256
 #$ -cwd
 #$ -j y
 #$ -S /bin/bash

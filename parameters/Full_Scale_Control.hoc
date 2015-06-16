@@ -6,7 +6,8 @@ verbose = 0
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "/oasis/scratch/comet/iraikov/temp_project/dentate"
+//datasetPrefix = "/oasis/scratch/comet/iraikov/temp_project/dentate"
+datasetPrefix = "/som/iraikov/dentate"
 
 // The dataset to use for constructing the network
 datasetName = "Full_Scale_Control"
@@ -18,7 +19,7 @@ makegraph = 0
 v_init = -75
 
 // simulation time
-tstop = 1
+tstop = 50
 
 // time step
 dt = 0.1
