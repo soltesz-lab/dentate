@@ -509,15 +509,21 @@ proc mknet() { strdef fname
     startsw()
     mkcells(cellTypes)  // create the cells
     mkcellstime = stopsw()
-    printf ("*** Cells created in %g seconds\n", mkcellstime)
+    if (pnm.myid == 0) {
+        printf ("*** Cells created in %g seconds\n", mkcellstime)
+    }
     startsw()
     connectcells(connectivityTypes,cellTypes)  // connect them together
     connectcellstime = stopsw()
-    printf ("*** Synaptic connections created in %g seconds\n", connectcellstime)
+    if (pnm.myid == 0) {
+        printf ("*** Synaptic connections created in %g seconds\n", connectcellstime)
+    }
     startsw()
     connectgjs(gjTypes,cellTypes)  // creates the gap junctions
     connectgjstime = stopsw()
-    printf ("*** Gap junctions created\n")
+    if (pnm.myid == 0) {
+        printf ("*** Gap junctions created\n")
+    }
     sprint(fname, "%s/%s_%d.dat", resultsPath, modelName, pnm.myid)
 }
 
@@ -604,8 +610,9 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
 }
 
 mkstim(datasetPath, cellTypes, stimTypes)
-
-printf ("*** Stimulus sources initialized\n")
+if (pnm.myid == 0) {
+    printf ("*** Stimulus sources initialized\n")
+}
 
 if (makegraph > 0) {
         graphout(fname,conlist)
@@ -628,12 +635,15 @@ fi = new FInitializeHandler("simstatus()")
 
 
 stdinit()
-
-printf ("*** Initialization completed\n")
+if (pnm.myid == 0) {
+    printf ("*** Initialization completed\n")
+}
 
 pnm.psolve(tstop)
 
-printf ("*** Simulation completed\n")
+if (pnm.myid == 0) {
+    printf ("*** Simulation completed\n")
+}
 
 /* Write simulation results */
 
@@ -673,7 +683,9 @@ if (pnm.myid == 0) {
     }
 }
 
-printf ("*** Simulation results written\n")
+if (pnm.myid == 0) {
+    printf ("*** Simulation results written\n")
+}
 
 pnm.pc.runworker()
 pnm.pc.done()
