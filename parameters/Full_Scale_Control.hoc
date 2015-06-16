@@ -18,10 +18,10 @@ makegraph = 0
 v_init = -75
 
 // simulation time
-tstop = 1
+tstop = 50
 
 // time step
-dt = 0.1
+dt = 0.025
 
 use_cvode=0
 use_cache_efficient=1

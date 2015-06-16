@@ -182,8 +182,8 @@ proc biophys() { local ndends, ndendsec
     // a noise source that emulates fluctuating synaptic conductances
     // the conductances are sampled from a Gaussian distribution
     // where negative values were replaced with 0
-    soma fl = new Gfluct3(0.5)
-    fl.h = 0.25
+    soma fl = new Gfluct2(0.5)
+    //fl.h = 0.25
     
     // Generate a new random stream, setting
     //	aside 'random_stream_offset' random numbers
