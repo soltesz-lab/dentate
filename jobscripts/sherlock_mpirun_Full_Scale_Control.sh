@@ -15,7 +15,7 @@ mkdir -p ./results/Full_Scale_Control_$SLURM_JOB_ID
 
 module load openmpi/1.7.4/gcc
 
-mpirun -np $CORES nrniv -mpi -nobanner -nogui \
+mpirun nrniv -mpi -nobanner -nogui \
 -c "strdef parameters" -c "parameters=\"./parameters/Full_Scale_Control.hoc\"" \
 -c "strdef resultsPath" -c "resultsPath=\"./results/Full_Scale_Control_$SLURM_JOB_ID\"" \
 main.hoc
