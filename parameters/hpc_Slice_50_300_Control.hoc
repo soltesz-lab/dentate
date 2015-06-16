@@ -6,7 +6,7 @@ verbose = 1
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "/pub/iraikov/dentate"
+datasetPrefix = "/som/iraikov/dentate"
 
 // The dataset to use for constructing the network
 datasetName = "Slice_50_300_Control"
@@ -18,7 +18,7 @@ makegraph = 1
 v_init = -75
 
 // simulation time
-tstop = 100
+tstop = 250
 
 // time step
 dt = 0.1
