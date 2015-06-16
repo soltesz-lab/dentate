@@ -6,7 +6,7 @@ verbose = 0
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "/scratch/users/iraikov/dentate"
+datasetPrefix = "/som/iraikov/dentate"
 
 // The dataset to use for constructing the network
 datasetName = "Full_Scale_Control"
