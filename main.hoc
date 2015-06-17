@@ -189,7 +189,7 @@ objref cell
 // argument is the number of cells to be created
 proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight, templateType  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
-    strdef templateName, typeName, datadir, nodePath
+    strdef templateName, typeName, datadir
     
     cellTypes = $o1
     nCellTypes = cellTypes.count()
@@ -223,6 +223,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         
         // used for choosing dendrite and compartment for synapses
         rs = new RandomStream(k)
+        // TODO: make the maximum dendrite number a parameter
         rs.r.discunif(1,4)
         
         find_template(externalPaths, templateName)
@@ -242,11 +243,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
                         node=int(i/nodeSize)+1
                         p=int(i%nodeSize)
                         sprint(datadir, "%d", node)
-                        sprint(nodePath,"%s/%s/%d.tar",datasetPath,typeName,node)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
-                        // TODO: Temporarily disabled making of synapses for GC cells
-                        //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
