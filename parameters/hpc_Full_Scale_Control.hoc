@@ -12,7 +12,7 @@ datasetPrefix = "/som/iraikov/dentate"
 datasetName = "Full_Scale_Control"
 
 // Size of a single forest for variable morphology cells
-nodeSize = 1000
+forestSize = 1000
 
 // whether to create per-node connectivity graphs
 makegraph = 0
