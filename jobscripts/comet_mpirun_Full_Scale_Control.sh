@@ -14,4 +14,4 @@ set -x
 
 mkdir -p ./results/Full_Scale_Control_$SLURM_JOB_ID
 
-ibrun ./mechanisms/x86_64/special -mpi -nobanner -nogui -c "strdef parameters" -c "parameters=\"./parameters/Full_Scale_Control.hoc\"" -c "strdef resultsPath" -c "resultsPath=\"./results/Full_Scale_Control_$SLURM_JOB_ID\"" main.hoc
+ibrun ./mechanisms/x86_64/special -mpi -nobanner -nogui -c "strdef parameters" -c "parameters=\"./parameters/comet_Full_Scale_Control.hoc\"" -c "strdef resultsPath" -c "resultsPath=\"./results/Full_Scale_Control_$SLURM_JOB_ID\"" main.hoc
