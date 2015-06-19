@@ -298,7 +298,9 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
         cellType.addPropertyString("typeName",cellTypeName)
         
 	f.scanstr(templateType)
-        if (strcmp(templateType,"forest:") == 0) { 
+        if (strcmp(templateType,"multiforest:") == 0) { 
+            cellType.addPropertyScalar("templateType",2)
+        } else if (strcmp(templateType,"forest:") == 0) { 
             cellType.addPropertyScalar("templateType",1)
         } else if (strcmp(templateType,"single:") == 0) {
             cellType.addPropertyScalar("templateType",0)
