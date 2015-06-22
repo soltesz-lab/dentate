@@ -6,13 +6,15 @@ verbose = 1
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "/pub/iraikov/dentate"
+datasetPrefix = "/som/iraikov/dentate"
 
 // The dataset to use for constructing the network
 datasetName = "Slice_50_300_Epileptic"
 
 // whether to create per-node connectivity graphs
 makegraph = 1
+
+forestSize = 1000
 
 // Initialization voltage
 v_init = -75
