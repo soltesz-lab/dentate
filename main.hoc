@@ -634,8 +634,9 @@ cellTypes = nil
 print "dt = ", dt
 
 objref fi
-fi = new FInitializeHandler("simstatus()")
-
+if (pnm.myid == 0) {
+  fi = new FInitializeHandler("simstatus()")
+}
 
 stdinit()
 if (pnm.myid == 0) {
