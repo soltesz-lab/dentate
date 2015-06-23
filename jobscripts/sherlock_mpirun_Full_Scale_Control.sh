@@ -2,7 +2,7 @@
 #
 #SBATCH -J dentate_Full_Scale_Control
 #SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
-#SBATCH -n 128
+#SBATCH -n 256
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -13,7 +13,7 @@ set -x
 
 mkdir -p ./results/Full_Scale_Control_$SLURM_JOB_ID
 
-module load openmpi/1.7.4/gcc
+module load openmpi/1.6.5/gcc
 
 mpirun nrniv -mpi -nobanner -nogui \
 -c "strdef parameters" -c "parameters=\"./parameters/Full_Scale_Control.hoc\"" \
