@@ -14,11 +14,13 @@ datasetName = "Slice_50_300_Control"
 // whether to create per-node connectivity graphs
 makegraph = 1
 
+forestSize = 1000
+
 // Initialization voltage
 v_init = -75
 
 // simulation time
-tstop = 250
+tstop = 100
 
 // time step
 dt = 0.1

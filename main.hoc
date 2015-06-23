@@ -9,6 +9,10 @@ strdef modelName, datasetPrefix, datasetName, datasetPath
 // as follows: nrniv -c "strdef parameters" -c "parameters=\"parameters.hoc\""
 {load_file(parameters)}
 
+if (!(name_declared("forestSize"))) {
+    forestSize = 0
+}
+
 {cvode.active(use_cvode)}
 {cvode.use_local_dt(use_local_dt)}
 {cvode.cache_efficient(use_cache_efficient)}
@@ -187,9 +191,9 @@ objref cell
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeNumber, treeHeight, templateType  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, templateType  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
-    strdef templateName, typeName, datadir, nodePath
+    strdef templateName, typeName, datadir
     
     cellTypes = $o1
     nCellTypes = cellTypes.count()
@@ -223,30 +227,31 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, nodeSize, nodeN
         
         // used for choosing dendrite and compartment for synapses
         rs = new RandomStream(k)
+        // TODO: make the maximum dendrite number a parameter
         rs.r.discunif(1,4)
         
         find_template(externalPaths, templateName)
 
         // For cell templates that load their morphologies from
         // external files, set the maximum number of files per
-        // directory to nodeSize, and calculate the number of 
+        // directory to forestSize, and calculate the number of 
         // directories necessary to store all files for that cell type.
-        if (templateType == 1) {
-            nodeSize = 1000 
-            if (numCells > nodeSize) {
-                nodeNumber = int(numCells / nodeSize)
+        if ((templateType == 1) || (templateType == 2)) {
+            if ((forestSize > 0) && (numCells > forestSize)) {
                 for i=0, numCells-1 { 
                     datadir=""
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
-                        node=int(i/nodeSize)+1
-                        p=int(i%nodeSize)
+                        node=int(i/forestSize)+1
+                        if (templateType == 2) {
+                          p=int(i%forestSize)
+                        } else {
+                          p=i
+                        }
                         sprint(datadir, "%d", node)
-                        sprint(nodePath,"%s/%s/%d.tar",datasetPath,typeName,node)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
-                        // TODO: Temporarily disabled making of synapses for GC cells
-                        //mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp)
+                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -629,8 +634,9 @@ cellTypes = nil
 print "dt = ", dt
 
 objref fi
-fi = new FInitializeHandler("simstatus()")
-
+if (pnm.myid == 0) {
+  fi = new FInitializeHandler("simstatus()")
+}
 
 stdinit()
 if (pnm.myid == 0) {
