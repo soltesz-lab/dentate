@@ -1,24 +1,27 @@
 
-%function DGnetwork_9_s_stimulation(slice,epilepsy,input,total_processors)
+%function DGnetwork_7_s_stimulation(directory,slice,epilepsy,input,total_processors)
 
-epilepsy = '1';
+epilepsy = '0';
 slice = '1';
 e_distance = 200;
+
+directory = '/som/iraikov/dentate/Slice_50_500_Control';
+
 if str2double(slice) == 0 && str2double(epilepsy) == 0
-    load('Outputs/Locations.mat');
-    load('Outputs/Syn_Connections.mat');
-    load('Outputs/GJ_Connections.mat');
+  load(sprintf('%s/Locations.mat',directory));
+  load(sprintf('%s/Syn_Connections.mat',directory));
+  load(sprintf('%s/GJ_Connections.mat',directory));
 elseif str2double(slice) == 1 && str2double(epilepsy) == 0
-    load('./Outputs/Slice_50_300_Control/Slice_Locations.mat');
-    load('./Outputs/Slice_50_300_Control/Slice_Indexes.mat');
-    %tree = load_tree('Outputs/Slice_Trees.mtr');
+  load(sprintf('%s/Slice_Locations.mat',directory));
+  load(sprintf('%s/Slice_Indexes.mat',directory));
 elseif str2double(slice) == 0 && str2double(epilepsy) == 1
-    load('./Outputs/Epileptic/Locations.mat');
+  load(sprintf('%s/Epileptic/Locations.mat',directory));
 elseif str2double(slice) == 1 && str2double(epilepsy) == 1
-    load('./Outputs/Slice_50_300_Epileptic/Slice_Locations.mat');
-    load('./Outputs/Slice_50_300_Epileptic/Slice_Indexes.mat');
+  load(sprintf('%s/Epileptic/Slice_Locations.mat',directory));
+  load(sprintf('%s/Epileptic/Slice_Indexes.mat',directory));
 end
-%input_pt = locations{2}(130,:);
+
+input_pt = locations{2}(130,:);
 
 stim_cells = cell(length(locations),1);
 for i = 1:length(locations)
@@ -43,3 +46,5 @@ for i = 1:length(locations)
     end
 end
 %}
+
+save(sprintf('%s/Stimulation.mat',directory),'stim_cells','-v6');
