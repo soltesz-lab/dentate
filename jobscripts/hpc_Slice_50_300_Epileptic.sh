@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #$ -q som,asom,pub64
-#$ -pe mpi 128
+#$ -pe mpi 192
 #$ -cwd
 #$ -j y
 #$ -S /bin/bash
@@ -12,6 +12,8 @@
 module load neuron/7.4alpha
 
 mkdir -p ./results/Slice_50_300_Epileptic_$JOB_ID
+
+hg manifest | tar zcf ./results/Slice_50_300_Epileptic_$JOB_ID/dentate.tgz --files-from=/dev/stdin
 
 mpirun -np $CORES nrniv -mpi -nobanner -nogui \
 -c "strdef parameters" -c "parameters=\"./parameters/hpc_Slice_50_300_Epileptic.hoc\"" \
