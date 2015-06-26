@@ -165,7 +165,7 @@ if str2double(epilepsy) == 0
   save(sprintf('%s/Slice_Indexes.mat',output_directory),'keep_indexes','-v6');
   save(sprintf('%s/Slice_Trees.mtr',output_directory),'tree','-v7.3');
   save(sprintf('%s/Slice_Syn_Connections.mat',output_directory),'connection_M','-v7.3');
-  save(sprintf('%s/Outputs/Slice_Gap_Junctions.mat',output_directory),'gap_junctions','-v7.3');
+  save(sprintf('%s/Slice_Gap_Junctions.mat',output_directory),'gap_junctions','-v7.3');
 else
     save(sprintf('%s/Epileptic/Slice_Locations.mat',output_directory),'locations','-v6');
     save(sprintf('%s/Epileptic/Slice_Indexes.mat',output_directory),'keep_indexes','-v6');
