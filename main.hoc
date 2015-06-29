@@ -622,6 +622,7 @@ if (makegraph > 0) {
         conlist = nil
 }
 
+
 connectivityTypes = nil
 cellTypes = nil
 

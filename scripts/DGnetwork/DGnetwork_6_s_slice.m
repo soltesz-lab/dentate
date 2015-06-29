@@ -1,10 +1,14 @@
 
-%function DGnetwork_7_s_slice(percent,epilepsy,width,directory)
+%function DGnetwork_6_s_slice(percent,epilepsy,width,directory)
 
 percent = '50';
-epilepsy = '0';
-width = '300';
-directory = './Outputs';
+epilepsy = '1';
+width = '500';
+trees_directory = '/som/iraikov';
+full_scale_directory = '/som/iraikov/dentate/Full_Scale_Control';
+output_directory = '/som/iraikov/dentate/Slice_50_500_Control';
+output_directory = '/som/iraikov/dentate/Slice_50_500_Epileptic';
+
 rng(1)
 
 % Draw line to estimate septotemporal extent
@@ -57,9 +61,9 @@ stop_d  = sum(plane.*plane_center2);
 
 
 % Load in full-scale locations and connections
-load('Outputs/Locations.mat');
-load('Outputs/Syn_Connections.mat');
-load('Outputs/GJ_Connections.mat');
+load(sprintf('%s/Locations.mat',full_scale_directory));
+load(sprintf('%s/Syn_Connections.mat',full_scale_directory));
+load(sprintf('%s/GJ_Connections.mat',full_scale_directory));
 if str2double(epilepsy) == 0
     connection_M{1,1}   = [];
     hilus_percent       = 1;
@@ -115,7 +119,7 @@ cut_trees   = cell(size(GC_indices,1),1);
 counter     = 1;
 for i = min(GC_files):max(GC_files);
     if any(GC_files == i)
-        trees   = load_tree(sprintf('%s/Trees_Tapered/%i.mtr',directory,i));
+        trees   = load_tree(sprintf('%s/Trees_Tapered/%i.mtr',trees_directory,i));
         cut_trees(counter:(counter+size(find(GC_files==i),1)-1)) = trees((GC_indices(GC_files == i,1)-tree_subset_size*(i-1)));
         counter = counter + size(find(GC_files==i),1);
     end
@@ -157,16 +161,9 @@ gap_junctions   = new_gap_junctions;
 tree            = new_cut_trees; 
 
 % Save outputs
-if str2double(epilepsy) == 0
-    save('./Outputs/Slice_Locations.mat','locations','-v7.3');
-    save('./Outputs/Slice_Indexes.mat','keep_indexes','-v6');
-    save('./Outputs/Slice_Trees.mtr','tree','-v7.3');
-    save('./Outputs/Slice_Syn_Connections.mat','connection_M','-v7.3');
-    save('./Outputs/Slice_Gap_Junctions.mat','gap_junctions','-v7.3');
-else
-    save('./Outputs/Epileptic/Slice_Locations.mat','locations','-v6');
-    save('./Outputs/Epileptic/Slice_Indexes.mat','keep_indexes','-v6');
-    save('./Outputs/Epileptic/Slice_Trees.mtr','tree','-v6');
-    save('./Outputs/Epileptic/Slice_Syn_Connections.mat','connection_M','-v6');
-    save('./Outputs/Epileptic/Slice_Gap_Junctions.mat','gap_junctions','-v6');
-end
+save(sprintf('%s/Slice_Locations.mat',output_directory),'locations','-v6');
+save(sprintf('%s/Slice_Indexes.mat',output_directory),'keep_indexes','-v6');
+save(sprintf('%s/Slice_Trees.mtr',output_directory),'tree','-v7.3');
+save(sprintf('%s/Slice_Syn_Connections.mat',output_directory),'connection_M','-v6');
+save(sprintf('%s/Slice_Gap_Junctions.mat',output_directory),'gap_junctions','-v6');
+
