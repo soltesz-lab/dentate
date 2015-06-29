@@ -622,6 +622,7 @@ if (makegraph > 0) {
         conlist = nil
 }
 
+
 connectivityTypes = nil
 cellTypes = nil
 
@@ -633,14 +634,14 @@ cellTypes = nil
 
 print "dt = ", dt
 
-objref fi
-if (pnm.myid == 0) {
-  fi = new FInitializeHandler("simstatus()")
-}
-
 stdinit()
 if (pnm.myid == 0) {
     printf ("*** Initialization completed\n")
+}
+
+objref fi
+if (pnm.myid == 0) {
+  fi = new FInitializeHandler("simstatus()")
 }
 
 pnm.psolve(tstop)
