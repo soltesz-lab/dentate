@@ -6,7 +6,7 @@ verbose = 1
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "/som/iraikov/dentate"
+datasetPrefix = "/scratch/users/iraikov/dentate"
 
 // The dataset to use for constructing the network
 datasetName = "Slice_50_300_Control"
@@ -20,7 +20,7 @@ forestSize = 1000
 v_init = -75
 
 // simulation time
-tstop = 500
+tstop = 3000
 
 // time step
 dt = 0.1

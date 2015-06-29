@@ -1,19 +1,19 @@
 #!/bin/bash
 #
-#$ -q som,asom,pub64
-#$ -pe mpi 128
-#$ -cwd
-#$ -j y
-#$ -S /bin/bash
-#$ -N dentate_Slice_50_300_Control
-#$ -o ./results/dentate_Slice_50_300_Control.$JOB_ID.o
-#$ -R y
+#SBATCH -J dentate_Slice_50_300_Control
+#SBATCH -o ./results/dentate_Slice_50_300_Control.%j.o
+#SBATCH -n 128
+#SBATCH -t 16:00:00
+#SBATCH --mail-user=ivan.g.raikov@gmail.com
+#SBATCH --mail-type=END
+#SBATCH --mail-type=BEGIN
+#
 
-module load neuron/7.4alpha
+mkdir -p ./results/Slice_50_300_Control_$SLURM_JOB_ID
 
-mkdir -p ./results/Slice_50_300_Control_$JOB_ID
+module load openmpi/1.8.3/gcc
 
-mpirun -np $CORES nrniv -mpi -nobanner -nogui \
+mpirun nrniv -mpi -nobanner -nogui \
 -c "strdef parameters" -c "parameters=\"./parameters/sherlock_Slice_50_300_Control.hoc\"" \
--c "strdef resultsPath" -c "resultsPath=\"./results/Slice_50_300_Control_$JOB_ID\"" \
+-c "strdef resultsPath" -c "resultsPath=\"./results/Slice_50_300_Control_$SLURM_JOB_ID\"" \
 main.hoc
