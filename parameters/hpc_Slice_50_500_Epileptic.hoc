@@ -1,0 +1,33 @@
+
+// print verbose diagnostic messages while constructing the network
+verbose = 1
+
+// The name of this model
+modelName = "dentatenet"
+
+// The location of all datasets
+datasetPrefix = "/som/iraikov/dentate"
+
+// The dataset to use for constructing the network
+datasetName = "Slice_50_500_Epileptic"
+
+// whether to create per-node connectivity graphs
+makegraph = 1
+
+forestSize = 1000
+
+// Initialization voltage
+v_init = -75
+
+// simulation time
+tstop = 600
+
+// time step
+dt = 0.025
+
+use_cvode=0
+use_cache_efficient=1
+use_local_dt=0
+
+externalPaths = new List()
+externalPaths.append (new String("../dgc/Mateos-Aparicio2014"))

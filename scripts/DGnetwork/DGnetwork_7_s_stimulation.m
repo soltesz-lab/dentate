@@ -1,11 +1,12 @@
 
 %function DGnetwork_7_s_stimulation(directory,slice,epilepsy,input,total_processors)
 
-epilepsy = '0';
+epilepsy = '1';
 slice = '1';
 e_distance = 200;
 
 directory = '/som/iraikov/dentate/Slice_50_500_Control';
+directory = '/som/iraikov/dentate/Slice_50_500_Epileptic';
 
 if str2double(slice) == 0 && str2double(epilepsy) == 0
   load(sprintf('%s/Locations.mat',directory));
@@ -15,10 +16,10 @@ elseif str2double(slice) == 1 && str2double(epilepsy) == 0
   load(sprintf('%s/Slice_Locations.mat',directory));
   load(sprintf('%s/Slice_Indexes.mat',directory));
 elseif str2double(slice) == 0 && str2double(epilepsy) == 1
-  load(sprintf('%s/Epileptic/Locations.mat',directory));
+  load(sprintf('%s/Locations.mat',directory));
 elseif str2double(slice) == 1 && str2double(epilepsy) == 1
-  load(sprintf('%s/Epileptic/Slice_Locations.mat',directory));
-  load(sprintf('%s/Epileptic/Slice_Indexes.mat',directory));
+  load(sprintf('%s/Slice_Locations.mat',directory));
+  load(sprintf('%s/Slice_Indexes.mat',directory));
 end
 
 input_pt = locations{2}(130,:);

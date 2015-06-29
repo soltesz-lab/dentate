@@ -1,12 +1,13 @@
 
-%function DGnetwork_7_s_slice(percent,epilepsy,width,directory)
+%function DGnetwork_6_s_slice(percent,epilepsy,width,directory)
 
 percent = '50';
-epilepsy = '0';
+epilepsy = '1';
 width = '500';
 trees_directory = '/som/iraikov';
 full_scale_directory = '/som/iraikov/dentate/Full_Scale_Control';
 output_directory = '/som/iraikov/dentate/Slice_50_500_Control';
+output_directory = '/som/iraikov/dentate/Slice_50_500_Epileptic';
 
 rng(1)
 
@@ -160,16 +161,9 @@ gap_junctions   = new_gap_junctions;
 tree            = new_cut_trees; 
 
 % Save outputs
-if str2double(epilepsy) == 0
-  save(sprintf('%s/Slice_Locations.mat',output_directory),'locations','-v6');
-  save(sprintf('%s/Slice_Indexes.mat',output_directory),'keep_indexes','-v6');
-  save(sprintf('%s/Slice_Trees.mtr',output_directory),'tree','-v7.3');
-  save(sprintf('%s/Slice_Syn_Connections.mat',output_directory),'connection_M','-v6');
-  save(sprintf('%s/Slice_Gap_Junctions.mat',output_directory),'gap_junctions','-v6');
-else
-    save(sprintf('%s/Epileptic/Slice_Locations.mat',output_directory),'locations','-v6');
-    save(sprintf('%s/Epileptic/Slice_Indexes.mat',output_directory),'keep_indexes','-v6');
-    save(sprintf('%s/Epileptic/Slice_Trees.mtr',output_directory),'tree','-v6');
-    save(sprintf('%s/Epileptic/Slice_Syn_Connections.mat',output_directory),'connection_M','-v6');
-    save(sprintf('%s/Epileptic/Slice_Gap_Junctions.mat',output_directory),'gap_junctions','-v6');
-end
+save(sprintf('%s/Slice_Locations.mat',output_directory),'locations','-v6');
+save(sprintf('%s/Slice_Indexes.mat',output_directory),'keep_indexes','-v6');
+save(sprintf('%s/Slice_Trees.mtr',output_directory),'tree','-v7.3');
+save(sprintf('%s/Slice_Syn_Connections.mat',output_directory),'connection_M','-v6');
+save(sprintf('%s/Slice_Gap_Junctions.mat',output_directory),'gap_junctions','-v6');
+
