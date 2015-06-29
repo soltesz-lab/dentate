@@ -634,14 +634,14 @@ cellTypes = nil
 
 print "dt = ", dt
 
-stdinit()
-if (pnm.myid == 0) {
-    printf ("*** Initialization completed\n")
-}
-
 objref fi
 if (pnm.myid == 0) {
   fi = new FInitializeHandler("simstatus()")
+}
+
+stdinit()
+if (pnm.myid == 0) {
+    printf ("*** Initialization completed\n")
 }
 
 pnm.psolve(tstop)
