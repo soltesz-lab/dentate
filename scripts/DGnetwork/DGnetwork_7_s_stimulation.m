@@ -1,12 +1,12 @@
 
 %function DGnetwork_7_s_stimulation(directory,slice,epilepsy,input,total_processors)
 
-epilepsy = '1';
+epilepsy = '0';
 slice = '1';
 e_distance = 200;
 
-directory = '/som/iraikov/dentate/Slice_50_500_Control';
 directory = '/som/iraikov/dentate/Slice_50_500_Epileptic';
+directory = '/som/iraikov/dentate/Slice_50_500_Control';
 
 if str2double(slice) == 0 && str2double(epilepsy) == 0
   load(sprintf('%s/Locations.mat',directory));
@@ -22,7 +22,7 @@ elseif str2double(slice) == 1 && str2double(epilepsy) == 1
   load(sprintf('%s/Slice_Indexes.mat',directory));
 end
 
-input_pt = locations{2}(130,:);
+input_pt = locations{1}(10000,:);
 
 stim_cells = cell(length(locations),1);
 for i = 1:length(locations)
