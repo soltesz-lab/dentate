@@ -67,11 +67,13 @@ if (vrecordLimit < 0) {
 }
 
 // Builds a list of indices of cells to record from
-proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fraction  localobj cellTypes, cellType, indices, rec_indices, rs
-    
-    rec_indices = $o1
-    cellTypes = $o2
-    fraction = $3
+proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fraction  localobj pnm, cellTypes, cellType, indices, rec_indices, rs
+
+    pnm = $o1    
+    rec_indices = $o2
+    cellTypes = $o3
+    fraction = $4
+
     nCellTypes = cellTypes.count()
     
     for k=0, nCellTypes-1 { 
@@ -98,7 +100,7 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
         
         rs.r.discunif(0,numCells-1)
         for i=0, numRec-1 { 
-            n = rs1.repick()
+            n = rs.repick()
             j = pnm.myid + n * pnm.pc.nhost
             rec_indices.x[i] = indices.x[j]
         }
@@ -213,10 +215,6 @@ for i=0, cellTypes.count()-1 {
     }
 }
 
-if (pnm.myid == 0) {
-  vlog = new Vector(vec_size)
-  tlog = new Vector(vec_size)
-}
 
 // each noise generator picks a number every
 // dt for the full time range, so stream
@@ -572,7 +570,7 @@ proc mknet() { strdef fname
     }
     if (vrecordFraction > 0) {
         indicesVrecord = new List()
-        mkvrecord(indicesVrecord,cellTypes,vrecordFraction)
+        mkvrecord(pnm,indicesVrecord,cellTypes,vrecordFraction)
     }
     startsw()
     connectcells(connectivityTypes,cellTypes)  // connect them together

@@ -686,13 +686,12 @@ proc vrecord() { local status, gid, i localobj pnm, cell, vec strdef cmd
     
     pnm = $o1
     
-    cmd = sprint
     sprint(cmd, "my_indicesVrecord = indicesVrecord", templatePath)
     status = execute(cmd)
     
-    vec = new Vector(my_indicesVrecord.size())
-    for i=0, my_indicesVrecord.size()-1 {
-        gid  = my_indicesVrecord.x[i]
+    vec = new Vector(my_indicesVrecord.count())
+    for i=0, my_indicesVrecord.count()-1 {
+        gid  = my_indicesVrecord.o(i)
         cell = pnm.pc.gid2cell($3)
         vec.x[i] = cell.soma.v
     }
