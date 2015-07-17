@@ -20,7 +20,7 @@ forestSize = 1000
 v_init = -75
 
 // simulation time
-tstop = 600
+tstop = 700
 
 // time step
 dt = 0.025
