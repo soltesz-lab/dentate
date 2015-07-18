@@ -704,7 +704,7 @@ proc vrecordout() { local i localobj f, vec, lst
     
     lst = new List()
     for i=0, vrecordlog.count()-1 {
-        lst.prepend(vrecordlog.x(i))
+        lst.prepend(vrecordlog.o(i))
     }
     
     f = new File($s1)
