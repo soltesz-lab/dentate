@@ -84,8 +84,13 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
         numCells = int(cellType.getPropertyScalar("numCells") / pnm.pc.nhost)
         offset   = cellType.getPropertyScalar("offset")
         numRec   = int(fraction * numCells)
-        if (numRec > vrecordLimit) {
+        if ((vrecordLimit > 0) && (numRec > vrecordLimit)) {
             numRec = vrecordLimit
+        }
+
+        if (verbose > 0) {
+            printf ("numCells = %d\n", numCells)
+            printf ("numRec = %d\n", numRec)
         }
         
         if (cellType.hasProperty("indices")) {
@@ -102,7 +107,7 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
         for i=0, numRec-1 { 
             n = rs.repick()
             j = pnm.myid + n * pnm.pc.nhost
-            rec_indices.x[i] = indices.x[j]
+            rec_indices.prepend(new Value(0,indices.x[j]))
         }
     }
     
@@ -718,7 +723,7 @@ spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
 
 strdef vrecord_fname
 sprint(vrecord_fname, "%s/%s_vrecord_%d.dat", resultsPath, modelName, pnm.myid)
-vrecordout(vrecord_fname)
+vrecordout(vrecord_fname,indicesVrecord)
 
 comptime = pnm.pc.step_time
 avgcomp  = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
