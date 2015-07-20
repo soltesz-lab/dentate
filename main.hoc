@@ -83,14 +83,17 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
         cellType = cellTypes.o(k)
         numCells = int(cellType.getPropertyScalar("numCells") / pnm.pc.nhost)
         offset   = cellType.getPropertyScalar("offset")
-        numRec   = int(fraction * numCells)
+        if (numCells < 1) {
+            numRec = 1
+        } else {
+            numRec = int(fraction * numCells)
+        }
         if ((vrecordLimit > 0) && (numRec > vrecordLimit)) {
             numRec = vrecordLimit
         }
 
         if (verbose > 0) {
-            printf ("numCells = %d\n", numCells)
-            printf ("numRec = %d\n", numRec)
+            printf ("cell type %s: numCells = %d numRec = %d\n", cellType.getPropertyString("typeName").s, numCells, numRec)
         }
         
         if (cellType.hasProperty("indices")) {
