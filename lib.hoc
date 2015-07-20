@@ -708,7 +708,9 @@ proc vrecordout() { local i, j, status localobj f, vec, lst, indices
     for i=0, vrecordlog.count()-1 {
         lst.prepend(vrecordlog.o(i))
     }
-    
+
+    printf("vrecordlog.count = %d lst.count = %d\n", vrecordlog.count(), lst.count())
+      
     f = new File($s1)
     
     f.wopen()
@@ -721,7 +723,7 @@ proc vrecordout() { local i, j, status localobj f, vec, lst, indices
         vec = lst.o(i)
 	f.printf("%g ", i*dt_vrecord)
 	for j=0, vec.size()-1 {
-	   f.printf("%g ", vec.x[i])
+	   f.printf("%g ", vec.x[j])
         }
         f.printf("\n")
     }
