@@ -81,12 +81,17 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
         rs = new RandomStream(k)    
         
         cellType = cellTypes.o(k)
-        numCells = int(cellType.getPropertyScalar("numCells") / pnm.pc.nhost)
+        numCells = cellType.getPropertyScalar("numCells")
+        numCellsPerHost = int(numCells / pnm.pc.nhost)
         offset   = cellType.getPropertyScalar("offset")
-        if (numCells < 1) {
-            numRec = 1
+        if ((numCellsPerHost < 1) ) {
+            if (pnm.myid < numCells) { 
+              numRec = 1
+            } else {
+              numRec = 0
+            }
         } else {
-            numRec = int(fraction * numCells)
+            numRec = int(fraction * numCellsPerHost)
         }
         if ((vrecordLimit > 0) && (numRec > vrecordLimit)) {
             numRec = vrecordLimit
@@ -105,13 +110,17 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
                 indices.x[i] = i+offset
             }
         }
-        
-        rs.r.discunif(0,numCells-1)
-        for i=0, numRec-1 { 
-            n = rs.repick()
-            j = pnm.myid + n * pnm.pc.nhost
-            rec_indices.prepend(new Value(0,indices.x[j]))
-        }
+
+        if (numRec > 1) {
+          rs.r.discunif(0,numCellsPerHost-1)
+          for i=0, numRec-1 { 
+              n = rs.repick()
+              j = pnm.myid + n * pnm.pc.nhost
+              rec_indices.prepend(new Value(0,indices.x[j]))
+          }
+        } else if (numRec == 1) {
+          rec_indices.prepend(new Value(0,indices.x[pnm.myid]))
+       }
     }
     
 }
