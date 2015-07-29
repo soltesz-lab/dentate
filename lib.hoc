@@ -665,13 +665,65 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, interval loc
     
 }
 
-status_dt = 1.0
 walltime = 0
+
+dt_status = 1.0
 proc simstatus() { local wt
      wt = startsw()
      if (walltime > 0) {
        printf("*** computation time at t=%g ms was %g s\n", t, wt-walltime)
      }
      walltime = wt
-     cvode.event(t + status_dt, "simstatus()")
+     cvode.event(t + dt_status, "simstatus()")
+ }
+ 
+dt_vrecord = 0.1
+objref my_indicesVrecord, vrecordlog
+
+vrecordlog = new List()
+
+proc vrecord() { local status, gid, i localobj pnm, cell, vec strdef cmd
+    
+    pnm = $o1
+    
+    sprint(cmd, "my_indicesVrecord = indicesVrecord")
+    status = execute(cmd)
+
+    vec = new Vector(my_indicesVrecord.count())
+    for i=0, my_indicesVrecord.count()-1 {
+        gid  = my_indicesVrecord.o(i).n
+        cell = pnm.pc.gid2cell(gid)
+        vec.x[i] = cell.soma.v
+    }
+    vrecordlog.prepend(vec)
+    cvode.event(t + dt_vrecord, "vrecord(pnm)")
+}
+
+// Writes out voltage traces
+proc vrecordout() { local i, j, status localobj f, vec, lst, indices
+
+    indices = $o2
+    
+    lst = new List()
+    for i=0, vrecordlog.count()-1 {
+        lst.prepend(vrecordlog.o(i))
+    }
+
+    f = new File($s1)
+    
+    f.wopen()
+    f.printf("# ")
+    for i=0, indices.count()-1 {
+	f.printf("%d ", indices.o(i).n)
+    }
+    f.printf("\n")
+    for i=0, lst.count()-1 {
+        vec = lst.o(i)
+	f.printf("%g ", i*dt_vrecord)
+	for j=0, vec.size()-1 {
+	   f.printf("%g ", vec.x[j])
+        }
+        f.printf("\n")
+    }
+    f.close()
 }
