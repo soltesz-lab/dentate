@@ -20,10 +20,13 @@ forestSize = 1000
 v_init = -75
 
 // simulation time
-tstop = 1200
+tstop = 700
 
 // time step
 dt = 0.025
+
+// Fraction of cells to record intracellular voltage from
+vrecordFraction = 0.1
 
 use_cvode=0
 use_cache_efficient=1

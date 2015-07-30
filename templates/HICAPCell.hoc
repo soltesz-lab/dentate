@@ -130,20 +130,20 @@ proc biophys() {
 	g_k = 0.0035
 	g_leak  = 0.0000318
 	forsec all {
-		insert ccanl
+	insert ccanl
 	catau_ccanl = 10
 	caiinf_ccanl = 5.e-6
-		insert borgka
+	insert borgka
 	gkabar_borgka=0.0004
-		insert nca  // HAV-N- Ca channel
+	insert nca  // HAV-N- Ca channel
 	gncabar_nca=0.0  
-		insert lca
+	insert lca
 	glcabar_lca=0.0015
-		insert gskch
+	insert gskch
 	gskbar_gskch=0.001
-		insert cagk
+	insert cagk
 	gkbar_cagk=0.0002
-		insert hyperde3
+	insert hyperde3
 	ghyfbar_hyperde3=0.000035
 	ghysbar_hyperde3=0.000035
 	cm = 0.95
@@ -180,11 +180,15 @@ proc biophys() {
 	}	
 	
 	forsec all {Ra=100}
-	forsec all {enat = 55 
-                 ekf = -90  ek=-90  esk=-90 
+	forsec all {
+                 enat = 55 
+                 ekf = -90  ek=-90  
+                 esk=-90 
                  elca=130
-		 el_ichan2 =-64	ehyf=-40 ehys=-40
-		cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+		 el_ichan2 =-64	
+                 ehyf=-40 ehys=-40
+		 cao_ccanl=2 
+         }  // make catau slower70e-3 	cao=2 cai=50.e-6 
 }
 
 

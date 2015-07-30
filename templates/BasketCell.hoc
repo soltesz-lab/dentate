@@ -190,7 +190,6 @@ proc biophys() {
         elca = 130
         esk  = -90
 	el_ichan2 =-60.06
-        
         cao_ccanl=2
     }  // make catau slower70e-3 	cao=2 cai=50.e-6 
 }
