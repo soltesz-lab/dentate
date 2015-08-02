@@ -133,6 +133,7 @@ PARAMETER {
 ASSIGNED {
 	v	(mV)		: membrane voltage
 	i 	(nA)		: fluctuating current
+	ival 	(nA)		: fluctuating current
 	g_e	(umho)		: total excitatory conductance
 	g_i	(umho)		: total inhibitory conductance
 	g_e1	(umho)		: fluctuating excitatory conductance
@@ -144,9 +145,11 @@ ASSIGNED {
 	amp_e	(umho)
 	amp_i	(umho)
 	donotuse
+        on
 }
 
 INITIAL {
+        on = 0
 	g_e1 = 0
 	g_i1 = 0
 	if(tau_e != 0) {
@@ -183,16 +186,23 @@ ENDVERBATIM
 	mynormrand = normrand(mean, std)
 }
 
-BREAKPOINT {
-	g_e = g_e0 + g_e1
-	if(g_e < 0) { g_e = 0 }
-	g_i = g_i0 + g_i1
-	if(g_i < 0) { g_i = 0 }
-	i = g_e * (v - E_e) + g_i * (v - E_i)
+BEFORE BREAKPOINT {
+        if (on > 0) {
+		g_e = g_e0 + g_e1
+                if (g_e < 0) { g_e = 0 }
+	        g_i = g_i0 + g_i1
+	        if (g_i < 0) { g_i = 0 }
+	        ival = g_e * (v - E_e) + g_i * (v - E_i)
+        } else {
+                ival = 0
+        }
         
         :printf("t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", t, v, i, g_e, g_i, E_e, E_i)
+    }
 
-   
+
+BREAKPOINT {
+      i = ival   
     }
 
 

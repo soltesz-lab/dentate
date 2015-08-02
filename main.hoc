@@ -714,7 +714,9 @@ if (pnm.myid == 0) {
 }
 
 objref fi_vrecord
-fi_vrecord = new FInitializeHandler("vrecord(pnm)")
+if (vrecordFraction > 0) {
+   fi_vrecord = new FInitializeHandler("vrecord(pnm)")
+}
 
 stdinit()
 if (pnm.myid == 0) {
@@ -734,8 +736,10 @@ sprint(spikeout_fname, "%s/%s_spikeout_%d.dat", resultsPath, modelName, pnm.myid
 spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
 
 strdef vrecord_fname
-sprint(vrecord_fname, "%s/%s_vrecord_%d.dat", resultsPath, modelName, pnm.myid)
-vrecordout(vrecord_fname,indicesVrecord)
+if (vrecordFraction > 0) {
+  sprint(vrecord_fname, "%s/%s_vrecord_%d.dat", resultsPath, modelName, pnm.myid)
+  vrecordout(vrecord_fname,indicesVrecord)
+}
 
 comptime = pnm.pc.step_time
 avgcomp  = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
