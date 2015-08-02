@@ -15,7 +15,7 @@ objref mc
 mc = new MossyCell(1, 1)
 
 prelength = 1000
-mainlength = 600
+mainlength = 6000
 
 
 //**********************************************************************
