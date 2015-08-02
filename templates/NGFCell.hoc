@@ -132,7 +132,7 @@ proc biophys() {
     forsec alldendrites {   
         
 	insert ichan2
-	insert na3           
+        insert na3           
         gbar_na3=gna*0.2
         //gkdrbar_kdr=gkdr*0.2
         //gkabar_kap = gka*0.2

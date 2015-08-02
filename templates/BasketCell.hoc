@@ -126,7 +126,7 @@ proc topol() {
 
 proc biophys() {
     
-    forsec all {
+   forsec all {
 	insert ccanl
 	catau_ccanl = 10
 	caiinf_ccanl = 5.e-6
@@ -141,7 +141,7 @@ proc biophys() {
 	insert cagk
 	gkbar_cagk=0.0002
     }
-    
+  
     soma {
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=0.12  
@@ -189,7 +189,7 @@ proc biophys() {
         ek   = -90  
         elca = 130
         esk  = -90
-	el_ichan2 =-60.06
+        el_ichan2 =-60.06
         cao_ccanl=2
     }  // make catau slower70e-3 	cao=2 cai=50.e-6 
 }
