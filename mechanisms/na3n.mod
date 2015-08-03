@@ -123,7 +123,7 @@ PROCEDURE trates(vm,a2,sh2) {
 
 FUNCTION trap0(v,th,a,q) {
 	if (fabs(v-th) > 1e-6) {
-	        trap0 = a * (v - th) / (1 - exp(-(v - th)/q))
+	        trap0 = a * (v - th) / (1 - exptrap(0, -(v - th)/q))
 	} else {
 	        trap0 = a * q
  	}
