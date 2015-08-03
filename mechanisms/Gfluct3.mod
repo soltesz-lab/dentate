@@ -97,7 +97,7 @@ INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
 
 NEURON {
 	POINT_PROCESS Gfluct3
-	RANGE h, g_e, g_i, E_e, E_i, g_e0, g_i0, g_e1, g_i1
+	RANGE h, on, g_e, g_i, E_e, E_i, g_e0, g_i0, g_e1, g_i1
 	RANGE std_e, std_i, tau_e, tau_i, D_e, D_i
 	RANGE new_seed
 	NONSPECIFIC_CURRENT i
@@ -111,7 +111,8 @@ UNITS {
 }
 
 PARAMETER {
-     
+    
+     on = 0
      h = 0.025 (ms) : interval at which conductances are to be updated
                     : for fixed dt simulation, should be an integer multiple of dt
 
@@ -145,11 +146,9 @@ ASSIGNED {
 	amp_e	(umho)
 	amp_i	(umho)
 	donotuse
-        on
 }
 
 INITIAL {
-        on = 0
 	g_e1 = 0
 	g_i1 = 0
 	if(tau_e != 0) {
@@ -197,7 +196,7 @@ BEFORE BREAKPOINT {
                 ival = 0
         }
         
-        :printf("t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", t, v, i, g_e, g_i, E_e, E_i)
+        :printf("on = %g t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", on, t, v, i, g_e, g_i, E_e, E_i)
     }
 
 
