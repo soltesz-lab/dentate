@@ -25,7 +25,7 @@ RANGE gncabar
 RANGE cinf, ctau, dinf, dtau, inca
 }
  
-INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
+:INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
         v (mV) 

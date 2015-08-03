@@ -141,7 +141,7 @@ PROCEDURE trates(v) {  :Computes rate and other constants at current v.
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap ichan2 [%d]: x = %g\n", loc, x)
+    printf("exptrap ichan2 [%g]: x = %g\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)

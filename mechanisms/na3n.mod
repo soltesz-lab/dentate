@@ -7,7 +7,7 @@ NEURON {
 	SUFFIX na3
 	USEION na READ ena WRITE ina
 	RANGE  gbar, ar
-	GLOBAL minf, hinf, mtau, htau, sinf, taus,qinf, thinf
+	:GLOBAL minf, hinf, mtau, htau, sinf, taus,qinf, thinf
 }
 
 PARAMETER {
@@ -132,7 +132,7 @@ FUNCTION trap0(v,th,a,q) {
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap na3n [%d]: x = %g\n", loc, x)
+    printf("exptrap na3n [%g]: x = %g\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)

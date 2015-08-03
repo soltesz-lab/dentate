@@ -35,7 +35,7 @@ RANGE hyfinf, hysinf, hyftau, hystau
 RANGE hyhtfinf, hyhtsinf, hyhtftau, hyhtstau, ihyf, ihys
 }
  
-INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
+:INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
       v (mV) 
@@ -160,7 +160,7 @@ FUNCTION vtrap(x,y) {  :Traps for 0 in denominator of rate eqns.
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap hyperde3 [%d]: x = %g\n", loc, x)
+    printf("exptrap hyperde3 [%g]: x = %g\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)

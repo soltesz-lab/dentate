@@ -22,7 +22,7 @@ NEURON {
 	RANGE gsk, gskbar, qinf, qtau, isk
 }
 
-INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
+:INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
 
 PARAMETER {
 	celsius=6.3 (degC)

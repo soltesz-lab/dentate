@@ -244,7 +244,7 @@ NET_RECEIVE (w) {
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap tca [%d]: x = %g\n", loc, x)
+    printf("exptrap Gfluct3 [%f]: x = %f\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)
