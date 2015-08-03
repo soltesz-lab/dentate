@@ -93,7 +93,6 @@ ENDCOMMENT
 
 
 
-INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
 
 NEURON {
 	POINT_PROCESS Gfluct3
@@ -154,12 +153,12 @@ INITIAL {
 	if(tau_e != 0) {
 		D_e = 2 * std_e * std_e / tau_e
 		exp_e = exp(-h/tau_e)
-		amp_e = std_e * sqrt( (1-exp(-2*h/tau_e)) )
+		amp_e = std_e * sqrt( (1-exptrap(1, -2*h/tau_e)) )
 	}
 	if(tau_i != 0) {
 		D_i = 2 * std_i * std_i / tau_i
 		exp_i = exp(-h/tau_i)
-		amp_i = std_i * sqrt( (1-exp(-2*h/tau_i)) )
+		amp_i = std_i * sqrt( (1-exptrap(2, -2*h/tau_i)) )
 	    }
        if ((tau_e != 0) || (tau_i != 0)) {
            net_send(h, 1)
@@ -241,3 +240,14 @@ NET_RECEIVE (w) {
         net_send(h, 1)
     }
 }
+
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap tca [%d]: x = %g\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
+

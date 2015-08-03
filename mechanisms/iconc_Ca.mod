@@ -42,7 +42,7 @@ UNITS {
 	R = 8.3134	(joule/degC)
 }
 
-INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
+:INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
 
 PARAMETER {
     celsius (degC) : temperature - set in hoc; default is 6.3
