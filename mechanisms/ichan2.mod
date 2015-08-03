@@ -140,9 +140,9 @@ PROCEDURE trates(v) {  :Computes rate and other constants at current v.
 }
 
 FUNCTION exptrap(loc,x) {
-  if (x>=700) {
+  if (x>=700.0) {
     printf("exptrap ichan2 [%d]: x = %g\n", loc, x)
-    exptrap = exp(700)
+    exptrap = exp(700.0)
   } else {
     exptrap = exp(x)
   }
@@ -152,7 +152,7 @@ FUNCTION vtrap(x,y) {  :Traps for 0 in denominator of rate eqns.
         if (fabs(x/y) < 1e-6) {
                 vtrap = y*(1 - x/y/2)
         }else{  
-                vtrap = x/(exp(x/y) - 1)
+                vtrap = x/(exptrap(0, x/y) - 1)
         }
 }
  
