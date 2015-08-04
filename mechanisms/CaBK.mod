@@ -20,7 +20,7 @@ NEURON {
 	USEION tca READ tcai VALENCE 2
 	USEION k READ ek WRITE ik
 	RANGE gkbar,gkca, ik
-	GLOBAL oinf, otau
+	:GLOBAL oinf, otau
 }
 
 UNITS {

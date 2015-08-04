@@ -84,6 +84,7 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
         numCells = cellType.getPropertyScalar("numCells")
         numCellsPerHost = int(numCells / pnm.pc.nhost)
         offset   = cellType.getPropertyScalar("offset")
+
         if ((numCellsPerHost < 1) ) {
             if (pnm.myid < numCells) { 
               numRec = 1
@@ -92,6 +93,9 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
             }
         } else {
             numRec = int(fraction * numCellsPerHost)
+            if (numRec < 1) {
+               numRec = 1
+            }
         }
         if ((vrecordLimit > 0) && (numRec > vrecordLimit)) {
             numRec = vrecordLimit
@@ -487,8 +491,8 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     
     cell.dendrites[branch][sec] { 
         gj = new ggap(0.5) 
-        pnm.pc.target_var(gj, &gj.vgap, dgid)
-        pnm.pc.source_var(&cell.dendrites[branch][sec].v(0.5), sgid)
+        pnm.pc.target_var(gj, &gj.vgap, sgid)
+        pnm.pc.source_var(&v(0.5), sgid)
     }
     
     gjlist.append(gj)
