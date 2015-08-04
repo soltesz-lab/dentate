@@ -483,23 +483,22 @@ proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     gid    = $2
     branch = $3
     sec    = $4
-    dgid   = $5
-    sgid   = $6
-    w      = $7
+    ggid   = $5
+    w      = $6
     
     cell = pnm.pc.gid2cell(gid)
     
     cell.dendrites[branch][sec] { 
         gj = new ggap(0.5) 
-        pnm.pc.target_var(gj, &gj.vgap, sgid)
-        pnm.pc.source_var(&v(0.5), sgid)
+        pnm.pc.target_var(gj, &gj.vgap, ggid)
+        pnm.pc.source_var(&v(0.5), ggid)
     }
     
     gjlist.append(gj)
     gj.g = w
     
     if (verbose > 0) {
-        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pnm.myid, gid, branch, sec, w, sgid, dgid)
+        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g ggid = %d\n", pnm.myid, gid, branch, sec, w, ggid)
     }
     
 }
@@ -564,7 +563,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
 
             
 	    if (pnm.gid_exists(srcid1)) { 
-		mkgap(gjlist, srcid1, srcbranch, srcsec, ggid+1, ggid, w)
+		mkgap(gjlist, srcid1, srcbranch, srcsec, ggid, w)
                 edges = new Vector(2)
                 edges.x[0] = srcid1
                 edges.x[1] = destid1
@@ -574,7 +573,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
 	    }
             
 	    if (pnm.gid_exists(destid1)) {
-		mkgap(gjlist, destid1, destbranch, destsec, ggid, ggid+1, w)
+		mkgap(gjlist, destid1, destbranch, destsec, ggid+1, w)
 	    }
             ggid = ggid+2
         }
