@@ -15,7 +15,7 @@ objref bc
 bc = new BasketCell(1, 1)
 bc.soma { psection() }
 prelength = 500
-mainlength = 1000
+mainlength = 6000
 vinit = -60
 
 //**********************************************************************

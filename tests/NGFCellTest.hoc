@@ -15,7 +15,7 @@ objref ngfc
 ngfc = new NGFCell(1, 1)
 ngfc.soma { psection() }
 prelength = 500
-mainlength = 1000
+mainlength = 5000
 vinit = -60
 
 //**********************************************************************
@@ -68,7 +68,7 @@ xpanel()
 
 vec_sizes = (prelength+mainlength)/dt + 1	// recorded traces are all this size
 
-stimdur = 500
+stimdur = 1000
 
 objref zz
 zz = new Impedance()
@@ -88,7 +88,7 @@ objectvar stim1
 ngfc.soma stim1 = new IClamp(0.5)
 stim1.del = prelength
 stim1.dur = stimdur
-stim1.amp = 0.4
+stim1.amp = 0.1
 
 /*
 objref  iklog
