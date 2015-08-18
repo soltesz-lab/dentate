@@ -1,10 +1,13 @@
+(require-extension typeclass)
 (include "lib.scm")
 
-(define (raster-plot celltypes-file spike-file plot-label xrange)
+
+
+(define (raster-plot datadir spike-file plot-label xrange)
   (match-let 
 
    (
-    (celltypes (read-cell-types celltypes-file))
+    (celltypes (read-cell-types datadir))
 
     ((data tmax nmax)
      (fold
@@ -27,19 +30,10 @@
 
    (let* (
           
-          (cellranges (read-cell-ranges celltypes)) 
+          (cellranges (read-cell-ranges datadir celltypes)) 
 
-          ;; spike times per node
-          (spike-times
-           (let ((v (make-vector nmax '())))
-             (for-each (match-lambda
-                        ((t . ns)
-                         (for-each (lambda (n) (vector-set! v (- n 1) (cons t (vector-ref v (- n 1)))))
-                                   ns)))
-                       (reverse data))
-             v))
+          (spike-times (read-spike-times data))
 
-          (nspikes (map (lambda (x) (if (null? x) 0 (length (cdr x)))) (vector->list spike-times)))
           )
 
   (let-values (
@@ -49,18 +43,24 @@
 	 (file-close fd1)
 	 (file-close fd2)
 
-	 (let ((dataport (open-output-file temp-path1)))
-           (fold (lambda (ts i) (for-each (lambda (t) (fprintf dataport "~A,~A~%" t i)) ts) (+ 1 i)) 1 sampled-spike-times)
-	   (close-output-port dataport))
+         (let ((m (rb-tree-map -))
+               (dataport (open-output-file temp-path1)))
+           (with-instance ((<PersistentMap> m))
+                          ((for-each-ascending spike-times)
+                           (match-lambda 
+                            ((t . ns)
+                             (for-each (lambda (n) (fprintf dataport "~A,~A~%" t n)) ns))
+                            )))
+           (close-output-port dataport))
 	 
-	 (plot:init 'pdf (make-pathname
+	 (plot:init 'png (make-pathname
                           "." 
-                          (sprintf "~A_raster.pdf" 
+                          (sprintf "~A_raster.png" 
                                    (pathname-strip-directory
                                     (pathname-strip-extension spike-file )))))
 	 
 	 (plot:arg "-cm" )
-	 (plot:arg "-pagesize"   "12,20");;PAPER
+	 (plot:arg "-pagesize"   "35,20");;PAPER
 	 (plot:arg "-textsize"   "12")
 	 (plot:arg "-cpulimit"   "60")
 	 (plot:arg "-maxrows"    "700000")
@@ -76,11 +76,9 @@
 		    ))
        
 	 (plot:proc "areadef"
-		  `(("title"     . ,(sprintf "~A (~A Hz)" 
-                                             plot-label average-firing-frequency))
+		  `(("title"     . ,(sprintf "~A" plot-label))
                     ("titledetails" . "adjust=0,0.2")
-		    ("rectangle" . "2 3.5 8 10.5")
-;;		    ("rectangle" . "2 5 10 14")
+		    ("rectangle" . "1 1 30 18")
 		    ("areacolor" . "white")
 
 		    ("xrange"          . ,xrange)
@@ -90,8 +88,8 @@
 ;;		    ("xaxis.stubrange" . "0")
 ;;		    ("xaxis.stubdetails" . "adjust=0,1")
 
-;;		    ("yrange"          . "0 51")
-;;		    ("yaxis.label"     . "Neuron #")
+		    ("yautorange"      . "datafield=2")
+;;		    ("yaxis.label"     . "Cell #")
 		    ("yaxis.axisline"  . "no")
 		    ("yaxis.tics"      . "no")
 ;;		    ("yaxis.stubs"     . "inc 10")
@@ -108,16 +106,17 @@
        (plot:proc "scatterplot"
 		  `(("xfield"    .  "xcoord")
 		    ("yfield"    .  "ycoord")
-		    ("linelen"   . "0.06")
-		    ("linedetails"   . "width=1.2")
+                    ;("rectangle" . "5 5")
+                    ("linelen"   . "0.01")
+		    ("linedetails"   . "width=1.0")
 		    ("linedir"   . "v")
 		    ))
 		    
-       (plot:proc "bars"
-		  `(("locfield"    .  "t")
-		    ("lenfield"    .  "count")
-		    ("thinbarline"    .  "color=gray(0.5)")
-                    ))
+       ;(plot:proc "bars"
+	;	  `(("locfield"    .  "t")
+	;	    ("lenfield"    .  "count")
+	;	    ("thinbarline"    .  "color=gray(0.5)")
+         ;           ))
        
        (plot:end)
 
