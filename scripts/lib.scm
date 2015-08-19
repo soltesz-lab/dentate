@@ -64,7 +64,7 @@
              (match-let (((lst offset) ax))
                         (cond ((alist-ref 'cardinality (cdr celltype)) =>
                                (lambda (cell-number)
-                                 (list (cons (cons offset type-name) lst)
+                                 (list (cons (list type-name offset (+ offset cell-number)) lst)
                                        (+ offset cell-number))))
                               ((alist-ref 'indexfile (cdr celltype)) =>
                                (lambda (index-file)
@@ -79,7 +79,7 @@
                                                         ))
                                                     (list +inf.0 -inf.0)
                                                     (cdr (read-lines (make-pathname datadir index-file))))))
-                                            (list (cons (cons max-index type-name) lst)
+                                            (list (cons (list type-name min-index max-index) lst)
                                                   max-index))))
                               (else (error 'read-cell-ranges "unknown cell type" celltype)))
                         ))
@@ -93,6 +93,7 @@
   (let ((m (rb-tree-map -)))
     (with-instance ((<PersistentMap> m))
                    (list-fold
-                    (lambda (t.n msp) (update msp (car t.n) (cdr t.n) append))
+                    (lambda (t.n msp) 
+                      (update msp (car t.n) (cdr t.n) append))
                     (empty) data))))
 
