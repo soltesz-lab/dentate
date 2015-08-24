@@ -22,8 +22,7 @@
 
         (begin
           
-          (print "y = " y)
-          (print  celltype ": min = " min " max = " max)
+
           (let ((dataport (open-output-file temp-path)))
             (for-each (match-lambda ((t . ns) 
                                      (for-each (lambda (n) (fprintf dataport "~A,~A~%" t n)) ns)))
