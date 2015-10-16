@@ -3,7 +3,7 @@
 
 ;(plot:procdebug #t)
 
-(define (plot-range xrange temp-path celltype min max spike-times y i)
+(define (plot-trace xrange temp-path celltype min max trace-values y i)
 
   (let* ((m (rb-tree-map -))
          (range-data
@@ -22,7 +22,6 @@
 
         (begin
           
-
           (let ((dataport (open-output-file temp-path)))
             (for-each (match-lambda ((t . ns) 
                                      (for-each (lambda (n) (fprintf dataport "~A,~A~%" t n)) ns)))
@@ -39,7 +38,7 @@
           
           (plot:proc "areadef"
                      `(
-                       ("rectangle" . ,(sprintf "2 ~A 10 ~A" y (+ y 3)))
+                       ("rectangle" . ,(sprintf "2 ~A 30 ~A" y (+ y 3)))
                        ("areacolor" . "white")
                        
                        ("xrange"          . ,xrange)
@@ -112,14 +111,14 @@
 	 (file-close fd1)
 	 
 
-	 (plot:init 'eps (make-pathname
+	 (plot:init 'png (make-pathname
                           "." 
-                          (sprintf "~A_raster.eps" 
+                          (sprintf "~A_raster.png" 
                                    (pathname-strip-directory
                                     (pathname-strip-extension spike-file )))))
 	 (plot:arg "-cm" )
 	 (plot:arg "-textsize"   "12")
-	 (plot:arg "-pagesize"   "12,23");;PAPER
+	 (plot:arg "-pagesize"   "35,20");;PAPER
 	 (plot:arg "-cpulimit"   "60")
 	 (plot:arg "-maxrows"    "700000")
 	 (plot:arg "-maxfields"  "1400000")
@@ -144,4 +143,4 @@
        ))
 ))
 
-(apply raster-plot (command-line-arguments))
+(apply trace-plot (command-line-arguments))

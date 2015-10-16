@@ -45,7 +45,7 @@ proc init() {
     
     soma {
         syn_stim = new ExpSyn(0.5)
-        syn_stim.tau = 1
+        syn_stim.tau = 2
     }
 
 }
