@@ -1,0 +1,119 @@
+
+load_file("nrngui.hoc")
+load_file("./tests/cell_protocol.ses")
+
+nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
+
+// RandomStream template
+{load_file("./templates/ranstream.hoc")}
+
+// Load the cell template
+xopen("./templates/BasketCell.hoc")
+
+
+objref bc
+bc = new BasketCell(1, 1)
+bc.soma { psection() }
+prelength = 100
+mainlength = 1000
+vinit = -60
+
+//**********************************************************************
+proc simulate() { local preDT, mainDT, logsize  localobj logfile, tlog, Vlog
+    
+    init()
+    
+    mainDT = 0.025
+    preDT = 0.025
+    
+    cvode_active (0)
+    
+    dt = preDT
+    tstop = prelength
+    run()
+    
+    if ( stoprun == 1) return
+    
+    dt = mainDT
+    continuerun(prelength + mainlength)
+    if ( stoprun == 1) return
+    
+    logfile=$o1
+    tlog=$o2
+    Vlog=$o3
+    
+    logsize = tlog.size()
+    
+    for i=0,tlog.size()-1 {
+	logfile.printf("%g %g\n", tlog.x[i], Vlog.x[i])
+    }
+
+}
+
+
+//*************User-Interface*******************************************
+
+nrnsecmenu(0.5, 1)
+
+xpanel("Spontaneous firing")
+xvalue("Time for Initialization", "prelength")
+xvalue("Main duration", "mainlength")
+
+xvalue("dt", "dt")
+xvalue("t", "t")
+xlabel("")
+xbutton("Start", "simulate()")
+xbutton("Stop", "stoprun = 1")
+xpanel()
+
+vec_sizes = (prelength+mainlength)/dt + 1	// recorded traces are all this size
+
+stimdur = 1500
+
+objref zz
+zz = new Impedance()
+
+func rn() { local rn localobj cell
+    finitialize(vinit)  // make sure all changes to g, c, ri etc. have taken effect
+    cell = $o1
+    cell.soma zz.loc(0.5)  // sets origin for impedance calculations to middle of soma
+    zz.compute(0)  // DC input R
+    cell.soma { rn = zz.input(0.5) }  // rn is input R at middle of the soma
+    return rn
+}
+
+printf ("DC input resistance: %g MOhm\n", rn(bc))
+
+objectvar ns
+ns = new NetStim(0.0)
+ns.noise = 0
+ns.number = 1
+ns.start = 200
+ns.interval = 200
+
+objref nc
+nc = new NetCon(ns,bc.syn_stim)
+nc.weight = 0.02
+
+/*
+objref  iklog
+iklog = new Vector(vec_sizes)
+iklog.record (&gc.soma.ik(0.5))
+*/
+
+objref  Vlog
+Vlog = new Vector(vec_sizes)
+Vlog.record (&bc.soma.v(0.5))
+
+objref tlog
+tlog = new Vector(vec_sizes,0)
+tlog.record (&t)
+
+objref logfile
+logfile = new File()
+logfile.wopen ( "BasketCell_protocol.dat" )
+
+simulate(logfile,tlog,Vlog)
+logfile.close()
+
+
