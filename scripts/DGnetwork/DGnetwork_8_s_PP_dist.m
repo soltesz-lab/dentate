@@ -1,9 +1,24 @@
 
-function DGnetwork_8_s_PP_GC_dist(directory,indices)
+function DGnetwork_8_s_PP_dist(directory,epilepsy,slice,indices)
+
+if str2double(slice) == 0 && str2double(epilepsy) == 0
+  load(sprintf('%s/Locations.mat',directory));
+elseif str2double(slice) == 1 && str2double(epilepsy) == 0
+  load(sprintf('%s/Slice_Locations.mat',directory));
+  load(sprintf('%s/Slice_Indexes.mat',directory));
+elseif str2double(slice) == 0 && str2double(epilepsy) == 1
+  load(sprintf('%s/Locations.mat',directory));
+elseif str2double(slice) == 1 && str2double(epilepsy) == 1
+  load(sprintf('%s/Slice_Locations.mat',directory));
+  load(sprintf('%s/Slice_Indexes.mat',directory));
+end
 
 %% Number of PP synapses onto a GC
 
 Nsyns_PP_GC = 1200;
+
+%% Scaling factor used to obtain conductance from spine size
+f_PP_GC = 0.001;
 
 % Synapse sizes values and corresponding probabilities; adapted from
 % Trommald and Hulleberg 1997
@@ -28,8 +43,11 @@ PD_PP_GC = [ 0.005 0.0;
 % Cumulative distribution
 CD_PP_GC = cumsum(PD_PP_GC(:,2));
 
-for i = indices
+weights_PP_GC = cell(length(locations),1);
+conn_PP_GC = cell(length(locations),1);
 
+for i = 1:length(locations)
+    
     R = rand(Nsyns_PP_GC,1); % random trials
     
     %% Counts the number of elements of X that fall in the 
@@ -37,15 +55,20 @@ for i = indices
 
     [n, idx_PP_GC] = histc(R, CD_PP_GC);
 
-    %% Determines the actual synaptic sizes
-    dist_PP_GC = PD_PP_GC(idx_PP_GC,1);
-
-    save(sprintf('%s/DGC_PP_synapses_%06d.dat',directory,i), ...
-         'Nsyns_PP_GC','-ascii');
-    save(sprintf('%s/DGC_PP_synapses_%06d.dat',directory,i), ...
-         'dist_PP_GC','-ascii','-append');
+    %% Determines the synaptic conductances based on sizes
+    weights_PP_GC{i} = f_PP_GC * PD_PP_GC(idx_PP_GC,1);
+    
+    %% TODO: determine distances and distribution of MEC cells
+    %% Number of modules, spacing per module
+    %% Number of grid cells per module
+    %% Distribution of modules (uniform across the GC surface)
+    %% distances = sqrt((locations{i}(:,1)-input_pt(1)).^2 + (locations{i}(:,2)-input_pt(2)).^2 + (locations{i}(:,3)-input_pt(3)).^2);
+    
+    %% Determines the MEC cell ids based on locations
+    srcs_PP_GC{i} = ;
+    
+    conns_PP_GC = {srcs_PP_GC; weights_PP_GC};
+    
+    save(sprintf('%s/PerforantPath.mat',directory),'conns_PP_GC','-v6');
     
 end
-
-
-
