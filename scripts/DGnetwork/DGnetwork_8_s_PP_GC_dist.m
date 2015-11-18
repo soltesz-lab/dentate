@@ -41,7 +41,9 @@ for i = indices
     dist_PP_GC = PD_PP_GC(idx_PP_GC,1);
 
     save(sprintf('%s/DGC_PP_synapses_%06d.dat',directory,i), ...
-         'dist_PP_GC','-ascii');
+         'Nsyns_PP_GC','-ascii');
+    save(sprintf('%s/DGC_PP_synapses_%06d.dat',directory,i), ...
+         'dist_PP_GC','-ascii','-append');
     
 end
 
