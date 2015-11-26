@@ -46,6 +46,7 @@ CD_PP_GC = cumsum(PD_PP_GC(:,2));
 weights_PP_GC = cell(length(locations),1);
 conn_PP_GC = cell(length(locations),1);
 
+
 for i = 1:length(locations)
     
     R = rand(Nsyns_PP_GC,1); % random trials
