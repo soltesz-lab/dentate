@@ -39,24 +39,24 @@ for sublayer = 1:4
           otherwise
             [x_o,y_o,z_o]   = layer_eq_ML(sublayer-1);
         end
-        X{sublayer}               = [x_o;x_i];
-        Y{sublayer}               = [y_o;y_i];
-        Z{sublayer}               = [z_o;z_i];
+        X{sublayer}     = [x_o;x_i];
+        Y{sublayer}     = [y_o;y_i];
+        Z{sublayer}     = [z_o;z_i];
         [~,S{sublayer}] = alphavol([X{sublayer}(:),Y{sublayer}(:),Z{sublayer}(:)],150);
     elseif sublayer == 1
         [x_i,y_i,z_i]  	= layer_eq_GCL(-1.95);
         [x_m,y_m,z_m]   = layer_eq_GCL(-1.0);
         [x_o,y_o,z_o]   = layer_eq_GCL(0);
-        X{sublayer}               = [x_o;x_m;x_i];
-        Y{sublayer}               = [y_o;y_m;y_i];
-        Z{sublayer}               = [z_o;z_m;z_i];
+        X{sublayer}     = [x_o;x_m;x_i];
+        Y{sublayer}     = [y_o;y_m;y_i];
+        Z{sublayer}     = [z_o;z_m;z_i];
         [~,S{sublayer}] = alphavol([X{sublayer}(:),Y{sublayer}(:),Z{sublayer}(:)],120);          
     end
 end
 
-X_g         = [X{4};X{3}];
-Y_g         = [Y{4};Y{3}];
-Z_g         = [Z{4};Z{3}];
+X_g = [X{2};X{3}];
+Y_g = [Y{2};Y{3}];
+Z_g = [Z{2};Z{3}];
 
 M = [X_g(:),Y_g(:),Z_g(:)];
 
@@ -75,22 +75,6 @@ for i = 1:length(x)-1
 end
 stsums = [0;sums];
 
-% Determine where splits should be and corresponding u coordinate
-split_num       = 10;
-num_splits      = split_num - 1;
-splits          = zeros(num_splits,1);
-end_septal      = pi*1/100;
-end_temporal    = pi*98/100;
-v_min           = pi*-23/100;
-v_max           = pi*142.5/100;
-u_var           = transpose(linspace(end_septal,end_temporal,10000));
-for split = 1:num_splits
-    total_length    = sums(end,1);
-    current_split   = total_length * split/split_num;
-    split_point     = find(sums(:,1)>current_split,1,'first');
-    splits(split,1)  = u_var(split_point,1);
-end
-
 
 clearvars sums x y z
 
@@ -102,7 +86,7 @@ GridModulePlanes  = cell(N_GridCellModules,1);
 for gridModule = 1:N_GridCellModules
 
     percent = 0.375 + 0.025*gridModule;
-    width = 500;
+    width = 2000;
 
     % Get septotemporal center
     [~,center_index]                = min(abs(stsums - (percent*max(stsums))));
@@ -144,77 +128,4 @@ for gridModule = 1:N_GridCellModules
 end
 
 
-%% MOML section
 
-end_septal      = pi*-1.6/100;
-end_temporal    = pi*101/100;
-layer_min       = 1;
-layer_max       = 3;  
-
-% Cycle through each grid module section
-for j = 1:N_GridCellModules
-        
-    tic
-    switch j
-        %% TODO: split points
-      case 1
-        split1 = end_septal;
-        split2 = splits(1,1);
-      case split_num
-        split1 = splits(end,1);
-        split2 = end_temporal;
-      otherwise
-        split1 = splits(j-1,1);
-        split2 = splits(j,1);
-    end        
-
-    % Determine if needs to lie within boundary and determine previous pts
-    [x_o,y_o,z_o]   = layer_eq_ML_split(3,split1,split2);
-    boundary        = [x_o,y_o,z_o];
-
-                
-    %% Place each grid cell connection point
-    for cell_num = 1:N_GridCellsPerModule
-        while true
-            % Choose a possible point
-            random_uvl = zeros(1,3);
-            random_uvl(:,1) = split1 + (split2 - split1)*rand(1,1);
-            random_uvl(:,2) = v_min + (v_max-v_min)*rand(1,1);
-            random_uvl(:,3) = layer_min + (layer_max-layer_min)*rand(1,1);
-            [x,y,z] = layer_eq(random_uvl(:,1),random_uvl(:,2),random_uvl(:,3));
-            pt = [x,y,z];
-            
-            % Limit cells tested to those within 10 micron y value  
-            if ~isempty(prev_pts)
-                distance_pts    = prev_pts(prev_pts(:,2) > (pt(2) - 10) & prev_pts(:,2) < (pt(2) + 10),:);
-                if ~isempty(distance_pts)
-                    d_otherpts   = pdist2(double(distance_pts(:,1:3)),pt,'euclidean','Smallest',1);
-                else
-                    d_otherpts   = 10000;
-                end                                
-            else
-                d_otherpts   = 10000;                              
-            end
-            
-            % If it doesn't overlap with other placed cells
-            if d_otherpts > (20)
-                
-                % Test if possible point reaches outside dentate volume
-                if ~isempty(boundary)
-                    d_boundary = pdist2(double(boundary),pt,'euclidean','Smallest',1);
-                else
-                    d_boundary = 10000;
-                end
-                
-                if d_boundary > 10
-                    
-                    % Write out location information
-                    locations_bysection{section}{j}{type}(cell_num,:)  = [pt random_uvl];
-                    prev_pts = [prev_pts;[pt random_uvl]];
-                    break
-                end
-            end
-        end
-        toc
-    end        
-end
