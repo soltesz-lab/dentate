@@ -1,3 +1,4 @@
+function DGnetwork_8_s_GridCells(directory)
 
 %% MEC grid cells
 %% Assumptions:
@@ -127,5 +128,4 @@ for gridModule = 1:N_GridCellModules
 
 end
 
-
-
+save(sprintf('%s/GridModules.mat',directory),'GridModuleSlices','-v6');
