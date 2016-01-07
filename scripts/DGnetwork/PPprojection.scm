@@ -16,8 +16,11 @@
                          (transformer ,(lambda (x) (map string->number
                                                         (string-split x ","))))))
     
-    (trees-directory "Load trees from the given directory"
-                     (value (required PATH)))
+    (trees-dir "Load post-synaptic trees from the given directory"
+               (value (required PATH)))
+    
+    (presyn-coords "Load pre-synaptic location coordinates from the given file"
+             (value (required PATH)))
     
     (verbose "print additional debugging information" 
              (single-char #\v))
@@ -107,7 +110,7 @@
 (define PointsFromFile load-points-from-file)
 
 (define (LoadTree topology-filename points-filename label)
-  (load-layer-tree 4 topology-filename points-filename label 'GC))
+  (load-layer-tree 4 topology-filename points-filename label))
 
 (define (SegmentProjection label r source target) 
   (segment-projection label
@@ -118,188 +121,77 @@
               (source 'tree) (target 'list) 
               r my-comm myrank mysize))
 
-
-(define GCs
+;; Dentate granule cells
+(define DGCs
   (let* (
-         (GCpts (car (PointsFromFile (make-pathname (opt 'trees-directory)  "GCcoordinates.dat"))))
+         (DGCpts (car (PointsFromFile (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
 
-         (GCsize (kd-tree-size GCpts))
+         (DGCsize (kd-tree-size GCpts))
 
-         (GClayout
+         (DGClayout
           (kd-tree-fold-right*
-           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons p ax) ax))
+           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
            '() GCpts))
 
-         (GCdendrites
-          (let recur ((myindex GCsize) (ax '()))
-            (let ((ax1 (if (< myindex 1) ax
-                           (if (= (modulo myindex mysize) myrank)
-                               (cons (LoadTree (sprintf "~A/DGC_dendrite_topology_~A.dat" 
-                                                        (opt 'trees-directory) 
-                                                        (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
-                                               (sprintf "~A/DGC_dendrite_points_~A.dat" 
-                                                        (opt 'trees-directory) 
-                                                        (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
-                                               'GC
-                                               )
-                                     ax)
-                               ax))))
-              (recur (- myindex 1) ax1))))
+         (DGCdendrites
+          (let recur ((myindex (- DGCsize 1)) (ax '()))
+            (if (< myindex 0) ax
+                (recur (- myindex 1)
+                       (if (= (modulo myindex mysize) myrank)
+                           (cons (LoadTree (sprintf "~A/DGC_dendrite_topology_~A.dat" 
+                                                    (opt 'trees-dir) 
+                                                    (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+                                           (sprintf "~A/DGC_dendrite_points_~A.dat" 
+                                                    (opt 'trees-dir) 
+                                                    (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+                                           'Dendrites)
+                                 ax)
+                           ax)))
+
+            ))
          )
 
+    (print "DGCdendrites = " DGCdendrites)
+    (print "DGClayout = " DGClayout)
     (fold-right
       (match-lambda*
-        (((gid p) dendrite-tree)
-         (cons (make-cell 'GC gid p (list dendrite-tree)) lst)))
+       (((gid p) dendrite-tree lst)
+        (cons (make-cell 'DGC gid p (list (cons 'Dendrites dendrite-tree))) lst)))
       '()
-      GClayout
-      GCdendrites
+      DGClayout
+      DGCdendrites
       )
     ))
 
 
+;; Connection points for grid cell perforant path synapses
+(define GridPPs
+  (let* (
+         (PPpts (car (PointsFromFile (opt 'presyn-coords))))
 
-#|
-(define GridCells
-  (let* ((PPlayouts
-           (let* ((pts (kd-tree->list*
-                         (car (let ((comp76.comp75.s
-                                      (PointsFromFile "GoCcoordinates.dat")))
-                                comp76.comp75.s))))
-                  (layout pts))
-             (if (picnic-write-pointsets) (write-pointset 'GoC pts))
-             (if (picnic-write-layouts) (write-layout 'GoC layout))
-             layout))
-         (GoCBasolateralDendrites139
-           (let ((v143 (randomInit 13.0)))
-             (let ((result
-                     (fold-right
-                       (match-lambda*
-                         (((gid p142) lst)
-                          (match-let
-                            (((i pts)
-                              (fold (match-lambda*
-                                      (((f n) (i lst))
-                                       (list (+ i n)
-                                             (append
-                                               (list-tabulate
-                                                 n
-                                                 (lambda (j) (list (+ i j 1) (f))))
-                                               lst))))
-                                    (list (inexact->exact 0) '())
-                                    (list (list (lambda ()
-                                                  (make-segmented-process
-                                                    (comp77.comp75.f gid p142 v143)
-                                                    (sample-uniform)
-                                                    (inexact->exact 5.0)
-                                                    (inexact->exact 5.0)))
-                                                (inexact->exact comp77.comp75.n))))))
-                            (cons (make-segmented-section
-                                    gid
-                                    p142
-                                    'BasolateralDendrites
-                                    pts)
-                                  lst))))
-                       '()
-                       GoC_layout138)))
-               (if (picnic-write-sections)
-                 (write-sections
-                   'GoC
-                   'BasolateralDendrites
-                   GoC_layout138
-                   result))
-               result)))
-         (GoCApicalDendrites140
-           (let ((v145 (randomInit 17.0)))
-             (let ((result
-                     (fold-right
-                       (match-lambda*
-                         (((gid p144) lst)
-                          (match-let
-                            (((i pts)
-                              (fold (match-lambda*
-                                      (((f n) (i lst))
-                                       (list (+ i n)
-                                             (append
-                                               (list-tabulate
-                                                 n
-                                                 (lambda (j) (list (+ i j 1) (f))))
-                                               lst))))
-                                    (list (inexact->exact 2.0) '())
-                                    (list (list (lambda ()
-                                                  (make-segmented-process
-                                                    (comp96.comp75.f gid p144 v145)
-                                                    (sample-uniform)
-                                                    (inexact->exact 3.0)
-                                                    (inexact->exact 5.0)))
-                                                (inexact->exact comp96.comp75.n))))))
-                            (cons (make-segmented-section
-                                    gid
-                                    p144
-                                    'ApicalDendrites
-                                    pts)
-                                  lst))))
-                       '()
-                       GoC_layout138)))
-               (if (picnic-write-sections)
-                 (write-sections 'GoC 'ApicalDendrites GoC_layout138 result))
-               result)))
-         (GoCAxons141
-           (let ((v147 (randomInit 23.0)))
-             (let ((result
-                     (fold-right
-                       (match-lambda*
-                         (((gid p146) lst)
-                          (match-let
-                            (((i pts)
-                              (fold (match-lambda*
-                                      (((f n) (i lst))
-                                       (list (+ i n)
-                                             (append
-                                               (list-tabulate
-                                                 n
-                                                 (lambda (j) (list (+ i j 1) (f))))
-                                               lst))))
-                                    (list (inexact->exact 4.0) '())
-                                    (list (list (lambda ()
-                                                  (make-process
-                                                    (comp115.comp75.f gid p146 v147)
-                                                    (sample-uniform)
-                                                    (inexact->exact 2.0)))
-                                                (inexact->exact comp115.comp75.n))))))
-                            (cons (make-section gid p146 'Axons pts) lst))))
-                       '()
-                       GoC_layout138)))
-               (if (picnic-write-sections)
-                 (write-sections 'GoC 'Axons GoC_layout138 result))
-               result))))
+         (PPsize (kd-tree-size PPpts))
+
+         (PPlayout
+          (kd-tree-fold-right*
+           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
+           '() GCpts))
+
+         )
+
     (fold-right
       (match-lambda*
-        (((gid p)
-          GoCBasolateralDendrites139
-          GoCApicalDendrites140
-          GoCAxons141
-          lst)
-         (cons (make-cell
-                 'GoC
-                 gid
-                 p
-                 (list GoCBasolateralDendrites139
-                       GoCApicalDendrites140
-                       GoCAxons141))
-               lst)))
+       (((gid p) lst)
+        (cons (make-cell 'PP gid p (list)) lst)))
       '()
-      GoC_layout138
-      GoCBasolateralDendrites139
-      GoCApicalDendrites140
-      GoCAxons141)))
+      PPlayout
+      )
+    ))
 
+(define PPtoDGC_projection
+  (let ((target (SetExpr (section DGCs Dendrites))))
+    (let ((source (SetExpr (population GridPPs))))
+      (let ((PPtoDGC (SegmentProjection 'PPtoDGC r source target)))
+        PPtoDGC))))
 
-(define PPtoGC_projection
-  (let ((target (SetExpr (section comp131.GoC ApicalDendrites))))
-    (let ((source (SetExpr (section comp131.GC ParallelFibers))))
-      (let ((PPtoGC (SegmentProjection 'PPtoGC r source target)))
-        PPtoGC))))
-|#
 
 (MPI:finalize)
