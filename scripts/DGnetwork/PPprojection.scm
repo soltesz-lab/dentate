@@ -17,10 +17,18 @@
                                                         (string-split x ","))))))
     
     (trees-dir "Load post-synaptic trees from the given directory"
+               (single-char #\t)
                (value (required PATH)))
     
     (presyn-coords "Load pre-synaptic location coordinates from the given file"
-             (value (required PATH)))
+                   (single-char #\p)
+                   (value (required PATH)))
+    
+    (radius "Connection radius"
+            (single-char #\r)
+            (value (required RADIUS)
+                   (transformer ,(lambda (x) (string->number x))))
+            )
     
     (verbose "print additional debugging information" 
              (single-char #\v))
@@ -126,12 +134,12 @@
   (let* (
          (DGCpts (car (PointsFromFile (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
 
-         (DGCsize (kd-tree-size GCpts))
+         (DGCsize (kd-tree-size DGCpts))
 
          (DGClayout
           (kd-tree-fold-right*
            (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
-           '() GCpts))
+           '() DGCpts))
 
          (DGCdendrites
           (let recur ((myindex (- DGCsize 1)) (ax '()))
@@ -174,7 +182,7 @@
          (PPlayout
           (kd-tree-fold-right*
            (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
-           '() GCpts))
+           '() PPpts))
 
          )
 
@@ -190,7 +198,7 @@
 (define PPtoDGC_projection
   (let ((target (SetExpr (section DGCs Dendrites))))
     (let ((source (SetExpr (population GridPPs))))
-      (let ((PPtoDGC (SegmentProjection 'PPtoDGC r source target)))
+      (let ((PPtoDGC (SegmentProjection 'PPtoDGC (opt 'radius) source target)))
         PPtoDGC))))
 
 
