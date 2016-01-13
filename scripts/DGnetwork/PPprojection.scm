@@ -93,7 +93,7 @@
          ((list)
           (map (lambda (cell) 
                  (list (cell-index cell) 
-                       (cell-section-ref (quote t) cell)))
+                       (list (cell-section-ref (quote t) cell))))
                p))
          ((tree)
           (cells-sections->kd-tree p (quote t)))
@@ -120,6 +120,10 @@
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
 
+(define (LayerProjection label r source target) 
+  (layer-tree-projection label
+                         (source 'tree) (target 'list) 
+                         r my-comm myrank mysize))
 (define (SegmentProjection label r source target) 
   (segment-projection label
                       (source 'tree) (target 'list) 
@@ -159,8 +163,6 @@
             ))
          )
 
-    (print "DGCdendrites = " DGCdendrites)
-    (print "DGClayout = " DGClayout)
     (fold-right
       (match-lambda*
        (((gid p) dendrite-tree lst)
@@ -198,8 +200,7 @@
 (define PPtoDGC_projection
   (let ((target (SetExpr (section DGCs Dendrites))))
     (let ((source (SetExpr (population GridPPs))))
-      (let ((PPtoDGC (SegmentProjection 'PPtoDGC (opt 'radius) source target)))
+      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target)))
         PPtoDGC))))
-
 
 (MPI:finalize)
