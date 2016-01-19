@@ -237,7 +237,7 @@ func findCellType() { local i, result localobj cellTypes, cellType
 }
 
 // Loads cell/synapse type info into a Dict
-proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex localobj f, ff, cellTypes, cellType, indices
+proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex localobj f, ff, cellTypes, cellType, indices, indicesCoords
     
     strdef templateType, cellTypeName, cellTypeTemplateName, indexType, indexFileName, datasetPath, indexPath, errmsg
     
@@ -272,14 +272,13 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
 	    f.scanstr(indexFileName)
             cellType.addPropertyString("indexFileName",indexFileName)
             sprint(indexPath,"%s/%s",datasetPath,indexFileName)
-            indices = new Vector()
+            indicesCoords = new Matrix()
             ff = new File()
             ff.ropen(indexPath)
-	    numCells = ff.scanvar()
-            ff.scanvar()
-            indices.buffer_size(numCells)
-            indices.scanf(ff,numCells)
+            m.scanf(ff)
             ff.close(indexPath)
+            indices = indicesCoords.getcol(1)
+            numCells = ff.nrow
             minIndex = indices.min()
             maxIndex = indices.max()
             if (offset > minIndex) {
