@@ -50,6 +50,65 @@ strdef datafilePath
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
 
+// used for recording membrane potentials
+objref indicesVrecord
+if (!(name_declared("vrecordFraction"))) {
+    vrecordFraction = 0
+}
+if (vrecordFraction > 1) {
+    vrecordFraction = 1
+}
+if (vrecordFraction < 0) {
+    vrecordFraction = 0
+}
+if (!(name_declared("vrecordLimit"))) {
+    vrecordLimit = 100
+}
+if (vrecordLimit < 0) {
+    vrecordLimit = 0
+}
+
+// Builds a list of indices of cells to record from
+proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fraction  localobj cellTypes, cellType, indices, rec_indices, rs
+    
+    rec_indices = $o1
+    cellTypes = $o2
+    fraction = $3
+    nCellTypes = cellTypes.count()
+    
+    for k=0, nCellTypes-1 { 
+        
+        rs = new RandomStream(k)    
+        
+        cellType = cellTypes.o(k)
+        numCells = int(cellType.getPropertyScalar("numCells") / pnm.pc.nhost)
+        offset   = cellType.getPropertyScalar("offset")
+        numRec   = int(fraction * numCells)
+        if (numRec > vrecordLimit) {
+            numRec = vrecordLimit
+        }
+        
+        if (cellType.hasProperty("indices")) {
+            indices = cellType.getPropertyObject("indices")
+        } else {
+            indices = new Vector()
+            indices.resize(numCells)
+            for i = 0, numCells-1 {
+                indices.x[i] = i+offset
+            }
+        }
+        
+        rs.r.discunif(0,numCells-1)
+        for i=0, numRec-1 { 
+            n = rs1.repick()
+            j = pnm.myid + n * pnm.pc.nhost
+            rec_indices.x[i] = indices.x[j]
+        }
+    }
+    
+}
+
+
 
 // used to keep track of artificial stimulus cells
 objref stimTypes
@@ -67,10 +126,6 @@ if (verbose > 0) {
 // list with cell type information
 objref cellTypes
 cellTypes = new List()
-
-vtraceidx = -1
-vec_size = (tstop)/dt + 1 // recorded traces are all this size
-objref vlog, tlog
 
 // reads the cell types file and populates celltypes with the information
 sprint (datafilePath, "%s/celltypes.dat", datasetPath)
@@ -238,14 +293,18 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
         // external files, set the maximum number of files per
         // directory to forestSize, and calculate the number of 
         // directories necessary to store all files for that cell type.
-        if (templateType == 1) {
+        if ((templateType == 1) || (templateType == 2)) {
             if ((forestSize > 0) && (numCells > forestSize)) {
                 for i=0, numCells-1 { 
                     datadir=""
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
                         node=int(i/forestSize)+1
-                        p=int(i%forestSize)
+                        if (templateType == 2) {
+                          p=int(i%forestSize)
+                        } else {
+                          p=i
+                        }
                         sprint(datadir, "%d", node)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
@@ -513,6 +572,10 @@ proc mknet() { strdef fname
     if (pnm.myid == 0) {
         printf ("*** Cells created in %g seconds\n", mkcellstime)
     }
+    if (vrecordFraction > 0) {
+        indicesVrecord = new List()
+        mkvrecord(indicesVrecord,cellTypes,vrecordFraction)
+    }
     startsw()
     connectcells(connectivityTypes,cellTypes)  // connect them together
     connectcellstime = stopsw()
@@ -620,6 +683,7 @@ if (makegraph > 0) {
         conlist = nil
 }
 
+
 connectivityTypes = nil
 cellTypes = nil
 
@@ -631,9 +695,13 @@ cellTypes = nil
 
 print "dt = ", dt
 
-objref fi
-fi = new FInitializeHandler("simstatus()")
+objref fi_status
+if (pnm.myid == 0) {
+  fi_status = new FInitializeHandler("simstatus()")
+}
 
+objref fi_vrecord
+fi_vrecord = new FInitializeHandler("vrecord(pnm)")
 
 stdinit()
 if (pnm.myid == 0) {
@@ -652,22 +720,9 @@ strdef spikeout_fname
 sprint(spikeout_fname, "%s/%s_spikeout_%d.dat", resultsPath, modelName, pnm.myid)
 spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
 
-objref trace_file
-strdef trace_fname
-if ((pnm.myid == 0) && (vtraceidx > -1))  {
-
-   trace_file = new File()
-   sprint (trace_fname, "%s/vtrace.dat", resultsPath)
-   trace_file.wopen ( trace_fname )
-    
-    for i=0,tlog.size()-1 {
-      trace_file.printf("%g %g\n", tlog.x[i], vlog.x[i])
-    }
-
-    trace_file.close()
-}
-
-
+strdef vrecord_fname
+sprint(vrecord_fname, "%s/%s_vrecord_%d.dat", resultsPath, modelName, pnm.myid)
+vrecordout(vrecord_fname)
 
 comptime = pnm.pc.step_time
 avgcomp  = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost

@@ -1,0 +1,142 @@
+;; A model of the perforant path projection between the medial
+;; entorhinal cortex and and granule cells in the dentate gyrus.
+;;
+;; Copyright 2015 Ivan Raikov
+;;
+;; This program is free software: you can redistribute it and/or
+;; modify it under the terms of the GNU General Public License as
+;; published by the Free Software Foundation, either version 3 of the
+;; License, or (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but
+;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; General Public License for more details.
+;;
+;; A full copy of the GPL license can be found at
+;; <http://www.gnu.org/licenses/>.
+;;
+
+(picnic-model PP
+
+      (
+
+       (const PFlength   = 1500)
+
+       (const PCLdepth   = 200)
+
+       (const nAxons     = 10)
+       (const Axminx     = -100)
+       (const Axmaxx     = 100)
+       (const Axminy     = -100)
+       (const Axmaxy     = 100)
+       (const Axminz     = -10)
+       (const Axmaxz     = -30)
+
+       (const nApical         = 2)
+       (const nBasolateral    = 2)
+
+       (const Anseg      = 3 )
+       (const Bnseg      = 5 )
+       (const Ansegpts   = 5 )
+       (const Bnsegpts   = 5 )
+
+       (const Adendh     = 160.0 )
+       (const Bdendh     = 66.0 )
+       (const Aradius    = 10.0 )
+       (const Bradius    = 6.0 )
+       (const AthetaMean = 10.0 )
+       (const BthetaMean = 10.0 )
+       (const AthetaSdev = 1.0 )
+       (const BthetaSdev = 1.0 )
+
+       (const PFtoGoCzone = 5.0)
+       (const AAtoGoCzone = 5.0)
+
+       (const nGC  = 400)
+       (const nGoC = 1)
+
+       (const xExtent = PFlength)
+       (const yExtent = 1000)
+
+       (component (type local-cell-forest) (name GC)
+
+
+         (component (type layout) (name GranuleSomaCoordinates)
+
+                    (s = (PointsFromFile ("GC.dat")))
+
+                    (component (type section) (name Dendrites)
+                               
+                               
+                               (defun f (gid origin init)
+                                 (let (
+                                       (thetaDeg (randomNormal (BthetaMean BthetaSdev init)))
+                                       (theta    ((PI / 180.) * thetaDeg))
+                                       
+                                       (dX (Bradius * cos (theta)))
+                                       (dY (Bradius * sin (theta)))
+                                       (dZ Bdendh)
+                                       )
+                                   
+                                   LineSegment (origin dX dY dZ)))
+                               
+                               (segp (u) = (generator f) (initial (randomInit (13))) 
+                                     (nsegs Bnseg) (nsegpts Bnsegpts))
+                               
+                               (output u n)
+                               
+                               )
+		  
+                    (output s)
+                    )
+
+         )
+         
+
+       (component (type cell-forest) (name GridCells)
+
+         (component (type layout) (name GridCellCoordinates)
+
+                    (s = (PointsFromFile ("GridCellCcoordinates.dat")))
+		  
+                    (output s)
+            )
+         
+         (component (type section) (name Axons)
+                    
+                    (const n = nAxons)
+
+                    (defun f (gid origin init)
+                      (let ((dX (randomUniform (Axminx Axmaxx init)))
+                            (dY (randomUniform (Axminy Axmaxy init)))
+                            (dZ (randomUniform (Axminz Axmaxz init))))
+                        LineSegment (origin dX dY dZ)))
+
+                    (p (u) = (generator f) (initial (randomInit (23))))
+                    
+                    (output u n)
+
+                    )
+
+         )
+
+       (component (type projection) 
+
+            (input (GC from cell-forests)
+                   (GoC from cell-forests))
+
+            (const r = PFtoGoCzone)
+
+            (set source = (section GC ParallelFibers))
+            (set target = (section GoC ApicalDendrites))
+
+            (PFtoGoC = (SegmentProjection (r source target)))
+
+            (output PFtoGoC)
+            )
+
+
+
+       
+       ))
