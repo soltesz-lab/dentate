@@ -120,9 +120,9 @@
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
 
-(define (LayerProjection label r source target) 
+(define (LayerProjection label r source target target-layers) 
   (layer-tree-projection label
-                         (source 'tree) (target 'list) 
+                         (source 'tree) (target 'list) target-layers
                          r my-comm myrank mysize))
 (define (SegmentProjection label r source target) 
   (segment-projection label
@@ -200,7 +200,7 @@
 (define PPtoDGC_projection
   (let ((target (SetExpr (section DGCs Dendrites))))
     (let ((source (SetExpr (population GridPPs))))
-      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target)))
+      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3))))
         PPtoDGC))))
 
 (MPI:finalize)
