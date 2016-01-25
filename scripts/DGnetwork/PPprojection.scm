@@ -57,9 +57,9 @@
     (my-usage))
 
 (if (opt 'verbose)
-    (picnic-verbose 1))
+    (npcloud-verbose 1))
 
-(if (picnic-verbose)
+(if (npcloud-verbose)
     (pp (local-config) (current-error-port)))
 
 (define my-comm (MPI:get-comm-world))
