@@ -1,5 +1,4 @@
-(require-extension typeclass)
-(include "lib.scm")
+(require-extension typeclass simdata)
 
 ;(plot:procdebug #t)
 

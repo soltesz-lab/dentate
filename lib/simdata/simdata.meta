@@ -1,0 +1,25 @@
+; -*- Hen -*-
+
+((egg "simdata.egg") ; This should never change
+
+ ; List here all the files that should be bundled as part of your egg.  
+
+ (files "simdata.meta" "simdata.setup")
+
+ ; Your egg's license:
+
+ (license "GPL-3")
+
+ ; Pick one from the list of categories (see below) for your egg and
+ ; enter it here.
+
+ (category parsing)
+
+ ; A list of eggs npcloud depends on.
+
+ (needs matchable typeclass rb-tree ploticus datatype)
+
+ (author "Ivan Raikov")
+
+ (synopsis "Basic routines for reading data from simulations of neural network models."))
+

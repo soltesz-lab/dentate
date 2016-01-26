@@ -22,10 +22,11 @@ if (!(name_declared("forestSize"))) {
 // path to the dataset directory
 sprint(datasetPath, "%s/%s", datasetPrefix, datasetName)
 
-nrn_load_dll("mechanisms/x86_64/.libs/libnrnmech.so")
+//nrn_load_dll("mechanisms/x86_64/.libs/libnrnmech.so")
 
 strdef path, mechanismsPath
 // Load mechanisms from external location
+/*
 if (!(externalPaths == nil)) {
     for i=0,externalPaths.count()-1 {
         path = externalPaths.o(i).s
@@ -33,6 +34,7 @@ if (!(externalPaths == nil)) {
         nrn_load_dll(mechanismsPath)
     }
 }
+*/
 
 // used to calculate model construction times and run time
 mkcellstime = 0
