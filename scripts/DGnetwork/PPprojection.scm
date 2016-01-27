@@ -116,6 +116,7 @@
 (define randomUniform random-uniform)
 
 (define PointsFromFile load-points-from-file)
+(define PointsFromFile* load-points-from-file*)
 
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
@@ -177,7 +178,7 @@
 ;; Connection points for grid cell perforant path synapses
 (define GridPPs
   (let* (
-         (PPpts (car (PointsFromFile (opt 'presyn-coords))))
+         (PPpts (car (PointsFromFile* (opt 'presyn-coords))))
 
          (PPsize (kd-tree-size PPpts))
 
