@@ -140,7 +140,7 @@
 ;; Dentate granule cells
 (define DGCs
   (let* (
-         (DGCpts (car (PointsFromFile (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
+         (DGCpts (car (PointsFromFile* (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
 
          (DGCsize (kd-tree-size DGCpts))
 
