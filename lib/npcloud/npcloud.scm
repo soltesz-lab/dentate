@@ -1009,7 +1009,7 @@
           )
 
 
-        (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm myrank size)
+        (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm myrank size output-dir)
 
           (MPI:barrier my-comm)
 	  
@@ -1018,13 +1018,13 @@
 
             (MPI:barrier my-comm)
 
-            (call-with-output-file (sprintf "~Asources~A.dat"  label (if (> size 1) myrank ""))
+            (call-with-output-file (make-pathname output-dir (sprintf "~Asources~A.dat"  label (if (> size 1) myrank "")))
               (lambda (out-sources)
-                (call-with-output-file (sprintf "~Atargets~A.dat"  label (if (> size 1) myrank ""))
+                (call-with-output-file (make-pathname output-dir (sprintf "~Atargets~A.dat"  label (if (> size 1) myrank "")))
                   (lambda (out-targets)
-                    (call-with-output-file (sprintf "~Adistances~A.dat"  label (if (> size 1) myrank ""))
+                    (call-with-output-file (make-pathname output-dir (sprintf "~Adistances~A.dat"  label (if (> size 1) myrank "")))
                       (lambda (out-distances)
-                        (call-with-output-file (sprintf "~Alayers~A.dat"  label (if (> size 1) myrank ""))
+                        (call-with-output-file (make-pathname output-dir (sprintf "~Alayers~A.dat"  label (if (> size 1) myrank "")))
                           (lambda (out-layers)
                             (for-each 
                              (lambda (my-data)

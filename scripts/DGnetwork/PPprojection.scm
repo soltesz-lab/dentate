@@ -16,6 +16,10 @@
                          (transformer ,(lambda (x) (map string->number
                                                         (string-split x ","))))))
     
+    (output-dir "Write results in the given directory"
+               (single-char #\o)
+               (value (required PATH)))
+
     (trees-dir "Load post-synaptic trees from the given directory"
                (single-char #\t)
                (value (required PATH)))
@@ -120,10 +124,10 @@
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
 
-(define (LayerProjection label r source target target-layers) 
+(define (LayerProjection label r source target target-layers output-dir) 
   (layer-tree-projection label
                          (source 'tree) (target 'list) target-layers
-                         r my-comm myrank mysize))
+                         r my-comm myrank mysize output-dir))
 (define (SegmentProjection label r source target) 
   (segment-projection label
                       (source 'tree) (target 'list) 
@@ -200,7 +204,7 @@
 (define PPtoDGC_projection
   (let ((target (SetExpr (section DGCs Dendrites))))
     (let ((source (SetExpr (population GridPPs))))
-      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3))))
+      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3) (opt 'output-dir))))
         PPtoDGC))))
 
 (MPI:finalize)
