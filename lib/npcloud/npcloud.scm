@@ -622,6 +622,34 @@
           )
 
 
+        (define (load-points-from-file* filename)
+
+          (let ((in (open-input-file filename)))
+            
+            (if (not in) (error 'load-points-from-file "file not found" filename))
+
+            (let* ((lines
+                    (filter (lambda (line) (not (irregex-match comment-pat line)))
+                            (read-lines in)))
+
+                   (point-data
+                    (filter-map
+                     (lambda (line) 
+                       (let* ((line-data (map string->number (string-split line " \t")))
+                              (id (car line-data))
+                              (lst (cdr line-data)))
+                         (and (not (null? lst)) (list id (apply make-point lst) #f))))
+                     lines))
+
+                   (point-tree (list->kd-tree* point-data))
+                   )
+              
+              (list point-tree)
+              
+              ))
+          )
+
+
         (define (make-swc-tree-graph lst label)
           
           (let* (
