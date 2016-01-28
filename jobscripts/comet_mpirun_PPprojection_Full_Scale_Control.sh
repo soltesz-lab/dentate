@@ -2,8 +2,8 @@
 #
 #SBATCH -J PPprojection_Full_Scale_Control
 #SBATCH -o ./results/PPprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=16
-#SBATCH --ntasks-per-node=16
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
 #SBATCH -p compute
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -11,8 +11,6 @@
 #
 
 set -x
-
-module load openmpi_ib/1.8.4
 
 forest=650
 forest_dir=/oasis/scratch/comet/$USER/temp_project/dentate/Full_Scale_Control/GC/$forest
@@ -25,4 +23,4 @@ cd /oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Control_grid_
 echo "DGC forest $forest" > info.txt
 echo "Grid module $grid" >> info.txt
 
-mpirun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 10.0 -o /oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Control_grid_$SLURM_JOB_ID
+ibrun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 10.0 -o /oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Control_grid_$SLURM_JOB_ID

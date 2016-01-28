@@ -70,6 +70,7 @@
 (define myrank  (MPI:comm-rank my-comm))
 (define mysize  (MPI:comm-size my-comm))
 
+
 (define-syntax
   SetExpr
   (syntax-rules
@@ -182,13 +183,13 @@
 ;; Connection points for grid cell perforant path synapses
 (define GridPPs
   (let* (
-         (PPpts (car (PointsFromFile* (opt 'presyn-coords))))
+         (PPpts (car (PointsFromFile (opt 'presyn-coords))))
 
          (PPsize (kd-tree-size PPpts))
 
          (PPlayout
           (kd-tree-fold-right*
-           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
+           (lambda (i p ax) (cons (list i p) ax))
            '() PPpts))
 
          )
