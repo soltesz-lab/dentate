@@ -16,6 +16,10 @@
                          (transformer ,(lambda (x) (map string->number
                                                         (string-split x ","))))))
     
+    (output-dir "Write results in the given directory"
+               (single-char #\o)
+               (value (required PATH)))
+
     (trees-dir "Load post-synaptic trees from the given directory"
                (single-char #\t)
                (value (required PATH)))
@@ -65,6 +69,7 @@
 (define my-comm (MPI:get-comm-world))
 (define myrank  (MPI:comm-rank my-comm))
 (define mysize  (MPI:comm-size my-comm))
+
 
 (define-syntax
   SetExpr
@@ -121,10 +126,10 @@
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
 
-(define (LayerProjection label r source target target-layers) 
+(define (LayerProjection label r source target target-layers output-dir) 
   (layer-tree-projection label
                          (source 'tree) (target 'list) target-layers
-                         r my-comm myrank mysize))
+                         r my-comm myrank mysize output-dir))
 (define (SegmentProjection label r source target) 
   (segment-projection label
                       (source 'tree) (target 'list) 
@@ -137,32 +142,32 @@
 ;; Dentate granule cells
 (define DGCs
   (let* (
-         (DGCpts (car (PointsFromFile (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
+         (DGCpts (car (PointsFromFile* (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
 
          (DGCsize (kd-tree-size DGCpts))
 
          (DGClayout
           (kd-tree-fold-right*
-           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
+           (lambda (i p ax) (cons (list i p) ax))
            '() DGCpts))
 
          (DGCdendrites
-          (let recur ((myindex (- DGCsize 1)) (ax '()))
-            (if (< myindex 0) ax
-                (recur (- myindex 1)
-                       (if (= (modulo myindex mysize) myrank)
-                           (cons (LoadTree (sprintf "~A/DGC_dendrite_topology_~A.dat" 
-                                                    (opt 'trees-dir) 
-                                                    (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
-                                           (sprintf "~A/DGC_dendrite_points_~A.dat" 
-                                                    (opt 'trees-dir) 
-                                                    (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
-                                           'Dendrites)
-                                 ax)
-                           ax)))
-
-            ))
-         )
+	  (let recur ((myindex (- DGCsize 1))
+		      (lst '()))
+	    (if (>= myindex 0)
+		(recur (- myindex 1)
+		       (cons
+			(LoadTree (sprintf "~A/DGC_dendrite_topology_~A.dat" 
+					   (opt 'trees-dir) 
+					   (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+				  (sprintf "~A/DGC_dendrite_points_~A.dat" 
+					   (opt 'trees-dir) 
+					   (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+				  'Dendrites)
+			lst))
+		lst)
+		))
+	 )
 
     (fold-right
       (match-lambda*
@@ -178,7 +183,7 @@
 ;; Connection points for grid cell perforant path synapses
 (define GridPPs
   (let* (
-         (PPpts (car (PointsFromFile* (opt 'presyn-coords))))
+         (PPpts (car (PointsFromFile (opt 'presyn-coords))))
 
          (PPsize (kd-tree-size PPpts))
 
@@ -201,7 +206,7 @@
 (define PPtoDGC_projection
   (let ((target (SetExpr (section DGCs Dendrites))))
     (let ((source (SetExpr (population GridPPs))))
-      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3))))
+      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3) (opt 'output-dir))))
         PPtoDGC))))
 
 (MPI:finalize)
