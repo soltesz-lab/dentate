@@ -148,26 +148,26 @@
 
          (DGClayout
           (kd-tree-fold-right*
-           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
+           (lambda (i p ax) (cons (list i p) ax))
            '() DGCpts))
 
          (DGCdendrites
-          (let recur ((myindex (- DGCsize 1)) (ax '()))
-            (if (< myindex 0) ax
-                (recur (- myindex 1)
-                       (if (= (modulo myindex mysize) myrank)
-                           (cons (LoadTree (sprintf "~A/DGC_dendrite_topology_~A.dat" 
-                                                    (opt 'trees-dir) 
-                                                    (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
-                                           (sprintf "~A/DGC_dendrite_points_~A.dat" 
-                                                    (opt 'trees-dir) 
-                                                    (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
-                                           'Dendrites)
-                                 ax)
-                           ax)))
-
-            ))
-         )
+	  (let recur ((myindex (- DGCsize 1))
+		      (lst '()))
+	    (if (>= myindex 0)
+		(recur (- myindex 1)
+		       (cons
+			(LoadTree (sprintf "~A/DGC_dendrite_topology_~A.dat" 
+					   (opt 'trees-dir) 
+					   (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+				  (sprintf "~A/DGC_dendrite_points_~A.dat" 
+					   (opt 'trees-dir) 
+					   (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+				  'Dendrites)
+			lst))
+		lst)
+		))
+	 )
 
     (fold-right
       (match-lambda*
@@ -189,7 +189,7 @@
 
          (PPlayout
           (kd-tree-fold-right*
-           (lambda (i p ax) (cons (list i p) ax))
+           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
            '() PPpts))
 
          )
