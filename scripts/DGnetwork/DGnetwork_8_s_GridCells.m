@@ -23,35 +23,35 @@ function DGnetwork_8_s_GridCells(directory)
 %% grid cells have different phases
 
 N_GridCellModules = 10;
-N_GridCellsPerModule = 1000;
+N_GridCellsPerModule = 3800;
 
-N_Gridcells = N_GridCellModules * N_GridCellsPerModule;
-
+N_GridCells = N_GridCellModules * N_GridCellsPerModule;
+GridCell_percent_start = 0.1;
+GridCell_percent_end = 0.9;
+GridCell_percent_step = (GridCell_percent_end - GridCell_percent_start) / N_GridCells;
 
 X = cell(4,1);
 Y = cell(4,1);
 Z = cell(4,1);
 for sublayer = 1:4
     if sublayer > 1
-        [x_i,y_i,z_i]   = layer_eq_ML(sublayer-2);
+        [x_i,y_i,z_i]   = layer_eq_ML_poisson(sublayer-2);
         switch sublayer
           case 4
-            [x_o,y_o,z_o]   = layer_eq_ML(4);
+            [x_o,y_o,z_o]   = layer_eq_ML_poisson(4);
           otherwise
-            [x_o,y_o,z_o]   = layer_eq_ML(sublayer-1);
+            [x_o,y_o,z_o]   = layer_eq_ML_poisson(sublayer-1);
         end
         X{sublayer}     = [x_o;x_i];
         Y{sublayer}     = [y_o;y_i];
         Z{sublayer}     = [z_o;z_i];
-        [~,S{sublayer}] = alphavol([X{sublayer}(:),Y{sublayer}(:),Z{sublayer}(:)],150);
     elseif sublayer == 1
-        [x_i,y_i,z_i]  	= layer_eq_GCL(-1.95);
-        [x_m,y_m,z_m]   = layer_eq_GCL(-1.0);
-        [x_o,y_o,z_o]   = layer_eq_GCL(0);
+        [x_i,y_i,z_i]  	= layer_eq_GCL_poisson(-1.95);
+        [x_m,y_m,z_m]   = layer_eq_GCL_poisson(-1.0);
+        [x_o,y_o,z_o]   = layer_eq_GCL_poisson(0);
         X{sublayer}     = [x_o;x_m;x_i];
         Y{sublayer}     = [y_o;y_m;y_i];
         Z{sublayer}     = [z_o;z_m;z_i];
-        [~,S{sublayer}] = alphavol([X{sublayer}(:),Y{sublayer}(:),Z{sublayer}(:)],120);          
     end
 end
 
@@ -79,15 +79,17 @@ stsums = [0;sums];
 
 clearvars sums x y z
 
-GridModuleSlices  = cell(N_GridCellModules,1);
-GridModuleDists   = cell(N_GridCellModules,1);
-GridModulePlanes  = cell(N_GridCellModules,1);
+GridCellSlices  = cell(N_GridCells,1);
+GridCellDists   = cell(N_GridCells,1);
+GridCellPlanes  = cell(N_GridCells,1);
 
 %% Determine grid cell module sections
-for gridModule = 1:N_GridCellModules
+for gridCell = 1:N_GridCells
 
-    percent = 0.375 + 0.025*gridModule;
-    width = 2000;
+    gridCell
+    
+    percent = GridCell_percent_start + GridCell_percent_step*gridCell;
+    width = 60;
 
     % Get septotemporal center
     [~,center_index]                = min(abs(stsums - (percent*max(stsums))));
@@ -122,10 +124,10 @@ for gridModule = 1:N_GridCellModules
     start_d = sum(plane.*plane_center1);
     stop_d  = sum(plane.*plane_center2);
 
-    GridModuleDists{gridModule} = [start_d stop_d];
-    GridModulePlanes{gridModule} = plane;
-    GridModuleSlices{gridModule} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
+    GridCellDists{gridCell} = [start_d stop_d];
+    GridCellPlanes{gridCell} = plane;
+    GridCellSlices{gridCell} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
 
 end
 
-save(sprintf('%s/GridModules.mat',directory),'GridModuleSlices','-v6');
+save(sprintf('%s/GridCells.mat',directory),'GridCellSlices','-v6');
