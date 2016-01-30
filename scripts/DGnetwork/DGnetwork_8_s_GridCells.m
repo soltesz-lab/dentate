@@ -130,4 +130,4 @@ for gridModule = 1:N_GridCellModules
     end
 end
 
-save(sprintf('%s/GridCellModules.mat',directory),'GridCellModules','-v7.3');
+save(sprintf('%s/GridCellModules.mat',directory),'GridCellModules');
