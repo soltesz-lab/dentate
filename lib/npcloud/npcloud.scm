@@ -237,8 +237,9 @@
 
 
         (define (cells-sections->kd-tree cells section-name 
-                                         #!key (make-value (lambda (i v) i))
-                                          (make-point (lambda (v) v)))
+                                         #!key 
+                                         (make-value (lambda (i v) (list i 0.0)))
+                                         (make-point (lambda (v) v)))
           (let ((t 
                  (let recur ((cells cells) (points '()))
                    (if (null? cells)
