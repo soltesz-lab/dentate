@@ -231,7 +231,9 @@
     (fold-right
       (match-lambda*
        (((gid pp-contacts) lst)
-        (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)))
+        (if (> (length pp-contacts) 0)
+	    (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)
+	    lst)))
       `()
       pp-contacts
       )

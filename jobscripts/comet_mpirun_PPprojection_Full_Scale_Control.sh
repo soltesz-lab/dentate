@@ -14,14 +14,12 @@ set -x
 
 forest=650
 forest_dir=/oasis/scratch/comet/$USER/temp_project/dentate/Full_Scale_Control/GC/$forest
-grid=5
-gridcell_dir=/oasis/scratch/comet/$USER/temp_project/gridcell/GridModule`printf "%02d" $grid`coordinates.dat
+gridcell_dir=/oasis/scratch/comet/$USER/temp_project/GridCellModules
 results_dir=/oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Control_grid_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
 
 echo "DGC forest $forest" > info.txt
-echo "Grid module $grid" >> info.txt
 
-mpirun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 10.0 -o $results_dir
+mpirun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 10.0 --grid-cells=10:3800 -o $results_dir
