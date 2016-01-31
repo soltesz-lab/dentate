@@ -23,35 +23,35 @@ function DGnetwork_8_s_GridCells(directory)
 %% grid cells have different phases
 
 N_GridCellModules = 10;
-N_GridCellsPerModule = 1000;
+N_GridCellsPerModule = 3800;
 
-N_Gridcells = N_GridCellModules * N_GridCellsPerModule;
-
+N_GridCells = N_GridCellModules * N_GridCellsPerModule;
+GridCell_percent_start = 0.1;
+GridCell_percent_end = 0.9;
+GridCell_percent_step = (GridCell_percent_end - GridCell_percent_start) / N_GridCells;
 
 X = cell(4,1);
 Y = cell(4,1);
 Z = cell(4,1);
 for sublayer = 1:4
     if sublayer > 1
-        [x_i,y_i,z_i]   = layer_eq_ML(sublayer-2);
+        [x_i,y_i,z_i]   = layer_eq_ML_poisson(sublayer-2);
         switch sublayer
           case 4
-            [x_o,y_o,z_o]   = layer_eq_ML(4);
+            [x_o,y_o,z_o]   = layer_eq_ML_poisson(4);
           otherwise
-            [x_o,y_o,z_o]   = layer_eq_ML(sublayer-1);
+            [x_o,y_o,z_o]   = layer_eq_ML_poisson(sublayer-1);
         end
         X{sublayer}     = [x_o;x_i];
         Y{sublayer}     = [y_o;y_i];
         Z{sublayer}     = [z_o;z_i];
-        [~,S{sublayer}] = alphavol([X{sublayer}(:),Y{sublayer}(:),Z{sublayer}(:)],150);
     elseif sublayer == 1
-        [x_i,y_i,z_i]  	= layer_eq_GCL(-1.95);
-        [x_m,y_m,z_m]   = layer_eq_GCL(-1.0);
-        [x_o,y_o,z_o]   = layer_eq_GCL(0);
+        [x_i,y_i,z_i]  	= layer_eq_GCL_poisson(-1.95);
+        [x_m,y_m,z_m]   = layer_eq_GCL_poisson(-1.0);
+        [x_o,y_o,z_o]   = layer_eq_GCL_poisson(0);
         X{sublayer}     = [x_o;x_m;x_i];
         Y{sublayer}     = [y_o;y_m;y_i];
         Z{sublayer}     = [z_o;z_m;z_i];
-        [~,S{sublayer}] = alphavol([X{sublayer}(:),Y{sublayer}(:),Z{sublayer}(:)],120);          
     end
 end
 
@@ -79,53 +79,55 @@ stsums = [0;sums];
 
 clearvars sums x y z
 
-GridModuleSlices  = cell(N_GridCellModules,1);
-GridModuleDists   = cell(N_GridCellModules,1);
-GridModulePlanes  = cell(N_GridCellModules,1);
+GridCellModules = cell(N_GridCellModules,1);
+gridCellIndex = 0;
 
 %% Determine grid cell module sections
 for gridModule = 1:N_GridCellModules
+    GridCellModules{gridModule} = cell(N_GridCellsPerModule,1);
+    for gridCell = 1:N_GridCellsPerModule
 
-    percent = 0.375 + 0.025*gridModule;
-    width = 2000;
-
-    % Get septotemporal center
-    [~,center_index]                = min(abs(stsums - (percent*max(stsums))));
-    u_center                        = u(center_index);
+        gridCell
     
-    % Get points to make up plane
-    plane_pts    = zeros(3,3);
-
-    % Get longitudinal points
-    [x_pt1,y_pt1,z_pt1]             = layer_eq_point(0,u_center-0.001,59.75*pi/100);
-    [x_center,y_center,z_center]    = layer_eq_point(0,u_center,59.75*pi/100);
-    [x_pt2,y_pt2,z_pt2]             = layer_eq_point(0,u_center+0.001,59.75*pi/100);
-    plane_pts(1,:)                  = [x_center,y_center,z_center];
-    direction                       = [x_pt2-x_pt1,y_pt2-y_pt1,z_pt2-z_pt1];
-    unit_direction                  = direction/norm(direction);
-    full_direction                  = unit_direction*width/2;
-    plane_center1                   = [x_center - full_direction(1), y_center - full_direction(2), z_center + full_direction(3)];
-    plane_center2                   = [x_center + full_direction(1), y_center + full_direction(2), z_center + full_direction(3)];
-    
-    % Get transverse points
-    [x_pt1,y_pt1,z_pt1]             = layer_eq_point(0,u_center,59.75*pi/100-1);
-    plane_pts(2,:)                  = [x_pt1,y_pt1,z_pt1];
-    
-    % Get layer points
-    [x_pt1,y_pt1,z_pt1]             = layer_eq_point(-1,u_center,59.75*pi/100);
-    plane_pts(3,:)                  = [x_pt1,y_pt1,z_pt1];
-    
-    % Get plane information
-    vec1  = plane_pts(3,:) - plane_pts(1,:);
-    vec2  = plane_pts(2,:) - plane_pts(1,:);
-    plane = cross(vec1,vec2);
-    start_d = sum(plane.*plane_center1);
-    stop_d  = sum(plane.*plane_center2);
-
-    GridModuleDists{gridModule} = [start_d stop_d];
-    GridModulePlanes{gridModule} = plane;
-    GridModuleSlices{gridModule} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
-
+        percent = GridCell_percent_start + GridCell_percent_step*gridCellIndex
+        width = 60;
+        
+        % Get septotemporal center
+        [~,center_index]                = min(abs(stsums - (percent*max(stsums))));
+        u_center                        = u(center_index);
+        
+        % Get points to make up plane
+        plane_pts    = zeros(3,3);
+        
+        % Get longitudinal points
+        [x_pt1,y_pt1,z_pt1]             = layer_eq_point(0,u_center-0.001,59.75*pi/100);
+        [x_center,y_center,z_center]    = layer_eq_point(0,u_center,59.75*pi/100);
+        [x_pt2,y_pt2,z_pt2]             = layer_eq_point(0,u_center+0.001,59.75*pi/100);
+        plane_pts(1,:)                  = [x_center,y_center,z_center];
+        direction                       = [x_pt2-x_pt1,y_pt2-y_pt1,z_pt2-z_pt1];
+        unit_direction                  = direction/norm(direction);
+        full_direction                  = unit_direction*width/2;
+        plane_center1                   = [x_center - full_direction(1), y_center - full_direction(2), z_center + full_direction(3)];
+        plane_center2                   = [x_center + full_direction(1), y_center + full_direction(2), z_center + full_direction(3)];
+        
+        % Get transverse points
+        [x_pt1,y_pt1,z_pt1]             = layer_eq_point(0,u_center,59.75*pi/100-1);
+        plane_pts(2,:)                  = [x_pt1,y_pt1,z_pt1];
+        
+        % Get layer points
+        [x_pt1,y_pt1,z_pt1]             = layer_eq_point(-1,u_center,59.75*pi/100);
+        plane_pts(3,:)                  = [x_pt1,y_pt1,z_pt1];
+        
+        % Get plane information
+        vec1  = plane_pts(3,:) - plane_pts(1,:);
+        vec2  = plane_pts(2,:) - plane_pts(1,:);
+        plane = cross(vec1,vec2);
+        start_d = sum(plane.*plane_center1);
+        stop_d  = sum(plane.*plane_center2);
+        
+        GridCellModules{gridModule}{gridCell} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
+        gridCellIndex = gridCellIndex + 1;
+    end
 end
 
-save(sprintf('%s/GridModules.mat',directory),'GridModuleSlices','-v6');
+save(sprintf('%s/GridCellModules.mat',directory),'GridCellModules');

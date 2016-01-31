@@ -16,6 +16,10 @@
                          (transformer ,(lambda (x) (map string->number
                                                         (string-split x ","))))))
     
+    (grid-cells "Specify number of grid cell modules and grid cells per module, separated by colon"
+                (value (required "N-MOD:N-GRID-CELL")
+                       (transformer ,(lambda (x) (map string->number (string-split x ":"))))))
+    
     (output-dir "Write results in the given directory"
                (single-char #\o)
                (value (required PATH)))
@@ -24,7 +28,7 @@
                (single-char #\t)
                (value (required PATH)))
     
-    (presyn-coords "Load pre-synaptic location coordinates from the given file"
+    (presyn-dir "Load pre-synaptic location coordinates from the given directory"
                    (single-char #\p)
                    (value (required PATH)))
     
@@ -74,7 +78,7 @@
 (define-syntax
   SetExpr
   (syntax-rules
-      (population section union)
+      (population section genpoint-section union)
     ((SetExpr (population p))
      (lambda (repr) 
        (case repr 
@@ -92,6 +96,17 @@
 
                        ))
              )))
+    ((SetExpr (genpoint-section p t))
+     (lambda (repr)
+       (case repr
+         ((list)
+          (map (lambda (cell) 
+                 (list (cell-index cell) 
+                       (list (cell-section-ref (quote t) cell))))
+               p))
+         ((tree)
+          (genpoint-cells-sections->kd-tree p (quote t)))
+         )))
     ((SetExpr (section p t))
      (lambda (repr)
        (case repr
@@ -120,8 +135,9 @@
 (define randomNormal random-normal)
 (define randomUniform random-uniform)
 
-(define PointsFromFile load-points-from-file)
+(define (PointsFromFileWhdr x) (load-points-from-file x #t))
 (define PointsFromFile* load-points-from-file*)
+(define PointsFromFile load-points-from-file)
 
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
@@ -181,32 +197,53 @@
 
 
 ;; Connection points for grid cell perforant path synapses
-(define GridPPs
+(define GridCells
   (let* (
-         (PPpts (car (PointsFromFile (opt 'presyn-coords))))
+         (grid-cell-params (or (opt 'grid-cells) (list 1 1000)))
 
-         (PPsize (kd-tree-size PPpts))
+         (n-modules (car grid-cell-params))
+         (n-grid-cells-per-module (cadr grid-cell-params))
 
-         (PPlayout
-          (kd-tree-fold-right*
-           (lambda (i p ax) (if (= (modulo i mysize) myrank) (cons (list i p) ax) ax))
-           '() PPpts))
-
-         )
+         (pp-contacts
+	  (let recur ((gid (+ 1 myrank)) (modindex 1) (lst '()))
+            (if (<= modindex n-modules)
+                (let inner ((gid gid) (cellindex myrank) (lst lst))
+                  (if (< cellindex n-grid-cells-per-module)
+                      (inner (+ gid mysize)
+                             (+ cellindex mysize)
+                             (cons
+                              (list gid 
+                                     (kd-tree->list*
+                                      (car
+                                       (PointsFromFileWhdr
+                                        (make-pathname (opt 'presyn-dir) 
+                                                       (make-pathname (fmt #f (pad-char #\0 (pad/left 2 (num modindex))))
+                                                                      (sprintf "GridCell_~A.dat" 
+                                                                               (fmt #f (pad-char #\0 (pad/left 4 (num (+ 1 cellindex))))))
+                                                                      )))
+                                       )))
+                              lst))
+                      (recur gid (+ 1 modindex) lst)))
+                lst)
+            )) 
+	 )
 
     (fold-right
       (match-lambda*
-       (((gid p) lst)
-        (cons (make-cell 'PP gid p (list)) lst)))
-      '()
-      PPlayout
+       (((gid pp-contacts) lst)
+        (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)))
+      `()
+      pp-contacts
       )
     ))
 
+
+
 (define PPtoDGC_projection
-  (let ((target (SetExpr (section DGCs Dendrites))))
-    (let ((source (SetExpr (population GridPPs))))
-      (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3) (opt 'output-dir))))
-        PPtoDGC))))
+  (let* ((target (SetExpr (section DGCs Dendrites)))
+         (source (SetExpr (section GridCells PPsynapses)))
+        )
+    (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3) (opt 'output-dir))))
+      PPtoDGC)))
 
 (MPI:finalize)
