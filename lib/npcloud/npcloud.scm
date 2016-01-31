@@ -207,13 +207,13 @@
                sections))))
 
 
-        (define (cells-sections->kd-tree cells section-name #!key
-                                         (make-value
-                                          (lambda (i v) 
-                                            (list (genpoint-parent-index v)
-                                                  (genpoint-parent-distance v))))
-                                         (make-point
-                                          (lambda (v) (genpoint-coords v))))
+        (define (genpoint-cells-sections->kd-tree cells section-name #!key
+                                                  (make-value
+                                                   (lambda (i v) 
+                                                     (list (genpoint-parent-index v)
+                                                           (genpoint-parent-distance v))))
+                                                  (make-point
+                                                   (lambda (v) (genpoint-coords v))))
           (let ((t 
                  (let recur ((cells cells) (points '()))
                    (if (null? cells)
@@ -234,6 +234,32 @@
                        ))
                  ))
             t))
+
+
+        (define (cells-sections->kd-tree cells section-name 
+                                         #!key (make-value (lambda (i v) i))
+                                          (make-point (lambda (v) v)))
+          (let ((t 
+                 (let recur ((cells cells) (points '()))
+                   (if (null? cells)
+                       (list->kd-tree
+                        points
+                        make-value: make-value
+                        make-point: make-point)
+                       (let ((cell (car cells)))
+                         (recur (cdr cells) 
+                                (let inner ((sections (append (cell-section-ref section-name cell)))
+                                            (points points))
+                                  (if (null? sections) points
+                                      (inner
+                                       (cdr sections)
+                                       (append (cdr (car sections)) points))
+                                      ))
+                                ))
+                       ))
+                 ))
+            t))
+
 
         (define (sections->kd-tree cells #!key
                                    (make-value
@@ -600,7 +626,7 @@
         (define comment-pat (string->irregex "^#.*"))
 
 
-        (define (load-points-from-file filename)
+        (define (load-points-from-file filename . header)
 
           (let ((in (open-input-file filename)))
             
@@ -610,12 +636,14 @@
                     (filter (lambda (line) (not (irregex-match comment-pat line)))
                             (read-lines in)))
 
+                   (lines1 (if header (cdr lines) lines))
+
                    (point-data
                     (filter-map
                      (lambda (line) 
                        (let ((lst (map string->number (string-split line " \t"))))
                          (and (not (null? lst)) (apply make-point lst))))
-                     lines))
+                     lines1))
 
                    (point-tree (list->kd-tree point-data))
                    )
