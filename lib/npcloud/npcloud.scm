@@ -496,12 +496,9 @@
                                '()))
                              )
                          
-			 (printf "rank ~A: gid ~A before gatherv~%" myrank gid)
                          (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
                                 
                                 (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
-			   (printf "rank ~A: gid ~A after gatherv~%" myrank gid)
-                           
                            (append res1 ax))
                          
                          ))
@@ -657,7 +654,7 @@
           )
 
 
-        (define (load-points-from-file* filename)
+        (define (load-points-from-file* filename . header)
 
           (let ((in (open-input-file filename)))
             
@@ -669,6 +666,8 @@
 		      (filter (lambda (line) (not (irregex-match comment-pat line)))
 			      lines)))
 
+                   (lines1 (if header (cdr lines) lines))
+
                    (point-data
                     (filter-map
                      (lambda (line) 
@@ -676,7 +675,7 @@
                               (id (car line-data))
                               (lst (cdr line-data)))
                          (and (not (null? lst)) (list id (apply make-point lst) #f))))
-                     lines))
+                     lines1))
 
                    (point-tree (list->kd-tree* point-data))
                    )
