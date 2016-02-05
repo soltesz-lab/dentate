@@ -238,8 +238,8 @@
 
         (define (cells-sections->kd-tree cells section-name 
                                          #!key 
-                                         (make-value (lambda (i v) (list i 0.0)))
-                                         (make-point (lambda (v) v)))
+                                         (make-value (lambda (i v) (list (car v) 0.0)))
+                                         (make-point (lambda (v) (cadr v))))
           (let ((t 
                  (let recur ((cells cells) (points '()))
                    (if (null? cells)
@@ -247,14 +247,15 @@
                         points
                         make-value: make-value
                         make-point: make-point)
-                       (let ((cell (car cells)))
+                       (let* ((cell (car cells))
+			      (cell-i (cell-index cell)))
                          (recur (cdr cells) 
                                 (let inner ((sections (append (cell-section-ref section-name cell)))
                                             (points points))
                                   (if (null? sections) points
                                       (inner
                                        (cdr sections)
-                                       (append (cdr (car sections)) points))
+                                       (append (map (lambda (p) (list cell-i p)) (cdr (car sections))) points))
                                       ))
                                 ))
                        ))
