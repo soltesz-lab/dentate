@@ -500,7 +500,9 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
         synCount = sscanf(synTypeString,"%lf:%lf",&synType1,&synType2)
         // Read in the type of weight+delay specification
 	f.scanstr(wdTypeString)
-        if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
+        if (strcmp(wdTypeString,"dist.layer.sect.node") == 0) {
+            wdType = 3
+        } else if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
             wdType = 2
         } else if (strcmp(wdTypeString,"weight+delay") == 0) {
             wdType = 1

@@ -2,26 +2,29 @@
 #
 #SBATCH -J PPprojection_Full_Scale_Control
 #SBATCH -o ./results/PPprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=8
 #SBATCH -p compute
-#SBATCH -t 4:00:00
+#SBATCH -t 2:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
 
 set -x
 
-forest=650
+forest=$SLURM_ARRAY_TASK_ID 
+if test "$forest" = "";
+then
+  forest=250
+fi
+
+echo forest = $forest
+
 forest_dir=/oasis/scratch/comet/$USER/temp_project/dentate/Full_Scale_Control/GC/$forest
-grid=5
-gridcell_dir=/oasis/scratch/comet/$USER/temp_project/gridcell/GridModule`printf "%02d" $grid`coordinates.dat
-results_dir=/oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Control_grid_$SLURM_JOB_ID
+gridcell_dir=/oasis/scratch/comet/$USER/temp_project/GridCellModules
+results_dir=/oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
 
-echo "DGC forest $forest" > info.txt
-echo "Grid module $grid" >> info.txt
-
-mpirun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 10.0 -o $results_dir
+ibrun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.5 --grid-cells=10:3800 -o $results_dir

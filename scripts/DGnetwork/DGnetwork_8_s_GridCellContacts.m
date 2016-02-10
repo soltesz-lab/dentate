@@ -1,4 +1,4 @@
-function DGnetwork_8_s_GridCells(directory)
+function DGnetwork_8_s_GridCellContacts(directory)
 
 %% MEC grid cells
 %% Assumptions:
