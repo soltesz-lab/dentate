@@ -8,15 +8,14 @@ nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
 {load_file("./templates/ranstream.hoc")}
 
 // Load the cell template
-xopen("./templates/HIPPCell.hoc")
+xopen("./templates/BasketCell.hoc")
 
 
-objref hc
-hc = new HIPPCell(1, 1)
-hc.soma { psection() }
-
-prelength = 500
-mainlength = 5000
+objref bc
+bc = new BasketCell(1, 1)
+bc.soma { psection() }
+prelength = 100
+mainlength = 1000
 vinit = -60
 
 //**********************************************************************
@@ -83,13 +82,18 @@ func rn() { local rn localobj cell
     return rn
 }
 
-printf ("DC input resistance: %g MOhm\n", rn(hc))
+printf ("DC input resistance: %g MOhm\n", rn(bc))
 
-objectvar stim1
-hc.soma stim1 = new IClamp(0.5)
-stim1.del = prelength
-stim1.dur = stimdur
-stim1.amp = 0.5
+objectvar ns
+ns = new NetStim(0.0)
+ns.noise = 0
+ns.number = 1
+ns.start = 200
+ns.interval = 200
+
+objref nc
+nc = new NetCon(ns,bc.syn_stim)
+nc.weight = 0.02
 
 /*
 objref  iklog
@@ -99,7 +103,7 @@ iklog.record (&gc.soma.ik(0.5))
 
 objref  Vlog
 Vlog = new Vector(vec_sizes)
-Vlog.record (&hc.soma.v(0.5))
+Vlog.record (&bc.soma.v(0.5))
 
 objref tlog
 tlog = new Vector(vec_sizes,0)
@@ -107,7 +111,7 @@ tlog.record (&t)
 
 objref logfile
 logfile = new File()
-logfile.wopen ( "HIPPCell_protocol.dat" )
+logfile.wopen ( "BasketCell_protocol.dat" )
 
 simulate(logfile,tlog,Vlog)
 logfile.close()

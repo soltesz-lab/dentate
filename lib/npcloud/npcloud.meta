@@ -1,0 +1,28 @@
+; -*- Hen -*-
+
+((egg "npcloud.egg") ; This should never change
+
+ ; List here all the files that should be bundled as part of your egg.  
+
+ (files "npcloud.meta" "npcloud.setup" "calc-parser.scm" "calc.grm")
+
+ ; Your egg's license:
+
+ (license "GPL-3")
+
+ ; Pick one from the list of categories (see below) for your egg and
+ ; enter it here.
+
+ (category parsing)
+
+ ; A list of eggs npcloud depends on.
+
+ (needs make matchable regex
+	datatype vector-lib digraph graph-bfs graph-dfs graph-cycles 
+	mathh (lalr 2.4.2) ersatz getopt-long
+        typeclass kd-tree random-mtzig mpi srfi-63)
+
+ (author "Ivan Raikov")
+
+ (synopsis "A description language for neuroanatomical structures and geometric connectivity."))
+
