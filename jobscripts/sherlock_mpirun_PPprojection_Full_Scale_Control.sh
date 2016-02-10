@@ -11,6 +11,8 @@
 
 set -x
 
+module load openmpi/1.10.1/gcc
+
 forest=650
 forest=$SLURM_ARRAY_TASK_ID
 if test "$forest" = "";
@@ -24,4 +26,5 @@ results_dir=/scratch/users/$USER/PPprojection_Full_Scale_Control_grid_$SLURM_JOB
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.5 -o $results_dir --grid-cells=10:3800
+mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.5 -o $results_dir \
+ --grid-cells=10:3800
