@@ -20,7 +20,7 @@ NEURON {
 	USEION tca READ tcai VALENCE 2
 	USEION k READ ek WRITE ik
 	RANGE gkbar,gkca, ik
-	GLOBAL oinf, otau
+	:GLOBAL oinf, otau
 }
 
 UNITS {
@@ -82,7 +82,7 @@ FUNCTION bet(v (mV), c (mM)) (1/ms) { :callable from hoc
 }
 
 FUNCTION exp1(k (mM), d, v (mV)) (mM) { :callable from hoc
-	exp1 = k*exp(-2*d*FARADAY*v/R/(273.15 + celsius))
+	exp1 = k*exptrap(0,-2*d*FARADAY*v/R/(273.15 + celsius))
 }
 
 PROCEDURE rate(v (mV), c (mM)) { :callable from hoc
@@ -92,3 +92,12 @@ PROCEDURE rate(v (mV), c (mM)) { :callable from hoc
 	oinf = a*otau
 }
 
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap CaBK [%g]: x = %g\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}

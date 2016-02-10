@@ -15,6 +15,6 @@ ASSIGNED {
     i (nanoamp)
 }
 
-INITIAL { i = (vgap - v)*g }
+INITIAL { i = (v - vgap)*g }
 
-BREAKPOINT { i = (vgap - v)*g }
+BREAKPOINT { i = (v - vgap)*g }

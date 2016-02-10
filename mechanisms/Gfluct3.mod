@@ -93,11 +93,10 @@ ENDCOMMENT
 
 
 
-INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
 
 NEURON {
 	POINT_PROCESS Gfluct3
-	RANGE h, g_e, g_i, E_e, E_i, g_e0, g_i0, g_e1, g_i1
+	RANGE h, on, g_e, g_i, E_e, E_i, g_e0, g_i0, g_e1, g_i1
 	RANGE std_e, std_i, tau_e, tau_i, D_e, D_i
 	RANGE new_seed
 	NONSPECIFIC_CURRENT i
@@ -111,7 +110,8 @@ UNITS {
 }
 
 PARAMETER {
-     
+    
+     on = 0
      h = 0.025 (ms) : interval at which conductances are to be updated
                     : for fixed dt simulation, should be an integer multiple of dt
 
@@ -133,6 +133,7 @@ PARAMETER {
 ASSIGNED {
 	v	(mV)		: membrane voltage
 	i 	(nA)		: fluctuating current
+	ival 	(nA)		: fluctuating current
 	g_e	(umho)		: total excitatory conductance
 	g_i	(umho)		: total inhibitory conductance
 	g_e1	(umho)		: fluctuating excitatory conductance
@@ -152,12 +153,12 @@ INITIAL {
 	if(tau_e != 0) {
 		D_e = 2 * std_e * std_e / tau_e
 		exp_e = exp(-h/tau_e)
-		amp_e = std_e * sqrt( (1-exp(-2*h/tau_e)) )
+		amp_e = std_e * sqrt( (1-exptrap(1, -2*h/tau_e)) )
 	}
 	if(tau_i != 0) {
 		D_i = 2 * std_i * std_i / tau_i
 		exp_i = exp(-h/tau_i)
-		amp_i = std_i * sqrt( (1-exp(-2*h/tau_i)) )
+		amp_i = std_i * sqrt( (1-exptrap(2, -2*h/tau_i)) )
 	    }
        if ((tau_e != 0) || (tau_i != 0)) {
            net_send(h, 1)
@@ -183,16 +184,23 @@ ENDVERBATIM
 	mynormrand = normrand(mean, std)
 }
 
-BREAKPOINT {
-	g_e = g_e0 + g_e1
-	if(g_e < 0) { g_e = 0 }
-	g_i = g_i0 + g_i1
-	if(g_i < 0) { g_i = 0 }
-	i = g_e * (v - E_e) + g_i * (v - E_i)
+BEFORE BREAKPOINT {
+        if (on > 0) {
+		g_e = g_e0 + g_e1
+                if (g_e < 0) { g_e = 0 }
+	        g_i = g_i0 + g_i1
+	        if (g_i < 0) { g_i = 0 }
+	        ival = g_e * (v - E_e) + g_i * (v - E_i)
+        } else {
+                ival = 0
+        }
         
-        :printf("t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", t, v, i, g_e, g_i, E_e, E_i)
+        :printf("on = %g t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", on, t, v, i, g_e, g_i, E_e, E_i)
+    }
 
-   
+
+BREAKPOINT {
+      i = ival   
     }
 
 
@@ -232,3 +240,14 @@ NET_RECEIVE (w) {
         net_send(h, 1)
     }
 }
+
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap Gfluct3 [%f]: x = %f\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
+

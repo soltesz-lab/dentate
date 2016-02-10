@@ -29,7 +29,7 @@ RANGE gl, el
 RANGE minf, mtau, hinf, htau, nfinf, nftau, inat, ikf, nsinf, nstau, iks
 }
  
-INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
+:INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
         v (mV) 
@@ -113,19 +113,19 @@ PROCEDURE rates(v) {  :Computes rate and other constants at current v.
 	sum = alpha+beta        
 	mtau = 1/sum      minf = alpha/sum
                 :"h" sodium inactivation system
-	alpha = 0.23/exp((v+60+5)/20)
-	beta = 3.33/(1+exp((v+60-47.5)/-10))
+	alpha = 0.23/exptrap(1,(v+60+5)/20)
+	beta = 3.33/(1+exptrap(2,(v+60-47.5)/-10))
 	sum = alpha+beta
 	htau = 1/sum 
         hinf = alpha/sum 
              :"ns" sKDR activation system
         alpha = -0.028*vtrap((v+65-35),-6)
-	beta = 0.1056/exp((v+65-10)/40)
+	beta = 0.1056/exptrap(3,(v+65-10)/40)
 	sum = alpha+beta        
 	nstau = 1/sum      nsinf = alpha/sum
             :"nf" fKDR activation system
         alpha = -0.07*vtrap((v+65-47),-6)
-	beta = 0.264/exp((v+65-22)/40)
+	beta = 0.264/exptrap(4,(v+65-22)/40)
 	sum = alpha+beta        
 	nftau = 1/sum      nfinf = alpha/sum
 	
@@ -138,12 +138,21 @@ PROCEDURE trates(v) {  :Computes rate and other constants at current v.
 		: the inf values in hoc
 
 }
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap ichan2 [%g]: x = %g\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
  
 FUNCTION vtrap(x,y) {  :Traps for 0 in denominator of rate eqns.
         if (fabs(x/y) < 1e-6) {
                 vtrap = y*(1 - x/y/2)
         }else{  
-                vtrap = x/(exp(x/y) - 1)
+                vtrap = x/(exptrap(0, x/y) - 1)
         }
 }
  

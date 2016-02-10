@@ -35,7 +35,7 @@ RANGE hyfinf, hysinf, hyftau, hystau
 RANGE hyhtfinf, hyhtsinf, hyhtftau, hyhtstau, ihyf, ihys
 }
  
-INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
+:INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
       v (mV) 
@@ -124,20 +124,20 @@ PROCEDURE rates(v) {  :Computes rate and other constants at current v.
        q10 = 3^((celsius - 6.3)/10)
        
 	:"hyf" FAST CONTROL Hype activation system
-	hyfinf =  1 / (1 + exp( (v+91)/10 ))
-	hyftau = 14.9 + 14.1 / (1+exp(-(v+95.2)/0.5))
+	hyfinf =  1 / (1 + exptrap(1, (v+91)/10 ))
+	hyftau = 14.9 + 14.1 / (1+exptrap(2, -(v+95.2)/0.5))
 
 	:"hys" SLOW CONTROL Hype activation system
-	hysinf =  1 / (1 + exp( (v+91)/10 ))
-	hystau = 80 + 172.7 / (1+exp(-(v+59.3)/-0.83))
+	hysinf =  1 / (1 + exptrap(3, (v+91)/10 ))
+	hystau = 80 + 172.7 / (1+exptrap(4, -(v+59.3)/-0.83))
 
 		:"hyhtf" FAST HT Hypeht activation system
-	hyhtfinf =  1 / (1 + exp( (v+87)/10 ))
-	hyhtftau = 23.2 + 16.1 / (1+exp(-(v+91.2)/0.83))
+	hyhtfinf =  1 / (1 + exptrap(5, (v+87)/10 ))
+	hyhtftau = 23.2 + 16.1 / (1+exptrap(6, -(v+91.2)/0.83))
 
 		:"hyhts" SLOW HT Hypeht activation system
-	hyhtsinf =  1 / (1 + exp( (v+87)/10 ))
-	hyhtstau = 227.3 + 170.7*exp(-0.5*((v+80.4)/11)^2)
+	hyhtsinf =  1 / (1 + exptrap(7, (v+87)/10 ))
+	hyhtstau = 227.3 + 170.7*exptrap(8, -0.5*((v+80.4)/11)^2)
 }
  
 PROCEDURE trates(v) {  :Computes rate and other constants at current v.
@@ -153,8 +153,18 @@ FUNCTION vtrap(x,y) {  :Traps for 0 in denominator of rate eqns.
         if (fabs(x/y) < 1e-6) {
                 vtrap = y*(1 - x/y/2)
         }else{  
-                vtrap = x/(exp(x/y) - 1)
+                vtrap = x/(exptrap(0,x/y) - 1)
         }
+}
+
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap hyperde3 [%g]: x = %g\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
 }
  
 UNITSON

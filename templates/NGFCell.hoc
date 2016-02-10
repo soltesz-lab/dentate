@@ -77,7 +77,7 @@ proc subsets() { local i, ndends, ndendsec
 
 proc geom() {
     
-    soma {nseg=1 L=20 diam=10} // changed L & diam
+    soma {nseg=1 L=20 diam=20} // changed L & diam
     
     dendrites[0][0] {nseg=1 L=100 diam=3}	// ncdend 1 and 2 are apical
     dendrites[1][0] {nseg=1 L=100 diam=3}
@@ -132,7 +132,7 @@ proc biophys() {
     forsec alldendrites {   
         
 	insert ichan2
-	insert na3           
+        insert na3           
         gbar_na3=gna*0.2
         //gkdrbar_kdr=gkdr*0.2
         //gkabar_kap = gka*0.2
@@ -142,11 +142,15 @@ proc biophys() {
 	gl_ichan2 = 0.0001063
     }
     forsec all {Ra=100}
-    forsec all {ena = 55 
-        ekf = -90  ek=-90  esk=-90 
+    forsec all {
+        ena = 55 
+        ekf = -90  
+        ek=-90  
+        esk=-90 
         elca=130
 	el_ichan2 =-63.1	
-    cao_ccanl=2 }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+        cao_ccanl=2 
+    }  // make catau slower70e-3 	cao=2 cai=50.e-6 
     
 }
 

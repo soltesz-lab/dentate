@@ -69,7 +69,7 @@ FUNCTION ghk(v(mV), ci(mM), co(mM)) (mV) {
 
         f = KTF(celsius)/2
         nu = v/f
-        ghk=-f*(1. - (ci/co)*exp(nu))*efun(nu)
+        ghk=-f*(1. - (ci/co)*exptrap(1,nu))*efun(nu)
 }
 
 FUNCTION KTF(celsius (DegC)) (mV) {
@@ -81,18 +81,18 @@ FUNCTION efun(z) {
 	if (fabs(z) < 1e-4) {
 		efun = 1 - z/2
 	}else{
-		efun = z/(exp(z) - 1)
+		efun = z/(exptrap(2,z) - 1)
 	}
 }
 
 FUNCTION alp(v(mV)) (1/ms) {
-	TABLE FROM -150 TO 150 WITH 200
-	alp = 15.69*(-1.0*v+81.5)/(exp((-1.0*v+81.5)/10.0)-1.0)
+:	TABLE FROM -150 TO 150 WITH 200
+	alp = 15.69*(-1.0*v+81.5)/(exptrap(3,(-1.0*v+81.5)/10.0)-1.0)
 }
 
 FUNCTION bet(v(mV)) (1/ms) {
-	TABLE FROM -150 TO 150 WITH 200
-	bet = 0.29*exp(-v/10.86)
+:	TABLE FROM -150 TO 150 WITH 200
+	bet = 0.29*exptrap(4,-v/10.86)
 }
 
 DERIVATIVE state {  
@@ -109,3 +109,12 @@ PROCEDURE rate(v (mV)) { :callable from hoc
  
 
 
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap LcaMig [%g]: x = %g\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
