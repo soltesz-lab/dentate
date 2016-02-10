@@ -136,6 +136,7 @@
 (define randomUniform random-uniform)
 
 (define (PointsFromFileWhdr x) (load-points-from-file x #t))
+(define (PointsFromFileWhdr* x) (load-points-from-file* x #t))
 (define PointsFromFile* load-points-from-file*)
 (define PointsFromFile load-points-from-file)
 
@@ -158,7 +159,7 @@
 ;; Dentate granule cells
 (define DGCs
   (let* (
-         (DGCpts (car (PointsFromFile* (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
+         (DGCpts (car (PointsFromFileWhdr* (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
 
          (DGCsize (kd-tree-size DGCpts))
 
@@ -231,7 +232,9 @@
     (fold-right
       (match-lambda*
        (((gid pp-contacts) lst)
-        (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)))
+        (if (> (length pp-contacts) 0)
+	    (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)
+	    lst)))
       `()
       pp-contacts
       )

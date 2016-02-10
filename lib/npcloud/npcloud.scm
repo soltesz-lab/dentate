@@ -238,8 +238,8 @@
 
         (define (cells-sections->kd-tree cells section-name 
                                          #!key 
-                                         (make-value (lambda (i v) (list i 0.0)))
-                                         (make-point (lambda (v) v)))
+                                         (make-value (lambda (i v) (list (car v) 0.0)))
+                                         (make-point (lambda (v) (cadr v))))
           (let ((t 
                  (let recur ((cells cells) (points '()))
                    (if (null? cells)
@@ -247,14 +247,15 @@
                         points
                         make-value: make-value
                         make-point: make-point)
-                       (let ((cell (car cells)))
+                       (let* ((cell (car cells))
+			      (cell-i (cell-index cell)))
                          (recur (cdr cells) 
                                 (let inner ((sections (append (cell-section-ref section-name cell)))
                                             (points points))
                                   (if (null? sections) points
                                       (inner
                                        (cdr sections)
-                                       (append (cdr (car sections)) points))
+                                       (append (map (lambda (p) (list cell-i p)) (cdr (car sections))) points))
                                       ))
                                 ))
                        ))
@@ -496,12 +497,9 @@
                                '()))
                              )
                          
-			 (printf "rank ~A: gid ~A before gatherv~%" myrank gid)
                          (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
                                 
                                 (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
-			   (printf "rank ~A: gid ~A after gatherv~%" myrank gid)
-                           
                            (append res1 ax))
                          
                          ))
@@ -634,8 +632,10 @@
             (if (not in) (error 'load-points-from-file "file not found" filename))
 
             (let* ((lines
-                    (filter (lambda (line) (not (irregex-match comment-pat line)))
-                            (read-lines in)))
+		    (let ((lines (read-lines in)))
+		      (close-input-port in)
+		      (filter (lambda (line) (not (irregex-match comment-pat line)))
+			      lines)))
 
                    (lines1 (if header (cdr lines) lines))
 
@@ -655,15 +655,19 @@
           )
 
 
-        (define (load-points-from-file* filename)
+        (define (load-points-from-file* filename . header)
 
           (let ((in (open-input-file filename)))
             
             (if (not in) (error 'load-points-from-file "file not found" filename))
 
             (let* ((lines
-                    (filter (lambda (line) (not (irregex-match comment-pat line)))
-                            (read-lines in)))
+		    (let ((lines (read-lines in)))
+		      (close-input-port in)
+		      (filter (lambda (line) (not (irregex-match comment-pat line)))
+			      lines)))
+
+                   (lines1 (if header (cdr lines) lines))
 
                    (point-data
                     (filter-map
@@ -672,7 +676,7 @@
                               (id (car line-data))
                               (lst (cdr line-data)))
                          (and (not (null? lst)) (list id (apply make-point lst) #f))))
-                     lines))
+                     lines1))
 
                    (point-tree (list->kd-tree* point-data))
                    )
@@ -952,95 +956,90 @@
 
           
         (define (load-layer-tree nlayers topology-filename points-filename label)
-          
-          (let (
-                (topology-in (open-input-file topology-filename))
-                (points-in (open-input-file points-filename))
-                )
-            
-            (if (not topology-in) (error 'load-layer-tree "topology file not found" topology-filename))
-            (if (not points-in) (error 'load-layer-tree "points file not found" points-filename))
-            
-            (let* (
-                   (topology-lines
-                    (let ((lines (read-lines topology-in)))
-                      (close-input-port topology-in)
-                      (filter (lambda (line) (not (irregex-match comment-pat line))) lines)))
-
-                   (points-lines
-                    (let ((lines (read-lines points-in)))
-                      (close-input-port points-in)
-                      (filter (lambda (line) (not (irregex-match comment-pat line))) lines)))
-
-                   (topology-layers
-                    (cadr
-                     (let ((layer-lines (take topology-lines nlayers)))
-                       (fold-right (match-lambda* 
-                                    ((line (i lst))
-                                     (match-let (((nsecs . sec-ids) (map string->number (string-split line " \t"))))
-                                                (if (= (length sec-ids) nsecs)
-                                                    (list (+ 1 i) (cons sec-ids lst))
-                                                    (error 'load-layer-tree "number of sections mismatch in layer description" nsecs sec-ids))
-                                                )))
-                                   '(0 ()) layer-lines))))
-
-                   (topology-sections
-                    (let ((rest-lines (drop topology-lines nlayers)))
-                      (let ((points-sections-line (car rest-lines)))
-                        (match-let (((nsections . point-numbers) (map string->number (string-split points-sections-line " \t"))))
-                                   (if (not (= nsections (length point-numbers)))
-                                       (error 'load-layer-tree "number of sections mismatch in section description"))
-                                   point-numbers))
-                      ))
-
-                   (topology-data
-                    (let ((rest-lines (drop topology-lines (+ 1 nlayers))))
-                      (match-let (((mdend ndend tdend rest-lines) (load-matrix-from-lines rest-lines)))
-                                 (if (not (= ndend 2)) 
-                                     (error 'load-layer-tree "invalid dendrite topology dimensions" mdend ndend))
-                                   (match-let (((msoma nsoma tsoma rest-lines) (load-matrix-from-lines rest-lines)))
-                                              (if (not (= nsoma 2)) 
-                                                  (error 'load-layer-tree "invalid soma topology dimensions" msoma nsoma))
-                                              (list tdend tsoma)
-                                              ))
-                      ))
-            
-                   (points-lines 
-                    (let ((points-header (map string->number (string-split (car points-lines) " \t"))))
-                      (if (not (= (car points-header) (length (cdr points-lines))))
-                          (error 'load-layer-tree "number of points mismatch in points matrix" points-header))
-                      (cdr points-lines)))
-
-                   (points-data
-                     (let recur ((id 0) (pts '()) (seci 0) (secs topology-sections) (lines points-lines))
-                       (if (null? secs) pts
-                           (let* (
-                                  (npts1 (car secs))
-                                  (id.pts1 (fold 
-                                            (match-lambda* 
-                                             ((line (id . lst))
-                                              (let ((pt (map string->number (string-split line " \t"))))
-                                                (match-let (((x y z radius) pt))
-                                                           (let ((layer (find-index (lambda (layer) (member seci layer)) topology-layers)))
-                                                             (cons (+ 1 id)
-                                                                   (cons (make-layer-point id (make-point x y z) radius seci layer) lst))
-                                                             ))
-                                                )))
-                                             (cons id pts)
-                                             (take lines npts1)))
-                                  )
-                             (recur (car id.pts1) (cdr id.pts1) (+ 1 seci) (cdr secs) (drop lines npts1))
-                             ))
-                       ))
-
-                   (tree-graph (make-layer-tree-graph topology-sections topology-layers topology-data points-data label))
-                   )
-              
-              tree-graph
-              
-              ))
-          )
-
+	  (let* (
+		 (topology-lines
+		  (let* ((topology-in (open-input-file topology-filename))
+			 (lines (if (not topology-in)
+				    (error 'load-layer-tree "topology file not found" topology-filename)    
+				    (read-lines topology-in))))
+		    (close-input-port topology-in)
+		    (filter (lambda (line) (not (irregex-match comment-pat line))) lines)))
+		 
+		 (points-lines
+		  (let* ((points-in (open-input-file points-filename))
+			 (lines (if (not points-in) 
+				    (error 'load-layer-tree "points file not found" points-filename)
+				    (read-lines points-in))))
+		    (close-input-port points-in)
+		    (filter (lambda (line) (not (irregex-match comment-pat line))) lines)))
+		 
+		 (topology-layers
+		  (cadr
+		   (let ((layer-lines (take topology-lines nlayers)))
+		     (fold-right (match-lambda* 
+				  ((line (i lst))
+				   (match-let (((nsecs . sec-ids) (map string->number (string-split line " \t"))))
+					      (if (= (length sec-ids) nsecs)
+						  (list (+ 1 i) (cons sec-ids lst))
+						  (error 'load-layer-tree "number of sections mismatch in layer description" nsecs sec-ids))
+					      )))
+				 '(0 ()) layer-lines))))
+		 
+		 (topology-sections
+		  (let ((rest-lines (drop topology-lines nlayers)))
+		    (let ((points-sections-line (car rest-lines)))
+		      (match-let (((nsections . point-numbers) (map string->number (string-split points-sections-line " \t"))))
+				 (if (not (= nsections (length point-numbers)))
+				     (error 'load-layer-tree "number of sections mismatch in section description"))
+				 point-numbers))
+		    ))
+		 
+		 (topology-data
+		  (let ((rest-lines (drop topology-lines (+ 1 nlayers))))
+		    (match-let (((mdend ndend tdend rest-lines) (load-matrix-from-lines rest-lines)))
+			       (if (not (= ndend 2)) 
+				   (error 'load-layer-tree "invalid dendrite topology dimensions" mdend ndend))
+			       (match-let (((msoma nsoma tsoma rest-lines) (load-matrix-from-lines rest-lines)))
+					  (if (not (= nsoma 2)) 
+					      (error 'load-layer-tree "invalid soma topology dimensions" msoma nsoma))
+					  (list tdend tsoma)
+					  ))
+		    ))
+		 
+		 (points-lines 
+		  (let ((points-header (map string->number (string-split (car points-lines) " \t"))))
+		    (if (not (= (car points-header) (length (cdr points-lines))))
+			(error 'load-layer-tree "number of points mismatch in points matrix" points-header))
+		    (cdr points-lines)))
+		 
+		 (points-data
+		  (let recur ((id 0) (pts '()) (seci 0) (secs topology-sections) (lines points-lines))
+		    (if (null? secs) pts
+			(let* (
+			       (npts1 (car secs))
+			       (id.pts1 (fold 
+					 (match-lambda* 
+					  ((line (id . lst))
+					   (let ((pt (map string->number (string-split line " \t"))))
+					     (match-let (((x y z radius) pt))
+							(let ((layer (find-index (lambda (layer) (member seci layer)) topology-layers)))
+							  (cons (+ 1 id)
+								(cons (make-layer-point id (make-point x y z) radius seci layer) lst))
+							  ))
+					     )))
+					 (cons id pts)
+					 (take lines npts1)))
+			       )
+			  (recur (car id.pts1) (cdr id.pts1) (+ 1 seci) (cdr secs) (drop lines npts1))
+			  ))
+		    ))
+		 
+		 (tree-graph (make-layer-tree-graph topology-sections topology-layers topology-data points-data label))
+		 )
+	    
+	    tree-graph
+	    
+	    ))
 
         (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm myrank size output-dir)
 
