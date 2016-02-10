@@ -196,6 +196,7 @@
       )
     ))
 
+(print "loaded DGCs")
 
 ;; Connection points for grid cell perforant path synapses
 (define GridCells
@@ -209,8 +210,10 @@
 	  (let recur ((gid (+ 1 myrank)) (modindex 1) (lst '()))
             (if (<= modindex n-modules)
                 (let inner ((gid gid) (cellindex myrank) (lst lst))
+                  (print "gid = " gid " cellindex = " cellindex)
                   (if (< cellindex n-grid-cells-per-module)
                       (inner (+ gid mysize)
+
                              (+ cellindex mysize)
                              (cons
                               (list gid 
@@ -232,6 +235,7 @@
     (fold-right
       (match-lambda*
        (((gid pp-contacts) lst)
+        (print "grid cell gid = " gid)
         (if (> (length pp-contacts) 0)
 	    (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)
 	    lst)))
@@ -239,6 +243,8 @@
       pp-contacts
       )
     ))
+
+(print "loaded Grid cells")
 
 
 
