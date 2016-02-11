@@ -28,4 +28,4 @@ mkdir -p $results_dir
 cd $results_dir
 
 ibrun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.5 \
---grid-cells=10:3800 -o $results_dir
+ --grid-cells=10:3800 -o $results_dir
