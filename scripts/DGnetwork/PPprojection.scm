@@ -205,28 +205,32 @@
          (n-modules (car grid-cell-params))
          (n-grid-cells-per-module (cadr grid-cell-params))
 
+
          (pp-contacts
-	  (let recur ((gid (+ 1 myrank)) (modindex 1) (lst '()))
+	  (let recur ((gid 0) (modindex 1) (lst '()))
             (if (<= modindex n-modules)
-                (let inner ((gid gid) (cellindex myrank) (lst lst))
-                  (if (< cellindex n-grid-cells-per-module)
-                      (inner (+ gid mysize)
-                             (+ cellindex mysize)
-                             (cons
-                              (list gid 
-                                     (kd-tree->list*
-                                      (car
-                                       (PointsFromFileWhdr
-                                        (make-pathname (opt 'presyn-dir) 
-                                                       (make-pathname (fmt #f (pad-char #\0 (pad/left 2 (num modindex))))
-                                                                      (sprintf "GridCell_~A.dat" 
-                                                                               (fmt #f (pad-char #\0 (pad/left 4 (num (+ 1 cellindex))))))
-                                                                      )))
-                                       )))
-                              lst))
+                (let inner ((gid gid) (cellindex 1) (lst lst))
+                  (if (<= cellindex n-grid-cells-per-module)
+		      (let ((root (modulo gid mysize)))
+			(if (= myrank root)
+			    (inner (+ gid 1)
+				   (+ cellindex 1)
+				   (cons
+				    (list (+ 1 gid)
+					  (kd-tree->list*
+					   (car
+					    (PointsFromFileWhdr
+					     (make-pathname (opt 'presyn-dir) 
+							    (make-pathname (fmt #f (pad-char #\0 (pad/left 2 (num modindex))))
+									   (sprintf "GridCell_~A.dat" 
+										    (fmt #f (pad-char #\0 (pad/left 4 (num cellindex)))))
+									   )))
+					    )))
+				    lst))
+			    (inner (+ gid 1) (+ cellindex 1) lst)))
                       (recur gid (+ 1 modindex) lst)))
                 lst)
-            )) 
+            ))
 	 )
 
     (fold-right
