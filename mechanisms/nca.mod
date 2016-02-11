@@ -25,7 +25,7 @@ RANGE gncabar
 RANGE cinf, ctau, dinf, dtau, inca
 }
  
-INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
+:INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
         v (mV) 
@@ -80,12 +80,12 @@ PROCEDURE rates(v) {  :Computes rate and other constants at current v.
         q10 = 3^((celsius - 6.3)/10)
                 :"c" NCa activation system
         alpha = -0.19*vtrap(v-19.88,-10)
-	beta = 0.046*exp(-v/20.73)
+	beta = 0.046*exptrap(1,-v/20.73)
 	sum = alpha+beta        
 	ctau = 1/sum      cinf = alpha/sum
                 :"d" NCa inactivation system
-	alpha = 0.00016/exp(-v/48.4)
-	beta = 1/(exp((-v+39)/10)+1)
+	alpha = 0.00016/exptrap(2,-v/48.4)
+	beta = 1/(exptrap(3,(-v+39)/10)+1)
 	sum = alpha+beta        
 	dtau = 1/sum
         dinf = alpha/sum
@@ -103,9 +103,20 @@ FUNCTION vtrap(x,y) {  :Traps for 0 in denominator of rate eqns.
         if (fabs(x/y) < 1e-6) {
                 vtrap = y*(1 - x/y/2)
         }else{  
-                vtrap = x/(exp(x/y) - 1)
+                vtrap = x/(exptrap(0,x/y) - 1)
         }
 }
+
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap nca [%d]: x = %g\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
+
  
 UNITSON
 

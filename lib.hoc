@@ -687,14 +687,13 @@ proc vrecord() { local status, gid, i localobj pnm, cell, vec strdef cmd
     
     pnm = $o1
     
-    cmd = sprint
-    sprint(cmd, "my_indicesVrecord = indicesVrecord", templatePath)
+    sprint(cmd, "my_indicesVrecord = indicesVrecord")
     status = execute(cmd)
-    
-    vec = new Vector(my_indicesVrecord.size())
-    for i=0, my_indicesVrecord.size()-1 {
-        gid  = my_indicesVrecord.x[i]
-        cell = pnm.pc.gid2cell($3)
+
+    vec = new Vector(my_indicesVrecord.count())
+    for i=0, my_indicesVrecord.count()-1 {
+        gid  = my_indicesVrecord.o(i).n
+        cell = pnm.pc.gid2cell(gid)
         vec.x[i] = cell.soma.v
     }
     vrecordlog.prepend(vec)
@@ -702,20 +701,30 @@ proc vrecord() { local status, gid, i localobj pnm, cell, vec strdef cmd
 }
 
 // Writes out voltage traces
-proc vrecordout() { local i localobj f, vec, lst
+proc vrecordout() { local i, j, status localobj f, vec, lst, indices
+
+    indices = $o2
     
     lst = new List()
     for i=0, vrecordlog.count()-1 {
-        lst.prepend(vrecordlog.x(i))
+        lst.prepend(vrecordlog.o(i))
     }
-    
+
     f = new File($s1)
     
     f.wopen()
+    f.printf("# ")
+    for i=0, indices.count()-1 {
+	f.printf("%d ", indices.o(i).n)
+    }
+    f.printf("\n")
     for i=0, lst.count()-1 {
         vec = lst.o(i)
 	f.printf("%g ", i*dt_vrecord)
-        vec.printf(f)
+	for j=0, vec.size()-1 {
+	   f.printf("%g ", vec.x[j])
+        }
+        f.printf("\n")
     }
     f.close()
 }

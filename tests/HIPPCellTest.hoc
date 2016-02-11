@@ -16,7 +16,7 @@ hc = new HIPPCell(1, 1)
 hc.soma { psection() }
 
 prelength = 500
-mainlength = 2000
+mainlength = 5000
 vinit = -60
 
 //**********************************************************************

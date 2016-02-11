@@ -14,8 +14,8 @@ xopen("./templates/MossyCell.hoc")
 objref mc
 mc = new MossyCell(1, 1)
 
-prelength = 500
-mainlength = 2000
+prelength = 1000
+mainlength = 6000
 
 
 //**********************************************************************
@@ -26,7 +26,7 @@ proc simulate() { local preDT, mainDT, logsize  localobj logfile, tlog, Vlog
     mainDT = 0.025
     preDT = 0.025
     
-    cvode_active (1)
+    cvode_active (0)
     
     dt = preDT
     tstop = prelength

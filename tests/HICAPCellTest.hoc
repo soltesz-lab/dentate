@@ -15,7 +15,7 @@ objref hcc
 hcc = new HICAPCell(1, 1)
 hcc.soma { psection() }
 prelength = 500
-mainlength = 2000
+mainlength = 6000
 vinit = -60
 
 //**********************************************************************
@@ -27,7 +27,7 @@ proc simulate() { local preDT, mainDT, logsize  localobj logfile, tlog, Vlog
     preDT = 0.025
     
     cvode_active (0)
-    
+
     dt = preDT
     tstop = prelength
     run()

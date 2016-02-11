@@ -7,7 +7,7 @@ NEURON {
 	SUFFIX na3
 	USEION na READ ena WRITE ina
 	RANGE  gbar, ar
-	GLOBAL minf, hinf, mtau, htau, sinf, taus,qinf, thinf
+	:GLOBAL minf, hinf, mtau, htau, sinf, taus,qinf, thinf
 }
 
 PARAMETER {
@@ -81,15 +81,15 @@ INITIAL {
 
 
 FUNCTION alpv(v(mV)) {
-         alpv = 1/(1+exp((v-vvh-sh)/vvs))
+         alpv = 1/(1+exptrap(1,(v-vvh-sh)/vvs))
 }
         
 FUNCTION alps(v(mV)) {  
-  alps = exp(1.e-3*zetas*(v-vhalfs-sh)*9.648e4/(8.315*(273.16+celsius)))
+  alps = exptrap(2,1.e-3*zetas*(v-vhalfs-sh)*9.648e4/(8.315*(273.16+celsius)))
 }
 
 FUNCTION bets(v(mV)) {
-  bets = exp(1.e-3*zetas*gms*(v-vhalfs-sh)*9.648e4/(8.315*(273.16+celsius)))
+  bets = exptrap(3,1.e-3*zetas*gms*(v-vhalfs-sh)*9.648e4/(8.315*(273.16+celsius)))
 }
 
 LOCAL mexp, hexp, sexp
@@ -114,7 +114,7 @@ PROCEDURE trates(vm,a2,sh2) {
 	b = trap0(-vm,-thi2-sh2,Rg,qg)
 	htau =  1/(a+b)/qt
         if (htau<hmin) {htau=hmin}
-	hinf = 1/(1+exp((vm-thinf-sh2)/qinf))
+	hinf = 1/(1+exptrap(4,(vm-thinf-sh2)/qinf))
 	c=alpv(vm)
         sinf = c+a2*(1-c)
         taus = bets(vm)/(a0s*(1+alps(vm)))
@@ -123,10 +123,21 @@ PROCEDURE trates(vm,a2,sh2) {
 
 FUNCTION trap0(v,th,a,q) {
 	if (fabs(v-th) > 1e-6) {
-	        trap0 = a * (v - th) / (1 - exp(-(v - th)/q))
+	        trap0 = a * (v - th) / (1 - exptrap(0, -(v - th)/q))
 	} else {
 	        trap0 = a * q
  	}
 }	
+
+
+FUNCTION exptrap(loc,x) {
+  if (x>=700.0) {
+    printf("exptrap na3n [%g]: x = %g\n", loc, x)
+    exptrap = exp(700.0)
+  } else {
+    exptrap = exp(x)
+  }
+}
+
 
         
