@@ -196,7 +196,6 @@
       )
     ))
 
-
 ;; Connection points for grid cell perforant path synapses
 (define GridCells
   (let* (
@@ -243,7 +242,6 @@
       pp-contacts
       )
     ))
-
 
 
 (define PPtoDGC_projection

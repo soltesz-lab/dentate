@@ -15,7 +15,7 @@ set -x
 forest=$SLURM_ARRAY_TASK_ID 
 if test "$forest" = "";
 then
-  forest=250
+  forest=1
 fi
 
 echo forest = $forest
@@ -27,4 +27,5 @@ results_dir=/oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Cont
 mkdir -p $results_dir
 cd $results_dir
 
-ibrun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.5 --grid-cells=10:3800 -o $results_dir
+ibrun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.5 \
+--grid-cells=10:3800 -o $results_dir
