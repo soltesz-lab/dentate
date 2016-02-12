@@ -248,7 +248,7 @@
   (let* ((target (SetExpr (section DGCs Dendrites)))
          (source (SetExpr (section GridCells PPsynapses)))
         )
-    (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(2 3) (opt 'output-dir))))
+    (let ((PPtoDGC (LayerProjection 'PPtoDGC (opt 'radius) source target '(1 2) (opt 'output-dir))))
       PPtoDGC)))
 
 (MPI:finalize)
