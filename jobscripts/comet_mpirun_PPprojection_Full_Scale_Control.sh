@@ -20,12 +20,14 @@ fi
 
 echo forest = $forest
 
-forest_dir=/oasis/scratch/comet/$USER/temp_project/dentate/Full_Scale_Control/GC/$forest
-gridcell_dir=/oasis/scratch/comet/$USER/temp_project/GridCellModules
-results_dir=/oasis/scratch/comet/$USER/temp_project/PPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
+WORK=/oasis/scratch/comet/$USER/temp_project
+
+forest_dir=$WORK/dentate/Full_Scale_Control/GC/$forest
+gridcell_dir=$WORK/GridCellModules
+results_dir=$WORK/PPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
 
-ibrun $HOME/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.5 \
+ibrun $WORK/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.0 \
  --grid-cells=10:3800 -o $results_dir
