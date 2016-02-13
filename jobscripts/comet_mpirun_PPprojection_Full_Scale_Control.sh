@@ -29,5 +29,5 @@ results_dir=$WORK/PPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 mkdir -p $results_dir
 cd $results_dir
 
-ibrun $WORK/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 7.0 \
+ibrun $WORK/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 11.0 \
  --grid-cells=10:3800 -o $results_dir
