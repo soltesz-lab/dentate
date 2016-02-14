@@ -10,7 +10,7 @@
         (run (csi -s calc.grm)))
 
        ((dynld-name "npcloud") ("npcloud.scm" "calc.yy.scm")
-	(compile -O -d2 -S -s npcloud.scm -j npcloud))
+	(compile -O2 -S -s npcloud.scm -j npcloud))
 
        ((dynld-name "npcloud.import") ("npcloud.import.scm")
 	(compile -O2 -s npcloud.import.scm)) 
