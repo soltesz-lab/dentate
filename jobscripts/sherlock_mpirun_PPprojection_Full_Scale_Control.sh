@@ -2,8 +2,9 @@
 #
 #SBATCH -J PPprojection_Full_Scale_Control
 #SBATCH -o ./results/PPprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=2
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=4
+#SBATCH --mem=8192
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -19,11 +20,11 @@ then
   forest=1
 fi
 forest_dir=/scratch/users/$USER/dentate/Full_Scale_Control/GC/$forest
-gridcell_dir=/scratch/users/$USER/gridcells/GridCellModules
+gridcell_dir=/scratch/users/$USER/gridcells/GridCellModules_1000
 results_dir=/scratch/users/$USER/PPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 9.5 -o $results_dir \
+mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 3.0 -o $results_dir \
  --grid-cells=10:3800

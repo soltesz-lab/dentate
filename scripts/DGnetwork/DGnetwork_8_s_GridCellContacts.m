@@ -24,6 +24,7 @@ function DGnetwork_8_s_GridCellContacts(directory)
 
 N_GridCellModules = 10;
 N_GridCellsPerModule = 3800;
+N_GridCellLongExtent = 1000;
 
 N_GridCells = N_GridCellModules * N_GridCellsPerModule;
 GridCell_percent_start = 0.1;
@@ -90,7 +91,7 @@ for gridModule = 1:N_GridCellModules
         gridCell
     
         percent = GridCell_percent_start + GridCell_percent_step*gridCellIndex
-        width = 60;
+        width = N_GridCellLongExtent;
         
         % Get septotemporal center
         [~,center_index]                = min(abs(stsums - (percent*max(stsums))));
