@@ -1,4 +1,4 @@
-function DGnetwork_8_s_GridCellContacts(directory)
+function GridCellModules = DGnetwork_8_s_GridCellContacts(directory)
 
 %% MEC grid cells
 %% Assumptions:
@@ -37,15 +37,16 @@ Z = cell(4,1);
 for sublayer = 1:4
     if sublayer > 1
         [x_i,y_i,z_i]   = layer_eq_ML_poisson(sublayer-2);
+        [x_m,y_m,z_m]   = layer_eq_ML_poisson(sublayer-1.5);
         switch sublayer
           case 4
             [x_o,y_o,z_o]   = layer_eq_ML_poisson(4);
           otherwise
             [x_o,y_o,z_o]   = layer_eq_ML_poisson(sublayer-1);
         end
-        X{sublayer}     = [x_o;x_i];
-        Y{sublayer}     = [y_o;y_i];
-        Z{sublayer}     = [z_o;z_i];
+        X{sublayer}     = [x_o;x_m;x_i];
+        Y{sublayer}     = [y_o;y_m;y_i];
+        Z{sublayer}     = [z_o;z_m;z_i];
     elseif sublayer == 1
         [x_i,y_i,z_i]  	= layer_eq_GCL_poisson(-1.95);
         [x_m,y_m,z_m]   = layer_eq_GCL_poisson(-1.0);
@@ -85,7 +86,9 @@ gridCellIndex = 0;
 
 %% Determine grid cell module sections
 for gridModule = 1:N_GridCellModules
+    
     GridCellModules{gridModule} = cell(N_GridCellsPerModule,1);
+    
     for gridCell = 1:N_GridCellsPerModule
 
         gridCell
