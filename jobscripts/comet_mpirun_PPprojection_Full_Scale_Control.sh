@@ -2,7 +2,7 @@
 #
 #SBATCH -J PPprojection_Full_Scale_Control
 #SBATCH -o ./results/PPprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=2
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=8
 #SBATCH -p compute
 #SBATCH -t 2:00:00
@@ -23,11 +23,11 @@ echo forest = $forest
 WORK=/oasis/scratch/comet/$USER/temp_project
 
 forest_dir=$WORK/dentate/Full_Scale_Control/GC/$forest
-gridcell_dir=$WORK/GridCellModules
+gridcell_dir=$WORK/gridcells/GridCellModules_1000
 results_dir=$WORK/PPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
 
-ibrun $WORK/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 11.0 \
+ibrun $HOME/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 5.0 \
  --grid-cells=10:3800 -o $results_dir
