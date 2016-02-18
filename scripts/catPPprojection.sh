@@ -2,9 +2,9 @@
 
 srcdir=$1
 prefix=$2
+forests="$3"
 
-#for forest in `seq 1 1000`; do
-for forest in 1 100 200 300 400 500 600 700 800 900 1000; do
+for forest in $forests; do
 
     echo forest = $forest
     mkdir -p $prefix/$forest
