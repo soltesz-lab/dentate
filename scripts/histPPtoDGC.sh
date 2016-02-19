@@ -2,8 +2,9 @@
 
 prefix=$1
 output=$2
+forests="$3"
 
-for forest in `seq 1 1000`; do
+for forest in $forests; do
 
     echo forest = $forest
     sort -n $prefix/$forest/PPtoDGCtargets.dat | uniq -c >> $output/histPPtoDGCtargets.dat

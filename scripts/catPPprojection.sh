@@ -2,10 +2,13 @@
 
 srcdir=$1
 prefix=$2
+forests="$3"
 
-for forest in `seq 1 1000`; do
+for forest in $forests; do
 
+    echo forest = $forest
     src=${srcdir}/PPprojection_Full_Scale_Control_forest_${forest}_*
+    mkdir -p $prefix/$forest
     cat ${src}/PPtoDGCsources*.dat > $prefix/$forest/PPtoDGCsources.dat
     cat ${src}/PPtoDGCtargets*.dat > $prefix/$forest/PPtoDGCtargets.dat
     cat ${src}/PPtoDGCsections*.dat > $prefix/$forest/PPtoDGCsections.dat
