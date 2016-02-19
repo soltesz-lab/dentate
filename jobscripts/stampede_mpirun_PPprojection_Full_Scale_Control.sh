@@ -12,7 +12,7 @@
 
 set -x
 
-forests=`seq 1 100 1000`
+forests=`seq 1 1000`
 
 gridcell_dir=$WORK/GridCellModules
 
