@@ -1,6 +1,6 @@
-function GridCellModules = DGnetwork_8_s_GridCellContacts(directory)
+function GridCellModules = DGnetwork_8_s_MPP_Contacts(directory)
 
-%% MEC grid cells
+%% Distribution of putative MEC grid cell contacts in the inner and middle molecular layers of the dentate.
 %% Assumptions:
 %% 
 %%
@@ -12,15 +12,14 @@ function GridCellModules = DGnetwork_8_s_GridCellContacts(directory)
 %%
 %% - Approximately 58,000 MEC neurons in the rat, comprised of 38% ovoid stellate cells, 29% polygonal stellate cells and 17% pyramidal cells. 
 %%   (Number estimates of neuronal phenotypes in layer II of the medial entorhinal cortex of rat and mouse, Gatome et al., Neuroscience 2010)
-%%
-%% 10,000 grid cells
+%% 
+%% - We assume 10 modules with 3800 grid cells per module, for a total of 38000 grid cells.
+%% - Each module has its own scale and orientation; within a module, grid cells have different phases.
+%% - This contrasts with model by Almeida and Lisman which has 10,000 grid cells.
 %%   (Almeida and Lisman, JNeurosci 2009)
 %%
 %%
 
-%% We assume 10 modules with 1000 grid cells per module
-%% Each module has its own scale and orientation; within a module,
-%% grid cells have different phases
 
 N_GridCellModules = 10;
 N_GridCellsPerModule = 3800;
