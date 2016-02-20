@@ -7,8 +7,8 @@ forests="$3"
 for forest in $forests; do
 
     echo forest = $forest
-    src=${srcdir}/PPprojection_Full_Scale_Control_forest_${forest}_*
     mkdir -p $prefix/$forest
+    src=${srcdir}/PPprojection_Full_Scale_Control_forest_${forest}_*
     cat ${src}/PPtoDGCsources*.dat > $prefix/$forest/PPtoDGCsources.dat
     cat ${src}/PPtoDGCtargets*.dat > $prefix/$forest/PPtoDGCtargets.dat
     cat ${src}/PPtoDGCsections*.dat > $prefix/$forest/PPtoDGCsections.dat
