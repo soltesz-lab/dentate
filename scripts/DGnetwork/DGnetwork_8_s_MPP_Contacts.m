@@ -1,6 +1,6 @@
 function GridCellModules = DGnetwork_8_s_MPP_Contacts(directory)
 
-%% Distribution of putative MEC grid cell contacts in the inner and middle molecular layers of the dentate.
+%% Distribution of putative MEC grid cell contacts in the inner and middle molecular layers of the dentate gyrus.
 %% Assumptions:
 %% 
 %%
@@ -17,6 +17,7 @@ function GridCellModules = DGnetwork_8_s_MPP_Contacts(directory)
 %% - Each module has its own scale and orientation; within a module, grid cells have different phases.
 %% - This contrasts with model by Almeida and Lisman which has 10,000 grid cells.
 %%   (Almeida and Lisman, JNeurosci 2009)
+%%
 %%
 %%
 
