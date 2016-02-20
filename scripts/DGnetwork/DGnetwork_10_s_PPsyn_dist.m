@@ -14,8 +14,11 @@ elseif str2double(slice) == 1 && str2double(epilepsy) == 1
 end
 
 %% Number of PP synapses onto a GC
+%% 1200 MPP synapses; 1500 LPP synapses
+%% (Almeida and Lisman, JNeurosci 2009)
 
-Nsyns_PP_GC = 1200;
+Nsyns_MPP_GC = 1200;
+Nsyns_LPP_GC = 1500;
 
 %% Scaling factor used to obtain conductance from spine size
 f_PP_GC = 0.001;
@@ -43,33 +46,25 @@ PD_PP_GC = [ 0.005 0.0;
 % Cumulative distribution
 CD_PP_GC = cumsum(PD_PP_GC(:,2));
 
-weights_PP_GC = cell(length(locations),1);
-conn_PP_GC = cell(length(locations),1);
-
+weights_MPP_GC = cell(length(locations),1);
+weights_LPP_GC = cell(length(locations),1);
 
 for i = 1:length(locations)
     
-    R = rand(Nsyns_PP_GC,1); % random trials
+    RM = rand(Nsyns_MPP_GC,1); % random trials
+    RL = rand(Nsyns_LPP_GC,1); % random trials
     
     %% Counts the number of elements of X that fall in the 
-    %% cumulative distribution; PP_GC_idx are the bin indices
+    %% cumulative distribution; idx_?PP_GC are the bin indices
 
-    [n, idx_PP_GC] = histc(R, CD_PP_GC);
+    [n, idx_MPP_GC] = histc(RM, CD_PP_GC);
+    [m, idx_LPP_GC] = histc(RL, CD_PP_GC);
 
     %% Determines the synaptic conductances based on sizes
-    weights_PP_GC{i} = f_PP_GC * PD_PP_GC(idx_PP_GC,1);
-    
-    %% TODO: determine distances and distribution of MEC cells
-    %% Number of modules, spacing per module
-    %% Number of grid cells per module
-    %% Distribution of modules (uniform across the GC surface)
-    %% distances = sqrt((locations{i}(:,1)-input_pt(1)).^2 + (locations{i}(:,2)-input_pt(2)).^2 + (locations{i}(:,3)-input_pt(3)).^2);
-    
-    %% Determines the MEC cell ids based on locations
-    srcs_PP_GC{i} = ;
-    
-    conns_PP_GC = {srcs_PP_GC; weights_PP_GC};
-    
-    save(sprintf('%s/PerforantPath.mat',directory),'conns_PP_GC','-v6');
+    weights_MPP_GC{i} = f_PP_GC * PD_PP_GC(idx_MPP_GC,1);
+    weights_LPP_GC{i} = f_PP_GC * PD_PP_GC(idx_LPP_GC,1);
     
 end
+    
+save(sprintf('%s/MPPsynweights.mat',directory),'weights_MPP_GC','-v6');
+save(sprintf('%s/LPPsynweights.mat',directory),'weights_LPP_GC','-v6');
