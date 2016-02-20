@@ -26,5 +26,5 @@ results_dir=/scratch/users/$USER/PPprojection_Full_Scale_Control_forest_${forest
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 6.0 -o $results_dir \
+mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 6.5 -o $results_dir \
  --grid-cells=10:3800
