@@ -21,7 +21,7 @@ function [Xpos,Ypos] = make_trajectory(X, Y, N, Xstart, Ystart, vmax, tend, grid
     Xpos(:,t) = Xpos(:,t-1) + xdir*vx;
 
     vy = randi(vmax, N, 1) - vmax/2;
-    tY(:,t) = tY(:,t-1) + ydir*vy;
+    Ypos(:,t) = Ypos(:,t-1) + ydir*vy;
 
     for i = 1:N
         if Xpos(i,t) > Xmax
@@ -41,7 +41,7 @@ function [Xpos,Ypos] = make_trajectory(X, Y, N, Xstart, Ystart, vmax, tend, grid
            yrescale = 1;
            xrescale = randi(4,1,1);
            ydir = -ydir;
-        elseif tY(i,t) < 1
+        elseif Ypos(i,t) < 1
            Ypos(i,t) = Ypos(i,t) + randi(yrescale*vmax, 1, 1);
            yrescale = 1;
            xrescale = randi(4,1,1);
