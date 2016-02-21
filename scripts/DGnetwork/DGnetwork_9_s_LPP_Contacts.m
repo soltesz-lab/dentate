@@ -10,9 +10,9 @@ function LPPCellModules = DGnetwork_9_s_LPP_Contacts(directory)
 %%
 
 
-N_LPPCellPerModule = 3400;
+N_LPPCellsPerModule = 3400;
 N_LPPCellModules = 10;
-N_LPPCells = N_LPPCellModules * N_LPPCellPerModule;
+N_LPPCells = N_LPPCellModules * N_LPPCellsPerModule;
 N_LPPCellLongExtent = 1000;
 
 LPPCell_percent_start = 0.1;
@@ -37,20 +37,20 @@ stsums = [0;sums];
 clearvars sums x y z
 
 LPPCellModules = cell(N_LPPCellModules,1);
-gridCellIndex = 0;
+lppCellIndex = 0;
 
-%% Determine grid cell module sections
-for gridModule = 1:N_LPPCellModules
+%% Determine LPP cell module sections
+for lppModule = 1:N_LPPCellModules
     
-    LPPCellModules{gridModule} = cell(N_LPPCellsPerModule,1);
+    LPPCellModules{lppModule} = cell(N_LPPCellsPerModule,1);
 
     
-    for gridCell = 1:N_LPPCellsPerModule
+    for lppCell = 1:N_LPPCellsPerModule
 
-        gridCell
+        lppCell
         
-        %% Generate new set of grid points every 40 cells
-        if (mod(gridCell-1,40) == 0)
+        %% Generate new set of LPP points every 40 cells
+        if (mod(lppCell-1,40) == 0)
 
             X = cell(4,1);
             Y = cell(4,1);
@@ -86,7 +86,7 @@ for gridModule = 1:N_LPPCellModules
             
         end
             
-        percent = LPPCell_percent_start + LPPCell_percent_step*gridCellIndex
+        percent = LPPCell_percent_start + LPPCell_percent_step*lppCellIndex
         width = N_LPPCellLongExtent;
         
         % Get septotemporal center
@@ -122,8 +122,8 @@ for gridModule = 1:N_LPPCellModules
         start_d = sum(plane.*plane_center1);
         stop_d  = sum(plane.*plane_center2);
         
-        LPPCellModules{gridModule}{gridCell} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
-        gridCellIndex = gridCellIndex + 1;
+        LPPCellModules{lppModule}{lppCell} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
+        lppCellIndex = lppCellIndex + 1;
     end
 end
 
