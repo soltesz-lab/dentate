@@ -1,34 +1,35 @@
 %% Initializes the grid cell network.
-function [l,rot,xoff,yoff] = init_network(W, H, M, N)
+function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N)
         
-  min_grid_size = 0.0001;
-  len_range = [.1, .9];
+  grid_unit = 0.0001;
 
-  [X, Y] = calc_grid(W, H, N);
+  lambda_range = [.1, .9];
+
+  [X, Y] = make_grid(W, H, N, grid_unit);
   sz = size(X)(2:end);
   xx = sz(1);
   yy = sz(2);
 
-  l_modules    = uniform(len_range(1), len_range(2), M);
-  rot_modules  = uniform(0, 2.0*pi/3, M);
+  lambda_modules = uniform(lambda_range(1), lambda_range(2), M);
+  rot_modules    = uniform(0, 2.0*pi/3, M);
             
-  l    = zeros([N,xx,yy]);  %% The grid length matrix
-  rot  = zeros([N,xx,yy]);  %% The rotation matrix
-  xoff = zeros([N,xx,yy]);  %% x offset matrix
-  yoff = zeros([N,xx,yy]);  %% y offset matrix
+  lambda = zeros([N,xx,yy]);  %% The grid length matrix
+  rot    = zeros([N,xx,yy]);  %% The rotation matrix
+  xoff   = zeros([N,xx,yy]);  %% x offset matrix
+  yoff   = zeros([N,xx,yy]);  %% y offset matrix
             
   for i=1:N 
 
     cur_module = mod(i,M) + 1;
 
-    cur_l      = l_modules(cur_module);
-    l(i,:,:)   = cur_l;
+    cur_lambda = lambda_modules(cur_module);
+    lambda(i,:,:)   = cur_lambda;
     rot(i,:,:) = rot_modules(cur_module);
                 
-    cur_xoff    = uniform(-cur_l, cur_l, 1);
+    cur_xoff    = uniform(-cur_lambda, cur_lambda, 1);
     xoff(i,:,:) = cur_xoff;
                 
-    y_range = sqrt(cur_l^2 - cur_xoff^2);
+    y_range = sqrt(cur_lambda^2 - cur_xoff^2);
     yoff(i,:,:) = uniform(-y_range, y_range, 1);
 
   end
