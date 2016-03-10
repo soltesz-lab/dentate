@@ -1,4 +1,8 @@
 %% Initializes the grid cell network.
+%% W: width
+%% H: height
+%% M: number of modules
+%% N: number of grid cells 
 function [l,rot,xoff,yoff] = init_network(W, H, M, N)
         
   min_grid_size = 0.0001;

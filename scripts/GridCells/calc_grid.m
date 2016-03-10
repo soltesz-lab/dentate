@@ -3,7 +3,7 @@ function [X,Y] = calc_grid(W, H, N)
         
   min_grid_size = 0.001;
 
-  size_len = sqrt(min_grid_size)
+  size_len = sqrt(min_grid_size);
   mesh_npts = round(W/size_len)
         
   x = linspace(-1.0*W/2, 1.0*W/2, mesh_npts);
