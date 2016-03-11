@@ -23,29 +23,33 @@ proc assert() { local test strdef errmsg
 func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pnm, cell, synlist, synType
     i = -1
     pnm = $o1
-    if (pnm.gid_exists($3)) {
+    lsrc = $2
+    ltar = $3
+    synType = $o4
+    w   = $o5
+    del = $6
+    if (pnm.gid_exists(ltar)) {
         // target in this subset
         // source may be on this or another machine
-        cell = pnm.pc.gid2cell($3)
-        synType = $o4
-        w = $o5
+        cell = pnm.pc.gid2cell(ltar)
         assert (synType.is_undefined == 0,"synType is undefined")
         if (synType.is_number) {
-            mknetcon(pnm, $2, cell.syns.o(synType.n), w.n/1000.0, $6)
+            mknetcon(pnm, lsrc, cell.syns.o(synType.n), w.n/1000.0, del)
         } else {
-            mknetcon(pnm, $2, cell.syns.o(synType.l.o(0).n), w.l.o(0).n/1000.0, $6)
-            mknetcon(pnm, $2, cell.syns.o(synType.l.o(1).n), w.l.o(1).n/1000.0, $6)
+            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(0).n), w.l.o(0).n/1000.0, del)
+            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(1).n), w.l.o(1).n/1000.0, del)
         }
         i = pnm.nclist.count
-    } else if ((se = pnm.gid_exists($1)) > 0) {
+    } else if ((se = pnm.gid_exists(lsrc)) > 0) {
         // source exists but not the target
         if (se != 3){ // output to another machine and it is
             // not yet an outputcell
-            pnm.pc.outputcell($2)
+            pnm.pc.outputcell(ltar)
         }
     }
     return i
 }
+
 
 proc mknetcon() { local i localobj nc, synlist, pnm
     pnm = $o1
@@ -56,6 +60,47 @@ proc mknetcon() { local i localobj nc, synlist, pnm
         nc.delay = $5
         pnm.nclist.append(nc)
     }
+}
+
+
+// A variant of ParallelNetManager.nc_append that 1) takes in a
+// synaptic point process as an argument (as opposed to the index of a
+// synapse in cell.synlist) and 2) takes into account the layer,
+// section, and node of the connection, and chooses the synaptic
+// weight from a predefined vector of synaptic weights for this
+// connection type
+
+func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node localobj w, nc, pnm, cell, synlist, synType
+    i = -1
+    pnm     = $o1
+    lsrc    = $3
+    ltar    = $4
+    synType = $o5
+    w       = $o6
+    del     = $7
+    layer   = $8
+    section = $9
+    node    = $10
+    if (pnm.gid_exists(ltar)) {
+        // target in this subset
+        // source may be on this or another machine
+        cell = pnm.pc.gid2cell(ltar)
+        assert (synType.is_undefined == 0,"synType is undefined")
+        if (synType.is_number) {
+            mknetcon(pnm, lsrc, cell.syns.o(synType.n), w.v.x[widx]/1000.0, del)
+        } else {
+            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(0).n), w.l.o(0).v[widx]/1000.0, del)
+            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(1).n), w.l.o(1).v[widx]/1000.0, del)
+        }
+        i = pnm.nclist.count
+    } else if ((se = pnm.gid_exists(lsrc)) > 0) {
+        // source exists but not the target
+        if (se != 3){ // output to another machine and it is
+            // not yet an outputcell
+            pnm.pc.outputcell(ltar)
+        }
+    }
+    return i
 }
 
 

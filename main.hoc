@@ -361,7 +361,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w
+proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w, rs
     
     strdef cmd, connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
@@ -369,114 +369,151 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
     nConnectivityTypes = connectivityTypes.count()
     if (verbose > 0) {
        printf ("nConnectivityTypes = %d\n", nConnectivityTypes)
-    }
-    
-    for k=0, nConnectivityTypes-1 { 
-        connectivityType = connectivityTypes.o(k)
-        order = connectivityType.getPropertyScalar("order")
-        synType = connectivityType.getPropertyObject("synType")
-        wdType = connectivityType.getPropertyScalar("wdType")
-        connectivityName = connectivityType.getPropertyString("name").s
-        assert(synType.is_undefined == 0, "synType is undefined")
-        if (verbose > 0) {
-            printf ("connectivityName = %s\n", connectivityName)
-            printf ("wdType = %d\n", wdType)
-	    print "synType.is_number = ", synType.is_number
-	    print "synType.is_list = ", synType.is_list
-        }
-        presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
-        presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
-        presynapticSize = presynapticType.getPropertyScalar("numCells")
-        presynapticOffset = presynapticType.getPropertyScalar("offset")
-        postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
-        postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
-        postsynapticSize = postsynapticType.getPropertyScalar("numCells")
-        postsynapticOffset = postsynapticType.getPropertyScalar("offset")
-        if (verbose > 0) {
-            printf ("presynaptic population = %s\n", presynapticPopulation)
-            printf ("presynaptic size = %d\n", presynapticSize)
-            printf ("postsynaptic population = %s\n", postsynapticPopulation)
-            printf ("postsynaptic size = %d\n", postsynapticSize)
-        }
-        sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
-        sprint(cmd, "test -e %s", connectivityPath) // check if the path exist
-        status = system(cmd)
-        if (status == 0) {
-            f = new File(connectivityPath)
-        } else {
-            // Try connectivity file local to this MPI node
-            sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid+1)
-            f = new File(connectivityPath)
-        }
-        f.ropen()
-        m = new Matrix()
-        m.scanf(f)
-        f.close()
-        if (wdType == 1) {
-            for i=0, m.nrow-1 {
-                srcid = m.x[i][0]
-                destid = m.x[i][1]
-                if (order == 0) {
-                    // relative numbering of pre/post synaptic cells -- add the respective offsets
-                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
-                    srcid1 = srcid + presynapticOffset
-                    destid1 = destid + postsynapticOffset
-                } else {
-                    // absolute numbering of pre/post synaptic cells
-                    srcid1 = srcid
-                    destid1 = destid
-                }
-                if (!pnm.gid_exists(destid1)) { continue }
-                w = m.x[i][2]
-                del = m.x[i][3]
-	        ncid = nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
-                if (verbose > 0) {
+   }
+   
+   for k=0, nConnectivityTypes-1 { 
+       connectivityType = connectivityTypes.o(k)
+       order = connectivityType.getPropertyScalar("order")
+       synType = connectivityType.getPropertyObject("synType")
+       wdType = connectivityType.getPropertyScalar("wdType")
+       connectivityName = connectivityType.getPropertyString("name").s
+       assert(synType.is_undefined == 0, "synType is undefined")
+       if (verbose > 0) {
+           printf ("connectivityName = %s\n", connectivityName)
+           printf ("wdType = %d\n", wdType)
+	   print "synType.is_number = ", synType.is_number
+	   print "synType.is_list = ", synType.is_list
+       }
+       presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
+       presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
+       presynapticSize = presynapticType.getPropertyScalar("numCells")
+       presynapticOffset = presynapticType.getPropertyScalar("offset")
+       postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
+       postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
+       postsynapticSize = postsynapticType.getPropertyScalar("numCells")
+       postsynapticOffset = postsynapticType.getPropertyScalar("offset")
+       if (verbose > 0) {
+           printf ("presynaptic population = %s\n", presynapticPopulation)
+           printf ("presynaptic size = %d\n", presynapticSize)
+           printf ("postsynaptic population = %s\n", postsynapticPopulation)
+           printf ("postsynaptic size = %d\n", postsynapticSize)
+       }
+       sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
+       sprint(cmd, "test -e %s", connectivityPath) // check if the path exist
+       status = system(cmd)
+       if (status == 0) {
+           f = new File(connectivityPath)
+       } else {
+           // Try connectivity file local to this MPI node
+           sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid+1)
+           f = new File(connectivityPath)
+       }
+       f.ropen()
+       m = new Matrix()
+       m.scanf(f)
+       f.close()
+       if (wdType == 1) {
+           for i=0, m.nrow-1 {
+               srcid = m.x[i][0]
+               destid = m.x[i][1]
+               if (order == 0) {
+                   // relative numbering of pre/post synaptic cells -- add the respective offsets
+                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                   srcid1 = srcid + presynapticOffset
+                   destid1 = destid + postsynapticOffset
+               } else {
+                   // absolute numbering of pre/post synaptic cells
+                   srcid1 = srcid
+                   destid1 = destid
+               }
+               if (!pnm.gid_exists(destid1)) { continue }
+               w = m.x[i][2]
+               del = m.x[i][3]
+	       ncid = nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
+               if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
-                }
-                nc = pnm.nclist.o(ncid)
-		if (makegraph > 0) {
-                  edges = new Vector(2)
-                  edges.x[0] = srcid1
-                  edges.x[1] = destid1
-                  conlist.prepend(edges)
-		}
-            }
-            m.resize(1,1)
-        } else if (wdType == 2) {
-            w = connectivityType.getPropertyObject("standardWeight")
-            velocity = connectivityType.getPropertyScalar("standardVelocity")
-            for i=0, m.nrow-1 {
-                srcid = m.x[i][0]
-                destid = m.x[i][1]
-                if (order == 0) {
-                    // relative numbering of pre/post synaptic cells -- add the respective offsets
-                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
-                    srcid1 = srcid + presynapticOffset
-                    destid1 = destid + postsynapticOffset
-                } else {
-                    // absolute numbering of pre/post synaptic cells
-                    srcid1 = srcid
-                    destid1 = destid
-                }
-                if (!pnm.gid_exists(destid1)) { continue }
-                dist = m.x[i][2] + m.x[i][3]
-                del = (dist / velocity) + 1.0
-                if (verbose > 0) {
+               }
+               nc = pnm.nclist.o(ncid)
+	       if (makegraph > 0) {
+                   edges = new Vector(2)
+                   edges.x[0] = srcid1
+                   edges.x[1] = destid1
+                   conlist.prepend(edges)
+	       }
+           }
+           m.resize(1,1)
+       } else if (wdType == 2) {
+           w = connectivityType.getPropertyObject("standardWeight")
+           velocity = connectivityType.getPropertyScalar("standardVelocity")
+           for i=0, m.nrow-1 {
+               srcid = m.x[i][0]
+               destid = m.x[i][1]
+               if (order == 0) {
+                   // relative numbering of pre/post synaptic cells -- add the respective offsets
+                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                   srcid1 = srcid + presynapticOffset
+                   destid1 = destid + postsynapticOffset
+               } else {
+                   // absolute numbering of pre/post synaptic cells
+                   srcid1 = srcid
+                   destid1 = destid
+               }
+               if (!pnm.gid_exists(destid1)) { continue }
+               dist = m.x[i][2] + m.x[i][3]
+               del = (dist / velocity) + 1.0
+               if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
-                }
-	        ncid = nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
-		if (makegraph > 0) {
-                  edges = new Vector(2)
-                  edges.x[0] = srcid1
-                  edges.x[1] = destid1
-                  conlist.prepend(edges)
-		}
-            }
-            m.resize(1,1)
-        }
-    }
+               }
+	       ncid = nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
+	       if (makegraph > 0) {
+                   edges = new Vector(2)
+                   edges.x[0] = srcid1
+                   edges.x[1] = destid1
+                   conlist.prepend(edges)
+	       }
+           }
+           m.resize(1,1)
+       } else if (wdType == 3) {
+           // connectivity of the form:
+           // src dest distance layer section node/point
+           w = connectivityType.getPropertyObject("weightHistogram")
+           velocity = connectivityType.getPropertyScalar("standardVelocity")
+           for i=0, m.nrow-1 {
+               srcid   = m.x[i][0]
+               destid  = m.x[i][1]
+               dist    = m.x[i][2]
+               layer   = m.x[i][3]
+               section = m.x[i][4]
+               node    = m.x[i][5]
+               if (order == 0) {
+                   // relative numbering of pre/post synaptic cells -- add the respective offsets
+                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                   srcid1 = srcid + presynapticOffset
+                   destid1 = destid + postsynapticOffset
+               } else {
+                   // absolute numbering of pre/post synaptic cells
+                   srcid1 = srcid
+                   destid1 = destid
+               }
+               if (!pnm.gid_exists(destid1)) { continue }
+               del = (dist / velocity) + 1.0
+               if (verbose > 0) {
+                   printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
+               }
+	       ncid = nc_appendsyn_lsn(pnm, srcid1, destid1, synType, w, del, layer, section node)
+	       if (makegraph > 0) {
+                   edges = new Vector(2)
+                   edges.x[0] = srcid1
+                   edges.x[1] = destid1
+                   conlist.prepend(edges)
+	       }
+           }
+           m.resize(1,1)
+       }
+   }
 }
 
 proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
