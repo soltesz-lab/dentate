@@ -1,34 +1,23 @@
-function GridCellModules = DGnetwork_8_s_GridCellContacts(directory)
+function LPPCellModules = DGnetwork_9_s_LPP_Contacts(directory)
 
-%% MEC grid cells
+%% Distribution of putative LEC cell contacts in the inner and middle molecular layers of the dentate gyrus.
 %% Assumptions:
 %% 
-%%
-%% - Grid cells: organized in 4-5 modules, extending over 50% of the dorsoventral MEC extent
-%% - By extrapolation, possibly around 10 modules in the entire MEC
-%% - Discrete logarithmic increment of grid cell scale: 40, 50, 70, 100 cm
-%% - Comodular organization of grid orientation and scale: -20, -10, 10, 20 degrees
-%%   (Stensola et al., Nature 2012)
-%%
-%% - Approximately 58,000 MEC neurons in the rat, comprised of 38% ovoid stellate cells, 29% polygonal stellate cells and 17% pyramidal cells. 
-%%   (Number estimates of neuronal phenotypes in layer II of the medial entorhinal cortex of rat and mouse, Gatome et al., Neuroscience 2010)
-%%
-%% 10,000 grid cells
-%%   (Almeida and Lisman, JNeurosci 2009)
+%% - Approximately 52,000 LEC neurons in the rat, 67% fan/stellate cells.
+%%   (Based on summary in Connectivity of the Hippocampus, Menno Witter 2007, but see supporting evidence.)
+%% - Assuming similar modular organization as in MEC, tentative 10 modules with 3400 stellate cells each.
 %%
 %%
 
-%% We assume 10 modules with 1000 grid cells per module
-%% Each module has its own scale and orientation; within a module,
-%% grid cells have different phases
 
-N_GridCellModules = 10;
-N_GridCellsPerModule = 3800;
+N_LPPCellPerModule = 3400;
+N_LPPCellModules = 10;
+N_LPPCells = N_LPPCellModules * N_LPPCellPerModule;
+N_LPPCellLongExtent = 1000;
 
-N_GridCells = N_GridCellModules * N_GridCellsPerModule;
-GridCell_percent_start = 0.1;
-GridCell_percent_end = 0.9;
-GridCell_percent_step = (GridCell_percent_end - GridCell_percent_start) / N_GridCells;
+LPPCell_percent_start = 0.1;
+LPPCell_percent_end = 0.9;
+LPPCell_percent_step = (LPPCell_percent_end - LPPCell_percent_start) / N_LPPCells;
 
 % Draw line to estimate septotemporal extent
 [x,y,z]  = layer_eq_line(0,1000000);
@@ -47,16 +36,16 @@ stsums = [0;sums];
 
 clearvars sums x y z
 
-GridCellModules = cell(N_GridCellModules,1);
+LPPCellModules = cell(N_LPPCellModules,1);
 gridCellIndex = 0;
 
 %% Determine grid cell module sections
-for gridModule = 1:N_GridCellModules
+for gridModule = 1:N_LPPCellModules
     
-    GridCellModules{gridModule} = cell(N_GridCellsPerModule,1);
+    LPPCellModules{gridModule} = cell(N_LPPCellsPerModule,1);
 
     
-    for gridCell = 1:N_GridCellsPerModule
+    for gridCell = 1:N_LPPCellsPerModule
 
         gridCell
         
@@ -89,16 +78,16 @@ for gridModule = 1:N_GridCellModules
                 end
             end
             
-            X_g = [X{2};X{3}];
-            Y_g = [Y{2};Y{3}];
-            Z_g = [Z{2};Z{3}];
+            X_g = [X{3};X{4}];
+            Y_g = [Y{3};Y{4}];
+            Z_g = [Z{3};Z{4}];
             
             M = [X_g(:),Y_g(:),Z_g(:)];
             
         end
             
-        percent = GridCell_percent_start + GridCell_percent_step*gridCellIndex
-        width = 1000;
+        percent = LPPCell_percent_start + LPPCell_percent_step*gridCellIndex
+        width = N_LPPCellLongExtent;
         
         % Get septotemporal center
         [~,center_index]                = min(abs(stsums - (percent*max(stsums))));
@@ -133,9 +122,9 @@ for gridModule = 1:N_GridCellModules
         start_d = sum(plane.*plane_center1);
         stop_d  = sum(plane.*plane_center2);
         
-        GridCellModules{gridModule}{gridCell} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
+        LPPCellModules{gridModule}{gridCell} = M(find(M(:,1:3)*transpose(plane) + start_d < 0 & M(:,1:3)*transpose(plane) + stop_d > 0),:);
         gridCellIndex = gridCellIndex + 1;
     end
 end
 
-save(sprintf('%s/GridCellModules.mat',directory),'GridCellModules');
+save(sprintf('%s/LPPCellModules.mat',directory),'LPPCellModules');

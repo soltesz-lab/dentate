@@ -1,9 +1,7 @@
 %% Compute the spatial grid
-function [X,Y] = calc_grid(W, H, N)
+function [X,Y] = make_grid(W, H, N, grid_unit)
         
-  min_grid_size = 0.001;
-
-  size_len = sqrt(min_grid_size);
+  size_len = sqrt(grid_unit)
   mesh_npts = round(W/size_len)
         
   x = linspace(-1.0*W/2, 1.0*W/2, mesh_npts);
