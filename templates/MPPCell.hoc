@@ -1,28 +1,36 @@
 begintemplate MPP
 
-public pp, connect_pre, setnoiseFromRandom, randi, gid
+public pp, connect_pre, gid
 public x, y, z, position, xpos, ypos, zpos
 objref pp
 
 proc init() {
     gid = $1
-    randi = $2
-    rate = $3
-    setup(gid,randi,rate) 	
+    rate = $2
+    if (numarg() > 2) {
+        number = $3
+    } else {
+        number = 1
+    }
+    if (numarg() > 3) {
+        start = $4
+    } else {
+        start = 5
+    }
+    if (numarg() > 4) {
+        noise = $5
+    } else {
+        noise = 0
+    }
+    setup(rate,number,start,noise) 	
 }
 
 proc setup() {
     pp = new NetStim(.5)
-    pp.number = 1e9
-    pp.noise = 1				
-    pp.start = 0
-    pp.gid = $1
-    pp.randi = $2
-    pp.interval = 1000/$3
-}
-
-proc setnoiseFromRandom() {
-    pp.noiseFromRandom($o1)
+    pp.interval = 1000/$1
+    pp.number = $2
+    pp.start = $3
+    pp.noise = $4				
 }
 
 func is_art() {return 1}
