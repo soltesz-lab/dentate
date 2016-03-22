@@ -503,7 +503,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
                }
-	       ncid = nc_appendsyn_lsn(pnm, srcid1, destid1, synType, w, del, layer, section node)
+	       ncid = nc_appendsyn_lsn(pnm, srcid1, destid1, synType, w, del, layer, section, node)
 	       if (makegraph > 0) {
                    edges = new Vector(2)
                    edges.x[0] = srcid1
