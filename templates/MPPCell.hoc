@@ -1,0 +1,46 @@
+begintemplate MPP
+
+public pp, connect_pre, gid
+public x, y, z, position, xpos, ypos, zpos
+objref pp
+
+proc init() {
+    gid = $1
+    rate = $2
+    if (numarg() > 2) {
+        number = $3
+    } else {
+        number = 1
+    }
+    if (numarg() > 3) {
+        start = $4
+    } else {
+        start = 5
+    }
+    if (numarg() > 4) {
+        noise = $5
+    } else {
+        noise = 0
+    }
+    setup(rate,number,start,noise) 	
+}
+
+proc setup() {
+    pp = new NetStim(.5)
+    pp.interval = 1000/$1
+    pp.number = $2
+    pp.start = $3
+    pp.noise = $4				
+}
+
+func is_art() {return 1}
+
+proc connect_pre() {$o2 = new NetCon(pp, $o1)}
+
+proc setposition(){
+    x = $1  y = $2  z = $3	
+    xpos = $1  ypos = $2  zpos = $3	
+    pp.position(xpos, ypos, zpos)
+}
+
+endtemplate MPP

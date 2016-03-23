@@ -1,4 +1,8 @@
 %% Initializes the grid cell network.
+%% W: width
+%% H: height
+%% M: number of modules
+%% N: number of grid cells 
 function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N)
         
   grid_unit = 0.0001;
