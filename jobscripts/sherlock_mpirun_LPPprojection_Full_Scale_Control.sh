@@ -20,11 +20,11 @@ then
   forest=1
 fi
 forest_dir=/scratch/users/$USER/dentate/Full_Scale_Control/GC/$forest
-gridcell_dir=/scratch/users/$USER/gridcells/GridCellModules_1000
+lppcell_dir=/scratch/users/$USER/lppcells
 results_dir=/scratch/users/$USER/LPPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/LPPprojection -t $forest_dir -p $gridcell_dir -r 3.5 -o $results_dir \
- --grid-cells=10:3400
+mpirun $HOME/model/dentate/scripts/DGnetwork/LPPprojection -t $forest_dir -p $lppcell_dir -r 3.5 -o $results_dir \
+ --lpp-cells=10:3400
