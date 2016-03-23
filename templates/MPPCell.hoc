@@ -6,7 +6,11 @@ objref pp
 
 proc init() {
     gid = $1
-    rate = $2
+    if (numarg() > 1) {
+        rate = $2
+    } else {
+        rate = 10
+    }
     if (numarg() > 2) {
         number = $3
     } else {

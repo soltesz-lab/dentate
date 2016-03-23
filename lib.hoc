@@ -334,10 +334,11 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
             indicesCoords = new Matrix()
             ff = new File()
             ff.ropen(indexPath)
-            m.scanf(ff)
+            indicesCoords.scanf(ff)
             ff.close(indexPath)
-            indices = indicesCoords.getcol(1)
-            numCells = ff.nrow
+            indices = indicesCoords.getcol(0)
+            numCells = indices.size()
+            printf("numCells = %d\n",numCells)
             minIndex = indices.min()
             maxIndex = indices.max()
             if (offset > minIndex) {
