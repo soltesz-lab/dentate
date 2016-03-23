@@ -416,16 +416,23 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
            for i=0, m.nrow-1 {
                srcid = m.x[i][0]
                destid = m.x[i][1]
-               if (order == 0) {
+               if (order == 2) {
+                   // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
+                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   srcid1 = srcid + presynapticOffset
+                   destid1 = destid
+               } else if (order == 1) {
+                   // absolute numbering of pre/post synaptic cells
+                   srcid1 = srcid
+                   destid1 = destid
+               } else if (order == 0) {
                    // relative numbering of pre/post synaptic cells -- add the respective offsets
                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid + postsynapticOffset
                } else {
-                   // absolute numbering of pre/post synaptic cells
-                   srcid1 = srcid
-                   destid1 = destid
+                   execerror ("unknown connectivity order type")
                }
                if (!pnm.gid_exists(destid1)) { continue }
                w = m.x[i][2]
@@ -449,17 +456,26 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
            for i=0, m.nrow-1 {
                srcid = m.x[i][0]
                destid = m.x[i][1]
-               if (order == 0) {
+               
+               if (order == 2) {
+                   // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
+                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   srcid1 = srcid + presynapticOffset
+                   destid1 = destid
+               } else if (order == 1) {
+                   // absolute numbering of pre/post synaptic cells
+                   srcid1 = srcid
+                   destid1 = destid
+               } else if (order == 0) {
                    // relative numbering of pre/post synaptic cells -- add the respective offsets
                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid + postsynapticOffset
                } else {
-                   // absolute numbering of pre/post synaptic cells
-                   srcid1 = srcid
-                   destid1 = destid
+                   execerror ("unknown connectivity order type")
                }
+               
                if (!pnm.gid_exists(destid1)) { continue }
                dist = m.x[i][2] + m.x[i][3]
                del = (dist / velocity) + 1.0
@@ -487,17 +503,26 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                layer   = m.x[i][3]
                section = m.x[i][4]
                node    = m.x[i][5]
-               if (order == 0) {
+               
+               if (order == 2) {
+                   // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
+                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   srcid1 = srcid + presynapticOffset
+                   destid1 = destid
+               } else if (order == 1) {
+                   // absolute numbering of pre/post synaptic cells
+                   srcid1 = srcid
+                   destid1 = destid
+               } else if (order == 0) {
                    // relative numbering of pre/post synaptic cells -- add the respective offsets
                    assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
                    assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid + postsynapticOffset
                } else {
-                   // absolute numbering of pre/post synaptic cells
-                   srcid1 = srcid
-                   destid1 = destid
+                   execerror ("unknown connectivity order type")
                }
+               
                if (!pnm.gid_exists(destid1)) { continue }
                del = (dist / velocity) + 1.0
                if (verbose > 0) {
@@ -588,18 +613,25 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
             destbranch = m.x[i][4]
             destsec = m.x[i][5]
             w = m.x[i][6]
-            if (order == 0) {
-                // relative numbering of pre/post synaptic cells -- add the respective offsets
-                assert (srcid < srcSize, "source cell id is greater than the size of the src population")
-                assert (destid < destSize, "destination cell id is greater than the size of the dest population")
-                srcid1 = srcid + srcOffset
-                destid1 = destid + destOffset
-            } else {
+            
+            if (order == 2) {
+                // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
+                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                srcid1 = srcid + presynapticOffset
+                destid1 = destid
+            } else if (order == 1) {
                 // absolute numbering of pre/post synaptic cells
                 srcid1 = srcid
                 destid1 = destid
+            } else if (order == 0) {
+                // relative numbering of pre/post synaptic cells -- add the respective offsets
+                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                srcid1 = srcid + presynapticOffset
+                destid1 = destid + postsynapticOffset
+            } else {
+                   execerror ("unknown connectivity order type")
             }
-
             
 	    if (pnm.gid_exists(srcid1)) { 
 		mkgap(gjlist, srcid1, srcbranch, srcsec, ggid, w)

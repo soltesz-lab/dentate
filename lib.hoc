@@ -538,10 +538,13 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
     }
 
     for i=0, numConnectivityTypes-1 {
-
-        // Read in the connectivity cell id numbering (0 - relative, 1 - absolute)
+        
+        // Read in the connectivity cell id numbering (0 - relative, 1 - absolute, 
+        // 2 - relative presynaptic, absolute postsynaptic)
         f.scanstr(orderType)
-        if (strcmp(orderType,"absolute:") == 0) {
+        if (strcmp(orderType,"relpre.abspost:") == 0) {
+            order = 2
+        } else if (strcmp(orderType,"absolute:") == 0) {
             order = 1
         } else if (strcmp(orderType,"relative:") == 0) {
             order = 0
