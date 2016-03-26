@@ -136,7 +136,15 @@
           (seci layer-point-section-index)
           (layer layer-point-layer)
           )
-
+	
+	(define-record-printer (layer-point x out)
+	  (fprintf out "#(layer-point id=~A coord=~A radius=~A seci=~A layer=~A)"
+		   (layer-point-id x)
+		   (layer-point-coords x)
+		   (layer-point-radius x)
+		   (layer-point-section-index x)
+		   (layer-point-layer x)
+		   ))
         
         (define-record-type cell (make-cell ty index origin sections)
           cell? 
@@ -146,6 +154,7 @@
           (sections cell-sections)
           )
         
+	
         
         (define (cell-section-ref name cell)
           (let ((v (alist-ref name (cell-sections cell))))
@@ -466,9 +475,10 @@
                        (let ((query-data
                               ((secg 'fold-nodes)
                                (lambda (i lp ax)
-                                 (d "rank ~A: querying point ~A (coords ~A) (layer ~A)~%" 
+                                 (d "rank ~A: querying point ~A (coords ~A) (layer ~A) (section ~A)~%" 
                                     myrank i (layer-point-coords lp) 
-                                    (layer-point-layer lp))
+                                    (layer-point-layer lp)
+				    (layer-point-section-index lp))
                                  (fold
                                   (lambda (x ax) 
                                     (let (
@@ -479,7 +489,7 @@
                                           (section (layer-point-section-index lp))
                                           )
                                       (if (member layer layers)
-                                          (append (list source target distance section layer i) ax)
+                                          (append (list source target distance layer section i) ax)
                                           ax)
                                       ))
                                   ax
@@ -1050,48 +1060,28 @@
 
             (MPI:barrier my-comm)
 
-            (call-with-output-file (make-pathname output-dir (sprintf "~Asources~A.dat"  label (if (> size 1) myrank "")))
-              (lambda (out-sources)
-                (call-with-output-file (make-pathname output-dir (sprintf "~Atargets~A.dat"  label (if (> size 1) myrank "")))
-                  (lambda (out-targets)
-                    (call-with-output-file (make-pathname output-dir (sprintf "~Adistances~A.dat"  label (if (> size 1) myrank "")))
-                      (lambda (out-distances)
-                        (call-with-output-file (make-pathname output-dir (sprintf "~Alayers~A.dat"  label (if (> size 1) myrank "")))
-                          (lambda (out-layers)
-			    (call-with-output-file (make-pathname output-dir (sprintf "~Anodes~A.dat"  label (if (> size 1) myrank "")))
-			      (lambda (out-nodes)
-                                (call-with-output-file (make-pathname output-dir (sprintf "~Asections~A.dat"  label (if (> size 1) myrank "")))
-                                  (lambda (out-sections)
-                                    (for-each 
-                                     (lambda (my-data)
-                                       (let* ((my-entry-len 6)
-                                              (my-data-len (/ (f64vector-length my-data) my-entry-len)))
-                                         (d "rank ~A: length my-data = ~A~%" myrank my-data-len)
-                                         (let recur ((m 0))
-                                           (if (< m my-data-len)
-                                               (let* (
-                                                      (my-entry-offset (* m my-entry-len))
-                                                      (source (f64vector-ref my-data my-entry-offset))
-                                                      (target (f64vector-ref my-data (+ 1 my-entry-offset)))
-                                                      (distance (f64vector-ref my-data (+ 2 my-entry-offset)))
-                                                      (section (f64vector-ref my-data (+ 3 my-entry-offset)))
-                                                      (layer (f64vector-ref my-data (+ 4 my-entry-offset)))
-                                                      (node (f64vector-ref my-data (+ 5 my-entry-offset)))
-                                                      )
-                                                 (fprintf out-sources   "~A~%" source)
-                                                 (fprintf out-targets   "~A~%" target)
-                                                 (fprintf out-distances "~A~%" distance)
-                                                 (fprintf out-layers    "~A~%" layer)
-                                                 (fprintf out-nodes     "~A~%" node)
-                                                 (fprintf out-sections  "~A~%" section)
-                                                 (recur (+ 1 m)))))
-                                         ))
-                                     my-results)))
-                                ))
-                            ))
-                        ))
-                    ))
-                ))
+            (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) myrank "")))
+              (lambda (out)
+		(for-each 
+		 (lambda (my-data)
+		   (let* ((my-entry-len 6)
+			  (my-data-len (/ (f64vector-length my-data) my-entry-len)))
+		     (d "rank ~A: length my-data = ~A~%" myrank my-data-len)
+		     (let recur ((m 0))
+		       (if (< m my-data-len)
+			   (let* (
+				  (my-entry-offset (* m my-entry-len))
+				  (source   (inexact->exact (f64vector-ref my-data my-entry-offset)))
+				  (target   (inexact->exact (f64vector-ref my-data (+ 1 my-entry-offset))))
+				  (distance (f64vector-ref my-data (+ 2 my-entry-offset)))
+				  (layer    (inexact->exact (f64vector-ref my-data (+ 3 my-entry-offset))))
+				  (section  (inexact->exact (f64vector-ref my-data (+ 4 my-entry-offset))))
+				  (node     (inexact->exact (f64vector-ref my-data (+ 5 my-entry-offset))))
+				  )
+			     (fprintf out "~A ~A ~A ~A ~A ~A~%" source target distance layer section node)
+			     (recur (+ 1 m)))))
+		     ))
+		 my-results)))
             ))
         
         (define (segment-projection label source-tree target-sections zone my-comm myrank size)

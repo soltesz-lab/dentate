@@ -1,28 +1,28 @@
-begintemplate MPP
+begintemplate MPPCell
 
-public pp, connect_pre, gid
+public pp, connect2target, gid
 public x, y, z, position, xpos, ypos, zpos
 objref pp
 
 proc init() {
     gid = $1
-    if (numarg() > 1) {
-        rate = $2
+    if (numarg() > 3) {
+        rate = $4
     } else {
         rate = 10
     }
-    if (numarg() > 2) {
-        number = $3
+    if (numarg() > 4) {
+        number = $5
     } else {
         number = 1
     }
-    if (numarg() > 3) {
-        start = $4
+    if (numarg() > 5) {
+        start = $6
     } else {
         start = 5
     }
-    if (numarg() > 4) {
-        noise = $5
+    if (numarg() > 6) {
+        noise = $7
     } else {
         noise = 0
     }
@@ -39,7 +39,11 @@ proc setup() {
 
 func is_art() {return 1}
 
-proc connect_pre() {$o2 = new NetCon(pp, $o1)}
+
+obfunc connect2target() { // $o1 target point process, optional $o2 returned NetCon
+  $o2 = new NetCon(pp, $o1)
+  return $o2
+}
 
 proc setposition(){
     x = $1  y = $2  z = $3	
@@ -47,4 +51,4 @@ proc setposition(){
     pp.position(xpos, ypos, zpos)
 }
 
-endtemplate MPP
+endtemplate MPPCell
