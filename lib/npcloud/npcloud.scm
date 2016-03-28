@@ -458,8 +458,8 @@
 
         (define (layer-point-projection prefix my-comm myrank size cells layers fibers zone cell-start fiber-start)
 
-          (d "rank ~A: prefix = ~A zone = ~A length cells = ~A~%" 
-             myrank prefix zone (length cells))
+          (d "rank ~A: prefix = ~A zone = ~A layers = ~A length cells = ~A~%" 
+             myrank prefix zone layers (length cells))
 
           (fold (lambda (cell ax)
 
@@ -506,10 +506,13 @@
                                   ))
                                '()))
                              )
-                         
+			 (MPI:barrier my-comm)
+			 (d "rank ~A: cell = ~A root = ~A: before gatherv~%" myrank cell root)
+
                          (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
                                 
                                 (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
+			   (d "rank ~A: cell = ~A: after gatherv~%" myrank cell)
                            (append res1 ax))
                          
                          ))
@@ -682,10 +685,11 @@
                    (point-data
                     (filter-map
                      (lambda (line) 
-                       (let* ((line-data (map string->number (string-split line " \t")))
-                              (id (car line-data))
-                              (lst (cdr line-data)))
-                         (and (not (null? lst)) (list id (apply make-point lst) #f))))
+                       (let* ((line-data (map string->number (string-split line " \t"))))
+			 (if (null? line-data) #f
+			     (let*((id (car line-data))
+				   (lst (cdr line-data)))
+			       (and (not (null? lst)) (list id (apply make-point lst) #f))))))
                      lines1))
 
                    (point-tree (list->kd-tree* point-data))
