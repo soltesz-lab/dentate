@@ -30,3 +30,6 @@ mkdir -p $results_dir
 cd $results_dir
 
 ibrun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="MPPtoDGC" -t $forest_prefix -f $forest -p $gridcell_dir -r 6.5 -l 1,2 --grid-cells=10:3800 -o $results_dir
+
+cat MPPtoDGC.*.dat > MPPtoDGC.dat
+rm MPPtoDGC.*.dat
