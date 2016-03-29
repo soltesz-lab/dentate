@@ -89,18 +89,23 @@ func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsi
     ltar    = $3
     synType = $o4
     w       = $o5
-    wsize   = w.size()
+    assert (w.is_vector == 1,"w is not a vector")
+    wsize   = w.v.size()
     del     = $6
     layer   = $7
     section = $8
     node    = $9
+    printf("host %d: appendsyn_lsn: connection src = %d dest = %d  gid_exists(target) = %d\n", pnm.myid, lsrc, ltar, pnm.gid_exists(ltar))
     if (pnm.gid_exists(ltar)) {
         // target in this subset
         // source may be on this or another machine
         cell = pnm.pc.gid2cell(ltar)
         assert (synType.is_undefined == 0,"synType is undefined")
         if (synType.is_number) {
+            printf("nc_appendsyn_lsn: before addSyn: section = %d node = %d\n", section, node)
             synidx = cell.addSyn(synType.n, section, node)
+            printf("nc_appendsyn_lsn: section = %d synidx = %d\n", section, synidx)
+            assert (synidx >= 0,"nc_appendsyn_lsn: cannot add synapse")
             widx = (ltar + synidx) % wsize
             mknetcon1(pnm, lsrc, cell.syns.o(synType.n).o(section), synidx, w.v.x[widx]/1000.0, del)
         } else {
@@ -334,10 +339,10 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
             indicesCoords = new Matrix()
             ff = new File()
             ff.ropen(indexPath)
-            m.scanf(ff)
+            indicesCoords.scanf(ff)
             ff.close(indexPath)
-            indices = indicesCoords.getcol(1)
-            numCells = ff.nrow
+            indices = indicesCoords.getcol(0)
+            numCells = indices.size()
             minIndex = indices.min()
             maxIndex = indices.max()
             if (offset > minIndex) {
@@ -484,6 +489,8 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
     }
 }
 
+
+
 // Retrieves the synaptic properties for a given cell type
 obfunc getSynapseProperties() { local i, j, synIndex localobj synProps, synapticTypes, synapticType, synapseNames, synapseCells
     
@@ -514,6 +521,33 @@ obfunc getSynapseProperties() { local i, j, synIndex localobj synProps, synaptic
     }
     
     return synProps
+}
+    
+
+
+// Returns true if there are synaptic properties for a given cell type
+func hasSynapseProperties() { local synIndex localobj synapticType, synapticTypes, synapseNames, synapseCells
+    
+    strdef cellType
+    
+    synapticTypes = $o1
+    cellType = $s2
+    
+    for i=0, synapticTypes.count()-1 {
+       
+        synapticType = synapticTypes.o(i)
+        synapseNames = synapticType.getPropertyObject("synapseNames")
+        synapseCells = synapticType.getPropertyObject("synapseCells")
+        synIndex  = -1
+        for j = 0, synapseNames.count()-1 {
+            if (strcmp(cellType,synapseNames.o(j).s) == 0) {
+                synIndex = j
+                break
+            }
+        }
+    }
+    
+    return (synIndex >= 0)
 }
     
 

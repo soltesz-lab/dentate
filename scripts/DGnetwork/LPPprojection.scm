@@ -16,8 +16,8 @@
                          (transformer ,(lambda (x) (map string->number
                                                         (string-split x ","))))))
     
-    (grid-cells "Specify number of grid cell modules and grid cells per module, separated by colon"
-                (value (required "N-MOD:N-GRID-CELL")
+    (lpp-cells "Specify number of LPP cell modules and LPP cells per module, separated by colon"
+                (value (required "N-MOD:N-LPP-CELL")
                        (transformer ,(lambda (x) (map string->number (string-split x ":"))))))
     
     (output-dir "Write results in the given directory"
@@ -27,11 +27,6 @@
     (trees-dir "Load post-synaptic trees from the given directory"
                (single-char #\t)
                (value (required PATH)))
-
-    (forest "Load the given forest of post-synaptic cells"
-	     (single-char #\f)
-	     (value (required INDEX)
-		    (transformer ,string->number)))
     
     (presyn-dir "Load pre-synaptic location coordinates from the given directory"
                    (single-char #\p)
@@ -42,15 +37,7 @@
             (value (required RADIUS)
                    (transformer ,(lambda (x) (string->number x))))
             )
-
-    (layers "Comma-separated list of connection layers of postsynaptic cells"
-	     (single-char #\l)
-	     (value (required LAYERS)
-		    (transformer ,(lambda (x) (map string->number (string-split x ","))))))
     
-    (label "Use the given label for outpput projection files"
-	   (value (required LABEL)))
-
     (verbose "print additional debugging information" 
              (single-char #\v))
     
@@ -169,66 +156,60 @@
               (source 'tree) (target 'list) 
               r my-comm myrank mysize))
 
-(define forest (opt 'forest))
-
-
 ;; Dentate granule cells
 (define DGCs
   (let* (
-	 (DGCpts (car (PointsFromFileWhdr* (make-pathname (opt 'trees-dir) (make-pathname (number->string forest) "GCcoordinates.dat")))))
-	 
-	 (DGCsize (kd-tree-size DGCpts))
-	 
-	 (DGClayout
-	  (kd-tree-fold-right*
-	   (lambda (i p ax) 
-	     (cons (list (inexact->exact i) p) ax))
-	   '() DGCpts))
-	 
-	 (DGCdendrites
-	  (fold-right
-	   (match-lambda* 
-	    (((i p) lst)
-	     (let ((li (- i (* (- forest 1) 1000))))
-	       (cons
-		(LoadTree (sprintf "~A/~A/DGC_dendrite_topology_~A.dat" 
-				   (opt 'trees-dir) forest
-				   (fmt #f (pad-char #\0 (pad/left 6 (num (- li 1))))))
-			  (sprintf "~A/~A/DGC_dendrite_points_~A.dat" 
-				   (opt 'trees-dir) forest
-				   (fmt #f (pad-char #\0 (pad/left 6 (num (- li 1))))))
-			  'Dendrites)
-		lst))))
-	   '() DGClayout))
+         (DGCpts (car (PointsFromFileWhdr* (make-pathname (opt 'trees-dir)  "GCcoordinates.dat"))))
+
+         (DGCsize (kd-tree-size DGCpts))
+
+         (DGClayout
+          (kd-tree-fold-right*
+           (lambda (i p ax) (cons (list i p) ax))
+           '() DGCpts))
+
+         (DGCdendrites
+	  (let recur ((myindex (- DGCsize 1))
+		      (lst '()))
+	    (if (>= myindex 0)
+		(recur (- myindex 1)
+		       (cons
+			(LoadTree (sprintf "~A/DGC_dendrite_topology_~A.dat" 
+					   (opt 'trees-dir) 
+					   (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+				  (sprintf "~A/DGC_dendrite_points_~A.dat" 
+					   (opt 'trees-dir) 
+					   (fmt #f (pad-char #\0 (pad/left 6 (num myindex)))))
+				  'Dendrites)
+			lst))
+		lst)
+		))
 	 )
-    
+
     (fold-right
-     (match-lambda*
-      (((gid p) dendrite-tree lst)
-					;(print "gid = " gid)
-					;(print "dendrite-tree = ") (pp ((dendrite-tree 'nodes)))
-       (cons (make-cell 'DGC gid p (list (cons 'Dendrites dendrite-tree))) lst)))
-     '()
-     DGClayout
-     DGCdendrites
-     ))
-  )
+      (match-lambda*
+       (((gid p) dendrite-tree lst)
+        (cons (make-cell 'DGC gid p (list (cons 'Dendrites dendrite-tree))) lst)))
+      '()
+      DGClayout
+      DGCdendrites
+      )
+    ))
 
-
-;; Connection points for grid cell perforant path synapses
-(define GridCells
+;; Connection points for LPP cell perforant path synapses
+(define LPPCells
   (let* (
-         (grid-cell-params (or (opt 'grid-cells) (list 1 1000)))
+         (lpp-cell-params (or (opt 'lpp-cells) (list 1 1000)))
 
-         (n-modules (car grid-cell-params))
-         (n-grid-cells-per-module (cadr grid-cell-params))
+         (n-modules (car lpp-cell-params))
+         (n-lpp-cells-per-module (cadr lpp-cell-params))
 
 
          (pp-contacts
 	  (let recur ((gid 0) (modindex 1) (lst '()))
             (if (<= modindex n-modules)
                 (let inner ((gid gid) (cellindex 1) (lst lst))
-                  (if (<= cellindex n-grid-cells-per-module)
+                  (if (<= cellindex n-lpp-cells-per-module)
 		      (let ((root (modulo gid mysize)))
 			(if (= myrank root)
 			    (inner (+ gid 1)
@@ -240,7 +221,7 @@
 					    (PointsFromFileWhdr
 					     (make-pathname (opt 'presyn-dir) 
 							    (make-pathname (fmt #f (pad-char #\0 (pad/left 2 (num modindex))))
-									   (sprintf "GridCell_~A.dat" 
+									   (sprintf "LPPCell_~A.dat" 
 										    (fmt #f (pad-char #\0 (pad/left 4 (num cellindex)))))
 									   )))
 					    )))
@@ -255,7 +236,7 @@
       (match-lambda*
        (((gid pp-contacts) lst)
         (if (> (length pp-contacts) 0)
-	    (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)
+	    (cons (make-cell 'LPPCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)
 	    lst)))
       `()
       pp-contacts
@@ -263,21 +244,11 @@
     ))
 
 
-
-(define PPtoDGC_projection
-
-    (let* (
-	   (target (SetExpr (section DGCs Dendrites)))
-	   (source (SetExpr (section GridCells PPsynapses)))
-	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
-	   )
-
-      (if (= myrank 0)
-	  (create-directory output-dir))
-
-      (let ((PPtoDGC (LayerProjection (opt 'label) (opt 'radius) source target (opt 'layers)  output-dir)))
-	PPtoDGC))
-    )
-  
+(define LPPtoDGC_projection
+  (let* ((target (SetExpr (section DGCs Dendrites)))
+         (source (SetExpr (section LPPCells PPsynapses)))
+        )
+    (let ((LPPtoDGC (LayerProjection 'LPPtoDGC (opt 'radius) source target '(3) (opt 'output-dir))))
+      LPPtoDGC)))
 
 (MPI:finalize)

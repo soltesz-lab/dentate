@@ -267,7 +267,7 @@ objref cell
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, templateType  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, templateType, hasSynapseProps  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
     
     strdef templateName, typeName, datadir
     
@@ -294,12 +294,15 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
             }
         }
         
-        synProps = getSynapseProperties(synapseTypes,typeName)
-        synRiseTime = synProps.getPropertyObject("rise time")
-        synDecayTime = synProps.getPropertyObject("decay time")
-        synErev = synProps.getPropertyObject("reversal potential")
-        synDend = synProps.getPropertyObject("dendrite")
-        synComp = synProps.getPropertyObject("compartment")
+        hasSynapseProps = hasSynapseProperties(synapseTypes,typeName)
+        if (hasSynapseProps) {
+           synProps = getSynapseProperties(synapseTypes,typeName)
+           synRiseTime = synProps.getPropertyObject("rise time")
+           synDecayTime = synProps.getPropertyObject("decay time")
+           synErev = synProps.getPropertyObject("reversal potential")
+           synDend = synProps.getPropertyObject("dendrite")
+           synComp = synProps.getPropertyObject("compartment")
+         }
         
         // used for choosing dendrite and compartment for synapses
         rs = new RandomStream(k)
@@ -319,7 +322,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
                         node=int(i/forestSize)+1
-                        if (templateType == 2) {
+                        if ((templateType == 1) || (templateType == 2)) {
                           p=int(i%forestSize)
                         } else {
                           p=i
@@ -327,7 +330,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                         sprint(datadir, "%d", node)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        if (hasSynapseProps) {
+                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        }
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -338,7 +343,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     if (pnm.gid_exists(gid)) {
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                         execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        if (hasSynapseProps) {
+                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        }
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -350,7 +357,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     if (pnm.gid_exists(gid)) {
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
                         execute(cmd)
-                        mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        if (hasSynapseProps) {
+                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        }
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -361,7 +370,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, velocity, ncid, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w, rs
+proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, velocity, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w, rs
     
     strdef cmd, connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
@@ -378,11 +387,14 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
        wdType = connectivityType.getPropertyScalar("wdType")
        connectivityName = connectivityType.getPropertyString("name").s
        assert(synType.is_undefined == 0, "synType is undefined")
-       if (verbose > 0) {
+       if (verbose >= 0) {
            printf ("connectivityName = %s\n", connectivityName)
            printf ("wdType = %d\n", wdType)
 	   print "synType.is_number = ", synType.is_number
 	   print "synType.is_list = ", synType.is_list
+           if (synType.is_number) {
+   	      printf ("synType.n = %d\n", synType.n)
+           }
        }
        presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
        presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
@@ -437,11 +449,10 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                if (!pnm.gid_exists(destid1)) { continue }
                w = m.x[i][2]
                del = m.x[i][3]
-	       ncid = nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
+	       nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
                if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d w = %g del = %g\n", pnm.myid, srcid1, destid1, w, del)
                }
-               nc = pnm.nclist.o(ncid)
 	       if (makegraph > 0) {
                    edges = new Vector(2)
                    edges.x[0] = srcid1
@@ -482,7 +493,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
                }
-	       ncid = nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
+	       nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
 	       if (makegraph > 0) {
                    edges = new Vector(2)
                    edges.x[0] = srcid1
@@ -528,7 +539,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                if (verbose > 0) {
                    printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
                }
-	       ncid = nc_appendsyn_lsn(pnm, srcid1, destid1, synType, w, del, layer, section, node)
+	       nc_appendsyn_lsn(pnm, srcid1, destid1, synType, w, del, layer, section, node)
 	       if (makegraph > 0) {
                    edges = new Vector(2)
                    edges.x[0] = srcid1

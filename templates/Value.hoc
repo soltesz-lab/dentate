@@ -2,7 +2,7 @@
 // A template to allow variant datatypes (numbers, strings, lists, and vectors)
 begintemplate Value
 
-public n, s, l, is_number, is_string, is_list, is_vector, is_nil, is_undefined
+public n, s, l, v, is_number, is_string, is_list, is_vector, is_nil, is_undefined
 strdef s
 objref l, v
 
