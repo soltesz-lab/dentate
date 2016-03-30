@@ -2,8 +2,8 @@
 #
 #SBATCH -J LPPprojection_Full_Scale_Control
 #SBATCH -o ./results/LPPprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=5
-#SBATCH --ntasks-per-node=4
+#SBATCH --nodes=6
+#SBATCH --ntasks-per-node=2
 #SBATCH --mem=8192
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -26,5 +26,5 @@ results_dir=/scratch/users/$USER/LPPprojection_Full_Scale_Control_forest_${fores
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/LPPprojection -t $forest_dir -p $lppcell_dir -r 3.5 -o $results_dir \
+mpirun $HOME/model/dentate/scripts/DGnetwork/LPPprojection -t $forest_dir -p $lppcell_dir -r 3.0 -o $results_dir -:hm4096M \
  --lpp-cells=10:3400
