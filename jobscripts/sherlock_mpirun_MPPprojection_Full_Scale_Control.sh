@@ -19,12 +19,19 @@ if test "$forest" = "";
 then
   forest=1
 fi
-forest_dir=/scratch/users/$USER/dentate/Full_Scale_Control/GC/$forest
+
+echo forest = $forest
+
+forest_prefix=/scratch/users/$USER/dentate/Full_Scale_Control/GC
 gridcell_dir=/scratch/users/$USER/gridcells/GridCellModules_1000
 results_dir=/scratch/users/$USER/PPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection -t $forest_dir -p $gridcell_dir -r 6.5 -o $results_dir \
- --grid-cells=10:3800
+mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="MPPtoDGC" -t $forest_prefix -f $forest  -p $gridcell_dir -r 6.5 -o $results_dir \
+ -l 1,2 --grid-cells=10:3800
+
+cd $forest
+cat MPPtoDGC.*.dat > MPPtoDGC.dat
+rm MPPtoDGC.*.dat
