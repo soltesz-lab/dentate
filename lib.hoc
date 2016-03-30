@@ -16,37 +16,19 @@ proc assert() { local test strdef errmsg
     }
 }
 
-
-
-// A variant of ParallelNetManager.nc_append that takes in a synaptic
-// point process as an argument (as opposed to the index of a synapse in cell.synlist)
-func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pnm, cell, synlist, synType
-    i = -1
+// Adds a network connection to a single synapse in a list
+proc mknetcon1() { local index localobj nc, synlist, pnm
     pnm = $o1
-    if (pnm.gid_exists($3)) {
-        // target in this subset
-        // source may be on this or another machine
-        cell = pnm.pc.gid2cell($3)
-        synType = $o4
-        w = $o5
-        assert (synType.is_undefined == 0,"synType is undefined")
-        if (synType.is_number) {
-            mknetcon(pnm, $2, cell.syns.o(synType.n), w.n/1000.0, $6)
-        } else {
-            mknetcon(pnm, $2, cell.syns.o(synType.l.o(0).n), w.l.o(0).n/1000.0, $6)
-            mknetcon(pnm, $2, cell.syns.o(synType.l.o(1).n), w.l.o(1).n/1000.0, $6)
-        }
-        i = pnm.nclist.count
-    } else if ((se = pnm.gid_exists($1)) > 0) {
-        // source exists but not the target
-        if (se != 3){ // output to another machine and it is
-            // not yet an outputcell
-            pnm.pc.outputcell($2)
-        }
-    }
-    return i
+    synlist = $o3
+    index = $4
+    nc = pnm.pc.gid_connect($2, synlist.o(index))
+    nc.weight = $5
+    nc.delay = $6
+    pnm.nclist.append(nc)
 }
 
+
+// Adds network connections to all synapses in a list
 proc mknetcon() { local i localobj nc, synlist, pnm
     pnm = $o1
     synlist = $o3
@@ -56,6 +38,88 @@ proc mknetcon() { local i localobj nc, synlist, pnm
         nc.delay = $5
         pnm.nclist.append(nc)
     }
+}
+
+
+
+// A variant of ParallelNetManager.nc_append that takes in a synaptic
+// point process as an argument (as opposed to the index of a synapse in cell.synlist)
+func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pnm, cell, synlist, synType
+    i = -1
+    pnm = $o1
+    lsrc = $2
+    ltar = $3
+    synType = $o4
+    w   = $o5
+    del = $6
+    if (pnm.gid_exists(ltar)) {
+        // target in this subset
+        // source may be on this or another machine
+        cell = pnm.pc.gid2cell(ltar)
+        assert (synType.is_undefined == 0,"synType is undefined")
+        if (synType.is_number) {
+            mknetcon(pnm, lsrc, cell.syns.o(synType.n), w.n/1000.0, del)
+        } else {
+            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(0).n), w.l.o(0).n/1000.0, del)
+            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(1).n), w.l.o(1).n/1000.0, del)
+        }
+        i = pnm.nclist.count
+    } else if ((se = pnm.gid_exists(lsrc)) > 0) {
+        // source exists but not the target
+        if (se != 3){ // output to another machine and it is
+            // not yet an outputcell
+            pnm.pc.outputcell(ltar)
+        }
+    }
+    return i
+}
+
+
+// A variant of ParallelNetManager.nc_append that 1) takes in a
+// synaptic point process as an argument (as opposed to the index of a
+// synapse in cell.synlist) and 2) takes into account the layer,
+// section, and node of the connection, and chooses the synaptic
+// weight from a predefined vector of synaptic weights for this
+// connection type
+
+func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsize, synidx, widx localobj w, nc, pnm, cell, synlist, synType
+    i = -1
+    pnm     = $o1
+    lsrc    = $2
+    ltar    = $3
+    synType = $o4
+    w       = $o5
+    assert (w.is_vector == 1,"w is not a vector")
+    wsize   = w.v.size()
+    del     = $6
+    layer   = $7
+    section = $8
+    node    = $9
+    printf("host %d: appendsyn_lsn: connection src = %d dest = %d  gid_exists(target) = %d\n", pnm.myid, lsrc, ltar, pnm.gid_exists(ltar))
+    if (pnm.gid_exists(ltar)) {
+        // target in this subset
+        // source may be on this or another machine
+        cell = pnm.pc.gid2cell(ltar)
+        assert (synType.is_undefined == 0,"synType is undefined")
+        if (synType.is_number) {
+            printf("nc_appendsyn_lsn: before addSyn: section = %d node = %d\n", section, node)
+            synidx = cell.addSyn(synType.n, section, node)
+            printf("nc_appendsyn_lsn: section = %d synidx = %d\n", section, synidx)
+            assert (synidx >= 0,"nc_appendsyn_lsn: cannot add synapse")
+            widx = (ltar + synidx) % wsize
+            mknetcon1(pnm, lsrc, cell.syns.o(synType.n).o(section), synidx, w.v.x[widx]/1000.0, del)
+        } else {
+            execerror ("Unsupported LSN synapse type")
+        }
+        i = pnm.nclist.count
+    } else if ((se = pnm.gid_exists(lsrc)) > 0) {
+        // source exists but not the target
+        if (se != 3){ // output to another machine and it is
+            // not yet an outputcell
+            pnm.pc.outputcell(ltar)
+        }
+    }
+    return i
 }
 
 
@@ -275,10 +339,10 @@ proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex loca
             indicesCoords = new Matrix()
             ff = new File()
             ff.ropen(indexPath)
-            m.scanf(ff)
+            indicesCoords.scanf(ff)
             ff.close(indexPath)
-            indices = indicesCoords.getcol(1)
-            numCells = ff.nrow
+            indices = indicesCoords.getcol(0)
+            numCells = indices.size()
             minIndex = indices.min()
             maxIndex = indices.max()
             if (offset > minIndex) {
@@ -425,6 +489,8 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
     }
 }
 
+
+
 // Retrieves the synaptic properties for a given cell type
 obfunc getSynapseProperties() { local i, j, synIndex localobj synProps, synapticTypes, synapticType, synapseNames, synapseCells
     
@@ -459,11 +525,38 @@ obfunc getSynapseProperties() { local i, j, synIndex localobj synProps, synaptic
     
 
 
+// Returns true if there are synaptic properties for a given cell type
+func hasSynapseProperties() { local synIndex localobj synapticType, synapticTypes, synapseNames, synapseCells
+    
+    strdef cellType
+    
+    synapticTypes = $o1
+    cellType = $s2
+    
+    for i=0, synapticTypes.count()-1 {
+       
+        synapticType = synapticTypes.o(i)
+        synapseNames = synapticType.getPropertyObject("synapseNames")
+        synapseCells = synapticType.getPropertyObject("synapseCells")
+        synIndex  = -1
+        for j = 0, synapseNames.count()-1 {
+            if (strcmp(cellType,synapseNames.o(j).s) == 0) {
+                synIndex = j
+                break
+            }
+        }
+    }
+    
+    return (synIndex >= 0)
+}
+    
+
+
 
 // Loads connectivity info into a Dict
-proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1, standardWeight2, standardVelocity, numConnectivityTypes, synType1, synType2 localobj f, l, connectivityTypes, connectivityType, value
+proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1, standardWeight2, standardVelocity, numConnectivityTypes, synType1, synType2 localobj f, ff, l, connectivityTypes, connectivityType, weightHistogram, value
     
-    strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation, synTypeString
+    strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation, synTypeString, weightHistogramFilename
     
     // The first argument must be a list
     connectivityTypes = $o1
@@ -479,10 +572,13 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
     }
 
     for i=0, numConnectivityTypes-1 {
-
-        // Read in the connectivity cell id numbering (0 - relative, 1 - absolute)
+        
+        // Read in the connectivity cell id numbering (0 - relative, 1 - absolute, 
+        // 2 - relative presynaptic, absolute postsynaptic)
         f.scanstr(orderType)
-        if (strcmp(orderType,"absolute:") == 0) {
+        if (strcmp(orderType,"relpre.abspost:") == 0) {
+            order = 2
+        } else if (strcmp(orderType,"absolute:") == 0) {
             order = 1
         } else if (strcmp(orderType,"relative:") == 0) {
             order = 0
@@ -569,6 +665,33 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
             connectivityType.addPropertyScalar("standardVelocity",standardVelocity)
             connectivityType.addPropertyScalar("order",order)
             connectivityTypes.append(connectivityType)
+        } else if (wdType == 3) {
+            connectivityType = new Dict(connectivityName)
+            assert (synCount == 1,"unsupported number of synaptic mechanisms")
+            
+            f.scanstr(weightHistogramFilename)
+            weightHistogram = new Vector()
+            
+            ff = new File()
+            ff.ropen(weightHistogramFilename)
+            weightHistogram.scanf(ff)
+            ff.close()
+            
+            value = new Value(3,weightHistogram)
+            connectivityType.addPropertyObject("weightHistogram",value)
+
+            standardVelocity = f.scanvar()
+            connectivityType.addPropertyScalar("standardVelocity",standardVelocity)
+            connectivityType.addPropertyString("name",connectivityName)
+            connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
+            connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
+            
+            value = new Value(0,synType1)
+            connectivityType.addPropertyObject("synType",value)
+            connectivityType.addPropertyScalar("wdType",wdType)
+            connectivityType.addPropertyScalar("order",order)
+            connectivityTypes.append(connectivityType)
+            
         }
     }
     f.close()

@@ -1,0 +1,54 @@
+begintemplate MPPCell
+
+public pp, connect2target, gid
+public x, y, z, position, xpos, ypos, zpos
+objref pp
+
+proc init() {
+    gid = $1
+    if (numarg() > 3) {
+        rate = $4
+    } else {
+        rate = 10
+    }
+    if (numarg() > 4) {
+        number = $5
+    } else {
+        number = 1
+    }
+    if (numarg() > 5) {
+        start = $6
+    } else {
+        start = 5
+    }
+    if (numarg() > 6) {
+        noise = $7
+    } else {
+        noise = 0
+    }
+    setup(rate,number,start,noise) 	
+}
+
+proc setup() {
+    pp = new NetStim(.5)
+    pp.interval = 1000/$1
+    pp.number = $2
+    pp.start = $3
+    pp.noise = $4				
+}
+
+func is_art() {return 1}
+
+
+obfunc connect2target() { // $o1 target point process, optional $o2 returned NetCon
+  $o2 = new NetCon(pp, $o1)
+  return $o2
+}
+
+proc setposition(){
+    x = $1  y = $2  z = $3	
+    xpos = $1  ypos = $2  zpos = $3	
+    pp.position(xpos, ypos, zpos)
+}
+
+endtemplate MPPCell
