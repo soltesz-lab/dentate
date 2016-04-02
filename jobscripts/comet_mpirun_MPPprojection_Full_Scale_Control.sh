@@ -24,7 +24,7 @@ WORK=/oasis/scratch/comet/$USER/temp_project
 
 forest_prefix=$WORK/dentate/Full_Scale_Control/GC
 gridcell_dir=$WORK/gridcells/GridCellModules_1000
-results_dir=$WORK/MPPprojection_Full_Scale_Control_$SLURM_JOB_ID
+results_dir=$WORK/MPPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir
