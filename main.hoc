@@ -404,7 +404,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
        postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
        postsynapticSize = postsynapticType.getPropertyScalar("numCells")
        postsynapticOffset = postsynapticType.getPropertyScalar("offset")
-       if (verbose > 0) {
+       if (verbose >= 0) {
            printf ("presynaptic population = %s\n", presynapticPopulation)
            printf ("presynaptic size = %d\n", presynapticSize)
            printf ("postsynaptic population = %s\n", postsynapticPopulation)
@@ -430,7 +430,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                destid = m.x[i][1]
                if (order == 2) {
                    // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
-                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid
                } else if (order == 1) {
@@ -439,8 +439,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    destid1 = destid
                } else if (order == 0) {
                    // relative numbering of pre/post synaptic cells -- add the respective offsets
-                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                   assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                   assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (destid <= postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid + postsynapticOffset
                } else {
@@ -470,7 +470,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                
                if (order == 2) {
                    // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
-                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid
                } else if (order == 1) {
@@ -479,8 +479,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    destid1 = destid
                } else if (order == 0) {
                    // relative numbering of pre/post synaptic cells -- add the respective offsets
-                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                   assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                   assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (destid <= postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid + postsynapticOffset
                } else {
@@ -514,10 +514,10 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                layer   = m.x[i][3]
                section = m.x[i][4]
                node    = m.x[i][5]
-               
+
                if (order == 2) {
                    // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
-                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid
                } else if (order == 1) {
@@ -526,8 +526,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    destid1 = destid
                } else if (order == 0) {
                    // relative numbering of pre/post synaptic cells -- add the respective offsets
-                   assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                   assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                   assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                   assert (destid <= postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                    srcid1 = srcid + presynapticOffset
                    destid1 = destid + postsynapticOffset
                } else {
@@ -627,7 +627,7 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
             
             if (order == 2) {
                 // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
-                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
                 srcid1 = srcid + presynapticOffset
                 destid1 = destid
             } else if (order == 1) {
@@ -636,8 +636,8 @@ proc connectgjs() {local i, k, w, ggid, srcid, destid, srcid1, destid1, srcbranc
                 destid1 = destid
             } else if (order == 0) {
                 // relative numbering of pre/post synaptic cells -- add the respective offsets
-                assert (srcid < presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                assert (destid < postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+                assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                assert (destid <= postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                 srcid1 = srcid + presynapticOffset
                 destid1 = destid + postsynapticOffset
             } else {
@@ -715,10 +715,10 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
     sprint (cmd, "nc%slist = new List()", typeName)
     execute(cmd)
     
-    stimgid = maxindex+pnm.myid()+1
+    stimgid = maxindex+1+pnm.myid()+1
     
-    if (verbose > 0) {
-        printf ("mkstim: numStimTypes = %d stimgid = %d\n", numStimTypes, stimgid)
+    if (verbose >= 0) {
+        printf ("host %d: mkstim: maxindex = %d numStimTypes = %d stimgid = %d\n", pnm.myid(), maxindex, numStimTypes, stimgid)
     }
     
     for i=0, numStimTypes-1 { 

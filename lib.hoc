@@ -21,6 +21,7 @@ proc mknetcon1() { local index localobj nc, synlist, pnm
     pnm = $o1
     synlist = $o3
     index = $4
+    //printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)
     nc = pnm.pc.gid_connect($2, synlist.o(index))
     nc.weight = $5
     nc.delay = $6
@@ -95,19 +96,17 @@ func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsi
     layer   = $7
     section = $8
     node    = $9
-    printf("host %d: appendsyn_lsn: connection src = %d dest = %d  gid_exists(target) = %d\n", pnm.myid, lsrc, ltar, pnm.gid_exists(ltar))
+    //printf("host %d: appendsyn_lsn: connection src = %d dest = %d  gid_exists(target) = %d\n", pnm.myid, lsrc, ltar, pnm.gid_exists(ltar))
     if (pnm.gid_exists(ltar)) {
         // target in this subset
         // source may be on this or another machine
         cell = pnm.pc.gid2cell(ltar)
         assert (synType.is_undefined == 0,"synType is undefined")
         if (synType.is_number) {
-            printf("nc_appendsyn_lsn: before addSyn: section = %d node = %d\n", section, node)
             synidx = cell.addSyn(synType.n, section, node)
-            printf("nc_appendsyn_lsn: section = %d synidx = %d\n", section, synidx)
             assert (synidx >= 0,"nc_appendsyn_lsn: cannot add synapse")
             widx = (ltar + synidx) % wsize
-            mknetcon1(pnm, lsrc, cell.syns.o(synType.n).o(section), synidx, w.v.x[widx]/1000.0, del)
+            mknetcon1(pnm, lsrc, cell.syns.o(synType.n), synidx, w.v.x[widx]/1000.0, del)
         } else {
             execerror ("Unsupported LSN synapse type")
         }
