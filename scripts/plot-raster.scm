@@ -1,4 +1,9 @@
-(require-extension typeclass simdata)
+(require-extension typeclass matchable rb-tree simdata)
+
+(require-library ploticus)
+(import
+ (prefix ploticus plot:)
+ )
 
 ;(plot:procdebug #t)
 
