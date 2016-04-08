@@ -1,13 +1,21 @@
 
+(module simdata
+
+        *
+
+        (import scheme chicken)
+
 (require-extension matchable typeclass rb-tree)
-(require-library srfi-1 irregex data-structures files posix extras ploticus)
+(require-library srfi-1 srfi-13 irregex data-structures files posix extras ploticus)
 (import
- (only srfi-1 filter list-tabulate)
+ (only srfi-1 filter list-tabulate fold)
+ (only srfi-13 string-trim-both string-null?)
  (only files make-pathname)
  (only posix glob)
- (only data-structures ->string alist-ref compose)
- (only extras fprintf random)
+ (only data-structures ->string alist-ref compose string-split)
+ (only extras fprintf random read-lines)
  (only mathh cosh tanh log10)
+ (only irregex irregex-match string->irregex)
  (prefix ploticus plot:)
  )
 
@@ -38,7 +46,7 @@
         (error 'read-cell-types "number of entries does not match first line in file" celltypes-path))
     (map (lambda (celltype) 
            (cond ((string=? (car celltype) "cardinality:")
-                  (match-let (((_ cell-number type-name prototype template) line))
+                  (match-let (((_ cell-number type-name prototype template) celltype))
                              `(,(string->symbol type-name)
                                (cardinality . ,(string->number cell-number))
                                (,(string->prototype prototype) . ,template))
@@ -49,7 +57,7 @@
                                (indexfile . ,index-file)
                                (,(string->prototype prototype) . ,template))))
                  (else
-                  (error *read-cell-types "unknown index type" line))
+                  (error 'read-cell-types "unknown index type" celltype))
                  ))
 
          rest
@@ -70,9 +78,9 @@
                                (lambda (index-file)
                                  (match-let (((min-index max-index)
                                               (fold (lambda (line ax)
-                                                      (let ((x (string-trim-both line)))
+                                                      (let ((x (string-split (string-trim-both line) " ")))
                                                         (match-let (((min-index max-index) ax))
-                                                                   (let ((n (string->number x)))
+                                                                   (let ((n (string->number (car x))))
                                                                      (list (min n min-index) 
                                                                            (max n max-index))
                                                                      ))
@@ -97,3 +105,4 @@
                       (update msp (car t.n) (cdr t.n) append))
                     (empty) data))))
 
+)
