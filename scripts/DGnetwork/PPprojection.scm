@@ -16,8 +16,11 @@
                          (transformer ,(lambda (x) (map string->number
                                                         (string-split x ","))))))
     
-    (grid-cells "Specify number of grid cell modules and grid cells per module, separated by colon"
-                (value (required "N-MOD:N-GRID-CELL")
+    (pp-cell-prefix "Specify the prefix for PP cell file names"
+		    (value (required PREFIX)))
+
+    (pp-cells "Specify number of PP cell modules and PP cells per module, separated by colon"
+                (value (required "N-MOD:N-PP-CELL")
                        (transformer ,(lambda (x) (map string->number (string-split x ":"))))))
     
     (output-dir "Write results in the given directory"
@@ -215,20 +218,21 @@
   )
 
 
-;; Connection points for grid cell perforant path synapses
-(define GridCells
+;; Connection points for perforant path synapses
+(define PPCells
   (let* (
-         (grid-cell-params (or (opt 'grid-cells) (list 1 1000)))
+         (pp-cell-params (or (opt 'pp-cells) (list 1 1000)))
+         (pp-cell-prefix (or (opt 'pp-cell-prefix) "PPCell"))
 
-         (n-modules (car grid-cell-params))
-         (n-grid-cells-per-module (cadr grid-cell-params))
+         (n-modules (car pp-cell-params))
+         (n-pp-cells-per-module (cadr pp-cell-params))
 
 
          (pp-contacts
 	  (let recur ((gid 0) (modindex 1) (lst '()))
             (if (<= modindex n-modules)
                 (let inner ((gid gid) (cellindex 1) (lst lst))
-                  (if (<= cellindex n-grid-cells-per-module)
+                  (if (<= cellindex n-pp-cells-per-module)
 		      (let ((root (modulo gid mysize)))
 			(if (= myrank root)
 			    (inner (+ gid 1)
@@ -240,7 +244,7 @@
 					    (PointsFromFileWhdr
 					     (make-pathname (opt 'presyn-dir) 
 							    (make-pathname (fmt #f (pad-char #\0 (pad/left 2 (num modindex))))
-									   (sprintf "GridCell_~A.dat" 
+									   (sprintf "~A_~A.dat" pp-cell-prefix
 										    (fmt #f (pad-char #\0 (pad/left 4 (num cellindex)))))
 									   )))
 					    )))
@@ -255,7 +259,7 @@
       (match-lambda*
        (((gid pp-contacts) lst)
         (if (> (length pp-contacts) 0)
-	    (cons (make-cell 'GridCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)
+	    (cons (make-cell 'PPCell gid (car pp-contacts) (list (cons 'PPsynapses pp-contacts))) lst)
 	    lst)))
       `()
       pp-contacts
@@ -268,7 +272,7 @@
 
     (let* (
 	   (target (SetExpr (section DGCs Dendrites)))
-	   (source (SetExpr (section GridCells PPsynapses)))
+	   (source (SetExpr (section PPCells PPsynapses)))
 	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
 	   )
 

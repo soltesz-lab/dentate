@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J PPprojection_Full_Scale_Control
-#SBATCH -o ./results/PPprojection_Full_Scale_Control.%j.o
+#SBATCH -J MPPprojection_Full_Scale_Control
+#SBATCH -o ./results/MPPprojection_Full_Scale_Control.%j.o
 #SBATCH --nodes=5
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=8192
