@@ -18,6 +18,8 @@ prelength = 500
 mainlength = 6000
 vinit = -60
 
+
+
 //**********************************************************************
 proc simulate() { local preDT, mainDT, logsize  localobj logfile, tlog, Vlog
     
