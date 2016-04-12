@@ -1,4 +1,4 @@
-batch_size=256
+batch_size=512
 %batch_size=str2double(getenv('BATCH_SIZE'))
 
 for forest = 1:1000
@@ -10,7 +10,7 @@ for forest = 1:1000
     toc;
 
     for batch_index = 1:batch_size
-        append_connmatrix('LPPtoDGC',double(m),1000000,batch_index,batch_size,'B256');
+        append_connmatrix('LPPtoDGC',double(m),1000000,batch_index,batch_size,sprintf('B%d',batch_size));
     end
 
 end

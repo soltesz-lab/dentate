@@ -123,7 +123,7 @@ func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsi
 
 
 // helper function to create synapses
-proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, rs, dendindex, compindex strdef cellTypeName
+proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, count, rs, dendindex, compindex strdef cellTypeName
 
     cell = $o1
     riseTime = $o2
@@ -131,13 +131,16 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
     erev = $o4
     dend = $o5 
     comp = $o6
-    rs = $o7
-    cellTypeName = $s8
+    count = $o7
+    rs = $o8
+    cellTypeName = $s9
 
     if (verbose > 0) {
         printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
     }
     
+    rs.r.discunif(1,count.n)
+
     for i = 0, dend.count()-1 {
 
         dendindex = dend.o(i)
@@ -468,6 +471,7 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
     propList.append(new String("reversal potential"))
     propList.append(new String("dendrite"))
     propList.append(new String("compartment"))
+    propList.append(new String("count"))
     
     // The list of synaptic properties files
     fileList = new List()
@@ -477,6 +481,7 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
     fileList.append(new String("synerev.dat"))
     fileList.append(new String("syndend.dat"))
     fileList.append(new String("syncomp.dat"))
+    fileList.append(new String("syncount.dat"))
     
     for i=0, fileList.count()-1 {
         sprint(path,"%s/%s",datasetPath,fileList.o(i).s)
