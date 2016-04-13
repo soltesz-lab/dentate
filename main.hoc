@@ -422,8 +422,11 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
        }
        f.ropen()
        m = new Matrix()
-       m.scanf(f)
+       if (!f.eof()) {
+         m.scanf(f)
+       }
        f.close()
+       if (m.nrow > 0) {
        if (wdType == 1) {
            for i=0, m.nrow-1 {
                srcid = m.x[i][0]
@@ -547,7 +550,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    conlist.prepend(edges)
 	       }
            }
-           m.resize(1,1)
+	   }
+       m.resize(1,1)
        }
    }
 }
