@@ -6,7 +6,7 @@ verbose = 0
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "/oasis/scratch/comet/iraikov/temp_project/dentate/"
+datasetPrefix = "/oasis/scratch/comet/iraikov/temp_project/dentate/B512"
 
 // The dataset to use for constructing the network
 datasetName = "Full_Scale_Control"
@@ -25,6 +25,9 @@ tstop = 100
 
 // time step
 dt = 0.025
+
+// Fraction of cells to record intracellular voltage from
+vrecordFraction = 0.01
 
 use_cvode=0
 use_cache_efficient=1

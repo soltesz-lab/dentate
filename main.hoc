@@ -49,6 +49,8 @@ strdef datafilePath
 
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
+// stimulus cell template
+{load_file("./templates/StimCell.hoc")}
 
 // used for recording membrane potentials
 objref indicesVrecord
@@ -421,8 +423,11 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
        }
        f.ropen()
        m = new Matrix()
-       m.scanf(f)
+       if (!f.eof()) {
+         m.scanf(f)
+       }
        f.close()
+       if (m.nrow > 1) {
        if (wdType == 1) {
            for i=0, m.nrow-1 {
                srcid = m.x[i][0]
@@ -546,7 +551,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    conlist.prepend(edges)
 	       }
            }
-           m.resize(1,1)
+	   }
+       m.resize(1,1)
        }
    }
 }
@@ -729,21 +735,13 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
         noise = stimType.getPropertyScalar("noise")
         number = stimType.getPropertyScalar("number")
         start = stimType.getPropertyScalar("start")
-        interval = stimType.getPropertyScalar("interval")
+        rate = stimType.getPropertyScalar("rate")
         
         if (verbose > 0) {
-            printf ("mkstim:  weight = %g noise = %g number = %g start = %g interval = %g\n", weight, noise, number, start, interval)
+            printf ("mkstim:  weight = %g noise = %g number = %g start = %g rate = %g\n", weight, noise, number, start, rate)
         }
         
-        stim = new NetStim(0.0)
-        stim.noise = noise
-        stim.number = number
-        stim.start = start
-        stim.interval = interval
-
-        if (verbose > 0) {
-            printf ("mkstim: noise = %g number = %g start = %g interval = %g\n", stim.noise, stim.number, stim.start, stim.interval)
-        }
+        stim = new StimCell(stimgid,0,0,rate,number,start,noise)
 
         pnm.register_cell(stimgid, stim)
         pnm.spike_record(stimgid) 
