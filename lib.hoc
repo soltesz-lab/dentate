@@ -96,7 +96,6 @@ func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsi
     layer   = $7
     section = $8
     node    = $9
-    //printf("host %d: appendsyn_lsn: connection src = %d dest = %d  gid_exists(target) = %d\n", pnm.myid, lsrc, ltar, pnm.gid_exists(ltar))
     if (pnm.gid_exists(ltar)) {
         // target in this subset
         // source may be on this or another machine
@@ -106,6 +105,9 @@ func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsi
             synidx = cell.addSyn(synType.n, section, node)
             assert (synidx >= 0,"nc_appendsyn_lsn: cannot add synapse")
             widx = (ltar + synidx) % wsize
+            if (pnm.myid == 0) {
+            printf("host %d: appendsyn_lsn: connection src = %d dest = %d  w.v.x[%d] = %f\n", pnm.myid, lsrc, ltar, widx, w.v.x[widx]/1000.0)
+            }
             mknetcon1(pnm, lsrc, cell.syns.o(synType.n), synidx, w.v.x[widx]/1000.0, del)
         } else {
             execerror ("Unsupported LSN synapse type")

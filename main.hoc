@@ -426,7 +426,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
          m.scanf(f)
        }
        f.close()
-       if (m.nrow > 0) {
+       if (m.nrow > 1) {
        if (wdType == 1) {
            for i=0, m.nrow-1 {
                srcid = m.x[i][0]
