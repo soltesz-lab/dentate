@@ -49,6 +49,8 @@ strdef datafilePath
 
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
+// stimulus cell template
+{load_file("./templates/StimCell.hoc")}
 
 // used for recording membrane potentials
 objref indicesVrecord
@@ -734,21 +736,13 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
         noise = stimType.getPropertyScalar("noise")
         number = stimType.getPropertyScalar("number")
         start = stimType.getPropertyScalar("start")
-        interval = stimType.getPropertyScalar("interval")
+        rate = stimType.getPropertyScalar("rate")
         
         if (verbose > 0) {
-            printf ("mkstim:  weight = %g noise = %g number = %g start = %g interval = %g\n", weight, noise, number, start, interval)
+            printf ("mkstim:  weight = %g noise = %g number = %g start = %g rate = %g\n", weight, noise, number, start, rate)
         }
         
-        stim = new NetStim(0.0)
-        stim.noise = noise
-        stim.number = number
-        stim.start = start
-        stim.interval = interval
-
-        if (verbose > 0) {
-            printf ("mkstim: noise = %g number = %g start = %g interval = %g\n", stim.noise, stim.number, stim.start, stim.interval)
-        }
+        stim = new StimCell(stimgid,0,0,rate,number,start,noise)
 
         pnm.register_cell(stimgid, stim)
         pnm.spike_record(stimgid) 

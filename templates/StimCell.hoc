@@ -1,4 +1,4 @@
-begintemplate MPPCell
+begintemplate StimCell
 
 public pp, connect2target, gid
 public x, y, z, position, xpos, ypos, zpos
@@ -51,4 +51,4 @@ proc setposition(){
     pp.position(xpos, ypos, zpos)
 }
 
-endtemplate MPPCell
+endtemplate StimCell

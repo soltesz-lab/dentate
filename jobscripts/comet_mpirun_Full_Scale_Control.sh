@@ -5,7 +5,7 @@
 #SBATCH --nodes=32
 #SBATCH --ntasks-per-node=16
 #SBATCH -p compute
-#SBATCH -t 6:00:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
