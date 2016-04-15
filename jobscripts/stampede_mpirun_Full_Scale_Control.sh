@@ -13,8 +13,10 @@ set -x
 
 mkdir -p ./results/Full_Scale_Control_$SLURM_JOB_ID
 
-ibrun tacc_affinity ./mechanisms/x86_64/special -mpi -nobanner -nogui \
- -c "strdef parameters" \ -c "parameters=\"./parameters/stampede_Full_Scale_Control.hoc\"" \
- -c "strdef resultsPath" -c "resultsPath=\"./results/Full_Scale_Control_$SLURM_JOB_ID\"" main.hoc
+runhoc="./jobscripts/stampede_Full_Scale_Control_run_${SLURM_JOB_ID}.hoc"
+
+sed -e "s/JOB_ID/$SLURM_JOB_ID/g" ./jobscripts/stampede_Full_Scale_Control_run.hoc > $runhoc
+
+ibrun tacc_affinity ./mechanisms/x86_64/special -mpi $runhoc
 
 
