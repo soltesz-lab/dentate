@@ -5,6 +5,8 @@
 // Value template
 {xopen("./templates/Value.hoc")}
 
+objref strfun
+strfun = new StringFunctions()
 
 proc assert() { local test strdef errmsg
     
@@ -141,7 +143,8 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
         printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
     }
     
-    rs.r.discunif(1,count.n)
+    // TODO: use count property for total number of synapses to create
+    rs.r.discunif(1,4)
 
     for i = 0, dend.count()-1 {
 
@@ -823,7 +826,7 @@ proc vrecord() { local status, gid, i localobj pnm, cell, vec strdef cmd
     for i=0, my_indicesVrecord.count()-1 {
         gid  = my_indicesVrecord.o(i).n
         cell = pnm.pc.gid2cell(gid)
-        if (!cell.is_art()) {
+        if (strfun.is_artificial(cell) == 0) {
            vec.x[i] = cell.soma.v
         }
     }
