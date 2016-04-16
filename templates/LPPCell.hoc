@@ -1,6 +1,6 @@
 begintemplate LPPCell
 
-public pp, connect2target, gid
+public pp, connect2target, gid, is_art
 public x, y, z, position, xpos, ypos, zpos
 objref pp
 
