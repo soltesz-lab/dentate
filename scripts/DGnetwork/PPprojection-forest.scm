@@ -180,7 +180,7 @@
   (let* (
 	 (forest-pts (car (PointsFromFileWhdr* (make-pathname (opt 'trees-dir) (make-pathname (number->string forest) "GCcoordinates.dat")))))
 	 
-	 (forestSize (kd-tree-size forest-pts))
+	 (forest-size (kd-tree-size forest-pts))
 	 
 	 (forest-layout
 	  (kd-tree-fold-right*
