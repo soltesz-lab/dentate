@@ -18,9 +18,9 @@
  ; A list of eggs npcloud depends on.
 
  (needs make matchable regex
-	datatype vector-lib digraph graph-bfs graph-dfs graph-cycles 
+	datatype digraph graph-bfs graph-dfs graph-cycles 
 	mathh (lalr 2.4.2) ersatz getopt-long
-        typeclass kd-tree random-mtzig mpi srfi-63)
+        typeclass kd-tree mpi)
 
  (author "Ivan Raikov")
 

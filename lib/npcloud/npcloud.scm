@@ -25,8 +25,8 @@
         (import scheme chicken)
 
         
-        (require-extension srfi-69 datatype matchable vector-lib regex
-                           mpi mathh typeclass kd-tree random-mtzig
+        (require-extension srfi-69 datatype matchable regex
+                           mpi mathh typeclass kd-tree 
                            lalr-driver digraph graph-dfs)
 
 
@@ -72,21 +72,6 @@
         (define (sign x) (if (negative? x) -1.0 1.0))
 
         (define (f64vector-empty? x) (zero? (f64vector-length x)))
-
-        (define (random-init seed) (init seed))
-
-        (define (random-uniform low high st)
-          (let ((rlo (if (< low high) low high))
-                (rhi (if (< low high) high low))) 
-            (let ((delta (+ 1 (- rhi rlo)))
-                  (v (randu! st)))
-              (+ rlo (floor (* delta v)))
-              ))
-          )
-
-
-        (define (random-normal mean sdev st)
-          (+ mean (* sdev (randn! st))))
 
         (import-instance (<KdTree> KdTree3d)
                          (<Point> Point3d))
@@ -1134,40 +1119,32 @@
           )
         
 
-        (define (projection label source-tree target zone my-comm myrank size) 
+        (define (projection label source-tree target zone my-comm myrank size output-dir) 
 
           (MPI:barrier my-comm)
 	  
           (let ((my-results (point-projection label my-comm myrank size target source-tree zone 0 (lambda (x nn) nn))))
 
           (MPI:barrier my-comm)
-            
-            (call-with-output-file (sprintf "~Asources~A.dat"  label (if (> size 1) myrank ""))
-              (lambda (out-sources)
-                (call-with-output-file (sprintf "~Atargets~A.dat"  label (if (> size 1) myrank ""))
-                  (lambda (out-targets)
-                    (call-with-output-file (sprintf "~Adistances~A.dat"  label (if (> size 1) myrank ""))
-                      (lambda (out-distances)
-                        (for-each 
-                         (lambda (my-data)
-                           (let* ((my-entry-len 3)
-                                  (my-data-len (/ (f64vector-length my-data) my-entry-len)))
-                             (d "~A: rank ~A: length my-data = ~A~%" label myrank my-data-len)
-                             (let recur ((m 0))
-                               (if (< m my-data-len)
-                                   (let ((source (inexact->exact (f64vector-ref my-data (* m my-entry-len))))
-                                         (target (inexact->exact (f64vector-ref my-data (+ 1 (* m my-entry-len)))))
-                                         (distance (f64vector-ref my-data (+ 2 (* m my-entry-len)))))
-                                     (fprintf out-sources "~A~%" source)
-                                     (fprintf out-targets "~A~%" target)
-                                     (fprintf out-distances "~A~%" distance)
-                                     (recur (+ 1 m)))))
-                             ))
-                         my-results)
-                        ))
-                    ))
-                ))
-            ))
+
+          (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) myrank "")))
+            (lambda (out)
+              (for-each 
+               (lambda (my-data)
+                 (let* ((my-entry-len 3)
+                        (my-data-len (/ (f64vector-length my-data) my-entry-len)))
+                   (d "~A: rank ~A: length my-data = ~A~%" label myrank my-data-len)
+                   (let recur ((m 0))
+                     (if (< m my-data-len)
+                         (let ((source (inexact->exact (f64vector-ref my-data (* m my-entry-len))))
+                               (target (inexact->exact (f64vector-ref my-data (+ 1 (* m my-entry-len)))))
+                               (distance (f64vector-ref my-data (+ 2 (* m my-entry-len)))))
+                           (fprintf out "~A ~A ~A~%" source target distance)
+                           (recur (+ 1 m)))))
+                   ))
+               my-results)
+              ))
+          ))
         
 
         (include "calc-parser.scm")
