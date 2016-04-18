@@ -175,8 +175,8 @@
 (define forest (opt 'forest))
 
 
-;; Presynaptic cells
-(define PreSyns
+;; Post-synaptic cells
+(define PostSyns
   (let* (
 	 (forest-pts (car (PointsFromFileWhdr* (make-pathname (opt 'trees-dir) (make-pathname (number->string forest) "GCcoordinates.dat")))))
 	 
@@ -271,7 +271,7 @@
 (define PPprojection-forest
 
     (let* (
-	   (target (SetExpr (section Presyns Dendrites)))
+	   (target (SetExpr (section Postsyns Dendrites)))
 	   (source (SetExpr (section PPCells PPsynapses)))
 	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
 	   )
