@@ -145,9 +145,7 @@
   (let* (
 	 (forest-pts
           (car (PointsFromFileWhdr* 
-                (make-pathname (opt 'trees-dir) 
-                               (make-pathname (number->string forest) 
-                                              (opt 'postsyn-coords))))))
+                (opt 'postsyn-coords))))
 	 
 	 (forest-layout
 	  (kd-tree-fold-right*
