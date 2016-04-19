@@ -11,11 +11,6 @@
 
 (define opt-grammar
   `(
-    (random-seeds "Use the given seeds for random number generation"
-                  (value (required SEED-LIST)
-                         (transformer ,(lambda (x) (map string->number
-                                                        (string-split x ","))))))
-    
     (pp-cell-prefix "Specify the prefix for PP cell file names"
 		    (value (required PREFIX)))
 
@@ -27,18 +22,17 @@
                (single-char #\o)
                (value (required PATH)))
 
-    (trees-dir "Load post-synaptic trees from the given directory"
-               (single-char #\t)
-               (value (required PATH)))
-
-    (forest "Load the given forest of post-synaptic cells"
-	     (single-char #\f)
-	     (value (required INDEX)
-		    (transformer ,string->number)))
-    
     (presyn-dir "Load pre-synaptic location coordinates from the given directory"
-                   (single-char #\p)
-                   (value (required PATH)))
+                (single-char #\p)
+                (value (required PATH)))
+
+    (postsyn-coords "Load post-synaptic location coordinates from the given file" 
+                    (single-char #\f)
+                    (value (required PATH)))
+
+    (postsyn-label "Specify the label for post-synaptic cells"
+                   (value (required PREFIX)
+                          (transformer ,string->symbol)))
     
     (radius "Connection radius"
             (single-char #\r)
@@ -46,12 +40,7 @@
                    (transformer ,(lambda (x) (string->number x))))
             )
 
-    (layers "Comma-separated list of connection layers of postsynaptic cells"
-	     (single-char #\l)
-	     (value (required LAYERS)
-		    (transformer ,(lambda (x) (map string->number (string-split x ","))))))
-    
-    (label "Use the given label for outpput projection files"
+    (label "Use the given label for output projection files"
 	   (value (required LABEL)))
 
     (verbose "print additional debugging information" 
@@ -140,80 +129,42 @@
 
 (define neg -)
 
-(define random-seeds (make-parameter (apply circular-list (or (opt 'random-seeds) (list 13 17 19 23 29 37)))))
-
-(define (randomSeed)
-  (let ((v (car (random-seeds))))
-     (random-seeds (cdr (random-seeds)))
-     v))
-(define randomInit random-init)
-
-(define randomNormal random-normal)
-(define randomUniform random-uniform)
-
 (define (PointsFromFileWhdr x) (load-points-from-file x #t))
 (define (PointsFromFileWhdr* x) (load-points-from-file* x #t))
 (define PointsFromFile* load-points-from-file*)
 (define PointsFromFile load-points-from-file)
 
-(define (LoadTree topology-filename points-filename label)
-  (load-layer-tree 4 topology-filename points-filename label))
-
-(define (LayerProjection label r source target target-layers output-dir) 
-  (layer-tree-projection label
-                         (source 'tree) (target 'list) target-layers
-                         r my-comm myrank mysize output-dir))
-(define (SegmentProjection label r source target) 
-  (segment-projection label
-                      (source 'tree) (target 'list) 
-                      r my-comm myrank mysize))
-(define (Projection label r source target) 
+(define (Projection label r source target output-dir) 
   (projection label
               (source 'tree) (target 'list) 
-              r my-comm myrank mysize))
-
-(define forest (opt 'forest))
+              r my-comm myrank mysize output-dir))
 
 
-;; Dentate granule cells
-(define DGCs
+;; Post-synaptic cells
+(define PostSyns
   (let* (
-	 (DGCpts (car (PointsFromFileWhdr* (make-pathname (opt 'trees-dir) (make-pathname (number->string forest) "GCcoordinates.dat")))))
+	 (forest-pts
+          (car (PointsFromFileWhdr* 
+                (make-pathname (opt 'trees-dir) 
+                               (make-pathname (number->string forest) 
+                                              (opt 'postsyn-coords))))))
 	 
-	 (DGCsize (kd-tree-size DGCpts))
-	 
-	 (DGClayout
+	 (forest-layout
 	  (kd-tree-fold-right*
 	   (lambda (i p ax) 
 	     (cons (list (inexact->exact i) p) ax))
-	   '() DGCpts))
+	   '() forest-pts))
 	 
-	 (DGCdendrites
-	  (fold-right
-	   (match-lambda* 
-	    (((i p) lst)
-	     (let ((li (- i (* (- forest 1) 1000))))
-	       (cons
-		(LoadTree (sprintf "~A/~A/DGC_dendrite_topology_~A.dat" 
-				   (opt 'trees-dir) forest
-				   (fmt #f (pad-char #\0 (pad/left 6 (num (- li 1))))))
-			  (sprintf "~A/~A/DGC_dendrite_points_~A.dat" 
-				   (opt 'trees-dir) forest
-				   (fmt #f (pad-char #\0 (pad/left 6 (num (- li 1))))))
-			  'Dendrites)
-		lst))))
-	   '() DGClayout))
 	 )
     
     (fold-right
      (match-lambda*
-      (((gid p) dendrite-tree lst)
+      (((gid p) lst)
 					;(print "gid = " gid)
 					;(print "dendrite-tree = ") (pp ((dendrite-tree 'nodes)))
-       (cons (make-cell 'DGC gid p (list (cons 'Dendrites dendrite-tree))) lst)))
+       (cons (make-cell (opt 'postsyn-label) gid p (list)) lst)))
      '()
-     DGClayout
-     DGCdendrites
+     forest-layout
      ))
   )
 
@@ -226,7 +177,6 @@
 
          (n-modules (car pp-cell-params))
          (n-pp-cells-per-module (cadr pp-cell-params))
-
 
          (pp-contacts
 	  (let recur ((gid 0) (modindex 1) (lst '()))
@@ -268,19 +218,19 @@
 
 
 
-(define PPtoDGC_projection
+(define PPprojection
 
     (let* (
-	   (target (SetExpr (section DGCs Dendrites)))
+	   (target (SetExpr (population PostSyns)))
 	   (source (SetExpr (section PPCells PPsynapses)))
-	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
+	   (output-dir (opt 'output-dir))
 	   )
 
       (if (= myrank 0)
 	  (create-directory output-dir))
 
-      (let ((PPtoDGC (LayerProjection (opt 'label) (opt 'radius) source target (opt 'layers)  output-dir)))
-	PPtoDGC))
+      (let ((PPtoPop (Projection (opt 'label) (opt 'radius) source target output-dir)))
+	PPtoPop))
     )
   
 
