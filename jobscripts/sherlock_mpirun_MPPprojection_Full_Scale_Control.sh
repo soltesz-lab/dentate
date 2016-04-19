@@ -29,8 +29,8 @@ results_dir=/scratch/users/$USER/PPprojection_Full_Scale_Control_forest_${forest
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="MPPtoDGC" -t $forest_prefix -f $forest  -p $gridcell_dir -r 6.5 -o $results_dir \
- -l 1,2 --grid-cells=10:3800
+mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection-project --label="MPPtoDGC" -t $forest_prefix -f $forest  -p $gridcell_dir -o $results_dir \
+  -r 6.5 -l 1,2 --grid-cells=10:3800
 
 cd $forest
 cat MPPtoDGC.*.dat > MPPtoDGC.dat

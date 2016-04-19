@@ -29,7 +29,7 @@ results_dir=/scratch/users/$USER/LPPprojection_Full_Scale_Control_forest_${fores
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="LPPtoDGC" -t $forest_prefix -f $forest  -p $lppcell_dir -o $results_dir \
+mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection-forest --label="LPPtoDGC" -t $forest_prefix -f $forest  -p $lppcell_dir -o $results_dir \
   -r 3.0 -l 3 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm8192M
 
 cd $forest
