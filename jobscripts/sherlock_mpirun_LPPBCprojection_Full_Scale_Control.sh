@@ -22,8 +22,8 @@ mkdir -p $results_dir
 cd $results_dir
 
 mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="LPPtoBC" -f $coords  -p $lppcell_dir -o $results_dir \
- -r 30.0 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm8192M
+ -r 150.0 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm8192M
 
-cd $forest
+cd $results_dir
 cat LPPtoBC.*.dat > LPPtoBC.dat
 rm LPPtoBC.*.dat
