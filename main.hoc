@@ -844,8 +844,13 @@ if (pnm.myid == 0) {
     printf ("*** Simulation results written\n")
 }
 
-pnm.pc.runworker()
 pnm.pc.barrier()
-pnm.pc.done()
+
+if (pnm.myid == 0) {
+    printf ("*** Ending simulation\n")
+}
+
+//pnm.pc.runworker()
+//pnm.pc.done()
 
 quit()
