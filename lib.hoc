@@ -594,7 +594,9 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
         synCount = sscanf(synTypeString,"%lf:%lf",&synType1,&synType2)
         // Read in the type of weight+delay specification
 	f.scanstr(wdTypeString)
-        if (strcmp(wdTypeString,"dist.layer.sect.node") == 0) {
+        if (strcmp(wdTypeString,"dist") == 0) {
+            wdType = 4
+        } if (strcmp(wdTypeString,"dist.layer.sect.node") == 0) {
             wdType = 3
         } else if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
             wdType = 2
@@ -691,6 +693,42 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
             connectivityType.addPropertyScalar("order",order)
             connectivityTypes.append(connectivityType)
             
+        } else if (wdType == 4) {
+            connectivityType = new Dict(connectivityName)
+            if (synCount > 1) {
+                f.scanstr(wdTypeString)
+                sscanf(wdTypeString,"%lf:%lf",&standardWeight1,&standardWeight2)
+                l = new List()
+                l.append(new Value(0,standardWeight1))
+                l.append(new Value(0,standardWeight2))
+                value = new Value(2,l)
+                connectivityType.addPropertyObject("standardWeight",value)
+            } else {
+                standardWeight1 = f.scanvar()
+                value = new Value(0,standardWeight1)
+                connectivityType.addPropertyObject("standardWeight",value)
+            }
+            standardVelocity = f.scanvar()
+            connectivityType.addPropertyString("name",connectivityName)
+            connectivityType.addPropertyString("presynapticPopulation",preSynapticPopulation)
+            connectivityType.addPropertyString("postsynapticPopulation",postSynapticPopulation)
+
+            if (synCount > 1) {
+                l = new List()
+                l.append(new Value(0,synType1))
+                l.append(new Value(0,synType2))
+                value = new Value(2,l)
+                connectivityType.addPropertyObject("synType",value)
+            } else {
+                value = new Value(0,synType1)
+                connectivityType.addPropertyObject("synType",value)
+            }
+
+            connectivityType.addPropertyScalar("wdType",wdType)
+            connectivityType.addPropertyScalar("standardVelocity",standardVelocity)
+            connectivityType.addPropertyScalar("order",order)
+            connectivityTypes.append(connectivityType)
+
         }
     }
     f.close()
