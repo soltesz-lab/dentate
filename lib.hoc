@@ -476,7 +476,6 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
     fileList.append(new String("synerev.dat"))
     fileList.append(new String("syndend.dat"))
     fileList.append(new String("syncomp.dat"))
-    fileList.append(new String("syncount.dat"))
     
     for i=0, fileList.count()-1 {
         sprint(path,"%s/%s",datasetPath,fileList.o(i).s)
@@ -798,7 +797,9 @@ proc simstatus() { local wt
        printf("*** computation time at t=%g ms was %g s\n", t, wt-walltime)
      }
      walltime = wt
-     cvode.event(t + dt_status, "simstatus()")
+     if (t + dt_status < tstop) {
+        cvode.event(t + dt_status, "simstatus()")
+     }
  }
  
 dt_vrecord = 0.1
@@ -822,7 +823,9 @@ proc vrecord() { local status, gid, i localobj pnm, cell, vec strdef cmd
         }
     }
     vrecordlog.prepend(vec)
-    cvode.event(t + dt_vrecord, "vrecord(pnm)")
+    if (t + dt_vrecord < tstop) {
+      cvode.event(t + dt_vrecord, "vrecord(pnm)")
+    }
 }
 
 // Writes out voltage traces
