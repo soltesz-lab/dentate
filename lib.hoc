@@ -476,7 +476,6 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
     fileList.append(new String("synerev.dat"))
     fileList.append(new String("syndend.dat"))
     fileList.append(new String("syncomp.dat"))
-    fileList.append(new String("syncount.dat"))
     
     for i=0, fileList.count()-1 {
         sprint(path,"%s/%s",datasetPath,fileList.o(i).s)
