@@ -124,10 +124,10 @@
 	 (plot:arg "-cm" )
 	 (plot:arg "-textsize"   "12")
 	 (plot:arg "-pagesize"   "12,23");;PAPER
-	 (plot:arg "-cpulimit"   "60")
-	 (plot:arg "-maxrows"    "700000")
-	 (plot:arg "-maxfields"  "1400000")
-	 (plot:arg "-maxvector"  "700000")
+	 (plot:arg "-cpulimit"   "120")
+	 (plot:arg "-maxrows"    "3000000")
+	 (plot:arg "-maxfields"  "5000000")
+	 (plot:arg "-maxvector"  "7000000")
 
          (plot:proc "page"
                     `(
