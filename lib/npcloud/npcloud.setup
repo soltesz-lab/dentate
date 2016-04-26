@@ -3,21 +3,10 @@
 (define (dynld-name fn)		
   (make-pathname #f fn ##sys#load-dynamic-extension))	
 
-(use make)
 
-(make (
-       ("calc.yy.scm" ("calc.grm")
-        (run (csi -s calc.grm)))
+(compile -O3 -s npcloud.scm -j npcloud)
+(compile -O3 -s npcloud.import.scm)
 
-       ((dynld-name "npcloud") ("npcloud.scm" "calc.yy.scm")
-	(compile -O2 -S -s npcloud.scm -j npcloud))
-
-       ((dynld-name "npcloud.import") ("npcloud.import.scm")
-	(compile -O2 -s npcloud.import.scm)) 
-       )
-  (list (dynld-name "npcloud")
-	(dynld-name "npcloud.import"))
-  )
 
 (install-extension
 

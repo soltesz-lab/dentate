@@ -4,7 +4,7 @@
 
  ; List here all the files that should be bundled as part of your egg.  
 
- (files "npcloud.meta" "npcloud.setup" "calc-parser.scm" "calc.grm")
+ (files "npcloud.meta" "npcloud.setup" )
 
  ; Your egg's license:
 
@@ -19,10 +19,9 @@
 
  (needs make matchable regex
 	datatype digraph graph-bfs graph-dfs graph-cycles 
-	mathh (lalr 2.4.2) ersatz getopt-long
-        typeclass kd-tree mpi)
+	mathh getopt-long typeclass kd-tree mpi)
 
  (author "Ivan Raikov")
 
- (synopsis "A description language for neuroanatomical structures and geometric connectivity."))
+ (synopsis "A library for neuroanatomical structures and geometric connectivity."))
 

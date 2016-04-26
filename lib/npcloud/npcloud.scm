@@ -27,7 +27,7 @@
         
         (require-extension srfi-69 datatype matchable regex
                            mpi mathh typeclass kd-tree 
-                           lalr-driver digraph graph-dfs)
+                           digraph graph-dfs)
 
 
         (require-library srfi-1 srfi-4 srfi-13 irregex files posix data-structures)
@@ -46,7 +46,7 @@
                 (only posix glob find-files)
                 (only extras read-lines pp fprintf )
                 (only ports with-output-to-port )
-                (only data-structures ->string alist-ref compose identity string-split sort atom?)
+                (only data-structures ->string alist-ref compose identity string-split merge sort atom?)
                 (only lolevel extend-procedure procedure-data extended-procedure?)
                 )
 
@@ -86,7 +86,6 @@
 
         (define point->list f64vector->list)
         
-
         
         (define-record-type pointset (make-pointset prefix id points boundary)
           pointset? 
@@ -94,14 +93,6 @@
           (id pointset-id)
           (points pointset-points)
           (boundary pointset-boundary)
-          )
-
-        (define-record-type genpoint (make-genpoint coords parent-index parent-distance segment)
-          genpoint? 
-          (coords genpoint-coords)
-          (parent-index genpoint-parent-index)
-          (parent-distance genpoint-parent-distance)
-          (segment genpoint-segment)
           )
 
         (define-record-type swcpoint (make-swcpoint id type coords radius pre)
@@ -175,59 +166,7 @@
                           pts))
               ))
 
-        (define (write-sections forest-name section-name layout sections #!optional rank)
-          (call-with-output-file (if rank
-                                     (sprintf "~A.~A.~A.section.dat" forest-name section-name rank)
-                                     (sprintf "~A.~A.section.dat" forest-name section-name))
-            (lambda (out)
-              (for-each
-               (match-lambda*
-                (((gid p) section)
-                 (fprintf out "~A " gid)
-                 (for-each 
-                  (lambda (neurites)
-                    (for-each
-                     (lambda (gd)
-                       (let ((p (genpoint-coords gd)))
-                         (fprintf out "~A ~A ~A "
-                                  (coord 0 p)
-                                  (coord 1 p)
-                                  (coord 2 p))))
-                     (cdr neurites)))
-                  (cdr section))
-                 (fprintf out "~%")
-                 ))
-               layout 
-               sections))))
 
-
-        (define (genpoint-cells-sections->kd-tree cells section-name #!key
-                                                  (make-value
-                                                   (lambda (i v) 
-                                                     (list (genpoint-parent-index v)
-                                                           (genpoint-parent-distance v))))
-                                                  (make-point
-                                                   (lambda (v) (genpoint-coords v))))
-          (let ((t 
-                 (let recur ((cells cells) (points '()))
-                   (if (null? cells)
-                       (list->kd-tree
-                        points
-                        make-value: make-value
-                        make-point: make-point)
-                       (let ((cell (car cells)))
-                         (recur (cdr cells) 
-                                (let inner ((sections (append (cell-section-ref section-name cell)))
-                                            (points points))
-                                  (if (null? sections) points
-                                      (inner
-                                       (cdr sections)
-                                       (append (cdr (car sections)) points))
-                                      ))
-                                ))
-                       ))
-                 ))
-            t))
 
 
         (define (cells-sections->kd-tree cells section-name 
@@ -257,187 +196,9 @@
             t))
 
 
-        (define (sections->kd-tree cells #!key
-                                   (make-value
-                                    (lambda (i v) 
-                                      (list (genpoint-parent-index v)
-                                            (genpoint-parent-distance v))))
-                                   (make-point
-                                    (lambda (v) (genpoint-coords v))))
-          (let ((t 
-                 (let recur ((cells cells) (points '()))
-                   (if (null? cells)
-                       (list->kd-tree
-                        points
-                        make-value: make-value
-                        make-point: make-point)
-                       (let ((sections (car cells)))
-                         (let inner ((sections sections) (points points))
-                           (if (null? sections)
-                               (recur (cdr cells) points)
-                               (let ((section (car sections)))
-                                 (inner (cdr sections) 
-                                        (append (cdr (cadr section)) points))
-                                 ))
-                           ))
-                       ))
-                 ))
-            t))
-
-
-        (define (cells-origins->kd-tree cells)
-          (let ((t 
-                 (let recur ((cells cells) (points '()))
-                   (if (null? cells)
-                       (list->kd-tree
-                        points
-                        make-value: (lambda (i v) 
-                                      (list (genpoint-parent-index v)
-                                            (genpoint-parent-distance v)))
-                        make-point: (lambda (v) (genpoint-coords v))
-                        )
-                       (let ((cell (car cells)))
-                         (recur (cdr cells) 
-                                (cons (make-genpoint (cell-origin cell) (cell-index cell) 0. 0)
-                                      points)))
-                       ))
-                 ))
-            t))
 
         (define (pointCoord axis p)
           (coord (inexact->exact axis) p))
-
-        ;; Samples a parametric curve at regular intervals in the range xmin..xmax inclusive.
-        (define (sample-uniform)
-          (lambda (n)
-            (let* (
-                   (xmin  0.0)
-                   (xmax  1.0)
-                   (delta (- xmax xmin))
-                   (dx    (if (zero? delta) 0
-                              (if (< n 2)
-                                (error 'sample-uniform "number of iterations must be >= 2")
-                                (/ (- xmax xmin) (- n 1)))))
-                   )
-              (list-tabulate n (lambda (i) (+ xmin (* dx i))))
-              )))
-
-
-        ;; Samples a parametric curve according to a polynomial
-        ;; c0 + c1 x + c2 x^2 in the range xmin..xmax inclusive.
-        (define (sample-polynomial c0 c1 c2)
-          (lambda (n)
-            (let* (
-                   (f (lambda (x) (+ c0 (* x c1) (* x x c2))))
-                   (dx (/ 1.0 n))
-                   )
-              (let recur ((i 0.0) (fi 0.0) (lst '()))
-                (let ((fi1 (+ fi (f i))))
-                  (if (<= fi1 1.0)
-                      (recur (+ i dx) fi1 (cons fi1 lst))
-                      (reverse lst))))
-              )))
-
-        
-        
-        ;; auxiliary function to create segment points
-        (define (make-segment si np sp xyz)
-          (list-tabulate 
-           np
-           (lambda (i) (let* ((pi (+ sp i))
-                              (p (make-point 
-                                  (f64vector-ref (car xyz) pi)
-                                  (f64vector-ref (cadr xyz) pi)
-                                  (f64vector-ref (caddr xyz) pi))))
-                         (list si p)
-                         ))
-           ))
-
-
-          
-
-        ;;
-        ;; Creates a named section containing points from the given segmented processes.
-        ;;
-        (define (make-segmented-section gid p label ps)
-          `(,label . 
-                   ,(fold (lambda (i+proc ax)
-                            (let ((seci (car i+proc)) 
-                                  (proc (cadr i+proc)))
-                              (cons 
-                               `(,seci . 
-                                       ,(map (lambda (sp)
-                                               (let ((segi (car sp))
-                                                     (dpoint (cadr sp)))
-                                                 (let ((soma-distance (sqrt (dist2 p dpoint))))
-                                                   (make-genpoint dpoint gid soma-distance segi))
-                                                 ))
-                                             proc))
-                               ax)
-                              ))
-                          '() ps)
-                   ))
-        
-        ;;
-        ;; Non-segmented named section
-        ;;
-        (define (make-section gid p label ps)
-          `(,label . 
-                   ,(fold (lambda (i+proc ax)
-                            (let* ((seci (car i+proc)) 
-                                   (proc (cadr i+proc))
-                                   (pts (map (lambda (dpoint)
-                                               (let ((soma-distance (sqrt (dist2 p dpoint))))
-                                                 (make-genpoint dpoint gid soma-distance #f)))
-                                             proc)))
-                              (d "make-section: label = ~A gid = ~A p = ~A pts = ~A~%" 
-                                 label gid p proc)
-                              (cons `(,seci . ,pts) ax)
-                              ))
-                          '() ps)
-                   ))
-        
-        
-        
-        (define (make-gen-kd-tree data #!key (threshold 0.0))
-          
-          (define (update-bb p x-min y-min z-min x-max y-max z-max)
-            (let ((x (coord 0 p)) (y (coord 1 p)) (z (coord 2 p)))
-              (if (< x (x-min)) (x-min x))
-              (if (< y (y-min)) (y-min y))
-              (if (< z (z-min)) (z-min z))
-              (if (> x (x-max)) (x-max x))
-              (if (> y (y-max)) (y-max y))
-              (if (> z (z-max)) (z-max z))
-              ))
-
-
-          (let* (
-                 (t (list->kd-tree
-                     (filter (lambda (x) (<= threshold (cdr x))) data)
-                     make-value: (lambda (i v) (cdr v))
-                     make-point: (lambda (v) (apply make-point (car v)))
-                     offset: 0
-                     ))
-                 (n (kd-tree-size t))
-                 (x-min (make-parameter +inf.0))
-                 (y-min (make-parameter +inf.0))
-                 (z-min (make-parameter +inf.0))
-                 (x-max (make-parameter -inf.0))
-                 (y-max (make-parameter -inf.0))
-                 (z-max (make-parameter -inf.0))
-                 (bb (begin (kd-tree-for-each
-                             (lambda (p) (update-bb p x-min y-min z-min
-                                                    x-max y-max z-max))
-                             t)
-                            (list (x-min) (y-min) (z-min) (x-max) (y-max) (z-max))))
-                 )
-
-            (cons bb t)
-
-            ))
-
-
 
 
 
@@ -510,77 +271,15 @@
 
 
 
-        (define (genpoint-projection prefix my-comm myrank size cells fibers zone cell-start fiber-start)
-
-          (d "rank ~A: prefix = ~A zone = ~A length cells = ~A~%" myrank prefix zone (length cells))
-
-          (fold (lambda (cell ax)
-
-                  (d "rank ~A: cell = ~A~%" myrank cell)
-
-                  (let* ((i (+ cell-start (car cell)))
-                         (root (modulo i size))
-                         (sections (cadr cell)))
-                    
-                    (fold 
-                     
-                     (lambda (sec ax)
-                       
-                       (let ((seci (car sec))
-                             (gxs  (cdr sec)))
-                         
-                         (let ((query-data
-                                (fold 
-                                 (lambda (gd ax)
-                                   (d "rank ~A: querying point ~A (~A)~%" 
-                                      myrank (genpoint-coords gd) 
-                                      (genpoint-parent-index gd))
-                                   (fold
-                                    (lambda (x ax) 
-                                      (let (
-                                            (source (car x))
-                                            (target i)
-                                            (distance (cadr x))
-                                            (segi (genpoint-segment gd))
-                                            )
-                                        (if (not segi)
-                                            (error 'genpoint-projection "point does not have segment index" gd))
-                                        (append (list source target distance segi seci) ax)
-                                        ))
-                                    ax
-                                    (delete-duplicates
-                                     (map (lambda (x) 
-                                            (d "rank ~A: query result = ~A (~A) (~A) ~%" 
-                                               myrank (kdnn-point x) (kdnn-distance x) (kdnn-parent-index x))
-                                            (list (+ fiber-start (kdnn-parent-index x))
-                                                  (+ (kdnn-distance x) (genpoint-parent-distance gd)  (kdnn-parent-distance x))
-                                                  ))
-                                          (kd-tree-near-neighbors* fibers zone (genpoint-coords gd)))
-                                     (lambda (u v)
-                                       (= (car u) (car v)))
-                                     )
-                                    ))
-                                 '() gxs)))
-                           (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
-
-                                  (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
-                             
-                             (append res1 ax))
-                           
-                           ))
-                       )
-                     ax sections)
-                    ))
-                '() cells)
-          )
-
         
 
-        (define (point-projection prefix my-comm myrank size pts fibers zone maxn point-start nn-filter)
-          (fold (lambda (px ax)
-
-                  (printf "~A: rank ~A: px = ~A zone=~A maxn=~A~%"  prefix myrank px zone maxn)
-
+        (define (point-projection prefix my-comm myrank size pts fibers zone point-start nn-filter)
+          (let ((tbl (make-hash-table = number-hash)))
+            (for-each 
+             (lambda (px)
+               
+               (printf "~A: rank ~A: px = ~A zone=~A ~%"  prefix myrank px zone)
+               
                   (let* ((i (+ point-start (car px)))
                          (root (modulo i size))
                          (dd (d "~A: rank ~A: querying point ~A (root ~A)~%" prefix myrank px root))
@@ -596,35 +295,44 @@
                                      ax)
                                  ))
                              '()
-			     ((lambda (lst)
-				(printf "~A: rank ~A: length lst=~A~%"  prefix myrank (length lst))
-				(if (and (> maxn 0) (> (length lst) maxn))
-				    (take lst maxn) lst))
-			      (delete-duplicates
-			       (map (lambda (x) 
-				      (let ((res (list (car (cadar x))  
-						       (+ (caddr x) (cadr (cadar x))))))
-					(d "~A: x = ~A res = ~A~%" prefix x res)
-					res))
-				    (nn-filter pd (kd-tree-near-neighbors* fibers zone pd))
-				    )
-			       (lambda (u v) (= (car u) (car v)))
-			       ))
-                             ))
-                          ))
+                             (delete-duplicates
+                              (map (lambda (x) 
+                                     (let ((res (list (car (cadar x))  
+                                                      (+ (caddr x) (cadr (cadar x))))))
+                                       (d "~A: x = ~A res = ~A~%" prefix x res)
+                                       res))
+                                   (nn-filter pd (kd-tree-near-neighbors* fibers zone pd))
+                                   )
+                              (lambda (u v) (= (car u) (car v)))
+                              ))
+                            ))
+                         )
 
-
+                    
                     (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
                            (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
-                      (append res1 ax))
-                    ))
-
-                '() pts))
-        
-
-
-
-
+                      (for-each 
+                       (lambda (entry) 
+                         (let* ((entry-len 3)
+                                (data-len (/ (f64vector-length entry) entry-len)))
+                           (let recur ((k 0))
+                             (if (< k entry-len)
+                                 (let ((source (inexact->exact (f64vector-ref entry (* k entry-len))))
+                                       (target (inexact->exact (f64vector-ref entry (+ 1 (* k entry-len)))))
+                                       (distance (f64vector-ref entry (+ 2 (* k entry-len)))))
+                                   (let ((val (list source distance)))
+                                     (hash-table-update!/default
+                                      tbl target (lambda (lst) (merge (list val) lst (lambda (x y) (< (cadr x) (cadr y)))))
+                                      val))
+                                   (recur (+ 1 i))
+                                   )))
+                           ))
+                       res1)
+                      ))
+                  )
+             pts)
+            tbl
+            ))
 
         
         (define comment-pat (string->irregex "^#.*"))
@@ -1047,6 +755,7 @@
 	    
 	    ))
 
+
         (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm myrank size output-dir)
 
           (MPI:barrier my-comm)
@@ -1079,113 +788,41 @@
 		     ))
 		 my-results)))
             ))
-        
-        (define (segment-projection label source-tree target-sections zone my-comm myrank size)
 
-          (MPI:barrier my-comm)
-	  
-          (let ((my-results
-                 (genpoint-projection label my-comm myrank size target-sections source-tree zone 0 0)))
-
-            (MPI:barrier my-comm)
-
-            (call-with-output-file (sprintf "~Asources~A.dat"  label (if (> size 1) myrank ""))
-              (lambda (out-sources)
-                (call-with-output-file (sprintf "~Atargets~A.dat"  label (if (> size 1) myrank ""))
-                  (lambda (out-targets)
-                    (call-with-output-file (sprintf "~Adistances~A.dat"  label (if (> size 1) myrank ""))
-                      (lambda (out-distances)
-                        (call-with-output-file (sprintf "~Asegments~A.dat"  label (if (> size 1) myrank ""))
-                          (lambda (out-segments)
-                            (for-each 
-                             (lambda (my-data)
-                               (let* ((my-entry-len 5)
-                                      (my-data-len (/ (f64vector-length my-data) my-entry-len)))
-                                 (d "rank ~A: length my-data = ~A~%" myrank my-data-len)
-                                 (let recur ((m 0))
-                                   (if (< m my-data-len)
-                                       (let* (
-                                              (my-entry-offset (* m my-entry-len))
-                                              (source (inexact->exact (f64vector-ref my-data my-entry-offset)))
-                                              (target (inexact->exact (f64vector-ref my-data (+ 1 my-entry-offset))))
-                                              (distance (f64vector-ref my-data (+ 2 my-entry-offset)))
-                                              (segment (f64vector-ref my-data (+ 3 my-entry-offset)))
-                                              (section (f64vector-ref my-data (+ 4 my-entry-offset)))
-                                              )
-                                         (fprintf out-sources   "~A~%" source)
-                                         (fprintf out-targets   "~A~%" target)
-                                         (fprintf out-distances "~A~%" distance)
-                                         (fprintf out-segments  "~A ~A~%" segment section)
-                                         (recur (+ 1 m)))))
-                                 ))
-                             my-results))
-                          ))
-                      ))
-                  ))
-              ))
-          )
-        
 
         (define (projection label source-tree target zone maxn my-comm myrank size output-dir) 
 
           (MPI:barrier my-comm)
 	  
           (let ((my-results (point-projection label my-comm myrank size
-					      target source-tree zone maxn 0
+					      target source-tree zone 0
 					      (lambda (x nn) nn))))
 
-          (MPI:barrier my-comm)
-
-          (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) myrank "")))
-            (lambda (out)
-              (for-each 
-               (lambda (my-data)
-                 (let* ((my-entry-len 3)
-                        (my-data-len (/ (f64vector-length my-data) my-entry-len)))
-                   (d "~A: rank ~A: length my-data = ~A~%" label myrank my-data-len)
-                   (let recur ((m 0))
-                     (if (< m my-data-len)
-                         (let ((source (inexact->exact (f64vector-ref my-data (* m my-entry-len))))
-                               (target (inexact->exact (f64vector-ref my-data (+ 1 (* m my-entry-len)))))
-                               (distance (f64vector-ref my-data (+ 2 (* m my-entry-len)))))
-                           (fprintf out "~A ~A ~A~%" source target distance)
-                           (recur (+ 1 m)))))
-                   ))
-               my-results)
-              ))
-          ))
-        
-
-        (include "calc-parser.scm")
-
-        
-        (define (load-config-file filename)
-          (let ((in (open-input-file filename)))
-            (if (not in) (error 'load-config-file "file not found" filename))
-            (init-bindings)
-            (let* ((lines (reverse (filter (lambda (x) (not (string-null? x))) (read-lines in))))
-                   (properties (filter-map
-                                (lambda (line) 
-                                  (and (not (string-prefix? "//" line))
-                                       (let ((lst (string-split line "=")))
-                                         (and (> (length lst) 1)
-                                              (let ((key (string->symbol (string-trim-both (car lst) #\space)))
-                                                    (val (calc-eval-string (cadr lst))))
-                                                (add-binding key val)
-                                                (cons key val))))))
-                                lines)))
-              properties
+            (MPI:barrier my-comm)
+            
+            (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) myrank "")))
+              (lambda (out)
+                (hash-table-for-each 
+                 my-results
+                 (lambda (target lst)
+                   (let ((lst-len (length lst)))
+                     (d "~A: rank ~A: target ~A length lst = ~A~%" label myrank target lst-len)
+                     (let ((lst1 (if (and (> maxn 0) (> lst-len maxn))
+                                     (take lst maxn) lst)))
+                       (for-each
+                        (lambda (x) 
+                          (let ((source (list-ref x 0))
+                                (distance (list-ref x 1)))
+                            (fprintf out "~A ~A ~A~%" source target distance))
+                          )
+                        lst
+                        ))
+                     ))
+                 ))
               ))
           )
+        
 
-        (define (make-output-fname dirname sysname suffix . rest) 
-          (let-optionals 
-           rest ((x #t))
-           (and x
-                (let ((dirname (if (string? x) x dirname)))
-                  (let ((fname (sprintf "~A~A" sysname suffix)))
-                    (or (and dirname (make-pathname dirname fname)) fname)))
-                )))
 
         
 )
