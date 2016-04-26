@@ -1,7 +1,8 @@
 batch_size=512
 %batch_size=str2double(getenv('BATCH_SIZE'))
+srcbatch_size = 48
 
-for i = 1:batch_size
+for i = 1:srcbatch_size
 
     mpp_input_file=sprintf('MPPtoBC.%d.dat',i)
 
