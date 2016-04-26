@@ -441,7 +441,8 @@
 
 
 
-        (define (layer-point-projection prefix my-comm myrank size cells layers fibers zone cell-start fiber-start)
+        (define (layer-point-projection prefix my-comm myrank size cells layers fibers
+					zone cell-start fiber-start)
 
           (d "rank ~A: prefix = ~A zone = ~A layers = ~A length cells = ~A~%" 
              myrank prefix zone layers (length cells))
@@ -478,6 +479,7 @@
                                           ax)
                                       ))
                                   ax
+				  
                                   (delete-duplicates
                                    (map (lambda (x) 
                                           (d "rank ~A: query result = ~A (~A) (~A) ~%" 
@@ -574,10 +576,10 @@
 
         
 
-        (define (point-projection prefix my-comm myrank size pts fibers zone point-start nn-filter)
+        (define (point-projection prefix my-comm myrank size pts fibers zone maxn point-start nn-filter)
           (fold (lambda (px ax)
 
-                  (d "~A: rank ~A: px = ~A zone=~A~%"  prefix myrank px zone)
+                  (printf "~A: rank ~A: px = ~A zone=~A maxn=~A~%"  prefix myrank px zone maxn)
 
                   (let* ((i (+ point-start (car px)))
                          (root (modulo i size))
@@ -594,16 +596,20 @@
                                      ax)
                                  ))
                              '()
-                             (delete-duplicates
-                              (map (lambda (x) 
-                                     (let ((res (list (car (cadar x))  
-                                                      (+ (caddr x) (cadr (cadar x))))))
-                                       (d "~A: x = ~A res = ~A~%" prefix x res)
-                                       res))
-                                   (nn-filter pd (kd-tree-near-neighbors* fibers zone pd))
-                                   )
-                              (lambda (u v) (= (car u) (car v)))
-                              )
+			     ((lambda (lst)
+				(printf "~A: rank ~A: length lst=~A~%"  prefix myrank (length lst))
+				(if (and (> maxn 0) (> (length lst) maxn))
+				    (take lst maxn) lst))
+			      (delete-duplicates
+			       (map (lambda (x) 
+				      (let ((res (list (car (cadar x))  
+						       (+ (caddr x) (cadr (cadar x))))))
+					(d "~A: x = ~A res = ~A~%" prefix x res)
+					res))
+				    (nn-filter pd (kd-tree-near-neighbors* fibers zone pd))
+				    )
+			       (lambda (u v) (= (car u) (car v)))
+			       ))
                              ))
                           ))
 
@@ -615,6 +621,7 @@
 
                 '() pts))
         
+
 
 
 
@@ -1119,11 +1126,13 @@
           )
         
 
-        (define (projection label source-tree target zone my-comm myrank size output-dir) 
+        (define (projection label source-tree target zone maxn my-comm myrank size output-dir) 
 
           (MPI:barrier my-comm)
 	  
-          (let ((my-results (point-projection label my-comm myrank size target source-tree zone 0 (lambda (x nn) nn))))
+          (let ((my-results (point-projection label my-comm myrank size
+					      target source-tree zone maxn 0
+					      (lambda (x nn) nn))))
 
           (MPI:barrier my-comm)
 

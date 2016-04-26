@@ -2,7 +2,7 @@
 #
 #SBATCH -J LPPBCprojection_Full_Scale_Control
 #SBATCH -o ./results/LPPBCprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=6
+#SBATCH --nodes=12
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=16384
 #SBATCH -t 4:00:00
@@ -22,8 +22,6 @@ mkdir -p $results_dir
 cd $results_dir
 
 mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="LPPtoBC" -f $coords  -p $lppcell_dir -o $results_dir \
- -r 150.0 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm8192M
+ -r 400.0 --maxn=500 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm16384M
 
-cd $results_dir
-cat LPPtoBC.*.dat > LPPtoBC.dat
-rm LPPtoBC.*.dat
+

@@ -40,6 +40,23 @@
                    (transformer ,(lambda (x) (string->number x))))
             )
 
+    (maxn "Maximum number of connections per post-synaptic target (0 - no limit)"
+	  (value (required MAXN)
+		 (transformer ,(lambda (x) (string->number x))))
+	  )
+
+    (mean "Connection mean (for random normal distribution)"
+            (single-char #\m)
+            (value (required MEAN)
+                   (transformer ,(lambda (x) (string->number x))))
+            )
+
+    (stdev "Connection standard deviation (for random normal distribution)"
+            (single-char #\s)
+            (value (required STDEV)
+                   (transformer ,(lambda (x) (string->number x))))
+            )
+
     (label "Use the given label for output projection files"
 	   (value (required LABEL)))
 
@@ -134,10 +151,10 @@
 (define PointsFromFile* load-points-from-file*)
 (define PointsFromFile load-points-from-file)
 
-(define (Projection label r source target output-dir) 
+(define (Projection label r maxn source target output-dir) 
   (projection label
               (source 'tree) (target 'list) 
-              r my-comm myrank mysize output-dir))
+              r maxn my-comm myrank mysize output-dir))
 
 
 ;; Post-synaptic cells
@@ -227,7 +244,8 @@
       (if (= myrank 0)
 	  (create-directory output-dir))
 
-      (let ((PPtoPop (Projection (opt 'label) (opt 'radius) source target output-dir)))
+      (let ((PPtoPop (Projection (opt 'label) (opt 'radius) (or (opt 'maxn) 0)
+				 source target output-dir)))
 	PPtoPop))
     )
   
