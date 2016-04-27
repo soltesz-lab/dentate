@@ -2,10 +2,10 @@
 #
 #SBATCH -J LPPBCprojection_Full_Scale_Control
 #SBATCH -o ./results/LPPBCprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=12
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=16384
-#SBATCH -t 4:00:00
+#SBATCH -t 8:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
