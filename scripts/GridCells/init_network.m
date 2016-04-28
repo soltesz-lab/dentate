@@ -3,14 +3,13 @@
 %% H: height
 %% M: number of modules
 %% N: number of grid cells 
-function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N)
+function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, grid_unit)
         
-  grid_unit = 0.0001;
-
-  lambda_range = [.1, .9];
+  lambda_range = [0.4, 1.0];
 
   [X, Y] = make_grid(W, H, N, grid_unit);
-  sz = size(X)(2:end);
+  xsz = size(X);
+  sz = xsz(2:end);
   xx = sz(1);
   yy = sz(2);
 
@@ -23,7 +22,7 @@ function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N)
   yoff   = zeros([N,xx,yy]);  %% y offset matrix
             
   for i=1:N 
-
+      
     cur_module = mod(i,M) + 1;
 
     cur_lambda = lambda_modules(cur_module);
