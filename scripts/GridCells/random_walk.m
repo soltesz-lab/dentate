@@ -1,29 +1,42 @@
-%# Set the parameters
-LB_X = 1; %# Lower bound
-UB_X = 30; %# Upper bound
-LB_Y = 1; %# Lower bound
-UB_Y = 30; %# Upper bound
 
-T  = 100; %# Number of observations
-N  = 3; %# Number of samples
-X0 = 1.5 * LB_X; %# Arbitrary start point near LB
-Y0 = 1.5 * LB_Y; %# Arbitrary start point near LB
+function [Xpos,Ypos] = random_walk(tend,dt)
 
-Gain_X = 1.5;
-Gain_Y = 1.0;
+nsteps = floor(tend/dt);
+W = 200.0; % 2 meter side
+enclosureRadius = W/2;
+velocity = rand()/2;
 
-%# Generate the jumps
-Jump_X = randn(N, T-1) * Gain_X;
-Jump_Y = randn(N, T-1) * Gain_Y;
+Xpos = zeros(nsteps,1);
+Ypos = zeros(nsteps,1);
+headDir = zeros(nsteps,1)';
 
-%# Build the constrained random walk
-X = X0 * ones(N, T);
-for t = 2:T
-    X(:, t) = max(min(X(:, t-1) + Jump_X(:, t-1), UB_X), 0);
+Xpos(1) = 0;
+Ypos(1) = 0;
+headDir(1) = rand()*2*pi;
+
+for i = 2:nsteps
+    % max acceleration is .1 cm/ms^2
+    dv = max(min(normrnd(0,.05),.2),-.2); 
+    
+    % max velocity is .5 cm/ms
+    velocity = min(max(velocity + dv,0),0.05);
+        
+    % Don't let trajectory go outside of the boundry, if it would then randomly
+    % rotate to the left or right
+    leftOrRight = round(rand());
+    if (leftOrRight == 0)
+        leftOrRight = -1;
+    end
+    
+    while (sqrt((Xpos(i-1) + cos(headDir(i-1))*velocity)^2 ...
+                + (Ypos(i-1) + sin(headDir(i-1))*velocity)^2)  > enclosureRadius)
+        
+        headDir(i-1) = headDir(i-1) + leftOrRight*pi/100;
+        
+    end
+    Xpos(i) = Xpos(i-1)+cos(headDir(i-1))*velocity; 
+    Ypos(i) = Ypos(i-1)+sin(headDir(i-1))*velocity; 
+    headDir(i) = mod(headDir(i-1) + (rand()-.5)/5*pi/2,2*pi);
 end
-X = X';
-Y = Y0 * ones(N, T);
-for t = 2:T
-    Y(:, t) = max(min(Y(:, t-1) + Jump_Y(:, t-1), UB_Y), 0);
-end
-Y = Y';
+Xpos = Xpos + W/2;
+Ypos = Ypos + W/2;
