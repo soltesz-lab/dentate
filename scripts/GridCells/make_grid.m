@@ -1,4 +1,8 @@
 %% Compute the spatial grid
+%% W: width
+%% H: height
+%% N: number of neurons
+%% grid_unit: size of a grid element
 function [X,Y] = make_grid(W, H, N, grid_unit)
         
   size_len = sqrt(grid_unit)
