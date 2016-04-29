@@ -596,7 +596,7 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
 	f.scanstr(wdTypeString)
         if (strcmp(wdTypeString,"dist") == 0) {
             wdType = 4
-        } if (strcmp(wdTypeString,"dist.layer.sect.node") == 0) {
+        } else if (strcmp(wdTypeString,"dist.layer.sect.node") == 0) {
             wdType = 3
         } else if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
             wdType = 2
