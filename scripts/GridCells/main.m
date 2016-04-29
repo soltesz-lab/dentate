@@ -42,8 +42,9 @@ spikes(:) = {sparse(N,N)};
 
 for t = 1:T
     rates(:,t) = ratemap(:,Xgrid(t),Ygrid(t));
-    spikes_t = rates(:,t)*dt > rand(N,1);
-    spikes{t,1} = sparse(spikes_t);
+    spike_idxs = find(rates(:,t)*dt > rand(N,1));
+    spikes_t = [(t*dt); spike_idxs];
+    spikes{t,1} = spikes_t;
 end
 
 if savegrid > 0
