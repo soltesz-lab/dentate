@@ -5,7 +5,7 @@
 #SBATCH --nodes=32
 #SBATCH --ntasks-per-node=4
 #SBATCH -p compute
-#SBATCH -t 4:00:00
+#SBATCH -t 8:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
@@ -21,5 +21,5 @@ mkdir -p $results_dir
 cd $results_dir
 
 mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="MPPtoBC" -f $coords  -p $gridcell_dir -o $results_dir \
- -r 500.0 --maxn=500 --pp-cells=10:3400 --pp-cell-prefix=GridCell -:hm16384M
+ -r 400.0 --maxn=500 --pp-cells=10:3800 --pp-cell-prefix=GridCell -:hm16384M
 
