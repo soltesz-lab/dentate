@@ -331,9 +331,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                         sprint(datadir, "%d", node)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
                         execute(cmd)
-                        if (hasSynapseProps) {
-                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
-                        }
+                        //if (hasSynapseProps) {
+                        //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        //}
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
