@@ -365,9 +365,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                         pnm.spike_record(gid)
                     }
                 }
+            }
         }
     }
-}
 
 // connects the cells
 // appends the NetCon objects to nclist
@@ -591,13 +591,11 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    edges.x[1] = destid1
                    conlist.prepend(edges)
 	       }
+               m.resize(1,1)
            }
-           m.resize(1,1)
        }
-       m.resize(1,1)
    }
-}
-
+   
 
 proc mkgap() { local gid, sgid, dgid, w localobj cell, gj, gjlist
     
