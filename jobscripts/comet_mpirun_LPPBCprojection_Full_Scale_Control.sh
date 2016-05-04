@@ -13,7 +13,7 @@
 set -x
 
 workdir=/oasis/scratch/comet/$USER/temp_project
-coords=$workdir/dentate/Full_Scale_Control/B512/BCcoordinates.dat
+coords=$workdir/dentate/B512/Full_Scale_Control/BCcoordinates.dat
 lppcell_dir=$workdir/lppcells
 results_dir=$workdir/LPPBCprojection_Full_Scale_Control_$SLURM_JOB_ID
 
@@ -21,6 +21,6 @@ mkdir -p $results_dir
 cd $results_dir
 
 mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="LPPtoBC" -f $coords  -p $lppcell_dir -o $results_dir \
- -r 500.0 --maxn=500 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm16384M
+ -r 400.0 --maxn=500 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm16384M
 
 

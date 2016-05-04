@@ -17,7 +17,7 @@
 
 W = 200.0; % box dimensions, cm
 H = 200.0;
-N = 38000; % number of grid cells
+N = 38000 * 0.02; % number of grid cells
 M = 10; % number of grid cell modules
 grid_unit = 36;
 
@@ -36,16 +36,15 @@ Xgrid = round(Xpos/npts);
 Ygrid = round(Ypos/npts);
 
 T = size(Xgrid,1);
-rates  = zeros(N,T);
-spikes = cell(T,1);
-spikes(:) = {sparse(N,N)};
+rbar  = zeros(T,N);
 
 for t = 1:T
-    rates(:,t) = ratemap(:,Xgrid(t),Ygrid(t));
-    spike_idxs = find(rates(:,t)*dt > rand(N,1));
-    spikes_t = [(t*dt); spike_idxs];
-    spikes{t,1} = spikes_t;
+    rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
 end
+size(rbar)
+s = DG_SFromPSTHVarZ(rbar, 1);
+size(s)
+spikes = DG_spike_gen(s,1,1);
 
 if savegrid > 0
     grid_data.W = W;
