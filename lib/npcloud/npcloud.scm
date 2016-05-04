@@ -311,23 +311,28 @@
                     
                     (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
                            (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
-                      (for-each 
-                       (lambda (entry) 
-                         (let* ((entry-len 3)
-                                (data-len (/ (f64vector-length entry) entry-len)))
-                           (let recur ((k 0))
-                             (if (< k entry-len)
-                                 (let ((source (inexact->exact (f64vector-ref entry (* k entry-len))))
-                                       (target (inexact->exact (f64vector-ref entry (+ 1 (* k entry-len)))))
-                                       (distance (f64vector-ref entry (+ 2 (* k entry-len)))))
-                                   (let ((val (list source distance)))
-                                     (hash-table-update!/default
-                                      tbl target (lambda (lst) (merge (list val) lst (lambda (x y) (< (cadr x) (cadr y)))))
-                                      val))
-                                   (recur (+ 1 i))
-                                   )))
-                           ))
-                       res1)
+
+		      (if (= myrank root)
+			  (for-each 
+			   (lambda (vect) 
+			     (let* ((entry-len 3)
+				    (data-len (/ (f64vector-length vect) entry-len)))
+			       
+			       (printf "~A: rank ~A: px = ~A data-len=~A ~%"  prefix myrank px data-len)
+			       
+			       (let recur ((k 0))
+				 (if (< k data-len)
+				     (let ((source (inexact->exact (f64vector-ref vect (* k entry-len))))
+					   (target (inexact->exact (f64vector-ref vect (+ 1 (* k entry-len)))))
+					   (distance (f64vector-ref vect (+ 2 (* k entry-len)))))
+				       (let ((val (list source distance)))
+					 (hash-table-update!/default
+					  tbl target (lambda (lst) (merge (list val) lst (lambda (x y) (< (cadr x) (cadr y)))))
+					  (list val)))
+				       (recur (+ 1 k))
+				       )))
+			       ))
+			   res1))
                       ))
                   )
              pts)
@@ -806,7 +811,7 @@
                  my-results
                  (lambda (target lst)
                    (let ((lst-len (length lst)))
-                     (d "~A: rank ~A: target ~A length lst = ~A~%" label myrank target lst-len)
+                     (printf "~A: rank ~A: target ~A length lst = ~A~%" label myrank target lst-len)
                      (let ((lst1 (if (and (> maxn 0) (> lst-len maxn))
                                      (take lst maxn) lst)))
                        (for-each
@@ -815,7 +820,7 @@
                                 (distance (list-ref x 1)))
                             (fprintf out "~A ~A ~A~%" source target distance))
                           )
-                        lst
+                        lst1
                         ))
                      ))
                  ))

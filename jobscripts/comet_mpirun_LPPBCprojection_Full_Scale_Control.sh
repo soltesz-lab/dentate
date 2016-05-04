@@ -2,9 +2,9 @@
 #
 #SBATCH -J LPPBCprojection_Full_Scale_Control
 #SBATCH -o ./results/LPPBCprojection_Full_Scale_Control.%j.o
-#SBATCH --nodes=16
+#SBATCH --nodes=32
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=16384
+#SBATCH -p compute
 #SBATCH -t 8:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -12,11 +12,10 @@
 
 set -x
 
-module load openmpi/1.10.2/gcc
-
-coords=/scratch/users/$USER/dentate/Full_Scale_Control/B512/BCcoordinates.dat
-lppcell_dir=/scratch/users/$USER/lppcells
-results_dir=/scratch/users/$USER/LPPBCprojection_Full_Scale_Control_$SLURM_JOB_ID
+workdir=/oasis/scratch/comet/$USER/temp_project
+coords=$workdir/dentate/B512/Full_Scale_Control/BCcoordinates.dat
+lppcell_dir=$workdir/lppcells
+results_dir=$workdir/LPPBCprojection_Full_Scale_Control_$SLURM_JOB_ID
 
 mkdir -p $results_dir
 cd $results_dir

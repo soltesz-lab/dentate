@@ -125,9 +125,8 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
     erev = $o4
     dend = $o5 
     comp = $o6
-    count = $o7
-    rs = $o8
-    cellTypeName = $s9
+    rs = $o7
+    cellTypeName = $s8
 
     if (verbose > 0) {
         printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
@@ -466,7 +465,6 @@ proc loadSynapseInfo() { local i, order  localobj f, synapsePropertyTypes, synPr
     propList.append(new String("reversal potential"))
     propList.append(new String("dendrite"))
     propList.append(new String("compartment"))
-    propList.append(new String("count"))
     
     // The list of synaptic properties files
     fileList = new List()
@@ -596,7 +594,7 @@ proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1,
 	f.scanstr(wdTypeString)
         if (strcmp(wdTypeString,"dist") == 0) {
             wdType = 4
-        } if (strcmp(wdTypeString,"dist.layer.sect.node") == 0) {
+        } else if (strcmp(wdTypeString,"dist.layer.sect.node") == 0) {
             wdType = 3
         } else if (strcmp(wdTypeString,"long.+trans.dist") == 0) {
             wdType = 2
