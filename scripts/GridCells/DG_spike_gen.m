@@ -9,7 +9,7 @@ for i=1:I,
 end
 
 z=zeros(N,I,P);
-for i=1:I,
+for i=1:I
     z(:,i,:)=mvnrnd(zeros(N,P),SigmaZ);
 end
 r=sparse(s+z>0);

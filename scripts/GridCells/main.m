@@ -17,17 +17,18 @@
 
 W = 200.0; % box dimensions, cm
 H = 200.0;
-N = 38000 * 0.02; % number of grid cells
+N = 38000 * 0.2; % number of grid cells
+N = 10; % number of grid cells
 M = 10; % number of grid cell modules
 grid_unit = 36;
 
-savegrid  = 0;
+savegrid  = 1;
 
 [X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit);
 ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 dt = 0.01; % ms
-tend = 100; % ms
+tend = 50; % ms
 [Xpos,Ypos] = random_walk(tend, dt);
 
 size_len = sqrt(grid_unit);
@@ -44,7 +45,7 @@ end
 size(rbar)
 s = DG_SFromPSTHVarZ(rbar, 1);
 size(s)
-spikes = DG_spike_gen(s,1,1);
+spikes = DG_spike_gen(s,eye(N,N),1);
 
 if savegrid > 0
     grid_data.W = W;
@@ -55,7 +56,7 @@ if savegrid > 0
     grid_data.Ypos = Ypos;
     grid_data.Xgrid = Xgrid;
     grid_data.Ygrid = Ygrid;
-    grid_data.rates = rates;
+    grid_data.rbar = rbar;
     
     save("grid_data.mat","grid_data");
 end

@@ -8,7 +8,7 @@ s=zeros(N,P);
 for n=1:N
     n
     tic
-    s(n,:) = pararrayfun(4,@(p) myfun(rbar,varz,o,n,p),1:P);
+    s(n,:) = pararrayfun(10,@(p) myfun(rbar,varz,o,n,p),1:P);
     toc
 end
 
