@@ -11,9 +11,9 @@
 
 mkdir -p ./results/Slice_50_500_Control_$SLURM_JOB_ID
 
-module load openmpi/1.8.3/gcc
+module load openmpi/1.10.2/gcc
 
-hg manifest | tar zcf ./results/Slice_50_500_Control_$SLURM_JOB_ID/dentate.tgz --files-from=/dev/stdin
+##hg manifest | tar zcf ./results/Slice_50_500_Control_$SLURM_JOB_ID/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf $PWD/results/Slice_50_500_Control_$SLURM_JOB_ID/dgc.tgz --files-from=/dev/stdin
 
 mpirun nrniv -mpi -nobanner -nogui \

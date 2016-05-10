@@ -15,10 +15,16 @@
 %   (de Almeida and Lisman, JNeurosci 2009)
 
 
-
+batch_size=str2num(getenv('BATCH_SIZE'))
+batch_index=str2num(getenv('BATCH_INDEX'))
+						     
 load("grid_data.mat");
+size(grid_data.rbar)
 
-s = DG_SFromPSTHVarZ(grid_data.rbar, 1);
+rbar = grid_data.rbar(:,(batch_index*batch_size):((batch_index+1)*batch_size));
+[T,N] = size(rbar)
+  
+s = DG_SFromPSTHVarZ(rbar, 1);
 spikes = DG_spike_gen(s,eye(N,N),1);
 
-save("grid_spikes.mat","spikes");
+save(sprintf("grid_spikes_%d.mat",batch_index),"spikes");
