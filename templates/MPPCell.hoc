@@ -1,6 +1,6 @@
 begintemplate MPPCell
 
-public pp, connect2target, gid, is_art
+public vs, connect2target, gid, is_art
 public x, y, z, position, xpos, ypos, zpos
 objref vs, spikevect
 
@@ -26,14 +26,13 @@ func is_art() {return 1}
 
 
 obfunc connect2target() { // $o1 target point process, optional $o2 returned NetCon
-  $o2 = new NetCon(pp, $o1)
+  $o2 = new NetCon(vs, $o1)
   return $o2
 }
 
 proc setposition(){
     x = $1  y = $2  z = $3	
     xpos = $1  ypos = $2  zpos = $3	
-    pp.position(xpos, ypos, zpos)
 }
 
 endtemplate MPPCell
