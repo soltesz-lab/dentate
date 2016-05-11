@@ -22,5 +22,5 @@ mkdir -p $results_dir
 cd $results_dir
 
 mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection --label="MPPtoBC" -f $coords  -p $gridcell_dir -o $results_dir \
- -r 400.0 --maxn=500 --pp-cells=10:3400 --pp-cell-prefix=GridCell -:hm16384M
+ -r 400.0 --maxn=500 --pp-cells=10:3800 --pp-cell-prefix=GridCell -:hm16384M
 
