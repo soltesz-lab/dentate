@@ -809,11 +809,13 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
             }
         }
         stimgid = stimgid+1
-                        
+        
     }
 }
 
-mkstim(datasetPath, cellTypes, stimTypes)
+if (stimTypes.count() > 0) {
+    mkstim(datasetPath, cellTypes, stimTypes)
+}
 if (pnm.myid == 0) {
     printf ("*** Stimulus sources initialized\n")
 }
