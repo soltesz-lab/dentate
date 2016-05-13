@@ -1,15 +1,15 @@
 begintemplate LPPCell
 
-public pp, connect2target, gid, is_art
+public pp, connect2target, id, is_art
 public x, y, z, position, xpos, ypos, zpos
 objref pp
 
 proc init() {
-    gid = $1
+    id = $1
     if (numarg() > 3) {
         rate = $4
     } else {
-        rate = 30
+        rate = 1
     }
     if (numarg() > 4) {
         number = $5
@@ -19,12 +19,12 @@ proc init() {
     if (numarg() > 5) {
         start = $6
     } else {
-        start = 15
+        start = 5
     }
     if (numarg() > 6) {
         noise = $7
     } else {
-        noise = 0
+        noise = 1
     }
     setup(rate,number,start,noise) 	
 }

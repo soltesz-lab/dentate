@@ -789,36 +789,38 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, rate localob
     // Scan the first line, which contains the number of stim types
     numStimTypes = f.scanvar()
     
-    for i=0, numStimTypes-1 {
-        
-        // Scan in the cell name, template name, number of cells
-	f.scanstr(stimTypeName)
-        stimType = new Dict(stimTypeName)
-        stimType.addPropertyString("typeName",stimTypeName)
-        
-        sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
-        indices = new Vector()
-        ff = new File()
-        ff.ropen(indexPath)
-	numCells = ff.scanvar()
-        ff.scanvar()
-        indices.buffer_size(numCells)
-        indices.scanf(ff,numCells)
-        ff.close(indexPath)
-        stimType.addPropertyObject("indices",indices)
-	f.scanstr(cellTypeName)
-        stimType.addPropertyString("cellTypeName",cellTypeName)
-        weight = f.scanvar()
-        stimType.addPropertyScalar("weight",weight)
-        noise = f.scanvar()
-        stimType.addPropertyScalar("noise",noise)
-        number = f.scanvar()
-        stimType.addPropertyScalar("number",number)
-        start = f.scanvar()
-        stimType.addPropertyScalar("start",start)
-        rate = f.scanvar()
-        stimType.addPropertyScalar("rate",rate)
-        stimTypes.append(stimType)
+    if (numStimTypes > 0) {
+        for i=0, numStimTypes-1 {
+            
+            // Scan in the cell name, template name, number of cells
+	    f.scanstr(stimTypeName)
+            stimType = new Dict(stimTypeName)
+            stimType.addPropertyString("typeName",stimTypeName)
+            
+            sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
+            indices = new Vector()
+            ff = new File()
+            ff.ropen(indexPath)
+	    numCells = ff.scanvar()
+            ff.scanvar()
+            indices.buffer_size(numCells)
+            indices.scanf(ff,numCells)
+            ff.close(indexPath)
+            stimType.addPropertyObject("indices",indices)
+	    f.scanstr(cellTypeName)
+            stimType.addPropertyString("cellTypeName",cellTypeName)
+            weight = f.scanvar()
+            stimType.addPropertyScalar("weight",weight)
+            noise = f.scanvar()
+            stimType.addPropertyScalar("noise",noise)
+            number = f.scanvar()
+            stimType.addPropertyScalar("number",number)
+            start = f.scanvar()
+            stimType.addPropertyScalar("start",start)
+            rate = f.scanvar()
+            stimType.addPropertyScalar("rate",rate)
+            stimTypes.append(stimType)
+        }
     }
     f.close()
     
