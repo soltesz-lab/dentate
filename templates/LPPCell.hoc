@@ -9,7 +9,7 @@ proc init() {
     if (numarg() > 3) {
         rate = $4
     } else {
-        rate = 1
+        rate = 5
     }
     if (numarg() > 4) {
         number = $5
