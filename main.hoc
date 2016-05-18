@@ -895,7 +895,6 @@ if (pnm.myid == 0) {
     printf ("*** Ending simulation\n")
 }
 
-pnm.pc.runworker()
-pnm.pc.done()
-
 quit()
+
+
