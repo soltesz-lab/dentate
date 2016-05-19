@@ -327,7 +327,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                           p=i
                         }
                         sprint(datadir, "%d", node)
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
+                        sprint(cmd, "cell = new %s(%d, %d, %d, \"%s/%s/%s\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
                         execute(cmd)
                         //if (hasSynapseProps) {
                         //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
