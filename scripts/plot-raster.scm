@@ -1,28 +1,34 @@
-(require-extension typeclass matchable rb-tree simdata)
+(require-extension typeclass matchable rb-tree srfi-1 srfi-69 simdata)
 
 (require-library ploticus)
 (import
  (prefix ploticus plot:)
  )
 
+
 ;(plot:procdebug #t)
 
 (define (plot-range xrange temp-path celltype min max spike-times y i)
-
+  (let ((cellids (make-hash-table = number-hash)))
   (let* ((m (rb-tree-map -))
          (range-data
           (with-instance ((<PersistentMap> m))
                          ((foldi spike-times)
                           (match-lambda* 
-                           ((t ns lst)
+                           ((t ns (nspikes lst))
                             (let ((ns1 (filter (lambda (n) (and (<= min n) (<= n max))) ns)))
-                              (if (null? ns1) lst
-                                  (cons `(,t . ,ns1) lst)))))
-                          '()
+                              (if (null? ns1) 
+                                  (list nspikes lst)
+                                  (list (+ nspikes (length ns1))
+                                        (cons `(,t . ,ns1) lst))))))
+                          `(0 ())
                           )))
          )
 
-    (if (null? range-data) #f
+    (printf "Cell type ~A:~%" celltype)
+    (printf "   ~A total spikes~%" (car range-data))
+
+    (if (null? (cadr range-data)) #f
 
         (begin
           
@@ -30,7 +36,7 @@
           (let ((dataport (open-output-file temp-path)))
             (for-each (match-lambda ((t . ns) 
                                      (for-each (lambda (n) (fprintf dataport "~A,~A~%" t n)) ns)))
-                      range-data)
+                      (cadr range-data))
             (close-output-port dataport))
           
           (plot:proc "getdata"
@@ -43,11 +49,11 @@
           
           (plot:proc "areadef"
                      `(
-                       ("rectangle" . ,(sprintf "2 ~A 10 ~A" y (+ y 3)))
+                       ("rectangle" . ,(sprintf "2 ~A 30 ~A" y (+ y 3)))
                        ("areacolor" . "white")
                        
                        ("xrange"          . ,xrange)
-                       ("xaxis.stubs"     . "inc 100")
+                       ("xaxis.stubs"     . "inc 10")
                        ("xaxis.stubdetails" . "adjust=0.1,0.2")
                        ("xaxis.label"     . ,(if (= i 0) "Time [ms]" ""))
                        
@@ -75,7 +81,7 @@
           #t
           ))
     ))
-
+)
 
 (define (raster-plot datadir spike-file plot-label xrange)
   (match-let 
@@ -123,8 +129,8 @@
                                     (pathname-strip-extension spike-file )))))
 	 (plot:arg "-cm" )
 	 (plot:arg "-textsize"   "12")
-	 (plot:arg "-pagesize"   "12,23");;PAPER
-	 (plot:arg "-cpulimit"   "120")
+	 (plot:arg "-pagesize"   "12,23")
+	 (plot:arg "-cpulimit"   "600")
 	 (plot:arg "-maxrows"    "3000000")
 	 (plot:arg "-maxfields"  "5000000")
 	 (plot:arg "-maxvector"  "7000000")
@@ -147,5 +153,6 @@
 
        ))
 ))
+
 
 (apply raster-plot (command-line-arguments))
