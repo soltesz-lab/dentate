@@ -1,40 +1,45 @@
 begintemplate LPPCell
 
-public pp, connect2target, gid, is_art
+public pp, connect2target, id, is_art
 public x, y, z, position, xpos, ypos, zpos
-objref pp
+objref pp, rs
 
-proc init() {
-    gid = $1
-    if (numarg() > 3) {
-        rate = $4
-    } else {
-        rate = 30
+proc init() { localobj configVect, ff strdef datasetPath, configPath, cmd
+    id = $1
+    gid = $2
+
+    rate   = 5
+    number = 0
+    start  = 5
+    noise  = 1
+
+    datasetPath = $s3
+    sprint(configPath,"%s/%d.dat",configPath,id)
+    sprint(cmd, "test -e %s", configPath) // check if the path exists
+    status = system(cmd)
+    if (status == 0) {
+        ff = new File()
+        ff.ropen(configPath)
+        configVect.scanf(ff)
+        ff.close()
+        rate   = configVect.x[0]
+        number = configVect.x[1]
+        start  = configVect.x[2]
+        noise  = configVect.x[3]
     }
-    if (numarg() > 4) {
-        number = $5
-    } else {
-        number = 100
-    }
-    if (numarg() > 5) {
-        start = $6
-    } else {
-        start = 15
-    }
-    if (numarg() > 6) {
-        noise = $7
-    } else {
-        noise = 0
-    }
-    setup(rate,number,start,noise) 	
+    setup(id,gid,rate,number,start,noise) 	
 }
 
 proc setup() {
+    rs = new RandomStream($2)
     pp = new NetStim(.5)
-    pp.interval = 1000/$1
-    pp.number = $2
-    pp.start = $3
-    pp.noise = $4				
+    pp.noiseFromRandom(rs.r)
+    pp.interval = 1000/$2
+    pp.number = $3
+    pp.start = $4
+    pp.noise = $5	
+    rs.r.negexp(1)
+    rs.start()
 }
 
 func is_art() {return 1}

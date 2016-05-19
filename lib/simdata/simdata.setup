@@ -3,7 +3,7 @@
 (define (dynld-name fn)		
   (make-pathname #f fn ##sys#load-dynamic-extension))	
 
-(compile -O -d2 -S -s simdata.scm -j simdata)
+(compile -O3 -d0 -S -s simdata.scm -j simdata)
 (compile -O2 -s simdata.import.scm) 
 
 (install-extension

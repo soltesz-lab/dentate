@@ -47,6 +47,8 @@ strdef cmd
 // path for various datafiles (used for multiple files)
 strdef datafilePath
 
+random_stream_offset_ = tstop/dt + 1	
+
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
 // stimulus cell template
@@ -241,11 +243,6 @@ for i=0, cellTypes.count()-1 {
 }
 
 
-// each noise generator picks a number every
-// dt for the full time range, so stream
-// sections must be at least this long to
-// prevent overlap
-noise_random_stream_offset_ = tstop/dt + 1	
 
 // connectivity list local to the current mpi process
 objref conlist
@@ -269,7 +266,7 @@ objref cell
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, templateType, hasSynapseProps  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rs
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, templateType, hasSynapseProps  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rsdend, rscomp
     
     strdef templateName, typeName, datadir
     
@@ -308,7 +305,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
          }
         
         // used for choosing dendrite and compartment for synapses
-        rs = new RandomStream(k)
+        rsdend = new RandomStream(k*nCellTypes+1)
+        rscomp = new RandomStream(k*nCellTypes+2)
         
         find_template(externalPaths, templateName)
 
@@ -329,11 +327,11 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                           p=i
                         }
                         sprint(datadir, "%d", node)
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, noise_random_stream_offset_, datasetPath, typeName, datadir)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
                         execute(cmd)
-                        if (hasSynapseProps) {
-                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
-                        }
+                        //if (hasSynapseProps) {
+                        //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                        //}
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
                     }
@@ -342,10 +340,10 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                 for i=0, numCells-1 { 
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
-                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rsdend,rscomp,typeName)
                         }
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
@@ -356,10 +354,10 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                 for i=0, numCells-1 { 
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, noise_random_stream_offset_, datasetPath, typeName)
+                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
-                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                          mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rsdend,rscomp,typeName)
                         }
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
@@ -809,11 +807,13 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
             }
         }
         stimgid = stimgid+1
-                        
+        
     }
 }
 
-mkstim(datasetPath, cellTypes, stimTypes)
+if (stimTypes.count() > 0) {
+    mkstim(datasetPath, cellTypes, stimTypes)
+}
 if (pnm.myid == 0) {
     printf ("*** Stimulus sources initialized\n")
 }
@@ -893,7 +893,6 @@ if (pnm.myid == 0) {
     printf ("*** Ending simulation\n")
 }
 
-//pnm.pc.runworker()
-//pnm.pc.done()
-
 quit()
+
+

@@ -9,7 +9,7 @@ public stim
 public xx, yy, zz, position
 
 cellid = -1
-random_stream_offset = 0
+gid = -1
 
 nst=10
 
@@ -22,14 +22,14 @@ objref all, pdend, ddend
 objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB, syns_LPP, syns_MPP
 objref syn_stim
 
-proc init() { // arguments are gid, random_stream_offset
+proc init() { // arguments are id, gid
     
     ndends=4
     ndendsec=4
     create dendrites[ndends][ndendsec]
     
     cellid = $1
-    random_stream_offset = $2
+    gid = $2
 
     subsets(ndends,ndendsec)
     geom()
@@ -191,11 +191,7 @@ proc biophys() { local ndends, ndendsec
     fl.h = 0.25
     fl.on = 1
     
-    // Generate a new random stream, setting
-    //	aside 'random_stream_offset' random numbers
-    //	for this cell based on its gid
-    rs = new RandomStream(cellid*random_stream_offset+1)
-    
+    rs = new RandomStream(gid)
     // set the stream to generate a gaussian distribution with mean 0 and variance 1
     rs.r.normal(0, 1)
     // use the random Gaussian distribution stream in the Gfluct2 mechanism

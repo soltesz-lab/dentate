@@ -117,7 +117,7 @@ func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsi
 
 
 // helper function to create synapses
-proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, count, rs, dendindex, compindex strdef cellTypeName
+proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, count, rsdend, rscomp, dendindex, compindex strdef cellTypeName
 
     cell = $o1
     riseTime = $o2
@@ -125,15 +125,17 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
     erev = $o4
     dend = $o5 
     comp = $o6
-    rs = $o7
-    cellTypeName = $s8
+    rsdend = $o7
+    rscomp = $o8
+    cellTypeName = $s9
 
     if (verbose > 0) {
         printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
     }
     
     // TODO: use count property for total number of synapses to create
-    rs.r.discunif(1,4)
+    rsdend.r.discunif(1,4)
+    rscomp.r.discunif(1,4)
 
     for i = 0, dend.count()-1 {
 
@@ -147,9 +149,9 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
 
         if (dendindex.is_list) {
 
-            dendnum = rs.repick() % (dendindex.l.o(1).n+1)
+            dendnum = rsdend.repick() % (dendindex.l.o(1).n+1)
             if (compindex.is_list) {
-              compnum = rs.repick() % (compindex.l.o(1).n+1)
+              compnum = rscomp.repick() % (compindex.l.o(1).n+1)
             } else {
               compnum = compindex.n
             }
@@ -171,7 +173,7 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
                 
                 dendnum = dendindex.n
 		if (compindex.is_list) {
-                  compnum = rs.repick() % (compindex.l.o(1).n+1)
+                  compnum = rscomp.repick() % (compindex.l.o(1).n+1)
                 } else {
                   compnum = compindex.n
                 }
@@ -789,36 +791,38 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, rate localob
     // Scan the first line, which contains the number of stim types
     numStimTypes = f.scanvar()
     
-    for i=0, numStimTypes-1 {
-        
-        // Scan in the cell name, template name, number of cells
-	f.scanstr(stimTypeName)
-        stimType = new Dict(stimTypeName)
-        stimType.addPropertyString("typeName",stimTypeName)
-        
-        sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
-        indices = new Vector()
-        ff = new File()
-        ff.ropen(indexPath)
-	numCells = ff.scanvar()
-        ff.scanvar()
-        indices.buffer_size(numCells)
-        indices.scanf(ff,numCells)
-        ff.close(indexPath)
-        stimType.addPropertyObject("indices",indices)
-	f.scanstr(cellTypeName)
-        stimType.addPropertyString("cellTypeName",cellTypeName)
-        weight = f.scanvar()
-        stimType.addPropertyScalar("weight",weight)
-        noise = f.scanvar()
-        stimType.addPropertyScalar("noise",noise)
-        number = f.scanvar()
-        stimType.addPropertyScalar("number",number)
-        start = f.scanvar()
-        stimType.addPropertyScalar("start",start)
-        rate = f.scanvar()
-        stimType.addPropertyScalar("rate",rate)
-        stimTypes.append(stimType)
+    if (numStimTypes > 0) {
+        for i=0, numStimTypes-1 {
+            
+            // Scan in the cell name, template name, number of cells
+	    f.scanstr(stimTypeName)
+            stimType = new Dict(stimTypeName)
+            stimType.addPropertyString("typeName",stimTypeName)
+            
+            sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
+            indices = new Vector()
+            ff = new File()
+            ff.ropen(indexPath)
+	    numCells = ff.scanvar()
+            ff.scanvar()
+            indices.buffer_size(numCells)
+            indices.scanf(ff,numCells)
+            ff.close(indexPath)
+            stimType.addPropertyObject("indices",indices)
+	    f.scanstr(cellTypeName)
+            stimType.addPropertyString("cellTypeName",cellTypeName)
+            weight = f.scanvar()
+            stimType.addPropertyScalar("weight",weight)
+            noise = f.scanvar()
+            stimType.addPropertyScalar("noise",noise)
+            number = f.scanvar()
+            stimType.addPropertyScalar("number",number)
+            start = f.scanvar()
+            stimType.addPropertyScalar("start",start)
+            rate = f.scanvar()
+            stimType.addPropertyScalar("rate",rate)
+            stimTypes.append(stimType)
+        }
     }
     f.close()
     
