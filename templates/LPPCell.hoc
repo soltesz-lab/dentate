@@ -14,10 +14,12 @@ proc init() { localobj configVect, ff strdef datasetPath, configPath, cmd
     noise  = 1
 
     datasetPath = $s3
-    sprint(configPath,"%s/%d.dat",configPath,id)
+    sprint(configPath,"%s/%d.dat",datasetPath,id)
+    printf("LPPCell: configPath = %s\n", configPath) 
     sprint(cmd, "test -e %s", configPath) // check if the path exists
     status = system(cmd)
     if (status == 0) {
+        configVect = new Vector()
         ff = new File()
         ff.ropen(configPath)
         configVect.scanf(ff)
@@ -31,15 +33,23 @@ proc init() { localobj configVect, ff strdef datasetPath, configPath, cmd
 }
 
 proc setup() {
-    rs = new RandomStream($2)
+    id = $1
+    gid = $2
+    rate   = $3
+    number = $4
+    start  = $5
+    noise  = $6
     pp = new NetStim(.5)
-    pp.noiseFromRandom(rs.r)
-    pp.interval = 1000/$2
-    pp.number = $3
-    pp.start = $4
-    pp.noise = $5	
-    rs.r.negexp(1)
-    rs.start()
+    if (number > 0) {
+       rs = new RandomStream(id)
+       rs.r.negexp(1)
+       rs.start()
+       pp.noiseFromRandom(rs.r)
+    }
+    pp.interval = 1000/rate
+    pp.number = number
+    pp.start = start
+    pp.noise = noise	
 }
 
 func is_art() {return 1}

@@ -47,8 +47,6 @@ strdef cmd
 // path for various datafiles (used for multiple files)
 strdef datafilePath
 
-random_stream_offset_ = tstop/dt + 1	
-
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
 // stimulus cell template
@@ -340,8 +338,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
                         // used for choosing dendrite and compartment for synapses
-                        rsdend = new RandomStream(i*offset+1)
-                        rscomp = new RandomStream(i*offset+2)
+                        rsdend = new RandomStream(i*k+1)
+                        rscomp = new RandomStream(i*k+2)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
@@ -357,8 +355,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
                         // used for choosing dendrite and compartment for synapses
-                        rsdend = new RandomStream(i*offset+1)
-                        rscomp = new RandomStream(i*offset+2)
+                        rsdend = new RandomStream(i*k+1)
+                        rscomp = new RandomStream(i*k+2)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
