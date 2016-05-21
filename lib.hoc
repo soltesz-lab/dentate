@@ -167,47 +167,47 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
                 syn.tau2 = decayTime.o(i).n
                 syn.e = erev.o(i).n
     		cell.syns.o(i).append(syn)
-                }
-
- 	    } else if (dendindex.is_number) {
-                
-                dendnum = dendindex.n
-		if (compindex.is_list) {
-                  compnum = rscomp.repick() % (compindex.l.o(1).n+1)
-                } else {
-                  compnum = compindex.n
-                }
-                
-                if (verbose > 0) {
-                    printf ("mksyn (dendindex is a number): cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
-                }
-
-                cell.dendrites[dendnum][compnum] {
-	            syn = new Exp2Syn(0.5)
-                    syn.tau1 = riseTime.o(i).n
-                    syn.tau2 = decayTime.o(i).n
-                    syn.e = erev.o(i).n
-    		    cell.syns.o(i).append(syn)
-                    }
-
- 	        } else {
-                    
-                    if (verbose > 0) {
-                        printf ("mksyn: cellTypeName = %s synapse in soma\n", cellTypeName)
-                    }
-                    
-                    cell.soma {
-	                syn = new Exp2Syn(0.5)
-                        syn.tau1 = riseTime.o(i).n
-                        syn.tau2 = decayTime.o(i).n
-                        syn.e = erev.o(i).n
-    		        cell.syns.o(i).append(syn)
-
-                    }
-                }
+            }
+            
+ 	} else if (dendindex.is_number) {
+            
+            dendnum = dendindex.n
+	    if (compindex.is_list) {
+                compnum = rscomp.repick() % (compindex.l.o(1).n+1)
+            } else {
+                compnum = compindex.n
+            }
+            
+            if (verbose > 0) {
+                printf ("mksyn (dendindex is a number): cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+            }
+            
+            cell.dendrites[dendnum][compnum] {
+	        syn = new Exp2Syn(0.5)
+                syn.tau1 = riseTime.o(i).n
+                syn.tau2 = decayTime.o(i).n
+                syn.e = erev.o(i).n
+    		cell.syns.o(i).append(syn)
+            }
+            
+ 	} else {
+            
+            if (verbose > 0) {
+                printf ("mksyn: cellTypeName = %s synapse in soma\n", cellTypeName)
+            }
+            
+            cell.soma {
+	        syn = new Exp2Syn(0.5)
+                syn.tau1 = riseTime.o(i).n
+                syn.tau2 = decayTime.o(i).n
+                syn.e = erev.o(i).n
+    		cell.syns.o(i).append(syn)
                 
             }
         }
+        
+    }
+}
 
 
 // Finds and loads a template located either in ./template or in externalPaths

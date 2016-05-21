@@ -191,7 +191,7 @@ proc biophys() { local ndends, ndendsec
     fl.h = 0.25
     fl.on = 1
     
-    rs = new RandomStream(gid)
+    rs = new RandomStream(cellid)
     // set the stream to generate a gaussian distribution with mean 0 and variance 1
     rs.r.normal(0, 1)
     // use the random Gaussian distribution stream in the Gfluct2 mechanism

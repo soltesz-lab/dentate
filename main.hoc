@@ -47,8 +47,6 @@ strdef cmd
 // path for various datafiles (used for multiple files)
 strdef datafilePath
 
-random_stream_offset_ = tstop/dt + 1	
-
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
 // stimulus cell template
@@ -304,9 +302,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
            synComp = synProps.getPropertyObject("compartment")
          }
         
-        // used for choosing dendrite and compartment for synapses
-        rsdend = new RandomStream(k*nCellTypes+1)
-        rscomp = new RandomStream(k*nCellTypes+2)
         
         find_template(externalPaths, templateName)
 
@@ -327,7 +322,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                           p=i
                         }
                         sprint(datadir, "%d", node)
-                        sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/%s\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
+                        sprint(cmd, "cell = new %s(%d, %d, %d, \"%s/%s/%s\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
                         execute(cmd)
                         //if (hasSynapseProps) {
                         //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
@@ -338,8 +333,13 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                 }
             } else {
                 for i=0, numCells-1 { 
+                    
+                    
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
+                        // used for choosing dendrite and compartment for synapses
+                        rsdend = new RandomStream(i*k+1)
+                        rscomp = new RandomStream(i*k+2)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
@@ -354,6 +354,9 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                 for i=0, numCells-1 { 
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
+                        // used for choosing dendrite and compartment for synapses
+                        rsdend = new RandomStream(i*k+1)
+                        rscomp = new RandomStream(i*k+2)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
