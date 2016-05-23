@@ -291,7 +291,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
             }
             cellType.addPropertyObject("indices", indices)
         }
-        
+
         hasSynapseProps = hasSynapseProperties(synapseTypes,typeName)
         if (hasSynapseProps) {
            synProps = getSynapseProperties(synapseTypes,typeName)
@@ -301,7 +301,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
            synDend = synProps.getPropertyObject("dendrite")
            synComp = synProps.getPropertyObject("compartment")
          }
-        
+
+        printf("mkcells: typeName = %s hasSynapseProps = %d\n", typeName, hasSynapseProps)        
         
         find_template(externalPaths, templateName)
 
@@ -344,6 +345,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                         execute(cmd)
                         if (hasSynapseProps) {
                           mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rsdend,rscomp,typeName)
+                          if (i == 0) { printCellSections (typeName,cell) }
                         }
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)
@@ -361,6 +363,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                         execute(cmd)
                         if (hasSynapseProps) {
                           mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rsdend,rscomp,typeName)
+                          if (i == 0) { printCellSections (typeName,cell) }
                         }
 	                pnm.register_cell(gid, cell)
                         pnm.spike_record(gid)

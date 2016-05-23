@@ -1,4 +1,4 @@
-random_stream_offset_ = 1000
+random_stream_offset_ = 100
 
 begintemplate RandomStream
 

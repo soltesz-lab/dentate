@@ -15,7 +15,6 @@ proc init() { localobj configVect, ff strdef datasetPath, configPath, cmd
 
     datasetPath = $s3
     sprint(configPath,"%s/%d.dat",datasetPath,id)
-    printf("LPPCell: configPath = %s\n", configPath) 
     sprint(cmd, "test -e %s", configPath) // check if the path exists
     status = system(cmd)
     if (status == 0) {
