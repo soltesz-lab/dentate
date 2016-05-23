@@ -61,7 +61,7 @@ proc synapse_test() { local gid localobj ngfc, syn, logfile strdef log_fn, resul
     
     ngfc = new NGFCell(gid)
     for i = 1, 1 {
-        ngfc.dendrites[1][1] {
+        ngfc.dendrites[2][0] {
             
 	    syn = new Exp2Syn(0.5)
             syn.tau1 = 2
@@ -75,7 +75,7 @@ proc synapse_test() { local gid localobj ngfc, syn, logfile strdef log_fn, resul
     sprint (log_fn, "%s/NGFCellSyn.dat", results_path )
     logfile.wopen ( log_fn )
     
-    synapse_group_test(gid, ngfc, ngfc.syns_MPP, 0.00033, -70, -70, "MPP-NGFC", logfile)
+    synapse_group_test(gid, ngfc, ngfc.syns_MPP, 0.0075, -70, -70, "MPP-NGFC", logfile)
 
     v_init = -70
     
