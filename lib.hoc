@@ -19,6 +19,16 @@ proc assert() { local test strdef errmsg
 }
 
 
+// prints all the sections of the given cell
+proc printCellSections() { localobj cell strdef typeName
+    typeName = $s1
+    cell = $o2
+    if (strfun.is_artificial(cell) == 0) {
+      printf("Cell type %s:\n", typeName)
+      forsec cell.all { psection() }
+    }
+}
+
 // Adds a network connection to a single synapse in a list
 proc mknetcon1() { local srcgid, index localobj synlist, pnm, nc
     pnm = $o1
@@ -117,7 +127,7 @@ func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsi
 
 
 // helper function to create synapses
-proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, count, rs, dendindex, compindex strdef cellTypeName
+proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, count, rsdend, rscomp, dendindex, compindex strdef cellTypeName
 
     cell = $o1
     riseTime = $o2
@@ -125,15 +135,17 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
     erev = $o4
     dend = $o5 
     comp = $o6
-    rs = $o7
-    cellTypeName = $s8
+    rsdend = $o7
+    rscomp = $o8
+    cellTypeName = $s9
 
     if (verbose > 0) {
         printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
     }
     
     // TODO: use count property for total number of synapses to create
-    rs.r.discunif(1,4)
+    rsdend.r.discunif(1,4)
+    rscomp.r.discunif(1,4)
 
     for i = 0, dend.count()-1 {
 
@@ -147,9 +159,9 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
 
         if (dendindex.is_list) {
 
-            dendnum = rs.repick() % (dendindex.l.o(1).n+1)
+            dendnum = rsdend.repick() % (dendindex.l.o(1).n+1)
             if (compindex.is_list) {
-              compnum = rs.repick() % (compindex.l.o(1).n+1)
+              compnum = rscomp.repick() % (compindex.l.o(1).n+1)
             } else {
               compnum = compindex.n
             }
@@ -165,47 +177,49 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
                 syn.tau2 = decayTime.o(i).n
                 syn.e = erev.o(i).n
     		cell.syns.o(i).append(syn)
-                }
-
- 	    } else if (dendindex.is_number) {
-                
-                dendnum = dendindex.n
-		if (compindex.is_list) {
-                  compnum = rs.repick() % (compindex.l.o(1).n+1)
-                } else {
-                  compnum = compindex.n
-                }
-                
-                if (verbose > 0) {
-                    printf ("mksyn (dendindex is a number): cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
-                }
-
-                cell.dendrites[dendnum][compnum] {
-	            syn = new Exp2Syn(0.5)
-                    syn.tau1 = riseTime.o(i).n
-                    syn.tau2 = decayTime.o(i).n
-                    syn.e = erev.o(i).n
-    		    cell.syns.o(i).append(syn)
-                    }
-
- 	        } else {
-                    
-                    if (verbose > 0) {
-                        printf ("mksyn: cellTypeName = %s synapse in soma\n", cellTypeName)
-                    }
-                    
-                    cell.soma {
-	                syn = new Exp2Syn(0.5)
-                        syn.tau1 = riseTime.o(i).n
-                        syn.tau2 = decayTime.o(i).n
-                        syn.e = erev.o(i).n
-    		        cell.syns.o(i).append(syn)
-
-                    }
-                }
+            }
+            
+ 	} else if (dendindex.is_number) {
+            
+            dendnum = dendindex.n
+	    if (compindex.is_list) {
+                compnum = rscomp.repick() % (compindex.l.o(1).n+1)
+            } else {
+                compnum = compindex.n
+            }
+            
+            if (verbose > 0) {
+                printf ("mksyn (dendindex is a number): cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
+            }
+            
+            cell.dendrites[dendnum][compnum] {
+	        syn = new Exp2Syn(0.5)
+                syn.tau1 = riseTime.o(i).n
+                syn.tau2 = decayTime.o(i).n
+                syn.e = erev.o(i).n
+    		cell.syns.o(i).append(syn)
+            }
+            
+ 	} else {
+            
+            if (verbose > 0) {
+                printf ("mksyn: cellTypeName = %s synapse in soma\n", cellTypeName)
+            }
+            
+            cell.soma {
+	        syn = new Exp2Syn(0.5)
+                syn.tau1 = riseTime.o(i).n
+                syn.tau2 = decayTime.o(i).n
+                syn.e = erev.o(i).n
+    		cell.syns.o(i).append(syn)
                 
             }
         }
+        
+    }
+
+    
+}
 
 
 // Finds and loads a template located either in ./template or in externalPaths
@@ -894,3 +908,4 @@ proc vrecordout() { local i, j, status localobj f, vec, lst, indices
     }
     f.close()
 }
+
