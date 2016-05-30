@@ -1,10 +1,10 @@
 ; -*- Hen -*-
 
-((egg "simdata.egg") ; This should never change
+((egg "cellconfig.egg") ; This should never change
 
  ; List here all the files that should be bundled as part of your egg.  
 
- (files "simdata.meta" "simdata.setup")
+ (files "cellconfig.meta" "cellconfig.setup")
 
  ; Your egg's license:
 
@@ -17,9 +17,9 @@
 
  ; A list of eggs npcloud depends on.
 
- (needs matchable typeclass rb-tree ploticus datatype)
+ (needs matchable datatype)
 
  (author "Ivan Raikov")
 
- (synopsis "Basic routines for reading data from simulations of neural network models."))
+ (synopsis "Basic routines for reading cell configuration data for neural network models."))
 
