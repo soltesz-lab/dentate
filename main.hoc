@@ -13,6 +13,10 @@ if (!(name_declared("forestSize"))) {
     forestSize = 0
 }
 
+if (!(name_declared("forestBinaryMode"))) {
+    forestBinaryMode = 0
+}
+
 {cvode.active(use_cvode)}
 {cvode.use_local_dt(use_local_dt)}
 {cvode.cache_efficient(use_cache_efficient)}
@@ -260,11 +264,13 @@ gjlist = new List()
 
 /* mkcells and connectcells create the cells and connect the cells */
 
-objref cell
+objref cell, vtopoindex, vptindex, vspindex, ndendpts, vlayers, vdend, vsoma, vpoints, vspines
+
 
 // creates the cells and appends them to a list called cells
 // argument is the number of cells to be created
-proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, templateType, hasSynapseProps  localobj cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rsdend, rscomp
+proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, templateType, hasSynapseProps  localobj f, cellTypes, cellType, datadirIndex, indices, synProps, synRiseTime, synDecayTime, synErev, synDend, synComp, rsdend, rscomp strdef dendrite_topology_fn, dendrite_points_fn, spine_density_fn, dendrite_topology_index_fn, dendrite_points_index_fn, spine_density_index_fn
+
     
     strdef templateName, typeName, datadir
     
@@ -312,24 +318,102 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
         // directories necessary to store all files for that cell type.
         if ((templateType == 1) || (templateType == 2)) {
             if ((forestSize > 0) && (numCells > forestSize)) {
-                for i=0, numCells-1 { 
-                    datadir=""
-                    gid = indices.x(i)
-                    if (pnm.gid_exists(gid)) {
-                        node=int(i/forestSize)+1
-                        if ((templateType == 1) || (templateType == 2)) {
-                          p=int(i%forestSize)
-                        } else {
-                          p=i
+                if (forestBinaryMode) {
+                    
+                    f = new File()
+                    vtopoindex = new Vector()
+                    vptindex = new Vector()
+                    vspindex = new Vector()
+                    
+                    ndendpts = new Vector()
+                    vlayers  = new Vector()
+                    vdend    = new Vector()
+                    vsoma    = new Vector() 
+                    vpoints  = new Vector()
+                    vspines  = new Vector()
+                    
+                    sprint(dendrite_topology_fn, "%s/%s/topology.%d.bin", datasetPath, typeName, pnm.myid)
+                    sprint(dendrite_points_fn, "%s/%s/points.%d.bin", datasetPath, typeName, pnm.myid)
+                    sprint(spine_density_fn, "%s/%s/spines.%d.bin", datasetPath, typeName, pnm.myid)
+                    
+                    sprint(dendrite_topology_index_fn, "%s/%s/topology.index.%d.bin", datasetPath, typeName, pnm.myid)
+                    sprint(dendrite_points_index_fn, "%s/%s/points.index.%d.bin", datasetPath, typeName, pnm.myid)
+                    sprint(spine_density_index_fn, "%s/%s/spines.index.%d.bin", datasetPath, typeName, pnm.myid)
+
+                    // Load morphologies from binary files specific to each MPI process
+                    f = new File()
+                    f.ropen (dendrite_topology_index_fn)
+                    vtopoindex.vread(f)
+                    f.close()
+                    f.ropen (dendrite_points_index_fn)
+                    vptindex.vread(f)
+                    f.close()
+                    f.ropen (spine_density_index_fn)
+                    vspindex.vread(f)
+                    f.close()
+                    
+                    for i=0, numCells-1 { 
+                        datadir=""
+                        gid = indices.x(i)
+                        if (pnm.gid_exists(gid)) {
+                            node=int(i/forestSize)+1
+                            if ((templateType == 1) || (templateType == 2)) {
+                                p=int(i%forestSize)
+                            } else {
+                                p=i
+                            }
+                            
+                            f.ropen (dendrite_topology_fn)
+                            f.seek(vindex.x[i*2+1])
+                            vlayers.vread(f)
+                            ndendpts.vread(f)
+                            vdend.vread(f)
+                            vsoma.vread(f)
+                            f.close()
+                            
+                            f.ropen (dendrite_points_fn)
+                            f.seek(vindex.x[i*2+1])
+                            vpoints.vread(f)
+                            f.close()
+                            
+                            f.ropen (spine_density_fn)
+                            f.seek(vindex.x[i*2+1])
+                            vspines.vread(f)
+                            f.close()
+                            
+                            sprint(datadir, "%d", node)
+                            sprint(cmd, "cell = new %s(%d, %d, %d, \"%s/%s/%s, ndendpts, vlayers, vdend, vsoma, vpoints, vspines\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
+                            execute(cmd)
+                            //if (hasSynapseProps) {
+                            //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                            //}
+	                    pnm.register_cell(gid, cell)
+                            pnm.spike_record(gid)
                         }
-                        sprint(datadir, "%d", node)
-                        sprint(cmd, "cell = new %s(%d, %d, %d, \"%s/%s/%s\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
-                        execute(cmd)
-                        //if (hasSynapseProps) {
-                        //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
-                        //}
-	                pnm.register_cell(gid, cell)
-                        pnm.spike_record(gid)
+                    }
+                    vtopoindex.buffer_size(0)
+                    vptindex.buffer_size(0)
+                    vspindex.buffer_size(0)
+                } else {
+                    for i=0, numCells-1 { 
+                        datadir=""
+                        gid = indices.x(i)
+                        if (pnm.gid_exists(gid)) {
+                            node=int(i/forestSize)+1
+                            if ((templateType == 1) || (templateType == 2)) {
+                                p=int(i%forestSize)
+                            } else {
+                                p=i
+                            }
+                            sprint(datadir, "%d", node)
+                            sprint(cmd, "cell = new %s(%d, %d, %d, \"%s/%s/%s\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
+                            execute(cmd)
+                            //if (hasSynapseProps) {
+                            //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
+                            //}
+	                    pnm.register_cell(gid, cell)
+                            pnm.spike_record(gid)
+                        }
                     }
                 }
             } else {
