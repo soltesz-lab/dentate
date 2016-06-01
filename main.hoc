@@ -363,8 +363,10 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                                 p=i
                             }
                             
+                            lid = int(gid - pnm.myid) / pnm.pc.nhost
                             f.ropen (dendrite_topology_fn)
-                            f.seek(vindex.x[i*2+1])
+                            assert(vtopoindex.x[lid*2] == gid, "forest cell index mismatch in dendritic topology")
+                            f.seek(vtopoindex.x[lid*2+1])
                             vlayers.vread(f)
                             ndendpts.vread(f)
                             vdend.vread(f)
@@ -372,12 +374,14 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                             f.close()
                             
                             f.ropen (dendrite_points_fn)
-                            f.seek(vindex.x[i*2+1])
+                            assert(vptindex.x[lid*2] == gid, "forest cell index mismatch in point data")
+                            f.seek(vptindex.x[lid*2+1])
                             vpoints.vread(f)
                             f.close()
                             
                             f.ropen (spine_density_fn)
-                            f.seek(vindex.x[i*2+1])
+                            assert(vspindex.x[lid*2] == gid, "forest cell index mismatch in spine data")
+                            f.seek(vspindex.x[lid*2+1])
                             vspines.vread(f)
                             f.close()
                             
