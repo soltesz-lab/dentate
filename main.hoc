@@ -510,10 +510,12 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
        status = system(cmd)
        if (status == 0) {
            f = new File(connectivityPath)
+           pernode = 0
        } else {
            // Try connectivity file local to this MPI node
            sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid+1)
            f = new File(connectivityPath)
+           pernode = 1
        }
        f.ropen()
        m = new Matrix()
@@ -545,7 +547,14 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    } else {
                        execerror ("unknown connectivity order type")
                    }
-                   if (!pnm.gid_exists(destid1)) { continue }
+                   if (!pnm.gid_exists(destid1)) {
+                       if (!pernode) { 
+                           continue 
+                       }
+                       else {
+                           execerror ("destination id mismatch in per-node connectivity file")
+                       }
+                   }
                    w = m.x[i][2]
                    del = m.x[i][3]
 	           nc_appendsyn(pnm, srcid1, destid1, synType, w, del)
@@ -586,7 +595,14 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                        execerror ("unknown connectivity order type")
                    }
                    
-                   if (!pnm.gid_exists(destid1)) { continue }
+                   if (!pnm.gid_exists(destid1)) {
+                       if (!pernode) { 
+                           continue 
+                       }
+                       else {
+                           execerror ("destination id mismatch in per-node connectivity file")
+                       }
+                   }
                    dist = m.x[i][2] + m.x[i][3]
                    del = (dist / velocity) + 1.0
                    if (verbose > 0) {
@@ -633,7 +649,14 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                        execerror ("unknown connectivity order type")
                    }
                    
-                   if (!pnm.gid_exists(destid1)) { continue }
+                   if (!pnm.gid_exists(destid1)) {
+                       if (!pernode) { 
+                           continue 
+                       }
+                       else {
+                           execerror ("destination id mismatch in per-node connectivity file")
+                       }
+                   }
                    del = (dist / velocity) + 1.0
                    if (verbose > 0) {
                        printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
@@ -673,8 +696,14 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                        execerror ("unknown connectivity order type")
                    }
                    
-                   if (!pnm.gid_exists(destid1)) { continue }
-                   dist = m.x[i][2]
+                   if (!pnm.gid_exists(destid1)) {
+                       if (!pernode) { 
+                           continue 
+                       }
+                       else {
+                           execerror ("destination id mismatch in per-node connectivity file")
+                       }
+                   }                   dist = m.x[i][2]
                    del = (dist / velocity) + 1.0
                    if (verbose > 0) {
                        printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
