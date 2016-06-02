@@ -364,6 +364,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                             }
                             
                             lid = int(gid - pnm.myid) / pnm.pc.nhost
+                            printf ("host %d: gid = %d lid = %d vtopoindex.x[lid*2] = %d\n", pnm.myid, gid, lid, vtopoindex.x[lid*2])
                             f.ropen (dendrite_topology_fn)
                             assert(vtopoindex.x[lid*2] == gid, "forest cell index mismatch in dendritic topology")
                             f.seek(vtopoindex.x[lid*2+1])
