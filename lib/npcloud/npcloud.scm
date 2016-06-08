@@ -25,7 +25,7 @@
         (import scheme chicken)
 
         
-        (require-extension srfi-69 datatype matchable regex
+        (require-extension datatype matchable regex
                            mpi mathh typeclass kd-tree 
                            digraph graph-dfs)
 
@@ -39,7 +39,8 @@
                       first second third take drop concatenate)
                 (only srfi-4 
                       s32vector s32vector-length s32vector-ref s32vector-set! make-s32vector
-                      f64vector f64vector? f64vector-ref f64vector-set! f64vector-length f64vector->list list->f64vector make-f64vector)
+                      f64vector f64vector? f64vector-ref f64vector-set! f64vector-length f64vector->list list->f64vector make-f64vector
+                      f64vector->blob u32vector->blob list->u32vector )
                 (only srfi-13 string= string< string-null? string-prefix? string-trim-both)
                 (only irregex string->irregex irregex-match)
                 (only files make-pathname)
@@ -761,6 +762,7 @@
 	    ))
 
 
+
         (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm myrank size output-dir)
 
           (MPI:barrier my-comm)
@@ -827,9 +829,4 @@
               ))
           )
         
-
-
-        
 )
-
-        

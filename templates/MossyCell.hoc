@@ -181,7 +181,7 @@ proc biophys() { local ndends, ndendsec
     soma stim = new IClamp(0.5)
     stim.del = 0.01
     stim.dur = 4000
-    stim.amp = 0.5
+    stim.amp = 0.15
     
     objref fl
     // a noise source that emulates fluctuating synaptic conductances

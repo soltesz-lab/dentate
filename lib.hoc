@@ -19,6 +19,16 @@ proc assert() { local test strdef errmsg
 }
 
 
+// prints all the sections of the given cell
+proc printCellSections() { localobj cell strdef typeName
+    typeName = $s1
+    cell = $o2
+    if (strfun.is_artificial(cell) == 0) {
+      printf("Cell type %s:\n", typeName)
+      forsec cell.all { psection() }
+    }
+}
+
 // Adds a network connection to a single synapse in a list
 proc mknetcon1() { local srcgid, index localobj synlist, pnm, nc
     pnm = $o1
@@ -207,6 +217,8 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
         }
         
     }
+
+    
 }
 
 
@@ -896,3 +908,4 @@ proc vrecordout() { local i, j, status localobj f, vec, lst, indices
     }
     f.close()
 }
+
