@@ -11,7 +11,7 @@
 
 module load octave
 
-BATCH_SIZE=50
+BATCH_SIZE=190
 BATCH_INDEX=$SLURM_ARRAY_TASK_ID
 
 export BATCH_SIZE
