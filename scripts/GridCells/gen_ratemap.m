@@ -17,7 +17,7 @@
 
 W = 200.0; % box dimensions, cm
 H = 200.0;
-N = 38000 * 0.2; % number of grid cells
+N = 38000 * 0.04; % fraction of active grid cells
 M = 10; % number of grid cell modules
 grid_unit = 36;
 
@@ -27,7 +27,7 @@ savegrid  = 1;
 ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 dt = 0.01; % ms
-tend = 100; % ms
+tend = 150; % ms
 [Xpos,Ypos] = random_walk(tend, dt);
 
 size_len = sqrt(grid_unit);
