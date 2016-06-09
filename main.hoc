@@ -320,6 +320,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
             if ((forestSize > 0) && (numCells > forestSize)) {
                 if (forestBinaryMode) {
                     
+
                     f = new File()
                     vtopoindex = new Vector()
                     vptindex = new Vector()
@@ -364,7 +365,6 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                             }
                             
                             lid = int(gid - pnm.myid) / pnm.pc.nhost
-                            printf ("host %d: gid = %d lid = %d vtopoindex.x[lid*2] = %d\n", pnm.myid, gid, lid, vtopoindex.x[lid*2])
                             f.ropen (dendrite_topology_fn)
                             assert(vtopoindex.x[lid*2] == gid, "forest cell index mismatch in dendritic topology")
                             f.seek(vtopoindex.x[lid*2+1])
@@ -387,7 +387,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                             f.close()
                             
                             sprint(datadir, "%d", node)
-                            sprint(cmd, "cell = new %s(%d, %d, %d, \"%s/%s/%s, ndendpts, vlayers, vdend, vsoma, vpoints, vspines\")", templateName, p, gid, numCells, datasetPath, typeName, datadir)
+                            sprint(cmd, "cell = new %s(%d, %d, %d, \"%s/%s/%s\", 0, ndendpts, vlayers, vdend, vsoma, vpoints, vspines)", templateName, p, gid, numCells, datasetPath, typeName, datadir)
                             execute(cmd)
                             //if (hasSynapseProps) {
                             //  mksyn(cell,synRiseTime,synDecayTime,synErev,synDend,synComp,rs,typeName)
@@ -396,9 +396,17 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                             pnm.spike_record(gid)
                         }
                     }
-                    vtopoindex.buffer_size(0)
-                    vptindex.buffer_size(0)
-                    vspindex.buffer_size(0)
+                    
+                    vtopoindex = new Vector()
+                    vptindex = new Vector()
+                    vspindex = new Vector()
+                    
+                    ndendpts = new Vector()
+                    vlayers  = new Vector()
+                    vdend    = new Vector()
+                    vsoma    = new Vector() 
+                    vpoints  = new Vector()
+                    vspines  = new Vector()
                 } else {
                     for i=0, numCells-1 { 
                         datadir=""
@@ -550,8 +558,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    if (!pnm.gid_exists(destid1)) {
                        if (!pernode) { 
                            continue 
-                       }
-                       else {
+                       } else {
+                           printf("host %d: connectivityName = %s wdType = %d destid1 = %d\n", pnm.myid, connectivityName, wdType, destid1)
                            execerror ("destination id mismatch in per-node connectivity file")
                        }
                    }
@@ -598,8 +606,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    if (!pnm.gid_exists(destid1)) {
                        if (!pernode) { 
                            continue 
-                       }
-                       else {
+                       } else {
+                           printf("host %d: connectivityName = %s wdType = %d destid1 = %d\n", pnm.myid, connectivityName, wdType, destid1)
                            execerror ("destination id mismatch in per-node connectivity file")
                        }
                    }
@@ -652,8 +660,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    if (!pnm.gid_exists(destid1)) {
                        if (!pernode) { 
                            continue 
-                       }
-                       else {
+                       } else {
+                           printf("host %d: connectivityName, wdType = %d destid1 = %d\n", pnm.myid, connectivityName, wdType, destid1)
                            execerror ("destination id mismatch in per-node connectivity file")
                        }
                    }
@@ -699,11 +707,12 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                    if (!pnm.gid_exists(destid1)) {
                        if (!pernode) { 
                            continue 
-                       }
-                       else {
+                       } else {
+                           printf("host %d: connectivityName = %s wdType = %d destid1 = %d\n", pnm.myid, connectivityName, wdType, destid1)
                            execerror ("destination id mismatch in per-node connectivity file")
                        }
-                   }                   dist = m.x[i][2]
+                   }                   
+		   dist = m.x[i][2]
                    del = (dist / velocity) + 1.0
                    if (verbose > 0) {
                        printf("host %d: connection src = %d dest = %d del = %g\n", pnm.myid, srcid1, destid1, del)
