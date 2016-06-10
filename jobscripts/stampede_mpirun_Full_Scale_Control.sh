@@ -4,7 +4,7 @@
 #SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
 #SBATCH -n 512 -N 256
 #SBATCH -p normal
-#SBATCH -t 3:00:00
+#SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
