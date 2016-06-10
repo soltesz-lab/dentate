@@ -146,11 +146,16 @@ objref ncstimlist
 
 // reads the cell types file and populates celltypes with the information
 sprint (datafilePath, "%s/stim.dat", datasetPath)
-loadStimulationInfo (stimTypes, datafilePath, datasetPath)
-
-if (verbose > 0) {
-    printf ("%s: loaded stimulation info\n", modelName)
+sprint(cmd, "test -e %s", datafilePath) // check if the path exist
+status = system(cmd)
+if (status == 0) {
+   loadStimulationInfo (stimTypes, datafilePath, datasetPath)
+   if (verbose > 0) {
+      printf ("%s: loaded stimulation info\n", modelName)
+   }
 }
+
+
 
 // list with cell type information
 objref cellTypes

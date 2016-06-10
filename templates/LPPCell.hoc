@@ -8,9 +8,9 @@ proc init() { localobj configVect, ff strdef datasetPath, configPath, cmd
     id = $1
     gid = $2
 
-    rate   = 5
-    number = 0
-    start  = 5
+    rate   = 0.5
+    number = 10
+    start  = 0
     noise  = 1
 
     datasetPath = $s3
