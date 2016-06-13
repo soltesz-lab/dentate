@@ -87,7 +87,7 @@
            (- (length xs) 1)))))
 
 
-(define (spike-stats data nmax tmax)
+(define (spike-stats data tmax)
   (let* (
          ;; event times per node
          (event-times
@@ -117,7 +117,6 @@
          )
 
      `(
-       (nmax . ,nmax)
        (tmax . ,tmax)
        (mean-nevents         . ,(mean nevents))
        (mean-event-frequency . ,mean-event-frequency)
