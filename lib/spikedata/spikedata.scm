@@ -101,7 +101,7 @@
                                   ns)))
                       (reverse data))
             (hash-table->alist tbl)))
-         
+
          (event-intervals (map (compose diffs cdr) event-times))
          (mean-event-intervals (map mean event-intervals))
          (mean-event-interval (mean mean-event-intervals))
@@ -119,6 +119,7 @@
 
      `(
        (tmax . ,tmax)
+       (n    . ,(length event-times))
        (mean-nevents         . ,(mean nevents))
        (mean-event-frequency . ,mean-event-frequency)
        (mean-event-interval  . ,mean-event-interval)
