@@ -27,7 +27,7 @@
         
         (require-extension datatype matchable regex
                            mpi mathh typeclass kd-tree 
-                           digraph graph-dfs)
+                           digraph graph-dfs srfi-69)
 
 
         (require-library srfi-1 srfi-4 srfi-13 irregex files posix data-structures)
