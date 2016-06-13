@@ -6,14 +6,14 @@
 
         (import scheme chicken)
 
-(require-extension matchable typeclass rb-tree)
+(require-extension matchable typeclass rb-tree srfi-69)
 (require-library srfi-1 srfi-13 irregex data-structures files posix extras)
 (import
  (only srfi-1 filter filter-map list-tabulate fold)
  (only srfi-13 string-trim-both string-null?)
  (only files make-pathname)
  (only posix glob)
- (only data-structures ->string alist-ref compose string-split)
+ (only data-structures ->string alist-ref compose string-split merge)
  (only extras fprintf random read-lines)
  (only mathh cosh tanh log10)
  (only irregex irregex-match string->irregex)
@@ -87,34 +87,37 @@
            (- (length xs) 1)))))
 
 
-(define (spike-stats data nmax tmax)
+(define (spike-stats data tmax)
   (let* (
          ;; event times per node
          (event-times
-          (let ((v (make-vector nmax '())))
+          (let ((tbl (make-hash-table = number-hash)))
             (for-each (match-lambda
                        ((t . ns)
-                        (for-each (lambda (n) (vector-set! v (- n 1) (cons t (vector-ref v (- n 1)))))
+                        (for-each (lambda (n) (hash-table-update!/default 
+                                               tbl (- n 1) 
+                                               (lambda (lst) (merge (list t) lst (lambda (x y) (< x y))))
+                                               (list t)))
                                   ns)))
                       (reverse data))
-            v))
+            (hash-table->alist tbl)))
          
-         (event-intervals (map diffs (filter pair? (vector->list event-times))))
+         (event-intervals (map (compose diffs cdr) event-times))
          (mean-event-intervals (map mean event-intervals))
          (mean-event-interval (mean mean-event-intervals))
-         (stdev-event-interval (if (null? mean-event-intervals) 0.0 
+         (stdev-event-interval (if (or (null? mean-event-intervals)
+                                       (null? (cdr mean-event-intervals)))  0.0 
                                    (sqrt (variance mean-event-intervals))))
          (cv-event-interval (if (zero? mean-event-interval) 0.0
                                 (/ stdev-event-interval mean-event-interval)))
          
-         (nevents (filter-map (lambda (x) (and (not (null? x)) (length (cdr x)))) (vector->list event-times)))
+         (nevents (filter-map (lambda (x) (and (not (null? x)) (length (cdr x)))) event-times))
          (mean-rates (map (lambda (x) (* 1000 (/ x tmax))) nevents))
          (mean-event-frequency (round (mean mean-rates)))
          
          )
 
      `(
-       (nmax . ,nmax)
        (tmax . ,tmax)
        (mean-nevents         . ,(mean nevents))
        (mean-event-frequency . ,mean-event-frequency)
