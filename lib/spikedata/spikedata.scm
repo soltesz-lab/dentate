@@ -7,7 +7,7 @@
         (import scheme chicken)
 
 (require-extension matchable typeclass rb-tree)
-(require-library srfi-1 srfi-13 irregex data-structures files posix extras ploticus)
+(require-library srfi-1 srfi-13 irregex data-structures files posix extras)
 (import
  (only srfi-1 filter filter-map list-tabulate fold)
  (only srfi-13 string-trim-both string-null?)
