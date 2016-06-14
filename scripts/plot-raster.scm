@@ -1,15 +1,16 @@
-(require-extension typeclass matchable rb-tree srfi-1 srfi-69 simdata)
+(require-extension typeclass matchable rb-tree srfi-1 spikedata cellconfig)
 
 (require-library ploticus)
 (import
  (prefix ploticus plot:)
  )
 
+(define comment-pat (string->irregex "^#.*"))
+
 
 ;(plot:procdebug #t)
 
 (define (plot-range xrange temp-path celltype min max spike-times y i)
-  (let ((cellids (make-hash-table = number-hash)))
   (let* ((m (rb-tree-map -))
          (range-data
           (with-instance ((<PersistentMap> m))
@@ -80,79 +81,57 @@
 
           #t
           ))
-    ))
+    )
 )
 
+
 (define (raster-plot datadir spike-file plot-label xrange)
-  (match-let 
+  (let* (
+         (celltypes (read-cell-types datadir))
+         (cellranges (read-cell-ranges datadir celltypes)) 
+         )
 
-   (
-    (celltypes (read-cell-types datadir))
+    (match-let (((spike-times nmax tmax) (read-spike-times spike-file)))
 
-    ((data tmax nmax)
-     (fold
-      (lambda (spike-file ax)
-        (match-let (((data tmax nmax)  ax))
-          (let ((data1 (map (lambda (line) (map string->number (string-split  line " ")))
-                          (filter (lambda (line) (not (irregex-match comment-pat line)))
-                                  (read-lines spike-file)))))
-            (let ((t1 (fold (lambda (row ax) (max (car row) ax)) tmax data1))
-                  (nmax1 (fold (lambda (row ax) (fold max ax (cdr row))) nmax data1)))
-              (list (append data1 data) (max tmax t1) nmax1)
-              ))
-          ))
-        '(() 0.0 0)
-        (list spike-file)))
-    )
-
-   (print "tmax = " tmax)
-   (print "nmax = " nmax)
-
-   (let* (
-          
-          (cellranges (read-cell-ranges datadir celltypes)) 
-
-          (spike-times (read-spike-times data))
-
-          )
-
-  (let-values (
-               ((fd1 temp-path1) (file-mkstemp "/tmp/raster-plot.s1.XXXXXX"))
-	       )
-	 (file-close fd1)
-	 
-
-	 (plot:init 'eps (make-pathname
-                          "." 
-                          (sprintf "~A_raster.eps" 
-                                   (pathname-strip-directory
-                                    (pathname-strip-extension spike-file )))))
-	 (plot:arg "-cm" )
-	 (plot:arg "-textsize"   "12")
-	 (plot:arg "-pagesize"   "12,23")
-	 (plot:arg "-cpulimit"   "600")
-	 (plot:arg "-maxrows"    "3000000")
-	 (plot:arg "-maxfields"  "5000000")
-	 (plot:arg "-maxvector"  "7000000")
-
-         (plot:proc "page"
-                    `(
-                      ("title" . ,plot-label)
-                      ))
-
-         (fold
-          (match-lambda* (((celltype min max) (i y)) 
-                          (if (plot-range xrange temp-path1 
-                                          celltype min max spike-times y i)
-                              (list (+ i 1) (+ y 4))
-                              (list (+ i 1) y))))
-          (list 0 1) (reverse (cons (list 'stim nmax +inf.0) cellranges)))
-
-
-         (plot:end)
-
+     (let-values (
+                  ((fd1 temp-path1) (file-mkstemp "/tmp/raster-plot.s1.XXXXXX"))
+                  )
+       (file-close fd1)
+       
+       
+       (plot:init 'eps (make-pathname
+                        "." 
+                        (sprintf "~A_raster.eps" 
+                                 (pathname-strip-directory
+                                  (pathname-strip-extension spike-file )))))
+       (plot:arg "-cm" )
+       (plot:arg "-textsize"   "12")
+       (plot:arg "-pagesize"   "12,23")
+       (plot:arg "-cpulimit"   "600")
+       (plot:arg "-maxrows"    "3000000")
+       (plot:arg "-maxfields"  "5000000")
+       (plot:arg "-maxvector"  "7000000")
+       
+       (plot:proc "page"
+                  `(
+                    ("title" . ,plot-label)
+                    ))
+       
+       (fold
+        (match-lambda* (((celltype min max) (i y)) 
+                        (if (plot-range xrange temp-path1 
+                                        celltype min max spike-times y i)
+                            (list (+ i 1) (+ y 4))
+                            (list (+ i 1) y))))
+        (list 0 1) (reverse (cons (list 'stim (+ nmax 1) +inf.0) cellranges)))
+       
+       
+       (plot:end)
+       
        ))
-))
+    )
+)
+
 
 
 (apply raster-plot (command-line-arguments))
