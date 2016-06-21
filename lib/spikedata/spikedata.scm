@@ -2,14 +2,16 @@
 (module spikedata
 
         (read-spike-times
-         spike-stats)
+         spike-stats
+         levenshtein-distance)
 
-        (import scheme chicken)
+        (import scheme chicken foreign)
 
 (require-extension matchable typeclass rb-tree)
-(require-library srfi-1 srfi-13 irregex data-structures files posix extras)
+(require-library srfi-1 srfi-4 srfi-13 irregex data-structures files posix extras)
 (import
  (only srfi-1 filter filter-map list-tabulate fold)
+ (only srfi-4 u32vector)
  (only srfi-13 string-trim-both string-null?)
  (only files make-pathname)
  (only posix glob)
@@ -124,6 +126,109 @@
     
      )
   )
+
+(foreign-declare 
+#<<EOF
+#include <assert.h>
+
+
+static void init_distance_matrix(int **dm, int m, int n)
+{
+   unsigned int i, j;
+
+   for (j = 0; j < n; j++)
+   {
+      dm[0][j] = j;
+   }   
+   for (i = 1; i < m; i++)
+   {
+      dm[i][0] = i;
+      for (j = 1; j < n; j++)
+      {
+          dm[i][j] = 0;
+      }   
+   }   
+}
+
+
+// minimum of three numbers
+static int minimum (int x, int y, int z)
+{
+    int u, res;
+
+    u   = (x<y)?x:y;
+    res = (u<z)?u:z;
+
+    return res;
+}
+
+//  compare (x, y) returns 0 if x is equal to y, a negative integer if
+//  x is less than y, and a positive integer if x is greater than y.
+static int compare (int x, int y)
+{ 
+    int res;
+
+    if (x == y)
+    {
+      res = 0;
+    } else
+    {
+      res = (x<y)?-1:1;    
+    }
+
+    return res;
+}
+
+
+EOF
+)
+
+
+
+;; Computes the Levenshtein edit distance between two integer vectors.
+(define levenshtein-distance
+    (foreign-lambda* unsigned-int ((unsigned-int m) (u32vector xv) (unsigned-int n) (u32vector yv))
+#<<EOF
+     unsigned int result, i, j; int cost, x, y, z, **mat, *buf, *s, *t; 
+
+     if (m == 0) 
+     {
+        result = n;
+     } else if (n == 0) 
+     {
+        result = m;
+     } else 
+     {
+        assert ((buf = malloc (sizeof(int)*(m+1)*(n+1))) != NULL);
+        assert ((mat = malloc (sizeof(int*)*(m+1))) != NULL);
+        for (i = 0; i <= m; i++)
+        {
+            mat[i] = buf+(i*n);
+        }
+        init_distance_matrix(mat,m+1,n+1);
+
+        for (i = 1; i <= m; i++)
+        {
+           s = mat[i];
+           t = mat[i-1];
+           for (j = 1; j <= n; j++)
+           {
+              cost = abs (compare (xv[i-1], yv[j-1]));
+              x = 1 + t[j];
+              y = 1 + s[j-1];
+              z = cost + t[j-1];
+              s[j] = minimum(x,y,z);
+           }
+        }
+        result = mat[m][n];
+        free(mat);
+        free(buf);
+     }
+
+     C_return(result);
+EOF
+))
+
 
 
 )
