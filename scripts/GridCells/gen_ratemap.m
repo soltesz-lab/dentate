@@ -32,14 +32,13 @@ tend = 650; % ms
 
 size_len = sqrt(grid_unit);
 npts  = round(W/size_len);
-Xgrid = round(Xpos/npts);
-Ygrid = round(Ypos/npts);
+Xgrid = round(Xpos/npts)+1;
+Ygrid = round(Ypos/npts)+1;
 
 T = size(Xgrid,1)
 rbar  = zeros(T,N);
 
 for t = 1:T
-    t
     rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
 end
 size(rbar)
@@ -53,6 +52,6 @@ grid_data.Ypos = Ypos;
 grid_data.Xgrid = Xgrid;
 grid_data.Ygrid = Ygrid;
 
-save('grid_data.mat','grid_data','rbar');
+save('-v6','grid_data.mat','grid_data','rbar');
 
 
