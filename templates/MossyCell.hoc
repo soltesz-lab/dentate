@@ -181,13 +181,14 @@ proc biophys() { local ndends, ndendsec
     soma stim = new IClamp(0.5)
     stim.del = 0.01
     stim.dur = 4000
-    stim.amp = 0.3
+    stim.amp = 0.275
     
     objref fl
     // a noise source that emulates fluctuating synaptic conductances
     // the conductances are sampled from a Gaussian distribution
     // where negative values were replaced with 0
     soma fl = new Gfluct3(0.5)
+    fl.g_e0 = 0.02
     fl.h = 0.25
     fl.on = 1
     

@@ -18,8 +18,8 @@
 batch_size=str2num(getenv('BATCH_SIZE'))
 batch_index=str2num(getenv('BATCH_INDEX'))
 						     
-load("grid_data.mat");
-size(grid_data.rbar)
+load('grid_data.mat');
+size(rbar)
 
 rbar = grid_data.rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-4;
 [T,N] = size(rbar)
@@ -27,4 +27,4 @@ rbar = grid_data.rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size
 s = DG_SFromPSTHVarZ(rbar, 1);
 spikes = DG_spike_gen(s,eye(N,N),1);
 
-save(sprintf("grid_spikes_%d.mat",batch_index),"spikes");
+save(sprintf('grid_spikes_%d.mat',batch_index),'spikes');

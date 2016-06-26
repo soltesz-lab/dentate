@@ -68,14 +68,6 @@ xpanel()
 
 vec_sizes = (prelength+mainlength)/dt + 1	// recorded traces are all this size
 
-stimdur = 1500
-
-objectvar stim1
-mc.soma stim1 = new IClamp(0.5)
-stim1.del = prelength
-stim1.dur = stimdur
-stim1.amp = 0.36
-
 /*
 objref  iklog
 iklog = new Vector(vec_sizes)

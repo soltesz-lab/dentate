@@ -203,15 +203,15 @@
 
 
 
-        (define (layer-point-projection prefix my-comm myrank size cells layers fibers
+        (define (layer-point-projection prefix my-comm my-rank size cells layers fibers
 					zone cell-start fiber-start)
 
           (d "rank ~A: prefix = ~A zone = ~A layers = ~A length cells = ~A~%" 
-             myrank prefix zone layers (length cells))
+             my-rank prefix zone layers (length cells))
 
           (fold (lambda (cell ax)
 
-                  (d "rank ~A: cell gid = ~A~%" myrank (car cell))
+                  (d "rank ~A: cell gid = ~A~%" my-rank (car cell))
 
                   (let* ((gid (+ cell-start (car cell)))
                          (root (modulo gid size))
@@ -224,7 +224,7 @@
                               ((secg 'fold-nodes)
                                (lambda (i lp ax)
                                  (d "rank ~A: querying point ~A (coords ~A) (layer ~A) (section ~A)~%" 
-                                    myrank i (layer-point-coords lp) 
+                                    my-rank i (layer-point-coords lp) 
                                     (layer-point-layer lp)
 				    (layer-point-section-index lp))
                                  (fold
@@ -245,7 +245,7 @@
                                   (delete-duplicates
                                    (map (lambda (x) 
                                           (d "rank ~A: query result = ~A (~A) (~A) ~%" 
-                                             myrank (kdnn-point x) (kdnn-distance x) (kdnn-parent-index x))
+                                             my-rank (kdnn-point x) (kdnn-distance x) (kdnn-parent-index x))
                                           (list (+ fiber-start (kdnn-parent-index x))
                                                 (+ (kdnn-distance x) (kdnn-parent-distance x))
                                                 ))
@@ -256,12 +256,12 @@
                                '()))
                              )
 			 (MPI:barrier my-comm)
-			 (d "rank ~A: cell = ~A root = ~A: before gatherv~%" myrank cell root)
+			 (d "rank ~A: cell = ~A root = ~A: before gatherv~%" my-rank cell root)
 
                          (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
                                 
-                                (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
-			   (d "rank ~A: cell = ~A: after gatherv~%" myrank cell)
+                                (res1 (or (and (= my-rank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
+			   (d "rank ~A: cell = ~A: after gatherv~%" my-rank cell)
                            (append res1 ax))
                          
                          ))
@@ -274,16 +274,16 @@
 
         
 
-        (define (point-projection prefix my-comm myrank size pts fibers zone point-start nn-filter)
+        (define (point-projection prefix my-comm my-rank size pts fibers zone point-start nn-filter)
           (let ((tbl (make-hash-table = number-hash)))
             (for-each 
              (lambda (px)
                
-               (printf "~A: rank ~A: px = ~A zone=~A ~%"  prefix myrank px zone)
+               (printf "~A: rank ~A: px = ~A zone=~A ~%"  prefix my-rank px zone)
                
                   (let* ((i (+ point-start (car px)))
                          (root (modulo i size))
-                         (dd (d "~A: rank ~A: querying point ~A (root ~A)~%" prefix myrank px root))
+                         (dd (d "~A: rank ~A: querying point ~A (root ~A)~%" prefix my-rank px root))
                          (query-data
                           (let ((pd (cadr px))) 
                             (fold
@@ -311,15 +311,15 @@
 
                     
                     (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
-                           (res1 (or (and (= myrank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
+                           (res1 (or (and (= my-rank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
 
-		      (if (= myrank root)
+		      (if (= my-rank root)
 			  (for-each 
 			   (lambda (vect) 
 			     (let* ((entry-len 3)
 				    (data-len (/ (f64vector-length vect) entry-len)))
 			       
-			       (printf "~A: rank ~A: px = ~A data-len=~A ~%"  prefix myrank px data-len)
+			       (printf "~A: rank ~A: px = ~A data-len=~A ~%"  prefix my-rank px data-len)
 			       
 			       (let recur ((k 0))
 				 (if (< k data-len)
@@ -763,22 +763,22 @@
 
 
 
-        (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm myrank size output-dir)
+        (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm my-rank size output-dir)
 
           (MPI:barrier my-comm)
 	  
           (let ((my-results
-                 (layer-point-projection label my-comm myrank size target-sections target-layers source-tree zone 0 0)))
+                 (layer-point-projection label my-comm my-rank size target-sections target-layers source-tree zone 0 0)))
 
             (MPI:barrier my-comm)
 
-            (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) myrank "")))
+            (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) my-rank "")))
               (lambda (out)
 		(for-each 
 		 (lambda (my-data)
 		   (let* ((my-entry-len 6)
 			  (my-data-len (/ (f64vector-length my-data) my-entry-len)))
-		     (d "rank ~A: length my-data = ~A~%" myrank my-data-len)
+		     (d "rank ~A: length my-data = ~A~%" my-rank my-data-len)
 		     (let recur ((m 0))
 		       (if (< m my-data-len)
 			   (let* (
@@ -797,23 +797,23 @@
             ))
 
 
-        (define (projection label source-tree target zone maxn my-comm myrank size output-dir) 
+        (define (projection label source-tree target zone maxn my-comm my-rank size output-dir) 
 
           (MPI:barrier my-comm)
 	  
-          (let ((my-results (point-projection label my-comm myrank size
+          (let ((my-results (point-projection label my-comm my-rank size
 					      target source-tree zone 0
 					      (lambda (x nn) nn))))
 
             (MPI:barrier my-comm)
             
-            (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) myrank "")))
+            (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) my-rank "")))
               (lambda (out)
                 (hash-table-for-each 
                  my-results
                  (lambda (target lst)
                    (let ((lst-len (length lst)))
-                     (printf "~A: rank ~A: target ~A length lst = ~A~%" label myrank target lst-len)
+                     (printf "~A: rank ~A: target ~A length lst = ~A~%" label my-rank target lst-len)
                      (let ((lst1 (if (and (> maxn 0) (> lst-len maxn))
                                      (take lst maxn) lst)))
                        (for-each

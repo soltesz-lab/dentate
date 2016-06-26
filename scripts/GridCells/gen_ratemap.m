@@ -27,15 +27,15 @@ savegrid  = 1;
 ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 dt = 0.01; % ms
-tend = 150; % ms
+tend = 650; % ms
 [Xpos,Ypos] = random_walk(tend, dt);
 
 size_len = sqrt(grid_unit);
 npts  = round(W/size_len);
-Xgrid = round(Xpos/npts);
-Ygrid = round(Ypos/npts);
+Xgrid = round(Xpos/npts)+1;
+Ygrid = round(Ypos/npts)+1;
 
-T = size(Xgrid,1);
+T = size(Xgrid,1)
 rbar  = zeros(T,N);
 
 for t = 1:T
@@ -51,8 +51,7 @@ grid_data.Xpos = Xpos;
 grid_data.Ypos = Ypos;
 grid_data.Xgrid = Xgrid;
 grid_data.Ygrid = Ygrid;
-grid_data.rbar = rbar;
 
-save("grid_data.mat","grid_data");
+save('-v6','grid_data.mat','grid_data','rbar');
 
 
