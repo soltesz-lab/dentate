@@ -1,10 +1,9 @@
-(require-extension typeclass matchable rb-tree srfi-1 spikedata cellconfig)
+(require-extension typeclass matchable rb-tree srfi-1 spikedata cellconfig getopt-long)
 
 (define comment-pat (string->irregex "^#.*"))
 
 (define list-fold fold)
 
-;(plot:procdebug #t)
 
 (define (merge-spikes x lst) (merge x lst <))
 
@@ -54,5 +53,57 @@
 
 
 
+(define opt-grammar
+  `(
+    (x-range
+     "X range to process"
+     (value       
+      (required "X-MIN:X-MAX")
+      (transformer ,(lambda (x) 
+                      (let ((kv (string-split x ":")))
+                        (cons (string->number (car kv))
+                              (string->number (cadr kv))))))
+      ))
 
-(apply print-spike-stats (command-line-arguments))
+    (spike-file
+     "path to spike file"
+     (single-char #\s)
+     (value (required DATA-FILE)))
+
+    (data-dir
+     "model dataset directory"
+     (single-char #\d)
+     (value (required DIR)))
+
+    (help  "Print help"
+	    (single-char #\h))
+  
+  ))
+
+;; Use args:usage to generate a formatted list of options (from OPTS),
+;; suitable for embedding into help text.
+(define (print-spikestats:usage)
+  (print "Usage: " (car (argv)) " [options...] operands ")
+  (newline)
+  (print "Where operands are spike raster files")
+  (newline)
+  (print "The following options are recognized: ")
+  (newline)
+  (width 35)
+  (print (parameterize ((indent 5)) (usage opt-grammar)))
+  (exit 1))
+
+
+;; Process arguments and collate options and arguments into OPTIONS
+;; alist, and operands (filenames) into OPERANDS.  You can handle
+;; options as they are processed, or afterwards.
+
+(define opts    (getopt-long (command-line-arguments) opt-grammar))
+(define opt     (make-option-dispatch opts opt-grammar))
+
+(if (opt 'help) 
+    (print-spikestats:usage)
+    (print-spike-stats (opt 'data-dir) (opt 'spike-file))
+    )
+
+

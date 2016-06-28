@@ -166,10 +166,6 @@
      (single-char #\l)
      (value (required LABEL)))
 
-
-    (version
-     "print the current version of neurolucida and exit")
-
     (help  "Print help"
 	    (single-char #\h))
   
@@ -196,7 +192,10 @@
 (define opts    (getopt-long (command-line-arguments) opt-grammar))
 (define opt     (make-option-dispatch opts opt-grammar))
 
+(if (opt 'help) 
+    (plot-raster:usage)
+    (raster-plot (opt 'data-dir) (opt 'spike-file)
+                 (opt 'plot-label) (opt 'x-range)
+                 x-inc: (or (opt' x-inc) 10))
+    )
 
-(raster-plot (opt 'data-dir) (opt 'spike-file)
-             (opt 'plot-label) (opt 'x-range)
-             x-inc: (or (opt' x-inc) 10))
