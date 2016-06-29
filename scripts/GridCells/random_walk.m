@@ -1,8 +1,7 @@
 
-function [Xpos,Ypos] = random_walk(tend,dt)
+function [Xpos,Ypos] = random_walk(W,tend,dt)
 
 nsteps = floor(tend/dt);
-W = 200.0; % 2 meter side
 enclosureRadius = W/2;
 velocity = rand()/2;
 
@@ -16,10 +15,10 @@ headDir(1) = rand()*2*pi;
 
 for i = 2:nsteps
     % max acceleration is .1 cm/ms^2
-    dv = max(min(normrnd(0,.05),.2),-.2); 
+    dv = max(min(normrnd(0,.05),.1),-.1); 
     
     % max velocity is .5 cm/ms
-    velocity = min(max(velocity + dv,0),0.05);
+    velocity = min(max(velocity + dv,0),0.05) * dt;
         
     % Don't let trajectory go outside of the boundry, if it would then randomly
     % rotate to the left or right
