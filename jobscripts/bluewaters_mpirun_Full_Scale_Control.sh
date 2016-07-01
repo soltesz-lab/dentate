@@ -17,12 +17,11 @@
 #PBS -lgres=darshan
 
 
-module unload PrgEnv-cray
-module load PrgEnv-intel
+module swap PrgEnv-cray PrgEnv-intel
 
 set -x
 
-cd $HOME/model/dentate
+cd $PBS_O_WORKDIR
 
 mkdir -p ./results/Full_Scale_Control_$PBS_JOBID
 
