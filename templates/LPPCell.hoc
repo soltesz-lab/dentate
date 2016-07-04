@@ -9,7 +9,7 @@ proc init() { localobj configVect, ff strdef datasetPath, configPath, cmd
     gid = $2
 
     rate   = 0.1
-    number = 10
+    number = 0
     start  = 0
     noise  = 1
 
