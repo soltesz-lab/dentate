@@ -19,9 +19,9 @@ batch_size=str2num(getenv('BATCH_SIZE'))
 batch_index=str2num(getenv('BATCH_INDEX'))
 						     
 load('grid_data.mat');
-size(rbar)
+size(grid_rbar)
 
-rbar = grid_data.rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-4;
+rbar = grid_rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-4;
 [T,N] = size(rbar)
   
 s = DG_SFromPSTHVarZ(rbar, 1);
