@@ -1,4 +1,4 @@
-(require-extension typeclass matchable rb-tree srfi-1 spikedata cellconfig)
+(require-extension typeclass matchable rb-tree srfi-1 spikedata cellconfig getopt-long)
 
 (require-library ploticus)
 (import
@@ -10,7 +10,7 @@
 
 ;(plot:procdebug #t)
 
-(define (plot-range xrange temp-path celltype min max spike-times y i)
+(define (plot-range xrange xinc temp-path celltype min max spike-times y i)
   (let* ((m (rb-tree-map -))
          (range-data
           (with-instance ((<PersistentMap> m))
@@ -53,8 +53,8 @@
                        ("rectangle" . ,(sprintf "2 ~A 30 ~A" y (+ y 3)))
                        ("areacolor" . "white")
                        
-                       ("xrange"          . ,xrange)
-                       ("xaxis.stubs"     . "inc 10")
+                       ("xrange"          . ,(sprintf "~A ~A" (car xrange) (cdr xrange)))
+                       ("xaxis.stubs"     . ,(sprintf "inc ~A" xinc))
                        ("xaxis.stubdetails" . "adjust=0.1,0.2")
                        ("xaxis.label"     . ,(if (= i 0) "Time [ms]" ""))
                        
@@ -85,7 +85,7 @@
 )
 
 
-(define (raster-plot datadir spike-file plot-label xrange)
+(define (raster-plot datadir spike-file plot-label xrange #!key (x-inc 10))
   (let* (
          (celltypes (read-cell-types datadir))
          (cellranges (read-cell-ranges datadir celltypes)) 
@@ -119,7 +119,7 @@
        
        (fold
         (match-lambda* (((celltype min max) (i y)) 
-                        (if (plot-range xrange temp-path1 
+                        (if (plot-range xrange x-inc temp-path1 
                                         celltype min max spike-times y i)
                             (list (+ i 1) (+ y 4))
                             (list (+ i 1) y))))
@@ -133,5 +133,69 @@
 )
 
 
+(define opt-grammar
+  `(
+    (x-range
+     "X range to plot"
+     (value       
+      (required "X-MIN:X-MAX")
+      (transformer ,(lambda (x) 
+                      (let ((kv (string-split x ":")))
+                        (cons (string->number (car kv))
+                              (string->number (cadr kv))))))
+      ))
 
-(apply raster-plot (command-line-arguments))
+    (x-inc
+     "X tic increment"
+     (value       
+      (required "NUMBER")
+      (transformer ,string->number)))
+
+    (spike-file
+     "path to spike file"
+     (single-char #\s)
+     (value (required DATA-FILE)))
+
+    (data-dir
+     "model dataset directory"
+     (single-char #\d)
+     (value (required DIR)))
+
+    (plot-label
+     "plot label"
+     (single-char #\l)
+     (value (required LABEL)))
+
+    (help  "Print help"
+	    (single-char #\h))
+  
+  ))
+
+;; Use args:usage to generate a formatted list of options (from OPTS),
+;; suitable for embedding into help text.
+(define (plot-raster:usage)
+  (print "Usage: " (car (argv)) " [options...] operands ")
+  (newline)
+  (print "Where operands are spike raster files")
+  (newline)
+  (print "The following options are recognized: ")
+  (newline)
+  (width 35)
+  (print (parameterize ((indent 5)) (usage opt-grammar)))
+  (exit 1))
+
+
+;; Process arguments and collate options and arguments into OPTIONS
+;; alist, and operands (filenames) into OPERANDS.  You can handle
+;; options as they are processed, or afterwards.
+
+(define opts    (getopt-long (command-line-arguments) opt-grammar))
+(define opt     (make-option-dispatch opts opt-grammar))
+
+(if (opt 'help) 
+    (plot-raster:usage)
+    (raster-plot (opt 'data-dir) (opt 'spike-file)
+                 (opt 'plot-label) (opt 'x-range)
+                 x-inc: (or (opt' x-inc) 10))
+    )
+

@@ -27,8 +27,10 @@ savegrid  = 1;
 ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 dt = 0.01; % ms
+
 tend = 1000; % ms
-[Xpos,Ypos] = random_walk(tend, dt);
+[Xpos,Ypos] = random_walk(W, tend, dt);
+
 
 size_len = sqrt(grid_unit);
 npts  = round(W/size_len);

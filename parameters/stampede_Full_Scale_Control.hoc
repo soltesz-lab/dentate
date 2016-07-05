@@ -14,6 +14,9 @@ datasetName = "Full_Scale_Control"
 // Size of a single forest for variable morphology cells
 forestSize = 1000
 
+// whether to per-node binary files for dendritic forests of variable morphology cells
+forestBinaryMode = 1
+
 // whether to create per-node connectivity graphs
 makegraph = 0
 
@@ -21,7 +24,7 @@ makegraph = 0
 v_init = -75
 
 // simulation time
-tstop = 100
+tstop = 150
 
 // time step
 dt = 0.025

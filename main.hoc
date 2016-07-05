@@ -399,19 +399,20 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                             //}
 	                    pnm.register_cell(gid, cell)
                             pnm.spike_record(gid)
+
+			    ndendpts.resize(0)
+			    vlayers.resize(0)
+			    vdend.resize(0)
+			    vsoma.resize(0)
+			    vpoints.resize(0)
+			    vspines.resize(0)
                         }
                     }
                     
-                    vtopoindex = new Vector()
-                    vptindex = new Vector()
-                    vspindex = new Vector()
-                    
-                    ndendpts = new Vector()
-                    vlayers  = new Vector()
-                    vdend    = new Vector()
-                    vsoma    = new Vector() 
-                    vpoints  = new Vector()
-                    vspines  = new Vector()
+                    vtopoindex.resize(0)
+                    vptindex.resize(0)
+                    vspindex.resize(0)
+
                 } else {
                     for i=0, numCells-1 { 
                         datadir=""
