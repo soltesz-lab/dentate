@@ -3,7 +3,7 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=256:ppn=2:xe
 ### set the wallclock time
-#PBS -l walltime=4:00:00
+#PBS -l walltime=18:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control
 ### set the job stdout and stderr
