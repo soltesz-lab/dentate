@@ -27,7 +27,7 @@
                           )))
          )
 
-    (printf "Cell type ~A:~%" celltype)
+    (printf "Cell type ~A (gid ~A to ~A):~%" celltype min max)
     (printf "~A total spikes~%" (car range-data))
     (pp (spike-stats (cadr range-data) (car range-data) tmax))
 
