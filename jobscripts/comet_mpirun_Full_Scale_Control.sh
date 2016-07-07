@@ -12,7 +12,13 @@
 
 set -x
 
-mkdir -p ./results/Full_Scale_Control_$SLURM_JOB_ID
+results_path=./results/Full_Scale_Control_$SLURM_JOB_ID
+export results_path
 
-ibrun ./mechanisms/x86_64/special -mpi -nobanner -nogui -c "strdef parameters" -c "parameters=\"./parameters/comet_Full_Scale_Control.hoc\"" -c "strdef resultsPath" -c "resultsPath=\"./results/Full_Scale_Control_$SLURM_JOB_ID\"" main.hoc
+mkdir -p $results_path
+
+git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
+
+ibrun ./mechanisms/x86_64/special -mpi -nobanner -nogui -c "strdef parameters" -c "parameters=\"./parameters/comet_Full_Scale_Control.hoc\"" -c "strdef resultsPath" -c "resultsPath=\"${results_path}\"" main.hoc
 
