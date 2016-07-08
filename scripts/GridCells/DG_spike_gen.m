@@ -12,5 +12,9 @@ z=zeros(N,I,P);
 for i=1:I
     z(:,i,:)=mvnrnd(zeros(N,P),SigmaZ);
 end
-r=sparse(s+z>0);
+
+y = (s+z) > 0;
+[i,j,s] = find(y);
+[m,n] = size(y);
+r = sparse(i,j,s,m,n);
 
