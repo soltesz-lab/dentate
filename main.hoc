@@ -1032,6 +1032,4 @@ if (pnm.myid == 0) {
     printf ("*** Ending simulation\n")
 }
 
-quit()
-
 
