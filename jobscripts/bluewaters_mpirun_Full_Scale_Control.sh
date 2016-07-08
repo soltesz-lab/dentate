@@ -25,6 +25,10 @@ cd $PBS_O_WORKDIR
 
 mkdir -p ./results/Full_Scale_Control_$PBS_JOBID
 
-aprun -n 512 ./mechanisms/x86_64/special -mpi -nobanner -nogui -c "strdef parameters" -c "parameters=\"./parameters/bluewaters_Full_Scale_Control.hoc\"" -c "strdef resultsPath" -c "resultsPath=\"./results/Full_Scale_Control_$PBS_JOBID\"" main.hoc
+runhoc="./jobscripts/bluewaters_Full_Scale_Control_run_${PBS_JOBID}.hoc"
+
+sed -e "s/JOB_ID/$PBS_JOBID/g" ./jobscripts/bluewaters_Full_Scale_Control_run.hoc > $runhoc
+
+aprun -n 512 ./mechanisms/x86_64/special -mpi -nobanner -nogui $runhoc
 
 mv ${PBS_JOBID}.err ${PBS_JOBID}.out ./results/Full_Scale_Control_$PBS_JOBID

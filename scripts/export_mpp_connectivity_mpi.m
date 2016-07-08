@@ -1,4 +1,4 @@
-batch_size=512
+batch_size=2048
 %batch_size=str2double(getenv('BATCH_SIZE'))
 
 for forest = 1:1000

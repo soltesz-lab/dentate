@@ -1,5 +1,5 @@
 strdef parameters
-parameters="./parameters/stampede_Full_Scale_Control.hoc"
+parameters="./parameters/comet_Full_Scale_Control.hoc"
 
 strdef resultsPath
 resultsPath="./results/Full_Scale_Control_JOB_ID" 
