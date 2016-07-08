@@ -23,7 +23,13 @@ set -x
 
 cd $PBS_O_WORKDIR
 
-mkdir -p ./results/Full_Scale_Control_$PBS_JOBID
+results_path=./results/Full_Scale_Control_$PBS_JOBID
+export results_path
+
+mkdir -p $results_path
+
+git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 runhoc="./jobscripts/bluewaters_Full_Scale_Control_run_${PBS_JOBID}.hoc"
 
@@ -31,4 +37,4 @@ sed -e "s/JOB_ID/$PBS_JOBID/g" ./jobscripts/bluewaters_Full_Scale_Control_run.ho
 
 aprun -n 512 ./mechanisms/x86_64/special -mpi -nobanner -nogui $runhoc
 
-mv ${PBS_JOBID}.err ${PBS_JOBID}.out ./results/Full_Scale_Control_$PBS_JOBID
+mv ${PBS_JOBID}.err ${PBS_JOBID}.out $results_path
