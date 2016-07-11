@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=256:ppn=2:xe
+#PBS -l nodes=64:ppn=8:xe
 ### set the wallclock time
 #PBS -l walltime=18:00:00
 ### set the job name
@@ -13,9 +13,8 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
-### save Darshan profile data
+### Get darsan profile data
 #PBS -lgres=darshan
-
 
 module swap PrgEnv-cray PrgEnv-intel
 
