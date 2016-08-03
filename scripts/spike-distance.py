@@ -12,7 +12,7 @@ tstop = 500
 
 spike_trains = spk.load_spike_trains_from_txt(inputfile, edges=(0, tstop))
 
-spike_trains_sample = random.sample(spike_trains, 2500)
+spike_trains_sample = random.sample(spike_trains, 5000)
 
 #isi_profile = spk.isi_profile(spike_trains)
 isi_profile = spk.isi_profile(spike_trains_sample)
