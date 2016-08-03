@@ -18,13 +18,6 @@ for i = 2:nsteps
     % max velocity is .5 cm/ms
     velocity = min(max(velocity + dv,0),0.05) * dt;
         
-    % Don't let trajectory go outside of the boundry, if it would then randomly
-    % rotate to the left or right
-    leftOrRight = round(rand());
-    if (leftOrRight == 0)
-        leftOrRight = -1;
-    end
-    
     Xpos(i) = Xpos(i-1)+cos(headDir(i-1))*velocity; 
     Ypos(i) = Ypos(i-1);
 
