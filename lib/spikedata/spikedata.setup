@@ -16,3 +16,24 @@
 
   ; Assoc list with properties for your extension:
   `((version 1.0)))
+
+(compile -O3 -d0 spike.distances.scm)
+(compile -O3 -d0 spike.summary.scm)
+(compile -O3 -d0 spike.trains.scm)
+
+
+(install-program 
+ 'spike.distances 
+ `("spike.distances" )
+  '((version 1.0)))
+
+(install-program 
+ 'spike.summary 
+ `("spike.summary" )
+  '((version 1.0)))
+
+(install-program 
+ 'spike.trains 
+ `("spike.trains" )
+  '((version 1.0)))
+
