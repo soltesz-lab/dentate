@@ -79,7 +79,9 @@
                                                         ))
                                                     (list +inf.0 -inf.0)
                                                     (cdr (read-lines (make-pathname datadir index-file))))))
-                                            (list (cons (list type-name min-index max-index) lst)
+                                            (list (cons (list type-name 
+                                                              (inexact->exact min-index)
+                                                              (inexact->exact max-index)) lst)
                                                   max-index))))
                               (else (error 'read-cell-ranges "unknown cell type" celltype)))
                         ))
