@@ -4,13 +4,13 @@ public connect2target, subsets, is_art, is_connected
 public soma, dendrites
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
-public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_MPP, syns_LPP
 public syn_stim, syntest
 
 create soma, dendrites[1][1]
 
 objref all, adend, bdend, cdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB, syns_MPP, syns_LPP
 objref syn_stim
 
 proc init() {
@@ -32,6 +32,8 @@ proc init() {
     syns_HCC = new List()
     syns_NGFC = new List()
     syns_NGFCB = new List()
+    syns_MPP = new List()
+    syns_LPP = new List()
     syns = new List()
 
     syns.append(syns_GC)
@@ -42,6 +44,8 @@ proc init() {
     syns.append(syns_HCC)
     syns.append(syns_NGFC)
     syns.append(syns_NGFCB)
+    syns.append(syns_LPP)
+    syns.append(syns_MPP)
     
     soma {
         syn_stim = new ExpSyn(0.5)
