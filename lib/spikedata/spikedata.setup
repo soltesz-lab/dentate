@@ -16,3 +16,24 @@
 
   ; Assoc list with properties for your extension:
   `((version 1.0)))
+
+(compile -O -d2 spike.pvcorr.scm)
+(compile -O3 -d0 spike.summary.scm)
+(compile -O3 -d0 spike.trains.scm)
+
+
+(install-program 
+ 'spike.pvcorr 
+ `("spike.pvcorr" )
+  '((version 1.0)))
+
+(install-program 
+ 'spike.summary 
+ `("spike.summary" )
+  '((version 1.0)))
+
+(install-program 
+ 'spike.trains 
+ `("spike.trains" )
+  '((version 1.0)))
+

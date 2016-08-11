@@ -130,55 +130,7 @@
 (foreign-declare 
 #<<EOF
 #include <assert.h>
-
-
-static void init_distance_matrix(int **dm, int m, int n)
-{
-   unsigned int i, j;
-
-   for (j = 0; j < n; j++)
-   {
-      dm[0][j] = j;
-   }   
-   for (i = 1; i < m; i++)
-   {
-      dm[i][0] = i;
-      for (j = 1; j < n; j++)
-      {
-          dm[i][j] = 0;
-      }   
-   }   
-}
-
-
-// minimum of three numbers
-static int minimum (int x, int y, int z)
-{
-    int u, res;
-
-    u   = (x<y)?x:y;
-    res = (u<z)?u:z;
-
-    return res;
-}
-
-//  compare (x, y) returns 0 if x is equal to y, a negative integer if
-//  x is less than y, and a positive integer if x is greater than y.
-static int compare (int x, int y)
-{ 
-    int res;
-
-    if (x == y)
-    {
-      res = 0;
-    } else
-    {
-      res = (x<y)?-1:1;    
-    }
-
-    return res;
-}
-
+#define MIN3(a, b, c) ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
 EOF
 )
@@ -187,45 +139,27 @@ EOF
 
 ;; Computes the Levenshtein edit distance between two integer vectors.
 (define levenshtein-distance
-    (foreign-lambda* unsigned-int ((unsigned-int m) (u32vector xv) (unsigned-int n) (u32vector yv))
+    (foreign-lambda* unsigned-int ((unsigned-int m) (u32vector s1) (unsigned-int n) (u32vector s2))
 #<<EOF
-     unsigned int result, i, j; int cost, x, y, z, **mat, *buf, *s, *t; 
-
-     if (m == 0) 
-     {
-        result = n;
-     } else if (n == 0) 
-     {
-        result = m;
-     } else 
-     {
-        assert ((buf = malloc (sizeof(int)*(m+1)*(n+1))) != NULL);
-        assert ((mat = malloc (sizeof(int*)*(m+1))) != NULL);
-        for (i = 0; i <= m; i++)
-        {
-            mat[i] = buf+(i*n);
+    // Algorithm from 
+    // https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#C
+    unsigned int result, s1len, s2len, x, y, lastdiag, olddiag;
+    s1len = m;
+    s2len = n;
+    unsigned int column[s1len+1];
+    for (y = 1; y <= s1len; y++)
+        column[y] = y;
+    for (x = 1; x <= s2len; x++) {
+        column[0] = x;
+        for (y = 1, lastdiag = x-1; y <= s1len; y++) {
+            olddiag = column[y];
+            column[y] = MIN3(column[y] + 1, column[y-1] + 1, lastdiag + (s1[y-1] == s2[x-1] ? 0 : 1));
+            lastdiag = olddiag;
         }
-        init_distance_matrix(mat,m+1,n+1);
+    }
+    result = (column[s1len]);
 
-        for (i = 1; i <= m; i++)
-        {
-           s = mat[i];
-           t = mat[i-1];
-           for (j = 1; j <= n; j++)
-           {
-              cost = abs (compare (xv[i-1], yv[j-1]));
-              x = 1 + t[j];
-              y = 1 + s[j-1];
-              z = cost + t[j-1];
-              s[j] = minimum(x,y,z);
-           }
-        }
-        result = mat[m][n];
-        free(mat);
-        free(buf);
-     }
-
-     C_return(result);
+    C_return(result);
 EOF
 ))
 

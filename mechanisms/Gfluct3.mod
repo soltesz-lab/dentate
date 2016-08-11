@@ -56,6 +56,8 @@ IMPLEMENTATION
   exactly same results as original Gfluct2 does if h is set equal to
   dt by a hoc or Python statement and fixed dt integration is used.
 
+  Modified 8/3/2016 by Michael Hines to work with CoreNEURON
+  copy/paste/modify fragments from netstim.mod
 
 PARAMETERS
 
@@ -100,7 +102,8 @@ NEURON {
 	RANGE std_e, std_i, tau_e, tau_i, D_e, D_i
 	RANGE new_seed
 	NONSPECIFIC_CURRENT i
-	POINTER donotuse
+	THREADSAFE
+	BBCOREPOINTER donotuse
 }
 
 UNITS {
@@ -113,7 +116,7 @@ PARAMETER {
     
      on = 0
      h = 0.025 (ms) : interval at which conductances are to be updated
-                    : for fixed dt simulation, should be an integer multiple of dt
+		    : for fixed dt simulation, should be an integer multiple of dt
 
      E_e = 0  (mV)		: reversal potential of excitatory conductance
      E_i = -75 (mV)		: reversal potential of inhibitory conductance
@@ -147,7 +150,33 @@ ASSIGNED {
 	donotuse
 }
 
+VERBATIM
+#if NRNBBCORE /* running in CoreNEURON */
+
+#define IFNEWSTYLE(arg) arg
+
+#else /* running in NEURON */
+
+/*
+   1 means noiseFromRandom was called when _ran_compat was previously 0 .
+   2 means noiseFromRandom123 was called when _ran_compat was
+previously 0.
+*/
+static int _ran_compat; /* specifies the noise style for all instances */
+#define IFNEWSTYLE(arg) if(_ran_compat == 2) { arg }
+
+#endif /* running in NEURON */ 
+ENDVERBATIM  
+
 INITIAL {
+
+	VERBATIM
+	  if (_p_donotuse) {
+	    /* only this style initializes the stream on finitialize */
+	    IFNEWSTYLE(nrnran123_setseq((nrnran123_State*)_p_donotuse, 0, 0);)
+	  }
+	ENDVERBATIM
+
 	g_e1 = 0
 	g_i1 = 0
 	if(tau_e != 0) {
@@ -161,45 +190,67 @@ INITIAL {
 		amp_i = std_i * sqrt( (1-exptrap(2, -2*h/tau_i)) )
 	    }
        if ((tau_e != 0) || (tau_i != 0)) {
-           net_send(h, 1)
+	   net_send(h, 1)
        }
 }
 
 VERBATIM
+#include "nrnran123.h"
+
+#if !NRNBBCORE
+/* backward compatibility */
 double nrn_random_pick(void* r);
 void* nrn_random_arg(int argpos);
+int nrn_random_isran123(void* r, uint32_t* id1, uint32_t* id2, uint32_t* id3);
+#endif
 ENDVERBATIM
 
 FUNCTION mynormrand(mean, std) {
 VERBATIM
 	if (_p_donotuse) {
 		// corresponding hoc Random distrubution must be Random.normal(0,1)
-                
 		double x;
-		x = nrn_random_pick(_p_donotuse);
+#if !NRNBBCORE
+		if (_ran_compat == 2) {
+			x = nrnran123_normal((nrnran123_State*)_p_donotuse);
+		}else{		
+			x = nrn_random_pick(_p_donotuse);
+		}
+#else
+		x = nrnran123_normal((nrnran123_State*)_p_donotuse);
+#endif
 		x = _lmean + _lstd*x;
 		return x;
 	}
+#if NRNBBCORE
+		assert(0);
+#endif
+#if !NRNBBCORE
 ENDVERBATIM
 	mynormrand = normrand(mean, std)
+VERBATIM
+#endif
+ENDVERBATIM
 }
 
-BEFORE BREAKPOINT {
-        if (on > 0) {
+:BEFORE BREAKPOINT {
+PROCEDURE foo() {
+	if (on > 0) {
 		g_e = g_e0 + g_e1
-                if (g_e < 0) { g_e = 0 }
-	        g_i = g_i0 + g_i1
-	        if (g_i < 0) { g_i = 0 }
-	        ival = g_e * (v - E_e) + g_i * (v - E_i)
-        } else {
-                ival = 0
-        }
-        
-        :printf("on = %g t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", on, t, v, i, g_e, g_i, E_e, E_i)
+		if (g_e < 0) { g_e = 0 }
+		g_i = g_i0 + g_i1
+		if (g_i < 0) { g_i = 0 }
+		ival = g_e * (v - E_e) + g_i * (v - E_i)
+	} else {
+		ival = 0
+	}
+	
+	:printf("on = %g t = %g v = %g i = %g g_e = %g g_i = %g E_e = %g E_i = %g\n", on, t, v, i, g_e, g_i, E_e, E_i)
     }
 
 
 BREAKPOINT {
+      foo()
       i = ival   
     }
 
@@ -215,29 +266,66 @@ PROCEDURE oup() {		: use Scop function normrand(mean, std_dev)
 
 
 PROCEDURE new_seed(seed) {		: procedure to set the seed
+VERBATIM
+#if !NRNBBCORE
+ENDVERBATIM
 	set_seed(seed)
 	VERBATIM
 	  printf("Setting random generator with seed = %g\n", _lseed);
 	ENDVERBATIM
+VERBATIM  
+#endif
+ENDVERBATIM
 }
 
 PROCEDURE noiseFromRandom() {
 VERBATIM
+#if !NRNBBCORE
  {
-        void** pv = (void**)(&_p_donotuse);
-        if (ifarg(1)) {
-                *pv = nrn_random_arg(1);
-        }else{
-                *pv = (void*)0;
-        }
+	void** pv = (void**)(&_p_donotuse);
+	if (_ran_compat == 2) {
+		fprintf(stderr, "Gfluct3.noiseFromRandom123 was previously called\n");
+		assert(0);
+	} 
+	_ran_compat = 1;
+	if (ifarg(1)) {
+		*pv = nrn_random_arg(1);
+	}else{
+		*pv = (void*)0;
+	}
  }
+#endif
+ENDVERBATIM
+}
+
+PROCEDURE noiseFromRandom123() {
+VERBATIM
+#if !NRNBBCORE
+ {
+	nrnran123_State** pv = (nrnran123_State**)(&_p_donotuse);
+	if (_ran_compat == 1) {
+		fprintf(stderr, "Gfluct3.noiseFromRandom was previously called\n");
+		assert(0);
+	}
+	_ran_compat = 2;
+	if (*pv) {
+		nrnran123_deletestream(*pv);
+		*pv = (nrnran123_State*)0;
+	}
+	if (ifarg(3)) {
+		*pv = nrnran123_newstream3((uint32_t)*getarg(1), (uint32_t)*getarg(2), (uint32_t)*getarg(3));
+	}else if (ifarg(2)) {
+		*pv = nrnran123_newstream((uint32_t)*getarg(1), (uint32_t)*getarg(2));
+	}
+ }
+#endif
 ENDVERBATIM
 }
 
 NET_RECEIVE (w) {
     if (flag==1) {
-        oup()
-        net_send(h, 1)
+	oup()
+	net_send(h, 1)
     }
 }
 
@@ -250,4 +338,40 @@ FUNCTION exptrap(loc,x) {
     exptrap = exp(x)
   }
 }
+
+VERBATIM
+#if !NRNBBCORE
+static void bbcore_write(double* x, int* d, int* xx, int *offset, _threadargsproto_) {
+	/* error if using the legacy normrand */
+	if (!_p_donotuse) {
+		fprintf(stderr, "Gfluct3: cannot use the legacy normrand generator for the random stream.\n");
+		assert(0);
+	}
+	if (d) {
+		uint32_t* di = ((uint32_t*)d) + *offset;
+		if (_ran_compat == 1) { 
+			void** pv = (void**)(&_p_donotuse);
+			/* error if not using Random123 generator */
+			if (!nrn_random_isran123(*pv, di, di+1, di+2)) {
+				fprintf(stderr, "Gfluct3: Random123 generator is required\n");
+				assert(0);
+			}
+		}else{
+			nrnran123_State** pv = (nrnran123_State**)(&_p_donotuse);
+			nrnran123_getids3(*pv, di, di+1, di+2);
+		}
+		/*printf("Gfluct3 bbcore_write %d %d %d\n", di[0], di[1], di[3]);*/
+	}
+	*offset += 3;
+}
+#endif
+
+static void bbcore_read(double* x, int* d, int* xx, int* offset, _threadargsproto_) {
+	assert(!_p_donotuse);
+	uint32_t* di = ((uint32_t*)d) + *offset;
+	nrnran123_State** pv = (nrnran123_State**)(&_p_donotuse);
+	*pv = nrnran123_newstream3(di[0], di[1], di[2]);
+	*offset += 3;  
+}
+ENDVERBATIM
 

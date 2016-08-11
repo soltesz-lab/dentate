@@ -1,0 +1,99 @@
+
+load_file("nrngui.hoc")
+load_file("./tests/cell_protocol.ses")
+
+nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
+
+// RandomStream template
+{load_file("./templates/ranstream.hoc")}
+
+// Load the cell template
+xopen("./templates/MossyCell.hoc")
+
+
+objref se
+
+proc synapse_group_test () { local gid, w localobj mc, synlist, v, vv, logfile
+    
+    strdef label, msg, log_fn
+    
+    gid = $1
+    mc = $o2
+    synlist = $o3
+    w = $4
+    v_holding = $5
+    v_init = $6
+    label = $s7
+    logfile = $o8
+    
+    vv = new Vector()
+    vv.append(0,0,0,0,0,0)
+    
+    mc.soma { se = new SEClamp(0.5) }
+    
+    v = mc.syntest(synlist,se,w,v_holding,v_init)
+    vv = vv.add(v)
+    
+    amp = vv.x(0)
+    t_10_90 = vv.x(1)
+    t_20_80 = vv.x(2)
+    t_all = vv.x(3)
+    t_50 = vv.x(4)
+    t_decay = vv.x(5)
+
+    sprint(msg, "%s synapses: ", label)
+    logfile.printf(msg)
+    logfile.printf("  Amplitude %f",amp)
+    logfile.printf("  10-90 Rise Time %f",t_10_90)
+    logfile.printf("  20-80 Rise Time %f",t_20_80)
+    logfile.printf("  Decay Time Constant %f\n",t_decay)
+    
+    printf("%s synapses:\n", label)
+    printf("  Amplitude\t\t %f\n",amp)
+    printf("  10-90 Rise Time\t\t %f\n",t_10_90)
+    printf("  20-80 Rise Time\t\t %f\n",t_20_80)	
+    printf("  Decay Time Constant\t %f\n",t_decay)	
+
+}
+
+
+
+proc synapse_test() { local gid localobj mc, syn, logfile strdef log_fn, results_path
+    
+    results_path = $s1
+    
+    /*
+    gc.soma { 
+        gbkbar_CadepK = 0.0
+        gbar_fKDR = 0.0
+        gbar_sKDR = 0.0
+    	gbar_KA = 0.0
+        
+    }
+    */
+    
+    mc = new MossyCell(gid)
+    for i = 1, 1 {
+        mc.dendrites[1][2] {
+            
+	    syn = new Exp2Syn(0.5)
+            syn.tau1 = 2
+            syn.tau2 = 3
+            syn.e = 0
+            mc.syns_MPP.append (syn)
+        }
+    }
+    
+    logfile = new File()
+    sprint (log_fn, "%s/BasketCellSyn.dat", results_path )
+    logfile.wopen ( log_fn )
+    
+    synapse_group_test(gid, mc, mc.syns_GC, 0.0007, -70, -70, "GC-MC", logfile)
+
+    v_init = -70
+    
+    logfile.close()
+    
+}
+
+synapse_test("tests")

@@ -3,7 +3,7 @@ begintemplate MossyCell
 public connect2target, subsets,is_art, is_connected
 public soma, dendrites
 public all, pdend, ddend
-public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB, syns_LPP, syns_MPP
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
 public syn_stim
 public xx, yy, zz, position
 
@@ -15,10 +15,10 @@ nst=10
 // dends is properly created in init()
 create soma, dendrites[1][1]
 
-objref fl, rs
+objref fl//, rs
 objref stim[nst]
 objref all, pdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB, syns_LPP, syns_MPP
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
 objref syn_stim
 
 proc init() { // arguments are id, gid
@@ -42,8 +42,6 @@ proc init() { // arguments are id, gid
     syns_HCC = new List()
     syns_NGFC = new List()
     syns_NGFCB = new List()
-    syns_LPP = new List()
-    syns_MPP = new List()
     
     syns = new List()
     syns.append(syns_GC)
@@ -54,8 +52,6 @@ proc init() { // arguments are id, gid
     syns.append(syns_HCC)
     syns.append(syns_NGFC)
     syns.append(syns_NGFCB)
-    syns.append(syns_LPP)
-    syns.append(syns_MPP)
     
     soma {
         syn_stim = new ExpSyn(0.5)
@@ -96,10 +92,10 @@ proc geom() {
     soma {nseg=1 L=20 diam=20} // changed L & diam
     
     for i=0, ndends-1 {
-        dendrites[i][0] {nseg=1 L=50 diam=5.78}
-        dendrites[i][1] {nseg=1 L=50 diam=4}
-        dendrites[i][2] {nseg=1 L=50 diam=2.5}
-        dendrites[i][3] {nseg=1 L=50 diam=1}
+        dendrites[i][0] {nseg=1 L=24 diam=5.78}
+        dendrites[i][1] {nseg=1 L=24 diam=4}
+        dendrites[i][2] {nseg=1 L=24 diam=2.5}
+        dendrites[i][3] {nseg=1 L=24 diam=1}
     }
     
 }
@@ -109,12 +105,14 @@ proc biophys() { local ndends, ndendsec
     ndends = $1
     ndendsec = $2
     
+    forsec all {Ra=100}
+    
     forsec all {
 	insert ccanl
-	catau_ccanl = 10
+	catau_ccanl = 1
 	caiinf_ccanl = 5.e-6
 	insert borgka
-	gkabar_borgka=0.00001
+	gkabar_borgka=0.0001
 	insert nca  // HAV-N- Ca channel
 	gncabar_nca=0.00008  // check to modify- original 0.004
 	insert lca 
@@ -130,10 +128,10 @@ proc biophys() { local ndends, ndendsec
     
     soma {
         insert ichan2  //ildikos ichan
-	gnatbar_ichan2=0.12  //original 0.030 to .055 
+	gnatbar_ichan2=0.32  //original 0.030 to .055 
 	gkfbar_ichan2=0.0005  //original 0.015
 	gl_ichan2 = 0.000011
-        cm=0.6
+        cm=1.6
     }
     
     forsec pdend {
@@ -163,7 +161,6 @@ proc biophys() { local ndends, ndendsec
         }
     }
     
-    forsec all {Ra=100}
     forsec all {
         enat = 55
         ekf  = -90
@@ -175,22 +172,22 @@ proc biophys() { local ndends, ndendsec
 	el_ichan2 =-59
         cao_ccanl=2 
     }
-    // make catau slower70e-3 	cao=2 cai=50.e-6 
     
     objref fl
     // a noise source that emulates fluctuating synaptic conductances
     // the conductances are sampled from a Gaussian distribution
     // where negative values were replaced with 0
     soma fl = new Gfluct3(0.5)
-    fl.g_e0 = 0.02
+    fl.g_e0 = 0.023
     fl.h = 0.25
     fl.on = 1
-    
-    rs = new RandomStream(cellid)
+
+    //rs = new RandomStream(gid, 0, 3)
     // set the stream to generate a gaussian distribution with mean 0 and variance 1
-    rs.r.normal(0, 1)
+    //rs.r.normal(0, 1)
     // use the random Gaussian distribution stream in the Gfluct2 mechanism
-    fl.noiseFromRandom(rs.r)
+    //fl.noiseFromRandom(rs.r)
+    fl.noiseFromRandom123(gid, 0, 3)
     
 }
 

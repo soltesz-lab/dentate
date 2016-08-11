@@ -29,20 +29,11 @@ RANGE gl, el
 RANGE minf, mtau, hinf, htau, nfinf, nftau, inat, ikf, nsinf, nstau, iks
 }
  
-:INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
-        v (mV) 
-        celsius = 6.3 (degC)
-        dt (ms) 
-        enat  (mV)
 	gnatbar (mho/cm2)   
-        ekf  (mV)
 	gkfbar (mho/cm2)
-        eks  (mV)
 	gksbar (mho/cm2)
-	gl (mho/cm2)    
- 	el (mV)
 }
  
 STATE {
@@ -50,6 +41,9 @@ STATE {
 }
  
 ASSIGNED {
+        v (mV) 
+        celsius (degC)
+        enat  (mV)
          
         gnat (mho/cm2) 
         gkf (mho/cm2)
@@ -58,7 +52,11 @@ ASSIGNED {
         inat (mA/cm2)
         ikf (mA/cm2)
         iks (mA/cm2)
-
+        
+        ekf  (mV)
+        eks  (mV)
+	gl (mho/cm2)    
+ 	el (mV)
 
 	il (mA/cm2)
 

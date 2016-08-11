@@ -13,11 +13,8 @@ UNITS {
 }
 
 PARAMETER {
-	v (mV)
-	celsius 	(degC)
 	glcabar		 (mho/cm2)
 	ki=.001 (mM)
-	cai (mM)
 	cao (mM)
         tfa=1
 }
@@ -28,7 +25,8 @@ NEURON {
 	USEION lca READ elca WRITE ilca VALENCE 2
 	USEION ca READ cai, cao VALENCE 2 
         RANGE glcabar, cai, ilca, elca
-        GLOBAL minf,matu
+        :GLOBAL minf,matu
+	RANGE minf,matu
 }
 
 STATE {
@@ -36,20 +34,20 @@ STATE {
 }
 
 ASSIGNED {
+	v (mV)
+	celsius 	(degC)
 	ilca (mA/cm2)
         glca (mho/cm2)
         minf
         matu   (ms)
 	elca (mV)   
+	cai (mM)
 
 }
 
 INITIAL {
 	rate(v)
 	m = minf
-	VERBATIM
-	cai=_ion_cai;
-	ENDVERBATIM
 }
 
 BREAKPOINT {

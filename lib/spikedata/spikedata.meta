@@ -17,7 +17,7 @@
 
  ; A list of eggs npcloud depends on.
 
- (needs matchable typeclass rb-tree datatype)
+ (needs matchable typeclass rb-tree datatype statistics fmt)
 
  (author "Ivan Raikov")
 
