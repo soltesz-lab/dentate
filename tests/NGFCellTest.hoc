@@ -10,105 +10,249 @@ nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
 // Load the cell template
 xopen("./templates/NGFCell.hoc")
 
+xopen ("./tests/rn.hoc")
 
-objref ngfc
-ngfc = new NGFCell(1, 1)
-ngfc.soma { psection() }
-prelength = 500
-mainlength = 2000
-vinit = -60
+v_init = -60
 
 //**********************************************************************
-proc simulate() { local preDT, mainDT, logsize  localobj logfile, tlog, Vlog
+proc simulate() { local prelength, mainlength, preDT, mainDT
     
-    init()
+    printf("entering simulate\n")
     
-    mainDT = 0.025
-    preDT = 0.025
+    prelength = $1
+    mainlength = $2
+
+    cvode_active (1)
     
-    cvode_active (0)
+    finitialize(v_init)
     
-    dt = preDT
-    tstop = prelength
-    run()
+    tstop = prelength+mainlength
     
-    if ( stoprun == 1) return
+    fadvance()
+    continuerun(tstop)
     
-    dt = mainDT
-    continuerun(prelength + mainlength)
-    if ( stoprun == 1) return
+}
+
+proc write_voltage_trace() { local logsize  localobj logfile, tlog, Vlog_soma, Vlog_dend
     
     logfile=$o1
     tlog=$o2
-    Vlog=$o3
+    Vlog_soma=$o3
     
     logsize = tlog.size()
     
     for i=0,tlog.size()-1 {
-	logfile.printf("%g %g\n", tlog.x[i], Vlog.x[i])
+	logfile.printf("%g %g\n", tlog.x[i], Vlog_soma.x[i])
     }
+    
+}
 
+proc write_current_trace() { local logsize  localobj logfile, tlog, isk_log, ibk_log, ika_log, ifkdr_log, ina_log
+    
+    logfile=$o1
+    tlog=$o2
+    isk_log = $o3
+    ibk_log = $o4
+    ifkdr_log  = $o5
+    ika_log  = $o6
+    ina_log = $o7
+    
+    logsize = tlog.size()
+    
+    for i=0,tlog.size()-1 {
+	logfile.printf("%g %g %g %g %g %g", tlog.x[i], isk_log.x[i], ibk_log.x[i], ifkdr_log.x[i], ika_log.x[i], ina_log.x[i])
+        logfile.printf("\n")
+    }
+    
 }
 
 
-//*************User-Interface*******************************************
-
-nrnsecmenu(0.5, 1)
-
-xpanel("Spontaneous firing")
-xvalue("Time for Initialization", "prelength")
-xvalue("Main duration", "mainlength")
-
-xvalue("dt", "dt")
-xvalue("t", "t")
-xlabel("")
-xbutton("Start", "simulate()")
-xbutton("Stop", "stoprun = 1")
-xpanel()
-
-vec_sizes = (prelength+mainlength)/dt + 1	// recorded traces are all this size
-
-stimdur = 1000
-
-objref zz
-zz = new Impedance()
-
-func rn() { local rn localobj cell
-    finitialize(vinit)  // make sure all changes to g, c, ri etc. have taken effect
-    cell = $o1
-    cell.soma zz.loc(0.5)  // sets origin for impedance calculations to middle of soma
-    zz.compute(0)  // DC input R
-    cell.soma { rn = zz.input(0.5) }  // rn is input R at middle of the soma
-    return rn
+proc write_dvdt() { local logsize  localobj logfile, tlog, dvdt
+    
+    logfile=$o1
+    tlog=$o2
+    dvdt=$o3
+    
+    logsize = tlog.size()
+    
+    for i=0,tlog.size()-1 {
+	logfile.printf("%g %g\n", tlog.x[i], dvdt.x[i])
+    }
+    
 }
 
-printf ("DC input resistance: %g MOhm\n", rn(ngfc))
 
-objectvar stim1
-ngfc.soma stim1 = new IClamp(0.5)
-stim1.del = prelength
-stim1.dur = stimdur
-stim1.amp = 0.1
+proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur localobj ngfc, stim1, Vlog_soma, tlog, logfile 
+    
+    strdef log_fn
+    
+    prelength = 1000
+    mainlength = 2000
+    
+    vec_sizes = (prelength+mainlength)/dt + 1	// recorded traces are all this size
+    
+    stimdur = 500.0
+    
+    ngfc = new NGFCell(1, 1)
+    
+    ngfc.soma stim1 = new IClamp(0.5)
+    stim1.del = prelength
+    stim1.dur = stimdur
+    stim1.amp = -0.1
+    
+    Vlog_soma = new Vector(vec_sizes)
+    Vlog_soma.record (&ngfc.soma.v(0.5))
 
-/*
-objref  iklog
-iklog = new Vector(vec_sizes)
-iklog.record (&gc.soma.ik(0.5))
-*/
+    tlog = new Vector(vec_sizes,0)
+    tlog.record (&t)
+    
+    logfile = new File()
+    sprint (log_fn, "NGFCell_passive.dat")
+    logfile.wopen ( log_fn )
+    
+    simulate(prelength,mainlength)
+    write_voltage_trace(logfile,tlog,Vlog_soma)
+    logfile.close()
 
-objref  Vlog
-Vlog = new Vector(vec_sizes)
-Vlog.record (&ngfc.soma.v(0.5))
+    // attempt to compute membrane time constant
+    vrest  = Vlog_soma.x[tlog.indwhere(">=",prelength-1)]
+    vmin   = Vlog_soma.min()
+    vmax   = vrest
+    // the time it takes the system's step response to reach 1-1/e (or
+    // 63.2%) of the peak value (Wikipedia)
+    amp23  = 0.632 * abs (vmax - vmin)
+    vtau0  = vrest - amp23
+    tau0   = tlog.x[Vlog_soma.indwhere ("<=", vtau0)] - prelength
+    
+    logfile = new File()
+    sprint (log_fn, "NGFCell_passive_results.dat")
+    logfile.wopen ( log_fn )
+    
+    logfile.printf ("DC input resistance: %g MOhm\n", rn(ngfc))
+    logfile.printf ("vmin: %g mV\n", vmin)
+    logfile.printf ("vtau0: %g mV\n", vtau0)
+    logfile.printf ("tau0: %g ms\n", tau0)
+    
+    printf ("DC input resistance: %g MOhm\n", rn(ngfc))
+    printf ("vmin: %g mV\n", vmin)
+    printf ("vtau0: %g mV\n", vtau0)
+    printf ("tau0: %g ms\n", tau0)
+    
+    logfile.close()
+}
 
-objref tlog
-tlog = new Vector(vec_sizes,0)
-tlog.record (&t)
 
-objref logfile
-logfile = new File()
-logfile.wopen ( "NGFCell_protocol.dat" )
 
-simulate(logfile,tlog,Vlog)
-logfile.close()
+proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, isimean, isivar, isistdev, it localobj ngfc, stim1, Vlog_soma, tlog, logfile, nil, nc, spikelog, spikefile, isivect strdef errmsg
+    
+    strdef spikelog_fn, log_fn
+    
+    prelength = 1000
+    mainlength = 2000
+    
+    vec_sizes = (prelength+mainlength)/dt + 1	// recorded traces are all this size
+    
+    stimdur = 1000
+    
+    ngfc = new NGFCell(1, 1)
+    
+    ngfc.soma stim1 = new IClamp(0.5)
+    stim1.del = prelength
+    stim1.dur = stimdur
+    stim1.amp = 0.3
+    
+    spikelog = new Vector()
+    ngfc.soma nc = new NetCon(&ngfc.soma.v(.5), nil)
+    nc.threshold = -40.0
+    nc.record(spikelog)
+    
+    Vlog_soma = new Vector(vec_sizes)
+    Vlog_soma.record (&ngfc.soma.v(0.5))
+
+    tlog = new Vector(vec_sizes,0)
+    tlog.record (&t)
+    
+    it = 1
+    // Increase the injected current until at least 30 spikes occur
+    // or up to 3 steps
+    while (spikelog.size() < 30) {
+
+        simulate(prelength,mainlength)
+        
+        if ((spikelog.size() < 30) && (it < 5)) {
+            printf ("ap_rate_test: stim1.amp = %g spikelog.size = %d\n", stim1.amp, spikelog.size())
+            stim1.amp = stim1.amp + 0.1
+            spikelog.clear()
+            tlog.clear()
+            Vlog_soma.clear()
+            it = it + 1
+        } else {
+            break
+        }
+    }
+    
+    logfile = new File()
+    sprint (log_fn, "NGFCell_ap_rate.dat" )
+    logfile.wopen ( log_fn )
+    write_voltage_trace(logfile,tlog,Vlog_soma)
+    logfile.close()
+    
+    spikefile = new File()
+    sprint (spikelog_fn, "NGFCell_spikes.dat")
+    spikefile.wopen ( spikelog_fn )
+    for i=0,spikelog.size()-1 {
+        spikefile.printf("%g\n", spikelog.x[i])
+    }
+    
+    isivect = new Vector(spikelog.size()-1, 0.0)
+    tspike = spikelog.x[0]
+    for i=1,spikelog.size()-1 {
+        isivect.x[i-1] = spikelog.x[i]-tspike
+        tspike = spikelog.x[i]
+    }
+    
+    printf ("ap_rate_test: isivect.size = %d\n", isivect.size())
+    isimean = isivect.mean()
+    isivar = isivect.var()
+    isistdev = isivect.stdev()
+    
+    isilast = isivect.size()-1
+    if (isivect.size() > 10) {
+        isi10th = 10 
+    } else {
+        isi10th = isilast
+    }
+    
+    // Compute the last spike that is largest than the first one.
+    // This is necessary because some variants of the model generate spike doublets,
+    // (i.e. spike with very short distance between them, which confuse the ISI statistics.
+    isilastgt = isivect.size()-1
+    while (isivect.x[isilastgt] < isivect.x[1]) {
+        isilastgt = isilastgt-1
+    }
+    
+    if (!(isilastgt > 0)) {
+        sprint(errmsg,"Unable to find ISI greater than first ISI: forest_path = %s gid = %d", forest_path, gid)
+        isivect.printf()
+        execerror(errmsg)
+    }
+    
+    spikefile.printf ("## number of spikes: %g\n", spikelog.size())
+    spikefile.printf ("## FR mean: %g\n", 1/isimean)
+    spikefile.printf ("## ISI mean: %g\n", isimean) 
+    spikefile.printf ("## ISI variance: %g\n", isivar)
+    spikefile.printf ("## ISI stdev: %g\n", isistdev)
+    spikefile.printf ("## ISI adaptation 1: %g\n", (isivect.x[0]/isimean))
+    spikefile.printf ("## ISI adaptation 2: %g\n", (isivect.x[0]/isivect.x[isilast]))
+    spikefile.printf ("## ISI adaptation 3: %g\n", (isivect.x[0]/isivect.x[isi10th]))
+    spikefile.printf ("## ISI adaptation 4: %g\n", (isivect.x[0]/isivect.x[isilastgt]))
+    
+    spikefile.close()
+    
+}
+
+
+passive_test()
+ap_rate_test()
 
 

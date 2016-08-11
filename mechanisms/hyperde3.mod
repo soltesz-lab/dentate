@@ -38,18 +38,11 @@ RANGE hyhtfinf, hyhtsinf, hyhtftau, hyhtstau, ihyf, ihys
 :INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
-      v (mV) 
-      celsius = 6.3 (degC)
-      dt (ms) 
 
 	ghyfbar (mho/cm2)
 	ghysbar (mho/cm2)
-	ehyf (mV)
-	ehys (mV)
 	ghyhtfbar (mho/cm2)
 	ghyhtsbar (mho/cm2)
-	ehyhtf (mV)
-	ehyhts (mV)
 }
  
 STATE {
@@ -57,23 +50,29 @@ STATE {
 }
  
 ASSIGNED {
-         
-  
-	ghyf (mho/cm2)
- 	ghys (mho/cm2)
-
-	ghyhtf (mho/cm2)
-	ghyhts (mho/cm2)
-
-  
-	ihyf (mA/cm2)
-	ihys (mA/cm2)
-	ihyhtf (mA/cm2)
-	ihyhts (mA/cm2)
-
-	hyfinf hysinf hyhtfinf hyhtsinf
- 	hyftau (ms) hystau (ms) hyhtftau (ms) hyhtstau (ms)
-	hyfexp hysexp hyhtfexp hyhtsexp     
+      v (mV) 
+      celsius (degC)
+      
+      
+      ghyf (mho/cm2)
+      ghys (mho/cm2)
+      
+      ghyhtf (mho/cm2)
+      ghyhts (mho/cm2)
+      
+      ehyf (mV)
+      ehys (mV)
+      ehyhtf (mV)
+      ehyhts (mV)
+      
+      ihyf (mA/cm2)
+      ihys (mA/cm2)
+      ihyhtf (mA/cm2)
+      ihyhts (mA/cm2)
+      
+      hyfinf hysinf hyhtfinf hyhtsinf
+      hyftau (ms) hystau (ms) hyhtftau (ms) hyhtstau (ms)
+      hyfexp hysexp hyhtfexp hyhtsexp     
 } 
 
 ? currents

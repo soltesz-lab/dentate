@@ -5,10 +5,15 @@ UNITS {
 
 }
 
+
+NEURON {
+	SUFFIX borgka
+	USEION k READ ek WRITE ik
+        RANGE gkabar,gka, ik
+        :GLOBAL ninf,linf,taul,taun
+}
+
 PARAMETER {
-	v (mV)
-        ek (mV)
-	celsius 	(degC)
 	gkabar=.01 (mho/cm2)
         vhalfn=-33.6   (mV)
         vhalfl=-83   (mV)
@@ -18,14 +23,6 @@ PARAMETER {
         zetal=4    (1)
         gmn=0.6   (1)
         gml=1   (1)
-}
-
-
-NEURON {
-	SUFFIX borgka
-	USEION k READ ek WRITE ik
-        RANGE gkabar,gka, ik
-        :GLOBAL ninf,linf,taul,taun
 }
 
 STATE {
@@ -40,6 +37,9 @@ INITIAL {
 }
 
 ASSIGNED {
+	v (mV)
+        ek (mV)
+	celsius 	(degC)
 	ik (mA/cm2)
         ninf
         linf      

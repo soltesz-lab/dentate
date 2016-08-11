@@ -15,7 +15,7 @@ objref aac
 aac = new AxoAxonicCell(1, 1)
 aac.soma { psection() }
 prelength = 500
-mainlength = 5000
+mainlength = 2500
 vinit = -60
 
 //**********************************************************************

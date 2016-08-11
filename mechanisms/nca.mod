@@ -28,9 +28,6 @@ RANGE cinf, ctau, dinf, dtau, inca
 :INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
-        v (mV) 
-        celsius = 6.3 (degC)
-        dt (ms) 
 	gncabar (mho/cm2)
 }
  
@@ -39,13 +36,16 @@ STATE {
 }
  
 ASSIGNED {
-	  gnca (mho/cm2)
-	inca (mA/cm2)
-	enca (mV)
-
-	cinf dinf
-	ctau (ms) dtau (ms) 
-	cexp dexp      
+    
+    v (mV) 
+    celsius (degC)
+    gnca (mho/cm2)
+    inca (mA/cm2)
+    enca (mV)
+    
+    cinf dinf
+    ctau (ms) dtau (ms) 
+    cexp dexp      
 } 
 
 ? currents
