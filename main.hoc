@@ -883,7 +883,7 @@ mknet(ncells)
 
 objref nc
 
-proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number, start localobj stim, stimulationParameters, cellType, cellTypes, stimType, stimTypes, edges
+proc mkstim() { local i, k, nCellTypes, numStimTypes, stimgid, gid, weight, noise, number, start localobj stim, stimulationParameters, cellType, cellTypes, stimType, stimTypes, edges
     
     strdef templateName, typeName
     
@@ -902,8 +902,8 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, gid, weight, noise, number
     sprint (cmd, "nc%slist = new List()", typeName)
     execute(cmd)
     
-    stimgid = maxindex+1+pnm.myid()+1
-    
+    stimgid = maxindex+1+pnm.myid*numStimTypes+1
+
     if (verbose >= 0) {
         printf ("host %d: mkstim: maxindex = %d numStimTypes = %d stimgid = %d\n", pnm.myid(), maxindex, numStimTypes, stimgid)
     }

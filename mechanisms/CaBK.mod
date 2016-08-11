@@ -20,7 +20,6 @@ NEURON {
 	USEION tca READ tcai VALENCE 2
 	USEION k READ ek WRITE ik
 	RANGE gkbar,gkca, ik
-	:GLOBAL oinf, otau
 }
 
 UNITS {
@@ -29,11 +28,7 @@ UNITS {
 }
 
 PARAMETER {
-	celsius		(degC)
-	v		(mV)
 	gkbar=.01	(mho/cm2)	: Maximum Permeability
-	cai = 5.e-5	(mM)
-	ek		(mV)
 
 	d1 = .84
 	d2 = 1.
@@ -48,14 +43,18 @@ PARAMETER {
 }
 
 ASSIGNED {
+	celsius		(degC)
+	v		(mV)
+	ek		(mV)
 	ik		(mA/cm2)
 	oinf
 	otau		(ms)
         gkca          (mho/cm2)
+	cai           (mM)
 }
 
 INITIAL {
-	cai= ncai + lcai + tcai
+	cai = 5.e-5	(mM)
         rate(v,cai)
         o=oinf
 }
@@ -69,8 +68,9 @@ BREAKPOINT {
 }
 
 DERIVATIVE state {	: exact when v held constant; integrates over dt step
-	rate(v, cai)
-	o' = (oinf - o)/otau
+    cai = ncai + lcai + tcai
+    rate(v, cai)
+    o' = (oinf - o)/otau
 }
 
 FUNCTION alp(v (mV), c (mM)) (1/ms) { :callable from hoc
