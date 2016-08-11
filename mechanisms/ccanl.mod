@@ -6,10 +6,10 @@ ENDCOMMENT
 
 NEURON {
 	SUFFIX ccanl
-USEION nca READ ncai, inca, enca WRITE enca, ncai VALENCE 2
-USEION lca READ lcai, ilca, elca WRITE elca, lcai VALENCE 2
-USEION tca READ tcai, itca, etca WRITE etca, tcai VALENCE 2
-RANGE caiinf, catau, cai, ncai, lcai,tcai, eca, elca, enca, etca
+        USEION nca READ ncai, inca, enca WRITE enca, ncai VALENCE 2
+        USEION lca READ lcai, ilca, elca WRITE elca, lcai VALENCE 2
+        USEION tca READ tcai, itca, etca WRITE etca, tcai VALENCE 2
+        RANGE caiinf, catau, cai, ncai, lcai,tcai, eca, elca, enca, etca
 }
 
 UNITS {
@@ -24,21 +24,20 @@ UNITS {
 :INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
 
 PARAMETER {
-        celsius = 6.3 (degC)
 	depth = 200 (nm)	: assume volume = area*depth
 	catau = 9 (ms)
-	caiinf = 50.e-6 (mM)	: takes precedence over cai0_ca_ion
-			: Do not forget to initialize in hoc if different
-			: from this default.
+	caiinf = 50.e-6 (mM)
 	cao = 2 (mM)
+}
+
+ASSIGNED {
+        celsius (degC)
 	ica (mA/cm2)
 	inca (mA/cm2)
 	ilca (mA/cm2)
 	itca (mA/cm2)
-	cai= 50.e-6 (mM)
-}
-
-ASSIGNED {
+	cai (mM)
+        
 	enca (mV)
 	elca (mV)
 	etca (mV)
@@ -52,11 +51,6 @@ STATE {
 }
 
 INITIAL {
-	VERBATIM
-	ncai = _ion_ncai;
-	lcai = _ion_lcai;
-	tcai = _ion_tcai; 
-	ENDVERBATIM
 	ncai=caiinf/3
 	lcai=caiinf/3
 	tcai=caiinf/3
@@ -78,9 +72,9 @@ BREAKPOINT {
 }
 
 DERIVATIVE integrate {
-ncai' = -(inca)/depth/FARADAY * (1e7) + (caiinf/3 - ncai)/catau
-lcai' = -(ilca)/depth/FARADAY * (1e7) + (caiinf/3 - lcai)/catau
-tcai' = -(itca)/depth/FARADAY * (1e7) + (caiinf/3 - tcai)/catau
+    ncai' = -(inca)/depth/FARADAY * (1e7) + (caiinf/3 - ncai)/catau
+    lcai' = -(ilca)/depth/FARADAY * (1e7) + (caiinf/3 - lcai)/catau
+    tcai' = -(itca)/depth/FARADAY * (1e7) + (caiinf/3 - tcai)/catau
 }
 
 FUNCTION ktf() (mV) {

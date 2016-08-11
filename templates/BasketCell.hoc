@@ -4,13 +4,13 @@ public connect2target, subsets, is_art, is_connected
 public soma, dendrites
 public all, adend, bdend, cdend, ddend
 public xx, yy, zz, position
-public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_LPP, syns_MPP
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_MPP, syns_LPP
 public syn_stim, syntest
 
 create soma, dendrites[1][1]
 
 objref all, adend, bdend, cdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB, syns_LPP, syns_MPP
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB, syns_MPP, syns_LPP
 objref syn_stim
 
 proc init() {
@@ -32,8 +32,8 @@ proc init() {
     syns_HCC = new List()
     syns_NGFC = new List()
     syns_NGFCB = new List()
-    syns_LPP = new List()
     syns_MPP = new List()
+    syns_LPP = new List()
     syns = new List()
 
     syns.append(syns_GC)
@@ -130,9 +130,14 @@ proc topol() {
 
 proc biophys() {
     
-   forsec all {
+    forsec all {
+        Ra=100
+        cm=1.4
+    }
+    
+    forsec all {
 	insert ccanl
-	catau_ccanl = 10
+	catau_ccanl = 0.5
 	caiinf_ccanl = 5.e-6
 	insert borgka
 	gkabar_borgka=0.00015
@@ -151,7 +156,6 @@ proc biophys() {
 	gnatbar_ichan2=0.12  
 	gkfbar_ichan2=0.013  
 	gl_ichan2 = 0.00018
-	cm=1.4
     } 
     
     forsec adend {
@@ -159,14 +163,13 @@ proc biophys() {
 	gnatbar_ichan2=0.12  
 	gkfbar_ichan2=0.013
 	gl_ichan2 = 0.00018
-	cm=1.4
     }		
+    
     forsec bdend {
         insert ichan2
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.00
 	gl_ichan2 = 0.00018
-        cm=1.4
     }
     
     forsec cdend {
@@ -174,7 +177,6 @@ proc biophys() {
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.00
 	gl_ichan2 = 0.00018
-        cm=1.4
     }
     
     forsec ddend {
@@ -182,11 +184,9 @@ proc biophys() {
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.00
 	gl_ichan2 = 0.00018
-	cm=1.4
     }
     
     
-    forsec all {Ra=100}
     forsec all {
         enat = 55 
         ekf  = -90  
@@ -195,7 +195,7 @@ proc biophys() {
         esk  = -90
         el_ichan2 =-60.06
         cao_ccanl=2
-    }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+    }  
 }
 
 

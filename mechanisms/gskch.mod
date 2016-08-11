@@ -25,21 +25,20 @@ NEURON {
 :INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
 
 PARAMETER {
-	celsius=6.3 (degC)
-	v		(mV)
-	dt		(ms)
 	gskbar  (mho/cm2)
-	esk	(mV)
-	cai (mM)
-	ncai (mM)
-	lcai (mM)
-	tcai (mM)
 }
 
 STATE { q }
 
 ASSIGNED {
 	isk (mA/cm2) gsk (mho/cm2) qinf qtau (ms)
+	esk	(mV)
+	celsius (degC)
+	v	(mV)
+	cai (mM)
+	ncai (mM)
+	lcai (mM)
+	tcai (mM)
 }
 
 
@@ -52,14 +51,9 @@ BREAKPOINT {          :Computes i=g*q^2*(v-esk)
 UNITSOFF
 
 INITIAL {
-	cai = ncai + lcai + tcai	
-	q=qinf
-	rate(cai)
-	VERBATIM
-	ncai = _ion_ncai;
-	lcai = _ion_lcai;
-	tcai = _ion_tcai;
-	ENDVERBATIM
+    cai = 5.e-5
+    rate(cai)
+    q=qinf
 }
 
 

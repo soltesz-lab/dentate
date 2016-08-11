@@ -11,15 +11,6 @@ UNITS {
 	KTOMV = .0853 (mV/degC)
 }
 
-PARAMETER {
-	v (mV)
-	celsius = 6.3	(degC)
-	gcatbar=.003 (mho/cm2)
-	cai (mM)
-	cao (mM)
-}
-
-
 NEURON {
 	SUFFIX cat
 	USEION tca READ etca WRITE itca VALENCE 2
@@ -27,11 +18,20 @@ NEURON {
         RANGE gcatbar,cai, itca, etca
 }
 
+PARAMETER {
+	gcatbar=.003 (mho/cm2)
+	cao (mM)
+}
+
+
 STATE {
 	m h 
 }
 
 ASSIGNED {
+	v (mV)
+	celsius	(degC)
+	cai (mM)
 	itca (mA/cm2)
         gcat (mho/cm2)
 	etca (mV)
@@ -40,9 +40,6 @@ ASSIGNED {
 INITIAL {
       m = minf(v)
       h = hinf(v)
-	VERBATIM
-	cai=_ion_cai;
-	ENDVERBATIM
 }
 
 BREAKPOINT {
@@ -81,7 +78,7 @@ FUNCTION efun(z) {
 
 FUNCTION hinf(v(mV)) {
 	LOCAL a,b
-	TABLE FROM -150 TO 150 WITH 200
+:	TABLE FROM -150 TO 150 WITH 200
 	a = 1.e-6*exptrap(3,-v/16.26)
 	b = 1/(exptrap(4,(-v+29.79)/10)+1)
 	hinf = a/(a+b)
