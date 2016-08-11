@@ -126,12 +126,15 @@ proc topol() {
 
 
 proc biophys() {
+    
     g_na = 0.079
-	g_k = 0.0035
-	g_leak  = 0.0000318
-	forsec all {
+    g_k = 0.0035
+    g_leak  = 0.0000318
+    forsec all {Ra=100}
+    
+    forsec all {
 	insert ccanl
-	catau_ccanl = 10
+	catau_ccanl = 5
 	caiinf_ccanl = 5.e-6
 	insert borgka
 	gkabar_borgka=0.0004
@@ -147,51 +150,55 @@ proc biophys() {
 	ghyfbar_hyperde3=0.000035
 	ghysbar_hyperde3=0.000035
 	cm = 0.95
-	}
-	
-	soma {insert ichan2  //ildikos ichan
+    }
+    
+    soma {
+        insert ichan2  //ildikos ichan
 	gnatbar_ichan2=g_na
 	gkfbar_ichan2=g_k
 	gl_ichan2 = g_leak
-	} 
-
-	forsec adend {insert ichan2
+    } 
+    
+    forsec adend {
+        insert ichan2
 	gnatbar_ichan2=g_na
 	gkfbar_ichan2=g_k
 	gl_ichan2 = g_leak
-	}
-	
-	forsec bdend {insert ichan2
+    }
+    
+    forsec bdend {
+        insert ichan2
 	gnatbar_ichan2=0.0 
 	gkfbar_ichan2=0.00
 	gl_ichan2 = g_leak
-	}
-	
-	forsec cdend {insert ichan2
+    }
+    
+    forsec cdend {
+        insert ichan2
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.00
 	gl_ichan2 = g_leak
-	}		
-		
-	forsec ddend {insert ichan2
+    }		
+    
+    forsec ddend {
+        insert ichan2
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.00
 	gl_ichan2 = g_leak
-	}	
-	
-	forsec all {Ra=100}
-	forsec all {
-
-               enat = 55 
-               ekf = -90  
-               ek=-90  
-               esk=-90 
-               elca=130
-               el_ichan2 =-64	
-               ehyf=-40 ehys=-40
-               cao_ccanl=2 
-
-         }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+    }	
+    
+    forsec all {
+        
+        enat = 55 
+        ekf = -90  
+        ek=-90  
+        esk=-90 
+        elca=130
+        el_ichan2 =-64	
+        ehyf=-40 ehys=-40
+        cao_ccanl=2 
+        
+    }  // make catau slower70e-3 	cao=2 cai=50.e-6 
 }
 
 
