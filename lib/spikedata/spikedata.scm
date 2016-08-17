@@ -33,7 +33,7 @@
 
 (define list-fold fold)
 
-(define (read-spike-times spike-file . rest)
+(define (read-spike-times range spike-file . rest)
 
   (match-let
 
@@ -41,14 +41,31 @@
      (fold
       (lambda (spike-file ax)
         (let ((data0 (read-lines spike-file)))
-          (fold (lambda (line ax)
-                  (match-let (((data tmax nmax)  ax))
-                             (let ((row (map string->number (string-split  line " "))))
-                               (let ((data1 (cons row data))
-                                     (tmax1 (max (car row) tmax))
-                                     (nmax1 (fold max nmax (cdr row))))
-                                 (list data1 tmax1 nmax1)))))
-                ax data0)))
+          (if range
+              (let ((start (car range))
+                    (end (cdr range)))
+                (fold (lambda (line ax)
+                        (match-let (((data tmax nmax)  ax))
+                                   (let ((row (map string->number (string-split  line " "))))
+                                     (if (and (<= start (car row))
+                                              (<= (car row) end))
+                                         (let ((data1 (cons row data))
+                                               (tmax1 (max (car row) tmax))
+                                               (nmax1 (fold max nmax (cdr row))))
+                                           (list data1 tmax1 nmax1))
+                                         ax))
+                                   ))
+                      ax data0))
+              (fold (lambda (line ax)
+                      (match-let (((data tmax nmax)  ax))
+                                 (let ((row (map string->number (string-split  line " "))))
+                                   (let ((data1 (cons row data))
+                                         (tmax1 (max (car row) tmax))
+                                         (nmax1 (fold max nmax (cdr row))))
+                                     (list data1 tmax1 nmax1)))))
+                    ax data0)
+              ))
+        )
       '(() 0.0 0)
       (cons spike-file rest)
       )))

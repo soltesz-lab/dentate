@@ -47,13 +47,13 @@
 ))
 
 
-(define (print-spike-trains datadir spike-file)
+(define (print-spike-trains datadir spike-file x-range)
   (let* (
          (celltypes (read-cell-types datadir))
          (cellranges (read-cell-ranges datadir celltypes)) 
          )
 
-    (match-let (((spike-times nmax tmax) (read-spike-times spike-file)))
+    (match-let (((spike-times nmax tmax) (read-spike-times x-range spike-file)))
 
         (for-each
          (match-lambda ((celltype min max)
@@ -116,7 +116,7 @@
 
 (if (opt 'help) 
     (print-spiketrains:usage)
-    (print-spike-trains (opt 'data-dir) (opt 'spike-file))
+    (print-spike-trains (opt 'data-dir) (opt 'spike-file) (opt 'x-range))
     )
 
 
