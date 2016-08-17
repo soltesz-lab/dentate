@@ -133,7 +133,7 @@ proc biophys() {
     
     forsec all {
 	insert ccanl
-	catau_ccanl = 10
+	catau_ccanl = 2
 	caiinf_ccanl = 5.e-6
 	insert borgka
 	gkabar_borgka=0.00015

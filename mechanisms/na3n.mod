@@ -42,9 +42,6 @@ PARAMETER {
         vvh=-58		(mV) 
         vvs=2		(mV)
         ar=1		(1)		: 1=no inact., 0=max inact.
-	ena		(mV)            : must be explicitly def. in hoc
-	celsius
-	v 		(mV)
 }
 
 
@@ -56,6 +53,9 @@ UNITS {
 } 
 
 ASSIGNED {
+	celsius
+	v 		(mV)
+	ena		(mV)
 	ina 		(mA/cm2)
 	thegna		(mho/cm2)
 	minf 		hinf 		
