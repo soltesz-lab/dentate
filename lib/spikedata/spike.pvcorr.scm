@@ -137,7 +137,7 @@
          (cellranges (read-cell-ranges datadir celltypes)) 
          )
 
-    (match-let (((spike-times nmax tmax) (read-spike-times spike-file)))
+    (match-let (((spike-times nmax tmax) (read-spike-times #f spike-file)))
 
         (for-each
          (match-lambda ((celltype min max)
