@@ -564,7 +564,7 @@ func hasSynapseProperties() { local synIndex localobj synapticType, synapticType
 
 
 // Loads connectivity info into a Dict
-proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1, standardWeight2, standardVelocity, numConnectivityTypes, synType1, synType2 localobj f, ff, l, connectivityTypes, connectivityType, weightHistogram, weightHistogramScale, value
+proc loadConnectivityInfo() { local i, synCount, order, wdType, standardWeight1, standardWeight2, standardVelocity, weightHistogramScale, numConnectivityTypes, synType1, synType2 localobj f, ff, l, connectivityTypes, connectivityType, weightHistogram, value
     
     strdef wdTypeString, orderType, connectivityName, preSynapticPopulation, postSynapticPopulation, synTypeString, weightHistogramFilename
     
