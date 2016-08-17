@@ -83,10 +83,10 @@ proc geom() {
     
     soma {nseg=1 L=20 diam=20} // changed L & diam
     
-    dendrites[0][0] {nseg=1 L=100 diam=3}	// ncdend 1 and 2 are apical
-    dendrites[1][0] {nseg=1 L=100 diam=3}
-    dendrites[2][0] {nseg=1 L=100 diam=3} 	// ncdend 3 and 4 are basal
-    dendrites[3][0] {nseg=1 L=100 diam=3}
+    dendrites[0][0] {nseg=1 L=180 diam=5}	// ncdend 1 and 2 are apical
+    dendrites[1][0] {nseg=1 L=180 diam=5}
+    dendrites[2][0] {nseg=1 L=140 diam=3} 	// ncdend 3 and 4 are basal
+    dendrites[3][0] {nseg=1 L=140 diam=3}
     
 }
 
@@ -104,7 +104,7 @@ proc topol() {
 
 proc biophys() {
     
-    gna=0.05
+    gna=0.075
     gkdr=0.0132
     gka=0.00001
     
@@ -114,19 +114,19 @@ proc biophys() {
     forsec all {
         
 	insert ccanl
-        catau_ccanl = 6
+        catau_ccanl = 3
         caiinf_ccanl = 5.e-6
 	insert borgka
         gkabar_borgka=gka
 	insert nca  // HAV-N- Ca channel
-        gncabar_nca=0.0  
+        gncabar_nca=0.0
 	insert lca
         glcabar_lca=0.0015
 	insert gskch
         gskbar_gskch=0.00475
 	insert cagk
         gkbar_cagk=0.00001
-	cm=1.329
+	cm=1.8
     }
     soma {
 	insert ichan2

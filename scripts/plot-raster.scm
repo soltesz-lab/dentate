@@ -91,7 +91,7 @@
          (cellranges (read-cell-ranges datadir celltypes)) 
          )
 
-    (match-let (((spike-times nmax tmax) (read-spike-times spike-file)))
+    (match-let (((spike-times nmax tmax) (read-spike-times xrange spike-file)))
 
      (let-values (
                   ((fd1 temp-path1) (file-mkstemp "/tmp/raster-plot.s1.XXXXXX"))
