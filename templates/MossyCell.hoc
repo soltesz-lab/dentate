@@ -178,7 +178,7 @@ proc biophys() { local ndends, ndendsec
     // the conductances are sampled from a Gaussian distribution
     // where negative values were replaced with 0
     soma fl = new Gfluct3(0.5)
-    fl.g_e0 = 0.021
+    fl.g_e0 = 0.025
     fl.h = 0.25
     fl.on = 1
 
