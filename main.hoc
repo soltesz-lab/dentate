@@ -636,7 +636,7 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                // src dest distance layer section node/point
                w = connectivityType.getPropertyObject("weightHistogram")
                wscale = connectivityType.getPropertyScalar("weightHistogramScale")
-               w.mul(wscale)
+               w.v.mul(wscale)
                velocity = connectivityType.getPropertyScalar("standardVelocity")
                for i=0, m.nrow-1 {
                    srcid   = m.x[i][0]
