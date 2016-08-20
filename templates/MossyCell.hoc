@@ -136,7 +136,7 @@ proc biophys() { local ndends, ndendsec
     
     forsec pdend {
         insert ichan2
-	gnatbar_ichan2=0.12  //original 0.015
+	gnatbar_ichan2=0.15  //original 0.015
 	gkfbar_ichan2=0.0005
 	gl_ichan2 = 0.000044
 	cm=2.4
