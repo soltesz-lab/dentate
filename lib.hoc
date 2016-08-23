@@ -878,7 +878,7 @@ proc checksimtime() { local wt, tt, trem, tsimrem, tsimneeded, tstop1
     printf("*** remaining computation time is %g s and remaining simulation time is %g ms\n", tsimrem, trem)
     printf("*** estimated computation time to completion is %g s\n", tsimneeded)
     if (tsimneeded > tsimrem) {
-        tstop1 = int((tsimrem - 120)/tt)*dt + t
+        tstop1 = int((tsimrem - 120)/tt) + t
      	printf ("*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms\n", tstop, tstop1)
         tstop = tstop1
     }
