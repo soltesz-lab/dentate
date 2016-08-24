@@ -872,7 +872,7 @@ proc checksimtime() { local wt, tt, trem, tsimrem, tsimneeded, tstop1
     // remaining physical time
     trem = tstop - t
     // remaining simulation time
-    tsimrem = max_walltime_hrs*3600 - tcsum
+    tsimrem = max_walltime_hrs*3600 - tcsum - mkcellstime - connectcellstime - connectgjstime
     // simulation time necessary to complete the simulation
     tsimneeded = trem*tcma+120
     printf("*** remaining computation time is %g s and remaining simulation time is %g ms\n", tsimrem, trem)
