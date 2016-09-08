@@ -28,7 +28,7 @@ function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, grid_unit)
 
     cur_module = which(i);
 
-    cur_lambda = lambda_modules(cur_module)
+    cur_lambda = lambda_modules(cur_module);
     lambda(i,:,:)   = cur_lambda;
     rot(i,:,:) = rot_modules(cur_module);
                 
