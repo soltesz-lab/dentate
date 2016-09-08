@@ -7,3 +7,5 @@ resultsPath="./results/Full_Scale_Control_JOB_ID"
 {xopen("main.hoc")}
 
 pnm.pc.done()
+quit()
+

@@ -19,51 +19,43 @@
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
-N = 38000 * 0.04; % fraction of active grid cells
+N = 38000 * 0.01; % fraction of active grid cells
 M = 10; % number of grid cell modules
-grid_unit = 25;
 
-savegrid  = 1;
+grid_unit = 1;
 
 [X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit);
-ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
+ratemap1  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
-dt = 0.1; % ms
+m1_1 = reshape(ratemap1(1,:,:),[200 200]);
+m50_1 = reshape(ratemap1(50,:,:),[200 200]);
+m380_1 = reshape(ratemap1(380,:,:),[200 200]);
 
-tend = 2000; % ms
-[Xpos,Ypos] = linear_walk(W, tend, dt);
+figure; h = imagesc(m1_1);set(gca,'YDir','normal'); 
+title(['Spacing 40 cm']);
+figure; h = imagesc(m50_1);set(gca,'YDir','normal'); 
+title(['Spacing 80 cm']);
+figure; h = imagesc(m380_1);set(gca,'YDir','normal'); 
+title(['Spacing 400 cm']);
+
+grid_unit = 25;
+
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit);
+ratemap25  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
+
+m1_25 = reshape(ratemap25(1,:,:),[40 40]);
+m50_25 = reshape(ratemap25(50,:,:),[40 40]);
+m380_25 = reshape(ratemap25(380,:,:),[40 40]);
+
+figure; h = imagesc(m1_25);set(gca,'YDir','normal'); 
+title(['Spacing 40 cm']);
+figure; h = imagesc(m50_25);set(gca,'YDir','normal'); 
+title(['Spacing 80 cm']);
+figure; h = imagesc(m380_25);set(gca,'YDir','normal'); 
+title(['Spacing 400 cm']);
 
 
-size_len = sqrt(grid_unit);
-Xgrid = round(Xpos/size_len)+1;
-Ygrid = round(Ypos/size_len)+1;
 
-maxXgrid = W / size_len;
-maxYgrid = H / size_len
 
-T = size(Xgrid,1)
-grid_rbar  = zeros(T,N);
-border_rbar  = zeros(T,N);
-
-for t = 1:T
-    grid_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
-    if (Xgrid(t) < 3) || (Xgrid(t) > (maxXgrid - 3))
-        border_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
-    else
-        border_rbar(t,:) = zeros(1,N);
-    end
-end
-size(grid_rbar)
-
-grid_data.W = W;
-grid_data.H = 0;
-grid_data.M = M;
-grid_data.N = N;
-grid_data.Xpos = Xpos;
-grid_data.Ypos = Ypos;
-grid_data.Xgrid = Xgrid;
-grid_data.Ygrid = Ygrid;
-
-save('-v7','linear_grid_data.mat','grid_data','grid_rbar','border_rbar');
 
 

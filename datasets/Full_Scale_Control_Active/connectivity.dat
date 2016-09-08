@@ -1,0 +1,41 @@
+39
+relpre.abspost: LPPtoNGFC LPP NGFC 8 dist 1.0 250.0
+relpre.abspost: MPPtoNGFC MPP NGFC 9 dist 1.0 250.0
+relpre.abspost: LPPtoBC LPP BC 8 dist 2.5 250.0
+relpre.abspost: MPPtoBC MPP BC 9 dist 2.5 250.0
+relpre.abspost: LPPtoDGC LPP GC 8 dist.layer.sect.node ./dat/LPPsynweights.dat 1.6 250.0
+relpre.abspost: MPPtoDGC MPP GC 9 dist.layer.sect.node ./dat/MPPsynweights.dat 1.5 250.0
+absolute: MCtoGC MC GC 1 long.+trans.dist 0.1 250.0
+absolute: HCtoGC HC GC 2 long.+trans.dist 2.25  250.0
+absolute: BCtoGC BC GC 3 long.+trans.dist 0.3 250.0
+absolute: AACtoGC AAC GC 4 long.+trans.dist 0.4 250.0
+absolute: HCCtoGC HCC GC 5 long.+trans.dist 0.2 250.0
+absolute: NGFCtoGC NGFC GC 6:7 long.+trans.dist 0.2:0.1 250.0
+absolute: GCtoMC GC MC 0 long.+trans.dist 0.2 250.0
+absolute: MCtoMC MC MC 1 long.+trans.dist 0.05 250.0
+absolute: HCtoMC HC MC 2 long.+trans.dist 6.0 250.0
+absolute: BCtoMC BC MC 3 long.+trans.dist 1.5 250.0
+absolute: AACtoMC AAC MC 4 long.+trans.dist 3.0 250.0
+absolute: HCCtoMC HCC MC 5 long.+trans.dist 0.6 250.0
+absolute: GCtoHC GC HC 0 long.+trans.dist 0.5 250.0
+absolute: MCtoHC MC HC 1 long.+trans.dist 0.2 250.0
+absolute: HCtoHC HC HC 2 long.+trans.dist 0.623 250.0
+absolute: BCtoHC BC HC 3 long.+trans.dist 5.2 250.0
+absolute: GCtoBC GC BC 0 long.+trans.dist 4.7 250.0
+absolute: MCtoBC MC BC 1 long.+trans.dist 0.3 250.0
+absolute: HCtoBC HC BC 2 long.+trans.dist 2.14 250.0
+absolute: BCtoBC BC BC 3 long.+trans.dist 4.27 250.0
+absolute: HCCtoBC HCC BC 5 long.+trans.dist 0.664 250.0
+absolute: NGFCtoBC NGFC BC 6:7 long.+trans.dist 0.183:0.181 250.0
+absolute: GCtoAAC GC AAC 0 long.+trans.dist 4.7 250.0
+absolute: MCtoAAC MC AAC 1 long.+trans.dist 0.3 250.0
+absolute: HCtoAAC HC AAC 2 long.+trans.dist 2.14 250.0
+absolute: NGFCtoAAC NGFC AAC 6:7 long.+trans.dist 0.183:0.181 250.0
+absolute: GCtoHCC GC HCC 0 long.+trans.dist 4.7 250.0
+absolute: MCtoHCC MC HCC 1 long.+trans.dist 0.3 250.0
+absolute: BCtoHCC BC HCC 3 long.+trans.dist 3.82 250.0
+absolute: HCCtoHCC HCC HCC 5 long.+trans.dist 0.325 250.0
+absolute: NGFCtoHCC NGFC NGFC 6:7 long.+trans.dist 0.168:0.215 250.0
+absolute: HCtoNGFC HC NGFC 2 long.+trans.dist 0.473 250.0
+absolute: NGFCtoNGFC NGFC NGFC 6:7 long.+trans.dist 0.113:0.169 250.0
+

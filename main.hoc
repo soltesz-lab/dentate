@@ -478,7 +478,7 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
 
 // connects the cells
 // appends the NetCon objects to nclist
-proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, velocity, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w, rs
+proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, wscale, velocity, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w, rs
     
     strdef cmd, connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
     connectivityTypes = $o1
@@ -635,6 +635,8 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                // connectivity of the form:
                // src dest distance layer section node/point
                w = connectivityType.getPropertyObject("weightHistogram")
+               wscale = connectivityType.getPropertyScalar("weightHistogramScale")
+               w.v.mul(wscale)
                velocity = connectivityType.getPropertyScalar("standardVelocity")
                for i=0, m.nrow-1 {
                    srcid   = m.x[i][0]

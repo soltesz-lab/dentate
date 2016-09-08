@@ -159,7 +159,7 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     mc.soma stim1 = new IClamp(0.5)
     stim1.del = prelength
     stim1.dur = stimdur
-    stim1.amp = 0.3
+    stim1.amp = $1
     
     spikelog = new Vector()
     mc.soma nc = new NetCon(&mc.soma.v(.5), nil)
@@ -253,4 +253,8 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
 
 
 passive_test()
-ap_rate_test()
+ap_rate_test(0.2) // 61 / 3s
+ap_rate_test(0.3) // 69 / 3s
+ap_rate_test(0.4) // 78 / 3s
+
+

@@ -136,7 +136,7 @@ proc biophys() { local ndends, ndendsec
     
     forsec pdend {
         insert ichan2
-	gnatbar_ichan2=0.12  //original 0.015
+	gnatbar_ichan2=0.15  //original 0.015
 	gkfbar_ichan2=0.0005
 	gl_ichan2 = 0.000044
 	cm=2.4
@@ -178,7 +178,7 @@ proc biophys() { local ndends, ndendsec
     // the conductances are sampled from a Gaussian distribution
     // where negative values were replaced with 0
     soma fl = new Gfluct3(0.5)
-    fl.g_e0 = 0.023
+    fl.g_e0 = 0.025
     fl.h = 0.25
     fl.on = 1
 
