@@ -38,11 +38,20 @@ size_len = sqrt(grid_unit);
 Xgrid = round(Xpos/size_len)+1;
 Ygrid = round(Ypos/size_len)+1;
 
+maxXgrid = W / size_len;
+maxYgrid = H / size_len
+
 T = size(Xgrid,1)
 grid_rbar  = zeros(T,N);
+border_rbar  = zeros(T,N);
 
 for t = 1:T
     grid_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
+    if (Xgrid(t) < 3) || (Xgrid(t) > (maxXgrid - 3))
+        border_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
+    else
+        border_rbar(t,:) = zeros(1,N);
+    end
 end
 size(grid_rbar)
 
@@ -55,6 +64,6 @@ grid_data.Ypos = Ypos;
 grid_data.Xgrid = Xgrid;
 grid_data.Ygrid = Ygrid;
 
-save('-v7','linear_grid_data.mat','grid_data','grid_rbar');
+save('-v7','linear_grid_data.mat','grid_data','grid_rbar','border_rbar');
 
 
