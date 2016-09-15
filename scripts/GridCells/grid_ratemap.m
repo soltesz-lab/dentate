@@ -18,7 +18,8 @@ function ratemap = grid_ratemap(X,Y,lambda,theta,xoff,yoff)
         
   for tt=[-pi/6.0, pi/6.0, pi/2.0]
 
-    x0 = sqrt(3*lambda);
+      %x0 = *lambda);
+    x0 = lambda*sqrt(3);
     x1 = ((4*pi) * ones(n)) ./ x0;
     x2 = cos(tt-theta);
     x3 = sin(tt-theta);
