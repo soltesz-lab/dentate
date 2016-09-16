@@ -86,7 +86,7 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
     
     for k=0, nCellTypes-1 { 
         
-        rs = new RandomStream(k)    
+        rs = new RandomStream(k, 0, 0)
         
         cellType = cellTypes.o(k)
         numCells = cellType.getPropertyScalar("numCells")
@@ -442,8 +442,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
                         // used for choosing dendrite and compartment for synapses
-                        rsdend = new RandomStream(i*k+1)
-                        rscomp = new RandomStream(i*k+2)
+                        rsdend = new RandomStream(gid, k, 1)
+                        rscomp = new RandomStream(gid, k, 2)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
@@ -990,7 +990,7 @@ stdinit()
 if (pnm.myid == 0) {
     printf ("*** Initialization completed\n")
 }
-
+pnm.pc.nrnbbcore_write("coredat")
 pnm.psolve(tstop)
 
 if (pnm.myid == 0) {
