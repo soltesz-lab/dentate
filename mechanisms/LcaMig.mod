@@ -110,7 +110,7 @@ PROCEDURE rate(v (mV)) { :callable from hoc
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap LcaMig [%g]: x = %g\n", loc, x)
+    :printf("exptrap LcaMig [%g]: x = %g\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)
