@@ -973,6 +973,7 @@ cellTypes = nil
 
 {pnm.pc.setup_transfer()}
 {pnm.pc.set_maxstep(10)}
+{pnm.pc.spike_compress(1)}
 
 print "dt = ", dt
 
