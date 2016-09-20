@@ -11,6 +11,7 @@ datasetPrefix = "/u/sciteam/raikov/model/dentate/datasets/B2048"
 // The dataset to use for constructing the network
 datasetName = "Full_Scale_Control"
 
+
 // Size of a single forest for variable morphology cells
 forestSize = 1000
 
@@ -24,13 +25,13 @@ makegraph = 0
 v_init = -75
 
 // simulation time
-tstop = 600
+tstop = 1000
 
 // maximum wall time in hours
 max_walltime_hrs = 6
 
 // time to write out results at end of simulation
-results_write_time = 600
+results_write_time = 300
 
 // time step
 dt = 0.025
