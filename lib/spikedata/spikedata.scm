@@ -8,8 +8,8 @@
         (import scheme chicken foreign)
 
 (require-extension matchable typeclass rb-tree)
-(require-library srfi-1 srfi-4 srfi-13 irregex data-structures files posix extras)
-(import
+(require-extension srfi-1 srfi-4 srfi-13 irregex data-structures files posix extras)
+#;(import
  (only srfi-1 filter filter-map list-tabulate fold)
  (only srfi-4 u32vector)
  (only srfi-13 string-trim-both string-null?)
