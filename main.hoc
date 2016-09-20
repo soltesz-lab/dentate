@@ -206,7 +206,11 @@ objref connectivityTypes
 connectivityTypes = new List()
 
 // reads the connectivity types file and populates connectivitytypes with the information
-sprint (datafilePath, "%s/connectivity.dat", datasetPath)
+if (name_declared("connectivityFileName")) {
+   sprint (datafilePath, "%s/%s", datasetPath, connectivityFileName)
+} else {
+   sprint (datafilePath, "%s/connectivity.dat", datasetPath)
+}
 loadConnectivityInfo (connectivityTypes, datafilePath)
 if (verbose > 0) {
     printf ("connectivityTypes.count = %d\n", connectivityTypes.count())
