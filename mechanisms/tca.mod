@@ -111,7 +111,7 @@ FUNCTION h_tau(v(mV)) (ms) {
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap tca [%g]: x = %g\n", loc, x)
+    :printf("exptrap tca [%g]: x = %g\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)
