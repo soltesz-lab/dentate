@@ -26,6 +26,9 @@ v_init = -75
 // simulation time
 tstop = 1000
 
+// maximum wall time in hours
+max_walltime_hrs = 8
+
 // time step
 dt = 0.025
 

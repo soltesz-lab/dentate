@@ -1,4 +1,4 @@
-;;
+;
 ;; Spatial and geometric connectivity utility procedures.
 ;;
 ;; Copyright 2016 Ivan Raikov.
@@ -27,10 +27,11 @@
         
         (require-extension datatype matchable regex
                            mpi mathh typeclass kd-tree 
-                           digraph graph-dfs srfi-69)
+                           digraph graph-dfs srfi-69
+                           )
 
 
-        (require-library srfi-1 srfi-4 srfi-13 irregex files posix data-structures)
+        (require-library srfi-1 srfi-4 srfi-13 irregex files posix data-structures random-mtzig)
 
 
         (import 
@@ -49,6 +50,7 @@
                 (only ports with-output-to-port )
                 (only data-structures ->string alist-ref compose identity string-split merge sort atom?)
                 (only lolevel extend-procedure procedure-data extended-procedure?)
+                (prefix random-mtzig random-mtzig:)
                 )
 
         (define npcloud-verbose (make-parameter 0))
@@ -204,74 +206,107 @@
 
 
         (define (layer-point-projection prefix my-comm my-rank size cells layers fibers
-					zone cell-start fiber-start)
+					weights zone cell-start fiber-start)
 
           (d "rank ~A: prefix = ~A zone = ~A layers = ~A length cells = ~A~%" 
              my-rank prefix zone layers (length cells))
 
-          (fold (lambda (cell ax)
+          (let ((tbl (make-hash-table = number-hash))
+                (nweights (f64vector-length weights)))
 
-                  (d "rank ~A: cell gid = ~A~%" my-rank (car cell))
+          (for-each
 
-                  (let* ((gid (+ cell-start (car cell)))
-                         (root (modulo gid size))
-                         (sections (cadr cell)))
+           (lambda (cell)
+
+             (d "rank ~A: cell gid = ~A~%" my-rank (car cell))
+             
+             (let* ((gid  (+ cell-start (car cell)))
+                    (rng  (random-mtzig:init gid))
+                    (root (modulo gid size))
+                    (sections (cadr cell)))
+               
+               (for-each 
+                
+                (lambda (secg)
+                  (let ((query-data
+                         ((secg 'fold-nodes)
+                          (lambda (i lp ax)
+                            (d "rank ~A: querying point ~A (coords ~A) (layer ~A) (section ~A)~%" 
+                               my-rank i (layer-point-coords lp) 
+                               (layer-point-layer lp)
+                               (layer-point-section-index lp))
+                            (fold
+                             (lambda (x ax) 
+                               (let (
+                                     (source   (car x))
+                                     (target   gid)
+                                     (distance (cadr x))
+                                     (layer    (layer-point-layer lp))
+                                     (section  (layer-point-section-index lp))
+                                     (weight   (f64vector-ref weights (modulo (random-mtzig:random! rng) nweights)))
+                                     )
+                                 (if (member layer layers)
+                                     (append (list source target distance layer section i weight) ax)
+                                     ax)
+                                 ))
+                             ax
+                             
+                             (delete-duplicates
+                              (map (lambda (x) 
+                                     (d "rank ~A: query result = ~A (~A) (~A) ~%" 
+                                        my-rank (kdnn-point x) (kdnn-distance x) (kdnn-parent-index x))
+                                     (list (+ fiber-start (kdnn-parent-index x))
+                                           (+ (kdnn-distance x) (kdnn-parent-distance x))
+                                           ))
+                                   (kd-tree-near-neighbors* fibers zone (layer-point-coords lp)))
+                              (lambda (u v) (= (car u) (car v)))
+                              )
+                             ))
+                          '()))
+                        )
+                    (MPI:barrier my-comm)
+                    (d "rank ~A: cell = ~A root = ~A: before gatherv~%" my-rank cell root)
                     
-                    (fold 
-                     
-                     (lambda (secg ax)
-                       (let ((query-data
-                              ((secg 'fold-nodes)
-                               (lambda (i lp ax)
-                                 (d "rank ~A: querying point ~A (coords ~A) (layer ~A) (section ~A)~%" 
-                                    my-rank i (layer-point-coords lp) 
-                                    (layer-point-layer lp)
-				    (layer-point-section-index lp))
-                                 (fold
-                                  (lambda (x ax) 
-                                    (let (
-                                          (source (car x))
-                                          (target gid)
-                                          (distance (cadr x))
-                                          (layer (layer-point-layer lp))
-                                          (section (layer-point-section-index lp))
-                                          )
-                                      (if (member layer layers)
-                                          (append (list source target distance layer section i) ax)
-                                          ax)
-                                      ))
-                                  ax
-				  
-                                  (delete-duplicates
-                                   (map (lambda (x) 
-                                          (d "rank ~A: query result = ~A (~A) (~A) ~%" 
-                                             my-rank (kdnn-point x) (kdnn-distance x) (kdnn-parent-index x))
-                                          (list (+ fiber-start (kdnn-parent-index x))
-                                                (+ (kdnn-distance x) (kdnn-parent-distance x))
-                                                ))
-                                        (kd-tree-near-neighbors* fibers zone (layer-point-coords lp)))
-                                   (lambda (u v) (= (car u) (car v)))
-                                   )
-                                  ))
-                               '()))
+                    (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
+                           (res1 (or (and (= my-rank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
+                      (d "rank ~A: cell = ~A: after gatherv~%" my-rank cell)
+                      
+                      (if (= my-rank root)
+                          (for-each 
+                           (lambda (vect)
+
+                             (let* ((entry-len 7)
+                                    (data-len (/ (f64vector-length vect) entry-len)))
+                               
+                               (let recur ((m 0))
+                                 (if (< m data-len)
+                                     (let* (
+                                            (entry-offset (* m entry-len))
+                                            (source   (inexact->exact (f64vector-ref vect entry-offset)))
+                                            (target   (inexact->exact (f64vector-ref vect (+ 1 entry-offset))))
+                                            (distance (f64vector-ref vect (+ 2 entry-offset)))
+                                            (layer    (inexact->exact (f64vector-ref vect (+ 3 entry-offset))))
+                                            (section  (inexact->exact (f64vector-ref vect (+ 4 entry-offset))))
+                                            (node     (inexact->exact (f64vector-ref vect (+ 5 entry-offset))))
+                                            (weight   (inexact->exact (f64vector-ref vect (+ 6 entry-offset))))
+                                            )
+                                       (let ((val (list source distance layer section node weight)))
+                                         (hash-table-update!/default
+                                          tbl target (lambda (lst) (merge (list val) lst (lambda (x y) (< (cadr x) (cadr y)))))
+                                          (list val)))
+                                       (recur (+ 1 m))
+                                       ))
+                                 ))
                              )
-			 (MPI:barrier my-comm)
-			 (d "rank ~A: cell = ~A root = ~A: before gatherv~%" my-rank cell root)
-
-                         (let* ((res0 (MPI:gatherv-f64vector (list->f64vector query-data) root my-comm))
-                                
-                                (res1 (or (and (= my-rank root) (filter (lambda (x) (not (f64vector-empty? x))) res0)) '())))
-			   (d "rank ~A: cell = ~A: after gatherv~%" my-rank cell)
-                           (append res1 ax))
-                         
-                         ))
-                     ax sections)
-                    ))
-                '() cells)
+                           res1))
+                    
+                      ))
+                  )
+                sections)
+                ))
+           cells)
+          tbl)
           )
-
-
-
         
 
         (define (point-projection prefix my-comm my-rank size pts fibers zone point-start nn-filter)
@@ -763,40 +798,38 @@
 
 
 
-        (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm my-rank size output-dir)
+        (define (layer-tree-projection label source-tree target-sections target-layers weights zone my-comm my-rank size output-dir)
 
           (MPI:barrier my-comm)
 	  
           (let ((my-results
-                 (layer-point-projection label my-comm my-rank size target-sections target-layers source-tree zone 0 0)))
+                 (layer-point-projection label my-comm my-rank size target-sections target-layers source-tree weights zone 0 0)))
 
             (MPI:barrier my-comm)
 
             (call-with-output-file (make-pathname output-dir (sprintf "~A.~A.dat"  label (if (> size 1) my-rank "")))
               (lambda (out)
-		(for-each 
-		 (lambda (my-data)
-		   (let* ((my-entry-len 6)
-			  (my-data-len (/ (f64vector-length my-data) my-entry-len)))
-		     (d "rank ~A: length my-data = ~A~%" my-rank my-data-len)
-		     (let recur ((m 0))
-		       (if (< m my-data-len)
-			   (let* (
-				  (my-entry-offset (* m my-entry-len))
-				  (source   (inexact->exact (f64vector-ref my-data my-entry-offset)))
-				  (target   (inexact->exact (f64vector-ref my-data (+ 1 my-entry-offset))))
-				  (distance (f64vector-ref my-data (+ 2 my-entry-offset)))
-				  (layer    (inexact->exact (f64vector-ref my-data (+ 3 my-entry-offset))))
-				  (section  (inexact->exact (f64vector-ref my-data (+ 4 my-entry-offset))))
-				  (node     (inexact->exact (f64vector-ref my-data (+ 5 my-entry-offset))))
-				  )
-			     (fprintf out "~A ~A ~A ~A ~A ~A~%" source target distance layer section node)
-			     (recur (+ 1 m)))))
-		     ))
-		 my-results)))
-            ))
+                (hash-table-for-each 
+                 my-results
+                 (lambda (target lst)
+                   (let ((lst1 (delete-duplicates lst (lambda (u v) (= (car u) (car v))))))
+                     (for-each
+                      (lambda (x) 
+                        (let ((source   (list-ref x 0))
+                              (distance (list-ref x 1))
+                              (layer    (list-ref x 2))
+                              (section  (list-ref x 3))
+                              (node     (list-ref x 4))
+                              (weight   (list-ref x 5))
+                              )
+                          (fprintf out "~A ~A ~A ~A ~A ~A ~A~%" source target distance layer section node weight)))
+                      lst)
+                    ))
+                 ))
+              ))
+            )
 
-
+        
         (define (projection label source-tree target zone maxn my-comm my-rank size output-dir) 
 
           (MPI:barrier my-comm)

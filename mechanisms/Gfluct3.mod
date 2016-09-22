@@ -217,14 +217,12 @@ VERBATIM
 			x = nrn_random_pick(_p_donotuse);
 		}
 #else
+		#pragma acc routine(nrnran123_normal) seq
 		x = nrnran123_normal((nrnran123_State*)_p_donotuse);
 #endif
 		x = _lmean + _lstd*x;
 		return x;
 	}
-#if NRNBBCORE
-		assert(0);
-#endif
 #if !NRNBBCORE
 ENDVERBATIM
 	mynormrand = normrand(mean, std)
@@ -332,7 +330,7 @@ NET_RECEIVE (w) {
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap Gfluct3 [%f]: x = %f\n", loc, x)
+    :printf("exptrap Gfluct3 [%f]: x = %f\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)

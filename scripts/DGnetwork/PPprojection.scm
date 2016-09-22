@@ -1,5 +1,4 @@
 (use srfi-1 mathh matchable kd-tree mpi getopt-long fmt npcloud)
-(include "mathh-constants")
 
 (define (choose lst n) (list-ref lst (random n)))
 
