@@ -3,7 +3,9 @@
 
  // directories external to this project that contain additional templates and mechanisms
 objref nil, externalPaths
-strdef modelName, datasetPrefix, datasetName, datasetPath
+strdef modelName, datasetPrefix, datasetName, datasetPath, connectivityFileName
+
+connectivityFileName="connectivity.dat"
 
 // parameters must be the name of a file specified on the command line
 // as follows: nrniv -c "strdef parameters" -c "parameters=\"parameters.hoc\""
@@ -206,11 +208,8 @@ objref connectivityTypes
 connectivityTypes = new List()
 
 // reads the connectivity types file and populates connectivitytypes with the information
-if (name_declared("connectivityFileName")) {
-   sprint (datafilePath, "%s/%s", datasetPath, connectivityFileName)
-} else {
-   sprint (datafilePath, "%s/connectivity.dat", datasetPath)
-}
+sprint (datafilePath, "%s/%s", datasetPath, connectivityFileName)
+
 loadConnectivityInfo (connectivityTypes, datafilePath)
 if (verbose > 0) {
     printf ("connectivityTypes.count = %d\n", connectivityTypes.count())
