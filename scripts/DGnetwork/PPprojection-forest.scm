@@ -1,4 +1,4 @@
-(use srfi-1 mathh matchable kd-tree mpi getopt-long fmt npcloud)
+(use srfi-1 srfi-13 mathh matchable kd-tree mpi getopt-long fmt npcloud)
 
 
 (define local-config (make-parameter '()))
@@ -264,16 +264,16 @@
 	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
            (weights (let* (
                            (in (open-input-file (opt 'weights)))
-                           (lines
+                           (data
                             (let ((lines (read-lines in)))
                               (close-input-port in)
-                              (filter (lambda (line) (not (irregex-match comment-pat line)))
-                                      lines)))
-                           (data (map string->number lines))
+                              (map (compose string->number string-trim-both) lines)))
                            )
                       (list->f64vector data)))
 	   )
-
+      
+      (print "weights size = " (f64vector-length weights))
+      
       (if (= myrank 0)
 	  (create-directory output-dir))
 
