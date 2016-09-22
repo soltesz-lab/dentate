@@ -1,8 +1,6 @@
 (use srfi-1 mathh matchable kd-tree mpi getopt-long fmt npcloud)
 
 
-(define (choose lst n) (list-ref lst (random n)))
-
 (define local-config (make-parameter '()))
 (define trees-directory (make-parameter '()))
 
@@ -11,10 +9,6 @@
 
 (define opt-grammar
   `(
-    (random-seeds "Use the given seeds for random number generation"
-                  (value (required SEED-LIST)
-                         (transformer ,(lambda (x) (map string->number
-                                                        (string-split x ","))))))
     
     (pp-cell-prefix "Specify the prefix for PP cell file names"
 		    (value (required PREFIX)))
@@ -144,16 +138,6 @@
 
 (define neg -)
 
-(define random-seeds (make-parameter (apply circular-list (or (opt 'random-seeds) (list 13 17 19 23 29 37)))))
-
-(define (randomSeed)
-  (let ((v (car (random-seeds))))
-     (random-seeds (cdr (random-seeds)))
-     v))
-(define randomInit random-init)
-
-(define randomNormal random-normal)
-(define randomUniform random-uniform)
 
 (define (PointsFromFileWhdr x) (load-points-from-file x #t))
 (define (PointsFromFileWhdr* x) (load-points-from-file* x #t))
