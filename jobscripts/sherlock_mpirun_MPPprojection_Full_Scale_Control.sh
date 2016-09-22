@@ -32,7 +32,7 @@ cd $results_dir
 
 mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection-forest --label="MPPtoDGC" \
        -t $forest_prefix -f $forest  -p $gridcell_dir -o $results_dir -w $weights_path \
-       -r 6.5 -l 1,2 --grid-cells=10:3800
+       -r 6.5 -l 1,2 --pp-cells=10:3800 --pp-cell-prefix=GridCell
 
 cd $forest
 cat MPPtoDGC.*.dat > MPPtoDGC.dat
