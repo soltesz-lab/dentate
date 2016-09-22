@@ -19,7 +19,7 @@
 
  (needs make matchable regex
 	datatype digraph graph-bfs graph-dfs graph-cycles 
-	mathh getopt-long typeclass kd-tree mpi)
+	mathh getopt-long typeclass kd-tree mpi random-mtzig)
 
  (author "Ivan Raikov")
 

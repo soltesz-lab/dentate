@@ -1,5 +1,5 @@
 (use srfi-1 mathh matchable kd-tree mpi getopt-long fmt npcloud)
-(include "mathh-constants")
+
 
 (define (choose lst n) (list-ref lst (random n)))
 
@@ -53,6 +53,10 @@
     
     (label "Use the given label for outpput projection files"
 	   (value (required LABEL)))
+
+    (weights "Load weights from specified file"
+               (single-char #\w)
+               (value (required PATH)))
 
     (verbose "print additional debugging information" 
              (single-char #\v))
@@ -159,9 +163,9 @@
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
 
-(define (LayerProjection label r source target target-layers output-dir) 
+(define (LayerProjection label r source target target-layers weights output-dir) 
   (layer-tree-projection label
-                         (source 'tree) (target 'list) target-layers
+                         (source 'tree) (target 'list) target-layers weights
                          r my-comm myrank mysize output-dir))
 (define (SegmentProjection label r source target) 
   (segment-projection label
@@ -274,12 +278,23 @@
 	   (target (SetExpr (section Postsyns Dendrites)))
 	   (source (SetExpr (section PPCells PPsynapses)))
 	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
+           (weights (let* (
+                           (in (open-input-file (opt 'weights)))
+                           (lines
+                            (let ((lines (read-lines in)))
+                              (close-input-port in)
+                              (filter (lambda (line) (not (irregex-match comment-pat line)))
+                                      lines)))
+                           (lines1 (if header (cdr lines) lines))
+                           (data (map string->number lines1))
+                           )
+                      (list->f64vector data)))
 	   )
 
       (if (= myrank 0)
 	  (create-directory output-dir))
 
-      (let ((PPtoForest (LayerProjection (opt 'label) (opt 'radius) source target (opt 'layers)  output-dir)))
+      (let ((PPtoForest (LayerProjection (opt 'label) (opt 'radius) source target (opt 'layers) weights output-dir)))
 	PPtoForest))
     )
   

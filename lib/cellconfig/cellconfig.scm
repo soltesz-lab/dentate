@@ -6,8 +6,8 @@
         (import scheme chicken)
 
 (require-extension matchable)
-(require-library srfi-1 srfi-13 irregex data-structures files posix extras)
-(import
+(require-extension srfi-1 srfi-13 irregex data-structures files posix extras)
+#;(import
  (only srfi-1 filter list-tabulate fold)
  (only srfi-13 string-trim-both string-null?)
  (only files make-pathname)

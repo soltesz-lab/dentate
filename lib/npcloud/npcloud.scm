@@ -1,4 +1,4 @@
-;;
+;
 ;; Spatial and geometric connectivity utility procedures.
 ;;
 ;; Copyright 2016 Ivan Raikov.
@@ -27,10 +27,11 @@
         
         (require-extension datatype matchable regex
                            mpi mathh typeclass kd-tree 
-                           digraph graph-dfs srfi-69)
+                           digraph graph-dfs srfi-69
+                           )
 
 
-        (require-library srfi-1 srfi-4 srfi-13 irregex files posix data-structures)
+        (require-library srfi-1 srfi-4 srfi-13 irregex files posix data-structures random-mtzig)
 
 
         (import 
@@ -49,6 +50,7 @@
                 (only ports with-output-to-port )
                 (only data-structures ->string alist-ref compose identity string-split merge sort atom?)
                 (only lolevel extend-procedure procedure-data extended-procedure?)
+                (prefix random-mtzig random-mtzig:)
                 )
 
         (define npcloud-verbose (make-parameter 0))
@@ -204,12 +206,13 @@
 
 
         (define (layer-point-projection prefix my-comm my-rank size cells layers fibers
-					zone cell-start fiber-start)
+					weights zone cell-start fiber-start)
 
           (d "rank ~A: prefix = ~A zone = ~A layers = ~A length cells = ~A~%" 
              my-rank prefix zone layers (length cells))
 
-          (let ((tbl (make-hash-table = number-hash)))
+          (let ((tbl (make-hash-table = number-hash))
+                (nweights (f64vector-length weights)))
 
           (for-each
 
@@ -217,7 +220,8 @@
 
              (d "rank ~A: cell gid = ~A~%" my-rank (car cell))
              
-             (let* ((gid (+ cell-start (car cell)))
+             (let* ((gid  (+ cell-start (car cell)))
+                    (rng  (random-mtzig:init gid))
                     (root (modulo gid size))
                     (sections (cadr cell)))
                
@@ -234,14 +238,15 @@
                             (fold
                              (lambda (x ax) 
                                (let (
-                                     (source (car x))
-                                     (target gid)
+                                     (source   (car x))
+                                     (target   gid)
                                      (distance (cadr x))
-                                     (layer (layer-point-layer lp))
-                                     (section (layer-point-section-index lp))
+                                     (layer    (layer-point-layer lp))
+                                     (section  (layer-point-section-index lp))
+                                     (weight   (f64vector-ref weights (modulo (random-mtzig:random! rng) nweights)))
                                      )
                                  (if (member layer layers)
-                                     (append (list source target distance layer section i) ax)
+                                     (append (list source target distance layer section i weight) ax)
                                      ax)
                                  ))
                              ax
@@ -270,7 +275,7 @@
                           (for-each 
                            (lambda (vect)
 
-                             (let* ((entry-len 6)
+                             (let* ((entry-len 7)
                                     (data-len (/ (f64vector-length vect) entry-len)))
                                
                                (let recur ((m 0))
@@ -283,8 +288,9 @@
                                             (layer    (inexact->exact (f64vector-ref vect (+ 3 entry-offset))))
                                             (section  (inexact->exact (f64vector-ref vect (+ 4 entry-offset))))
                                             (node     (inexact->exact (f64vector-ref vect (+ 5 entry-offset))))
+                                            (weight   (inexact->exact (f64vector-ref vect (+ 6 entry-offset))))
                                             )
-                                       (let ((val (list source distance layer section node)))
+                                       (let ((val (list source distance layer section node weight)))
                                          (hash-table-update!/default
                                           tbl target (lambda (lst) (merge (list val) lst (lambda (x y) (< (cadr x) (cadr y)))))
                                           (list val)))
@@ -792,12 +798,12 @@
 
 
 
-        (define (layer-tree-projection label source-tree target-sections target-layers zone my-comm my-rank size output-dir)
+        (define (layer-tree-projection label source-tree target-sections target-layers weights zone my-comm my-rank size output-dir)
 
           (MPI:barrier my-comm)
 	  
           (let ((my-results
-                 (layer-point-projection label my-comm my-rank size target-sections target-layers source-tree zone 0 0)))
+                 (layer-point-projection label my-comm my-rank size target-sections target-layers source-tree weights zone 0 0)))
 
             (MPI:barrier my-comm)
 
@@ -806,16 +812,18 @@
                 (hash-table-for-each 
                  my-results
                  (lambda (target lst)
-                   (for-each
-                    (lambda (x) 
-                      (let ((source   (list-ref x 0))
-                            (distance (list-ref x 1))
-                            (layer    (list-ref x 2))
-                            (section  (list-ref x 3))
-                            (node     (list-ref x 4))
-                            )
-                        (fprintf out "~A ~A ~A ~A ~A ~A~%" source target distance layer section node)))
-                    lst
+                   (let ((lst1 (delete-duplicates lst (lambda (u v) (= (car u) (car v))))))
+                     (for-each
+                      (lambda (x) 
+                        (let ((source   (list-ref x 0))
+                              (distance (list-ref x 1))
+                              (layer    (list-ref x 2))
+                              (section  (list-ref x 3))
+                              (node     (list-ref x 4))
+                              (weight   (list-ref x 5))
+                              )
+                          (fprintf out "~A ~A ~A ~A ~A ~A ~A~%" source target distance layer section node weight)))
+                      lst)
                     ))
                  ))
               ))
