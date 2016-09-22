@@ -288,7 +288,7 @@
                                             (layer    (inexact->exact (f64vector-ref vect (+ 3 entry-offset))))
                                             (section  (inexact->exact (f64vector-ref vect (+ 4 entry-offset))))
                                             (node     (inexact->exact (f64vector-ref vect (+ 5 entry-offset))))
-                                            (weight   (inexact->exact (f64vector-ref vect (+ 6 entry-offset))))
+                                            (weight   (f64vector-ref vect (+ 6 entry-offset)))
                                             )
                                        (let ((val (list source distance layer section node weight)))
                                          (hash-table-update!/default

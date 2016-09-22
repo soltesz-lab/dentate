@@ -259,7 +259,7 @@
 (define PPprojection-forest
 
     (let* (
-	   (target (SetExpr (section Postsyns Dendrites)))
+	   (target (SetExpr (section PostSyns Dendrites)))
 	   (source (SetExpr (section PPCells PPsynapses)))
 	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
            (weights (let* (
