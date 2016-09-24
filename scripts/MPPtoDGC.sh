@@ -7,7 +7,7 @@ forests="$3"
 for forest in $forests; do
 
     echo forest = $forest
-    sort -n $prefix/$forest/PPtoDGCtargets.dat | uniq -c >> $output/histPPtoDGCtargets.dat
-    sort -n $prefix/$forest/PPtoDGCsources.dat | uniq -c >> $output/histPPtoDGCsources.dat
+    sort -n $prefix/$forest/MPPtoDGCtargets.dat | uniq -c >> $output/histMPPtoDGCtargets.dat
+    sort -n $prefix/$forest/MPPtoDGCsources.dat | uniq -c >> $output/histMPPtoDGCsources.dat
 
 done
