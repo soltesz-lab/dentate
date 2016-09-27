@@ -5,7 +5,7 @@
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=6:00:00
+#PBS -l walltime=3:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_ReducedGCtoHC
 ### set the job stdout and stderr
@@ -18,7 +18,7 @@
 ### Get darsan profile data
 #PBS -lgres=darshan
 
-module swap PrgEnv-cray PrgEnv-gnu
+module swap PrgEnv-cray PrgEnv-intel
 
 set -x
 

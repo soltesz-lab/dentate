@@ -18,7 +18,7 @@
 ### Get darsan profile data
 #PBS -lgres=darshan
 
-module swap PrgEnv-cray PrgEnv-gnu
+module swap PrgEnv-cray PrgEnv-intel
 
 set -x
 
