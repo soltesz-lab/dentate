@@ -35,7 +35,7 @@ tstop = 200
 max_walltime_hrs = 0.5
 
 // time to write out results at end of simulation
-results_write_time = 600
+results_write_time = 30
 
 // time step
 dt = 0.025
