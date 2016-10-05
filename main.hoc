@@ -19,6 +19,10 @@ if (!(name_declared("forestBinaryMode"))) {
     forestBinaryMode = 0
 }
 
+if (!(name_declared("coredat"))) {
+    coredat = 0
+}
+
 {cvode.active(use_cvode)}
 {cvode.use_local_dt(use_local_dt)}
 {cvode.cache_efficient(use_cache_efficient)}
@@ -993,7 +997,11 @@ stdinit()
 if (pnm.myid == 0) {
     printf ("*** Initialization completed\n")
 }
-pnm.pc.nrnbbcore_write("coredat")
+
+if (coredat) {
+   pnm.pc.nrnbbcore_write("coredat")
+}
+
 pnm.psolve(tstop)
 
 if (pnm.myid == 0) {

@@ -1,0 +1,54 @@
+
+// print verbose diagnostic messages while constructing the network
+verbose = 0
+
+// The name of this model
+modelName = "dentatenet"
+
+// The location of all datasets
+datasetPrefix = "/u/sciteam/raikov/model/dentate/datasets/B2048"
+
+// The dataset to use for constructing the network
+datasetName = "Full_Scale_Control"
+
+// The connectivity configuration file to use for constructing the network
+// (default is connectivity.dat)
+//connectivityFileName = "connectivity.dat.ReducedPPtoNGFC"
+connectivityFileName = "connectivity.dat.IncreasedGCtoMC"
+
+// Size of a single forest for variable morphology cells
+forestSize = 1000
+
+// whether to per-node binary files for dendritic forests of variable morphology cells
+forestBinaryMode = 1
+
+// whether to create per-node connectivity graphs
+makegraph = 0
+
+// Initialization voltage
+v_init = -75
+
+// simulation time
+tstop = 250
+
+// maximum wall time in hours
+max_walltime_hrs = 0.5
+
+// time to write out results at end of simulation
+results_write_time = 30
+
+// time step
+dt = 0.025
+
+// Fraction of cells to record intracellular voltage from
+vrecordFraction = 0.0001
+
+use_cvode=0
+use_cache_efficient=1
+use_local_dt=0
+
+// Save CoreNEURON data
+coredat = 1
+
+externalPaths = new List()
+externalPaths.append (new String("../dgc/Mateos-Aparicio2014"))
