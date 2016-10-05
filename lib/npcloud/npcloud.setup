@@ -4,7 +4,7 @@
   (make-pathname #f fn ##sys#load-dynamic-extension))	
 
 
-(compile -O3 -s npcloud.scm -j npcloud)
+(compile -O3 -I ,(repository-path) -s npcloud.scm -j npcloud)
 (compile -O3 -s npcloud.import.scm)
 
 

@@ -14,7 +14,7 @@ set -x
 
 module load openmpi/1.10.2/gcc
 
-coords=/scratch/users/$USER/dentate/Full_Scale_Control/B512/NGFCcoordinates.dat
+coords=/scratch/users/$USER/dentate/Full_Scale_Control/NGFCcoordinates.dat
 gridcell_dir=/scratch/users/$USER/gridcells/GridCellModules_1000
 results_dir=/scratch/users/$USER/MPPNGFCprojection_Full_Scale_Control_$SLURM_JOB_ID
 

@@ -92,7 +92,7 @@ PROCEDURE rates(v (mV)) { :callable from hoc
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap bgka [%d]: x = %g\n", loc, x)
+    :printf("exptrap bgka [%d]: x = %g\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)

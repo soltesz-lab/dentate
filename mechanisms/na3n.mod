@@ -7,7 +7,7 @@ NEURON {
 	SUFFIX na3
 	USEION na READ ena WRITE ina
 	RANGE  gbar, ar
-	:GLOBAL minf, hinf, mtau, htau, sinf, taus,qinf, thinf
+	:GLOBAL minf, hinf, mtau, htau, sinf1, taus,qinf, thinf
 }
 
 PARAMETER {
@@ -60,7 +60,7 @@ ASSIGNED {
 	thegna		(mho/cm2)
 	minf 		hinf 		
 	mtau (ms)	htau (ms) 	
-	sinf (ms)	taus (ms)
+	sinf1 (ms)	taus (ms)
 }
  
 
@@ -76,7 +76,7 @@ INITIAL {
 	trates(v,ar,sh)
 	m=minf  
 	h=hinf
-	s=sinf
+	s=sinf1
 }
 
 
@@ -98,7 +98,7 @@ DERIVATIVE states {
         trates(v,ar,sh)      
         m' = (minf-m)/mtau
         h' = (hinf-h)/htau
-        s' = (sinf - s)/taus
+        s' = (sinf1 - s)/taus
 }
 
 PROCEDURE trates(vm,a2,sh2) {  
@@ -116,7 +116,7 @@ PROCEDURE trates(vm,a2,sh2) {
         if (htau<hmin) {htau=hmin}
 	hinf = 1/(1+exptrap(4,(vm-thinf-sh2)/qinf))
 	c=alpv(vm)
-        sinf = c+a2*(1-c)
+        sinf1 = c+a2*(1-c)
         taus = bets(vm)/(a0s*(1+alps(vm)))
         if (taus<smax) {taus=smax}
 }
@@ -132,7 +132,7 @@ FUNCTION trap0(v,th,a,q) {
 
 FUNCTION exptrap(loc,x) {
   if (x>=700.0) {
-    printf("exptrap na3n [%g]: x = %g\n", loc, x)
+    :printf("exptrap na3n [%g]: x = %g\n", loc, x)
     exptrap = exp(700.0)
   } else {
     exptrap = exp(x)

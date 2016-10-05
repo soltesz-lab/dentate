@@ -1,7 +1,5 @@
-(use srfi-1 mathh matchable kd-tree mpi getopt-long fmt npcloud)
-(include "mathh-constants")
+(use srfi-1 srfi-13 mathh matchable kd-tree mpi getopt-long fmt npcloud)
 
-(define (choose lst n) (list-ref lst (random n)))
 
 (define local-config (make-parameter '()))
 (define trees-directory (make-parameter '()))
@@ -11,10 +9,6 @@
 
 (define opt-grammar
   `(
-    (random-seeds "Use the given seeds for random number generation"
-                  (value (required SEED-LIST)
-                         (transformer ,(lambda (x) (map string->number
-                                                        (string-split x ","))))))
     
     (pp-cell-prefix "Specify the prefix for PP cell file names"
 		    (value (required PREFIX)))
@@ -53,6 +47,10 @@
     
     (label "Use the given label for outpput projection files"
 	   (value (required LABEL)))
+
+    (weights "Load weights from specified file"
+               (single-char #\w)
+               (value (required PATH)))
 
     (verbose "print additional debugging information" 
              (single-char #\v))
@@ -140,16 +138,6 @@
 
 (define neg -)
 
-(define random-seeds (make-parameter (apply circular-list (or (opt 'random-seeds) (list 13 17 19 23 29 37)))))
-
-(define (randomSeed)
-  (let ((v (car (random-seeds))))
-     (random-seeds (cdr (random-seeds)))
-     v))
-(define randomInit random-init)
-
-(define randomNormal random-normal)
-(define randomUniform random-uniform)
 
 (define (PointsFromFileWhdr x) (load-points-from-file x #t))
 (define (PointsFromFileWhdr* x) (load-points-from-file* x #t))
@@ -159,9 +147,9 @@
 (define (LoadTree topology-filename points-filename label)
   (load-layer-tree 4 topology-filename points-filename label))
 
-(define (LayerProjection label r source target target-layers output-dir) 
+(define (LayerProjection label r source target target-layers weights output-dir) 
   (layer-tree-projection label
-                         (source 'tree) (target 'list) target-layers
+                         (source 'tree) (target 'list) target-layers weights
                          r my-comm myrank mysize output-dir))
 (define (SegmentProjection label r source target) 
   (segment-projection label
@@ -271,15 +259,25 @@
 (define PPprojection-forest
 
     (let* (
-	   (target (SetExpr (section Postsyns Dendrites)))
+	   (target (SetExpr (section PostSyns Dendrites)))
 	   (source (SetExpr (section PPCells PPsynapses)))
 	   (output-dir (make-pathname (opt 'output-dir) (number->string forest)))
+           (weights (let* (
+                           (in (open-input-file (opt 'weights)))
+                           (data
+                            (let ((lines (read-lines in)))
+                              (close-input-port in)
+                              (map (compose string->number string-trim-both) lines)))
+                           )
+                      (list->f64vector data)))
 	   )
-
+      
+      (print "weights size = " (f64vector-length weights))
+      
       (if (= myrank 0)
 	  (create-directory output-dir))
 
-      (let ((PPtoForest (LayerProjection (opt 'label) (opt 'radius) source target (opt 'layers)  output-dir)))
+      (let ((PPtoForest (LayerProjection (opt 'label) (opt 'radius) source target (opt 'layers) weights output-dir)))
 	PPtoForest))
     )
   

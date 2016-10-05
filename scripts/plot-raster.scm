@@ -7,6 +7,18 @@
 
 (define comment-pat (string->irregex "^#.*"))
 
+(define (choose lst) (list-ref lst (random (- (length lst) 1))))
+
+(define colors '("x000000" "x00FF00" "x0000FF" "xFF0000" "x01FFFE" "xFFA6FE"
+                 "xFFDB66" "x006401" "x010067" "x95003A" "x007DB5" "xFF00F6" "xFFEEE8" "x774D00"
+                 "x90FB92" "x0076FF" "xD5FF00" "xFF937E" "x6A826C" "xFF029D" "xFE8900" "x7A4782"
+                 "x7E2DD2" "x85A900" "xFF0056" "xA42400" "x00AE7E" "x683D3B" "xBDC6FF" "x263400"
+                 "xBDD393" "x00B917" "x9E008E" "x001544" "xC28C9F" "xFF74A3" "x01D0FF" "x004754"
+                 "xE56FFE" "x788231" "x0E4CA1" "x91D0CB" "xBE9970" "x968AE8" "xBB8800" "x43002C"
+                 "xDEFF74" "x00FFC6" "xFFE502" "x620E00" "x008F9C" "x98FF52" "x7544B1" "xB500FF"
+                 "x00FF78" "xFF6E41" "x005F39" "x6B6882" "x5FAD4E" "xA75740" "xA5FFD2" "xFFB167" 
+                 "x009BFF" "xE85EBE"))
+
 
 ;(plot:procdebug #t)
 
@@ -75,7 +87,8 @@
           (plot:proc "scatterplot"
                      `(("xfield" .  "t")
                        ("yfield" .  "n")
-                       ("symbol" . "style=fill shape=circle fillcolor=blue radius=0.05")
+                       ("symbol" . ,(sprintf "style=fill shape=circle fillcolor=~A radius=0.05"
+                                             (choose colors)))
                        ("cluster"   . "no")
                        ))
 
@@ -85,10 +98,24 @@
 )
 
 
-(define (raster-plot datadir spike-file plot-label xrange #!key (x-inc 10))
+(define (raster-plot datadir spike-file plot-label xrange
+                     #!key  (x-inc 10) (cpu-limit 1200)
+                     (max-rows 5000000) (max-fields 5000000)
+                     (max-vector 5000000))
   (let* (
-         (celltypes (read-cell-types datadir))
-         (cellranges (read-cell-ranges datadir celltypes)) 
+         (celltypes (and datadir (read-cell-types datadir)))
+         (cellranges (or (and datadir (read-cell-ranges datadir celltypes))
+                         (let ((lines (read-lines "celltypes.dat")))
+                           (fold (lambda (line lst)
+                                   (let ((x (string-split (string-trim-both line) " ")))
+                                     (let ((type-name (car x))
+                                           (min-index (string->number (cadr x)))
+                                           (max-index (string->number (caddr x))))
+                                       (cons (list type-name 
+                                                   (inexact->exact min-index)
+                                                   (inexact->exact max-index)) lst)
+                                       )))
+                                 '() lines))))
          )
 
     (match-let (((spike-times nmax tmax) (read-spike-times xrange spike-file)))
@@ -107,10 +134,10 @@
        (plot:arg "-cm" )
        (plot:arg "-textsize"   "12")
        (plot:arg "-pagesize"   "12,23")
-       (plot:arg "-cpulimit"   "1200")
-       (plot:arg "-maxrows"    "3000000")
-       (plot:arg "-maxfields"  "5000000")
-       (plot:arg "-maxvector"  "7000000")
+       (plot:arg "-cpulimit"   (number->string cpu-limit))
+       (plot:arg "-maxrows"    (number->string max-rows))
+       (plot:arg "-maxfields"  (number->string max-fields))
+       (plot:arg "-maxvector"  (number->string max-vector))
        
        (plot:proc "page"
                   `(
@@ -166,6 +193,26 @@
      (single-char #\l)
      (value (required LABEL)))
 
+    (cpu-limit
+     "time limit [s]"
+     (single-char #\t)
+     (value (required TIME)
+            (transformer ,string->number)))
+
+    (max-rows
+     "maximum rows"
+     (value (required NUMBER)
+            (transformer ,string->number)))
+    (max-fields
+     "maximum fields"
+     (value (required NUMBER)
+            (transformer ,string->number)))
+    (max-vector
+     "maximum vector size"
+     (value (required NUMBER)
+            (transformer ,string->number)))
+    
+
     (help  "Print help"
 	    (single-char #\h))
   
@@ -196,6 +243,11 @@
     (plot-raster:usage)
     (raster-plot (opt 'data-dir) (opt 'spike-file)
                  (opt 'plot-label) (opt 'x-range)
-                 x-inc: (or (opt' x-inc) 10))
+                 x-inc: (or (opt' x-inc) 10)
+                 cpu-limit: (or (opt 'cpu-limit) 1200)
+                 max-rows: (or (opt 'max-rows)  5000000)
+                 max-fields: (or (opt 'max-fields) 5000000)
+                 max-vector: (or (opt 'max-vector) 5000000)
+                 )
     )
 

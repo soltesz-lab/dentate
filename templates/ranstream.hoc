@@ -1,19 +1,26 @@
-random_stream_offset_ = 100
+random_stream_global_index_ = 1
+
+proc set_ranstream_global() {localobj r
+  random_stream_global_index_ = $1
+  r = new Random()
+  r.Random123_globalindex($1)
+}
 
 begintemplate RandomStream
 
-public r, repick, start, rseed
+public r, repick, start, id1, id2, id3
 objref r
-external random_stream_offset_
 
 proc init() {
-    rseed = $1
+    id1 = $1
+    id2 = $2
+    id3 = $3
     r = new Random()
     start()
 }
 
 func start() {
-    return r.MCellRan4(rseed*random_stream_offset_ + 1)
+    return r.Random123(id1, id2, id3)
 }
 
 func repick() {
