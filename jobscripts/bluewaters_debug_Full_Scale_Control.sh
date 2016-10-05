@@ -36,7 +36,6 @@ runhoc="./jobscripts/bluewaters_Full_Scale_Control_debug_run_${PBS_JOBID}.hoc"
 
 sed -e "s/JOB_ID/$PBS_JOBID/g" ./jobscripts/bluewaters_Full_Scale_Control_debug_run.hoc > $runhoc
 
-##export LD_PRELOAD=/sw/xe/darshan/2.3.0/darshan-2.3.0_cle52/lib/libdarshan.so 
 export DARSHAN_LOGPATH=$PWD/darshan-logs
 
 aprun -n 2048 ./mechanisms/x86_64/special -mpi -nobanner -nogui $runhoc
