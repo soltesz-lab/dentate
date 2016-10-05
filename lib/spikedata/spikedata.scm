@@ -128,6 +128,8 @@
          (nevents-lst (filter-map (lambda (x) (and (not (null? x)) (length x))) event-times-lst))
          (mean-rates (map (lambda (x) (* 1000 (/ x tmax))) nevents-lst))
          (mean-event-frequency (round (mean mean-rates)))
+         (min-event-frequency (fold min +inf.0 mean-rates))
+         (max-event-frequency (fold max -inf.0 mean-rates))
          
          )
 
@@ -136,6 +138,8 @@
        (ncells               . ,(length event-times-lst))
        (mean-nevents         . ,(mean nevents-lst))
        (mean-event-frequency . ,mean-event-frequency)
+       (min-event-frequency  . ,min-event-frequency)
+       (max-event-frequency  . ,max-event-frequency)
        (mean-event-interval  . ,mean-event-interval)
        (stdev-event-interval . ,stdev-event-interval)
        (cv-event-interval    . ,cv-event-interval)
