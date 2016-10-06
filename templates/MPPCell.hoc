@@ -34,7 +34,7 @@ proc setup_netstim() {
     noise  = $6
     vs = new NetStim(.5)
     if (number > 0) {
-       rs = new RandomStream(id)
+       rs = new RandomStream(id, 21, 27)
        rs.r.negexp(1)
        rs.start()
        vs.noiseFromRandom(rs.r)

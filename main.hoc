@@ -467,8 +467,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
                         // used for choosing dendrite and compartment for synapses
-                        rsdend = new RandomStream(i*k+1)
-                        rscomp = new RandomStream(i*k+2)
+                        rsdend = new RandomStream(gid, k, 1)
+                        rscomp = new RandomStream(gid, k, 2)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {

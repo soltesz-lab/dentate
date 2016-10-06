@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1024:ppn=2:xe
+#PBS -l nodes=2048:ppn=1:xe
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
