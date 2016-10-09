@@ -29,7 +29,7 @@ makegraph = 0
 v_init = -75
 
 // simulation time
-tstop = 250
+tstop = 220
 
 // maximum wall time in hours
 max_walltime_hrs = 0.5
