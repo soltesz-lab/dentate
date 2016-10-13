@@ -282,7 +282,7 @@ proc spikeout() { local i localobj f, spikevec, idvec
     
     f.wopen()
     for i=0, spikevec.size-1 {
-	f.printf("%g %d\n", spikevec.x[i], idvec.x[i])
+	f.printf("%.8g\t%d\n", spikevec.x[i], idvec.x[i])
     }
     f.close()
 }
