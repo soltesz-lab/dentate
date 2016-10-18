@@ -74,7 +74,7 @@ if (vrecordFraction < 0) {
     vrecordFraction = 0
 }
 if (!(name_declared("vrecordLimit"))) {
-    vrecordLimit = 100
+    vrecordLimit = 10
 }
 if (vrecordLimit < 0) {
     vrecordLimit = 0

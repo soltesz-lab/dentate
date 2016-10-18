@@ -15,6 +15,8 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
+### Get darsan profile data
+#PBS -lgres=darshan
 
 
 module unload PrgEnv-cray 
@@ -34,6 +36,6 @@ mkdir -p $results_path
 runhoc="./run.hoc"
 
 aprun -n 356 buildgpu/bin/coreneuron_exec -mpi -d coredat \
-  -o $results_path --cell_permute=1 -e 1000 --voltage=-75. --gpu
+  -o $results_path --cell_permute=1 -e 1000 --voltage=-68. --celsius=32. --gpu
 
 
