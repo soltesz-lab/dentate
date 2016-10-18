@@ -1,0 +1,12 @@
+10 7
+GC MC HC BC AAC HCC NGFC
+GCL/IML 0:3	0:3	0:3	0:3	0:3	NA      
+IML     0:3	0:3	0:1	0:1	0:1	NA           
+MOML    0:3	0:3	0:1	0:1	NA	0:3
+GCL     Soma	0:3	0:1	NA	0:1	NA      
+Axon    Soma	NA	NA	NA	NA	NA      
+IML     0:3	NA	0:1	NA	0:1	NA      
+MOML    NA	NA	0:1	0:1	0:1	0:3
+MOML    NA	NA	0:1	0:1	0:1	0:3
+NA      NA	NA	0:1	NA	NA	2:3
+NA      NA	NA	0:1	NA	NA	2:3
