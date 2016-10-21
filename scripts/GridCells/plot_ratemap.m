@@ -24,14 +24,17 @@ M = 10; % number of grid cell modules
 
 grid_unit = 1;
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit);
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit, 19);
 ratemap1  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 m1_1 = reshape(ratemap1(1,:,:),[200 200]);
+m2_1 = reshape(ratemap1(2,:,:),[200 200]);
 m50_1 = reshape(ratemap1(50,:,:),[200 200]);
 m380_1 = reshape(ratemap1(380,:,:),[200 200]);
 
 figure; h = imagesc(m1_1);set(gca,'YDir','normal'); 
+title(['Spacing 40 cm']);
+figure; h = imagesc(m2_1);set(gca,'YDir','normal'); 
 title(['Spacing 40 cm']);
 figure; h = imagesc(m50_1);set(gca,'YDir','normal'); 
 title(['Spacing 80 cm']);
@@ -40,14 +43,17 @@ title(['Spacing 400 cm']);
 
 grid_unit = 25;
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit);
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit, 10);
 ratemap25  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 m1_25 = reshape(ratemap25(1,:,:),[40 40]);
+m2_25 = reshape(ratemap25(2,:,:),[40 40]);
 m50_25 = reshape(ratemap25(50,:,:),[40 40]);
 m380_25 = reshape(ratemap25(380,:,:),[40 40]);
 
 figure; h = imagesc(m1_25);set(gca,'YDir','normal'); 
+title(['Spacing 40 cm']);
+figure; h = imagesc(m2_25);set(gca,'YDir','normal'); 
 title(['Spacing 40 cm']);
 figure; h = imagesc(m50_25);set(gca,'YDir','normal'); 
 title(['Spacing 80 cm']);
