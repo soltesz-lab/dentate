@@ -1,0 +1,45 @@
+
+pnm.psolve(tstop)
+
+if (pnm.myid == 0) {
+    printf ("*** Simulation completed\n")
+}
+
+/* Write simulation results */
+
+strdef spikeout_fname
+sprint(spikeout_fname, "%s/%s_spikeout_%d.dat", resultsPath, modelName, pnm.myid)
+spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
+
+strdef vrecord_fname
+if (vrecordFraction > 0) {
+  sprint(vrecord_fname, "%s/%s_vrecord_%d.dat", resultsPath, modelName, pnm.myid)
+  vrecordout(vrecord_fname,indicesVrecord)
+}
+
+comptime = pnm.pc.step_time
+avgcomp  = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
+maxcomp  = pnm.pc.allreduce(comptime, 2)
+
+if (pnm.myid == 0) {
+    printf("Execution time summary for host 0:\n")
+    printf("  created cells in %g seconds\n", mkcellstime)
+    printf("  connected cells in %g seconds\n", connectcellstime)
+    printf("  created gap junctions in %g seconds\n", connectgjstime)
+    printf("  ran simulation in %g seconds\n", comptime)
+    if (maxcomp > 0) {
+        if (pnm.myid == 0) { printf("  load_balance = %g\n", avgcomp/maxcomp) }
+    }
+}
+
+if (pnm.myid == 0) {
+    printf ("*** Simulation results written\n")
+}
+
+pnm.pc.barrier()
+
+if (pnm.myid == 0) {
+    printf ("*** Ending simulation\n")
+}
+
+

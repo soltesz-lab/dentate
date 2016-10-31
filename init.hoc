@@ -3,82 +3,7 @@
 
  // directories external to this project that contain additional templates and mechanisms
 objref nil, externalPaths
-strdef modelName, datasetPrefix, datasetName, datasetPath, connectivityFileName
 
-connectivityFileName="connectivity.dat"
-
-// parameters must be the name of a file specified on the command line
-// as follows: nrniv -c "strdef parameters" -c "parameters=\"parameters.hoc\""
-{load_file(parameters)}
-
-if (!(name_declared("forestSize"))) {
-    forestSize = 0
-}
-
-if (!(name_declared("forestBinaryMode"))) {
-    forestBinaryMode = 0
-}
-
-if (!(name_declared("coredat"))) {
-    coredat = 0
-}
-
-{cvode.active(use_cvode)}
-{cvode.use_local_dt(use_local_dt)}
-{cvode.cache_efficient(use_cache_efficient)}
-
-{xopen("lib.hoc")}
-
-// path to the dataset directory
-sprint(datasetPath, "%s/%s", datasetPrefix, datasetName)
-
-//nrn_load_dll("mechanisms/x86_64/.libs/libnrnmech.so")
-
-strdef path, mechanismsPath
-// Load mechanisms from external location
-/*
-if (!(externalPaths == nil)) {
-    for i=0,externalPaths.count()-1 {
-        path = externalPaths.o(i).s
-        sprint(mechanismsPath, "%s/x86_64/.libs/libnrnmech.so", path)
-        nrn_load_dll(mechanismsPath)
-    }
-}
-*/
-
-// used to calculate model construction times and run time
-mkcellstime = 0
-connectcellstime = 0
-connectgjstime = 0
-
-// used for executing command strings
-strdef cmd
-
-// path for various datafiles (used for multiple files)
-strdef datafilePath
-
-// randomstream template
-{load_file("./templates/ranstream.hoc")}
-// stimulus cell template
-{load_file("./templates/StimCell.hoc")}
-
-// used for recording membrane potentials
-objref indicesVrecord
-if (!(name_declared("vrecordFraction"))) {
-    vrecordFraction = 0
-}
-if (vrecordFraction > 1) {
-    vrecordFraction = 1
-}
-if (vrecordFraction < 0) {
-    vrecordFraction = 0
-}
-if (!(name_declared("vrecordLimit"))) {
-    vrecordLimit = 10
-}
-if (vrecordLimit < 0) {
-    vrecordLimit = 0
-}
 
 // Builds a list of indices of cells to record from
 proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fraction  localobj pnm, cellTypes, cellType, indices, rec_indices, rs
@@ -145,30 +70,12 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
 
 
 
-// used to keep track of artificial stimulus cells
-objref stimTypes
-stimTypes = new List()
-objref ncstimlist
-
-// reads the cell types file and populates celltypes with the information
-sprint (datafilePath, "%s/stim.dat", datasetPath)
-sprint(cmd, "test -e %s", datafilePath) // check if the path exist
-status = system(cmd)
-if (status == 0) {
-   loadStimulationInfo (stimTypes, datafilePath, datasetPath)
-   if (verbose > 0) {
-      printf ("%s: loaded stimulation info\n", modelName)
-   }
-}
-
-
-
 // list with cell type information
 objref cellTypes
 cellTypes = new List()
 
 // reads the cell types file and populates celltypes with the information
-sprint (datafilePath, "%s/celltypes.dat", datasetPath)
+sprint (datafilePath, "%s/%s", datasetPath, celltypesFileName)
 loadCellCategoryInfo (cellTypes, datafilePath, datasetPath)
 
 if (verbose > 0) {
@@ -224,7 +131,7 @@ objref gjTypes
 gjTypes = new List()
 
 // reads the connectivity types file and populates connectivitytypes with the information
-sprint (datafilePath, "%s/gapjunctions.dat", datasetPath)
+sprint (datafilePath, "%s/%s", datasetPath, gapjunctionsFileName)
 loadGapJunctionInfo (gjTypes, datafilePath)
 
 // pnm.cells is a list that holds all instances of network cells that
@@ -482,87 +389,39 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
             }
         }
     }
-
-// connects the cells
-// appends the NetCon objects to nclist
-proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, wscale, velocity, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, f, stim, synType, w, rs
     
-    strdef cmd, connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
-    connectivityTypes = $o1
-    cellTypes = $o2
-    nConnectivityTypes = connectivityTypes.count()
-    if (verbose > 0) {
-       printf ("nConnectivityTypes = %d\n", nConnectivityTypes)
-   }
-   
-   for k=0, nConnectivityTypes-1 { 
-       connectivityType = connectivityTypes.o(k)
-       order = connectivityType.getPropertyScalar("order")
-       synType = connectivityType.getPropertyObject("synType")
-       wdType = connectivityType.getPropertyScalar("wdType")
-       connectivityName = connectivityType.getPropertyString("name").s
-       assert(synType.is_undefined == 0, "synType is undefined")
-       if (verbose >= 0) {
-           printf ("connectivityName = %s\n", connectivityName)
-           printf ("wdType = %d\n", wdType)
-	   print "synType.is_number = ", synType.is_number
-	   print "synType.is_list = ", synType.is_list
-           if (synType.is_number) {
-   	      printf ("synType.n = %d\n", synType.n)
-           }
-	   printf ("pnm.nclist.count() = %d\n", pnm.nclist.count())
-       }
-       presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
-       presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
-       presynapticSize = presynapticType.getPropertyScalar("numCells")
-       presynapticOffset = presynapticType.getPropertyScalar("offset")
-       postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
-       postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
-       postsynapticSize = postsynapticType.getPropertyScalar("numCells")
-       postsynapticOffset = postsynapticType.getPropertyScalar("offset")
-       if (verbose >= 0) {
-           printf ("presynaptic population = %s\n", presynapticPopulation)
-           printf ("presynaptic size = %d\n", presynapticSize)
-           printf ("postsynaptic population = %s\n", postsynapticPopulation)
-           printf ("postsynaptic size = %d\n", postsynapticSize)
-       }
-       sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
-       sprint(cmd, "test -e %s", connectivityPath) // check if the path exist
-       status = system(cmd)
-       if (status == 0) {
-           f = new File(connectivityPath)
-           pernode = 0
-       } else {
-           // Try connectivity file local to this MPI node
-           sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid+1)
-           f = new File(connectivityPath)
-           pernode = 1
-       }
-       f.ropen()
-       m = new Matrix()
-       if (!f.eof()) {
-         m.scanf(f)
-       }
-       f.close()
-       
-       if (m.nrow > 1) {
-           if (wdType == 1) {
-               for i=0, m.nrow-1 {
-                   srcid = m.x[i][0]
-                   destid = m.x[i][1]
-                   if (order == 2) {
-                       // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
-                       assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                       srcid1 = srcid + presynapticOffset
-                       destid1 = destid
-                   } else if (order == 1) {
-                       // absolute numbering of pre/post synaptic cells
-                       srcid1 = srcid
-                       destid1 = destid
-                   } else if (order == 0) {
-                       // relative numbering of pre/post synaptic cells -- add the respective offsets
-                       assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
-                       assert (destid <= postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
+    
+proc connectprj() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, wscale, velocity, wdType, order, presynapticSize, postsynapticSize localobj presynapticType, postsynapticType, connectivityType, nc, edges, m, f, synType, w, rs
+    
+    connectivityType = $o1
+    synType = $o2
+    presynapticSize=$3
+    presynapticOffset=$4
+    pernode=$5
+    m = $o6
+    
+    order = connectivityType.getPropertyScalar("order")
+    synType = connectivityType.getPropertyObject("synType")
+    wdType = connectivityType.getPropertyScalar("wdType")
+    
+    if (m.nrow > 1) {
+        if (wdType == 1) {
+            for i=0, m.nrow-1 {
+                srcid = m.x[i][0]
+                destid = m.x[i][1]
+                if (order == 2) {
+                    // relative numbering of pre-synaptic cells, absolute numbering of post synaptic cells
+                    assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                    srcid1 = srcid + presynapticOffset
+                    destid1 = destid
+                } else if (order == 1) {
+                    // absolute numbering of pre/post synaptic cells
+                    srcid1 = srcid
+                    destid1 = destid
+                } else if (order == 0) {
+                    // relative numbering of pre/post synaptic cells -- add the respective offsets
+                    assert (srcid <= presynapticSize, "source cell id is greater than the size of the presynaptic population")
+                    assert (destid <= postsynapticSize, "destination cell id is greater than the size of the postsynaptic population")
                        srcid1 = srcid + presynapticOffset
                        destid1 = destid + postsynapticOffset
                    } else {
@@ -589,7 +448,6 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                        conlist.prepend(edges)
 	           }
                }
-               m.resize(1,1)
            } else if (wdType == 2) {
                w = connectivityType.getPropertyObject("standardWeight")
                velocity = connectivityType.getPropertyScalar("standardVelocity")
@@ -637,7 +495,6 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                        conlist.prepend(edges)
 	           }
                }
-               m.resize(1,1)
            } else if (wdType == 3) {
                // connectivity of the form:
                // src dest distance layer section node/point
@@ -740,9 +597,82 @@ proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, di
                        conlist.prepend(edges)
 	           }
                }
-               m.resize(1,1)
            }
        }
+   }    
+    
+    
+    
+// connects the cells
+// appends the NetCon objects to nclist
+proc connectcells() {local i, k, status, srcid, destid, srcid1, destid1, del, dist, wscale, velocity, wdType, order, presynapticSize, postsynapticSize, stimsrc localobj presynapticType, postsynapticType, cellTypes, connectivityType, connectivityTypes, nc, edges, m, h5prj, f, stim, synType, w, rs
+    
+    strdef cmd, connectivityPath, connectivityName, presynapticPopulation, postsynapticPopulation
+    connectivityTypes = $o1
+    cellTypes = $o2
+    nConnectivityTypes = connectivityTypes.count()
+    if (verbose > 0) {
+       printf ("nConnectivityTypes = %d\n", nConnectivityTypes)
+   }
+   
+   for k=0, nConnectivityTypes-1 { 
+       connectivityType = connectivityTypes.o(k)
+       order = connectivityType.getPropertyScalar("order")
+       synType = connectivityType.getPropertyObject("synType")
+       wdType = connectivityType.getPropertyScalar("wdType")
+       connectivityName = connectivityType.getPropertyString("name").s
+       assert(synType.is_undefined == 0, "synType is undefined")
+       if (verbose >= 0) {
+           printf ("connectivityName = %s\n", connectivityName)
+           printf ("wdType = %d\n", wdType)
+	   print "synType.is_number = ", synType.is_number
+	   print "synType.is_list = ", synType.is_list
+           if (synType.is_number) {
+   	      printf ("synType.n = %d\n", synType.n)
+           }
+	   printf ("pnm.nclist.count() = %d\n", pnm.nclist.count())
+       }
+       presynapticPopulation = connectivityType.getPropertyString("presynapticPopulation").s
+       presynapticType = cellTypes.o(findCellType(cellTypes,presynapticPopulation))
+       presynapticSize = presynapticType.getPropertyScalar("numCells")
+       presynapticOffset = presynapticType.getPropertyScalar("offset")
+       postsynapticPopulation = connectivityType.getPropertyString("postsynapticPopulation").s
+       postsynapticType = cellTypes.o(findCellType(cellTypes,postsynapticPopulation))
+       postsynapticSize = postsynapticType.getPropertyScalar("numCells")
+       postsynapticOffset = postsynapticType.getPropertyScalar("offset")
+       if (verbose >= 0) {
+           printf ("presynaptic population = %s\n", presynapticPopulation)
+           printf ("presynaptic size = %d\n", presynapticSize)
+           printf ("postsynaptic population = %s\n", postsynapticPopulation)
+           printf ("postsynaptic size = %d\n", postsynapticSize)
+       }
+       m = new Matrix()
+       if (H5Connectivity) {
+           py = new PythonObject()
+           sprint(cmd, "%sto%s", presynapticPopulation, postsynapticPopulation)
+           py.connectprj(pnm, connectivityType, synType, presynapticSize, presynapticOffset, postsynapticSize, postsynapticOffset, cmd)
+       } else {
+           sprint(connectivityPath, "%s/%s.dat", datasetPath, connectivityName)
+           sprint(cmd, "test -e %s", connectivityPath) // check if the path exist
+           status = system(cmd)
+           if (status == 0) {
+               f = new File(connectivityPath)
+               pernode = 0
+           } else {
+               // Try connectivity file local to this MPI node
+               sprint(connectivityPath, "%s/%s.%d.dat", datasetPath, connectivityName, pnm.myid+1)
+               f = new File(connectivityPath)
+               pernode = 1
+           }
+           f.ropen()
+           if (!f.eof()) {
+               m.scanf(f)
+           }
+           f.close()
+           connectprj(connectivityType, synType, presynapticSize, presynapticOffset, pernode, m)
+           m.resize(1,1)
+       }
+       
    }
 }
 
@@ -959,12 +889,6 @@ proc mkstim() { local i, k, nCellTypes, numStimTypes, stimgid, gid, weight, nois
     }
 }
 
-if (stimTypes.count() > 0) {
-    mkstim(datasetPath, cellTypes, stimTypes)
-}
-if (pnm.myid == 0) {
-    printf ("*** Stimulus sources initialized\n")
-}
 
 if (makegraph > 0) {
         graphout(fname,conlist)
@@ -1001,3 +925,48 @@ if (pnm.myid == 0) {
 if (coredat) {
    pnm.pc.nrnbbcore_write("coredat")
 }
+
+pnm.psolve(tstop)
+
+if (pnm.myid == 0) {
+    printf ("*** Simulation completed\n")
+}
+
+/* Write simulation results */
+
+strdef spikeout_fname
+sprint(spikeout_fname, "%s/%s_spikeout_%d.dat", resultsPath, modelName, pnm.myid)
+spikeout(spikeout_fname,pnm.spikevec,pnm.idvec)
+
+strdef vrecord_fname
+if (vrecordFraction > 0) {
+  sprint(vrecord_fname, "%s/%s_vrecord_%d.dat", resultsPath, modelName, pnm.myid)
+  vrecordout(vrecord_fname,indicesVrecord)
+}
+
+comptime = pnm.pc.step_time
+avgcomp  = pnm.pc.allreduce(comptime, 1)/pnm.pc.nhost
+maxcomp  = pnm.pc.allreduce(comptime, 2)
+
+if (pnm.myid == 0) {
+    printf("Execution time summary for host 0:\n")
+    printf("  created cells in %g seconds\n", mkcellstime)
+    printf("  connected cells in %g seconds\n", connectcellstime)
+    printf("  created gap junctions in %g seconds\n", connectgjstime)
+    printf("  ran simulation in %g seconds\n", comptime)
+    if (maxcomp > 0) {
+        if (pnm.myid == 0) { printf("  load_balance = %g\n", avgcomp/maxcomp) }
+    }
+}
+
+if (pnm.myid == 0) {
+    printf ("*** Simulation results written\n")
+}
+
+pnm.pc.barrier()
+
+if (pnm.myid == 0) {
+    printf ("*** Ending simulation\n")
+}
+
+
