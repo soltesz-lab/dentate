@@ -6,7 +6,7 @@
 rng(1)
 
 %% Define number and distribution of cell types
-num_types       = 7;
+num_types       = 9;
 num_cells       = cell(num_types,1);
 soma_diam       = zeros(num_types,1);
 soma_length     = zeros(num_types,1);
@@ -61,6 +61,24 @@ soma_diam(7)    = 15;
 soma_length(7)  = 20;
 septotemporal   = [9.5;16.5;19.6;17.5;16.8;15.7;15.8;17.5;21.2;40.9];
 distribution{7} = septotemporal/sum(septotemporal(:,1));
+
+%8 MEC
+% 58000 neurons in MEC estimated by Gatome et al., of those 38000
+% are dentate-projection stellate cells.
+% Number estimates of neuronal phenotypes in layer II of the medial entorhinal cortex of rat and mouse.
+% Neuroscience. 2010 Sep 29;170(1):156-65. 
+num_cells{8}    = [0;38000;0;0;38000]; %Hilus;GCL;IML;MOML;Total
+soma_diam(8)    = 0;
+soma_length(8)  = 0;
+septotemporal   = [3.85;6.16;6.46;6.8;6.2;5.85;5.43;5.76;5.12;5.08;2.35;0.15];
+distribution{8} = septotemporal/sum(septotemporal(:,1));
+
+%9 LEC
+num_cells{9}    = [0;56000;0;0;56000]; %Hilus;GCL;IML;MOML;Total
+soma_diam(9)    = 0;
+soma_length(9)  = 0;
+septotemporal   = [3.85;6.16;6.46;6.8;6.2;5.85;5.43;5.76;5.12;5.08;2.35;0.15];
+distribution{9} = septotemporal/sum(septotemporal(:,1));
 
 % Determine how far neighboring somata must be
 for type = 1:num_types
