@@ -1,5 +1,5 @@
 
-dt = 0.01;
+dt = 0.1;
 batch_size=25;
 batch_offset=0;
 

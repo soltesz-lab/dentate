@@ -6,13 +6,21 @@ verbose = 0
 modelName = "dentatenet"
 
 // The location of all datasets
-datasetPrefix = "/scratch/users/iraikov/dentate"
+datasetPrefix = "/u/sciteam/raikov/model/dentate/datasets/B2048"
 
 // The dataset to use for constructing the network
 datasetName = "Full_Scale_Control"
 
+// The connectivity configuration file to use for constructing the network
+// (default is connectivity.dat)
+connectivityFileName = "connectivity.dat.ReducedPPtoNGFC"
+
+
 // Size of a single forest for variable morphology cells
 forestSize = 1000
+
+// whether to per-node binary files for dendritic forests of variable morphology cells
+forestBinaryMode = 1
 
 // whether to create per-node connectivity graphs
 makegraph = 0
@@ -21,13 +29,19 @@ makegraph = 0
 v_init = -75
 
 // simulation time
-tstop = 50
+tstop = 1000
 
 // maximum wall time in hours
-max_walltime_hrs = 6
+max_walltime_hrs = 3
+
+// time to write out results at end of simulation
+results_write_time = 300
 
 // time step
 dt = 0.025
+
+// Fraction of cells to record intracellular voltage from
+vrecordFraction = 0.001
 
 use_cvode=0
 use_cache_efficient=1

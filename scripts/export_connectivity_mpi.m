@@ -26,7 +26,7 @@ for j = 1:msize
     fieldSize=size(m,fieldName);
     fprintf('export_connectivity: name = %s fieldSize = %d\n', name, fieldSize);
     if (not (isempty(m.(fieldName))))
-      export_connmatrix(name,m.(fieldName),fieldSize(1),size(loc.locations{j,1},1),offset,batch_index,batch_size,output_dir);
+      export_connmatrix_mpi(name,m.(fieldName),fieldSize(1),size(loc.locations{j,1},1),offset,batch_index,batch_size,output_dir);
     end
  end
  offset = offset+size(loc.locations{j,1},1)

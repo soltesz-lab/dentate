@@ -3,7 +3,9 @@
 
  // directories external to this project that contain additional templates and mechanisms
 objref nil, externalPaths
-strdef modelName, datasetPrefix, datasetName, datasetPath
+strdef modelName, datasetPrefix, datasetName, datasetPath, connectivityFileName
+
+connectivityFileName="connectivity.dat"
 
 // parameters must be the name of a file specified on the command line
 // as follows: nrniv -c "strdef parameters" -c "parameters=\"parameters.hoc\""
@@ -15,6 +17,10 @@ if (!(name_declared("forestSize"))) {
 
 if (!(name_declared("forestBinaryMode"))) {
     forestBinaryMode = 0
+}
+
+if (!(name_declared("coredat"))) {
+    coredat = 0
 }
 
 {cvode.active(use_cvode)}
@@ -86,7 +92,7 @@ proc mkvrecord() { local nCellTypes, numCells, numRec, i, j, k, offset, n, p, fr
     
     for k=0, nCellTypes-1 { 
         
-        rs = new RandomStream(k)    
+        rs = new RandomStream(k, 0, 0)
         
         cellType = cellTypes.o(k)
         numCells = cellType.getPropertyScalar("numCells")
@@ -206,7 +212,8 @@ objref connectivityTypes
 connectivityTypes = new List()
 
 // reads the connectivity types file and populates connectivitytypes with the information
-sprint (datafilePath, "%s/connectivity.dat", datasetPath)
+sprint (datafilePath, "%s/%s", datasetPath, connectivityFileName)
+
 loadConnectivityInfo (connectivityTypes, datafilePath)
 if (verbose > 0) {
     printf ("connectivityTypes.count = %d\n", connectivityTypes.count())
@@ -442,8 +449,8 @@ proc mkcells() { local nCellTypes, numCells, i, j, p, gid, node, treeHeight, tem
                     gid = indices.x(i)
                     if (pnm.gid_exists(gid)) {
                         // used for choosing dendrite and compartment for synapses
-                        rsdend = new RandomStream(i*k+1)
-                        rscomp = new RandomStream(i*k+2)
+                        rsdend = new RandomStream(gid, k, 1)
+                        rscomp = new RandomStream(gid, k, 2)
                         sprint(cmd, "cell = new %s(%d, %d, \"%s/%s/\")", templateName, i, gid, datasetPath, typeName)
                         execute(cmd)
                         if (hasSynapseProps) {
@@ -989,6 +996,10 @@ if (vrecordFraction > 0) {
 stdinit()
 if (pnm.myid == 0) {
     printf ("*** Initialization completed\n")
+}
+
+if (coredat) {
+   pnm.pc.nrnbbcore_write("coredat")
 }
 
 pnm.psolve(tstop)

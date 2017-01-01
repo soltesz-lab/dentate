@@ -1,0 +1,10 @@
+strdef parameters
+parameters="./parameters/bluewaters_Full_Scale_IncreasedGCtoMC.hoc"
+
+strdef resultsPath
+resultsPath="./results/Full_Scale_IncreasedGCtoMC_JOB_ID" 
+
+{xopen("main.hoc")}
+
+pnm.pc.done()
+quit()
