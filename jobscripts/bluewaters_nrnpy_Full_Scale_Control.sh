@@ -41,10 +41,10 @@ mkdir -p $results_path
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 2048 nrniv -mpi -python main.py \
+aprun -n 2048 ./mechanisms/x86_64/special -mpi -python main.py \
     --model-name=dentatenet \
     --dataset-name=Full_Scale_Control \
-    --dataset-prefix="/u/sciteam/raikov/model/dentate/datasets/B2048" \
+    --dataset-prefix="/u/sciteam/raikov/model/dentate/datasets" \
     --results-path=$results_path \
     --io-size=128 \
     --tstop=1000 \
