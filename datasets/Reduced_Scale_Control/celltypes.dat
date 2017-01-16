@@ -1,0 +1,8 @@
+7
+indexfile: GC.dat GC single: DGC
+indexfile: MC.dat MC single: MossyCell
+indexfile: HC.dat HC single: HIPPCell
+indexfile: BC.dat BC single: BasketCell
+indexfile: AAC.dat AAC single: AxoAxonicCell
+indexfile: NGFC.dat NGFC single: NGFCell
+indexfile: MPP.dat MPP single: MPPCell
