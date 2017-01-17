@@ -4,6 +4,7 @@
 
 import sys, os
 import click
+import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
@@ -108,7 +109,7 @@ def connect_h5prj(pnm, connectivityType, synType, presynapticSize, presynapticOf
                        
     del H5Graph[prjname]
 
-def mksyn(cell,synapses,env):
+def mksyn1(cell,synapses,env):
     for synkey in synapses.keys():
         synval = synapses[synkey]
         synorder = env.synapseOrder[synkey]
@@ -118,7 +119,7 @@ def mksyn(cell,synapses,env):
         e_rev    = synval['e_rev']
         if location == 'soma':
             cell.soma.push()
-            h('syn = new Exp2Syn(0.5)')
+            h.syn = h.Exp2Syn(0.5)
             h.syn.tau1 = t_rise
             h.syn.tau2 = t_decay
             h.syn.e    = e_rev
@@ -132,26 +133,36 @@ def mksyn(cell,synapses,env):
                     compartments=[location['compartment']]
                 for secindex in compartments:
                     cell.dendrites[dendindex][secindex].push()
-                    h('syn = new Exp2Syn(0.5)')
+                    h.syn = h.Exp2Syn(0.5)
                     h.syn.tau1 = t_rise
                     h.syn.tau2 = t_decay
                     h.syn.e    = e_rev
     		    cell.syns.o(synorder).append(h.syn)
                     h.pop_section()
 
+def mksyn2(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
+    for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):
+        cell.alldendrites[syn_section].push()
+        h.syn      = h.Exp2Syn(syn_loc)
+        h.syn.tau1 = synapses[syn_type]['t_rise']
+        h.syn.tau2 = synapses[syn_type]['t_decay']
+        h.syn.e    = synapses[syn_type]['e_rev']
+        cell.allsyns.o(syn_type).append(h.syn)
+        h.pop_section()
+
     
 def mkcells(env):
 
-    h('objref templatePaths, templatePathValue, cell, syn, syn_type, syn_locs, syn_sections, nc, nil')
+    h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, syn_locs, syn_sections, nc, nil')
     h('numCells = 0')
 
     h('strdef datasetPath')
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
     h.datasetPath = datasetPath
 
-    h('templatePaths = new List()')
+    h.templatePaths = h.List()
     for path in env.templatePaths:
-        h('templatePathValue = new Value(1,"%s")' % path)
+        h.templatePathValue = h.Value(1,path)
         h.templatePaths.append(h.templatePathValue)
     popNames = env.celltypes.keys()
     popNames.sort()
@@ -167,8 +178,6 @@ def mkcells(env):
             synapses = {}
 
         h.find_template(h.templatePaths, templateName)
-        ## Round-robin counting.
-        ## Each host as an id from 0 to pc.nhost() - 1.
         i=0
         if env.celltypes[popName]['templateType'] == 'single':
             numCells  = env.celltypes[popName]['num']
@@ -185,7 +194,7 @@ def mkcells(env):
                     print hstmt
                 h(hstmt)
 
-                mksyn(h.cell,synapses,env)
+                mksyn1(h.cell,synapses,env)
                 
                 env.cells.append(h.cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -207,6 +216,10 @@ def mkcells(env):
             inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
             (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
                                                      attributes=True, namespace='Synapse_Attributes')
+            if env.celltypes[popName].has_key('synapses'):
+                synapses = env.celltypes[popName]['synapses']
+            else:
+                synapses = {}
             mygidlist = trees.keys()
             numCells = len(mygidlist)
             h.numCells = numCells
@@ -225,7 +238,8 @@ def mkcells(env):
                 h.vsrc     = tree['section_topology']['src']
                 h.vdst     = tree['section_topology']['dst']
                 ## syn_id syn_type syn_locs section layer
-                h.syn_type = tree['Synapse_Attributes.syn_type']
+                h.syn_ids   = tree['Synapse_Attributes.syn_id']
+                h.syn_types = tree['Synapse_Attributes.syn_type']
                 h.syn_locs = tree['Synapse_Attributes.syn_locs']
                 h.syn_sections = tree['Synapse_Attributes.section']
                 verboseflag = 0
@@ -234,6 +248,7 @@ def mkcells(env):
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsection, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 if env.verbose: print hstmt
                 h(hstmt)
+                mksyn2(h.cell,h.syn_ids,h.syn_types,h.syn_locs,h.syn_sections,synapses,env)
                 env.gidlist.append(gid)
                 i = i+1
         else:

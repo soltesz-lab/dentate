@@ -17,6 +17,11 @@ celltypes:
     templateName: DGC
     templateType: forest
     forestFile: DGC_forest_syns_reduced.h5
+    synapses:
+      0:
+        t_rise: 1.5
+        t_decay: 5.5
+        e_rev: 0
   MC:
     indexfile: MC.dat
     templateName: MossyCell
