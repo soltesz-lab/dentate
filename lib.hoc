@@ -1,10 +1,4 @@
 
-// Dictionary template
-{xopen("./templates/Dict.hoc")}
-
-// Value template
-{xopen("./templates/Value.hoc")}
-
 objref strfun
 strfun = new StringFunctions()
 
@@ -309,7 +303,7 @@ func findCellType() { local i, result localobj cellTypes, cellType
     
     return result
 }
-
+/*
 // Loads cell/synapse type info into a Dict
 proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex localobj f, ff, cellTypes, cellType, indices, indicesCoords
     
@@ -814,7 +808,7 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, rate localob
             stimType = new Dict(stimTypeName)
             stimType.addPropertyString("typeName",stimTypeName)
             
-            sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
+q            sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
             indices = new Vector()
             ff = new File()
             ff.ropen(indexPath)
@@ -842,7 +836,7 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, rate localob
     f.close()
     
 }
-
+*/
 walltime = 0
 
 dt_status = 1.0

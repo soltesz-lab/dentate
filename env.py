@@ -1,37 +1,42 @@
+import os.path, string
 import yaml
+from neuron import h
 
 class Env:
     """Network model configuration."""
 
     def load_celltypes(self):
         offset = 0
-        celltypes = self.celltypes['celltypes']
-        for k in celltypes.keys():
+        celltypes = self.celltypes
+        typenames = celltypes.keys()
+        typenames.sort()
+        for k in typenames:
             if celltypes[k].has_key('cardinality'):
                 num = celltypes[k]['cardinality']
                 celltypes[k]['offset'] = offset
                 celltypes[k]['num'] = num
+                start  = offset
                 offset = offset+num
+                index  = range(start, offset)
+                celltypes[k]['index'] = index
             elif celltypes[k].has_key('indexfile'):
                 index=[]
-                f = open(inputfile)
+                f = open(os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexfile']))
                 lines = f.readlines(self.bufsize)
                 while lines:
-                    for l in lines:
-                        a = l.split(self.colsep)
-                        index.append(int(a[0]))
+                    for l in lines[1:]:
+                        a = (l.strip()).split(self.colsep)
+                        index.append(int(round(float(a[0]))))
                     lines = f.readlines(self.bufsize)
                 f.close()
                 celltypes[k]['index'] = index
                 celltypes[k]['offset'] = offset
                 celltypes[k]['num'] = len(index)
-                assert(offset >= min(index))
-                offset=offset+len(index)
-                
+                offset=max(index)+1
     
     def __init__(self, comm,
-                     modelName, datasetPrefix, datasetName, celltypesFileName, connectivityFileName, gapjunctionsFileName, resultsPath,
-                     IOsize, vrecordFraction, verbose, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt):
+                 modelName, templatePaths, datasetPrefix, datasetName, celltypesFileName, connectivityFileName, gapjunctionsFileName, resultsPath,
+                 IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, verbose):
         """
         :param modelName: the name of this model
         :param datasetPrefix: the location of all datasets
@@ -51,6 +56,9 @@ class Env:
         :param verbose: print verbose diagnostic messages while constructing the network
         """
 
+        self.gidlist = []
+        self.cells  = []
+
         self.comm = comm
         
         self.colsep = ' ' # column separator for text data files
@@ -61,6 +69,9 @@ class Env:
 
         # The name of this model
         self.modelName = modelName
+
+        # Directories for cell templates
+        self.templatePaths = string.split(templatePaths, ':')
 
         # The location of all datasets
         self.datasetPrefix = datasetPrefix
@@ -108,17 +119,21 @@ class Env:
         self.coredat = coredat
 
         with open(self.celltypesPath) as fp:
-            self.celltypes = yaml.load(fp)
+            content = yaml.load(fp)
+            self.celltypes = content['celltypes']
+            self.synapseOrder  = content['synapses']['order']
         self.load_celltypes()
             
         with open(self.connectivityPath) as fp:
-            self.connectivity = yaml.load(fp)
+            self.connectivity = yaml.load(fp)['projections']
 
         with open(self.gapjunctionsPath) as fp:
             self.gapjunctions = yaml.load(fp)
 
-        self.cells = []
-        self.H5Graph = {}
-
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
+
+        # used to calculate model construction times and run time
+        self.mkcellstime = 0
+        self.connectcellstime = 0
+        self.connectgjstime = 0

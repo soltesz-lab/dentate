@@ -1,38 +1,270 @@
-# Cell types  for dentate gyrus model
+# Synapse indexing used for cells in dentate gyrus model
+synapses:
+  order:
+    GC: 0
+    MC: 1
+    HC: 2
+    BC: 3
+    AAC:  4
+    HCC:  5
+    NGFC_A: 6
+    NGFC_B: 7
+    MPP:  8
+    LPP:  9
+# Cell types for dentate gyrus model
 celltypes: 
   GC:
-    indexfile: GC.dat
     templateName: DGC
     templateType: forest
+    forestFile: DGC_forest_syns_reduced.h5
   MC:
     indexfile: MC.dat
     templateName: MossyCell
     templateType: single
+    synapses:
+      GC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 0.5
+        t_decay: 6.2
+        e_rev: 0
+      MC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 0.45
+        t_decay: 2.2
+        e_rev: 0
+      HC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 2
+        t_rise: 0.5
+        t_decay: 6.0
+        e_rev: -70
+      BC:
+        location: soma
+        t_rise: 0.3
+        t_decay: 3.3
+        e_rev: -70
+      AAC:
+        location: soma
+        t_rise: 0.3
+        t_decay: 3.3
+        e_rev: -70
+      HCC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 2
+        t_rise: 0.6
+        t_decay: 4.7
+        e_rev: -70
   HC:
     indexfile: HC.dat
     templateName: HIPPCell
     templateType: single
+    synapses:
+      GC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 0.3
+        t_decay: 0.6
+        e_rev: 0
+      MC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 1
+        t_rise: 0.9
+        t_decay: 3.6
+        e_rev: 0
+      HC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 0.37
+        t_decay: 10.48
+        e_rev: -70
+      BC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 1
+        t_rise: 0.265
+        t_decay: 2.88
+        e_rev: -70
   BC:
     indexfile: BC.dat
     templateName: BasketCell
     templateType: single
+    synapses:
+      GC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 0.3
+        t_decay: 0.6
+        e_rev: 0
+      MC:
+        location:
+          dendrite: [0, 1]
+          compartment: 1
+        t_rise: 0.9
+        t_decay: 3.6
+        e_rev: 0
+      HC:
+        location:
+          dendrite: [0, 1]
+          compartment: 3
+        t_rise: 0.46
+        t_decay: 4.43
+        e_rev: -70
+      BC:
+        location:
+          dendrite: [0, 1]
+          compartment: 1
+        t_rise: 0.22
+        t_decay: 3.35
+        e_rev: -70
+      HCC:
+        location:
+          dendrite: [0, 1]
+          compartment: 1
+        t_rise: 0.6
+        t_decay: 4.78
+        e_rev: -70
+      NGFC_A:
+        location:
+          dendrite: [0, 1]
+          compartment: 3
+        t_rise: 4.2
+        t_decay: 14
+        e_rev: -70
+      NGFC_B:
+        location:
+          dendrite: [0, 1]
+          compartment: 3
+        t_rise: 86.8
+        t_decay: 428.1
+        e_rev: -70
   AAC:
     indexfile: AAC.dat
     templateName: AxoAxonicCell
     templateType: single
-  HCC:
-    indexfile: HCC.dat
-    templateName: HICAPCell
-    templateType: single
+    synapses:
+      GC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 0.3
+        t_decay: 0.6
+        e_rev: 0
+      MC:
+        location:
+          dendrite: [0, 1]
+          compartment: 1
+        t_rise: 0.9
+        t_decay: 3.6
+        e_rev: 0
+      HC:
+        location:
+          dendrite: [0, 1]
+          compartment: 3
+        t_rise: 0.46
+        t_decay: 4.43
+        e_rev: -70
+      NGFC_A:
+        location:
+          dendrite: [0, 1]
+          compartment: 3
+        t_rise: 4.2
+        t_decay: 14
+        e_rev: -70
+      NGFC_B:
+        location:
+          dendrite: [0, 1]
+          compartment: 3
+        t_rise: 86.8
+        t_decay: 428.1
+        e_rev: -70
+#  HCC:
+#    indexfile: HCC.dat
+#    templateName: HICAPCell
+#    templateType: single
+    # synapses:
+    #   GC:
+    #     location:
+    #       dendrite: [0, 1, 2, 3]
+    #       compartment: 0
+    #     t_rise: 0.3
+    #     t_decay: 0.6
+    #     e_rev: 0
+    #   MC:
+    #     location:
+    #       dendrite: [0, 1]
+    #       compartment: 1
+    #     t_rise: 0.9
+    #     t_decay: 3.6
+    #     e_rev: 0
+    #   BC:
+    #     location:
+    #       dendrite: [0, 1]
+    #       compartment: 1
+    #     t_rise: 0.28
+    #     t_decay: 3.45
+    #     e_rev: -70
+    #   HCC:
+    #     location:
+    #       dendrite: [0, 1]
+    #       compartment: 1
+    #     t_rise: 0.72
+    #     t_decay: 4.7
+    #     e_rev: -70
+    #   NGFC_A:
+    #     location:
+    #       dendrite: [0, 1]
+    #       compartment: 3
+    #     t_rise: 4.2
+    #     t_decay: 14
+    #     e_rev: -70
+    #   NGFC_B:
+    #     location:
+    #       dendrite: [0, 1]
+    #       compartment: 3
+    #     t_rise: 86.8
+    #     t_decay: 428.1
+    #     e_rev: -70
   NGFC:
     indexfile: NGFC.dat
     templateName: NGFCell
     templateType: single
+    synapses:
+      HC:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 0.72
+        t_decay: 10
+        e_rev: -70
+      NGFC_A:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 4.5
+        t_decay: 13.8
+        e_rev: -70
+      NGFC_B:
+        location:
+          dendrite: [0, 1, 2, 3]
+          compartment: 0
+        t_rise: 86.8
+        t_decay: 428.1
+        e_rev: -70
   MPP:
     indexfile: MPP.dat
     templateName: MPPCell
     templateType: single
-  LPP:
-    indexfile: LPP.dat
-    templateName: LPPCell
-    templateTemplateType: single
+#  LPP:
+#    indexfile: LPP.dat
+#    templateName: LPPCell
+#    templateTemplateType: single

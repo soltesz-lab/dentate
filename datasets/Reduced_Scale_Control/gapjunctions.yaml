@@ -1,0 +1,11 @@
+# Gap junction projection definitions for dentate gyrus model
+gapjunctions: 
+  HCtoHC:
+    src: HC
+    dst: HC
+  BCtoBC:
+    src: BC
+    dst: BC
+  NGFCtoNGFC:
+    src: NGFC
+    dst: NGFC
