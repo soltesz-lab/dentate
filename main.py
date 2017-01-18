@@ -8,107 +8,59 @@ import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-#from neurograph.io import scatter_graph
+from neurograph.io import scatter_graph
 from neurotrees.io import scatter_read_trees
 from env import Env
 
-def prj_offsets(order):
-    if (order == 2):
-        return lambda (presynapticOffset,postsynapticOffset,dst,sources): (sources+presynapticOffset, dst)
-    elif (order == 1):
-        # absolute numbering of pre/post synaptic cells
-        return lambda (presynapticOffset,postsynapticOffset,dst,sources): (dst, sources)
-    elif (order == 0):
-        # relative numbering of pre/post synaptic cells -- add the respective offsets
-        return lambda (presynapticOffset,postsynapticOffset,sources,dst): (sources+presynapticOffset, dst+postsynapticOffset)
-    else:
-        error ("unknown connectivity order type")
-
         
-def connect_h5prj(pnm, connectivityType, synType, presynapticSize, presynapticOffset, postsynapticSize, postsynapticOffset, prjname):
-    
-    order   = connectivityType.getPropertyScalar("order")
-    synType = connectivityType.getPropertyObject("synType")
-    wdType  = connectivityType.getPropertyScalar("wdType")
+def connectprj(env, graph, prjname, prjvalue):
+    prjType    = prjvalue['type']
+    indexType  = prjvalue['index']
+    prj        = graph[prjname]
 
-    h5prj = H5Graph[prjname]
-
-    f_offsets = prj_offsets(order)
-    
-    if (len(h5prj.keys()) > 0):
-
-        if (wdType == 1):
-            for dst in h5prj:
-                edges   = h5prj[dst]
-                sources = edges[0]
-                weights = edges[1]
-                delays  = edges[2]
-                dst1,sources1 = f_offsets(presynapticOffset,postsynapticOffset,dst,sources)
+    if (prjType == 'long.+trans.dist'):
+        wgtval = prjvalue['weight']
+        if isinstance(wgtval,list):
+            wgtlst = h.List()
+            for val in wgtval:
+                wgtlst.append(val)
+            h.synWeight = h.Value(2,wgtlst)
+        else:
+            h.synWeight = h.Value(0,wgtval)
+        idxval = prjvalue['synIndex']
+        if isinstance(idxval,list):
+            idxlst = h.List()
+            for val in idxval:
+                idxlst.append(val)
+            h.synIndex = h.Value(2,idxlst)
+        else:
+            h.synIndex = h.Value(0,idxval)
+        velocity = prjvalue['velocity']
+        for destination in prj:
+            edges  = prj[dst]
+            sources = edges[0]
+            ldists  = edges[1]
+            tdists  = edges[2]
+            if indexType == 'absolute':
                 for i in range(0,len(sources)):
-                    h.nc_appendsyn(pnm, sources1[i], dst1, synType, weights[i], delays[i])
-
-        elif (wdType == 2):
-            weight = connectivityType.getPropertyObject("standardWeight")
-            velocity = connectivityType.getPropertyScalar("standardVelocity")
-               
-            for dst in h5prj:
-
-                edges   = h5prj[dst]
-                sources = edges[0]
-                ldist   = edges[1]
-                tdist   = edges[2]
-                
-                dist  = ldist + tdist
-                delay = (dist / velocity) + 1.0
-                    
-                dst1,sources1 = f_offsets(presynapticOffset,postsynapticOffset,dst,sources)
-                
-                for i in range(0,len(sources)):
-                    h.nc_appendsyn(pnm, sources1[i], dst1, synType, weights[i], delays[i])
-               
-        elif (wdType == 3):
-            
-            weights = connectivityType.getPropertyObject("weightHistogram")
-            wscale = connectivityType.getPropertyScalar("weightHistogramScale")
-            w.v.mul(wscale)
-            velocity = connectivityType.getPropertyScalar("standardVelocity")
-            
-            for dst in h5prj:
-
-                edges     = h5prj[dst]
-                sources   = edges[0]
-                distances = edges[1]
-                layers    = edges[2]
-                sections  = edges[3]
-                nodes     = edges[4]
-
-                delays = (distances / velocity) + 1.0
-
-                dst1,sources1 = f_offsets(presynapticOffset,postsynapticOffset,dst,sources)
-
-                for i in range(0,len(sources)):
-                    h.nc_appendsyn_lsn(pnm, sources1[i], dst1, synType, weights[i], delays[i], layers[i], sections[i], nodes[i])
-
-        elif (wdType == 4):
-               
-            w = connectivityType.getPropertyObject("standardWeight")
-            velocity = connectivityType.getPropertyScalar("standardVelocity")
-               
-            for dst in h5prj:
-                
-                edges     = h5prj[dst]
-                sources   = edges[0]
-                distances = edges[1]
-                
-                delays = (distances / velocity) + 1.0
-                    
-                dst1,sources1 = f_offsets(presynapticOffset,postsynapticOffset,dst,sources)
-                
-                for i in range(0,len(sources)):
-                    h.nc_appendsyn(pnm, sources1[i], dst1, synType, weights[i], delays[i])
+                    source   = sources[i]
+                    distance = ldists[i] + tdists[i]
+                    delay = (distance / velocity) + 1.0
+                    h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
+            else:
+                error ("Unsupported index type %s" % indexType)
+        else:
+            error ("Unsupported projection type %s" % prjType)
                        
-    del H5Graph[prjname]
+    del graph[prjname]
 
+def connectcells(env):
+    h('objref synIndex, synWeight')
+    projections = env.projections
+    graph = scatter_graph(MPI._addressof(env.comm), env.connectivityFile, env.IOsize)
+    for name, prj in projections:
+        connectprj(env, graph, name, prj)
+    
 def mksyn1(cell,synapses,env):
     for synkey in synapses.keys():
         synval = synapses[synkey]
@@ -137,7 +89,7 @@ def mksyn1(cell,synapses,env):
                     h.syn.tau1 = t_rise
                     h.syn.tau2 = t_decay
                     h.syn.e    = e_rev
-    		    cell.syns.o(synorder).append(h.syn)
+                    cell.syns.o(synorder).append(h.syn)
                     h.pop_section()
 
 def mksyn2(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
@@ -153,7 +105,7 @@ def mksyn2(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     
 def mkcells(env):
 
-    h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, syn_locs, syn_sections, nc, nil')
+    h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, syn_locs, syn_sections')
     h('numCells = 0')
 
     h('strdef datasetPath')
@@ -238,9 +190,9 @@ def mkcells(env):
                 h.vsrc     = tree['section_topology']['src']
                 h.vdst     = tree['section_topology']['dst']
                 ## syn_id syn_type syn_locs section layer
-                h.syn_ids   = tree['Synapse_Attributes.syn_id']
-                h.syn_types = tree['Synapse_Attributes.syn_type']
-                h.syn_locs = tree['Synapse_Attributes.syn_locs']
+                h.syn_ids      = tree['Synapse_Attributes.syn_id']
+                h.syn_types    = tree['Synapse_Attributes.syn_type']
+                h.syn_locs     = tree['Synapse_Attributes.syn_locs']
                 h.syn_sections = tree['Synapse_Attributes.section']
                 verboseflag = 0
                 if env.verbose:
@@ -258,7 +210,7 @@ def mkcells(env):
 def init(env):
 
     h.load_file("nrngui.hoc")
-    h('objref pc')
+    h('objref pc, nclist, nc, nil')
     ##  new ParallelContext object
     h.pc = h.ParallelContext()
     env.pc = h.pc
@@ -273,6 +225,10 @@ def init(env):
     mkcells(env)
     env.mkcellstime = h.stopsw()
     print "*** Cells created in %g seconds" % env.mkcellstime
+    h.startsw()
+    connectcells(env)
+    env.connectcellstime = h.stopsw()
+    print "*** Cells connected in %g seconds" % env.connectcellstime
 
 # Run the simulation
 def run (env):
@@ -288,7 +244,7 @@ def run (env):
     if (env.pc.id() == 0):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
-        #print "  connected cells in %g seconds\n" % connectcellstime
+        print "  connected cells in %g seconds\n" % connectcellstime
         #print "  created gap junctions in %g seconds\n" % connectgjstime
         print "  ran simulation in %g seconds\n" % env.comptime
         if (maxcomp > 0):
@@ -299,13 +255,9 @@ def run (env):
 
     
 @click.command()
-@click.option("--model-name", required=True)
+@click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--dataset-name", required=True)
-@click.option("--celltypes-filename", default="celltypes.yaml")
-@click.option("--connectivity-filename", default="connectivity.yaml")
-@click.option("--gapjunctions-filename", default="gapjunctions.yaml")
 @click.option("--results-path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
@@ -316,11 +268,8 @@ def run (env):
 @click.option("--results-write-time", type=float, default=30.0)
 @click.option("--dt", type=float, default=0.025)
 @click.option('--verbose', is_flag=True)
-def main(model_name, template_paths, dataset_prefix, dataset_name, celltypes_filename, connectivity_filename, gapjunctions_filename, results_path,
-         io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, verbose):
-    env = Env(MPI.COMM_WORLD,
-              model_name, template_paths, dataset_prefix, dataset_name, celltypes_filename, connectivity_filename, gapjunctions_filename, results_path,
-              io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, verbose)
+def main(config_file, template_paths, dataset_prefix, results_path, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, verbose):
+    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, verbose)
     init(env)
     run(env)
 

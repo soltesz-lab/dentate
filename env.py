@@ -34,16 +34,11 @@ class Env:
                 celltypes[k]['num'] = len(index)
                 offset=max(index)+1
     
-    def __init__(self, comm,
-                 modelName, templatePaths, datasetPrefix, datasetName, celltypesFileName, connectivityFileName, gapjunctionsFileName, resultsPath,
+    def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath,
                  IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, verbose):
         """
-        :param modelName: the name of this model
+        :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
-        :param datasetName: the dataset to use for constructing the network
-        :param celltypesFileName: the cell type/number configuration file to use for constructing the populations in the network
-        :param connectivityFileName: the connectivity configuration file to use for constructing the projections in the network
-        :param gapjunctionsFileName: the connectivity configuration file to use for constructing the gap junction connections in the network
         :param resultsPath: the directory in which to write spike raster and voltage trace files
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
@@ -63,12 +58,11 @@ class Env:
         
         self.colsep = ' ' # column separator for text data files
         self.bufsize = 100000 # buffer size for text data files
+            
 
         # print verbose diagnostic messages while constructing the network
         self.verbose = verbose
 
-        # The name of this model
-        self.modelName = modelName
 
         # Directories for cell templates
         self.templatePaths = string.split(templatePaths, ':')
@@ -76,23 +70,9 @@ class Env:
         # The location of all datasets
         self.datasetPrefix = datasetPrefix
 
-        # The dataset to use for constructing the network
-        self.datasetName = datasetName
 
         # The path where results files should be written
         self.resultsPath = resultsPath
-
-        # The cell type/number configuration file to use for constructing the populations in the network
-        self.celltypesFileName=celltypesFileName
-        self.celltypesPath='%s/%s/%s' % (datasetPrefix,datasetName,celltypesFileName)
-
-        # The connectivity configuration file to use for constructing the projections in the network
-        self.connectivityFileName=connectivityFileName
-        self.connectivityPath='%s/%s/%s' % (datasetPrefix,datasetName,connectivityFileName)
-        
-        # The connectivity configuration file to use for constructing the gap junction connections in the network
-        self.gapjunctionsFileName=gapjunctionsFileName
-        self.gapjunctionsPath='%s/%s/%s' % (datasetPrefix,datasetName,gapjunctionsFileName)
         
         # Number of MPI ranks to be used for I/O operations
         self.IOsize = IOsize
@@ -117,18 +97,21 @@ class Env:
 
         # Save CoreNEURON data
         self.coredat = coredat
-
-        with open(self.celltypesPath) as fp:
-            content = yaml.load(fp)
-            self.celltypes = content['celltypes']
-            self.synapseOrder  = content['synapses']['order']
-        self.load_celltypes()
+        
+        with open(configFile) as fp:
+            self.modelConfig = yaml.load(fp)
             
-        with open(self.connectivityPath) as fp:
-            self.connectivity = yaml.load(fp)['projections']
+        # The name of this model
+        self.modelName = self.modelConfig['modelname']
+        # The dataset to use for constructing the network
+        self.datasetName = self.modelConfig['datasetName']
 
-        with open(self.gapjunctionsPath) as fp:
-            self.gapjunctions = yaml.load(fp)
+        self.celltypes     = self.modelConfig['celltypes']
+        self.synapseOrder  = self.modelConfig['synapses']['order']
+        self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
+        self.projections   = self.modelConfig['connectivity']['projections']
+        self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
+        self.load_celltypes()
 
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
