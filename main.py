@@ -220,7 +220,7 @@ def init(env):
     h.load_file("./templates/ranstream.hoc")
     ## stimulus cell template
     h.load_file("./templates/StimCell.hoc")
-    h.load_file("./lib.hoc")
+    h.xopen("./lib.hoc")
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
