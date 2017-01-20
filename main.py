@@ -57,7 +57,9 @@ def connectprj(env, graph, prjname, prjvalue):
 def connectcells(env):
     h('objref synIndex, synWeight')
     projections = env.projections
-    graph = scatter_graph(MPI._addressof(env.comm), env.connectivityFile, env.IOsize)
+    datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
+    connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
+    graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath, env.IOsize)
     for name, prj in projections:
         connectprj(env, graph, name, prj)
     
@@ -94,7 +96,7 @@ def mksyn1(cell,synapses,env):
 
 def mksyn2(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):
-        cell.alldendrites[syn_section].push()
+        cell.alldendritesList[syn_section].root.push()
         h.syn      = h.Exp2Syn(syn_loc)
         h.syn.tau1 = synapses[syn_type]['t_rise']
         h.syn.tau2 = synapses[syn_type]['t_decay']
@@ -197,7 +199,15 @@ def mkcells(env):
                 verboseflag = 0
                 if env.verbose:
                     verboseflag = 1
-                hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsection, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
+                if env.verbose:
+                    print "gid ", gid, ": "
+                    print "num_sections = ", tree['section_topology']['num_sections']
+                    print "node section map size = ", len(tree['section_topology']['nodes'].keys())
+                    print "node section map keys = ", tree['section_topology']['nodes'].keys()
+                    print "node section map = ", tree['section_topology']['nodes']
+                    print "section src = ", tree['section_topology']['src']
+                    print "section dst = ", tree['section_topology']['dst']
+                hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 if env.verbose: print hstmt
                 h(hstmt)
                 mksyn2(h.cell,h.syn_ids,h.syn_types,h.syn_locs,h.syn_sections,synapses,env)
@@ -235,7 +245,7 @@ def run (env):
     env.pc.psolve(env.tstop)
     h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.idvec)
     #if (env.vrecordFraction > 0):
-    #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(),env.indicesVrecord))
+    #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
     comptime = env.pc.step_time
     avgcomp  = env.pc.allreduce(comptime, 1)/int(env.pc.nhost())
