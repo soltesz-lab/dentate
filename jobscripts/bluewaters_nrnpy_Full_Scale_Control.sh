@@ -5,7 +5,7 @@
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=3:00:00
+#PBS -l walltime=1:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control
 ### set the job stdout and stderr
@@ -15,6 +15,8 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
+### Get darsan profile data
+#PBS -lgres=darshan
 
 module swap PrgEnv-cray PrgEnv-gnu
 module unload gcc
@@ -42,12 +44,12 @@ git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 aprun -n 2048 ./mechanisms/x86_64/special -mpi -python main.py \
-    --model-name=dentatenet \
-    --dataset-name=Full_Scale_Control \
+    --config-file=datasets/Full_Scale_Control/modelconfig.yaml \
+    --template-paths=../dgc/Mateos-Aparicio2014:./templates
     --dataset-prefix="/u/sciteam/raikov/model/dentate/datasets" \
     --results-path=$results_path \
     --io-size=128 \
-    --tstop=1000 \
+    --tstop=3 \
     --v-init=-75 \
     --max-walltime-hours=3
 
