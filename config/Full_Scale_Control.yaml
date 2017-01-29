@@ -199,7 +199,7 @@ celltypes:
     indexfile: HCC.dat
     templateName: HICAPCell
     templateType: single
-     synapses:
+    synapses:
        GC:
          location:
            dendrite: [0, 1, 2, 3]
