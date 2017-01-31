@@ -3,9 +3,9 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=2048:ppn=1:xe
 ### which queue to use
-#PBS -q high
+#PBS -q debug
 ### set the wallclock time
-#PBS -l walltime=1:00:00
+#PBS -l walltime=0:30:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control
 ### set the job stdout and stderr
@@ -20,13 +20,12 @@
 
 module swap PrgEnv-cray PrgEnv-gnu
 module unload gcc
-module load gcc/5.1.0
-module load bwpy bwpy-mpi
 module load cray-hdf5-parallel
+module load bwpy bwpy-mpi
 
 set -x
 
-export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:$PYTHONPATH
+export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
 export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
 export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
 export DARSHAN_LOGPATH=$PWD/darshan-logs
@@ -43,17 +42,12 @@ mkdir -p $results_path
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 2048 ./mechanisms/x86_64/special -mpi -python main.py \
-    --config-file=datasets/Full_Scale_Control/modelconfig.yaml \
-    --template-paths=../dgc/Mateos-Aparicio2014:./templates
-    --dataset-prefix="/u/sciteam/raikov/model/dentate/datasets" \
+aprun -n 2048 ./mechanisms/x86_64/special -mpi -python main.py  \
+    --config-file=config/Full_Scale_Control.yaml  \
+    --template-paths=../dgc/Mateos-Aparicio2014:./templates     \
+    --dataset-prefix="/projects/sciteam/baef/dentate_Full_Scale_Control" \
     --results-path=$results_path \
     --io-size=128 \
     --tstop=3 \
     --v-init=-75 \
     --max-walltime-hours=3
-
-
-
-
-
