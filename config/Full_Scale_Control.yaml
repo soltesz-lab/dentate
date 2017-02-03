@@ -19,7 +19,7 @@ celltypes:
   GC:
     templateName: DGC
     templateType: forest
-    forestFile: DGC_forest_syns_20170111.h5
+    forestFile: DGC_forest_syns_20170202.h5
     synapses:
       0:
         t_rise: 1.5
