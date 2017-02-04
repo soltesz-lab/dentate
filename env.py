@@ -1,6 +1,6 @@
-import os.path, string
-import yaml
+import sys, os.path, string
 from neuron import h
+import yaml
 
 class Env:
     """Network model configuration."""
