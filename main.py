@@ -149,9 +149,6 @@ def mkcells(env):
             env.gidlist.extend(mygidlist)
             for gid in mygidlist:
                 hstmt = 'cell = new %s(%d, %d, "%s")' % (templateName, i, gid, datasetPath)
-                
-                if env.verbose:
-                    print hstmt
                 h(hstmt)
 
                 mksyn1(h.cell,synapses,env)
@@ -204,10 +201,7 @@ def mkcells(env):
                 h.syn_locs     = tree['Synapse_Attributes.syn_locs']
                 h.syn_sections = tree['Synapse_Attributes.section']
                 verboseflag = 0
-                if env.verbose:
-                    verboseflag = 1
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
-                if env.verbose: print hstmt
                 h(hstmt)
                 mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
                 env.gidlist.append(gid)
