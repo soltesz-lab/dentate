@@ -113,6 +113,9 @@ def mkcells(env):
     h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
     h('numCells = 0')
 
+    hostid = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
+
     h('strdef datasetPath')
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
     h.datasetPath = datasetPath
@@ -142,10 +145,8 @@ def mkcells(env):
         if env.celltypes[popName]['templateType'] == 'single':
             numCells  = env.celltypes[popName]['num']
             h.numCells = numCells
-            index = env.celltypes[popName]['index']
-            mygidlist = []
-            for i in range(int(env.pc.id()), numCells, int(env.pc.nhost())):
-                mygidlist.append(index[i])
+            index  = env.celltypes[popName]['index']
+            mygidlist = { x for x in index if x % nhosts == hostid }
             env.gidlist.extend(mygidlist)
             for gid in mygidlist:
                 hstmt = 'cell = new %s(%d, %d, "%s")' % (templateName, i, gid, datasetPath)
