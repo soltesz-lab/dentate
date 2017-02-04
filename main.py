@@ -61,7 +61,7 @@ def connectcells(env):
         print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
-    graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath, env.IOsize)
+    graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
     for name in projections.keys():
         connectprj(env, graph, name, projections[name])
     
@@ -211,6 +211,14 @@ def mkcells(env):
                 h(hstmt)
                 mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
                 env.gidlist.append(gid)
+                env.cells.append(h.cell)
+                env.pc.set_gid2node(gid, int(env.pc.id()))
+                ## Tell the ParallelContext that this cell is a spike source
+                ## for all other hosts. NetCon is temporary.
+                nc = h.cell.connect2target(h.nil)
+                env.pc.cell(gid, nc, 1)
+                ## Record spikes of this cell
+                env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 i = i+1
         else:
              error ("Unsupported template type %s" % (env.celltypes[popName]['templateType']))
