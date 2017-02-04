@@ -272,10 +272,10 @@ celltypes:
     indexfile: MPP.dat
     templateName: MPPCell
     templateType: single
-#  LPP:
-#    indexfile: LPP.dat
-#    templateName: LPPCell
-#    templateTemplateType: single
+  LPP:
+    indexfile: LPP.dat
+    templateName: LPPCell
+    templateType: single
 ## Connectivity configuration for dentate gyrus model
 connectivity:
   connectivityFile: dentate_Full_Scale_Control_MPP.h5

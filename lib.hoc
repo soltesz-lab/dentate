@@ -218,16 +218,18 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
 
 
 // Finds and loads a template located either in ./template or in externalPaths
-proc find_template() { local status localobj externalPaths strdef cmd, path, templatePath, templateName, msg
+proc find_template() { local status, found localobj externalPaths strdef cmd, path, templatePath, templateName, msg
     
   externalPaths = $o1
   templateName = $s2
 
+  found = 0
   path = "./templates"
   sprint(templatePath, "%s/%s.hoc", path, templateName)
   sprint(cmd, "test -e %s", templatePath) // check if the path exist
   status = system(cmd)
   if (status == 0) {
+    found = 1
     sprint(cmd, "load_file(\"%s\")", templatePath)
     status = execute1(cmd)
     if (status == 0) {
@@ -241,6 +243,7 @@ proc find_template() { local status localobj externalPaths strdef cmd, path, tem
       sprint(cmd, "test -e %s", templatePath) // check if the path exist
       status = system(cmd)
       if (status == 0) {
+        found = 1
         sprint(cmd, "load_file(\"%s\")", templatePath)
         status = execute1(cmd)
         if (status == 0) {
@@ -250,6 +253,10 @@ proc find_template() { local status localobj externalPaths strdef cmd, path, tem
         break
       }
     }
+  }
+  if (found == 0) {
+      sprint(msg,"unable to find template %s",templateName)
+      execerror("find_template",msg)
   }
 }
 

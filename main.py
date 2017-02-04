@@ -37,7 +37,7 @@ def connectprj(env, graph, prjname, prjvalue):
             h.synIndex = h.Value(0,idxval)
         velocity = prjvalue['velocity']
         for destination in prj:
-            edges  = prj[dst]
+            edges  = prj[destination]
             sources = edges[0]
             ldists  = edges[1]
             tdists  = edges[2]
@@ -57,11 +57,13 @@ def connectprj(env, graph, prjname, prjvalue):
 def connectcells(env):
     h('objref synIndex, synWeight')
     projections = env.projections
+    if env.verbose:
+        print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath, env.IOsize)
-    for name, prj in projections:
-        connectprj(env, graph, name, prj)
+    for name in projections.keys():
+        connectprj(env, graph, name, projections[name])
     
 def mksyn1(cell,synapses,env):
     for synkey in synapses.keys():
@@ -122,6 +124,10 @@ def mkcells(env):
     popNames = env.celltypes.keys()
     popNames.sort()
     for popName in popNames:
+        templateName = env.celltypes[popName]['templateName']
+        h.find_template(h.templatePaths, templateName)
+
+    for popName in popNames:
 
         if env.verbose:
             print "*** Creating population %s" % popName
@@ -132,7 +138,6 @@ def mkcells(env):
         else:
             synapses = {}
 
-        h.find_template(h.templatePaths, templateName)
         i=0
         if env.celltypes[popName]['templateType'] == 'single':
             numCells  = env.celltypes[popName]['num']
@@ -169,7 +174,6 @@ def mkcells(env):
             h('objref vx, vy, vz, vradius, vsection, vlayer, vsection, vsrc, vdst, secnodes')
             h('gid = fid = node = 0')
             inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
-            print "inputFilePath = ", inputFilePath
             (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
                                                      attributes=True, namespace='Synapse_Attributes')
             if env.celltypes[popName].has_key('synapses'):
