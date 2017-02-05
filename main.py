@@ -152,7 +152,12 @@ def mkcells(env):
             numCells  = env.celltypes[popName]['num']
             h.numCells = numCells
             index  = env.celltypes[popName]['index']
-            mygidlist = { x for x in index if x % nhosts == hostid }
+
+            mygidlist = []
+            for x in index:
+                if (x % nhosts) == hostid:
+                    mygidlist.append(x)
+
             if env.verbose:
                 print "Population %s, rank %d: " % (popName, env.pc.id())
                 print mygidlist

@@ -26,7 +26,7 @@ class Env:
                 while lines:
                     for l in lines[1:]:
                         a = (l.strip()).split(self.colsep)
-                        index.append(int(round(float(a[0]))))
+                        index.append(int(round(float(a[0])))-1)
                     lines = f.readlines(self.bufsize)
                 f.close()
                 celltypes[k]['index'] = index
