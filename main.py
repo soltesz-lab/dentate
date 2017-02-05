@@ -58,11 +58,15 @@ def connectcells(env):
     h('objref synIndex, synWeight')
     projections = env.projections
     if env.verbose:
-        print projections
+        if env.pc.id() == 0:
+            print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
     for name in projections.keys():
+        if env.verbose:
+            if env.pc.id() == 0:
+                print "*** Creating projection %s" % name
         connectprj(env, graph, name, projections[name])
     
 def mksyn1(cell,synapses,env):
@@ -133,7 +137,8 @@ def mkcells(env):
     for popName in popNames:
 
         if env.verbose:
-            print "*** Creating population %s" % popName
+            if env.pc.id() == 0:
+                print "*** Creating population %s" % popName
         
         templateName = env.celltypes[popName]['templateName']
         if env.celltypes[popName].has_key('synapses'):
@@ -236,11 +241,15 @@ def init(env):
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
-    print "*** Cells created in %g seconds" % env.mkcellstime
+    env.pc.barrier()
+    if (env.pc.id() == 0):
+        print "*** Cells created in %g seconds" % env.mkcellstime
     h.startsw()
     connectcells(env)
     env.connectcellstime = h.stopsw()
-    print "*** Cells connected in %g seconds" % env.connectcellstime
+    env.pc.barrier()
+    if (env.pc.id() == 0):
+        print "*** Cells connected in %g seconds" % env.connectcellstime
 
 # Run the simulation
 def run (env):
