@@ -7,10 +7,10 @@ import click
 import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
+from neuron import h
 from neurograph.io import scatter_graph
 from neurotrees.io import scatter_read_trees
 from env import Env
-from neuron import h
 
         
 def connectprj(env, graph, prjname, prjvalue):
