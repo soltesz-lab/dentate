@@ -305,6 +305,14 @@ connectivity:
       synIndex: 2
       weight: 6.0
       velocity: 250.0
+    HCCtoGC:
+      source: HCC
+      destination: GC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 5
+      weight: 0.2
+      velocity: 250.0
     MCtoGC:
       source: MC
       destination: GC
@@ -353,12 +361,28 @@ connectivity:
       synIndex: 2
       weight: 1.0
       velocity: 250.0
+    HCCtoMC:
+      source: HCC
+      destination: MC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 5
+      weight: 0.6
+      velocity: 250.0
     MCtoMC:
       source: MC
       destination: MC
       index: absolute
       type: long.+trans.dist
       synIndex: 1
+      weight: 0.5
+      velocity: 250.0
+    GCtoHC:
+      source: GC
+      destination: HC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 0
       weight: 0.5
       velocity: 250.0
     HCtoHC:
@@ -401,6 +425,14 @@ connectivity:
       synIndex: 1
       weight: 0.3
       velocity: 250.0
+    HCCtoBC:
+      source: HCC
+      destination: BC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 5
+      weight: 0.664
+      velocity: 250.0
     NGFCtoBC:
       source: NGFC
       destination: BC
@@ -424,6 +456,14 @@ connectivity:
       type: long.+trans.dist
       synIndex: 1
       weight: 0.3
+      velocity: 250.0
+    HCtoAAC:
+      source: HC
+      destination: AAC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 2
+      weight: 2.14
       velocity: 250.0
     NGFCtoAAC:
       source: NGFC
