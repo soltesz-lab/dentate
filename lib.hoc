@@ -72,7 +72,7 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, 
     assert (synIndex.is_undefined == 0,"synIndex is undefined")
     i = nclist.count()
     if (synIndex.is_number) {
-        mknetcon(pc, lsrc, cell.syns.o(synIndex.n), w.n/1000.0, del)
+        mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.n), w.n/1000.0, del)
     } else {
         mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(0).n), w.l.o(0).n/1000.0, del)
         mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(1).n), w.l.o(1).n/1000.0, del)
