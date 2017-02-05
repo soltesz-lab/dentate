@@ -48,9 +48,9 @@ def connectprj(env, graph, prjname, prjvalue):
                     delay = (distance / velocity) + 1.0
                     h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
-                error ("Unsupported index type %s" % indexType)
-        else:
-            error ("Unsupported projection type %s" % prjType)
+                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
+    else:
+        raise RuntimeError ("Unsupported projection type %s of projection %s" % (prjType, prjname))
                        
     del graph[prjname]
 
