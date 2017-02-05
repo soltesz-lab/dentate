@@ -228,6 +228,7 @@ def init(env):
 
     h.load_file("nrngui.hoc")
     h('objref pc, nclist, nc, nil')
+    h.nclist = h.List()
     ##  new ParallelContext object
     h.pc = h.ParallelContext()
     env.pc = h.pc
