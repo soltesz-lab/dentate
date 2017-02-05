@@ -23,7 +23,8 @@ def connectprj(env, graph, prjname, prjvalue):
         if isinstance(wgtval,list):
             wgtlst = h.List()
             for val in wgtval:
-                wgtlst.append(val)
+                hval = h.Value(0, wgtval)
+                wgtlst.append(hval)
             h.synWeight = h.Value(2,wgtlst)
         else:
             h.synWeight = h.Value(0,wgtval)
@@ -152,6 +153,10 @@ def mkcells(env):
             h.numCells = numCells
             index  = env.celltypes[popName]['index']
             mygidlist = { x for x in index if x % nhosts == hostid }
+            if env.verbose:
+                print "Population %s, rank %d: " % (popName, env.pc.id())
+                print mygidlist
+        
             env.gidlist.extend(mygidlist)
             for gid in mygidlist:
                 hstmt = 'cell = new %s(%d, %d, "%s")' % (templateName, i, gid, datasetPath)
