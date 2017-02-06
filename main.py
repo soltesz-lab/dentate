@@ -51,13 +51,31 @@ def connectprj(env, graph, prjname, prjvalue):
                     h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
+    elif (prjType == 'syn'):
+        wgtvector = prjvalue['weights']
+        h.synWeightVector = h.Vector()
+        h.synWeightVector.from_python(wgtvector)
+        h.synType = h.Value(0,prjvalue['synType'])
+        velocity = prjvalue['velocity']
+        for destination in prj:
+            edges  = prj[destination]
+            sources = edges[0]
+            synidxs = edges[1]
+            if indexType == 'absolute':
+                for i in range(0,len(sources)):
+                    source   = sources[i]
+                    h.synIndex = h.Value(0,synidxs[i])
+                    delay = 1.0
+                    h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.synType, h.synIndex, h.synWeightVector, delay)
+            else:
+                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     else:
         raise RuntimeError ("Unsupported projection type %s of projection %s" % (prjType, prjname))
                        
     del graph[prjname]
 
 def connectcells(env):
-    h('objref synIndex, synWeight')
+    h('objref synType, synIndex, synWeight, synWeightVector')
     projections = env.projections
     if env.verbose:
         if env.pc.id() == 0:

@@ -1,9 +1,20 @@
 import sys, os.path, string
 from neuron import h
+import numpy as np
 import yaml
 
 class Env:
     """Network model configuration."""
+
+    def load_prjtypes(self):
+        projections = self.projections
+        prjnames = projections.keys()
+        prjnames.sort()
+        for k in prjnames:
+            projection = projections[k]
+            if projection['type'] == 'syn':
+                weights = np.fromfile(projection['weightsFile'],sep='\n')
+                projection['weights'] = weights
 
     def load_celltypes(self):
         offset = 0
@@ -113,6 +124,7 @@ class Env:
         self.projections   = self.modelConfig['connectivity']['projections']
         self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
         self.load_celltypes()
+        self.load_prjtypes()
 
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
