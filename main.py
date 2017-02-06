@@ -32,7 +32,8 @@ def connectprj(env, graph, prjname, prjvalue):
         if isinstance(idxval,list):
             idxlst = h.List()
             for val in idxval:
-                idxlst.append(val)
+                hval = h.Value(0, val)
+                idxlst.append(hval)
             h.synIndex = h.Value(2,idxlst)
         else:
             h.synIndex = h.Value(0,idxval)
