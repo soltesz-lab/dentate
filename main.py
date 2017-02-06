@@ -23,7 +23,7 @@ def connectprj(env, graph, prjname, prjvalue):
         if isinstance(wgtval,list):
             wgtlst = h.List()
             for val in wgtval:
-                hval = h.Value(0, wgtval)
+                hval = h.Value(0, val)
                 wgtlst.append(hval)
             h.synWeight = h.Value(2,wgtlst)
         else:
