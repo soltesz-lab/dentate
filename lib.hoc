@@ -103,8 +103,8 @@ func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx
     assert (pc.gid_exists(ltar), errmsg)
     // target in this subset
     // source may be on this or another machine
-    cell = pnm.pc.gid2cell(ltar)
-    i = pnm.nclist.count()
+    cell = pc.gid2cell(ltar)
+    i = nclist.count()
     if (synType.is_number) {
       synidx = synIndex.n
       widx = (ltar + synidx) % wsize
