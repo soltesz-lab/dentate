@@ -22,9 +22,10 @@ class Env:
             elif celltypes[k].has_key('indexfile'):
                 index=[]
                 f = open(os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexfile']))
+                f.readline()
                 lines = f.readlines(self.bufsize)
                 while lines:
-                    for l in lines[1:]:
+                    for l in lines:
                         a = (l.strip()).split(self.colsep)
                         index.append(int(round(float(a[0])))-1)
                     lines = f.readlines(self.bufsize)
