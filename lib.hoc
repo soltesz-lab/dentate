@@ -96,8 +96,7 @@ func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx
     synType  = $o5
     synIndex = $o6
     w        = $o7
-    assert (w.is_vector == 1,"w is not a vector")
-    wsize    = w.v.size()
+    wsize    = w.size()
     del      = $8
     sprint(errmsg,"nc_appendsyn_wgtvector: gid %d does not exist on host %d",ltar,pc.id())
     assert (pc.gid_exists(ltar), errmsg)
@@ -108,7 +107,7 @@ func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx
     if (synType.is_number) {
       synidx = synIndex.n
       widx = (ltar + synidx) % wsize
-      mknetcon1(pc, nclist, lsrc, cell.allsyns.o(synType.n), synidx, w.v.x[widx]/1000.0, del)
+      mknetcon1(pc, nclist, lsrc, cell.allsyns.o(synType.n), synidx, w.x[widx]/1000.0, del)
     } else {
       execerror ("Unsupported synapse type")
     }
