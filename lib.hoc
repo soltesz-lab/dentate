@@ -24,13 +24,16 @@ proc printCellSections() { localobj cell strdef typeName
 }
 
 // Adds a network connection to a single synapse in a list
-proc mknetcon1() { local srcgid, index localobj synlist, pc, nclist, nc
+proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc strdef errmsg
     pc      = $o1
     nclist  = $o2
     srcgid  = $3
-    synlist = $o4
-    index   = $5
-    //printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)
+    dstgid  = $4
+    synlist = $o5
+    index   = $6
+    printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)
+    sprint(errmsg,"mknetcon1: gid %d: synapse index %d is greater than total number of synapses (%d)",dstgid,index,synlist.count())
+    assert (index < synlist.count(), errmsg)
     nc = pc.gid_connect(srcgid, synlist.o(index))
     nc.weight = $5
     nc.delay = $6
@@ -107,7 +110,7 @@ func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx
     if (synType.is_number) {
       synidx = synIndex.n
       widx = (ltar + synidx) % wsize
-      mknetcon1(pc, nclist, lsrc, cell.allsyns.o(synType.n), synidx, w.x[widx]/1000.0, del)
+      mknetcon1(pc, nclist, lsrc, ltar, cell.allsyns.o(synType.n), synidx, w.x[widx]/1000.0, del)
     } else {
       execerror ("Unsupported synapse type")
     }
