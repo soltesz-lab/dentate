@@ -275,7 +275,8 @@ def init(env):
     if (env.pc.id() == 0):
         print "*** Cells created in %g seconds" % env.mkcellstime
     h.startsw()
-    connectcells(env)
+    if not env.cells_only:
+        connectcells(env)
     env.connectcellstime = h.stopsw()
     env.pc.barrier()
     if (env.pc.id() == 0):
@@ -284,7 +285,7 @@ def init(env):
 # Run the simulation
 def run (env):
     env.pc.psolve(env.tstop)
-    h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.idvec)
+    h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.id_vec)
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
@@ -318,9 +319,10 @@ def run (env):
 @click.option("--max-walltime-hours", type=float, default=1.0)
 @click.option("--results-write-time", type=float, default=30.0)
 @click.option("--dt", type=float, default=0.025)
+@click.option("--cells-only", is_flag=True)
 @click.option('--verbose', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, verbose):
-    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, verbose)
+def main(config_file, template_paths, dataset_prefix, results_path, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
+    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
     init(env)
     run(env)
 
