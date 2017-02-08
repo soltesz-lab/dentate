@@ -31,13 +31,16 @@ proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc 
     dstgid  = $4
     synlist = $o5
     index   = $6
-    printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)
     sprint(errmsg,"mknetcon1: gid %d: synapse index %d is greater than total number of synapses (%d)",dstgid,index,synlist.count())
-    assert (index < synlist.count(), errmsg)
-    nc = pc.gid_connect(srcgid, synlist.o(index))
-    nc.weight = $5
-    nc.delay = $6
-    nclist.append(nc)
+    //assert (index < synlist.count(), errmsg)
+    if (index < synlist.count()) {
+        nc = pc.gid_connect(srcgid, synlist.o(index))
+        nc.weight = $7
+	nc.delay = $8
+	nclist.append(nc)
+    } else {
+      printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)  
+    }
 }
 
 
