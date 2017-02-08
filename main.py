@@ -122,7 +122,7 @@ def mksyn1(cell,synapses,env):
 
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,swc_types,syn_locs,syn_sections):
-        if swc_type == 4:
+        if swc_type == 5:
             cell.alldendritesList[syn_section].root.push()
             h.syn      = h.Exp2Syn(syn_loc)
             h.syn.tau1 = synapses[syn_type]['t_rise']
@@ -290,7 +290,7 @@ def run (env):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
     comptime = env.pc.step_time
-    avgcomp  = env.pc.allreduce(comptime, 1)/int(env.pc.nhost())
+    avgcomp  = env.pc.allreduce(comptime, 1)/env.pc.nhost()
     maxcomp  = env.pc.allreduce(comptime, 2)
 
     if (env.pc.id() == 0):
