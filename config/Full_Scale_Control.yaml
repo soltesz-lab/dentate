@@ -25,6 +25,10 @@ celltypes:
         t_rise: 1.5
         t_decay: 5.5
         e_rev: 0
+      1:
+        t_rise: 1.5
+        t_decay: 2.5
+        e_rev: -75
   MC:
     indexfile: MC.dat
     templateName: MossyCell

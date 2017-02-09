@@ -48,6 +48,8 @@ def connectprj(env, graph, prjname, prjvalue):
                     source   = sources[i]
                     distance = ldists[i] + tdists[i]
                     delay = (distance / velocity) + 1.0
+                    if delay <= 0:
+                        delay = 1.0
                     h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
@@ -123,13 +125,14 @@ def mksyn1(cell,synapses,env):
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,swc_types,syn_locs,syn_sections):
         if swc_type == 5:
-            cell.alldendritesList[syn_section].root.push()
-            h.syn      = h.Exp2Syn(syn_loc)
-            h.syn.tau1 = synapses[syn_type]['t_rise']
-            h.syn.tau2 = synapses[syn_type]['t_decay']
-            h.syn.e    = synapses[syn_type]['e_rev']
-            cell.allsyns.o(syn_type).append(h.syn)
-            h.pop_section()
+            if syn_section < cell.alldendritesList.count():
+                cell.alldendritesList[syn_section].root.push()
+                h.syn      = h.Exp2Syn(syn_loc)
+                h.syn.tau1 = synapses[syn_type]['t_rise']
+                h.syn.tau2 = synapses[syn_type]['t_decay']
+                h.syn.e    = synapses[syn_type]['e_rev']
+                cell.allsyns.o(syn_type).append(h.syn)
+                h.pop_section()
 
 def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):
@@ -303,7 +306,7 @@ def run (env):
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
-    comptime = env.pc.step_time
+    comptime = env.pc.step_time()
     avgcomp  = env.pc.allreduce(comptime, 1)/env.pc.nhost()
     maxcomp  = env.pc.allreduce(comptime, 2)
 
