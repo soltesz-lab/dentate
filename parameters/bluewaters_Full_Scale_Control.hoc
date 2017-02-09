@@ -28,7 +28,7 @@ v_init = -75
 tstop = 1000
 
 // maximum wall time in hours
-max_walltime_hrs = 6
+max_walltime_hrs = 3
 
 // time to write out results at end of simulation
 results_write_time = 300
@@ -37,7 +37,7 @@ results_write_time = 300
 dt = 0.025
 
 // Fraction of cells to record intracellular voltage from
-vrecordFraction = 0.001
+vrecordFraction = 0
 
 use_cvode=0
 use_cache_efficient=1

@@ -14,7 +14,7 @@ datasetName = "Full_Scale_Control"
 // The connectivity configuration file to use for constructing the network
 // (default is connectivity.dat)
 //connectivityFileName = "connectivity.dat.ReducedPPtoNGFC"
-connectivityFileName = "connectivity.dat.IncreasedGCtoMC.PPtoNGFC.2"
+connectivityFileName = "connectivity.dat.IncreasedGCtoMC.5.3"
 
 // Size of a single forest for variable morphology cells
 forestSize = 1000

@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1024:ppn=2:xe
+#PBS -l nodes=2048:ppn=1:xe
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=6:00:00
+#PBS -l walltime=3:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control
 ### set the job stdout and stderr
@@ -15,10 +15,12 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
-### Get darsan profile data
-#PBS -lgres=darshan
 
-module swap PrgEnv-cray PrgEnv-intel
+module swap PrgEnv-cray PrgEnv-gnu
+module unload gcc
+module load gcc/5.1.0
+module load bwpy
+module load bwpy-mpi
 
 set -x
 

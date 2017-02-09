@@ -1,10 +1,4 @@
 
-// Dictionary template
-{xopen("./templates/Dict.hoc")}
-
-// Value template
-{xopen("./templates/Value.hoc")}
-
 objref strfun
 strfun = new StringFunctions()
 
@@ -30,28 +24,37 @@ proc printCellSections() { localobj cell strdef typeName
 }
 
 // Adds a network connection to a single synapse in a list
-proc mknetcon1() { local srcgid, index localobj synlist, pnm, nc
-    pnm = $o1
-    srcgid = $2
-    synlist = $o3
-    index = $4
-    //printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)
-    nc = pnm.pc.gid_connect(srcgid, synlist.o(index))
-    nc.weight = $5
-    nc.delay = $6
-    pnm.nclist.append(nc)
+proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc strdef errmsg
+    pc      = $o1
+    nclist  = $o2
+    srcgid  = $3
+    dstgid  = $4
+    synlist = $o5
+    index   = $6
+    sprint(errmsg,"mknetcon1: gid %d: synapse index %d is greater than total number of synapses (%d)",dstgid,index,synlist.count())
+    //assert (index < synlist.count(), errmsg)
+    if (index < synlist.count()) {
+        nc = pc.gid_connect(srcgid, synlist.o(index))
+        nc.weight = $7
+	nc.delay = $8
+	nclist.append(nc)
+    } else {
+      printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)  
+    }
 }
 
 
 // Adds network connections to all synapses in a list
-proc mknetcon() { local i localobj synlist, pnm, nc
-    pnm = $o1
-    synlist = $o3
+proc mknetcon() { local i localobj synlist, nclist, pc, nc
+    pc      = $o1
+    nclist  = $o2
+    src     = $3
+    synlist = $o4
     for i=0, synlist.count()-1 {
-        nc = pnm.pc.gid_connect($2, synlist.o(i))
-        nc.weight = $4
-        nc.delay = $5
-        pnm.nclist.append(nc)
+        nc = pc.gid_connect(src, synlist.o(i))
+        nc.weight = $5
+        nc.delay = $6
+        nclist.append(nc)
     }
 }
 
@@ -59,69 +62,61 @@ proc mknetcon() { local i localobj synlist, pnm, nc
 
 // A variant of ParallelNetManager.nc_append that takes in a synaptic
 // point process as an argument (as opposed to the index of a synapse in cell.synlist)
-func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pnm, cell, synlist, synType
+func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
     i = -1
-    pnm = $o1
-    lsrc = $2
-    ltar = $3
-    synType = $o4
-    w   = $o5
-    del = $6
-    if (pnm.gid_exists(ltar)) {
-        // target in this subset
-        // source may be on this or another machine
-        cell = pnm.pc.gid2cell(ltar)
-        assert (synType.is_undefined == 0,"synType is undefined")
-        i = pnm.nclist.count()
-        if (synType.is_number) {
-            mknetcon(pnm, lsrc, cell.syns.o(synType.n), w.n/1000.0, del)
-        } else {
-            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(0).n), w.l.o(0).n/1000.0, del)
-            mknetcon(pnm, lsrc, cell.syns.o(synType.l.o(1).n), w.l.o(1).n/1000.0, del)
-        }
-    } 
+    pc       = $o1
+    nclist   = $o2
+    lsrc     = $3
+    ltar     = $4
+    synIndex = $o5
+    w        = $o6
+    del      = $7
+    // target in this subset
+    // source may be on this or another machine
+    sprint(errmsg,"nc_appendsyn: gid %d does not exist on host %d",ltar,pc.id())
+    assert (pc.gid_exists(ltar), errmsg)
+    cell = pc.gid2cell(ltar)
+    assert (synIndex.is_undefined == 0,"synIndex is undefined")
+    i = nclist.count()
+    if (synIndex.is_number) {
+        mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.n), w.n/1000.0, del)
+    } else {
+        mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(0).n), w.l.o(0).n/1000.0, del)
+        mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(1).n), w.l.o(1).n/1000.0, del)
+    }
     return i
 }
 
 
 // A variant of ParallelNetManager.nc_append that 1) takes in a
 // synaptic point process as an argument (as opposed to the index of a
-// synapse in cell.synlist) and 2) takes into account the layer,
-// section, and node of the connection, and chooses the synaptic
+// synapse in cell.synlist) and 2) chooses the synaptic
 // weight from a predefined vector of synaptic weights for this
 // connection type
-
-func nc_appendsyn_lsn() {local i, se, lsrc, ltar, del, layer, section, node, wsize, synidx, widx localobj w, nc, pnm, cell, synlist, synType
+func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx localobj w, nc, pc, cell, synlist, nclist, synType, synIndex strdef errmsg
     i = -1
-    pnm     = $o1
-    lsrc    = $2
-    ltar    = $3
-    synType = $o4
-    w       = $o5
-    assert (w.is_vector == 1,"w is not a vector")
-    wsize   = w.v.size()
-    del     = $6
-    layer   = $7
-    section = $8
-    node    = $9
-    if (pnm.gid_exists(ltar)) {
-        // target in this subset
-        // source may be on this or another machine
-        cell = pnm.pc.gid2cell(ltar)
-        assert (synType.is_undefined == 0,"synType is undefined")
-        i = pnm.nclist.count()
-        if (synType.is_number) {
-            synidx = cell.addSyn(synType.n, section, node)
-            assert (synidx >= 0,"nc_appendsyn_lsn: cannot add synapse")
-            widx = (ltar + synidx) % wsize
-            //if (pnm.myid == 1) {
-            //   printf("host %d: appendsyn_lsn: connection src = %d dest = %d  synType = %d synidx = %d w.v.x[%d] = %f\n", pnm.myid, lsrc, ltar, synType.n, synidx, widx, w.v.x[widx]/1000.0)
-            //}
-            mknetcon1(pnm, lsrc, cell.syns.o(synType.n), synidx, w.v.x[widx]/1000.0, del)
-        } else {
-            execerror ("Unsupported LSN synapse type")
-        }
-    } 
+    pc       = $o1
+    nclist   = $o2
+    lsrc     = $3
+    ltar     = $4
+    synType  = $o5
+    synIndex = $o6
+    w        = $o7
+    wsize    = w.size()
+    del      = $8
+    sprint(errmsg,"nc_appendsyn_wgtvector: gid %d does not exist on host %d",ltar,pc.id())
+    assert (pc.gid_exists(ltar), errmsg)
+    // target in this subset
+    // source may be on this or another machine
+    cell = pc.gid2cell(ltar)
+    i = nclist.count()
+    if (synType.is_number) {
+      synidx = synIndex.n
+      widx = (ltar + synidx) % wsize
+      mknetcon1(pc, nclist, lsrc, ltar, cell.allsyns.o(synType.n), synidx, w.x[widx]/1000.0, del)
+    } else {
+      execerror ("Unsupported synapse type")
+    }
     return i
 }
 
@@ -223,16 +218,18 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
 
 
 // Finds and loads a template located either in ./template or in externalPaths
-proc find_template() { local status localobj externalPaths strdef cmd, path, templatePath, templateName, msg
+proc find_template() { local status, found localobj externalPaths strdef cmd, path, templatePath, templateName, msg
     
   externalPaths = $o1
   templateName = $s2
 
+  found = 0
   path = "./templates"
   sprint(templatePath, "%s/%s.hoc", path, templateName)
   sprint(cmd, "test -e %s", templatePath) // check if the path exist
   status = system(cmd)
   if (status == 0) {
+    found = 1
     sprint(cmd, "load_file(\"%s\")", templatePath)
     status = execute1(cmd)
     if (status == 0) {
@@ -246,6 +243,7 @@ proc find_template() { local status localobj externalPaths strdef cmd, path, tem
       sprint(cmd, "test -e %s", templatePath) // check if the path exist
       status = system(cmd)
       if (status == 0) {
+        found = 1
         sprint(cmd, "load_file(\"%s\")", templatePath)
         status = execute1(cmd)
         if (status == 0) {
@@ -255,6 +253,10 @@ proc find_template() { local status localobj externalPaths strdef cmd, path, tem
         break
       }
     }
+  }
+  if (found == 0) {
+      sprint(msg,"unable to find template %s",templateName)
+      execerror("find_template",msg)
   }
 }
 
@@ -309,7 +311,7 @@ func findCellType() { local i, result localobj cellTypes, cellType
     
     return result
 }
-
+/*
 // Loads cell/synapse type info into a Dict
 proc loadCellCategoryInfo() { local i, numCells, offset, minIndex, maxIndex localobj f, ff, cellTypes, cellType, indices, indicesCoords
     
@@ -814,7 +816,7 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, rate localob
             stimType = new Dict(stimTypeName)
             stimType.addPropertyString("typeName",stimTypeName)
             
-            sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
+q            sprint(indexPath,"%s/%s.dat",datasetPath,stimTypeName)
             indices = new Vector()
             ff = new File()
             ff.ropen(indexPath)
@@ -842,7 +844,7 @@ proc loadStimulationInfo() { local i, weight, number, start, noise, rate localob
     f.close()
     
 }
-
+*/
 walltime = 0
 
 dt_status = 1.0
