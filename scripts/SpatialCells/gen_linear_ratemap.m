@@ -19,18 +19,19 @@
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
-N = 38000 * 0.10; % fraction of active grid cells
+N = 38000; % active grid cells
 M = 10; % number of grid cell modules
 grid_unit = 25;
 
 savegrid  = 1;
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit, 19);
-ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
+load('grid_data.mat');
+load('grid_ratemap.mat');
+
 
 dt = 0.1; % ms
 
-tend = 2000; % ms
+tend = 10000; % ms
 [Xpos,Ypos] = linear_walk(W, tend, dt);
 
 

@@ -18,7 +18,7 @@
 batch_size=str2num(getenv('BATCH_SIZE'))
 batch_index=str2num(getenv('BATCH_INDEX'))
 						     
-load('grid_data.mat');
+load('linear_grid_data.mat');
 size(grid_rbar)
 
 rbar = grid_rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-3;

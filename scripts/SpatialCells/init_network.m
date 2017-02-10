@@ -5,7 +5,7 @@
 %% N: number of grid cells 
 function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, lambda_range, grid_unit, seed)
         
-  rand ("seed", seed);
+  rand ('seed', seed);
 
 
   [X, Y] = make_grid(W, H, N, grid_unit);
