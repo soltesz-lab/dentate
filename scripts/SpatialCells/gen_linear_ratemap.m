@@ -19,11 +19,9 @@
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
-N = 38000; % active grid cells
-M = 10; % number of grid cell modules
+N = 1000; % active grid cells
+M = 38; % number of grid cell modules
 grid_unit = 25;
-
-savegrid  = 1;
 
 load('grid_data.mat');
 load('grid_ratemap.mat');
@@ -43,18 +41,19 @@ maxXgrid = W / size_len;
 maxYgrid = H / size_len
 
 T = size(Xgrid,1)
-grid_rbar  = zeros(T,N);
-border_rbar  = zeros(T,N);
-
-for t = 1:T
-    grid_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
-    if (Xgrid(t) < 3) || (Xgrid(t) > (maxXgrid - 3))
-        border_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
-    else
-        border_rbar(t,:) = zeros(1,N);
+grid_rbar_modules=cell(M,1);
+for m = 1:2
+    s = (m-1)*N + 1
+    e = m*N
+    grid_rbar  = zeros(T,N);
+    for t = 1:T
+        t
+        grid_rbar(t,:) = ratemap(s:e,Xgrid(t),Ygrid(t));
     end
+    grid_rbar_modules{m,1} = grid_rbar;
 end
-size(grid_rbar)
+
+save('-v7','linear_grid_data.mat','grid_rbar_modules');
 
 grid_data.W = W;
 grid_data.H = 0;
@@ -64,11 +63,6 @@ grid_data.Xpos = Xpos;
 grid_data.Ypos = Ypos;
 grid_data.Xgrid = Xgrid;
 grid_data.Ygrid = Ygrid;
-grid_data.lambda = lambda;
-grid_data.theta = theta;
-grid_data.xoff = xoff;
-grid_data.yoff = yoff;
 
-save('-v7','linear_grid_data.mat','grid_data','grid_rbar','border_rbar');
 
 

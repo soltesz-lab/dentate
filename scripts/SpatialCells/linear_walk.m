@@ -22,4 +22,4 @@ for i = 2:nsteps
     Ypos(i) = Ypos(i-1);
 
 end
-Xpos = Xpos + W/2;
+
