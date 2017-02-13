@@ -98,12 +98,10 @@ DERIVATIVE states {	:Computes state variables m, h, and n
     ns' = (nsinf - ns) / nstau
 }
  
-LOCAL q10
-
 ? rates
 PROCEDURE rates(v) {  :Computes rate and other constants at current v.
                       :Call once from HOC to initialize inf at resting v.
-        LOCAL  alpha, beta, sum
+        LOCAL  alpha, beta, sum, q10
        q10 = 3^((celsius - 6.3)/10)
                 :"m" sodium activation system - act and inact cross at -40
 	alpha = -0.3*vtrap((v+60-17),-5)

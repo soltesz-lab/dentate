@@ -92,8 +92,6 @@ FUNCTION bets(v(mV)) {
   bets = exptrap(3,1.e-3*zetas*gms*(v-vhalfs-sh)*9.648e4/(8.315*(273.16+celsius)))
 }
 
-LOCAL mexp, hexp, sexp
-
 DERIVATIVE states {   
         trates(v,ar,sh)      
         m' = (minf-m)/mtau

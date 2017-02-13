@@ -63,9 +63,8 @@ DERIVATIVE state {  :Computes state variable q at current v and dt.
 	q' = (qinf - q) / qtau
 }
 
-LOCAL q10
 PROCEDURE rate(cai) {  :Computes rate and other constants at current v.
-	LOCAL alpha, beta
+	LOCAL alpha, beta, q10
 	q10 = 3^((celsius - 6.3)/10)
 		:"q" activation system
         alpha = 1.25e1 * cai * cai

@@ -14,7 +14,7 @@ datasetName = "Full_Scale_Control"
 // The connectivity configuration file to use for constructing the network
 // (default is connectivity.dat)
 //connectivityFileName = "connectivity.dat.ReducedPPtoNGFC"
-connectivityFileName = "connectivity.dat.IncreasedGCtoMC.5"
+connectivityFileName = "connectivity.dat.IncreasedGCtoMC.PPtoNGFC.1"
 
 // Size of a single forest for variable morphology cells
 forestSize = 1000
@@ -29,19 +29,19 @@ makegraph = 0
 v_init = -75
 
 // simulation time
-tstop = 220
+tstop = 1000
 
 // maximum wall time in hours
-max_walltime_hrs = 0.5
+max_walltime_hrs = 3
 
 // time to write out results at end of simulation
-results_write_time = 30
+results_write_time = 600
 
 // time step
 dt = 0.025
 
 // Fraction of cells to record intracellular voltage from
-vrecordFraction = 0.0001
+vrecordFraction = 0
 
 use_cvode=0
 use_cache_efficient=1

@@ -2,7 +2,7 @@ strdef parameters
 parameters="./parameters/bluewaters_coredat_Full_Scale_Control.hoc"
 
 strdef resultsPath
-resultsPath="./results/Full_Scale_Control_JOB_ID" 
+resultsPath="./results/coredat_Full_Scale_Control_JOB_ID" 
 
 {xopen("main.hoc")}
 

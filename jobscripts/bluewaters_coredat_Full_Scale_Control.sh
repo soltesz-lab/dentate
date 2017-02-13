@@ -24,7 +24,7 @@ set -x
 
 cd $PBS_O_WORKDIR
 
-results_path=./results/Full_Scale_Control_$PBS_JOBID
+results_path=./results/coredat_Full_Scale_Control_$PBS_JOBID
 export results_path
 
 mkdir -p $results_path

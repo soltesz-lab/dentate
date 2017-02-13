@@ -19,18 +19,19 @@
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
-N = 38000 * 0.04; % fraction of active grid cells
-M = 10; % number of grid cell modules
+N = 250; % active grid cells per module
+M = 152; % number of grid cell modules
 grid_unit = 25;
 
-savegrid  = 1;
+data_path=getenv('DATA_PATH')
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit);
-ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
+load(sprintf('%s/grid_data.mat',data_path));
+load(sprintf('%s/grid_ratemap.mat',data_path));
+
 
 dt = 0.1; % ms
 
-tend = 2000; % ms
+tend = 10000; % ms
 [Xpos,Ypos] = linear_walk(W, tend, dt);
 
 
@@ -42,18 +43,20 @@ maxXgrid = W / size_len;
 maxYgrid = H / size_len
 
 T = size(Xgrid,1)
-grid_rbar  = zeros(T,N);
-border_rbar  = zeros(T,N);
-
-for t = 1:T
-    grid_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
-    if (Xgrid(t) < 3) || (Xgrid(t) > (maxXgrid - 3))
-        border_rbar(t,:) = ratemap(:,Xgrid(t),Ygrid(t));
-    else
-        border_rbar(t,:) = zeros(1,N);
+grid_rbar_modules=cell(M,1);
+for m = 1:M
+    s = (m-1)*N + 1
+    e = m*N
+    grid_rbar  = zeros(T,N);
+    for t = 1:T
+        t
+        grid_rbar(t,:) = ratemap(s:e,Xgrid(t),Ygrid(t));
     end
+    grid_rbar_modules{m,1} = grid_rbar;
+    clear grid_rbar
 end
-size(grid_rbar)
+
+save('-v7',sprintf('%s/linear_grid_data.mat',data_path),'grid_rbar_modules');
 
 grid_data.W = W;
 grid_data.H = 0;
@@ -64,6 +67,5 @@ grid_data.Ypos = Ypos;
 grid_data.Xgrid = Xgrid;
 grid_data.Ygrid = Ygrid;
 
-save('-v7','linear_grid_data.mat','grid_data','grid_rbar','border_rbar');
 
 

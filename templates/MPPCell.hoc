@@ -1,8 +1,8 @@
 begintemplate MPPCell
 
-public vs, connect2target, id, is_art
+public pp, connect2target, id, is_art
 public x, y, z, position, xpos, ypos, zpos
-objref vs, rs, spikevect
+objref pp, rs, spikevect
 
 proc init() { local status localobj ff strdef datasetPath, spikedataPath, cmd
     id = $1
@@ -13,12 +13,12 @@ proc init() { local status localobj ff strdef datasetPath, spikedataPath, cmd
     sprint(cmd, "test -e %s", spikedataPath) // check if the path exists
     status = system(cmd)
     if (status == 0) {
-        vs = new VecStim()
+        pp = new VecStim()
         ff = new File()
         ff.ropen(spikedataPath)
         spikevect.scanf(ff)
         ff.close()
-        vs.play(spikevect)
+        pp.play(spikevect)
     } else {
       setup_netstim(id,gid,0.1,10,0,1)
     }
@@ -32,25 +32,26 @@ proc setup_netstim() {
     number = $4
     start  = $5
     noise  = $6
-    vs = new NetStim(.5)
+    pp = new NetStim(.5)
     if (number > 0) {
-       rs = new RandomStream(id)
+       rs = new RandomStream(id, 21, 27)
        rs.r.negexp(1)
        rs.start()
-       vs.noiseFromRandom(rs.r)
+       pp.noiseFromRandom(rs.r)
     }
-    vs.interval = 1000/rate
-    vs.number = number
-    vs.start = start
-    vs.noise = noise	
+    pp.interval = 1000/rate
+    pp.number = number
+    pp.start = start
+    pp.noise = noise	
 }
 
 func is_art() {return 1}
 
 
-obfunc connect2target() { // $o1 target point process, optional $o2 returned NetCon
-  $o2 = new NetCon(vs, $o1)
-  return $o2
+obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
+    nc = new NetCon(pp, $o1)
+    if (numarg() == 2) { $o2 = nc } // for backward compatibility
+    return nc
 }
 
 proc setposition(){

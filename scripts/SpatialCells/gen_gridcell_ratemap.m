@@ -1,4 +1,6 @@
-
+%
+% Grid cell rate map generator
+%
 % Assumptions:
 % 
 % - Grid cells: organized in 4-5 modules, extending over 50% of the dorsoventral MEC extent
@@ -15,16 +17,31 @@
 %   (de Almeida and Lisman, JNeurosci 2009)
 
 
-batch_size=str2num(getenv('BATCH_SIZE'))
-batch_index=str2num(getenv('BATCH_INDEX'))
-						     
-load('grid_data.mat');
-size(grid_rbar)
+W = 200.0; % linear track length, cm
+H = 200.0; % 
+N = 38000;
+M = 10; % number of grid cell modules
+lambda_range = [40.0, 400.0];
+grid_unit = 25;
 
-rbar = grid_rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-3;
-[T,N] = size(rbar)
-  
-s = DG_SFromPSTHVarZ(rbar, 1);
-spikes = DG_spike_gen(s,eye(N,N),1);
 
-save(sprintf('grid_spikes_%d.mat',batch_index),'spikes');
+seed = 21;
+
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, lambda_range, grid_unit, seed);
+ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
+
+grid_data.W = W;
+grid_data.H = 0;
+grid_data.M = M;
+grid_data.N = N;
+grid_data.X = X;
+grid_data.Y = Y;
+grid_data.lambda = lambda;
+grid_data.theta = theta;
+grid_data.xoff = xoff;
+grid_data.yoff = yoff;
+
+save('-v7','grid_ratemap.mat','ratemap');
+save('-v7','grid_data.mat','grid_data');
+
+

@@ -1,4 +1,4 @@
-%% Grid cell activity map.
+%% Place cell activity map.
 %%
 %% Equation from de Almeida and Lisman JNeurosci 2009:
 %%
@@ -8,18 +8,17 @@
 %%   u(t) = [cos(t) sin(t)] is the unitary vector pointing to the direction t
 %%   g(x) = exp{a (x - b)} - 1, gain function with b = -3/2 and a = 0.3
 
-function ratemap = grid_ratemap(X,Y,lambda,theta,xoff,yoff)
+function ratemap = place_ratemap(X,Y,lambda,theta,xoff,yoff)
 
-  a = 0.3;
+  a = 0.5;
   b = -3/2;
 
   n = size(lambda);
   ratemap = zeros(n);
-        
-  for tt=[-pi/6.0, pi/6.0, pi/2.0]
 
-      %x0 = *lambda);
-    x0 = lambda*sqrt(3);
+  for tt=[-pi/5.0, pi/6.0, pi/4.0]
+
+    x0 = lambda*sqrt(1);
     x1 = ((4*pi) * ones(n)) ./ x0;
     x2 = cos(tt-theta);
     x3 = sin(tt-theta);

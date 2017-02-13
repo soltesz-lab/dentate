@@ -18,7 +18,11 @@
 ### Get darsan profile data
 #PBS -lgres=darshan
 
-module swap PrgEnv-cray PrgEnv-intel
+module swap PrgEnv-cray PrgEnv-gnu
+module unload gcc
+module load gcc/5.1.0
+module load bwpy
+module load bwpy-mpi
 
 set -x
 
