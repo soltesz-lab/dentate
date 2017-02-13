@@ -15,13 +15,15 @@
 %   (de Almeida and Lisman, JNeurosci 2009)
 
 
-batch_size=str2num(getenv('BATCH_SIZE'))
+%batch_size=str2num(getenv('BATCH_SIZE'))
 batch_index=str2num(getenv('BATCH_INDEX'))
+data_path=getenv('DATA_PATH')
 						     
-load('linear_grid_data.mat');
+load(sprintf('%s/linear_grid_data.mat',data_path));
 size(grid_rbar)
+%rbar = grid_rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-3;
+rbar = grid_rbar_modules{batch_index,1} * 1e-3;
 
-rbar = grid_rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-3;
 [T,N] = size(rbar)
   
 s = DG_SFromPSTHVarZ(rbar, 1);

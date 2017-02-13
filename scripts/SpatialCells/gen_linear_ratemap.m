@@ -19,12 +19,14 @@
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
-N = 1000; % active grid cells
-M = 38; % number of grid cell modules
+N = 250; % active grid cells per module
+M = 152; % number of grid cell modules
 grid_unit = 25;
 
-load('grid_data.mat');
-load('grid_ratemap.mat');
+data_path=getenv('DATA_PATH')
+
+load(sprintf('%s/grid_data.mat',data_path));
+load(sprintf('%s/grid_ratemap.mat',data_path));
 
 
 dt = 0.1; % ms
@@ -42,7 +44,7 @@ maxYgrid = H / size_len
 
 T = size(Xgrid,1)
 grid_rbar_modules=cell(M,1);
-for m = 1:2
+for m = 1:M
     s = (m-1)*N + 1
     e = m*N
     grid_rbar  = zeros(T,N);
@@ -51,9 +53,10 @@ for m = 1:2
         grid_rbar(t,:) = ratemap(s:e,Xgrid(t),Ygrid(t));
     end
     grid_rbar_modules{m,1} = grid_rbar;
+    clear grid_rbar
 end
 
-save('-v7','linear_grid_data.mat','grid_rbar_modules');
+save('-v7',sprintf('%s/linear_grid_data.mat',data_path),'grid_rbar_modules');
 
 grid_data.W = W;
 grid_data.H = 0;

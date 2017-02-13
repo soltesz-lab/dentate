@@ -25,11 +25,13 @@ echo forest = $forest
 forest_prefix=/scratch/users/$USER/dentate/Full_Scale_Control/GC
 lppcell_dir=/scratch/users/$USER/lppcells
 results_dir=/scratch/users/$USER/LPPprojection_Full_Scale_Control_forest_${forest}_$SLURM_JOB_ID
+weights_path=/scratch/users/$USER/LPPsynweights.dat
 
 mkdir -p $results_dir
 cd $results_dir
 
-mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection-forest --label="LPPtoDGC" -t $forest_prefix -f $forest  -p $lppcell_dir -o $results_dir \
+mpirun $HOME/model/dentate/scripts/DGnetwork/PPprojection-forest --label="LPPtoDGC" \
+       -t $forest_prefix -f $forest  -p $lppcell_dir -o $results_dir -w $weights_path \
   -r 3.0 -l 3 --pp-cells=10:3400 --pp-cell-prefix=LPPCell -:hm8192M
 
 cd $forest

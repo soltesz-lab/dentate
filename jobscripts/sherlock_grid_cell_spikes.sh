@@ -11,13 +11,15 @@
 
 module load matlab
 
-BATCH_SIZE=190
+BATCH_SIZE=1000
 BATCH_INDEX=$SLURM_ARRAY_TASK_ID
+DATA_PATH=$SCRATCH/gridcells
 
 export BATCH_SIZE
 export BATCH_INDEX
+export DATA_PATH
 
-cd $HOME/model/dentate/scripts/GridCells
-./run_gen_spikes.sh /share/sw/licensed/MATLAB-R2015b
+cd $HOME/model/dentate/scripts/SpatialCells
+./run_gen_spikes.sh /share/sw/licensed/MATLAB-R2016b
 
 
