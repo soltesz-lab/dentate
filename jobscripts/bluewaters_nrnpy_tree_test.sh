@@ -1,13 +1,13 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=332:ppn=16:xe
+#PBS -l nodes=256:ppn=8:xe
 ### which queue to use
-#PBS -q normal
+#PBS -q debug
 ### set the wallclock time
-#PBS -l walltime=1:00:00
+#PBS -l walltime=0:30:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control
+#PBS -N dentate_tree_test
 ### set the job stdout and stderr
 #PBS -e ./results/$PBS_JOBID.err
 #PBS -o ./results/$PBS_JOBID.out
@@ -29,7 +29,7 @@ set -x
 export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
 export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
-export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
+export DARSHAN_LOGPATH=$PWD/darshan-logs
 
 echo python is `which python`
 results_path=./results/Full_Scale_Control_$PBS_JOBID
@@ -42,14 +42,15 @@ mkdir -p $results_path
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 5312 python main.py  \
+aprun -n 2048 python main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
-    --io-size=256 \
+    --io-size=128 \
     --tstop=3 \
     --v-init=-75 \
-    --max-walltime-hours=1 \
+    --max-walltime-hours=3 \
+    --cells-only \
     --verbose
 
