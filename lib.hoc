@@ -39,7 +39,7 @@ proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc 
 	nc.delay = $8
 	nclist.append(nc)
     } else {
-      printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)  
+      //printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)  
     }
 }
 

@@ -5,7 +5,7 @@
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=3:00:00
+#PBS -l walltime=1:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control
 ### set the job stdout and stderr
