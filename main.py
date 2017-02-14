@@ -131,6 +131,16 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
             cell.allsyns.o(syn_type).append(h.syn)
             h.pop_section()
 
+def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
+    for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):
+        cell.alldendritesList[syn_section].root.push()
+        h.syn      = h.Exp2Syn(syn_loc)
+        h.syn.tau1 = synapses[syn_type]['t_rise']
+        h.syn.tau2 = synapses[syn_type]['t_decay']
+        h.syn.e    = synapses[syn_type]['e_rev']
+        cell.allsyns.o(syn_type).append(h.syn)
+        h.pop_section()
+
     
 def mkcells(env):
 
@@ -232,13 +242,17 @@ def mkcells(env):
                 ## syn_id syn_type syn_locs section layer
                 h.syn_ids      = tree['Synapse_Attributes.syn_id']
                 h.syn_types    = tree['Synapse_Attributes.syn_type']
-                h.swc_types    = tree['Synapse_Attributes.swc_type']
+                if tree.has_key('Synapse_Attributes.swc_type'):
+                    h.swc_types    = tree['Synapse_Attributes.swc_type']
                 h.syn_locs     = tree['Synapse_Attributes.syn_locs']
                 h.syn_sections = tree['Synapse_Attributes.section']
                 verboseflag = 0
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 h(hstmt)
-                mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
+                if h.swc_types == h.nil:
+                    mksyn3(h.cell,h.syn_ids,h.syn_types,h.syn_locs,h.syn_sections,synapses,env)
+                else:
+                    mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
                 env.gidlist.append(gid)
                 env.cells.append(h.cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))

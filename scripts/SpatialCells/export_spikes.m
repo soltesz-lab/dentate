@@ -1,6 +1,6 @@
 
 dt = 0.1;
-batch_size=25;
+batch_size=10;
 batch_offset=0;
 
 for batch=1:8

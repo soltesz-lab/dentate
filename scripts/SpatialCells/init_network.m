@@ -3,11 +3,10 @@
 %% H: height
 %% M: number of modules
 %% N: number of grid cells 
-function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, grid_unit, seed)
+function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, lambda_range, grid_unit, seed)
         
   rand ("seed", seed);
 
-  lambda_range = [40.0, 400.0];
 
   [X, Y] = make_grid(W, H, N, grid_unit);
   xsz = size(X);

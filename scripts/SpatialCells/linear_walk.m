@@ -15,7 +15,7 @@ for i = 2:nsteps
     % max acceleration is .1 cm/ms^2
     dv = max(min(normrnd(0,.05),.1),-.1); 
     
-    % max velocity is .5 cm/ms
+    % max velocity is .05 cm/ms
     velocity = min(max(velocity + dv,0),0.05) * dt;
         
     Xpos(i) = Xpos(i-1)+cos(headDir(i-1))*velocity; 
