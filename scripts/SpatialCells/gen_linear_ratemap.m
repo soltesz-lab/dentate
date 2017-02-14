@@ -29,7 +29,7 @@ load(sprintf('%s/grid_data.mat',data_path));
 load(sprintf('%s/grid_ratemap.mat',data_path));
 
 
-dt = 0.1; % ms
+dt = 0.5; % ms
 
 tend = 10000; % ms
 [Xpos,Ypos] = linear_walk(W, tend, dt);
@@ -43,20 +43,20 @@ maxXgrid = W / size_len;
 maxYgrid = H / size_len
 
 T = size(Xgrid,1)
-grid_rbar_modules=cell(M,1);
+grid_rbar_modules=zeros(N*M,T);
 for m = 1:M
     s = (m-1)*N + 1
     e = m*N
-    grid_rbar  = zeros(T,N);
+    grid_rbar  = zeros(N,T);
     for t = 1:T
-        t
-        grid_rbar(t,:) = ratemap(s:e,Xgrid(t),Ygrid(t));
+      t
+      grid_rbar(:,t) = ratemap(s:e,Xgrid(t),Ygrid(t));
     end
-    grid_rbar_modules{m,1} = grid_rbar;
+    grid_rbar_modules(s:e,:) = grid_rbar;
     clear grid_rbar
 end
 
-save('-v7',sprintf('%s/linear_grid_data.mat',data_path),'grid_rbar_modules');
+save('-binary',sprintf('%s/linear_grid_data.mat',data_path),'grid_rbar_modules');
 
 grid_data.W = W;
 grid_data.H = 0;
