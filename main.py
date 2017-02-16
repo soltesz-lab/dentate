@@ -45,9 +45,18 @@ def connectprj(env, graph, prjname, prjvalue):
             tdists  = edges[2]
             if indexType == 'absolute':
                 for i in range(0,len(sources)):
-                    source   = sources[i]
-                    distance = ldists[i] + tdists[i]
-                    delay    = max((distance / velocity), 1.0)
+                    try:
+                        source   = sources[i]
+                        distance = ldists[i] + tdists[i]
+                        delay    = (distance / velocity)
+                    except FloatingPointError as e:
+                        print "len(sources) = ", len(sources)
+                        print "i = ", i
+                        print "ldists[",i,"]: = ", ldists[i]
+                        print "tdists[",i,"] = ", tdists[i]
+                        print "distance = ", distance
+                        print "delay = ", delay
+                        delay=1.0
                     h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
@@ -208,6 +217,7 @@ def mkcells(env):
                 else:
                     nc = h.cell.connect2target(h.nil)
                 env.pc.cell(gid, nc, 1)
+                nc = None
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 i = i+1
@@ -249,7 +259,7 @@ def mkcells(env):
                 verboseflag = 0
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 h(hstmt)
-                if h.swc_types == h.nil:
+                if h.swc_types is None:
                     mksyn3(h.cell,h.syn_ids,h.syn_types,h.syn_locs,h.syn_sections,synapses,env)
                 else:
                     mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
@@ -336,6 +346,7 @@ def run (env):
 @click.option("--cells-only", is_flag=True)
 @click.option('--verbose', is_flag=True)
 def main(config_file, template_paths, dataset_prefix, results_path, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
+    np.seterr(all='raise')
     env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
     init(env)
     run(env)
