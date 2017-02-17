@@ -45,18 +45,9 @@ def connectprj(env, graph, prjname, prjvalue):
             tdists  = edges[2]
             if indexType == 'absolute':
                 for i in range(0,len(sources)):
-                    try:
                         source   = sources[i]
                         distance = ldists[i] + tdists[i]
                         delay    = (distance / velocity)
-                    except FloatingPointError as e:
-                        print "len(sources) = ", len(sources)
-                        print "i = ", i
-                        print "ldists[",i,"]: = ", ldists[i]
-                        print "tdists[",i,"] = ", tdists[i]
-                        print "distance = ", distance
-                        print "delay = ", delay
-                        delay=1.0
                     h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
