@@ -305,6 +305,11 @@ def init(env):
     env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
+    h.dt = env.dt
+    env.pc.setup_transfer()
+    env.pc.set_maxstep(10.0)
+    if (env.pc.id() == 0):
+        print "dt = %g" % h.dt
 
 # Run the simulation
 def run (env):
