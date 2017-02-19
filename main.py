@@ -321,7 +321,7 @@ def run (env):
         print "  created cells in %g seconds" % env.mkcellstime
         print "  connected cells in %g seconds\n" % env.connectcellstime
         #print "  created gap junctions in %g seconds\n" % connectgjstime
-        print "  ran simulation in %g seconds\n" % env.comptime
+        print "  ran simulation in %g seconds\n" % comptime
         if (maxcomp > 0):
             print "  load balance = %g\n" % (avgcomp/maxcomp)
 
