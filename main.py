@@ -47,8 +47,8 @@ def connectprj(env, graph, prjname, prjvalue):
                 for i in range(0,len(sources)):
                         source   = sources[i]
                         distance = ldists[i] + tdists[i]
-                        delay    = (distance / velocity)
-                    h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
+                        delay    = (distance / velocity) + 1.0
+                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
@@ -283,6 +283,7 @@ def init(env):
     ## stimulus cell template
     h.load_file("./templates/StimCell.hoc")
     h.xopen("./lib.hoc")
+    h.dt = env.dt
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -296,15 +297,17 @@ def init(env):
     env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
-    h.dt = env.dt
-    env.pc.setup_transfer()
+    ##env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
+    h.stdinit()
 
 # Run the simulation
 def run (env):
     env.pc.psolve(env.tstop)
+    if (env.pc.id() == 0):
+        print "*** Simulation completed"
     h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.id_vec)
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
@@ -316,7 +319,7 @@ def run (env):
     if (env.pc.id() == 0):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
-        print "  connected cells in %g seconds\n" % connectcellstime
+        print "  connected cells in %g seconds\n" % env.connectcellstime
         #print "  created gap junctions in %g seconds\n" % connectgjstime
         print "  ran simulation in %g seconds\n" % env.comptime
         if (maxcomp > 0):
