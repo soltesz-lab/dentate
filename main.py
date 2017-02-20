@@ -45,10 +45,10 @@ def connectprj(env, graph, prjname, prjvalue):
             tdists  = edges[2]
             if indexType == 'absolute':
                 for i in range(0,len(sources)):
-                    source   = sources[i]
-                    distance = ldists[i] + tdists[i]
-                    delay    = max((distance / velocity), 1.0)
-                    h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
+                        source   = sources[i]
+                        distance = ldists[i] + tdists[i]
+                        delay    = (distance / velocity) + 1.0
+                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
@@ -208,6 +208,7 @@ def mkcells(env):
                 else:
                     nc = h.cell.connect2target(h.nil)
                 env.pc.cell(gid, nc, 1)
+                nc = None
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 i = i+1
@@ -249,7 +250,7 @@ def mkcells(env):
                 verboseflag = 0
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 h(hstmt)
-                if h.swc_types == h.nil:
+                if h.swc_types is None:
                     mksyn3(h.cell,h.syn_ids,h.syn_types,h.syn_locs,h.syn_sections,synapses,env)
                 else:
                     mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
@@ -282,6 +283,7 @@ def init(env):
     ## stimulus cell template
     h.load_file("./templates/StimCell.hoc")
     h.xopen("./lib.hoc")
+    h.dt = env.dt
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -295,10 +297,17 @@ def init(env):
     env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
+    ##env.pc.setup_transfer()
+    env.pc.set_maxstep(10.0)
+    if (env.pc.id() == 0):
+        print "dt = %g" % h.dt
+    h.stdinit()
 
 # Run the simulation
 def run (env):
     env.pc.psolve(env.tstop)
+    if (env.pc.id() == 0):
+        print "*** Simulation completed"
     h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.id_vec)
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
@@ -310,9 +319,9 @@ def run (env):
     if (env.pc.id() == 0):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
-        print "  connected cells in %g seconds\n" % connectcellstime
+        print "  connected cells in %g seconds\n" % env.connectcellstime
         #print "  created gap junctions in %g seconds\n" % connectgjstime
-        print "  ran simulation in %g seconds\n" % env.comptime
+        print "  ran simulation in %g seconds\n" % comptime
         if (maxcomp > 0):
             print "  load balance = %g\n" % (avgcomp/maxcomp)
 
@@ -336,6 +345,7 @@ def run (env):
 @click.option("--cells-only", is_flag=True)
 @click.option('--verbose', is_flag=True)
 def main(config_file, template_paths, dataset_prefix, results_path, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
+    np.seterr(all='raise')
     env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
     init(env)
     run(env)
