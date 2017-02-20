@@ -51,6 +51,38 @@ def connectprj(env, graph, prjname, prjvalue):
                         h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
+    elif (prjType == 'dist'):
+        wgtval = prjvalue['weight']
+        if isinstance(wgtval,list):
+            wgtlst = h.List()
+            for val in wgtval:
+                hval = h.Value(0, val)
+                wgtlst.append(hval)
+            h.synWeight = h.Value(2,wgtlst)
+        else:
+            h.synWeight = h.Value(0,wgtval)
+        idxval = prjvalue['synIndex']
+        if isinstance(idxval,list):
+            idxlst = h.List()
+            for val in idxval:
+                hval = h.Value(0, val)
+                idxlst.append(hval)
+            h.synIndex = h.Value(2,idxlst)
+        else:
+            h.synIndex = h.Value(0,idxval)
+        velocity = prjvalue['velocity']
+        for destination in prj:
+            edges  = prj[destination]
+            sources = edges[0]
+            dists  = edges[1]
+            if indexType == 'absolute':
+                for i in range(0,len(sources)):
+                        source   = sources[i]
+                        distance = dists[i]
+                        delay    = (distance / velocity) + 1.0
+                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
+            else:
+                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
         wgtvector = prjvalue['weights']
         h.synWeightVector = h.Vector()
@@ -352,3 +384,5 @@ def main(config_file, template_paths, dataset_prefix, results_path, io_size, cor
 
 if __name__ == '__main__':
     main(args=sys.argv[(sys.argv.index("main.py")+1):])
+    MPI.Finalize()
+

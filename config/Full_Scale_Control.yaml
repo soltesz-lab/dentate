@@ -276,10 +276,10 @@ celltypes:
     indexfile: MPP.dat
     templateName: MPPCell
     templateType: single
-  LPP:
-    indexfile: LPP.dat
-    templateName: LPPCell
-    templateType: single
+#  LPP:
+#    indexfile: LPP.dat
+#    templateName: LPPCell
+#    templateType: single
 ## Connectivity configuration for dentate gyrus model
 connectivity:
   connectivityFile: dentate_Full_Scale_Control_MPP.h5
@@ -500,6 +500,22 @@ connectivity:
       type: syn
       synType: 0
       weightsFile:  ./dat/MPPsynweights.dat
+      velocity: 250.0
+    MPPtoBC:
+      source: MPP
+      destination: BC
+      index: absolute
+      type: dist
+      synIndex: 9
+      weight: 2.5
+      velocity: 250.0
+    MPPtoNGFC:
+      source: MPP
+      destination: NGFC
+      index: absolute
+      type: dist
+      synIndex: 9
+      weight: 0.5
       velocity: 250.0
   ## Gap junction projection definitions for dentate gyrus model
   gapjunctions: 
