@@ -114,7 +114,10 @@ def connectcells(env):
             print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
-    graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
+    if env.nodeRanks:
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,True,env.nodeRanks)
+    else:
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -215,9 +218,14 @@ def mkcells(env):
             index  = env.celltypes[popName]['index']
 
             mygidlist = []
-            for x in index:
-                if (x % nhosts) == hostid:
-                    mygidlist.append(x)
+            if env.nodeRanks:
+                for x in index:
+                    if env.nodeRanks[index] == hostid:
+                        mygidlist.append(x)
+            else:
+                for x in index:
+                    if (x % nhosts) == hostid:
+                        mygidlist.append(x)
 
             if env.verbose:
                 print "Population %s, rank %d: " % (popName, env.pc.id())
@@ -249,8 +257,13 @@ def mkcells(env):
             h('objref vx, vy, vz, vradius, vsection, vlayer, vsection, vsrc, vdst, secnodes')
             h('gid = fid = node = 0')
             inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
-            (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
-                                                     attributes=True, namespace='Synapse_Attributes')
+            if env.nodeRanks:
+                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
+                                                        attributes=True, namespace='Synapse_Attributes',
+                                                        node_rank_vector=env.nodeRanks)
+            else:
+                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
+                                                        attributes=True, namespace='Synapse_Attributes')
             if env.celltypes[popName].has_key('synapses'):
                 synapses = env.celltypes[popName]['synapses']
             else:
@@ -366,6 +379,7 @@ def run (env):
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=False, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
 @click.option("--vrecord-fraction", type=float, default=0.0)
@@ -376,9 +390,9 @@ def run (env):
 @click.option("--dt", type=float, default=0.025)
 @click.option("--cells-only", is_flag=True)
 @click.option('--verbose', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
+def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
+    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
     init(env)
     run(env)
 
