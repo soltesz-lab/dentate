@@ -351,11 +351,11 @@ def run (env):
     if (env.pc.id() == 0):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
-        print "  connected cells in %g seconds\n" % env.connectcellstime
+        print "  connected cells in %g seconds" % env.connectcellstime
         #print "  created gap junctions in %g seconds\n" % connectgjstime
-        print "  ran simulation in %g seconds\n" % comptime
+        print "  ran simulation in %g seconds" % comptime
         if (maxcomp > 0):
-            print "  load balance = %g\n" % (avgcomp/maxcomp)
+            print "  load balance = %g" % (avgcomp/maxcomp)
 
     env.pc.done()
     h.quit()
