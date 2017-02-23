@@ -114,10 +114,10 @@ def connectcells(env):
             print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
-    if env.nodeRanks:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,True,env.nodeRanks)
-    else:
+    if env.nodeRanks is None:
         graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
+    else:
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,True,env.nodeRanks)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -216,13 +216,13 @@ def mkcells(env):
             index  = env.celltypes[popName]['index']
 
             mygidlist = []
-            if env.nodeRanks:
+            if env.nodeRanks is None:
                 for x in index:
-                    if env.nodeRanks[index] == hostid:
+                    if (x % nhosts) == hostid:
                         mygidlist.append(x)
             else:
                 for x in index:
-                    if (x % nhosts) == hostid:
+                    if env.nodeRanks[index] == hostid:
                         mygidlist.append(x)
 
             if env.verbose:
@@ -255,13 +255,13 @@ def mkcells(env):
             h('objref vx, vy, vz, vradius, vsection, vlayer, vsection, vsrc, vdst, secnodes')
             h('gid = fid = node = 0')
             inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
-            if env.nodeRanks:
+            if env.nodeRanks is None:
+                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
+                                                        attributes=True, namespace='Synapse_Attributes')
+            else:
                 (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
                                                         attributes=True, namespace='Synapse_Attributes',
                                                         node_rank_vector=env.nodeRanks)
-            else:
-                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
-                                                        attributes=True, namespace='Synapse_Attributes')
             if env.celltypes[popName].has_key('synapses'):
                 synapses = env.celltypes[popName]['synapses']
             else:
@@ -396,11 +396,11 @@ def run (env):
     if (env.pc.id() == 0):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
-        print "  connected cells in %g seconds\n" % env.connectcellstime
+        print "  connected cells in %g seconds" % env.connectcellstime
         #print "  created gap junctions in %g seconds\n" % connectgjstime
-        print "  ran simulation in %g seconds\n" % comptime
+        print "  ran simulation in %g seconds" % comptime
         if (maxcomp > 0):
-            print "  load balance = %g\n" % (avgcomp/maxcomp)
+            print "  load balance = %g" % (avgcomp/maxcomp)
 
     env.pc.done()
     h.quit()
@@ -411,7 +411,7 @@ def run (env):
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=False, dir_okay=False))
+@click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
 @click.option("--vrecord-fraction", type=float, default=0.0)

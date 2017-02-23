@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=332:ppn=16:xe
+#PBS -l nodes=128:ppn=16:xe
 ### which queue to use
-#PBS -q normal
+#PBS -q debug
 ### set the wallclock time
-#PBS -l walltime=1:00:00
+#PBS -l walltime=0:30:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control
 ### set the job stdout and stderr
@@ -42,7 +42,7 @@ mkdir -p $results_path
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 5312 python main.py  \
+aprun -n 2048 python main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="/projects/sciteam/baef" \
