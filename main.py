@@ -25,18 +25,18 @@ def connectprj(env, graph, prjname, prjvalue):
             for val in wgtval:
                 hval = h.Value(0, val)
                 wgtlst.append(hval)
-            h.synWeight = h.Value(2,wgtlst)
+            h.syn_weight = h.Value(2,wgtlst)
         else:
-            h.synWeight = h.Value(0,wgtval)
+            h.syn_weight = h.Value(0,wgtval)
         idxval = prjvalue['synIndex']
         if isinstance(idxval,list):
             idxlst = h.List()
             for val in idxval:
                 hval = h.Value(0, val)
                 idxlst.append(hval)
-            h.synIndex = h.Value(2,idxlst)
+            h.syn_index = h.Value(2,idxlst)
         else:
-            h.synIndex = h.Value(0,idxval)
+            h.syn_index = h.Value(0,idxval)
         velocity = prjvalue['velocity']
         for destination in prj:
             edges  = prj[destination]
@@ -48,7 +48,7 @@ def connectprj(env, graph, prjname, prjvalue):
                         source   = sources[i]
                         distance = ldists[i] + tdists[i]
                         delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
+                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'dist'):
@@ -58,18 +58,18 @@ def connectprj(env, graph, prjname, prjvalue):
             for val in wgtval:
                 hval = h.Value(0, val)
                 wgtlst.append(hval)
-            h.synWeight = h.Value(2,wgtlst)
+            h.syn_weight = h.Value(2,wgtlst)
         else:
-            h.synWeight = h.Value(0,wgtval)
+            h.syn_weight = h.Value(0,wgtval)
         idxval = prjvalue['synIndex']
         if isinstance(idxval,list):
             idxlst = h.List()
             for val in idxval:
                 hval = h.Value(0, val)
                 idxlst.append(hval)
-            h.synIndex = h.Value(2,idxlst)
+            h.syn_index = h.Value(2,idxlst)
         else:
-            h.synIndex = h.Value(0,idxval)
+            h.syn_index = h.Value(0,idxval)
         velocity = prjvalue['velocity']
         for destination in prj:
             edges  = prj[destination]
@@ -80,14 +80,14 @@ def connectprj(env, graph, prjname, prjvalue):
                         source   = sources[i]
                         distance = dists[i]
                         delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
+                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
         wgtvector = prjvalue['weights']
-        h.synWeightVector = h.Vector()
-        h.synWeightVector.from_python(wgtvector)
-        h.synType = h.Value(0,prjvalue['synType'])
+        h.syn_weight_vector = h.Vector()
+        h.syn_weight_vector.from_python(wgtvector)
+        h.syn_type = h.Value(0,prjvalue['synType'])
         velocity = prjvalue['velocity']
         for destination in prj:
             edges  = prj[destination]
@@ -96,9 +96,9 @@ def connectprj(env, graph, prjname, prjvalue):
             if indexType == 'absolute':
                 for i in range(0,len(sources)):
                     source   = sources[i]
-                    h.synIndex = h.Value(0,synidxs[i])
+                    h.syn_index = h.Value(0,synidxs[i])
                     delay = 1.0
-                    h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.synType, h.synIndex, h.synWeightVector, delay)
+                    h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     else:
@@ -107,7 +107,7 @@ def connectprj(env, graph, prjname, prjvalue):
     del graph[prjname]
 
 def connectcells(env):
-    h('objref synType, synIndex, synWeight, synWeightVector')
+    h('objref syn_type, syn_index, syn_weight, syn_weight_vector')
     projections = env.projections
     if env.verbose:
         if env.pc.id() == 0:
@@ -185,9 +185,7 @@ def mkcells(env):
     hostid = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    h('strdef datasetPath')
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
-    h.datasetPath = datasetPath
 
     h.templatePaths = h.List()
     for path in env.templatePaths:
@@ -312,12 +310,39 @@ def mkcells(env):
         else:
              error ("Unsupported template type %s" % (env.celltypes[popName]['templateType']))
 
-                    
+def mkstim(env):
+
+    hostid = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
+
+    datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
+    
+    h('objref vecstim_index')
+
+    popNames = env.celltypes.keys()
+    popNames.sort()
+    for popName in popNames:
+        if env.celltypes[popName].has_key('vectorStimulus'):
+            vecstim   = env.celltypes[popName]['vectorStimulus']
+            spikeFile = os.path.join(datasetPath, vecstim['spikeFile'])
+            indexFile = os.path.join(datasetPath, vecstim['indexFile'])
+            index     = env.celltypes[popName]['index']
+            h.vecstim_index = h.Vector()
+            for x in index:
+                h.vecstim_index.append(x)
+            h.loadVectorStimulation(env.pc, indexFile, spikeFile, h.vecstim_index)
+            h.vecstim_index.resize(0)
+            
+
+            
 def init(env):
 
     h.load_file("nrngui.hoc")
-    h('objref pc, nclist, nc, nil')
+    h('objref fi_status, pc, nclist, nc, nil')
     h.nclist = h.List()
+    h('strdef datasetPath')
+    datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
+    h.datasetPath = datasetPath
     ##  new ParallelContext object
     h.pc = h.ParallelContext()
     env.pc = h.pc
@@ -336,16 +361,23 @@ def init(env):
     if (env.pc.id() == 0):
         print "*** Cells created in %g seconds" % env.mkcellstime
     h.startsw()
+    mkstim(env)
+    env.mkstimtime = h.stopsw()
+    if (env.pc.id() == 0):
+        print "*** Stimuli created in %g seconds" % env.mkstimtime
+    h.startsw()
     if not env.cells_only:
         connectcells(env)
     env.connectcellstime = h.stopsw()
     env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
-    ##env.pc.setup_transfer()
+    env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
+        h.fi_status = h.FInitializeHandler("simstatus()")
+
     h.stdinit()
 
 # Run the simulation

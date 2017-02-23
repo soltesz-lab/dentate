@@ -276,6 +276,9 @@ celltypes:
     indexfile: MPP.dat
     templateName: MPPCell
     templateType: single
+    vectorStimulus:
+      spikeFile: gridspikes.bin
+      indexFile: gridspikeindex.bin
 #  LPP:
 #    indexfile: LPP.dat
 #    templateName: LPPCell
