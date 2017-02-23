@@ -118,7 +118,7 @@ class Env:
         # Save CoreNEURON data
         self.coredat = coredat
 
-        self.nodeRanks = False
+        self.nodeRanks = None
         if nodeRankFile:
             with open(nodeRankFile) as fp:
                 lst = []
