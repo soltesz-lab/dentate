@@ -148,5 +148,6 @@ class Env:
 
         # used to calculate model construction times and run time
         self.mkcellstime = 0
+        self.mkstimtime  = 0
         self.connectcellstime = 0
         self.connectgjstime = 0

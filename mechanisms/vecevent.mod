@@ -4,6 +4,14 @@ NEURON {
 	THREADSAFE
 	ARTIFICIAL_CELL VecStim
 	BBCOREPOINTER ptr
+        RANGE xpos, ypos, zpos, gid   
+    }
+    
+    PARAMETER {
+    xpos = 0
+    ypos = 0
+    zpos = 0
+    gid = 0
 }
 
 ASSIGNED {
@@ -29,6 +37,16 @@ NET_RECEIVE (w) {
 			net_send(etime - t, 1)
 		}
 	}
+}
+
+FUNCTION is_art() {
+	is_art=1
+}
+
+PROCEDURE position(a, b, c) { 
+	xpos = a
+	ypos = b
+	zpos = c
 }
 
 DESTRUCTOR {
