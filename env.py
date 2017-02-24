@@ -140,6 +140,7 @@ class Env:
         self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
         self.projections   = self.modelConfig['connectivity']['projections']
         self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
+        self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
         self.load_celltypes()
         self.load_prjtypes()
 
