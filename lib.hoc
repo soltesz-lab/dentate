@@ -212,7 +212,35 @@ proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decay
         }
         
     }
+    
+    
+}
 
+// help function to create gap junctions
+proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
+    
+    pc     = $o1
+    gjlist = $o2
+    gid    = $3
+    branch = $4
+    sec    = $5
+    ggid   = $6
+    w      = $7
+    
+    cell = pc.gid2cell(gid)
+    
+    cell.dendrites[branch][sec] { 
+        gj = new ggap(0.5) 
+        pnm.pc.target_var(gj, &gj.vgap, ggid)
+        pnm.pc.source_var(&v(0.5), ggid)
+    }
+    
+    gjlist.append(gj)
+    gj.g = w
+    
+    if (verbose > 0) {
+        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g ggid = %d\n", pnm.myid, gid, branch, sec, w, ggid)
+    }
     
 }
 
