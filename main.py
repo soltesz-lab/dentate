@@ -117,7 +117,7 @@ def connectcells(env):
     if env.nodeRanks is None:
         graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
     else:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,True,env.nodeRanks)
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,env.nodeRanks,True)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -222,7 +222,7 @@ def mkcells(env):
                         mygidlist.append(x)
             else:
                 for x in index:
-                    if env.nodeRanks[index] == hostid:
+                    if env.nodeRanks[x] == hostid:
                         mygidlist.append(x)
 
             if env.verbose:
