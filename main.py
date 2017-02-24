@@ -339,8 +339,14 @@ def init(env):
 
     h.load_file("nrngui.hoc")
     h('objref fi_status, pc, nclist, nc, nil')
-    h.nclist = h.List()
     h('strdef datasetPath')
+    h('max_walltime_hrs = 0')
+    h('mkcellstime = 0')
+    h('mkstimtime = 0')
+    h('connectcellstime = 0')
+    h('connectgjstime = 0')
+    h('results_write_time = 0')
+    h.nclist = h.List()
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
     h.datasetPath = datasetPath
     ##  new ParallelContext object
@@ -376,8 +382,13 @@ def init(env):
     env.pc.set_maxstep(10.0)
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
-        h.fi_status = h.FInitializeHandler("simstatus()")
-
+        h.max_walltime_hrs = env.max_walltime_hrs
+        h.mkcellstime      = env.mkcellstime
+        h.mkstimtime       = env.mkstimtime
+        h.connectcellstime = env.connectcellstime
+        h.connectgjstime   = env.connectgjstime
+        h.results_write_time = env.results_write_time
+        h.fi_status          = h.FInitializeHandler("simstatus()")
     h.stdinit()
 
 # Run the simulation
