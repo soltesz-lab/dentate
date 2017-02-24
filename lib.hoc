@@ -313,18 +313,18 @@ func findCellType() { local i, result localobj cellTypes, cellType
 }
 
 // Loads stimulation data and initializes vecstim cells
-proc loadVectorStimulation() {local sendpos, celltype_idx, startgid, endgid, pop_size localobj pc, f, vindex, vspiketimes, vsizes, vcellspikes, cell strdef vecstim_index_filename, vecstim_filename
+proc loadVectorStimulation() {local sendpos, celltype_idx, startgid, endgid, pop_size localobj pc, f, vindex, vspiketimes, vsizes, vcellspikes, vgids, cell strdef vecstim_index_filename, vecstim_filename
     
     pc = $o1
     vecstim_index_filename=$s2
     vecstim_filename=$s3
-    gids = $o4
+    vgids = $o4
     
     vindex       = new Vector()
     vspiketimes  = new Vector()
     vsizes       = new Vector()
     
-    pop_size = gids.size()
+    pop_size = vgids.size()
     
     
     if (pc.id == 0) {
@@ -352,7 +352,7 @@ proc loadVectorStimulation() {local sendpos, celltype_idx, startgid, endgid, pop
     pc.broadcast(vspiketimes, 0)
     
     for (i=0; i < vindex.size(); i+=1) {
-	gid = gids.x[i]
+	gid = vgids.x[i]
 	if (pc.gid_exists(gid)) {
 	    vcellspikes = new Vector()
 	    vcellspikes.copy(vspiketimes, 0, vindex.x[i], vindex.x[i]+vsizes.x[i]-1)
