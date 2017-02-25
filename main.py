@@ -498,5 +498,4 @@ def main(config_file, template_paths, dataset_prefix, results_path, node_rank_fi
 
 if __name__ == '__main__':
     main(args=sys.argv[(sys.argv.index("main.py")+1):])
-    MPI.Finalize()
 
