@@ -139,8 +139,14 @@ class Env:
         self.synapseOrder  = self.modelConfig['synapses']['order']
         self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
         self.projections   = self.modelConfig['connectivity']['projections']
-        self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
-        self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
+        if self.modelConfig['connectivity'].has_key('gapjunctions'):
+            self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
+        else:
+            self.gapjunctions  = None
+        if self.modelConfig['connectivity'].has_key('gapjunctionsFile'):
+            self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
+        else:
+            self.gapjunctionsFile = None
         self.load_celltypes()
         self.load_prjtypes()
 
