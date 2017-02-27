@@ -231,15 +231,15 @@ proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
     
     cell.dendrites[branch][sec] { 
         gj = new ggap(0.5) 
-        pnm.pc.target_var(gj, &gj.vgap, ggid)
-        pnm.pc.source_var(&v(0.5), ggid)
+        pc.target_var(gj, &gj.vgap, ggid)
+        pc.source_var(&v(0.5), ggid)
     }
     
     gjlist.append(gj)
     gj.g = w
     
     if (verbose > 0) {
-        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g ggid = %d\n", pnm.myid, gid, branch, sec, w, ggid)
+        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g ggid = %d\n", pc.id, gid, branch, sec, w, ggid)
     }
     
 }

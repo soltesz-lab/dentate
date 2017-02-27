@@ -182,51 +182,57 @@ def connectgjs(env):
     hostid = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    h('objref gjlist')
-    h.gjlist = h.List()
     gapjunctions = env.gapjunctions
-    if env.verbose:
-        if env.pc.id() == 0:
-            print gapjunctions
-    datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-    gapjunctionsFilePath = os.path.join(datasetPath,env.gapjunctionsFile)
-    if env.nodeRanks is None:
-        graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize)
+    if env.gapjunctionsFile is None:
+        gapjunctionsFilePath = None
     else:
-        graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,env.nodeRanks,True)
+        gapjunctionsFilePath = os.path.join(datasetPath,env.gapjunctionsFile)
 
-    ggid = 2*ncells
-    for name in gapjunctions.keys():
+    if gapjunctions is not None:
+
+        h('objref gjlist')
+        h.gjlist = h.List()
         if env.verbose:
             if env.pc.id() == 0:
-                print "*** Creating gap junctions %s" % name
-        src_name = gapjunctions[name]['source']
-        dst_name = gapjunctions[name]['destination']
-        src_index = env.celltypes[src_name]['index']
-        dst_index = env.celltypes[dst_name]['index']
-        prj = graph[name]
-        mygidlist = []
-        for x in src_index:
-            if (x % nhosts) == hostid:
-                mygidlist.append(x)
-        for x in dst_index:
-            if (x % nhosts) == hostid:
-                mygidlist.append(x)
-        for edge in prj:
-            src = edge[0]
-            dst = edge[1]
-            srcbranch  = edge[2]
-            srcsec     = edge[3]
-            dstbranch  = edge[4]
-            dstsec     = edge[5]
-            weight     = edge[6]
-            if src in mygidlist:
-                h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
-            if dst in mygidlist:
-                h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
-            ggid = ggid+2
+                print gapjunctions
+        datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
+        if env.nodeRanks is None:
+            graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize)
+        else:
+            graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,env.nodeRanks,True)
 
-        del graph[name]
+        ggid = 2*ncells
+        for name in gapjunctions.keys():
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Creating gap junctions %s" % name
+            src_name = gapjunctions[name]['source']
+            dst_name = gapjunctions[name]['destination']
+            src_index = env.celltypes[src_name]['index']
+            dst_index = env.celltypes[dst_name]['index']
+            prj = graph[name]
+            mygidlist = []
+            for x in src_index:
+                if (x % nhosts) == hostid:
+                    mygidlist.append(x)
+            for x in dst_index:
+                if (x % nhosts) == hostid:
+                    mygidlist.append(x)
+            for edge in prj:
+                src = edge[0]
+                dst = edge[1]
+                srcbranch  = edge[2]
+                srcsec     = edge[3]
+                dstbranch  = edge[4]
+                dstsec     = edge[5]
+                weight     = edge[6]
+                if src in mygidlist:
+                    h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
+                if dst in mygidlist:
+                    h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
+                ggid = ggid+2
+
+            del graph[name]
 
 def mkcells(env):
 
@@ -390,8 +396,14 @@ def init(env):
 
     h.load_file("nrngui.hoc")
     h('objref fi_status, pc, nclist, nc, nil')
-    h.nclist = h.List()
     h('strdef datasetPath')
+    h('max_walltime_hrs = 0')
+    h('mkcellstime = 0')
+    h('mkstimtime = 0')
+    h('connectcellstime = 0')
+    h('connectgjstime = 0')
+    h('results_write_time = 0')
+    h.nclist = h.List()
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
     h.datasetPath = datasetPath
     ##  new ParallelContext object
@@ -427,8 +439,13 @@ def init(env):
     env.pc.set_maxstep(10.0)
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
-        h.fi_status = h.FInitializeHandler("simstatus()")
-
+        h.max_walltime_hrs = env.max_walltime_hrs
+        h.mkcellstime      = env.mkcellstime
+        h.mkstimtime       = env.mkstimtime
+        h.connectcellstime = env.connectcellstime
+        h.connectgjstime   = env.connectgjstime
+        h.results_write_time = env.results_write_time
+        h.fi_status          = h.FInitializeHandler("simstatus()")
     h.stdinit()
 
 # Run the simulation
@@ -481,5 +498,4 @@ def main(config_file, template_paths, dataset_prefix, results_path, node_rank_fi
 
 if __name__ == '__main__':
     main(args=sys.argv[(sys.argv.index("main.py")+1):])
-    MPI.Finalize()
 
