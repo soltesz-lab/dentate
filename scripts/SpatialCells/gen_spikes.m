@@ -15,18 +15,18 @@
 %   (de Almeida and Lisman, JNeurosci 2009)
 
 
-%batch_size=str2num(getenv('BATCH_SIZE'))
+batch_size=str2num(getenv('BATCH_SIZE'))
 batch_index=str2num(getenv('BATCH_INDEX'))
 data_path=getenv('DATA_PATH')
 						     
-load(sprintf('%s/linear_grid_data.mat',data_path));
-size(grid_rbar)
+linear_grid_data=matfile(sprintf('%s/linear_grid_data.mat',data_path));
+
 %rbar = grid_rbar(:,(((batch_index-1)*batch_size)+1):(batch_index*batch_size)) * 1e-3;
-rbar = grid_rbar_modules{batch_index,1} * 1e-3;
+rbar = permute(linear_grid_data.grid_rbar_modules((((batch_index-1)*batch_size)+1):(batch_index*batch_size),:),[2,1]) * 1e-2;
 
 [T,N] = size(rbar)
   
 s = DG_SFromPSTHVarZ(rbar, 1);
 spikes = DG_spike_gen(s,eye(N,N),1);
 
-save(sprintf('grid_spikes_%d.mat',batch_index),'spikes');
+save(sprintf('%s/grid_spikes_%d.mat',data_path,batch_index),'spikes');

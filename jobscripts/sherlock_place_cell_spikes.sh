@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J grid_cell_spikes
-#SBATCH -o ./results/grid_cell_spikes.%j.o
+#SBATCH -J place_cell_spikes
+#SBATCH -o ./results/place_cell_spikes.%j.o
 #SBATCH -t 12:00:00
 #SBATCH --mem 8192
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -11,7 +11,7 @@
 
 module load matlab
 
-BATCH_SIZE=100
+BATCH_SIZE=250
 BATCH_INDEX=$SLURM_ARRAY_TASK_ID
 DATA_PATH=$SCRATCH/gridcells
 
@@ -20,6 +20,6 @@ export BATCH_INDEX
 export DATA_PATH
 
 cd $HOME/model/dentate/scripts/SpatialCells
-./run_gen_spikes.sh /share/sw/licensed/MATLAB-R2016b
+./run_gen_placecell_spikes.sh /share/sw/licensed/MATLAB-R2016b
 
 
