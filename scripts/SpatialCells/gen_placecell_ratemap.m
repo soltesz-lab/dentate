@@ -5,12 +5,12 @@
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
-N = 54000; % Approximately reflecting Layer II LEC cells in the rat
+N = 85000; % Approximately reflecting Layer II LEC cells in the rat
 M = 1;
 lambda_range = [W*2, W*2];
 grid_unit = 25;
 
-seed = 21;
+seed = 22;
 
 [X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, lambda_range, grid_unit, seed);
 ratemap  = place_ratemap(X,Y,lambda,theta,xoff,yoff);

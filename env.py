@@ -46,12 +46,13 @@ class Env:
                 celltypes[k]['num'] = len(index)
                 offset=max(index)+1
     
-    def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath,
+    def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
                  IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, cells_only, verbose):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
         :param resultsPath: the directory in which to write spike raster and voltage trace files
+        :param nodeRankFile: the name of a file that specifies assignment of node gids to MPI ranks
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
         :param tstop: physical time to simulate
@@ -82,7 +83,9 @@ class Env:
 
 
         # Directories for cell templates
-        self.templatePaths = string.split(templatePaths, ':')
+        self.templatePaths=[]
+        if templatePaths:
+            self.templatePaths = string.split(templatePaths, ':')
 
         # The location of all datasets
         self.datasetPrefix = datasetPrefix
@@ -114,7 +117,16 @@ class Env:
 
         # Save CoreNEURON data
         self.coredat = coredat
-        
+
+        self.nodeRanks = None
+        if nodeRankFile:
+            with open(nodeRankFile) as fp:
+                lst = []
+                lines = fp.readlines()
+                for l in lines:
+                    lst.append(int(l))
+                self.nodeRanks = np.asarray(lst, dtype=np.uint32)
+
         with open(configFile) as fp:
             self.modelConfig = yaml.load(fp)
             
@@ -127,7 +139,14 @@ class Env:
         self.synapseOrder  = self.modelConfig['synapses']['order']
         self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
         self.projections   = self.modelConfig['connectivity']['projections']
-        self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
+        if self.modelConfig['connectivity'].has_key('gapjunctions'):
+            self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
+        else:
+            self.gapjunctions  = None
+        if self.modelConfig['connectivity'].has_key('gapjunctionsFile'):
+            self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
+        else:
+            self.gapjunctionsFile = None
         self.load_celltypes()
         self.load_prjtypes()
 
@@ -136,5 +155,6 @@ class Env:
 
         # used to calculate model construction times and run time
         self.mkcellstime = 0
+        self.mkstimtime  = 0
         self.connectcellstime = 0
         self.connectgjstime = 0

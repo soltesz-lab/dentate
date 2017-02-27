@@ -4,46 +4,12 @@ public pp, connect2target, id, is_art
 public x, y, z, position, xpos, ypos, zpos
 objref pp, rs, spikevect
 
-proc init() { local status localobj ff strdef datasetPath, spikedataPath, cmd
+proc init() { local status 
     id = $1
     gid = $2
-    datasetPath = $s3
-    spikevect = new Vector()
-    sprint(spikedataPath,"%s/%d.dat",datasetPath,id)
-    sprint(cmd, "test -e %s", spikedataPath) // check if the path exists
-    status = system(cmd)
-    if (status == 0) {
-        pp = new VecStim()
-        ff = new File()
-        ff.ropen(spikedataPath)
-        spikevect.scanf(ff)
-        ff.close()
-        pp.play(spikevect)
-    } else {
-      setup_netstim(id,gid,0.1,10,0,1)
-    }
+    pp = new VecStim()
 }
 
-
-proc setup_netstim() {
-    id = $1
-    gid = $2
-    rate   = $3
-    number = $4
-    start  = $5
-    noise  = $6
-    pp = new NetStim(.5)
-    if (number > 0) {
-       rs = new RandomStream(id, 21, 27)
-       rs.r.negexp(1)
-       rs.start()
-       pp.noiseFromRandom(rs.r)
-    }
-    pp.interval = 1000/rate
-    pp.number = number
-    pp.start = start
-    pp.noise = noise	
-}
 
 func is_art() {return 1}
 
@@ -52,11 +18,6 @@ obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 
     nc = new NetCon(pp, $o1)
     if (numarg() == 2) { $o2 = nc } // for backward compatibility
     return nc
-}
-
-proc setposition(){
-    x = $1  y = $2  z = $3	
-    xpos = $1  ypos = $2  zpos = $3	
 }
 
 endtemplate MPPCell
