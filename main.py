@@ -197,9 +197,9 @@ def connectgjs(env):
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
         if env.nodeRanks is None:
-            graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize)
+            dst_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize)
         else:
-            graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,env.nodeRanks,True)
+            dst_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,env.nodeRanks,True)
 
         ggid = 2*ncells
         for name in gapjunctions.keys():
@@ -210,7 +210,7 @@ def connectgjs(env):
             dst_name = gapjunctions[name]['destination']
             src_index = env.celltypes[src_name]['index']
             dst_index = env.celltypes[dst_name]['index']
-            prj = graph[name]
+            dst_prj = dst_graph[name]
             mygidlist = []
             for x in src_index:
                 if (x % nhosts) == hostid:
@@ -218,7 +218,7 @@ def connectgjs(env):
             for x in dst_index:
                 if (x % nhosts) == hostid:
                     mygidlist.append(x)
-            for edge in prj:
+            for edge in dst_prj:
                 src = edge[0]
                 dst = edge[1]
                 srcbranch  = edge[2]
@@ -226,11 +226,11 @@ def connectgjs(env):
                 dstbranch  = edge[4]
                 dstsec     = edge[5]
                 weight     = edge[6]
-                if src in mygidlist:
-                    h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
-                if dst in mygidlist:
-                    h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
+                h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
                 ggid = ggid+2
+
+            #if src in mygidlist:
+            #    h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
 
             del graph[name]
 
