@@ -397,6 +397,7 @@ def init(env):
     h.load_file("nrngui.hoc")
     h('objref fi_status, pc, nclist, nc, nil')
     h('strdef datasetPath')
+    h('tstop = 0')
     h('max_walltime_hrs = 0')
     h('mkcellstime = 0')
     h('mkstimtime = 0')
@@ -417,6 +418,7 @@ def init(env):
     h.load_file("./templates/StimCell.hoc")
     h.xopen("./lib.hoc")
     h.dt = env.dt
+    h.tstop = env.tstop
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -439,6 +441,7 @@ def init(env):
     env.pc.set_maxstep(10.0)
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
+        print "tstop = %g" % h.tstop
         h.max_walltime_hrs = env.max_walltime_hrs
         h.mkcellstime      = env.mkcellstime
         h.mkstimtime       = env.mkstimtime
@@ -450,7 +453,9 @@ def init(env):
 
 # Run the simulation
 def run (env):
-    env.pc.psolve(env.tstop)
+
+    env.pc.psolve(h.tstop)
+
     if (env.pc.id() == 0):
         print "*** Simulation completed"
     h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.id_vec)
@@ -478,7 +483,7 @@ def run (env):
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
