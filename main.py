@@ -397,7 +397,6 @@ def init(env):
     h.load_file("nrngui.hoc")
     h('objref fi_status, pc, nclist, nc, nil')
     h('strdef datasetPath')
-    h('tstop = 0')
     h('max_walltime_hrs = 0')
     h('mkcellstime = 0')
     h('mkstimtime = 0')
