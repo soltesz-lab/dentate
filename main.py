@@ -395,7 +395,7 @@ def mkstim(env):
 def init(env):
 
     h.load_file("nrngui.hoc")
-    h('objref fi_status, pc, nclist, nc, nil')
+    h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
     h('strdef datasetPath')
     h('max_walltime_hrs = 0')
     h('mkcellstime = 0')
@@ -438,15 +438,16 @@ def init(env):
         print "*** Cells connected in %g seconds" % env.connectcellstime
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
+    h.max_walltime_hrs = env.max_walltime_hrs
+    h.mkcellstime      = env.mkcellstime
+    h.mkstimtime       = env.mkstimtime
+    h.connectcellstime = env.connectcellstime
+    h.connectgjstime   = env.connectgjstime
+    h.results_write_time = env.results_write_time
+    h.fi_checksimtime   = h.FInitializeHandler("checksimtime(pc)")
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
         print "tstop = %g" % h.tstop
-        h.max_walltime_hrs = env.max_walltime_hrs
-        h.mkcellstime      = env.mkcellstime
-        h.mkstimtime       = env.mkstimtime
-        h.connectcellstime = env.connectcellstime
-        h.connectgjstime   = env.connectgjstime
-        h.results_write_time = env.results_write_time
         h.fi_status          = h.FInitializeHandler("simstatus()")
     h.stdinit()
 
@@ -474,6 +475,7 @@ def run (env):
         if (maxcomp > 0):
             print "  load balance = %g" % (avgcomp/maxcomp)
 
+    env.pc.runworker()
     env.pc.done()
     h.quit()
 
