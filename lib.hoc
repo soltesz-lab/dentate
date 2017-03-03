@@ -63,7 +63,7 @@ proc mknetcon() { local i localobj synlist, nclist, pc, nc
 // A variant of ParallelNetManager.nc_append that takes in a synaptic
 // point process as an argument (as opposed to the index of a synapse in cell.synlist)
 func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
-    i = -1
+    i = 0
     pc       = $o1
     nclist   = $o2
     lsrc     = $3
@@ -74,7 +74,8 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, 
     // target in this subset
     // source may be on this or another machine
     sprint(errmsg,"nc_appendsyn: gid %d does not exist on host %d",ltar,pc.id())
-    assert (pc.gid_exists(ltar), errmsg)
+//    assert (pc.gid_exists(ltar), errmsg)
+    if (pc.gid_exists(ltar)) {
     cell = pc.gid2cell(ltar)
     assert (synIndex.is_undefined == 0,"synIndex is undefined")
     i = nclist.count()
@@ -83,6 +84,7 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, 
     } else {
         mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(0).n), w.l.o(0).n/1000.0, del)
         mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(1).n), w.l.o(1).n/1000.0, del)
+    }
     }
     return i
 }
@@ -431,6 +433,7 @@ proc checksimtime() { local wt, tt, trem, tsimrem, tsimneeded, tstop1
         tstop1 = int((tsimrem - results_write_time)/tt) + t
      	printf ("*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms\n", tstop, tstop1)
         tstop = tstop1
+        cvode.event(tstop)
     }
     nsimsteps = nsimsteps + 1
  }
