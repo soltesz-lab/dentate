@@ -279,6 +279,7 @@ celltypes:
 ## Connectivity configuration for dentate gyrus model
 connectivity:
   connectivityFile: dentate_Reduced_Scale_Control_dbs.h5
+  gapjunctionsFile: dentate_Reduced_Scale_Control_gapjunctions.h5
   ## Projection definitions
   projections: 
     AACtoGC:
