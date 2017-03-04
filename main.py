@@ -115,9 +115,9 @@ def connectcells(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     if env.nodeRanks is None:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
     else:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,env.nodeRanks,True)
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -182,6 +182,8 @@ def connectgjs(env):
     hostid = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
+    
     gapjunctions = env.gapjunctions
     if env.gapjunctionsFile is None:
         gapjunctionsFilePath = None
@@ -198,10 +200,12 @@ def connectgjs(env):
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
         if env.nodeRanks is None:
             dst_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize)
+            src_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,map_type=1,attributes=True)
         else:
-            dst_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,env.nodeRanks,True)
+            dst_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
+            src_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,map_type=1,node_rank_vector=env.nodeRanks,attributes=True)
 
-        ggid = 2*ncells
+        ggid = 2*h.totalNumCells
         for name in gapjunctions.keys():
             if env.verbose:
                 if env.pc.id() == 0:
@@ -210,6 +214,7 @@ def connectgjs(env):
             dst_name = gapjunctions[name]['destination']
             src_index = env.celltypes[src_name]['index']
             dst_index = env.celltypes[dst_name]['index']
+            src_prj = src_graph[name]
             dst_prj = dst_graph[name]
             mygidlist = []
             for x in src_index:
@@ -218,26 +223,37 @@ def connectgjs(env):
             for x in dst_index:
                 if (x % nhosts) == hostid:
                     mygidlist.append(x)
-            for edge in dst_prj:
-                src = edge[0]
+            for source in src_prj:
+                edges = src_prj[source]
+                print "edges = ", edges
+                destinations = edges[0]
+                srcbranches  = edges[1]
+                srcsecs      = edges[2]
+                dstbranches  = edges[3]
+                dstsecs      = edges[4]
+                weights      = edges[5]
+                if src in mygidlist:
+                    h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
+                ggid = ggid+2
+            for dst in dst_prj:
+                edges   =  dst
+                sources = edge[0]
                 dst = edge[1]
                 srcbranch  = edge[2]
                 srcsec     = edge[3]
                 dstbranch  = edge[4]
                 dstsec     = edge[5]
                 weight     = edge[6]
-                h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
+                if dst in mygidlist:
+                    h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
                 ggid = ggid+2
 
-            #if src in mygidlist:
-            #    h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
-
-            del graph[name]
-
+            del dst_graph[name]
+            del src_graph[name]
+ 
 def mkcells(env):
 
     h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
-    h('numCells = 0')
 
     hostid = int(env.pc.id())
     nhosts = int(env.pc.nhost())
@@ -270,6 +286,7 @@ def mkcells(env):
         if env.celltypes[popName]['templateType'] == 'single':
             numCells  = env.celltypes[popName]['num']
             h.numCells = numCells
+            h.totalNumCells = h.totalNumCells + numCells
             index  = env.celltypes[popName]['index']
 
             mygidlist = []
@@ -397,6 +414,8 @@ def init(env):
     h.load_file("nrngui.hoc")
     h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
     h('strdef datasetPath')
+    h('numCells = 0')
+    h('totalNumCells = 0')
     h('max_walltime_hrs = 0')
     h('mkcellstime = 0')
     h('mkstimtime = 0')
@@ -433,9 +452,14 @@ def init(env):
     if not env.cells_only:
         connectcells(env)
     env.connectcellstime = h.stopsw()
-    env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
+    h.startsw()
+    connectgjs(env)
+    env.connectgjstime = h.stopsw()
+    if (env.pc.id() == 0):
+        print "*** Gap junctions created in %g seconds" % env.connectgjstime
+    env.pc.barrier()
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
     h.max_walltime_hrs = env.max_walltime_hrs
@@ -470,7 +494,7 @@ def run (env):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
         print "  connected cells in %g seconds" % env.connectcellstime
-        #print "  created gap junctions in %g seconds\n" % connectgjstime
+        print "  created gap junctions in %g seconds\n" % connectgjstime
         print "  ran simulation in %g seconds" % comptime
         if (maxcomp > 0):
             print "  load balance = %g" % (avgcomp/maxcomp)
