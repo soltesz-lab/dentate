@@ -8,7 +8,7 @@ import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurograph.io import scatter_graph
+from neurograph.io import scatter_graph, bcast_graph
 from neurotrees.io import scatter_read_trees
 from env import Env
 
@@ -198,58 +198,36 @@ def connectgjs(env):
             if env.pc.id() == 0:
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-        if env.nodeRanks is None:
-            dst_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize)
-            src_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,map_type=1,attributes=True)
-        else:
-            dst_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
-            src_graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,map_type=1,node_rank_vector=env.nodeRanks,attributes=True)
+        graph = bcast_graph(MPI._addressof(env.comm),gapjunctionsFilePath,attributes=True)
 
-        ggid = 2*h.totalNumCells
+        ggid = 2e6
         for name in gapjunctions.keys():
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Creating gap junctions %s" % name
-            src_name = gapjunctions[name]['source']
-            dst_name = gapjunctions[name]['destination']
-            src_index = env.celltypes[src_name]['index']
-            dst_index = env.celltypes[dst_name]['index']
-            src_prj = src_graph[name]
-            dst_prj = dst_graph[name]
-            mygidlist = []
-            for x in src_index:
-                if (x % nhosts) == hostid:
-                    mygidlist.append(x)
-            for x in dst_index:
-                if (x % nhosts) == hostid:
-                    mygidlist.append(x)
-            for source in src_prj:
-                edges = src_prj[source]
-                print "edges = ", edges
-                destinations = edges[0]
-                srcbranches  = edges[1]
-                srcsecs      = edges[2]
-                dstbranches  = edges[3]
-                dstsecs      = edges[4]
-                weights      = edges[5]
-                if src in mygidlist:
-                    h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
-                ggid = ggid+2
-            for dst in dst_prj:
-                edges   =  dst
-                sources = edge[0]
-                dst = edge[1]
-                srcbranch  = edge[2]
-                srcsec     = edge[3]
-                dstbranch  = edge[4]
-                dstsec     = edge[5]
-                weight     = edge[6]
-                if dst in mygidlist:
-                    h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
-                ggid = ggid+2
+            prj = graph[name]
+            for destination in sorted(prj.keys()):
+                edges = prj[destination]
+                sources      = edges[0]
+                weights      = edges[1]
+                srcbranches  = edges[2]
+                srcsecs      = edges[3]
+                dstbranches  = edges[4]
+                dstsecs      = edges[5]
+                for i in range(0,len(sources)):
+                    source    = sources[i]
+                    srcbranch = srcbranches[i]
+                    srcsec    = srcsecs[i]
+                    dstbranch = dstbranches[i]
+                    dstsec    = dstsecs[i]
+                    weight    = weights[i]
+                    if env.pc.gid_exists(source):
+                        h.mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
+                    if env.pc.gid_exists(destination):
+                        h.mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
+                    ggid = ggid+2
 
-            del dst_graph[name]
-            del src_graph[name]
+            del graph[name]
  
 def mkcells(env):
 
@@ -459,7 +437,6 @@ def init(env):
     env.connectgjstime = h.stopsw()
     if (env.pc.id() == 0):
         print "*** Gap junctions created in %g seconds" % env.connectgjstime
-    env.pc.barrier()
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
     h.max_walltime_hrs = env.max_walltime_hrs
@@ -494,7 +471,7 @@ def run (env):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
         print "  connected cells in %g seconds" % env.connectcellstime
-        print "  created gap junctions in %g seconds\n" % connectgjstime
+        print "  created gap junctions in %g seconds\n" % env.connectgjstime
         print "  ran simulation in %g seconds" % comptime
         if (maxcomp > 0):
             print "  load balance = %g" % (avgcomp/maxcomp)
