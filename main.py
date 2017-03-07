@@ -165,6 +165,8 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
             h.syn.e    = synapses[syn_type]['e_rev']
             cell.allsyns.o(syn_type).append(h.syn)
             h.pop_section()
+    if env.verbose:
+        print "mksyn2: gid %d: cell.allsyns.o(0).count = %d\n" % (cell.gid, cell.allsyns.o(0).count())
 
 def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):

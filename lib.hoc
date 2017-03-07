@@ -39,7 +39,7 @@ proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc 
     } else {
       //printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)  
     }
-    sprint(errmsg,"mknetcon1: gid %d: synapse index %d is greater than total number of synapses (%d)",dstgid,index,synlist.count())
+    sprint(errmsg,"mknetcon1: connection %d -> %d: synapse index %d is greater than total number of synapses (%d)",srcgid,dstgid,index,synlist.count())
     assert (index < synlist.count(), errmsg)
 }
 
