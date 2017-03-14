@@ -8,7 +8,7 @@ fwrite(idxfile, [0 5], 'int32'); % 5 = type int
 
 pos = 0;
 numitems = 0;
-for i=1:380
+for i=1:100
   spikes = load(sprintf('grid_spikes_%d.mat',i));
   for j = 1:(size(spikes.spikes)(2))
       times  = find(spikes.spikes(:,j)) * dt;
