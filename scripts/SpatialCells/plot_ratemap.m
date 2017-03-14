@@ -24,7 +24,7 @@ M = 10; % number of grid cell modules
 
 grid_unit = 1;
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit, 19);
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, 1, grid_unit, 19);
 ratemap1  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 m1_1 = reshape(ratemap1(1,:,:),[200 200]);
@@ -43,7 +43,7 @@ title(['Spacing 400 cm']);
 
 grid_unit = 25;
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit, 10);
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, 1, grid_unit, 10);
 ratemap25  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 m1_25 = reshape(ratemap25(1,:,:),[40 40]);

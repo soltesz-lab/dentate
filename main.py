@@ -8,7 +8,7 @@ import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurograph.io import scatter_graph
+from neurograph.io import scatter_graph, bcast_graph
 from neurotrees.io import scatter_read_trees
 from env import Env
 
@@ -115,9 +115,9 @@ def connectcells(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     if env.nodeRanks is None:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
     else:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,env.nodeRanks,True)
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -165,6 +165,8 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
             h.syn.e    = synapses[syn_type]['e_rev']
             cell.allsyns.o(syn_type).append(h.syn)
             h.pop_section()
+    if env.verbose:
+        print "mksyn2: gid %d: cell.allsyns.o(0).count = %d\n" % (cell.gid, cell.allsyns.o(0).count())
 
 def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):
@@ -182,6 +184,8 @@ def connectgjs(env):
     hostid = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
+    
     gapjunctions = env.gapjunctions
     if env.gapjunctionsFile is None:
         gapjunctionsFilePath = None
@@ -196,48 +200,40 @@ def connectgjs(env):
             if env.pc.id() == 0:
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-        if env.nodeRanks is None:
-            graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize)
-        else:
-            graph = scatter_graph(MPI._addressof(env.comm),gapjunctionsFilePath,env.IOsize,env.nodeRanks,True)
+        graph = bcast_graph(MPI._addressof(env.comm),gapjunctionsFilePath,attributes=True)
 
-        ggid = 2*ncells
+        ggid = 2e6
         for name in gapjunctions.keys():
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Creating gap junctions %s" % name
-            src_name = gapjunctions[name]['source']
-            dst_name = gapjunctions[name]['destination']
-            src_index = env.celltypes[src_name]['index']
-            dst_index = env.celltypes[dst_name]['index']
             prj = graph[name]
-            mygidlist = []
-            for x in src_index:
-                if (x % nhosts) == hostid:
-                    mygidlist.append(x)
-            for x in dst_index:
-                if (x % nhosts) == hostid:
-                    mygidlist.append(x)
-            for edge in prj:
-                src = edge[0]
-                dst = edge[1]
-                srcbranch  = edge[2]
-                srcsec     = edge[3]
-                dstbranch  = edge[4]
-                dstsec     = edge[5]
-                weight     = edge[6]
-                if src in mygidlist:
-                    h.mkgap(h.gjlist, src, srcbranch, srcsec, ggid, weight)
-                if dst in mygidlist:
-                    h.mkgap(h.gjlist, dst, dstbranch, dstsec, ggid+1, weight)
-                ggid = ggid+2
+            for destination in sorted(prj.keys()):
+                edges = prj[destination]
+                sources      = edges[0]
+                weights      = edges[1]
+                srcbranches  = edges[2]
+                srcsecs      = edges[3]
+                dstbranches  = edges[4]
+                dstsecs      = edges[5]
+                for i in range(0,len(sources)):
+                    source    = sources[i]
+                    srcbranch = srcbranches[i]
+                    srcsec    = srcsecs[i]
+                    dstbranch = dstbranches[i]
+                    dstsec    = dstsecs[i]
+                    weight    = weights[i]
+                    if env.pc.gid_exists(source):
+                        h.mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
+                    if env.pc.gid_exists(destination):
+                        h.mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
+                    ggid = ggid+2
 
             del graph[name]
-
+ 
 def mkcells(env):
 
     h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
-    h('numCells = 0')
 
     hostid = int(env.pc.id())
     nhosts = int(env.pc.nhost())
@@ -270,6 +266,7 @@ def mkcells(env):
         if env.celltypes[popName]['templateType'] == 'single':
             numCells  = env.celltypes[popName]['num']
             h.numCells = numCells
+            h.totalNumCells = h.totalNumCells + numCells
             index  = env.celltypes[popName]['index']
 
             mygidlist = []
@@ -395,8 +392,10 @@ def mkstim(env):
 def init(env):
 
     h.load_file("nrngui.hoc")
-    h('objref fi_status, pc, nclist, nc, nil')
+    h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
     h('strdef datasetPath')
+    h('numCells = 0')
+    h('totalNumCells = 0')
     h('max_walltime_hrs = 0')
     h('mkcellstime = 0')
     h('mkstimtime = 0')
@@ -417,6 +416,7 @@ def init(env):
     h.load_file("./templates/StimCell.hoc")
     h.xopen("./lib.hoc")
     h.dt = env.dt
+    h.tstop = env.tstop
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -432,25 +432,33 @@ def init(env):
     if not env.cells_only:
         connectcells(env)
     env.connectcellstime = h.stopsw()
-    env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
+    h.startsw()
+    connectgjs(env)
+    env.connectgjstime = h.stopsw()
+    if (env.pc.id() == 0):
+        print "*** Gap junctions created in %g seconds" % env.connectgjstime
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
+    h.max_walltime_hrs = env.max_walltime_hrs
+    h.mkcellstime      = env.mkcellstime
+    h.mkstimtime       = env.mkstimtime
+    h.connectcellstime = env.connectcellstime
+    h.connectgjstime   = env.connectgjstime
+    h.results_write_time = env.results_write_time
+    h.fi_checksimtime   = h.FInitializeHandler("checksimtime(pc)")
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
-        h.max_walltime_hrs = env.max_walltime_hrs
-        h.mkcellstime      = env.mkcellstime
-        h.mkstimtime       = env.mkstimtime
-        h.connectcellstime = env.connectcellstime
-        h.connectgjstime   = env.connectgjstime
-        h.results_write_time = env.results_write_time
+        print "tstop = %g" % h.tstop
         h.fi_status          = h.FInitializeHandler("simstatus()")
     h.stdinit()
 
 # Run the simulation
 def run (env):
-    env.pc.psolve(env.tstop)
+
+    env.pc.psolve(h.tstop)
+
     if (env.pc.id() == 0):
         print "*** Simulation completed"
     h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.id_vec)
@@ -465,11 +473,12 @@ def run (env):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
         print "  connected cells in %g seconds" % env.connectcellstime
-        #print "  created gap junctions in %g seconds\n" % connectgjstime
+        print "  created gap junctions in %g seconds\n" % env.connectgjstime
         print "  ran simulation in %g seconds" % comptime
         if (maxcomp > 0):
             print "  load balance = %g" % (avgcomp/maxcomp)
 
+    env.pc.runworker()
     env.pc.done()
     h.quit()
 
@@ -478,7 +487,7 @@ def run (env):
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)

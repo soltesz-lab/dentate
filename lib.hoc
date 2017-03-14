@@ -31,8 +31,6 @@ proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc 
     dstgid  = $4
     synlist = $o5
     index   = $6
-    sprint(errmsg,"mknetcon1: gid %d: synapse index %d is greater than total number of synapses (%d)",dstgid,index,synlist.count())
-    //assert (index < synlist.count(), errmsg)
     if (index < synlist.count()) {
         nc = pc.gid_connect(srcgid, synlist.o(index))
         nc.weight = $7
@@ -41,6 +39,8 @@ proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc 
     } else {
       //printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)  
     }
+    sprint(errmsg,"mknetcon1: connection %d -> %d: synapse index %d is greater than total number of synapses (%d)",srcgid,dstgid,index,synlist.count())
+    assert (index < synlist.count(), errmsg)
 }
 
 
@@ -63,7 +63,7 @@ proc mknetcon() { local i localobj synlist, nclist, pc, nc
 // A variant of ParallelNetManager.nc_append that takes in a synaptic
 // point process as an argument (as opposed to the index of a synapse in cell.synlist)
 func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
-    i = -1
+    i = 0
     pc       = $o1
     nclist   = $o2
     lsrc     = $3
@@ -74,7 +74,8 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, 
     // target in this subset
     // source may be on this or another machine
     sprint(errmsg,"nc_appendsyn: gid %d does not exist on host %d",ltar,pc.id())
-    assert (pc.gid_exists(ltar), errmsg)
+//    assert (pc.gid_exists(ltar), errmsg)
+    if (pc.gid_exists(ltar)) {
     cell = pc.gid2cell(ltar)
     assert (synIndex.is_undefined == 0,"synIndex is undefined")
     i = nclist.count()
@@ -83,6 +84,7 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, 
     } else {
         mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(0).n), w.l.o(0).n/1000.0, del)
         mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(1).n), w.l.o(1).n/1000.0, del)
+    }
     }
     return i
 }
@@ -224,23 +226,22 @@ proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
     gid    = $3
     branch = $4
     sec    = $5
-    ggid   = $6
-    w      = $7
+    sgid   = $6
+    dgid   = $7
+    w      = $8
     
     cell = pc.gid2cell(gid)
     
     cell.dendrites[branch][sec] { 
         gj = new ggap(0.5) 
-        pc.target_var(gj, &gj.vgap, ggid)
-        pc.source_var(&v(0.5), ggid)
+        pc.source_var(&v(0.5), sgid)
+        pc.target_var(gj, &gj.vgap, dgid)
     }
     
     gjlist.append(gj)
     gj.g = w
     
-    if (verbose > 0) {
-        printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g ggid = %d\n", pc.id, gid, branch, sec, w, ggid)
-    }
+    //printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
     
 }
 
@@ -393,17 +394,17 @@ proc loadVectorStimulation() {local sendpos, celltype_idx, startgid, endgid, pop
 
 
 
-walltime = 0
-
+walltime_status = 0
 dt_status = 1.0
 
-proc simstatus() { local wt
+proc simstatus() { local wt 
     wt = startsw()
-    if (walltime > 0) {
-        printf("*** computation time at t=%g ms was %g s\n", t, wt-walltime)
-        checksimtime(wt, wt-walltime)
+    if (walltime_status > 0) {
+        if (pc.id() == 0) {
+            printf("*** computation time at t=%g ms was %g s\n", t, wt-walltime_status)
+        }
     }
-    walltime = wt
+    walltime_status = wt
     if (t + dt_status < tstop) {
         cvode.event(t + dt_status, "simstatus()")
     }
@@ -413,26 +414,50 @@ tcsum = 0
 tcma = 0
 nsimsteps = 0
 
-proc checksimtime() { local wt, tt, trem, tsimrem, tsimneeded, tstop1
-    wt = $1
-    tt = $2
-    // cumulative moving average simulation time per time step
-    tcma = tcma + (tt - tcma) / (nsimsteps + 1)
-    tcsum = tcsum + tt
-    // remaining physical time
-    trem = tstop - t
-    // remaining simulation time
-    tsimrem = max_walltime_hrs*3600 - tcsum - mkcellstime - connectcellstime - connectgjstime
-    // simulation time necessary to complete the simulation
-    tsimneeded = trem*tcma+results_write_time
-    printf("*** remaining computation time is %g s and remaining simulation time is %g ms\n", tsimrem, trem)
-    printf("*** estimated computation time to completion is %g s\n", tsimneeded)
-    if (tsimneeded > tsimrem) {
-        tstop1 = int((tsimrem - results_write_time)/tt) + t
-     	printf ("*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms\n", tstop, tstop1)
-        tstop = tstop1
+walltime_checksimtime = 0
+dt_checksimtime = 5.0
+
+proc checksimtime() { local wt, tt, trem, tsimrem, min_tsimrem, tsimneeded, max_tsimneeded, tstop1, min_tstop localobj pc
+    pc = $o1
+    wt = startsw()
+    if (t > 0) {
+        tt = wt-walltime_checksimtime
+        // cumulative moving average simulation time per time step
+        tcma = tcma + (tt - tcma) / (nsimsteps + 1)
+        tcsum = tcsum + tt
+        // remaining physical time
+        trem = tstop - t
+        // remaining simulation time
+        tsimrem = max_walltime_hrs*3600 - tcsum - mkcellstime - connectcellstime - connectgjstime
+        min_tsimrem = pc.allreduce(tsimrem, 3) // minimum value
+        // simulation time necessary to complete the simulation
+        tsimneeded = trem*tcma+results_write_time
+        printf("trem = %g tcsum = %g tsimrem = %g tcma = %g tsimneeded = %g\n",trem,tcsum,tsimrem,tcma,tsimneeded)
+        max_tsimneeded = pc.allreduce(tsimneeded, 2) // maximum value
+        if (pc.id() == 0) {
+            printf("*** remaining computation time is %g s and remaining simulation time is %g ms\n", tsimrem, trem)
+            printf("*** estimated computation time to completion is %g s\n", tsimneeded)
+        }
+        if (max_tsimneeded > min_tsimrem) {
+            tstop1 = int((tsimrem - results_write_time)/tt) + t
+            min_tstop = pc.allreduce(tstop1, 3) // minimum value
+            if (pc.id() == 0) {
+     	        printf ("*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms\n", tstop, min_tstop)
+            }
+            if (min_tstop <= t) {
+                tstop = t+dt
+            } else {
+                tstop = min_tstop
+            }
+            cvode.event(tstop)
+        }
     }
+    walltime_checksimtime = wt
     nsimsteps = nsimsteps + 1
+    if (t + dt_checksimtime < tstop) {
+        cvode.event(t + dt_checksimtime, "checksimtime(pc)")
+    }
+
  }
  
 dt_vrecord = 0.1

@@ -522,12 +522,30 @@ connectivity:
       velocity: 250.0
   ## Gap junction projection definitions for dentate gyrus model
   gapjunctions: 
+    AACtoAAC:
+      source: AAC
+      destination: AAC
+    AACtoBC:
+      source: AAC
+      destination: BC
     HCtoHC:
       source: HC
       destination: HC
+    HCCtoHCC:
+      source: HCC
+      destination: HCC
     BCtoBC:
       source: BC
       destination: BC
+    NGFCtoAAC:
+      source: NGFC
+      destination: AAC
+    NGFCtoBC:
+      source: NGFC
+      destination: BC
+    NGFCtoHCC:
+      source: NGFC
+      destination: HCC
     NGFCtoNGFC:
       source: NGFC
       destination: NGFC
