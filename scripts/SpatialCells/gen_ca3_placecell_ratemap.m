@@ -2,6 +2,7 @@
 % Place cell rate map generator
 %
 
+data_path=getenv('DATA_PATH');
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
@@ -26,7 +27,7 @@ place_data.theta = theta;
 place_data.xoff = xoff;
 place_data.yoff = yoff;
 
-save('-v7','ca3_place_ratemap.mat','ratemap');
-save('-v7','ca3_place_data.mat','place_data');
+save('-binary',sprintf('%s/ca3_placecell_ratemap.bin',data_path),'ratemap');
+save('-binary','-append',sprintf('%s/ca3_placecell_ratemap.bin',data_path),'place_data');
 
 
