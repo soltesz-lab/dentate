@@ -1,0 +1,66 @@
+objref vect, ran, f, inds, active
+
+fraction_active = 0.3
+
+f      = new File()
+vect   = new Vector()
+ran    = new Random()
+inds   = new Vector()
+active = new Vector()
+
+ran.uniform(0,1)
+
+f.ropen("meccell_vectim_ptr.bin")
+vect.vread(f)
+f.close()
+
+inds = vect.c()
+active.resize(vect.size())
+
+inds = inds.indvwhere(">=", 1.0-fraction_active)
+
+for i=0, inds.size()-1 {
+    active.x[inds.x[i]] = 1
+}
+
+f.wopen("meccell_30_vecstim_active.bin")
+active.vwrite(f)
+f.close()
+
+
+f.ropen("leccell_vectim_ptr.bin")
+vect.vread(f)
+f.close()
+
+inds = vect.c()
+active.resize(vect.size())
+
+inds = inds.indvwhere(">=", 1.0-fraction_active)
+
+for i=0, inds.size()-1 {
+    active.x[inds.x[i]] = 1
+}
+
+f.wopen("leccell_30_vecstim_active.bin")
+active.vwrite(f)
+f.close()
+
+
+f.ropen("ca3cell_vectim_ptr.bin")
+vect.vread(f)
+f.close()
+
+inds = vect.c()
+active.resize(vect.size())
+
+inds = inds.indvwhere(">=", 1.0-fraction_active)
+
+for i=0, inds.size()-1 {
+    active.x[inds.x[i]] = 1
+}
+
+f.wopen("ca3cell_30_vecstim_active.bin")
+active.vwrite(f)
+f.close()
+
+
