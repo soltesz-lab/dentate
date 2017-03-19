@@ -3,7 +3,7 @@
 %% H: height
 %% M: number of modules
 %% N: number of grid cells 
-function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, lambda_range, grid_unit, seed)
+function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, lambda_range, r_off_scale, grid_unit, seed)
         
   rand ('seed', seed);
 
@@ -35,7 +35,7 @@ function [X,Y,lambda,rot,xoff,yoff] = init_network(W, H, M, N, lambda_range, gri
     lambda(i)  = cur_lambda;
     rot(i)     = rot_modules(cur_module);
                 
-    r_off      = cur_lambda * sqrt(rand());
+    r_off      = r_off_scale * cur_lambda * sqrt(rand());
     phi_off    = uniform(-pi, pi, 1);
 
     xoff(i)    = r_off * cos(phi_off); 

@@ -45,11 +45,11 @@ maxYgrid = H / size_len
 T = size(Xgrid,1)
 grid_rbar_modules=zeros(N*M,T);
 for m = 1:M
-    s = (m-1)*N + 1
-    e = m*N
+    m
+    s = (m-1)*N + 1;
+    e = m*N;
     grid_rbar  = zeros(N,T);
     for t = 1:T
-      t
       grid_rbar(:,t) = ratemap(s:e,Xgrid(t),Ygrid(t));
     end
     grid_rbar_modules(s:e,:) = grid_rbar;

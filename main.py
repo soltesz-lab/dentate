@@ -8,7 +8,7 @@ import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurograph.io import scatter_graph
+from neurograph.io import scatter_graph, bcast_graph
 from neurotrees.io import scatter_read_trees
 from env import Env
 
@@ -25,18 +25,18 @@ def connectprj(env, graph, prjname, prjvalue):
             for val in wgtval:
                 hval = h.Value(0, val)
                 wgtlst.append(hval)
-            h.synWeight = h.Value(2,wgtlst)
+            h.syn_weight = h.Value(2,wgtlst)
         else:
-            h.synWeight = h.Value(0,wgtval)
+            h.syn_weight = h.Value(0,wgtval)
         idxval = prjvalue['synIndex']
         if isinstance(idxval,list):
             idxlst = h.List()
             for val in idxval:
                 hval = h.Value(0, val)
                 idxlst.append(hval)
-            h.synIndex = h.Value(2,idxlst)
+            h.syn_index = h.Value(2,idxlst)
         else:
-            h.synIndex = h.Value(0,idxval)
+            h.syn_index = h.Value(0,idxval)
         velocity = prjvalue['velocity']
         for destination in prj:
             edges  = prj[destination]
@@ -48,14 +48,46 @@ def connectprj(env, graph, prjname, prjvalue):
                         source   = sources[i]
                         distance = ldists[i] + tdists[i]
                         delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.synIndex, h.synWeight, delay)
+                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
+            else:
+                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
+    elif (prjType == 'dist'):
+        wgtval = prjvalue['weight']
+        if isinstance(wgtval,list):
+            wgtlst = h.List()
+            for val in wgtval:
+                hval = h.Value(0, val)
+                wgtlst.append(hval)
+            h.syn_weight = h.Value(2,wgtlst)
+        else:
+            h.syn_weight = h.Value(0,wgtval)
+        idxval = prjvalue['synIndex']
+        if isinstance(idxval,list):
+            idxlst = h.List()
+            for val in idxval:
+                hval = h.Value(0, val)
+                idxlst.append(hval)
+            h.syn_index = h.Value(2,idxlst)
+        else:
+            h.syn_index = h.Value(0,idxval)
+        velocity = prjvalue['velocity']
+        for destination in prj:
+            edges  = prj[destination]
+            sources = edges[0]
+            dists  = edges[1]
+            if indexType == 'absolute':
+                for i in range(0,len(sources)):
+                        source   = sources[i]
+                        distance = dists[i]
+                        delay    = (distance / velocity) + 1.0
+                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
         wgtvector = prjvalue['weights']
-        h.synWeightVector = h.Vector()
-        h.synWeightVector.from_python(wgtvector)
-        h.synType = h.Value(0,prjvalue['synType'])
+        h.syn_weight_vector = h.Vector()
+        h.syn_weight_vector.from_python(wgtvector)
+        h.syn_type = h.Value(0,prjvalue['synType'])
         velocity = prjvalue['velocity']
         for destination in prj:
             edges  = prj[destination]
@@ -64,9 +96,9 @@ def connectprj(env, graph, prjname, prjvalue):
             if indexType == 'absolute':
                 for i in range(0,len(sources)):
                     source   = sources[i]
-                    h.synIndex = h.Value(0,synidxs[i])
+                    h.syn_index = h.Value(0,synidxs[i])
                     delay = 1.0
-                    h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.synType, h.synIndex, h.synWeightVector, delay)
+                    h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     else:
@@ -75,14 +107,17 @@ def connectprj(env, graph, prjname, prjvalue):
     del graph[prjname]
 
 def connectcells(env):
-    h('objref synType, synIndex, synWeight, synWeightVector')
+    h('objref syn_type, syn_index, syn_weight, syn_weight_vector')
     projections = env.projections
     if env.verbose:
         if env.pc.id() == 0:
             print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
-    graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize)
+    if env.nodeRanks is None:
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
+    else:
+        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -130,6 +165,8 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
             h.syn.e    = synapses[syn_type]['e_rev']
             cell.allsyns.o(syn_type).append(h.syn)
             h.pop_section()
+    if env.verbose:
+        print "mksyn2: gid %d: cell.allsyns.o(0).count = %d\n" % (cell.gid, cell.allsyns.o(0).count())
 
 def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):
@@ -142,17 +179,66 @@ def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
         h.pop_section()
 
     
+
+def connectgjs(env):
+    hostid = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
+
+    datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
+    
+    gapjunctions = env.gapjunctions
+    if env.gapjunctionsFile is None:
+        gapjunctionsFilePath = None
+    else:
+        gapjunctionsFilePath = os.path.join(datasetPath,env.gapjunctionsFile)
+
+    if gapjunctions is not None:
+
+        h('objref gjlist')
+        h.gjlist = h.List()
+        if env.verbose:
+            if env.pc.id() == 0:
+                print gapjunctions
+        datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
+        graph = bcast_graph(MPI._addressof(env.comm),gapjunctionsFilePath,attributes=True)
+
+        ggid = 2e6
+        for name in gapjunctions.keys():
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Creating gap junctions %s" % name
+            prj = graph[name]
+            for destination in sorted(prj.keys()):
+                edges = prj[destination]
+                sources      = edges[0]
+                weights      = edges[1]
+                srcbranches  = edges[2]
+                srcsecs      = edges[3]
+                dstbranches  = edges[4]
+                dstsecs      = edges[5]
+                for i in range(0,len(sources)):
+                    source    = sources[i]
+                    srcbranch = srcbranches[i]
+                    srcsec    = srcsecs[i]
+                    dstbranch = dstbranches[i]
+                    dstsec    = dstsecs[i]
+                    weight    = weights[i]
+                    if env.pc.gid_exists(source):
+                        h.mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
+                    if env.pc.gid_exists(destination):
+                        h.mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
+                    ggid = ggid+2
+
+            del graph[name]
+ 
 def mkcells(env):
 
     h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
-    h('numCells = 0')
 
     hostid = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    h('strdef datasetPath')
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
-    h.datasetPath = datasetPath
 
     h.templatePaths = h.List()
     for path in env.templatePaths:
@@ -180,12 +266,18 @@ def mkcells(env):
         if env.celltypes[popName]['templateType'] == 'single':
             numCells  = env.celltypes[popName]['num']
             h.numCells = numCells
+            h.totalNumCells = h.totalNumCells + numCells
             index  = env.celltypes[popName]['index']
 
             mygidlist = []
-            for x in index:
-                if (x % nhosts) == hostid:
-                    mygidlist.append(x)
+            if env.nodeRanks is None:
+                for x in index:
+                    if (x % nhosts) == hostid:
+                        mygidlist.append(x)
+            else:
+                for x in index:
+                    if env.nodeRanks[x] == hostid:
+                        mygidlist.append(x)
 
             if env.verbose:
                 print "Population %s, rank %d: " % (popName, env.pc.id())
@@ -217,8 +309,13 @@ def mkcells(env):
             h('objref vx, vy, vz, vradius, vsection, vlayer, vsection, vsrc, vdst, secnodes')
             h('gid = fid = node = 0')
             inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
-            (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
-                                                     attributes=True, namespace='Synapse_Attributes')
+            if env.nodeRanks is None:
+                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
+                                                        attributes=True, namespace='Synapse_Attributes')
+            else:
+                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
+                                                        attributes=True, namespace='Synapse_Attributes',
+                                                        node_rank_vector=env.nodeRanks)
             if env.celltypes[popName].has_key('synapses'):
                 synapses = env.celltypes[popName]['synapses']
             else:
@@ -267,12 +364,47 @@ def mkcells(env):
         else:
              error ("Unsupported template type %s" % (env.celltypes[popName]['templateType']))
 
-                    
+def mkstim(env):
+
+    hostid = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
+
+    datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
+    
+    h('objref vecstim_index')
+
+    popNames = env.celltypes.keys()
+    popNames.sort()
+    for popName in popNames:
+        if env.celltypes[popName].has_key('vectorStimulus'):
+            vecstim   = env.celltypes[popName]['vectorStimulus']
+            spikeFile = os.path.join(datasetPath, vecstim['spikeFile'])
+            indexFile = os.path.join(datasetPath, vecstim['indexFile'])
+            index     = env.celltypes[popName]['index']
+            h.vecstim_index = h.Vector()
+            for x in index:
+                h.vecstim_index.append(x)
+            h.loadVectorStimulation(env.pc, indexFile, spikeFile, h.vecstim_index)
+            h.vecstim_index.resize(0)
+            
+
+            
 def init(env):
 
     h.load_file("nrngui.hoc")
-    h('objref pc, nclist, nc, nil')
+    h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
+    h('strdef datasetPath')
+    h('numCells = 0')
+    h('totalNumCells = 0')
+    h('max_walltime_hrs = 0')
+    h('mkcellstime = 0')
+    h('mkstimtime = 0')
+    h('connectcellstime = 0')
+    h('connectgjstime = 0')
+    h('results_write_time = 0')
     h.nclist = h.List()
+    datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
+    h.datasetPath = datasetPath
     ##  new ParallelContext object
     h.pc = h.ParallelContext()
     env.pc = h.pc
@@ -284,6 +416,7 @@ def init(env):
     h.load_file("./templates/StimCell.hoc")
     h.xopen("./lib.hoc")
     h.dt = env.dt
+    h.tstop = env.tstop
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -291,21 +424,41 @@ def init(env):
     if (env.pc.id() == 0):
         print "*** Cells created in %g seconds" % env.mkcellstime
     h.startsw()
+    mkstim(env)
+    env.mkstimtime = h.stopsw()
+    if (env.pc.id() == 0):
+        print "*** Stimuli created in %g seconds" % env.mkstimtime
+    h.startsw()
     if not env.cells_only:
         connectcells(env)
     env.connectcellstime = h.stopsw()
-    env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
-    ##env.pc.setup_transfer()
+    h.startsw()
+    connectgjs(env)
+    env.connectgjstime = h.stopsw()
+    if (env.pc.id() == 0):
+        print "*** Gap junctions created in %g seconds" % env.connectgjstime
+    env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
+    h.max_walltime_hrs = env.max_walltime_hrs
+    h.mkcellstime      = env.mkcellstime
+    h.mkstimtime       = env.mkstimtime
+    h.connectcellstime = env.connectcellstime
+    h.connectgjstime   = env.connectgjstime
+    h.results_write_time = env.results_write_time
+    h.fi_checksimtime   = h.FInitializeHandler("checksimtime(pc)")
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
+        print "tstop = %g" % h.tstop
+        h.fi_status          = h.FInitializeHandler("simstatus()")
     h.stdinit()
 
 # Run the simulation
 def run (env):
-    env.pc.psolve(env.tstop)
+
+    env.pc.psolve(h.tstop)
+
     if (env.pc.id() == 0):
         print "*** Simulation completed"
     h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.id_vec)
@@ -319,12 +472,13 @@ def run (env):
     if (env.pc.id() == 0):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
-        print "  connected cells in %g seconds\n" % env.connectcellstime
-        #print "  created gap junctions in %g seconds\n" % connectgjstime
-        print "  ran simulation in %g seconds\n" % comptime
+        print "  connected cells in %g seconds" % env.connectcellstime
+        print "  created gap junctions in %g seconds\n" % env.connectgjstime
+        print "  ran simulation in %g seconds" % comptime
         if (maxcomp > 0):
-            print "  load balance = %g\n" % (avgcomp/maxcomp)
+            print "  load balance = %g" % (avgcomp/maxcomp)
 
+    env.pc.runworker()
     env.pc.done()
     h.quit()
 
@@ -333,7 +487,8 @@ def run (env):
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
 @click.option("--vrecord-fraction", type=float, default=0.0)
@@ -344,11 +499,12 @@ def run (env):
 @click.option("--dt", type=float, default=0.025)
 @click.option("--cells-only", is_flag=True)
 @click.option('--verbose', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
+def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
+    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
     init(env)
     run(env)
 
 if __name__ == '__main__':
     main(args=sys.argv[(sys.argv.index("main.py")+1):])
+

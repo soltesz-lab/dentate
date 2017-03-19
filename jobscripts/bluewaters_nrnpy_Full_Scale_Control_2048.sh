@@ -1,13 +1,13 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=128:ppn=16:xe
+#PBS -l nodes=1024:ppn=2:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
 #PBS -l walltime=0:30:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control
+#PBS -N dentate_Full_Scale_Control_2048
 ### set the job stdout and stderr
 #PBS -e ./results/$PBS_JOBID.err
 #PBS -o ./results/$PBS_JOBID.out
@@ -27,8 +27,9 @@ set -x
 
 
 export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
-export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
+export PYTHONPATH=$HOME/bin/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
+#export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
+#export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
 export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
 
 echo python is `which python`

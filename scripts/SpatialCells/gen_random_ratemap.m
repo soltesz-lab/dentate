@@ -23,7 +23,7 @@ grid_unit = 36;
 
 savegrid  = 1;
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, grid_unit);
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, 1, grid_unit);
 ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 dt = 0.01; % ms
