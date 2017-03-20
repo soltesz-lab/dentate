@@ -3,9 +3,9 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=256:ppn=16:xe
 ### which queue to use
-#PBS -q high
+#PBS -q debug
 ### set the wallclock time
-#PBS -l walltime=3:00:00
+#PBS -l walltime=0:30:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_bench_4096
 ### set the job stdout and stderr

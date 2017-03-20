@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=512:ppn=1:xe
+#PBS -l nodes=256:ppn=2:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
@@ -42,6 +42,11 @@ mkdir -p $results_path
 
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
+
+## Necessary for correct loading of Darshan with LD_PRELOAD mechanism
+export PMI_NO_FORK=1
+export PMI_NO_PREINITIALIZE=1
+export LD_PRELOAD=/sw/xe/darshan/2.3.0/darshan-2.3.0_cle52/lib/libdarshan.so:/opt/cray/hdf5-parallel/1.8.16/GNU/4.9/lib/libhdf5_parallel_gnu_49.so.10
 
 aprun -n 512 python main.py  \
     --config-file=config/Full_Scale_Control.yaml  \

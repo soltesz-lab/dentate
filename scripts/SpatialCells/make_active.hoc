@@ -1,0 +1,83 @@
+objref vect, ran, f, inds, active
+
+fraction_active = 0.3
+
+f      = new File()
+vect   = new Vector()
+ran    = new Random()
+inds   = new Vector()
+active = new Vector()
+
+ran.uniform(0,1)
+
+f.ropen("meccell_vecstim_ptr.bin")
+vect.vread(f)
+f.close()
+
+vect.setrand(ran)
+
+inds = vect.c()
+active.resize(vect.size())
+
+inds = inds.indvwhere(">=", 1.0-fraction_active)
+
+print "inds.size() = ", inds.size()
+
+for i=0, inds.size()-1 {
+    active.x[inds.x[i]] = 1
+}
+
+print "active.sum() = ", active.sum()
+
+f.wopen("meccell_30_vecstim_active.bin")
+active.vwrite(f)
+f.close()
+
+
+f.ropen("leccell_vecstim_ptr.bin")
+vect.vread(f)
+f.close()
+vect.setrand(ran)
+
+inds = vect.c()
+active.clear()
+active.resize(vect.size())
+
+inds = inds.indvwhere(">=", 1.0-fraction_active)
+print "inds.size() = ", inds.size()
+
+for i=0, inds.size()-1 {
+    active.x[inds.x[i]] = 1
+}
+
+print "active.sum() = ", active.sum()
+
+f.wopen("leccell_30_vecstim_active.bin")
+active.vwrite(f)
+f.close()
+
+
+f.ropen("ca3cell_vecstim_ptr.bin")
+vect.vread(f)
+f.close()
+vect.setrand(ran)
+
+inds = vect.c()
+active.clear()
+active.resize(vect.size())
+
+inds = inds.indvwhere(">=", 1.0-fraction_active)
+print "inds.size() = ", inds.size()
+
+for i=0, inds.size()-1 {
+    active.x[inds.x[i]] = 1
+}
+
+print "active.sum() = ", active.sum()
+
+
+f.wopen("ca3cell_30_vecstim_active.bin")
+active.vwrite(f)
+f.close()
+
+

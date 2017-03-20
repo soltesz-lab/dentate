@@ -3,9 +3,9 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=2048:ppn=16:xe
 ### which queue to use
-#PBS -q debug
+#PBS -q high
 ### set the wallclock time
-#PBS -l walltime=0:30:00
+#PBS -l walltime=3:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_32768
 ### set the job stdout and stderr
@@ -25,11 +25,9 @@ module load bwpy-mpi
 
 set -x
 
-
 export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=$HOME/bin/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
-##export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
-##export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
+export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
 
 echo python is `which python`
@@ -43,15 +41,20 @@ mkdir -p $results_path
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 32767 \
+## Necessary for correct loading of Darshan with LD_PRELOAD mechanism
+export PMI_NO_FORK=1
+export PMI_NO_PREINITIALIZE=1
+export LD_PRELOAD=/sw/xe/darshan/2.3.0/darshan-2.3.0_cle52/lib/libdarshan.so:/opt/cray/hdf5-parallel/1.8.16/GNU/4.9/lib/libhdf5_parallel_gnu_49.so.10
+
+aprun -n 32768 \
     python main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=3 \
+    --tstop=200 \
     --v-init=-75 \
-    --max-walltime-hours=1 \
+    --max-walltime-hours=3 \
     --verbose
 

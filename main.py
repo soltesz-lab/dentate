@@ -115,9 +115,9 @@ def connectcells(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     if env.nodeRanks is None:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
+        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
     else:
-        graph = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
+        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -166,8 +166,6 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
             cell.allsyns.o(syn_type).append(h.syn)
             h.pop_section()
             cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-    if env.verbose:
-        print "mksyn2: gid %d: cell.allsyns.o(0).count = %d\n" % (cell.gid, cell.allsyns.o(0).count())
 
 def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,syn_locs,syn_sections):
@@ -202,7 +200,7 @@ def connectgjs(env):
             if env.pc.id() == 0:
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-        graph = bcast_graph(MPI._addressof(env.comm),gapjunctionsFilePath,attributes=True)
+        (graph, a) = bcast_graph(MPI._addressof(env.comm),gapjunctionsFilePath,attributes=True)
 
         ggid = 2e6
         for name in gapjunctions.keys():
@@ -210,14 +208,20 @@ def connectgjs(env):
                 if env.pc.id() == 0:
                     print "*** Creating gap junctions %s" % name
             prj = graph[name]
+            attrmap = a[name]
+            weight_attr_idx = attrmap['Weight']+1
+            dstbranch_attr_idx = attrmap['Destination Branch']+1
+            dstsec_attr_idx = attrmap['Destination Section']+1
+            srcbranch_attr_idx = attrmap['Source Branch']+1
+            srcsec_attr_idx = attrmap['Source Section']+1
             for destination in sorted(prj.keys()):
                 edges = prj[destination]
                 sources      = edges[0]
-                weights      = edges[1]
-                srcbranches  = edges[2]
-                srcsecs      = edges[3]
-                dstbranches  = edges[4]
-                dstsecs      = edges[5]
+                weights      = edges[weight_attr_idx]
+                dstbranches  = edges[dstbranch_attr_idx]
+                dstsecs      = edges[dstsec_attr_idx]
+                srcbranches  = edges[srcbranch_attr_idx]
+                srcsecs      = edges[srcsec_attr_idx]
                 for i in range(0,len(sources)):
                     source    = sources[i]
                     srcbranch = srcbranches[i]
@@ -435,6 +439,7 @@ def init(env):
     if not env.cells_only:
         connectcells(env)
     env.connectcellstime = h.stopsw()
+    env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
     h.startsw()

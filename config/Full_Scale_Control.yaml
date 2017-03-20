@@ -285,7 +285,8 @@ celltypes:
 #    templateType: single
 ## Connectivity configuration for dentate gyrus model
 connectivity:
-  connectivityFile: dentate_Full_Scale_Control_MPP.h5
+  connectivityFile: dentate_Full_Scale_Control_MPP_20170313.h5
+  gapjunctionsFile: dentate_Full_Scale_Control_gapjunctions.h5
   ## Projection definitions
   projections: 
     AACtoGC:
@@ -525,9 +526,9 @@ connectivity:
     AACtoAAC:
       source: AAC
       destination: AAC
-    AACtoBC:
-      source: AAC
-      destination: BC
+#    AACtoBC:
+#      source: AAC
+#      destination: BC
     HCtoHC:
       source: HC
       destination: HC
@@ -537,15 +538,15 @@ connectivity:
     BCtoBC:
       source: BC
       destination: BC
-    NGFCtoAAC:
-      source: NGFC
-      destination: AAC
-    NGFCtoBC:
-      source: NGFC
-      destination: BC
-    NGFCtoHCC:
-      source: NGFC
-      destination: HCC
+#    NGFCtoAAC:
+#      source: NGFC
+#      destination: AAC
+#    NGFCtoBC:
+#      source: NGFC
+#      destination: BC
+#    NGFCtoHCC:
+#      source: NGFC
+#      destination: HCC
     NGFCtoNGFC:
       source: NGFC
       destination: NGFC
