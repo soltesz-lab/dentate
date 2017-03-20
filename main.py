@@ -165,6 +165,7 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
             h.syn.e    = synapses[syn_type]['e_rev']
             cell.allsyns.o(syn_type).append(h.syn)
             h.pop_section()
+            cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
     if env.verbose:
         print "mksyn2: gid %d: cell.allsyns.o(0).count = %d\n" % (cell.gid, cell.allsyns.o(0).count())
 
@@ -177,6 +178,7 @@ def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
         h.syn.e    = synapses[syn_type]['e_rev']
         cell.allsyns.o(syn_type).append(h.syn)
         h.pop_section()
+        cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
 
     
 
@@ -351,6 +353,7 @@ def mkcells(env):
                     mksyn3(h.cell,h.syn_ids,h.syn_types,h.syn_locs,h.syn_sections,synapses,env)
                 else:
                     mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
+                h.cell.correct_for_spines()
                 env.gidlist.append(gid)
                 env.cells.append(h.cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -456,17 +459,29 @@ def init(env):
 
 # Run the simulation
 def run (env):
+    h('objref vcnts, t_vec_all, id_vec_all')
+
+    hostid = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
 
     env.pc.psolve(h.tstop)
 
-    if (env.pc.id() == 0):
+    if (hostid == 0):
         print "*** Simulation completed"
-    h.spikeout("%s/%s_spikeout_%d.dat" % (env.resultsPath, env.modelName, env.pc.id()),env.t_vec,env.id_vec)
+    h.vcnts      = h.Vector(nhosts)
+    h.vcnts.x[0]   = env.t_vec.size()
+    h.t_vec_all  = h.Vector()
+    h.id_vec_all = h.Vector()
+    env.pc.alltoall(env.t_vec, h.vcnts, h.t_vec_all)
+    env.pc.alltoall(env.id_vec, h.vcnts, h.id_vec_all)
+    
+    if (hostid == 0):
+        h.spikeout("%s/%s_spikeout.dat" % (env.resultsPath, env.modelName),h.t_vec_all,h.id_vec_all)
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
     comptime = env.pc.step_time()
-    avgcomp  = env.pc.allreduce(comptime, 1)/env.pc.nhost()
+    avgcomp  = env.pc.allreduce(comptime, 1)/nhosts
     maxcomp  = env.pc.allreduce(comptime, 2)
 
     if (env.pc.id() == 0):
