@@ -36,8 +36,6 @@ proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc 
         nc.weight = $7
 	nc.delay = $8
 	nclist.append(nc)
-    } else {
-      //printf("mknetcon1: synlist.count() = %d index = %d\n", synlist.count(), index)  
     }
     sprint(errmsg,"mknetcon1: connection %d -> %d: synapse index %d is greater than total number of synapses (%d)",srcgid,dstgid,index,synlist.count())
     assert (index < synlist.count(), errmsg)
@@ -232,6 +230,8 @@ proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
     
     cell = pc.gid2cell(gid)
     
+    //printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
+    
     cell.dendrites[branch][sec] { 
         gj = new ggap(0.5) 
         pc.source_var(&v(0.5), sgid)
@@ -241,7 +241,6 @@ proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
     gjlist.append(gj)
     gj.g = w
     
-    //printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
     
 }
 

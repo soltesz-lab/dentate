@@ -1,13 +1,13 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=128:ppn=16:xe
+#PBS -l nodes=512:ppn=2:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
 #PBS -l walltime=0:30:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control_2048
+#PBS -N dentate_Full_Scale_Control_1024
 ### set the job stdout and stderr
 #PBS -e ./results/$PBS_JOBID.err
 #PBS -o ./results/$PBS_JOBID.out
@@ -25,9 +25,11 @@ module load bwpy-mpi
 
 set -x
 
+
 export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=$HOME/bin/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
-export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
+#export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
+#export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
 export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
 
 echo python is `which python`
@@ -46,9 +48,7 @@ export PMI_NO_FORK=1
 export PMI_NO_PREINITIALIZE=1
 export LD_PRELOAD=/sw/xe/darshan/2.3.0/darshan-2.3.0_cle52/lib/libdarshan.so:/opt/cray/hdf5-parallel/1.8.16/GNU/4.9/lib/libhdf5_parallel_gnu_49.so.10
 
-
-aprun -n 2048 \
-  python main.py  \
+aprun -n 1024 python main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="/projects/sciteam/baef" \

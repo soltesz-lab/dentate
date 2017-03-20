@@ -1,13 +1,13 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=128:ppn=16:xe
+#PBS -l nodes=1024:ppn=16:xe
 ### which queue to use
-#PBS -q debug
+#PBS -q high
 ### set the wallclock time
-#PBS -l walltime=0:30:00
+#PBS -l walltime=3:00:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control_2048
+#PBS -N dentate_Full_Scale_Control_16384_noderanks
 ### set the job stdout and stderr
 #PBS -e ./results/$PBS_JOBID.err
 #PBS -o ./results/$PBS_JOBID.out
@@ -46,16 +46,16 @@ export PMI_NO_FORK=1
 export PMI_NO_PREINITIALIZE=1
 export LD_PRELOAD=/sw/xe/darshan/2.3.0/darshan-2.3.0_cle52/lib/libdarshan.so:/opt/cray/hdf5-parallel/1.8.16/GNU/4.9/lib/libhdf5_parallel_gnu_49.so.10
 
-
-aprun -n 2048 \
-  python main.py  \
+aprun -n 16384 \
+    python main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
+    --node-rank-file=./datasets/parts.16384 \
     --io-size=256 \
-    --tstop=3 \
+    --tstop=200 \
     --v-init=-75 \
-    --max-walltime-hours=1 \
+    --max-walltime-hours=3 \
     --verbose
 
