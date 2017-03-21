@@ -9,6 +9,7 @@ fwrite(idxfile, [0 5], 'int32'); % 5 = type int
 pos = 0;
 numitems = 0;
 for i=1:512
+  i
   spikes = load(sprintf('ca3_place_spikes_%d.mat',i));
   ssz = size(spikes.spikes)
   for j = 1:(ssz(2))
