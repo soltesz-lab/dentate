@@ -430,8 +430,8 @@ proc checksimtime() { local wt, tt, trem, tsimrem, min_tsimrem, tsimneeded, max_
         tsimrem = max_walltime_hrs*3600 - tcsum - mkcellstime - connectcellstime - connectgjstime
         min_tsimrem = pc.allreduce(tsimrem, 3) // minimum value
         // simulation time necessary to complete the simulation
-        tsimneeded = trem*tcma+results_write_time
-        printf("trem = %g tcsum = %g tsimrem = %g tcma = %g tsimneeded = %g\n",trem,tcsum,tsimrem,tcma,tsimneeded)
+        tsimneeded = (trem/dt_checksimtime)*tcma+results_write_time
+        //printf("trem = %g tcsum = %g tsimrem = %g tcma = %g tsimneeded = %g\n",trem,tcsum,tsimrem,tcma,tsimneeded)
         max_tsimneeded = pc.allreduce(tsimneeded, 2) // maximum value
         if (pc.id() == 0) {
             printf("*** remaining computation time is %g s and remaining simulation time is %g ms\n", tsimrem, trem)
