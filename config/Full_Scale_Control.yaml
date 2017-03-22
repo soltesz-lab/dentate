@@ -277,12 +277,15 @@ celltypes:
     templateName: MPPCell
     templateType: single
     vectorStimulus:
-      spikeFile: gridspikes.bin
-      indexFile: gridspikeindex.bin
-#  LPP:
-#    indexfile: LPP.dat
-#    templateName: LPPCell
-#    templateType: single
+      spikeFile: mec2_gridspikes.bin
+      indexFile: mec2_gridspikeindex.bin
+  LPP:
+    indexfile: LPP.dat
+    templateName: LPPCell
+    templateType: single
+    vectorStimulus:
+      spikeFile: lec2_placespikes.bin
+      indexFile: lec2_placespikeindex.bin
 ## Connectivity configuration for dentate gyrus model
 connectivity:
   connectivityFile: dentate_Full_Scale_Control_MPP_20170313.h5
@@ -519,7 +522,23 @@ connectivity:
       index: absolute
       type: dist
       synIndex: 9
-      weight: 0.5
+      weight: 1.0
+      velocity: 250.0
+    MPPtoBC:
+      source: MPP
+      destination: BC
+      index: absolute
+      type: dist
+      synIndex: 9
+      weight: 2.5
+      velocity: 250.0
+    MPPtoNGFC:
+      source: MPP
+      destination: NGFC
+      index: absolute
+      type: dist
+      synIndex: 9
+      weight: 1.0
       velocity: 250.0
   ## Gap junction projection definitions for dentate gyrus model
   gapjunctions: 

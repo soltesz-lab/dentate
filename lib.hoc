@@ -433,7 +433,7 @@ proc checksimtime() { local wt, tt, trem, tsimrem, min_tsimrem, tsimneeded, max_
         tsimneeded = (trem/dt_checksimtime)*tcma+results_write_time
         max_tsimneeded = pc.allreduce(tsimneeded, 2) // maximum value
         if (pc.id() == 0) {
-            printf("trem = %g tcsum = %g tsimrem = %g tcma = %g tsimneeded = %g max_tsimneeded = %g\n",trem,tcsum,tsimrem,tcma,tsimneeded,max_tsimneeded)
+            //printf("trem = %g tcsum = %g tsimrem = %g tcma = %g tsimneeded = %g max_tsimneeded = %g\n",trem,tcsum,tsimrem,tcma,tsimneeded,max_tsimneeded)
             printf("*** remaining computation time is %g s and remaining simulation time is %g ms\n", tsimrem, trem)
             printf("*** estimated computation time to completion is %g s\n", max_tsimneeded)
         }

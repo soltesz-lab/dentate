@@ -2,53 +2,12 @@ begintemplate LPPCell
 
 public pp, connect2target, id, is_art
 public x, y, z, position, xpos, ypos, zpos
-objref pp, rs
+objref pp, rs, spikevect
 
-proc init() { localobj configVect, ff strdef datasetPath, configPath, cmd
+proc init() { local status 
     id = $1
     gid = $2
-
-    rate   = 0.1
-    number = 10
-    start  = 0
-    noise  = 1
-
-    datasetPath = $s3
-    sprint(configPath,"%s/%d.dat",datasetPath,id)
-    sprint(cmd, "test -e %s", configPath) // check if the path exists
-    status = system(cmd)
-    if (status == 0) {
-        configVect = new Vector()
-        ff = new File()
-        ff.ropen(configPath)
-        configVect.scanf(ff)
-        ff.close()
-        rate   = configVect.x[0]
-        number = configVect.x[1]
-        start  = configVect.x[2]
-        noise  = configVect.x[3]
-    }
-    setup(id,gid,rate,number,start,noise) 	
-}
-
-proc setup() {
-    id = $1
-    gid = $2
-    rate   = $3
-    number = $4
-    start  = $5
-    noise  = $6
-    pp = new NetStim(.5)
-    if (number > 0) {
-       rs = new RandomStream(id, 17, 19)
-       rs.r.negexp(1)
-       rs.start()
-       pp.noiseFromRandom(rs.r)
-    }
-    pp.interval = 1000/rate
-    pp.number = number
-    pp.start = start
-    pp.noise = noise	
+    pp = new VecStim()
 }
 
 func is_art() {return 1}
