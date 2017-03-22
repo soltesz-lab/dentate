@@ -400,7 +400,7 @@ proc simstatus() { local wt
     wt = startsw()
     if (walltime_status > 0) {
         if (pc.id() == 0) {
-            printf("*** computation time at t=%g ms was %g s\n", t, wt-walltime_status)
+            printf("*** rank 0 computation time at t=%g ms was %g s\n", t, wt-walltime_status)
         }
     }
     walltime_status = wt
@@ -421,7 +421,7 @@ proc checksimtime() { local wt, tt, trem, tsimrem, min_tsimrem, tsimneeded, max_
     wt = startsw()
     if (t > 0) {
         tt = wt-walltime_checksimtime
-        // cumulative moving average simulation time per time step
+        // cumulative moving average simulation time per dt_checksimtime
         tcma = tcma + (tt - tcma) / (nsimsteps + 1)
         tcsum = tcsum + tt
         // remaining physical time
@@ -431,14 +431,14 @@ proc checksimtime() { local wt, tt, trem, tsimrem, min_tsimrem, tsimneeded, max_
         min_tsimrem = pc.allreduce(tsimrem, 3) // minimum value
         // simulation time necessary to complete the simulation
         tsimneeded = (trem/dt_checksimtime)*tcma+results_write_time
-        //printf("trem = %g tcsum = %g tsimrem = %g tcma = %g tsimneeded = %g\n",trem,tcsum,tsimrem,tcma,tsimneeded)
         max_tsimneeded = pc.allreduce(tsimneeded, 2) // maximum value
         if (pc.id() == 0) {
+            printf("trem = %g tcsum = %g tsimrem = %g tcma = %g tsimneeded = %g max_tsimneeded = %g\n",trem,tcsum,tsimrem,tcma,tsimneeded,max_tsimneeded)
             printf("*** remaining computation time is %g s and remaining simulation time is %g ms\n", tsimrem, trem)
-            printf("*** estimated computation time to completion is %g s\n", tsimneeded)
+            printf("*** estimated computation time to completion is %g s\n", max_tsimneeded)
         }
         if (max_tsimneeded > min_tsimrem) {
-            tstop1 = int((tsimrem - results_write_time)/tt) + t
+            tstop1 = int((tsimrem - results_write_time)/(tcma/dt_checksimtime)) + t
             min_tstop = pc.allreduce(tstop1, 3) // minimum value
             if (pc.id() == 0) {
      	        printf ("*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms\n", tstop, min_tstop)
@@ -450,9 +450,9 @@ proc checksimtime() { local wt, tt, trem, tsimrem, min_tsimrem, tsimneeded, max_
             }
             cvode.event(tstop)
         }
+	nsimsteps = nsimsteps + 1
     }
     walltime_checksimtime = wt
-    nsimsteps = nsimsteps + 1
     if (t + dt_checksimtime < tstop) {
         cvode.event(t + dt_checksimtime, "checksimtime(pc)")
     }
