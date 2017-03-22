@@ -1,16 +1,16 @@
 
 dt = 0.5
-binfile = fopen ('ca3_placespikes.bin', 'w');
-idxfile = fopen ('ca3_placespikeindex.bin', 'w');
+binfile = fopen ('lec3_placespikes.bin', 'w');
+idxfile = fopen ('lec3_placespikeindex.bin', 'w');
 
 fwrite(binfile, [0 4], 'int32'); % 4 = type double
 fwrite(idxfile, [0 5], 'int32'); % 5 = type int
 
 pos = 0;
 numitems = 0;
-for i=1:340
+for i=1:100
   i
-  spikes = load(sprintf('ca3_place_spikes_%d.mat',i));
+  spikes = load(sprintf('lec3_place_spikes_%d.mat',i));
   ssz = size(spikes.spikes)
   for j = 1:(ssz(2))
       times  = find(spikes.spikes(:,j)) * dt;
