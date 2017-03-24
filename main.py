@@ -31,8 +31,11 @@ def cx(env):
     max_cx = env.pc.allreduce(max_cx, 2)
     sum_cx = env.pc.allreduce(sum_cx, 1)
 
-    if rank is 0:
-        print ("maximum cx = %g  average cx per rank = %g\n" % (max_cx, sum_cx/nhost))
+    env.max_cx = max_cx
+    env.mean_cx = sum_cx/env.pc.nhost()
+    
+    if env.pc.id() == 0:
+        print ("*** maximum cx = %g  average cx per rank = %g\n" % (max_cx, sum_cx/env.pc.nhost()))
 
         
 def connectprj(env, graph, prjname, prjvalue):
@@ -457,7 +460,8 @@ def init(env):
     env.mkstimtime = h.stopsw()
     if (env.pc.id() == 0):
         print "*** Stimuli created in %g seconds" % env.mkstimtime
-    if env.cx:
+    if env.optcx:
+        print "calling cx"
         cx(env)
     h.startsw()
     connectcells(env)
@@ -516,7 +520,7 @@ def run (env):
         print "Execution time summary for host 0:"
         print "  created cells in %g seconds" % env.mkcellstime
         print "  connected cells in %g seconds" % env.connectcellstime
-        print "  created gap junctions in %g seconds\n" % env.connectgjstime
+        print "  created gap junctions in %g seconds" % env.connectgjstime
         print "  ran simulation in %g seconds" % comptime
         if (maxcomp > 0):
             print "  load balance = %g" % (avgcomp/maxcomp)
