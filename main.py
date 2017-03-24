@@ -12,6 +12,28 @@ from neurograph.io import scatter_graph, bcast_graph
 from neurotrees.io import scatter_read_trees
 from env import Env
 
+## Estimate cell complexity. Code by Michael Hines.
+def cx(env):
+    h.load_file("loadbal.hoc")
+    lb = h.LoadBalance()
+
+    # all cell complexity
+    cell_cx = []
+    for sec in h.allsec():
+        if sec.parentseg() == None: # root section
+            cell_cx.append(lb.cell_complexity(sec=sec))
+
+    #local complexity
+    max_cx = max(cell_cx) if len(cell_cx) > 0 else 0.0
+    sum_cx = sum(cell_cx)
+
+    #global complexity
+    max_cx = env.pc.allreduce(max_cx, 2)
+    sum_cx = env.pc.allreduce(sum_cx, 1)
+
+    if rank is 0:
+        print ("maximum cx = %g  average cx per rank = %g\n" % (max_cx, sum_cx/nhost))
+
         
 def connectprj(env, graph, prjname, prjvalue):
     prjType    = prjvalue['type']
@@ -435,9 +457,10 @@ def init(env):
     env.mkstimtime = h.stopsw()
     if (env.pc.id() == 0):
         print "*** Stimuli created in %g seconds" % env.mkstimtime
+    if env.cx:
+        cx(env)
     h.startsw()
-    if not env.cells_only:
-        connectcells(env)
+    connectcells(env)
     env.connectcellstime = h.stopsw()
     env.pc.barrier()
     if (env.pc.id() == 0):
@@ -517,11 +540,11 @@ def run (env):
 @click.option("--max-walltime-hours", type=float, default=1.0)
 @click.option("--results-write-time", type=float, default=30.0)
 @click.option("--dt", type=float, default=0.025)
-@click.option("--cells-only", is_flag=True)
+@click.option("--cx", is_flag=False)
 @click.option('--verbose', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, cells_only, dt, verbose):
+def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, cx, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cells_only, verbose)
+    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cx, verbose)
     init(env)
     run(env)
 
