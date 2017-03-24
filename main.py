@@ -540,7 +540,7 @@ def run (env):
 @click.option("--max-walltime-hours", type=float, default=1.0)
 @click.option("--results-write-time", type=float, default=30.0)
 @click.option("--dt", type=float, default=0.025)
-@click.option("--cx", is_flag=False)
+@click.option("--cx", is_flag=True)
 @click.option('--verbose', is_flag=True)
 def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, cx, verbose):
     np.seterr(all='raise')
