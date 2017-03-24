@@ -54,7 +54,7 @@ aprun -n 32768 \
     --results-path=$results_path \
     --node-rank-file=./datasets/parts.32768 \
     --io-size=256 \
-    --tstop=200 \
+    --tstop=250 \
     --v-init=-75 \
     --max-walltime-hours=3 \
     --verbose

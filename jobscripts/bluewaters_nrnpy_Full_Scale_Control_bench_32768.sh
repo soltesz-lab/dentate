@@ -55,6 +55,7 @@ aprun -n 32768 \
     --io-size=256 \
     --tstop=3 \
     --v-init=-75 \
-    --max-walltime-hours=1 \
+    --max-walltime-hours=0.5 \
+    --cx \
     --verbose
 
