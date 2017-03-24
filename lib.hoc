@@ -379,7 +379,7 @@ proc loadVectorStimulation() {local sendpos, celltype_idx, startgid, endgid, pop
     pc.broadcast(vindex, 0)
     pc.broadcast(vspiketimes, 0)
     
-    for (i=0; i < vindex.size(); i+=1) {
+    for (i=0; i < vgids.size(); i+=1) {
 	gid = vgids.x[i]
 	if (pc.gid_exists(gid)) {
 	    vcellspikes = new Vector()
