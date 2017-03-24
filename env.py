@@ -47,7 +47,7 @@ class Env:
                 offset=max(index)+1
     
     def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
-                 IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, cells_only, verbose):
+                 IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, cx, verbose):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
@@ -61,7 +61,7 @@ class Env:
         :param dt: simulation time step
         :param vrecordFraction: fraction of cells to record intracellular voltage from
         :param coredat: Save CoreNEURON data
-        :param cells_only: only instantiate cells, not network connectivity
+        :param cx: estimate cell complexity
         :param verbose: print verbose diagnostic messages while constructing the network
         """
 
@@ -72,15 +72,9 @@ class Env:
         
         self.colsep = ' ' # column separator for text data files
         self.bufsize = 100000 # buffer size for text data files
-            
-
-        # only instantiate cells
-        self.cells_only = cells_only
-
 
         # print verbose diagnostic messages while constructing the network
         self.verbose = verbose
-
 
         # Directories for cell templates
         self.templatePaths=[]
@@ -112,6 +106,11 @@ class Env:
         # time step
         self.dt = dt
 
+        # estimate cell complexity
+        self.optcx = cx
+        self.max_cx = 0
+        self.mean_cx = 0
+        
         # Fraction of cells to record intracellular voltage from
         self.vrecordFraction = vrecordFraction
 
