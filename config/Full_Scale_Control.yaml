@@ -277,15 +277,17 @@ celltypes:
     templateName: MPPCell
     templateType: single
     vectorStimulus:
-      spikeFile: mec2_gridspikes.bin
-      indexFile: mec2_gridspikeindex.bin
+      spikeFile: mec2_vecstim.bin
+      indexFile: mec2_vecstim_ptr.bin
+      activeFile: mec2_35_vecstim_active.bin
   LPP:
     indexfile: LPP.dat
     templateName: LPPCell
     templateType: single
     vectorStimulus:
-      spikeFile: lec2_placespikes.bin
-      indexFile: lec2_placespikeindex.bin
+      spikeFile: lec2_vecstim.bin
+      indexFile: lec2_vecstim_ptr.bin
+      activeFile: lec2_35_vecstim_active.bin
 ## Connectivity configuration for dentate gyrus model
 connectivity:
   connectivityFile: dentate_Full_Scale_Control_MPP_20170313.h5

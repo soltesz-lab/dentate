@@ -412,11 +412,15 @@ def mkstim(env):
             vecstim   = env.celltypes[popName]['vectorStimulus']
             spikeFile = os.path.join(datasetPath, vecstim['spikeFile'])
             indexFile = os.path.join(datasetPath, vecstim['indexFile'])
+            if vecstim.has_key('activeFile'):
+                activeFile = os.path.join(datasetPath, vecstim['activeFile'])
+            else:
+                activeFile = ""
             index     = env.celltypes[popName]['index']
             h.vecstim_index = h.Vector()
             for x in index:
                 h.vecstim_index.append(x)
-            h.loadVectorStimulation(env.pc, indexFile, spikeFile, h.vecstim_index)
+            h.loadVectorStimulation(env.pc, h.vecstim_index, indexFile, spikeFile, activeFile)
             h.vecstim_index.resize(0)
             
 
@@ -461,7 +465,6 @@ def init(env):
     if (env.pc.id() == 0):
         print "*** Stimuli created in %g seconds" % env.mkstimtime
     if env.optcx:
-        print "calling cx"
         cx(env)
     h.startsw()
     connectcells(env)
