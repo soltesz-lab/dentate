@@ -374,7 +374,7 @@ proc loadVectorStimulation() {local sendpos, celltype_idx, startgid, endgid, pop
            vactive.vread(f)
         } else {
            // if active file does not exist, assume all cells are active
-           vactive.resize(vptr.size())
+           vactive.resize(vindex.size())
            vactive.fill(1)
         }
         f.close()
