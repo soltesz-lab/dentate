@@ -513,6 +513,8 @@ def run (env):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
     comptime = env.pc.step_time()
+    cwtime   = comptime + pc.step_wait()
+    maxcw    = env.pc.allreduce(cwtime, 2)
     avgcomp  = env.pc.allreduce(comptime, 1)/nhosts
     maxcomp  = env.pc.allreduce(comptime, 2)
 
@@ -522,8 +524,8 @@ def run (env):
         print "  connected cells in %g seconds" % env.connectcellstime
         print "  created gap junctions in %g seconds" % env.connectgjstime
         print "  ran simulation in %g seconds" % comptime
-        if (maxcomp > 0):
-            print "  load balance = %g" % (avgcomp/maxcomp)
+        if (maxcw > 0):
+            print "  load balance = %g" % (avgcomp/maxcw)
 
     env.pc.runworker()
     env.pc.done()

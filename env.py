@@ -1,5 +1,7 @@
 import sys, os.path, string
+from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
+from neurotrees.io import read_tree_attributes
 import numpy as np
 import yaml
 
@@ -17,6 +19,14 @@ class Env:
                 projection['weights'] = weights
 
     def load_celltypes(self):
+        # use this communicator for small size I/O operations performed by rank 0
+        rank = self.comm.Get_rank()
+        size = self.comm.Get_size()
+        if rank == 0:
+            color = 1
+        else:
+            color = 2
+        iocomm = self.comm.Split(color, rank)
         offset = 0
         celltypes = self.celltypes
         typenames = celltypes.keys()
@@ -30,21 +40,20 @@ class Env:
                 offset = offset+num
                 index  = range(start, offset)
                 celltypes[k]['index'] = index
-            elif celltypes[k].has_key('indexfile'):
-                index=[]
-                f = open(os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexfile']))
-                f.readline()
-                lines = f.readlines(self.bufsize)
-                while lines:
-                    for l in lines:
-                        a = (l.strip()).split(self.colsep)
-                        index.append(int(round(float(a[0])))-1)
-                    lines = f.readlines(self.bufsize)
-                f.close()
+            elif celltypes[k].has_key('indexFile'):
+                fpath = os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexFile'])
+                if rank == 0:
+                    coords = read_tree_attributes(MPI._addressof(iocomm), fpath, k, namespace="Coordinates")
+                    index  = coords.keys()
+                    index.sort()
+                else:
+                    index = None
+                index = self.comm.bcast(index, root=0)
                 celltypes[k]['index'] = index
                 celltypes[k]['offset'] = offset
                 celltypes[k]['num'] = len(index)
                 offset=max(index)+1
+        iocomm.Free()
     
     def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
                  IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, cx, verbose):
