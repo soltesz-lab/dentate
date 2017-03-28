@@ -117,8 +117,7 @@ class Env:
 
         # estimate cell complexity
         self.optcx = cx
-        self.max_cx = 0
-        self.mean_cx = 0
+        self.cxvec = None
         
         # Fraction of cells to record intracellular voltage from
         self.vrecordFraction = vrecordFraction

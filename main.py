@@ -14,30 +14,72 @@ from env import Env
 
 ## Estimate cell complexity. Code by Michael Hines.
 def cx(env):
-    h.load_file("loadbal.hoc")
+  h.load_file("loadbal.hoc")
+  lb = h.LoadBalance()
+  cxvec = h.Vector(len(env.gidlist))
+  for i, gid in enumerate(env.gidlist):
+    cxvec.x[i] = lb.cell_complexity(pc.gid2cell(gid))
+  env.cxvec = cxvec
+  return cxvec
+
+# for given cxvec on each rank what is the fractional load balance.
+def ld_bal(env):
+  rank   = int(env.pc.id())
+  nhosts = int(env.pc.nhost())
+  cxvec  = env.cxvec
+  sum_cx = sum(cxvec)
+  max_sum_cx = env.pc.allreduce(sum_cx, 2)
+  sum_cx = env.pc.allreduce(sum_cx, 1)
+  if rank == 0:
+    print ("*** expected load_balance %.2f" % (sum_cx / nhost / max_sum_cx))
+
+# Each rank has gidvec, cxvec:
+# gather everything to rank 0 and do lpt algorithm and scatter
+# proper gidvec, cxvec back to ranks and return the new balanced
+# gidvec, cxvec and write to a balance file.
+def lpt_bal(env):
+  cxvec  = env.cxvec
+  gidvec = env.gidlist
+  #gather gidvec, cxvec to rank 0
+  src    = [None]*nhost
+  src[0] = (gidvec, cxvec)
+  dest   = env.pc.py_alltoall(src)
+  del src
+
+  if rank == 0:
+    # organize dest into single allgidvec, allcxvec Hoc Vectors.
+    allgidvec = h.Vector()
+    allcxvec  = h.Vector()
+    for pair in dest:
+      allgidvec.append(pair[0])
+      allcxvec.append(pair[1])
+    del dest
+
+    #rankvec specifies the rank where each cell should be
     lb = h.LoadBalance()
+    rankvec = lb.lpt(allcxvec, nhost, 0) # third arg suppresses a print
 
-    # all cell complexity
-    cell_cx = []
-    for sec in h.allsec():
-        if sec.parentseg() == None: # root section
-            cell_cx.append(lb.cell_complexity(sec=sec))
+    #send back a balanced gidvec, cxvec to each rank
+    # start out with empty vectors
+    src = [(h.Vector(), h.Vector()) for _ in range(nhost)]
+    for i in range(len(allcxvec)):
+      pair = src[int(rankvec.x[i])]
+      pair[0].append(allgidvec.x[i])
+      pair[1].append(allcxvec.x[i])
+    del allgidvec
+    del allcxvec
+  else: # all other ranks send nothing
+    src = [None]*nhost
 
-    #local complexity
-    max_cx = max(cell_cx) if len(cell_cx) > 0 else 0.0
-    sum_cx = sum(cell_cx)
+  dest = env.pc.py_alltoall(src)
+  # dest[0] contains the balanced (gidvec, cxvec) pair
+  del src
+  balanced_gidvec = dest[0][0]
+  balanced_cxvec  = dest[0][1]
+  del dest
 
-    #global complexity
-    max_cx = env.pc.allreduce(max_cx, 2)
-    sum_cx = env.pc.allreduce(sum_cx, 1)
+  return balanced_gidvec, balanced_cxvec
 
-    env.max_cx = max_cx
-    env.mean_cx = sum_cx/env.pc.nhost()
-    
-    if env.pc.id() == 0:
-        print ("*** maximum cx = %g  average cx per rank = %g\n" % (max_cx, sum_cx/env.pc.nhost()))
-
-        
 def connectprj(env, graph, prjname, prjvalue):
     prjType    = prjvalue['type']
     indexType  = prjvalue['index']
@@ -206,7 +248,7 @@ def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     
 
 def connectgjs(env):
-    hostid = int(env.pc.id())
+    rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
@@ -266,7 +308,7 @@ def mkcells(env):
 
     h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
 
-    hostid = int(env.pc.id())
+    rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
@@ -303,11 +345,11 @@ def mkcells(env):
             mygidlist = []
             if env.nodeRanks is None:
                 for x in index:
-                    if (x % nhosts) == hostid:
+                    if (x % nhosts) == rank:
                         mygidlist.append(x)
             else:
                 for x in index:
-                    if env.nodeRanks[x] == hostid:
+                    if env.nodeRanks[x] == rank:
                         mygidlist.append(x)
 
             if env.verbose:
@@ -398,7 +440,7 @@ def mkcells(env):
 
 def mkstim(env):
 
-    hostid = int(env.pc.id())
+    rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
@@ -496,12 +538,12 @@ def init(env):
 def run (env):
     h('objref vcnts, t_vec_all, id_vec_all')
 
-    hostid = int(env.pc.id())
+    rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
     env.pc.psolve(h.tstop)
 
-    if (hostid == 0):
+    if (rank == 0):
         print "*** Simulation completed"
     h.vcnts      = h.Vector(nhosts)
     h.vcnts.x[0]   = env.t_vec.size()
@@ -510,13 +552,13 @@ def run (env):
     env.pc.alltoall(env.t_vec, h.vcnts, h.t_vec_all)
     env.pc.alltoall(env.id_vec, h.vcnts, h.id_vec_all)
     
-    if (hostid == 0):
+    if (rank == 0):
         h.spikeout("%s/%s_spikeout.dat" % (env.resultsPath, env.modelName),h.t_vec_all,h.id_vec_all)
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
     comptime = env.pc.step_time()
-    cwtime   = comptime + pc.step_wait()
+    cwtime   = comptime + env.pc.step_wait()
     maxcw    = env.pc.allreduce(cwtime, 2)
     avgcomp  = env.pc.allreduce(comptime, 1)/nhosts
     maxcomp  = env.pc.allreduce(comptime, 2)
