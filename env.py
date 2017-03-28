@@ -56,7 +56,7 @@ class Env:
         iocomm.Free()
     
     def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
-                 IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, cx, verbose):
+                 IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, ldbal, lptbal, verbose):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
@@ -70,7 +70,8 @@ class Env:
         :param dt: simulation time step
         :param vrecordFraction: fraction of cells to record intracellular voltage from
         :param coredat: Save CoreNEURON data
-        :param cx: estimate cell complexity
+        :param ldbal: estimate load balance based on cell complexity
+        :param lptbal: calculate load balance with LPT algorithm
         :param verbose: print verbose diagnostic messages while constructing the network
         """
 
@@ -115,9 +116,12 @@ class Env:
         # time step
         self.dt = dt
 
-        # estimate cell complexity
-        self.optcx = cx
+        # used to estimate cell complexity
         self.cxvec = None
+
+        # measure/perform load balancing
+        self.optldbal = ldbal
+        self.optlptbal = lptbal
         
         # Fraction of cells to record intracellular voltage from
         self.vrecordFraction = vrecordFraction
@@ -128,11 +132,12 @@ class Env:
         self.nodeRanks = None
         if nodeRankFile:
             with open(nodeRankFile) as fp:
-                lst = []
+                dval = {}
                 lines = fp.readlines()
                 for l in lines:
-                    lst.append(int(l))
-                self.nodeRanks = np.asarray(lst, dtype=np.uint32)
+                    a = l.split(' ')
+                    dval[int(a[0])] = int(a[1])
+                self.nodeRanks = dval
 
         with open(configFile) as fp:
             self.modelConfig = yaml.load(fp)

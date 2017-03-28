@@ -11,14 +11,16 @@ from neuron import h
 from neurograph.io import scatter_graph, bcast_graph
 from neurotrees.io import scatter_read_trees
 from env import Env
+import lpt
 
-## Estimate cell complexity. Code by Michael Hines.
+## Estimate cell complexity. Code by Michael Hines from the discussion thread
+## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
   h.load_file("loadbal.hoc")
   lb = h.LoadBalance()
   cxvec = h.Vector(len(env.gidlist))
   for i, gid in enumerate(env.gidlist):
-    cxvec.x[i] = lb.cell_complexity(pc.gid2cell(gid))
+    cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
   env.cxvec = cxvec
   return cxvec
 
@@ -31,55 +33,37 @@ def ld_bal(env):
   max_sum_cx = env.pc.allreduce(sum_cx, 2)
   sum_cx = env.pc.allreduce(sum_cx, 1)
   if rank == 0:
-    print ("*** expected load_balance %.2f" % (sum_cx / nhost / max_sum_cx))
+    print ("*** expected load_balance %.2f" % (sum_cx / nhosts / max_sum_cx))
 
-# Each rank has gidvec, cxvec:
-# gather everything to rank 0 and do lpt algorithm and scatter
-# proper gidvec, cxvec back to ranks and return the new balanced
-# gidvec, cxvec and write to a balance file.
+# Each rank has gidvec, cxvec: gather everything to rank 0, do lpt
+# algorithm and write to a balance file.
 def lpt_bal(env):
+  rank   = int(env.pc.id())
+  nhosts = int(env.pc.nhost())
+
   cxvec  = env.cxvec
   gidvec = env.gidlist
   #gather gidvec, cxvec to rank 0
-  src    = [None]*nhost
-  src[0] = (gidvec, cxvec)
+  src    = [None]*nhosts
+  src[0] = zip(cxvec.to_python(), gidvec)
   dest   = env.pc.py_alltoall(src)
   del src
 
   if rank == 0:
-    # organize dest into single allgidvec, allcxvec Hoc Vectors.
-    allgidvec = h.Vector()
-    allcxvec  = h.Vector()
-    for pair in dest:
-      allgidvec.append(pair[0])
-      allcxvec.append(pair[1])
-    del dest
-
-    #rankvec specifies the rank where each cell should be
     lb = h.LoadBalance()
-    rankvec = lb.lpt(allcxvec, nhost, 0) # third arg suppresses a print
+    allpairs = sum(dest,[])
+    del dest
+    parts = lpt.lpt(allpairs, nhosts)
+    lpt.statistics(parts)
+    part_rank = 0
+    with open('parts.%d' % nhosts, 'w') as fp:
+      for part in parts:
+        for x in part[1]:
+          fp.write('%d %d\n' % (x[1],part_rank))
+        part_rank = part_rank+1
 
-    #send back a balanced gidvec, cxvec to each rank
-    # start out with empty vectors
-    src = [(h.Vector(), h.Vector()) for _ in range(nhost)]
-    for i in range(len(allcxvec)):
-      pair = src[int(rankvec.x[i])]
-      pair[0].append(allgidvec.x[i])
-      pair[1].append(allcxvec.x[i])
-    del allgidvec
-    del allcxvec
-  else: # all other ranks send nothing
-    src = [None]*nhost
-
-  dest = env.pc.py_alltoall(src)
-  # dest[0] contains the balanced (gidvec, cxvec) pair
-  del src
-  balanced_gidvec = dest[0][0]
-  balanced_cxvec  = dest[0][1]
-  del dest
-
-  return balanced_gidvec, balanced_cxvec
-
+    
+    
 def connectprj(env, graph, prjname, prjvalue):
     prjType    = prjvalue['type']
     indexType  = prjvalue['index']
@@ -184,7 +168,7 @@ def connectcells(env):
     if env.nodeRanks is None:
         (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
     else:
-        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_vector=env.nodeRanks,attributes=True)
+        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_map=env.nodeRanks,attributes=True)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -388,7 +372,7 @@ def mkcells(env):
             else:
                 (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
                                                         attributes=True, namespace='Synapse_Attributes',
-                                                        node_rank_vector=env.nodeRanks)
+                                                        node_rank_map=env.nodeRanks)
             if env.celltypes[popName].has_key('synapses'):
                 synapses = env.celltypes[popName]['synapses']
             else:
@@ -484,7 +468,7 @@ def init(env):
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
     h.datasetPath = datasetPath
     ##  new ParallelContext object
-    h.pc = h.ParallelContext()
+    h.pc   = h.ParallelContext()
     env.pc = h.pc
     ## polymorphic value template
     h.load_file("./templates/Value.hoc")
@@ -506,8 +490,6 @@ def init(env):
     env.mkstimtime = h.stopsw()
     if (env.pc.id() == 0):
         print "*** Stimuli created in %g seconds" % env.mkstimtime
-    if env.optcx:
-        cx(env)
     h.startsw()
     connectcells(env)
     env.connectcellstime = h.stopsw()
@@ -521,18 +503,23 @@ def init(env):
         print "*** Gap junctions created in %g seconds" % env.connectgjstime
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
-    h.max_walltime_hrs = env.max_walltime_hrs
-    h.mkcellstime      = env.mkcellstime
-    h.mkstimtime       = env.mkstimtime
-    h.connectcellstime = env.connectcellstime
-    h.connectgjstime   = env.connectgjstime
+    h.max_walltime_hrs   = env.max_walltime_hrs
+    h.mkcellstime        = env.mkcellstime
+    h.mkstimtime         = env.mkstimtime
+    h.connectcellstime   = env.connectcellstime
+    h.connectgjstime     = env.connectgjstime
     h.results_write_time = env.results_write_time
-    h.fi_checksimtime   = h.FInitializeHandler("checksimtime(pc)")
+    h.fi_checksimtime    = h.FInitializeHandler("checksimtime(pc)")
     if (env.pc.id() == 0):
         print "dt = %g" % h.dt
         print "tstop = %g" % h.tstop
-        h.fi_status          = h.FInitializeHandler("simstatus()")
+        h.fi_status = h.FInitializeHandler("simstatus()")
     h.stdinit()
+    if (env.optldbal | env.optlptbal):
+        cx(env)
+        ld_bal(env)
+        if env.optlptbal:
+            lpt_bal(env)
 
 # Run the simulation
 def run (env):
@@ -591,11 +578,12 @@ def run (env):
 @click.option("--max-walltime-hours", type=float, default=1.0)
 @click.option("--results-write-time", type=float, default=30.0)
 @click.option("--dt", type=float, default=0.025)
-@click.option("--cx", is_flag=True)
+@click.option("--ldbal", is_flag=True)
+@click.option("--lptbal", is_flag=True)
 @click.option('--verbose', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, cx, verbose):
+def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, cx, verbose)
+    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose)
     init(env)
     run(env)
 
