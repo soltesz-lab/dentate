@@ -67,14 +67,14 @@ distribution{7} = septotemporal/sum(septotemporal(:,1));
 % are dentate-projection stellate cells.
 % Number estimates of neuronal phenotypes in layer II of the medial entorhinal cortex of rat and mouse.
 % Neuroscience. 2010 Sep 29;170(1):156-65. 
-num_cells{8}    = [0;38000;0;0;38000]; %Hilus;GCL;IML;MOML;Total
+num_cells{8}    = [0;0;0;38000;38000]; %Hilus;GCL;IML;MOML;Total
 soma_diam(8)    = 0;
 soma_length(8)  = 0;
 septotemporal   = [3.85;6.16;6.46;6.8;6.2;5.85;5.43;5.76;5.12;5.08;2.35;0.15];
 distribution{8} = septotemporal/sum(septotemporal(:,1));
 
 %9 LEC
-num_cells{9}    = [0;56000;0;0;56000]; %Hilus;GCL;IML;MOML;Total
+num_cells{9}    = [0;0;0;34000;34000]; %Hilus;GCL;IML;MOML;Total
 soma_diam(9)    = 0;
 soma_length(9)  = 0;
 septotemporal   = [3.85;6.16;6.46;6.8;6.2;5.85;5.43;5.76;5.12;5.08;2.35;0.15];
