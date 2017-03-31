@@ -68,16 +68,16 @@ distribution{7} = septotemporal/sum(septotemporal(:,1));
 % Number estimates of neuronal phenotypes in layer II of the medial entorhinal cortex of rat and mouse.
 % Neuroscience. 2010 Sep 29;170(1):156-65. 
 num_cells{8}    = [0;0;0;38000;38000]; %Hilus;GCL;IML;MOML;Total
-soma_diam(8)    = 0;
-soma_length(8)  = 0;
-septotemporal   = [3.85;6.16;6.46;6.8;6.2;5.85;5.43;5.76;5.12;5.08;2.35;0.15];
+soma_diam(8)    = 15;
+soma_length(8)  = 20;
+septotemporal   = [9.5;16.5;19.6;17.5;16.8;15.7;15.8;17.5;21.2;40.9];
 distribution{8} = septotemporal/sum(septotemporal(:,1));
 
 %9 LEC
 num_cells{9}    = [0;0;0;34000;34000]; %Hilus;GCL;IML;MOML;Total
-soma_diam(9)    = 0;
-soma_length(9)  = 0;
-septotemporal   = [3.85;6.16;6.46;6.8;6.2;5.85;5.43;5.76;5.12;5.08;2.35;0.15];
+soma_diam(9)    = 15;
+soma_length(9)  = 20;
+septotemporal   = [9.5;16.5;19.6;17.5;16.8;15.7;15.8;17.5;21.2;40.9];
 distribution{9} = septotemporal/sum(septotemporal(:,1));
 
 % Determine how far neighboring somata must be
@@ -190,10 +190,10 @@ for section = 1:length(num_cells{1}-1)
         % Determine if needs to lie within boundary and determine previous somata
         switch section
             case 1
-                [x_o,y_o,z_o]   = layer_eq_GCL_split(-3.95,split1,split2);
+                [x_o,y_o,z_o]   = layer_eq_GCL_point(-3.95,split1,split2);
                 boundary        = [x_o,y_o,z_o];
             case 4
-                [x_o,y_o,z_o]   = layer_eq_ML_split(3,split1,split2);
+                [x_o,y_o,z_o]   = layer_eq_ML_point(3,split1,split2);
                 boundary        = [x_o,y_o,z_o];
             otherwise
                 boundary = [];
