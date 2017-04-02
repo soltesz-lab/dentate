@@ -1,7 +1,7 @@
 import sys, os.path, string
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurotrees.io import read_tree_attributes
+from neurotrees.io import read_cell_attributes
 import numpy as np
 import yaml
 
@@ -43,7 +43,7 @@ class Env:
             elif celltypes[k].has_key('indexFile'):
                 fpath = os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexFile'])
                 if rank == 0:
-                    coords = read_tree_attributes(MPI._addressof(iocomm), fpath, k, namespace="Coordinates")
+                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Coordinates")
                     index  = coords.keys()
                     index.sort()
                 else:
