@@ -255,7 +255,7 @@ proc find_template() { local status, found localobj pc, externalPaths, foundv st
   found = 0
   foundv = new Vector(1)
   
-  if (pc.id == 0) {
+  if (pc.id() == 0) {
       path = "./templates"
       sprint(templatePath, "%s/%s.hoc", path, templateName)
       sprint(cmd, "test -e %s", templatePath) // check if the path exist
@@ -359,7 +359,7 @@ proc loadVectorStimulation() {local sendpos, celltype_idx, startgid, endgid, pop
     pop_size = vgids.size()
     
     
-    if (pc.id == 0) {
+    if (pc.id() == 0) {
         
         f = new File ()
         
