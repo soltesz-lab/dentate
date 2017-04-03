@@ -246,7 +246,7 @@ proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
 
 
 // Finds and loads a template located either in ./template or in externalPaths
-proc find_template() { local status, found localobj pc, externalPaths, foundv strdef cmd, path, templatePath, templateName, msg
+proc find_template() { local status, found localobj pc, externalPaths, foundv, f strdef path, templatePath, templateName, msg
     
   pc = $o1
   externalPaths = $o2
@@ -254,22 +254,23 @@ proc find_template() { local status, found localobj pc, externalPaths, foundv st
   
   found = 0
   foundv = new Vector(1)
+  f = new File()
   
   if (pc.id() == 0) {
       path = "./templates"
       sprint(templatePath, "%s/%s.hoc", path, templateName)
-      sprint(cmd, "test -e %s", templatePath) // check if the path exist
-      status = system(cmd)
-      if (status == 0) {
+      status = f.ropen(templatePath)
+      if (status == 1) {
+          f.close()
           found = 1
           foundv.x[0] = found
       } else {
           for i =0,externalPaths.count()-1 {
               path = externalPaths.o(i).s
               sprint(templatePath, "%s/%s.hoc", path, templateName)
-              sprint(cmd, "test -e %s", templatePath) // check if the path exist
-              status = system(cmd)
-              if (status == 0) {
+              status = f.ropen(templatePath)
+              if (status == 1) {
+                  f.close()
                   found = 1
                   foundv.x[0] = found
                   break
