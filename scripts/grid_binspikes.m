@@ -1,16 +1,19 @@
 
 dt = 0.5
-binfile = fopen ("gridspikes.bin", "w");
-idxfile = fopen ("gridspikeindex.bin", "w");
+binfile = fopen ("mec3_gridspikes.bin", "w");
+idxfile = fopen ("mec3_gridspikeindex.bin", "w");
 
 fwrite(binfile, [0 4], 'int32'); % 4 = type double
 fwrite(idxfile, [0 5], 'int32'); % 5 = type int
 
 pos = 0;
 numitems = 0;
-for i=1:100
+
+idx_i = randperm(100);
+for i = idx_i
   spikes = load(sprintf('grid_spikes_%d.mat',i));
-  for j = 1:(size(spikes.spikes)(2))
+  idx_j = randperm(size(spikes.spikes)(2));
+  for j = idx_j
       times  = find(spikes.spikes(:,j)) * dt;
       sz     = size(times)(1);
       fwrite(binfile, times, 'double');

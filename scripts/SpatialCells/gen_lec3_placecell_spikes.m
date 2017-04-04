@@ -7,7 +7,7 @@ output_path=getenv('OUTPUT_PATH');
 
 linear_place_data=matfile(input_data_path);
 
-rbar = permute(linear_place_data.place_rbar_modules((((batch_index-1)*batch_size)+1):(batch_index*batch_size),:),[2,1]) * 5e-3;
+rbar = permute(linear_place_data.place_rbar_modules((((batch_index-1)*batch_size)+1):(batch_index*batch_size),:),[2,1]) * 2e-2;
 
 [T,N] = size(rbar)
   
