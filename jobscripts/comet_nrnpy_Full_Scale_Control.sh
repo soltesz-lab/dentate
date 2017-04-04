@@ -36,12 +36,12 @@ echo python is `which python`
 mpirun_rsh -export-all -hostfile $nodefile -np 1536  \
 PATH=$PATH LD_LIBRARY_PATH=$LD_LIBRARY_PATH PYTHONPATH=$PYTHONPATH \
 python main.py \
- --config-file=config/Full_Scale_Control_xMPPtoGC.yaml  \
+ --config-file=config/Full_Scale_Control.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \
  --results-path=$results_path \
  --io-size=256 \
- --tstop=3 \
+ --tstop=5 \
  --v-init=-75 \
- --max-walltime-hours=3 \
+ --max-walltime-hours=2 \
  --verbose

@@ -305,7 +305,7 @@ def mkcells(env):
     popNames.sort()
     for popName in popNames:
         templateName = env.celltypes[popName]['templateName']
-        h.find_template(h.templatePaths, templateName)
+        h.find_template(env.pc, h.templatePaths, templateName)
 
     for popName in popNames:
 
