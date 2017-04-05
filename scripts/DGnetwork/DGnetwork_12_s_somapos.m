@@ -103,7 +103,7 @@ distribution{N_MPP} = septotemporal/sum(septotemporal(:,1));
 
 
 
-for i = 2:9
+for i = 2:10
     i
     soma_points = [];
     for section = 1:4
