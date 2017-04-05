@@ -8,11 +8,13 @@ fwrite(idxfile, [0 5], 'int32'); % 5 = type int
 
 pos = 0;
 numitems = 0;
-for i=1:100
+idx_i = randperm(100);
+for i = idx_i
   i
   spikes = load(sprintf('lec3_place_spikes_%d.mat',i));
-  ssz = size(spikes.spikes)
-  for j = 1:(ssz(2))
+  ssz = size(spikes.spikes);
+  idx_j = randperm(ssz(2));
+  for j = idx_j
       times  = find(spikes.spikes(:,j)) * dt;
       sz = size(times);
       fwrite(binfile, times, 'double');
