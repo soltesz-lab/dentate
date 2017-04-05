@@ -27,6 +27,8 @@ N_HICAP    = 6;
 N_NGFC     = 7;
 N_IS       = 8;
 N_MOPP     = 9;
+N_MPP      = 10;
+N_LPP      = 11;
 
 num_types       = 12;
 num_cells       = cell(num_types,1);
@@ -92,6 +94,13 @@ soma_distv(N_MOPP)   = 80;
 septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
 distribution{N_MOPP} = septotemporal/sum(septotemporal(:,1));
 
+%10 MPP
+num_cells{N_MPP}    = [0;0;0;38000;38000];
+soma_disth(N_MPP)   = 20;
+soma_distv(N_MPP)   = 20;
+septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
+distribution{N_MPP} = septotemporal/sum(septotemporal(:,1));
+
 
 
 for i = 2:9
@@ -103,7 +112,7 @@ for i = 2:9
         case 1
           k = num_cells{i}(section);
           if k > 0
-             soma_grid = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
+             soma_grid = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,HL_layer_min,HL_layer_mid,HL_layer_max);
              sz = size(soma_grid);
              soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),k),:));
           end

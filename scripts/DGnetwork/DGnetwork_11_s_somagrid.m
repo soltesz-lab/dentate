@@ -16,10 +16,10 @@ Z_g                 = [z_g1;z_g2;z_g3];
 [~,S_g]             = alphavol([X_g(:),Y_g(:),Z_g(:)],120);
 
 % Define limits for somata grid
-xmin    =   -3200;
-xmax    =   3200;
+xmin    =   -3800;
+xmax    =   3800;
 ymin    =   -500;
-ymax    =   4200;
+ymax    =   5000;
 zmin    =   -600;
 zmax    =   1300;
 
