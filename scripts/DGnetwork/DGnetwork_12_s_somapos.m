@@ -182,7 +182,8 @@ for i = 2:num_types
     end
 
     soma_uv_points = zeros(size(soma_xyz_points,1),2);
-    for p = 1:size(soma_xyz_points,1)    
+    for p = 1:size(soma_xyz_points,1)
+        p
         % Limit GCL points tested to those near soma
         bin_number_soma     = ceil((soma_xyz_points(p,1)-xmin)/100);
         bin_start_surface   = bin_number_soma - 3;
