@@ -14,9 +14,13 @@ IML_layer_min       = 0;
 IML_layer_mid       = 0.5;
 IML_layer_max       = 1;
 
+MML_layer_min       = 1;
+MML_layer_mid       = 1.5;
+MML_layer_max       = 2;
+
 MOML_layer_min       = 1;
-MOML_layer_max       = 1.5;
-MOML_layer_mid       = 3.1;
+MOML_layer_mid       = 2;
+MOML_layer_max       = 3.1;
 
 % indices for each cell type
 N_MC       = 2;
@@ -30,7 +34,7 @@ N_MOPP     = 9;
 N_MPP      = 10;
 N_LPP      = 11;
 
-num_types       = 12;
+num_types       = 11;
 num_cells       = cell(num_types,1);
 soma_disth      = zeros(num_types,1);
 soma_distv      = zeros(num_types,1);
@@ -103,7 +107,7 @@ distribution{N_MPP} = septotemporal/sum(septotemporal(:,1));
 
 
 
-for i = 2:10
+for i = 2:num_types
     i
     soma_points = [];
     for section = 1:4

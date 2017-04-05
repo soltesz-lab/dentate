@@ -21,7 +21,7 @@ xmax    =   3800;
 ymin    =   -500;
 ymax    =   5000;
 zmin    =   -600;
-zmax    =   1300;
+zmax    =   1500;
 
 % Round limits to nearest multiple of soma size
 xmax2    = round((xmax-xmin)/SomaDistH)*SomaDistH + xmin;
