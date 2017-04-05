@@ -198,8 +198,8 @@ for i = 2:num_types
         GCL_i_current = vertcat(GCL_i{bin_start_surface:bin_end_surface});
     
         % Find closest point on the inner and outer GCL
-        [k_o,d_o]   = dsearchn(GCL_o_current,Somata(i,:));
-        [k_i,d_i]   = dsearchn(GCL_i_current,Somata(i,:));
+        [k_o,d_o]   = dsearchn(GCL_o_current,soma_xyz_points(i,:));
+        [k_i,d_i]   = dsearchn(GCL_i_current,soma_xyz_points(i,:));
         index_o     = find(M_o(:,1) == GCL_o_current(k_o,1) & M_o(:,2) == GCL_o_current(k_o,2) & M_o(:,3) == GCL_o_current(k_o,3));
         index_i     = find(M_i(:,1) == GCL_i_current(k_i,1) & M_i(:,2) == GCL_i_current(k_i,2) & M_i(:,3) == GCL_i_current(k_i,3));
         
