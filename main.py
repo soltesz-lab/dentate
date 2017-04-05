@@ -33,7 +33,7 @@ def ld_bal(env):
   max_sum_cx = env.pc.allreduce(sum_cx, 2)
   sum_cx = env.pc.allreduce(sum_cx, 1)
   if rank == 0:
-    print ("*** expected load_balance %.2f" % (sum_cx / nhosts / max_sum_cx))
+    print ("*** expected load balance %.2f" % (sum_cx / nhosts / max_sum_cx))
 
 # Each rank has gidvec, cxvec: gather everything to rank 0, do lpt
 # algorithm and write to a balance file.
