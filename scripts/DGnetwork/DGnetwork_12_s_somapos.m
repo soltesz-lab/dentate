@@ -1,5 +1,5 @@
 
-function [soma_points] =  DGnetwork_12_s_somapos()
+function [soma_points] =  DGnetwork_12_s_somapos(output_path)
 
 
 % layer boundaries
@@ -114,6 +114,16 @@ soma_distv(N_LPP)   = 20;
 septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
 distribution{N_LPP} = septotemporal/sum(septotemporal(:,1));
 
+% Load somata and define GCL points
+[x_m,y_m,z_m]   = layer_eq_GCL_2(GCL_layer_mid);
+GCL_pts         = [x_m,y_m,z_m];
+    
+% Define granule cell layer parameters from layer_eq_GCL
+u_params   = [pi*1/100,pi*98/100,2000];
+v_params   = [pi*-23/100,pi*142.5/100,1000];
+    
+GCL_ns = createns(GCL_pts,'nsmethod','kdtree','BucketSize',500);
+clear GCL_pts
 
 for i = 2:num_types
     i
@@ -159,20 +169,9 @@ for i = 2:num_types
         end
     end
 
-    
-    % Load somata and define GCL points
-    [x_m,y_m,z_m]   = layer_eq_GCL_2(GCL_layer_mid);
-    GCL_pts         = [x_m,y_m,z_m];
-    
-    % Define granule cell layer parameters from layer_eq_GCL
-    u_params   = [pi*1/100,pi*98/100,2000];
-    v_params   = [pi*-23/100,pi*142.5/100,1000];
-    
-    ns = createns(GCL_pts,'nsmethod','kdtree','BucketSize',500);
-    clear GCL_pts
-
-    [index_nn,d_nn]   = knnsearch(ns,soma_xyz_points,'K',1);
+    [index_nn,d_nn]   = knnsearch(GCL_ns,soma_xyz_points,'K',1);
     soma_uv_points    = zeros(size(soma_xyz_points,1),2);
+
     for p = 1:size(index_nn,1)
         p    
         % Find u and v coordinates from closest points
@@ -184,7 +183,7 @@ for i = 2:num_types
         soma_uv_points(p,1) = u_nn;
         soma_uv_points(p,2) = v_nn;
     end
-    clear ns index_nn d_nn
+    clear index_nn d_nn
 			   
     locs = horzcat(soma_xyz_points, soma_uv_points);
     % sort locations according to u coordinate
@@ -195,4 +194,4 @@ for i = 2:num_types
 end
 
 % Save somata to file
-save('Outputs/Soma_Locations.mat','soma_locations','-v7.3');
+save(output_path,'soma_locations','-v7.3');
