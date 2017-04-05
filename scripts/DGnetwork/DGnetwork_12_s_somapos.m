@@ -168,29 +168,30 @@ for i = 2:num_types
     u_params   = [pi*1/100,pi*98/100,2000];
     v_params   = [pi*-23/100,pi*142.5/100,1000];
     
-    ns = createns(GCL_pts,'nsmethod','kdtree');
-    
-    soma_uv_points = zeros(size(soma_xyz_points,1),2);
-    for p = 1:size(soma_xyz_points,1)
-    
-        % Find closest point on the inner and outer GCL
-        [index_nn,d_nn]   = knnsearch(ns,soma_xyz_points(i,:),'K',1);
-        
+    ns = createns(GCL_pts,'nsmethod','kdtree','BucketSize',500);
+    clear GCL_pts
+
+    [index_nn,d_nn]   = knnsearch(ns,soma_xyz_points,'K',1);
+    soma_uv_points    = zeros(size(soma_xyz_points,1),2);
+    for p = 1:size(index_nn,1)
+        p    
         % Find u and v coordinates from closest points
-        u_bin_nn    = ceil(index_nn/v_params(1,3));
+        u_bin_nn    = ceil(index_nn(p)/v_params(1,3));
         u_nn        = u_params(1,1) + (u_bin_nn - 1) * ((u_params(1,2)-u_params(1,1))/(u_params(1,3)-1));
-        v_bin_nn    = index_nn - ((u_bin_nn - 1) * v_params(1,3));
+	v_bin_nn    = index_nn(p) - ((u_bin_nn - 1) * v_params(1,3));
         v_nn        = v_params(1,1) + (v_bin_nn - 1) * ((v_params(1,2)-v_params(1,1))/(v_params(1,3)-1));
 
         soma_uv_points(p,1) = u_nn;
         soma_uv_points(p,2) = v_nn;
     end
-    
+    clear ns index_nn d_nn
+			   
     locs = horzcat(soma_xyz_points, soma_uv_points);
     % sort locations according to u coordinate
     [y,sortidx]=sort(locs(:,4));
     soma_locations{i} = locs(sortidx,:);
-    
+
+    clear locs sortidx soma_xyz_points soma_uv_points
 end
 
 % Save somata to file

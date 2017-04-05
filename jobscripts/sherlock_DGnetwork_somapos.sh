@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem-per-cpu=10240
-#SBATCH -t 2:00:00
+#SBATCH -t 1:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
@@ -14,4 +14,4 @@ set -x
 
 module load matlab
 
-matlab -nojvm -r ./jobscripts/sherlock_DGnetwork_somapos.m
+matlab -nojvm -r 'run ./jobscripts/sherlock_DGnetwork_somapos.m'
