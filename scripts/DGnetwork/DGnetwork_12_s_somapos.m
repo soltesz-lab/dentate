@@ -101,19 +101,23 @@ for i = 1:num_types
         case 1
           soma_grid = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
           sz = size(soma_grid);
-          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),num_cells{i}(section)),:);
+          k = num_cells{i}(section);
+          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),k),:));
         case 2
           soma_grid = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
           sz = size(soma_grid);
-          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),num_cells{i}(section)),:);
+          k = num_cells{i}(section);
+          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),k),:));
         case 3
           soma_grid = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eqML,IML_layer_min,IML_layer_mid,IML_layer_max);
           sz = size(soma_grid);
-          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),num_cells{i}(section)),:);
+          k = num_cells{i}(section);
+          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),k),:));
         case 4
           soma_grid = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_MOML,MOML_layer_min,MOML_layer_mid,MOML_layer_max);
           sz = size(soma_grid);
-          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),num_cells{i}(section)),:);
+          k = num_cells{i}(section);
+          soma_points = vertcat(soma_points,soma_grid(randsample(sz(1),k),:));
         end
     end
     soma_locations{i} = soma_points;
