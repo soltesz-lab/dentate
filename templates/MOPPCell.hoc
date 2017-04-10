@@ -1,0 +1,281 @@
+begintemplate MOPPCell
+
+public connect2target, subsets, is_art, is_connected
+public soma, dendrites
+public all, adend, bdend, cdend, ddend
+public xx, yy, zz, position
+public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_MPP, syns_LPP
+public syn_stim, syntest
+
+objref all, alldendrites
+objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB, syns_MPP, syns_LPP
+objref syn_stim
+
+create soma, dendrites[1][1]
+
+
+proc init() {
+    
+    ndends=4
+    ndendsec=1
+    
+    create dendrites[ndends][ndendsec]
+    
+    subsets(ndends,ndendsec)
+    topol(ndends,ndendsec)
+    geom()
+    biophys()
+
+    syns_GC = new List()
+    syns_MC = new List()
+    syns_HC = new List()
+    syns_BC = new List()
+    syns_AA = new List()
+    syns_HCC = new List()
+    syns_NGFC = new List()
+    syns_NGFCB = new List()
+    syns_MPP = new List()
+    syns_LPP = new List()
+    syns = new List()
+    syns.append(syns_GC)
+    syns.append(syns_MC)
+    syns.append(syns_HC)
+    syns.append(syns_BC)
+    syns.append(syns_AA)
+    syns.append(syns_HCC)
+    syns.append(syns_NGFC)
+    syns.append(syns_NGFCB)
+    syns.append(syns_LPP)
+    syns.append(syns_MPP)
+    
+    soma {
+        syn_stim = new ExpSyn(0.5)
+        syn_stim.tau = 1
+    }
+
+}
+
+proc subsets() { local i, ndends, ndendsec
+
+    objref all, alldendrites
+
+    ndends=$1
+    ndendsec=$2
+    
+    all = new SectionList()
+    soma all.append()
+    
+    for i=0, ndends-1 {
+        for j=0, ndendsec-1 {
+            dendrites[i][j] all.append()
+        }
+    }
+    
+    alldendrites = new SectionList()
+    for i=0, ndends-1 {
+        for j=0, ndendsec-1 {
+            dendrites[i][j] alldendrites.append()
+        }
+    }
+}
+
+proc geom() {
+    
+    soma {nseg=1 L=20 diam=20} // changed L & diam
+    
+    dendrites[0][0] {nseg=1 L=180 diam=5}	// ncdend 1 and 2 are apical
+    dendrites[1][0] {nseg=1 L=180 diam=5}
+    dendrites[2][0] {nseg=1 L=140 diam=3} 	// ncdend 3 and 4 are basal
+    dendrites[3][0] {nseg=1 L=140 diam=3}
+    
+}
+
+proc topol() {
+    
+    ndends=$1
+    ndendsec=$2
+    
+    connect dendrites[0][0](0), soma(1)
+    connect dendrites[1][0](0), soma(1)
+    connect dendrites[2][0](0), soma(0)
+    connect dendrites[3][0](0), soma(0)
+}    
+
+
+proc biophys() {
+    
+    gna=0.075
+    gkdr=0.0132
+    gka=0.00001
+    
+    forsec all {
+        Ra=100
+    }
+    forsec all {
+        
+	insert ccanl
+        catau_ccanl = 3
+        caiinf_ccanl = 5.e-6
+	insert borgka
+        gkabar_borgka=gka
+	insert nca  // HAV-N- Ca channel
+        gncabar_nca=0.0
+	insert lca
+        glcabar_lca=0.0015
+	insert gskch
+        gskbar_gskch=0.00475
+	insert cagk
+        gkbar_cagk=0.00001
+	cm=1.6
+    }
+    soma {
+	insert ichan2
+	insert na3
+	gbar_na3=gna
+	gnatbar_ichan2=0
+	gkfbar_ichan2=gkdr
+	gl_ichan2 = 0.0001063
+    } 
+    
+    forsec alldendrites {   
+        
+	insert ichan2
+        insert na3           
+        gbar_na3=gna*0.2
+        //gkdrbar_kdr=gkdr*0.2
+        //gkabar_kap = gka*0.2
+	gkabar_borgka=gka*0.2
+	gkfbar_ichan2=gkdr*0.2
+	gnatbar_ichan2=0
+	gl_ichan2 = 0.0001063
+    }
+    forsec all {
+        ena = 55 
+        ekf = -90  
+        ek=-90  
+        esk=-90 
+        elca=130
+	el_ichan2 =-63.1	
+        cao_ccanl=2 
+    }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+    
+}
+
+func is_art()  { return 0 }
+
+obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
+    soma nc = new NetCon(&v(1), $o1)
+    nc.threshold = 10
+    if (numarg() == 2) { $o2 = nc } // for backward compatibility
+    return nc
+}
+
+proc position() { local i
+    
+    soma for i = 0, n3d()-1 {
+        pt3dchange(i, $1-xx+x3d(i), $2-yy+y3d(i), $3-zz+z3d(i), diam3d(i))
+    }
+    xx = $1  yy = $2  zz = $3
+}
+
+
+external continuerun, cvode_active, cvode
+
+obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist, vec, synlist, results, tlog, nil
+    
+    synlist = $o1
+    se = $o2
+    w = $3
+    v_holding = $4
+    v_init = $5
+    
+    soma { 
+        se.rs = 10
+        se.dur1 = 1010
+        se.amp1 = v_holding 
+    }
+    
+    mainDT = 0.001
+    dt = mainDT
+    tstop = 1000
+    
+    vec_size = tstop/mainDT + 1
+    
+    vec = new Vector(vec_size)
+    vec.record(&se.i)
+    
+    tlog = new Vector(vec_size)
+    tlog.record(&t)
+    
+    ns = new NetStim()
+    ns.interval = 1000
+    ns.number = 1
+    ns.start  = 200
+    ns.noise  = 0
+    
+    nclist = new List()
+    for idx=0, synlist.count()-1 {
+        nc = new NetCon(ns,synlist.o(idx))
+        nc.weight = w
+        nc.delay = 0
+        nclist.append(nc)
+    }
+    
+    cvode_active(1)
+    cvode.use_daspk(1)
+    cvode.dae_init_dteps(1e-9, 2)
+
+    finitialize(v_init)
+    fadvance()
+    continuerun(tstop)
+    
+    i_holding = vec.x[tlog.indwhere(">=",ns.start)]
+    idx = tlog.indwhere(">=",ns.start) - 1
+    vec.remove(0,idx)
+    tlog.remove(0,idx)
+    
+    vec.printf()
+    tlog.printf()
+    
+    i_peak = vec.min()
+    t_peak = tlog.x[vec.indwhere("==",i_peak)]
+    
+    print "i_peak = ", i_peak
+    print "i_holding = ", i_holding
+    print "i_peak - i_holding = ", i_peak - i_holding
+    
+    amp = abs(i_peak - i_holding) * 1000
+    
+    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
+    i_10 = i_holding + (i_peak - i_holding) * 1/10
+    i_20 = i_holding + (i_peak - i_holding) * 2/10
+    i_50 = i_holding + (i_peak - i_holding) * 5/10
+    i_80 = i_holding + (i_peak - i_holding) * 8/10
+    i_90 = i_holding + (i_peak - i_holding) * 9/10
+    
+    t_10_90 = tlog.x[vec.indwhere("<",i_90)] - tlog.x[vec.indwhere("<",i_10)]
+    t_20_80 = tlog.x[vec.indwhere("<",i_80)] - tlog.x[vec.indwhere("<",i_20)]
+    
+    t_all = t_peak - tlog.x[(vec.indwhere("<",i_0001))]
+    t_50  = t_peak - tlog.x[(vec.indwhere(">",i_50))]
+    
+    idx = vec.indwhere("==",i_peak) - 1
+    if (idx >= 0) {
+        vec.remove(0,idx)
+        tlog.remove(0,idx)
+    }
+    
+    i_t	= i_holding - ((1/exp(1)) * abs(i_peak - i_holding))
+    t_decay = tlog.x[vec.indwhere(">",i_t)] - tlog.x[0]
+    
+    results = new Vector()
+    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
+    
+    ns = nil
+    nc = nil
+    
+    return results
+}
+
+
+endtemplate MOPPCell
