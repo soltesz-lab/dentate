@@ -399,12 +399,12 @@ def mkcells(env):
                 h.vsrc     = tree['section_topology']['src']
                 h.vdst     = tree['section_topology']['dst']
                 ## syn_id syn_type syn_locs section layer
-                h.syn_ids      = tree['Synapse_Attributes.syn_id']
-                h.syn_types    = tree['Synapse_Attributes.syn_type']
+                h.syn_ids      = tree['Synapse_Attributes']['syn_id']
+                h.syn_types    = tree['Synapse_Attributes']['syn_type']
                 if tree.has_key('Synapse_Attributes.swc_type'):
-                    h.swc_types    = tree['Synapse_Attributes.swc_type']
-                h.syn_locs     = tree['Synapse_Attributes.syn_locs']
-                h.syn_sections = tree['Synapse_Attributes.section']
+                    h.swc_types    = tree['Synapse_Attributes']['swc_type']
+                h.syn_locs     = tree['Synapse_Attributes']['syn_locs']
+                h.syn_sections = tree['Synapse_Attributes']['section']
                 verboseflag = 0
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 h(hstmt)
@@ -519,7 +519,8 @@ def init(env):
         print "tstop = %g" % h.tstop
         h.fi_status = h.FInitializeHandler("simstatus()")
     h.stdinit()
-    if (env.optldbal | env.optlptbal):
+    env.pc.barrier()
+    if (env.optldbal or env.optlptbal):
         cx(env)
         ld_bal(env)
         if env.optlptbal:
@@ -532,6 +533,7 @@ def run (env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    env.pc.barrier()
     env.pc.psolve(h.tstop)
 
     if (rank == 0):
@@ -588,6 +590,8 @@ def run (env):
 def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
     env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose)
+    print "env.optldbal = ", env.optldbal
+    print "env.optlptbal = ", env.optlptbal
     init(env)
     run(env)
 
