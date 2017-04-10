@@ -532,6 +532,7 @@ def run (env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    env.pc.barrier()
     env.pc.psolve(h.tstop)
 
     if (rank == 0):
