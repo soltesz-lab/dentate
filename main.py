@@ -3,6 +3,7 @@
 ##
 
 import sys, os
+import os.path
 import click
 import itertools
 import numpy as np
@@ -18,6 +19,9 @@ import lpt
 def cx(env):
   h.load_file("loadbal.hoc")
   lb = h.LoadBalance()
+  if not os.path.isfile("mcomplex.dat"):
+    lb.ExperimentalMechComplex()
+  lb.read_mcomplex() 
   cxvec = h.Vector(len(env.gidlist))
   for i, gid in enumerate(env.gidlist):
     cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
