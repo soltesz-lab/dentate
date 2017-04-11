@@ -414,13 +414,13 @@ connectivity:
       synIndex: 1
       weight: 0.2
       velocity: 250.0
-    BCtoBC:
+    BCtoHC:
       source: BC
-      destination: BC
+      destination: HC
       index: absolute
       type: long.+trans.dist
       synIndex: 3
-      weight: 4.27
+      weight: 5.2
       velocity: 250.0
     GCtoBC:
       source: GC
@@ -437,6 +437,22 @@ connectivity:
       type: long.+trans.dist
       synIndex: 1
       weight: 0.3
+      velocity: 250.0
+    HCtoBC:
+      source: HC
+      destination: BC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 2
+      weight: 2.14
+      velocity: 250.0
+    BCtoBC:
+      source: BC
+      destination: BC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 3
+      weight: 4.27
       velocity: 250.0
     HCCtoBC:
       source: HCC
@@ -502,6 +518,62 @@ connectivity:
       synIndex: [6, 7]
       weight: [0.113, 0.169]
       velocity: 250.0
+    GCtoHCC:
+      source: GC
+      destination: HCC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 0
+      weight: 4.7
+      velocity: 250.0
+    MCtoHCC:
+      source: MC
+      destination: HCC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 1
+      weight: 0.3
+      velocity: 250.0
+    BCtoHCC:
+      source: BC
+      destination: HCC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 3
+      weight: 3.82
+      velocity: 250.0
+    HCCtoHCC:
+      source: HCC
+      destination: HCC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: 5
+      weight: 0.325
+      velocity: 250.0
+    NGFCtoHCC:
+      source: NGFC
+      destination: HCC
+      index: absolute
+      type: long.+trans.dist
+      synIndex: [6, 7]
+      weight: [0.168, 0.215]
+      velocity: 250.0
+    LPPtoNGFC:
+      source: LPP
+      destination: NGFC
+      index: absolute
+      type: dist
+      synIndex: 8
+      weight: 1.0
+      velocity: 250.0
+    LPPtoBC:
+      source: LPP
+      destination: BC
+      index: absolute
+      type: dist
+      synIndex: 8
+      weight: 2.5
+      velocity: 250.0
     MPPtoGC:
       source: MPP
       destination: GC
@@ -524,23 +596,7 @@ connectivity:
       index: absolute
       type: dist
       synIndex: 9
-      weight: 1.0
-      velocity: 250.0
-    MPPtoBC:
-      source: MPP
-      destination: BC
-      index: absolute
-      type: dist
-      synIndex: 9
-      weight: 2.5
-      velocity: 250.0
-    MPPtoNGFC:
-      source: MPP
-      destination: NGFC
-      index: absolute
-      type: dist
-      synIndex: 9
-      weight: 1.0
+      weight: 1.5
       velocity: 250.0
   ## Gap junction projection definitions for dentate gyrus model
   gapjunctions: 

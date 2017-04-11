@@ -1,6 +1,6 @@
 objref vect, ran, f, inds, active
 
-fraction_active = 0.3
+fraction_active = 0.35
 
 f      = new File()
 vect   = new Vector()
@@ -10,7 +10,7 @@ active = new Vector()
 
 ran.uniform(0,1)
 
-f.ropen("meccell_vecstim_ptr.bin")
+f.ropen("mec2_vecstim_ptr.bin")
 vect.vread(f)
 f.close()
 
@@ -29,12 +29,12 @@ for i=0, inds.size()-1 {
 
 print "active.sum() = ", active.sum()
 
-f.wopen("meccell_30_vecstim_active.bin")
+f.wopen("mec2_35_vecstim_active.bin")
 active.vwrite(f)
 f.close()
 
 
-f.ropen("leccell_vecstim_ptr.bin")
+f.ropen("lec2_vecstim_ptr.bin")
 vect.vread(f)
 f.close()
 vect.setrand(ran)
@@ -52,11 +52,11 @@ for i=0, inds.size()-1 {
 
 print "active.sum() = ", active.sum()
 
-f.wopen("leccell_30_vecstim_active.bin")
+f.wopen("lec2_35_vecstim_active.bin")
 active.vwrite(f)
 f.close()
 
-
+/*
 f.ropen("ca3cell_vecstim_ptr.bin")
 vect.vread(f)
 f.close()
@@ -76,8 +76,9 @@ for i=0, inds.size()-1 {
 print "active.sum() = ", active.sum()
 
 
-f.wopen("ca3cell_30_vecstim_active.bin")
+f.wopen("ca3cell_35_vecstim_active.bin")
 active.vwrite(f)
 f.close()
+*/
 
 

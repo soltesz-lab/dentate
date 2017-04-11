@@ -17,11 +17,10 @@ import lpt
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
-  h.load_file("loadbal.hoc")
+  rank   = int(env.pc.id())
   lb = h.LoadBalance()
-  if not os.path.isfile("mcomplex.dat"):
-    lb.ExperimentalMechComplex()
-  lb.read_mcomplex() 
+  if os.path.isfile("mcomplex.dat"):
+    lb.read_mcomplex() 
   cxvec = h.Vector(len(env.gidlist))
   for i, gid in enumerate(env.gidlist):
     cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
@@ -399,12 +398,12 @@ def mkcells(env):
                 h.vsrc     = tree['section_topology']['src']
                 h.vdst     = tree['section_topology']['dst']
                 ## syn_id syn_type syn_locs section layer
-                h.syn_ids      = tree['Synapse_Attributes.syn_id']
-                h.syn_types    = tree['Synapse_Attributes.syn_type']
+                h.syn_ids      = tree['Synapse_Attributes']['syn_id']
+                h.syn_types    = tree['Synapse_Attributes']['syn_type']
                 if tree.has_key('Synapse_Attributes.swc_type'):
-                    h.swc_types    = tree['Synapse_Attributes.swc_type']
-                h.syn_locs     = tree['Synapse_Attributes.syn_locs']
-                h.syn_sections = tree['Synapse_Attributes.section']
+                    h.swc_types    = tree['Synapse_Attributes']['swc_type']
+                h.syn_locs     = tree['Synapse_Attributes']['syn_locs']
+                h.syn_sections = tree['Synapse_Attributes']['section']
                 verboseflag = 0
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 h(hstmt)
@@ -458,6 +457,7 @@ def mkstim(env):
 def init(env):
 
     h.load_file("nrngui.hoc")
+    h.load_file("loadbal.hoc")
     h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
     h('strdef datasetPath')
     h('numCells = 0')
@@ -483,6 +483,10 @@ def init(env):
     h.xopen("./lib.hoc")
     h.dt = env.dt
     h.tstop = env.tstop
+    if env.optldbal or env.optlptbal:
+        lb = h.LoadBalance()
+        if not os.path.isfile("mcomplex.dat"):
+            lb.ExperimentalMechComplex()
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -519,7 +523,8 @@ def init(env):
         print "tstop = %g" % h.tstop
         h.fi_status = h.FInitializeHandler("simstatus()")
     h.stdinit()
-    if (env.optldbal | env.optlptbal):
+    env.pc.barrier()
+    if env.optldbal or env.optlptbal:
         cx(env)
         ld_bal(env)
         if env.optlptbal:
@@ -532,6 +537,7 @@ def run (env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    env.pc.barrier()
     env.pc.psolve(h.tstop)
 
     if (rank == 0):

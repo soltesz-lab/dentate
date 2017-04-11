@@ -119,8 +119,8 @@ distribution{N_LPP} = septotemporal/sum(septotemporal(:,1));
 GCL_pts         = [x_m,y_m,z_m];
     
 % Define granule cell layer parameters from layer_eq_GCL
-u_params   = [pi*1/100,pi*98/100,2000];
-v_params   = [pi*-23/100,pi*142.5/100,2000];
+u_params   = [pi*1/100,pi*98/100,4000];
+v_params   = [pi*-23/100,pi*142.5/100,4000];
     
 GCL_ns = createns(GCL_pts,'nsmethod','kdtree','BucketSize',500);
 clear GCL_pts x_m y_m z_m
