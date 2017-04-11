@@ -5,7 +5,7 @@
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=14:00:00
+#PBS -l walltime=4:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_16384
 ### set the job stdout and stderr
@@ -16,7 +16,7 @@
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
 ### Get darsan profile data
-#PBS -l advres=raikov1                                                                                          
+#PBS -l advres=raikov1
 #PBS -l geometry=6x6x15@18.4.9
 
 module swap PrgEnv-cray PrgEnv-gnu
@@ -54,8 +54,8 @@ aprun -n 16384 \
     --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=2500 \
+    --tstop=250 \
     --v-init=-75 \
-    --max-walltime-hours=14 \
+    --max-walltime-hours=4 \
     --verbose
 
