@@ -200,7 +200,7 @@ for i = 2:num_types
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(HL_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = HL_uv(index_nn,:);
+             nn_uv_points      = HL_uv(index_nn(:,randsample(knn,1)),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 2
@@ -211,7 +211,7 @@ for i = 2:num_types
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(GCL_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = GCL_uv(index_nn,:);
+             nn_uv_points      = GCL_uv(index_nn(:,randsample(knn,1)),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 3
@@ -222,7 +222,7 @@ for i = 2:num_types
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(IML_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = IML_uv(index_nn,:);
+             nn_uv_points      = IML_uv(index_nn(:,randsample(knn,1)),:);
              soma_uv_points    = vertcat(soma_uv_points, uv_points);
           end
         case 4
@@ -233,7 +233,7 @@ for i = 2:num_types
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(MML_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = MML_uv(index_nn,:);
+             nn_uv_points      = MML_uv(index_nn(:,randsample(knn,1)),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 5
@@ -244,7 +244,7 @@ for i = 2:num_types
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(OML_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = OML_uv(index_nn,:);
+             nn_uv_points      = OML_uv(index_nn(:,randsample(knn,1)),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         end
