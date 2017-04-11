@@ -122,6 +122,8 @@ GCL_x                 = [x_min;x_mid;x_max];
 GCL_y                 = [y_min;y_mid;y_max];
 GCL_z                 = [z_min;z_mid;z_max];
 GCL_pts               = [GCL_x(:),GCL_y(:),GCL_z(:)];
+GCL_u                 = [u_min;u_mid;u_max];
+GCL_v                 = [v_min;v_mid;v_max];
 GCL_uv                = [GCL_u(:),GCL_v(:)];
 clear GCL_x GCL_y GCL_z GCL_u GCL_v
 
@@ -132,6 +134,8 @@ HL_x                 = [x_min;x_mid;x_max];
 HL_y                 = [y_min;y_mid;y_max];
 HL_z                 = [z_min;z_mid;z_max];
 HL_pts               = [HL_x(:),HL_y(:),HL_z(:)];
+HL_u                 = [u_min;u_mid;u_max];
+HL_v                 = [v_min;v_mid;v_max];
 HL_uv                = [HL_u(:),HL_v(:)];
 clear HL_x HL_y HL_z HL_u HL_v
 
@@ -142,6 +146,8 @@ IML_x                 = [x_min;x_mid;x_max];
 IML_y                 = [y_min;y_mid;y_max];
 IML_z                 = [z_min;z_mid;z_max];
 IML_pts               = [IML_x(:),IML_y(:),IML_z(:)];
+IML_u                 = [u_min;u_mid;u_max];
+IML_v                 = [v_min;v_mid;v_max];
 IML_uv                = [IML_u(:),IML_v(:)];
 clear IML_x IML_y IML_z IML_u IML_v
 
@@ -152,6 +158,8 @@ MML_x                 = [x_min;x_mid;x_max];
 MML_y                 = [y_min;y_mid;y_max];
 MML_z                 = [z_min;z_mid;z_max];
 MML_pts               = [MML_x(:),MML_y(:),MML_z(:)];
+MML_u                 = [u_min;u_mid;u_max];
+MML_v                 = [v_min;v_mid;v_max];
 MML_uv                = [MML_u(:),MML_v(:)];
 clear MML_x MML_y MML_z MML_u MML_v
 
@@ -162,7 +170,9 @@ OML_x                 = [x_min;x_mid;x_max];
 OML_y                 = [y_min;y_mid;y_max];
 OML_z                 = [z_min;z_mid;z_max];
 OML_pts               = [OML_x(:),OML_y(:),OML_z(:)];
-OML_uv                = [OML_u(:),IML_v(:)];
+OML_u                 = [u_min;u_mid;u_max];
+OML_v                 = [v_min;v_mid;v_max];
+OML_uv                = [OML_u(:),OML_v(:)];
 clear OML_x OML_y OML_z OML_u OML_v
 
 clear x_mid x_min x_max y_mid y_min y_max z_mid z_min z_max u_mid u_min u_max v_mid v_min v_max 
