@@ -17,11 +17,10 @@ import lpt
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
-  h.load_file("loadbal.hoc")
+  rank   = int(env.pc.id())
   lb = h.LoadBalance()
-  if not os.path.isfile("mcomplex.dat"):
-    lb.ExperimentalMechComplex()
-  lb.read_mcomplex() 
+  if os.path.isfile("mcomplex.dat"):
+    lb.read_mcomplex() 
   cxvec = h.Vector(len(env.gidlist))
   for i, gid in enumerate(env.gidlist):
     cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
@@ -458,6 +457,7 @@ def mkstim(env):
 def init(env):
 
     h.load_file("nrngui.hoc")
+    h.load_file("loadbal.hoc")
     h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
     h('strdef datasetPath')
     h('numCells = 0')
@@ -483,6 +483,10 @@ def init(env):
     h.xopen("./lib.hoc")
     h.dt = env.dt
     h.tstop = env.tstop
+    if env.optldbal or env.optlptbal:
+        lb = h.LoadBalance()
+        if not os.path.isfile("mcomplex.dat"):
+            lb.ExperimentalMechComplex()
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -520,7 +524,7 @@ def init(env):
         h.fi_status = h.FInitializeHandler("simstatus()")
     h.stdinit()
     env.pc.barrier()
-    if (env.optldbal or env.optlptbal):
+    if env.optldbal or env.optlptbal:
         cx(env)
         ld_bal(env)
         if env.optlptbal:
@@ -590,8 +594,6 @@ def run (env):
 def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
     env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose)
-    print "env.optldbal = ", env.optldbal
-    print "env.optlptbal = ", env.optlptbal
     init(env)
     run(env)
 
