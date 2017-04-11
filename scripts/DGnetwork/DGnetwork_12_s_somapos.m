@@ -129,7 +129,7 @@ u_params   = [pi*1/100,pi*98/100,4000];
 v_params   = [pi*-23/100,pi*142.5/100,4000];
     
 GCL_ns = createns(GCL_pts,'nsmethod','kdtree','BucketSize',500);
-clear GCL_pts
+clear GCL_pts x_m y_m z_m
 
 for i = 2:num_types
     i
