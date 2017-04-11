@@ -510,21 +510,21 @@ connectivity:
       synType: 0
       weightsFile:  ./dat/MPPsynweights.dat
       velocity: 250.0
-    MPPtoBC:
-      source: MPP
-      destination: BC
-      index: absolute
-      type: dist
-      synIndex: 9
-      weight: 2.5
-      velocity: 250.0
-    MPPtoNGFC:
-      source: MPP
+    LPPtoNGFC:
+      source: LPP
       destination: NGFC
       index: absolute
       type: dist
-      synIndex: 9
+      synIndex: 8
       weight: 1.0
+      velocity: 250.0
+    LPPtoBC:
+      source: LPP
+      destination: BC
+      index: absolute
+      type: dist
+      synIndex: 8
+      weight: 2.5
       velocity: 250.0
     MPPtoBC:
       source: MPP
