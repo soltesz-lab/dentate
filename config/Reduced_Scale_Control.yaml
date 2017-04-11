@@ -459,13 +459,13 @@ connectivity:
 ##      weightsFile:  ./dat/MPPsynweights.dat
 ##      velocity: 250.0
   ## Gap junction projection definitions for dentate gyrus model
-#  gapjunctions: 
-#    HCtoHC:
-#      source: HC
-#      destination: HC
-#    BCtoBC:
-#      source: BC
-#      destination: BC
-#    NGFCtoNGFC:
-#      source: NGFC
-#      destination: NGFC
+  gapjunctions: 
+    HCtoHC:
+      source: HC
+      destination: HC
+    BCtoBC:
+      source: BC
+      destination: BC
+    NGFCtoNGFC:
+      source: NGFC
+      destination: NGFC
