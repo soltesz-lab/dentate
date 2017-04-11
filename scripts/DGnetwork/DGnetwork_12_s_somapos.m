@@ -177,7 +177,6 @@ for i = 2:num_types
 
     [index_nn,d_nn]   = knnsearch(GCL_ns,soma_xyz_points,'K',1);
     soma_uv_points    = zeros(size(soma_xyz_points,1),2);
-    clear soma_xyz_points
     
     for p = 1:size(index_nn,1)
         p    
