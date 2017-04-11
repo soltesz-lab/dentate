@@ -123,6 +123,7 @@ GCL_y                 = [y_min;y_mid;y_max];
 GCL_z                 = [z_min;z_mid;z_max];
 GCL_pts               = [GCL_x(:),GCL_y(:),GCL_z(:)];
 clear GCL_x GCL_y GCL_z x_mid x_min x_max y_mid y_min y_max z_mid z_min z_max 
+size(GCL_pts)
 
 % Define granule cell layer parameters from layer_eq_GCL
 u_params   = [pi*1/100,pi*98/100,4000];
@@ -175,15 +176,17 @@ for i = 2:num_types
         end
     end
 
-    [index_nn,d_nn]   = knnsearch(GCL_ns,soma_xyz_points,'K',1);
+    knn               = 15;
+    [index_nn,d_nn]   = knnsearch(GCL_ns,soma_xyz_points,'K',knn);
     soma_uv_points    = zeros(size(soma_xyz_points,1),2);
     
     for p = 1:size(index_nn,1)
         p    
+        i = randsample(knn,1);
         % Find u and v coordinates from closest points
-        u_bin_nn    = ceil(index_nn(p)/v_params(1,3));
+        u_bin_nn    = ceil(index_nn(p,i)/v_params(1,3));
         u_nn        = u_params(1,1) + (u_bin_nn - 1) * ((u_params(1,2)-u_params(1,1))/(u_params(1,3)-1));
-	v_bin_nn    = index_nn(p) - ((u_bin_nn - 1) * v_params(1,3));
+	v_bin_nn    = index_nn(p,i) - ((u_bin_nn - 1) * v_params(1,3));
         v_nn        = v_params(1,1) + (v_bin_nn - 1) * ((v_params(1,2)-v_params(1,1))/(v_params(1,3)-1));
 
         soma_uv_points(p,1) = u_nn;
