@@ -115,9 +115,15 @@ septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
 distribution{N_LPP} = septotemporal/sum(septotemporal(:,1));
 
 % Load somata and define GCL points
-[x_m,y_m,z_m]   = layer_eq_GCL_2(GCL_layer_mid);
-GCL_pts         = [x_m,y_m,z_m];
-    
+[x_mid,y_mid,z_mid]   = layer_eq_GCL_2(GCL_layer_mid);
+[x_min,y_min,z_min]   = layer_eq_GCL_2(GCL_layer_min);
+[x_max,y_max,z_max]   = layer_eq_GCL_2(GCL_layer_max);
+GCL_x                 = [x_min;x_mid;x_max];
+GCL_y                 = [y_min;y_mid;y_max];
+GCL_z                 = [z_min;z_mid;z_max];
+GCL_pts               = [GCL_x(:),GCL_y(:),GCL_z(:)];
+clear GCL_x GCL_y GCL_z x_mid x_min x_max y_mid y_min y_max z_mid z_min z_max 
+
 % Define granule cell layer parameters from layer_eq_GCL
 u_params   = [pi*1/100,pi*98/100,4000];
 v_params   = [pi*-23/100,pi*142.5/100,4000];
@@ -171,7 +177,8 @@ for i = 2:num_types
 
     [index_nn,d_nn]   = knnsearch(GCL_ns,soma_xyz_points,'K',1);
     soma_uv_points    = zeros(size(soma_xyz_points,1),2);
-
+    clear soma_xyz_points
+    
     for p = 1:size(index_nn,1)
         p    
         % Find u and v coordinates from closest points
@@ -182,9 +189,15 @@ for i = 2:num_types
 
         soma_uv_points(p,1) = u_nn;
         soma_uv_points(p,2) = v_nn;
+
+        %[x,y,z] = layer_eq_point(l_nn,u_nn,v_nn);
+        %soma_xyz_points(p,1) = x; % calculate new x,y,z
+                                  % coordinates consistent with u,v coordinates
+        %soma_xyz_points(p,2) = y;
+        %soma_xyz_points(p,3) = z;
     end
     clear index_nn d_nn
-			   
+
     locs = horzcat(soma_xyz_points, soma_uv_points);
     % sort locations according to u coordinate
     [y,sortidx]=sort(locs(:,4));
