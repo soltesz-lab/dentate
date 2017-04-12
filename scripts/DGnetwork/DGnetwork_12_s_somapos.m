@@ -194,7 +194,7 @@ MML_ns = createns(MML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 OML_ns = createns(OML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 clear HL_pts GCL_pts IML_pts MML_pts OML_pts
 
-knn = 15;
+knn = 1;
 for i = 2
     i
     soma_xyz_points = [];
