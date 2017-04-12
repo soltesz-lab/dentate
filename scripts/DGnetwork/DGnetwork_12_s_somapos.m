@@ -2,7 +2,7 @@
 function [soma_points] =  DGnetwork_12_s_somapos(output_path)
 
 % divide each layer into this many sublayers
-N_sublayers = 10;
+N_sublayers = 30;
 
 % layer boundaries
 HL_layer_min       = -3.95;
