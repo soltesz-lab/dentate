@@ -1,7 +1,4 @@
-import h5py
-import time
-import numpy as np
-import matplotlib.pyplot as plt
+from function_lib import *
 from mpi4py import MPI
 from neurotrees.io import append_cell_attributes
 from neurotrees.io import NeurotreeGen
@@ -9,9 +6,7 @@ from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import bcast_cell_attributes
 from neurotrees.io import population_ranges
 # import mkl
-import sys
-import os
-import gc
+
 
 """
 Determine synaptic connectivity onto DG GCs based on target convergences, divergences, and axonal distances.
