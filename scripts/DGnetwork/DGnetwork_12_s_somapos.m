@@ -1,6 +1,8 @@
 
 function [soma_points] =  DGnetwork_12_s_somapos(output_path)
 
+% divide each layer into this many sublayers
+N_sublayers = 20;
 
 % layer boundaries
 HL_layer_min       = -3.95;
@@ -114,20 +116,23 @@ soma_distv(N_LPP)   = 20;
 septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
 distribution{N_LPP} = septotemporal/sum(septotemporal(:,1));
 
+
 % Define points used for nearest-neighbor queries
-[x_min,y_min,z_min,u_min,v_min] = layer_eq_GCL_2(GCL_layer_min);
-[x_mid1,y_mid1,z_mid1,u_mid1,v_mid1] = layer_eq_GCL_2(GCL_layer_min+0.25);
-[x_mid2,y_mid2,z_mid2,u_mid2,v_mid2] = layer_eq_GCL_2(GCL_layer_min+0.25);
-[x_mid,y_mid,z_mid,u_mid,v_mid] = layer_eq_GCL_2(GCL_layer_mid);
-[x_mid3,y_mid3,z_mid3,u_mid3,v_mid3] = layer_eq_GCL_2(GCL_layer_mid+0.25);
-[x_mid4,y_mid4,z_mid4,u_mid4,v_mid4] = layer_eq_GCL_2(GCL_layer_mid+0.25);
-[x_max,y_max,z_max,u_max,v_max] = layer_eq_GCL_2(GCL_layer_max);
-GCL_x                 = [x_min;x_mid1;x_mid2;x_mid;x_mid3;x_mid4;x_max];
-GCL_y                 = [y_min;y_mid1;y_mid2;y_mid;y_mid3;y_mid4;y_max];
-GCL_z                 = [z_min;z_mid1;z_mid2;z_mid;z_mid3;z_mid4;z_max];
+GCL_x = [];
+GCL_y = [];
+GCL_z = [];
+GCL_u = [];
+GCL_v = [];
+GCL_layer_step = (GCL_layer_max-GCL_layer-min)/N_sublayers;
+for i = 1:N_sublayers
+    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2(GCL_layer_min+i*GCL_layer_step);
+    GCL_x = vertcat(GCL_x,x_s);
+    GCL_y = vertcat(GCL_y,y_s);
+    GCL_z = vertcat(GCL_z,z_s);
+    GCL_u = vertcat(GCL_u,u_s);
+    GCL_v = vertcat(GCL_v,v_s);
+end
 GCL_pts               = [GCL_x(:),GCL_y(:),GCL_z(:)];
-GCL_u                 = [u_min;u_mid1;u_mid2;u_mid;u_mid3;u_mid4;u_max];
-GCL_v                 = [v_min;v_mid1;v_mid2;v_mid;v_mid3;v_mid4;v_max];
 GCL_uv                = [GCL_u(:),GCL_v(:)];
 clear GCL_x GCL_y GCL_z GCL_u GCL_v
 
