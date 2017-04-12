@@ -1,7 +1,6 @@
 from function_lib import *
 from mpi4py import MPI
 from neurotrees.io import append_cell_attributes
-from neurotrees.io import NeurotreeGen
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import bcast_cell_attributes
 from neurotrees.io import population_ranges
@@ -42,7 +41,7 @@ sys.stdout.flush()
 neurotrees_dir = '../morphologies/'
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
-forest_file = 'DGC_forest_connectivity_040617.h5'
+forest_file = 'DGC_forest_connectivity_test_041217.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 #synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
@@ -57,7 +56,8 @@ start_time = time.time()
 last_time = start_time
 
 soma_coords = {}
-for population in population_ranges(MPI._addressof(comm), coords_dir+coords_file).iterkeys():
+source_populations = population_ranges(MPI._addressof(comm), coords_dir+coords_file).keys()
+for population in source_populations:
     soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_dir+coords_file, population,
                                                     namespace='Coordinates')
 
@@ -80,11 +80,22 @@ Z = np.array(2500. * np.sin(U) + (663. + 114. * L) * np.sin(V - 0.13 * (np.pi-U)
 
 euc_coords = np.array([X.T, Y.T, Z.T]).T
 
+del U
+del V
+del X
+del Y
+del Z
+gc.collect()
+
 delta_U = np.sqrt((np.diff(euc_coords, axis=0)**2.).sum(axis=2))
 delta_V = np.sqrt((np.diff(euc_coords, axis=1)**2.).sum(axis=2))
 
 distance_U = np.cumsum(np.insert(delta_U, 0, 0., axis=0), axis=0)
 distance_V = np.cumsum(np.insert(delta_V, 0, 0., axis=1), axis=1)
+
+del delta_U
+del delta_V
+gc.collect()
 
 # full width in um (S-T, M-L)
 axon_width = {'GC': (900., 900.), 'MPP': (1500., 3000.), 'LPP': (1500., 3000.), 'MC': (4000., 4000.)}
@@ -93,9 +104,7 @@ axon_offset = {'MC': (1000., 0.)}
 
 layers = {'GC': {'MPP': [2], 'LPP': [3], 'MC': [1]}}
 syn_types = {'GC': {'MPP': [0], 'LPP': [0], 'MC': [0]}}
-# sec_types = {'GC': {'MPP': [4], 'LPP': [4], 'MC': [4]}}
-# Original synapse attributes mistakenly used 5 for apical swc_type
-swc_types = {'GC': {'MPP': [5], 'LPP': [5], 'MC': [5]}}
+swc_types = {'GC': {'MPP': [4], 'LPP': [4], 'MC': [4]}}
 # fraction of synapses matching this layer, syn_type, sec_type, and source
 proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.]}}
 
@@ -257,26 +266,23 @@ class AxonProb(object):
             plt.close()
         return p, source_gid
 
-print 'Rank %i took %i s to sort cells' % (rank, time.time() - last_time)
-last_time = time.time()
 
 p_connect = AxonProb(axon_width, axon_offset)
-print 'Rank %i took %i s to initialize connection generator' % (rank, time.time() - last_time)
-last_time = time.time()
+if rank == 0:
+    print 'Initialization of parallel connectivity took %i s' % (time.time() - last_time)
 
 local_np_random = np.random.RandomState()
 connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
                                       # stochastic sampling
 
-connection_dict = {}
-p_dict = {}
-source_gid_dict = {}
-
 target = 'GC'
 count = 0
 for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target,
                                                     io_size=comm.size, namespace='Synapse_Attributes'):
-    count += 1
+    last_time = time.time()
+    connection_dict = {}
+    p_dict = {}
+    source_gid_dict = {}
     synapse_dict = attributes_dict['Synapse_Attributes']
     local_np_random.seed(target_gid + connectivity_seed_offset)
     connection_dict['source_gid'] = np.array([], dtype='uint32')
@@ -293,15 +299,16 @@ for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurot
             for syn_type in syn_type_set:
                 sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
                 if sources:
-                    print 'Connections in layer %i (swc_type: %i, syn_type: %i): %s' % (layer, swc_type, syn_type,
+                    if rank == 0 and count == 0:
+                        print 'Connections in layer %i (swc_type: %i, syn_type: %i): %s' % (layer, swc_type, syn_type,
                                                                                         '[' + ', '.join(
                                                                                             ['%s' % xi for xi in
                                                                                              sources]) + ']')
                     p, source_gid = np.array([]), np.array([])
                     for source, this_proportion in zip(sources, this_proportions):
                         if source not in source_gid_dict:
-                            this_p, this_source_gid = p_connect.get_p(target, source, target_gid, soma_coords, distance_U,
-                                                                  distance_V, plot=True)
+                            this_p, this_source_gid = p_connect.get_p(target, source, target_gid, soma_coords,
+                                                                      distance_U, distance_V)
                             source_gid_dict[source] = this_source_gid
                             p_dict[source] = this_p
                         else:
@@ -316,45 +323,23 @@ for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurot
                     this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
                     connection_dict['source_gid'] = np.append(connection_dict['source_gid'],
                                                               this_source_gid).astype('uint32', copy=False)
-    if count > 0:
-        break
-
-print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target,
-                                                                             target_gid)
-"""
-
-    append_tree_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, 'GC', connection_dict,
+    append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, {target_gid: connection_dict},
                            namespace='Connectivity', value_chunk_size=48000)
-    if end_index >= len(target_GID):
-        last_index = len(target_GID) - 1
-    else:
-        last_index = end_index - 1
-    print 'MPI rank %i wrote to file connectivity for cell gid: %i (count: %i)' % (rank, target_GID[last_index],
-                                                                                         count)
+    count += 1
+    print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target,
+                                                                             target_gid)
     sys.stdout.flush()
     del connection_dict
+    del p_dict
+    del source_gid_dict
     gc.collect()
-    start_index += block_size
-    end_index += block_size
 
-
-count_fragments = comm.gather(count, root=0)
-# connection_dict_fragments = comm.gather(connection_dict, root=0)
+global_count = comm.gather(count, root=0)
 if rank == 0:
-    print '%i ranks took took %.2f s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
-                                                                              np.sum(count_fragments))
-    # connection_dict = {key: value for piece in connection_dict_fragments for key, value in piece.items()}
-    # write_to_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl', connection_dict)
+    print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
+                                                                              np.sum(global_count))
 
 """
-
-"""
-connection_dict = read_from_pkl(neurotrees_dir+'010117_DG_GC_MEC_connectivity_test.pkl')
-target_gid = 500
-plot_source_soma_locs(target_gid, 'GC', 'MEC', connection_dict, soma_coords, u, v, U, V, distance_U, distance_V,
-                     X, Y, Z)
-
-start_time = time.time()
 syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
                           for source in convergence[target]} for target in convergence}
 
@@ -393,5 +378,4 @@ for source in divergence:
         plt.colorbar(sc)
         plt.show()
         plt.close()
-
 """
