@@ -115,15 +115,19 @@ septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
 distribution{N_LPP} = septotemporal/sum(septotemporal(:,1));
 
 % Define points used for nearest-neighbor queries
-[x_mid,y_mid,z_mid,u_mid,v_mid] = layer_eq_GCL_2(GCL_layer_mid);
 [x_min,y_min,z_min,u_min,v_min] = layer_eq_GCL_2(GCL_layer_min);
+[x_mid1,y_mid1,z_mid1,u_mid1,v_mid1] = layer_eq_GCL_2(GCL_layer_min+0.25);
+[x_mid2,y_mid2,z_mid2,u_mid2,v_mid2] = layer_eq_GCL_2(GCL_layer_min+0.25);
+[x_mid,y_mid,z_mid,u_mid,v_mid] = layer_eq_GCL_2(GCL_layer_mid);
+[x_mid3,y_mid3,z_mid3,u_mid3,v_mid3] = layer_eq_GCL_2(GCL_layer_mid+0.25);
+[x_mid4,y_mid4,z_mid4,u_mid4,v_mid4] = layer_eq_GCL_2(GCL_layer_mid+0.25);
 [x_max,y_max,z_max,u_max,v_max] = layer_eq_GCL_2(GCL_layer_max);
-GCL_x                 = [x_min;x_mid;x_max];
-GCL_y                 = [y_min;y_mid;y_max];
-GCL_z                 = [z_min;z_mid;z_max];
+GCL_x                 = [x_min;x_mid1;x_mid2;x_mid;x_mid3;x_mid4;x_max];
+GCL_y                 = [y_min;y_mid1;y_mid2;y_mid;y_mid3;y_mid4;y_max];
+GCL_z                 = [z_min;z_mid1;z_mid2;z_mid;z_mid3;z_mid4;z_max];
 GCL_pts               = [GCL_x(:),GCL_y(:),GCL_z(:)];
-GCL_u                 = [u_min;u_mid;u_max];
-GCL_v                 = [v_min;v_mid;v_max];
+GCL_u                 = [u_min;u_mid1;u_mid2;u_mid;u_mid3;u_mid4;u_max];
+GCL_v                 = [v_min;v_mid1;v_mid2;v_mid;v_mid3;v_mid4;v_max];
 GCL_uv                = [GCL_u(:),GCL_v(:)];
 clear GCL_x GCL_y GCL_z GCL_u GCL_v
 
@@ -183,9 +187,10 @@ GCL_ns = createns(GCL_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 IML_ns = createns(IML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 MML_ns = createns(MML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 OML_ns = createns(OML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
+clear HL_pts GCL_pts IML_pts MML_pts OML_pts
 
 knn = 15;
-for i = 2:num_types
+for i = 2
     i
     soma_xyz_points = [];
     soma_uv_points  = [];
@@ -223,7 +228,7 @@ for i = 2:num_types
              [index_nn,d_nn]   = knnsearch(IML_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
              nn_uv_points      = IML_uv(index_nn(:,randsample(knn,1)),:);
-             soma_uv_points    = vertcat(soma_uv_points, uv_points);
+             soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 4
           k = num_cells{i}(section);
