@@ -2,7 +2,7 @@
 function [soma_points] =  DGnetwork_12_s_somapos(output_path)
 
 % divide each layer into this many sublayers
-N_sublayers = 20;
+N_sublayers = 10;
 
 % layer boundaries
 HL_layer_min       = -3.95;
@@ -123,9 +123,9 @@ GCL_y = [];
 GCL_z = [];
 GCL_u = [];
 GCL_v = [];
-GCL_layer_step = (GCL_layer_max-GCL_layer-min)/N_sublayers;
+GCL_layer_step = (GCL_layer_max-GCL_layer_min)/N_sublayers
 for i = 1:N_sublayers
-    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2(GCL_layer_min+i*GCL_layer_step);
+    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2(GCL_layer_min+(i-1)*GCL_layer_step);
     GCL_x = vertcat(GCL_x,x_s);
     GCL_y = vertcat(GCL_y,y_s);
     GCL_z = vertcat(GCL_z,z_s);
@@ -136,15 +136,24 @@ GCL_pts               = [GCL_x(:),GCL_y(:),GCL_z(:)];
 GCL_uv                = [GCL_u(:),GCL_v(:)];
 clear GCL_x GCL_y GCL_z GCL_u GCL_v
 
-[x_mid,y_mid,z_mid,u_mid,v_mid]   = layer_eq_GCL_2(HL_layer_mid);
-[x_min,y_min,z_min,u_min,v_min]   = layer_eq_GCL_2(HL_layer_min);
-[x_max,y_max,z_max,u_max,v_max]   = layer_eq_GCL_2(HL_layer_max);
-HL_x                 = [x_min;x_mid;x_max];
-HL_y                 = [y_min;y_mid;y_max];
-HL_z                 = [z_min;z_mid;z_max];
+HL_x = [];
+HL_y = [];
+HL_z = [];
+HL_u = [];
+HL_v = [];
+HL_layer_step = (HL_layer_max-HL_layer_min)/N_sublayers
+for i = 1:N_sublayers
+    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2(HL_layer_min+(i-1)*HL_layer_step);
+    if mod(i,2) == 0
+      x_s = x_s + 10;
+    end
+    HL_x = vertcat(HL_x,x_s);
+    HL_y = vertcat(HL_y,y_s);
+    HL_z = vertcat(HL_z,z_s);
+    HL_u = vertcat(HL_u,u_s);
+    HL_v = vertcat(HL_v,v_s);
+end
 HL_pts               = [HL_x(:),HL_y(:),HL_z(:)];
-HL_u                 = [u_min;u_mid;u_max];
-HL_v                 = [v_min;v_mid;v_max];
 HL_uv                = [HL_u(:),HL_v(:)];
 clear HL_x HL_y HL_z HL_u HL_v
 
