@@ -19,19 +19,12 @@ neurotrees_dir = '../morphologies/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
 # forest_file = 'DGC_forest_full.h5'
 # forest_file = 'DGC_forest_syns_012717.h5'
-forest_file = 'DGC_forest_syn_locs_test_041217.h5'
-
-# forest_file = 'DGC_forest_test.h5'
+forest_file = 'DGC_forest_syn_locs_test_041317.h5'
 
 population = 'GC'
-g = NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_file, population, io_size=comm.size)
-
-sys.stdout.flush()
-
 count = 0
-
 start_time = time.time()
-for gid, morph_dict in g:
+for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_file, population, io_size=comm.size):
     local_time = time.time()
     # mismatched_section_dict = {}
     synapse_dict = {}
@@ -53,7 +46,7 @@ for gid, morph_dict in g:
 # len_GID_fragments = comm.gather(len(GID), root=0)
 global_count = comm.gather(count, root=0)
 if rank == 0:
-    print '%i ranks took %i s to compute synapse locations for %i morphologies' % (comm.size,
+    print 'target: %s, %i ranks took %i s to compute syn_locs for %i cells' % (population, comm.size,
                                                                                    time.time() - start_time,
                                                                                    np.sum(global_count))
     # print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)

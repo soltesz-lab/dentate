@@ -41,7 +41,7 @@ sys.stdout.flush()
 neurotrees_dir = '../morphologies/'
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
-forest_file = 'DGC_forest_connectivity_test_041217.h5'
+forest_file = 'DGC_forest_connectivity_test_041217_2.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 #synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
@@ -98,15 +98,24 @@ del delta_V
 gc.collect()
 
 # full width in um (S-T, M-L)
-axon_width = {'GC': (900., 900.), 'MPP': (1500., 3000.), 'LPP': (1500., 3000.), 'MC': (4000., 4000.)}
+axon_width = {'GC': (900., 900.), 'MPP': (1500., 3000.), 'LPP': (1500., 3000.), 'MC': (4000., 4000.),
+              'NGFC': (2000., 2000.), 'AAC': (1100., 1100.), 'BC': (1700., 1000.), 'IS': (2000., 2000.),
+              'MOPP': (2000., 2000.), 'HCC': (2600., 2600.), 'HC': (3000., 3000.)}
 axon_offset = {'MC': (1000., 0.)}
 
-
-layers = {'GC': {'MPP': [2], 'LPP': [3], 'MC': [1]}}
-syn_types = {'GC': {'MPP': [0], 'LPP': [0], 'MC': [0]}}
-swc_types = {'GC': {'MPP': [4], 'LPP': [4], 'MC': [4]}}
+layers = {'GC': {'MPP': [2], 'LPP': [3], 'MC': [1],
+                 'NGFC': [2, 3], 'AAC': [0], 'BC': [0, 1],
+                 'MOPP': [2, 3], 'HCC': [1], 'HC': [2, 3]}}
+syn_types = {'GC': {'MPP': [0], 'LPP': [0], 'MC': [0],
+                    'NGFC': [1, 1], 'AAC': [1], 'BC': [1, 1],
+                    'MOPP': [1, 1], 'HCC': [1], 'HC': [1, 1]}}
+swc_types = {'GC': {'MPP': [4], 'LPP': [4], 'MC': [4],
+                    'NGFC': [4, 4], 'AAC': [2], 'BC': [1, 4],
+                    'MOPP': [4, 4], 'HCC': [4], 'HC': [4, 4]}}
 # fraction of synapses matching this layer, syn_type, sec_type, and source
-proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.]}}
+proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
+                      'NGFC': [0.15, 0.15], 'AAC': [1.], 'BC': [1., 0.4],
+                      'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
 
 get_array_index = np.vectorize(lambda val_array, this_val: np.where(val_array >= this_val)[0][0], excluded=[0])
 
@@ -134,6 +143,9 @@ def filter_sources(target, layer, swc_type, syn_type):
                     if syn_types[target][source][i] == syn_type:
                         source_list.append(source)
                         proportion_list.append(proportions[target][source][i])
+    if proportion_list and np.sum(proportion_list) != 1.:
+        raise Exception('Proportions of synapses to target: %s, layer: %i, swc_type: %i, '
+                        'syn_type: %i do not sum to 1' % (target, layer, swc_type, syn_type))
     return source_list, proportion_list
 
 
@@ -276,10 +288,18 @@ connectivity_seed_offset = 100000000  # make sure random seeds are not being reu
                                       # stochastic sampling
 
 target = 'GC'
+
+layer_set, swc_type_set, syn_type_set = set(), set(), set()
+for source in layers[target]:
+    layer_set.update(layers[target][source])
+    swc_type_set.update(swc_types[target][source])
+    syn_type_set.update(syn_types[target][source])
+
 count = 0
 for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target,
                                                     io_size=comm.size, namespace='Synapse_Attributes'):
     last_time = time.time()
+    print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
     connection_dict = {}
     p_dict = {}
     source_gid_dict = {}
@@ -288,22 +308,15 @@ for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurot
     connection_dict['source_gid'] = np.array([], dtype='uint32')
     connection_dict['syn_id'] = np.array([], dtype='uint32')
 
-    layer_set, swc_type_set, syn_type_set = set(), set(), set()
-    for source in layers[target].keys():
-        layer_set.update(layers[target][source])
-        swc_type_set.update(swc_types[target][source])
-        syn_type_set.update(syn_types[target][source])
-
     for layer in layer_set:
         for swc_type in swc_type_set:
             for syn_type in syn_type_set:
                 sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
                 if sources:
                     if rank == 0 and count == 0:
-                        print 'Connections in layer %i (swc_type: %i, syn_type: %i): %s' % (layer, swc_type, syn_type,
-                                                                                        '[' + ', '.join(
-                                                                                            ['%s' % xi for xi in
-                                                                                             sources]) + ']')
+                        print 'Connections to target: %s in layer: %i ' \
+                              '(swc_type: %i, syn_type: %i): %s' % \
+                              (target, layer, swc_type, syn_type, '[' + ', '.join(['%s' % xi for xi in sources]) + ']')
                     p, source_gid = np.array([]), np.array([])
                     for source, this_proportion in zip(sources, this_proportions):
                         if source not in source_gid_dict:
@@ -323,11 +336,15 @@ for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurot
                     this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
                     connection_dict['source_gid'] = np.append(connection_dict['source_gid'],
                                                               this_source_gid).astype('uint32', copy=False)
+    print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target,
+                                                                                 target_gid)
+    sys.stdout.flush()
+    last_time = time.time()
     append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, {target_gid: connection_dict},
                            namespace='Connectivity', value_chunk_size=48000)
     count += 1
-    print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target,
-                                                                             target_gid)
+    if rank == 0:
+        print 'Appending connectivity attributes for target: %s took %i s' % (target, time.time() - last_time)
     sys.stdout.flush()
     del connection_dict
     del p_dict
