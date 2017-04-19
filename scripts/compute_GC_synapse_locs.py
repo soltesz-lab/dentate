@@ -14,6 +14,8 @@ if rank == 0:
 sys.stdout.flush()
 
 neurotrees_dir = '../morphologies/'
+neurotrees_dir = './datasets/'
+
 # forest_file = '122016_DGC_forest_test_copy.h5'
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
@@ -28,19 +30,26 @@ for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_
     local_time = time.time()
     # mismatched_section_dict = {}
     synapse_dict = {}
-    cell = DG_GC(neurotree_dict=morph_dict, gid=gid, full_spines=False)
-    # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
-    # if this_mismatched_sections is not None:
-    #    mismatched_section_dict[gid] = this_mismatched_sections
-    synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
-    del cell
+    if gid is not None:
+        print  'Rank %i gid: %i' % (rank, gid)
+        cell = DG_GC(neurotree_dict=morph_dict, gid=gid, full_spines=False)
+        # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
+        # if this_mismatched_sections is not None:
+        #    mismatched_section_dict[gid] = this_mismatched_sections
+        synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
+        del cell
+    else:
+        print  'Rank %i gid is None' % rank
+    print 'Rank %i before append_cell_attributes' % rank
     append_cell_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, population, synapse_dict,
                            namespace='Synapse_Attributes', value_chunk_size=48000)
-    print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
+    if gid is not None:
+        print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
     count += 1
     sys.stdout.flush()
     del synapse_dict
     gc.collect()
+print  'Rank %i completed iterator' % rank
 
 # len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
 # len_GID_fragments = comm.gather(len(GID), root=0)
