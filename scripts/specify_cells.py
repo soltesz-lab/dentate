@@ -2556,7 +2556,7 @@ class DG_GC(HocCell):
         densities = {}
         for sec_type in (sec_type for sec_type in sec_type_list if self.get_nodes_of_subtype(sec_type)):
             if sec_type == 'apical':
-                densities[sec_type] = {'layer': {1: 3.36, 2: 2.28, 3: 2.02},
+                densities[sec_type] = {'layer': {2: 3.36, 3: 2.28, 4: 2.02},
                                        'default': 2.55}  # units: synapses / um length
         if 'apical' in sec_type_list:
             for node in self.apical:
