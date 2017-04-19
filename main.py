@@ -210,17 +210,16 @@ def mksyn1(cell,synapses,env):
                     h.pop_section()
 
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
-    sort_idx = np.argsort(syn_ids)
-    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
-        if (syn_type == 0) & (swc_type == 5):
-            cell.alldendritesList[syn_section].root.push()
-            h.syn      = h.Exp2Syn(syn_loc)
-            h.syn.tau1 = synapses[syn_type]['t_rise']
-            h.syn.tau2 = synapses[syn_type]['t_decay']
-            h.syn.e    = synapses[syn_type]['e_rev']
-            cell.allsyns.o(syn_type).append(h.syn)
-            h.pop_section()
-            cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
+    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,swc_types,syn_locs,syn_sections):
+        if (syn_type == 0)
+                cell.alldendritesList[syn_section].root.push()
+                h.syn      = h.Exp2Syn(syn_loc)
+                h.syn.tau1 = synapses[syn_type]['t_rise']
+                h.syn.tau2 = synapses[syn_type]['t_decay']
+                h.syn.e    = synapses[syn_type]['e_rev']
+                cell.allsyns.o(syn_type).append(h.syn)
+                h.pop_section()
+                cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
 
 def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     sort_idx = np.argsort(syn_ids)
