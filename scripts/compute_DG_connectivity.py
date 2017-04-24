@@ -102,9 +102,15 @@ axon_width = {'GC': (900., 900.), 'MPP': (1500., 3000.), 'LPP': (1500., 3000.), 
               'MOPP': (2000., 2000.), 'HCC': (2600., 2600.), 'HC': (3000., 3000.)}
 axon_offset = {'MC': (1000., 0.)}
 
-layers = {'GC': {'MPP': [2], 'LPP': [3], 'MC': [1],
-                 'NGFC': [2, 3], 'AAC': [0], 'BC': [0, 1],
-                 'MOPP': [2, 3], 'HCC': [1], 'HC': [2, 3]}}
+layer_Hilus = 0
+layer_GCL   = 1
+layer_IML   = 2
+layer_MML   = 3
+layer_OML   = 4 
+
+layers = {'GC': {'MPP': [layer_MML], 'LPP': [layer_OML], 'MC': [layer_GCL],
+                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_Hilus], 'BC': [layer_Hilus, layer_GCL],
+                 'MOPP': [layer_MML, layer_OML], 'HCC': [layer_GCL], 'HC': [layer_MML, layer_OML]}}
 syn_types = {'GC': {'MPP': [0], 'LPP': [0], 'MC': [0],
                     'NGFC': [1, 1], 'AAC': [1], 'BC': [1, 1],
                     'MOPP': [1, 1], 'HCC': [1], 'HC': [1, 1]}}
