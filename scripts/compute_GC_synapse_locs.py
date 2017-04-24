@@ -13,19 +13,19 @@ if rank == 0:
     print '%i ranks have been allocated' % comm.size
 sys.stdout.flush()
 
-neurotrees_dir = '/projects/sciteam/datasets/'
+neurotrees_dir = '/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control/'
 
 # forest_file = '122016_DGC_forest_test_copy.h5'
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
 # forest_file = 'DGC_forest_full.h5'
 # forest_file = 'DGC_forest_syns_012717.h5'
-forest_file = 'DGC_forest_syns_20170419.h5'
+forest_file = 'DGC_forest_syns_20170421.h5'
 
 population = 'GC'
 count = 0
 start_time = time.time()
-for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_file, population, io_size=comm.size):
+for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_file, population, io_size=256):
     local_time = time.time()
     # mismatched_section_dict = {}
     synapse_dict = {}
@@ -41,7 +41,7 @@ for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_
         print  'Rank %i gid is None' % rank
     print 'Rank %i before append_cell_attributes' % rank
     append_cell_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, population, synapse_dict,
-                           namespace='Synapse_Attributes', value_chunk_size=48000)
+                           namespace='Synapse_Attributes', io_size=256, chunk_size=100000, value_chunk_size=2000000)
     if gid is not None:
         print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
     count += 1
