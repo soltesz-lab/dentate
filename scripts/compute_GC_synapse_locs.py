@@ -13,15 +13,14 @@ if rank == 0:
     print '%i ranks have been allocated' % comm.size
 sys.stdout.flush()
 
-neurotrees_dir = '../morphologies/'
-neurotrees_dir = './datasets/'
+neurotrees_dir = '/projects/sciteam/datasets/'
 
 # forest_file = '122016_DGC_forest_test_copy.h5'
 # neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
 # forest_file = 'DGC_forest_full.h5'
 # forest_file = 'DGC_forest_syns_012717.h5'
-forest_file = 'DGC_forest_syn_locs_test_041317.h5'
+forest_file = 'DGC_forest_syns_20170419.h5'
 
 population = 'GC'
 count = 0
