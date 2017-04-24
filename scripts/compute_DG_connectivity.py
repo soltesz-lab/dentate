@@ -38,18 +38,17 @@ if rank == 0:
     print '%i ranks have been allocated' % comm.size
 sys.stdout.flush()
 
-neurotrees_dir = '../morphologies/'
-# neurotrees_dir = os.environ['PI_SCRATCH']+'/DGC_forest/hdf5/'
+# neurotrees_dir = '../morphologies/'
+neurotrees_dir = os.environ['PI_SCRATCH']+'/dentate/Full_Scale_Control/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
-forest_file = 'DGC_forest_connectivity_test_041217_2.h5'
+forest_file = 'DGC_forest_connectivity_20170423.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 #synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
 #                                    namespace='Synapse_Attributes')
 
-coords_dir = '../morphologies/'
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-# coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+coords_dir = os.environ['PI_SCRATCH']+'/dentate/Full_Scale_Control/'
 coords_file = 'dentate_Full_Scale_Control_coords.h5'
 
 start_time = time.time()
@@ -296,52 +295,55 @@ for source in layers[target]:
     syn_type_set.update(syn_types[target][source])
 
 count = 0
-for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target,
-                                                    io_size=comm.size, namespace='Synapse_Attributes'):
+for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target, io_size=256, cache_size=50, namespace='Synapse_Attributes'):
     last_time = time.time()
-    print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
     connection_dict = {}
     p_dict = {}
     source_gid_dict = {}
-    synapse_dict = attributes_dict['Synapse_Attributes']
-    local_np_random.seed(target_gid + connectivity_seed_offset)
-    connection_dict['source_gid'] = np.array([], dtype='uint32')
-    connection_dict['syn_id'] = np.array([], dtype='uint32')
+    if target_gid is None:    
+        print  'Rank %i target gid is None' % rank
+        synapse_dict = {}
+    else:
+        print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
+        synapse_dict = attributes_dict['Synapse_Attributes']
+        local_np_random.seed(target_gid + connectivity_seed_offset)
+        connection_dict['source_gid'] = np.array([], dtype='uint32')
+        connection_dict['syn_id'] = np.array([], dtype='uint32')
 
-    for layer in layer_set:
-        for swc_type in swc_type_set:
-            for syn_type in syn_type_set:
-                sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
-                if sources:
-                    if rank == 0 and count == 0:
-                        print 'Connections to target: %s in layer: %i ' \
-                              '(swc_type: %i, syn_type: %i): %s' % \
-                              (target, layer, swc_type, syn_type, '[' + ', '.join(['%s' % xi for xi in sources]) + ']')
-                    p, source_gid = np.array([]), np.array([])
-                    for source, this_proportion in zip(sources, this_proportions):
-                        if source not in source_gid_dict:
-                            this_p, this_source_gid = p_connect.get_p(target, source, target_gid, soma_coords,
-                                                                      distance_U, distance_V)
-                            source_gid_dict[source] = this_source_gid
-                            p_dict[source] = this_p
-                        else:
-                            this_source_gid = source_gid_dict[source]
-                            this_p = p_dict[source]
-                        p = np.append(p, this_p * this_proportion)
-                        source_gid = np.append(source_gid, this_source_gid)
-                    syn_indexes = filter_synapses(synapse_dict, layer, swc_type, syn_type)
-                    connection_dict['syn_id'] = np.append(connection_dict['syn_id'],
-                                                          synapse_dict['syn_id'][syn_indexes]).astype('uint32',
-                                                                                                      copy=False)
-                    this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
-                    connection_dict['source_gid'] = np.append(connection_dict['source_gid'],
-                                                              this_source_gid).astype('uint32', copy=False)
-    print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target,
-                                                                                 target_gid)
+        for layer in layer_set:
+            for swc_type in swc_type_set:
+                for syn_type in syn_type_set:
+                    sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
+                    if sources:
+                        if rank == 0 and count == 0:
+                            print 'Connections to target: %s in layer: %i ' \
+                                '(swc_type: %i, syn_type: %i): %s' % \
+                                (target, layer, swc_type, syn_type, '[' + ', '.join(['%s' % xi for xi in sources]) + ']')
+                        p, source_gid = np.array([]), np.array([])
+                        for source, this_proportion in zip(sources, this_proportions):
+                            if source not in source_gid_dict:
+                                this_p, this_source_gid = p_connect.get_p(target, source, target_gid, soma_coords,
+                                                                          distance_U, distance_V)
+                                source_gid_dict[source] = this_source_gid
+                                p_dict[source] = this_p
+                            else:
+                                this_source_gid = source_gid_dict[source]
+                                this_p = p_dict[source]
+                            p = np.append(p, this_p * this_proportion)
+                            source_gid = np.append(source_gid, this_source_gid)
+                        syn_indexes = filter_synapses(synapse_dict, layer, swc_type, syn_type)
+                        connection_dict['syn_id'] = np.append(connection_dict['syn_id'],
+                                                              synapse_dict['syn_id'][syn_indexes]).astype('uint32', copy=False)
+                        this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
+                        connection_dict['source_gid'] = np.append(connection_dict['source_gid'],
+                                                                  this_source_gid).astype('uint32', copy=False)
+    
+    if target_gid is not None:    
+        print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target, target_gid)
     sys.stdout.flush()
     last_time = time.time()
     append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, {target_gid: connection_dict},
-                           namespace='Connectivity', value_chunk_size=48000)
+                           namespace='Connectivity', io_size=256, chunk_size=100000, value_chunk_size=2000000)
     count += 1
     if rank == 0:
         print 'Appending connectivity attributes for target: %s took %i s' % (target, time.time() - last_time)
