@@ -2,7 +2,7 @@
 function [soma_points] =  DGnetwork_12_s_somapos(output_path)
 
 % divide each layer into this many sublayers
-N_sublayers = 25;
+N_sublayers = 50;
 
 % layer boundaries
 HL_layer_min       = -3.95;
@@ -143,7 +143,7 @@ HL_u = [];
 HL_v = [];
 HL_layer_step = (HL_layer_max-HL_layer_min)/N_sublayers
 for i = 1:N_sublayers
-    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_randunif(HL_layer_min+(i-1)*HL_layer_step,0.01);
+    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2_randunif(HL_layer_min+(i-1)*HL_layer_step,0.05);
     HL_x = vertcat(HL_x,x_s);
     HL_y = vertcat(HL_y,y_s);
     HL_z = vertcat(HL_z,z_s);
@@ -211,7 +211,7 @@ for i = 2
         case 1
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,HL_layer_min,HL_layer_mid,HL_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,HL_layer_min,HL_layer_mid,HL_layer_max);
              sz                = size(soma_grid);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(HL_ns,sel_xyz_points,'K',knn);
@@ -225,7 +225,7 @@ for i = 2
         case 2
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
              sz                = size(soma_grid);
              ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
@@ -238,7 +238,7 @@ for i = 2
         case 3
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,IML_layer_min,IML_layer_mid,IML_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,IML_layer_min,IML_layer_mid,IML_layer_max);
              sz                = size(soma_grid);
              ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
@@ -250,7 +250,7 @@ for i = 2
         case 4
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,MML_layer_min,MML_layer_mid,MML_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,MML_layer_min,MML_layer_mid,MML_layer_max);
              sz                = size(soma_grid);
              ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
@@ -262,7 +262,7 @@ for i = 2
         case 5
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,OML_layer_min,OML_layer_mid,OML_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,OML_layer_min,OML_layer_mid,OML_layer_max);
              sz                = size(soma_grid);
              ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
