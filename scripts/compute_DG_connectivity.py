@@ -39,16 +39,16 @@ if rank == 0:
 sys.stdout.flush()
 
 # neurotrees_dir = '../morphologies/'
-neurotrees_dir = os.environ['PI_SCRATCH']+'/dentate/Full_Scale_Control/'
+neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
-forest_file = 'DGC_forest_connectivity_20170423.h5'
+forest_file = 'DGC_forest_connectivity_20170427.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 #synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
 #                                    namespace='Synapse_Attributes')
 
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-coords_dir = os.environ['PI_SCRATCH']+'/dentate/Full_Scale_Control/'
+coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 coords_file = 'dentate_Full_Scale_Control_coords.h5'
 
 start_time = time.time()
@@ -348,7 +348,10 @@ for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurot
         print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target, target_gid)
     sys.stdout.flush()
     last_time = time.time()
-    append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, {target_gid: connection_dict},
+    d = {}
+    if target_gid is not None:    
+        d[target_gid] = connection_dict
+    append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, d,
                            namespace='Connectivity', io_size=256, chunk_size=100000, value_chunk_size=2000000)
     count += 1
     if rank == 0:
