@@ -2,7 +2,7 @@
 function [soma_points] =  DGnetwork_12_s_somapos(output_path)
 
 % divide each layer into this many sublayers
-N_sublayers = 20;
+N_sublayers = 50;
 
 % layer boundaries
 HL_layer_min       = -3.95;
@@ -123,9 +123,9 @@ GCL_y = [];
 GCL_z = [];
 GCL_u = [];
 GCL_v = [];
-GCL_layer_step = (GCL_layer_max-GCL_layer-min)/N_sublayers;
+GCL_layer_step = (GCL_layer_max-GCL_layer_min)/N_sublayers
 for i = 1:N_sublayers
-    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2(GCL_layer_min+i*GCL_layer_step);
+    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2(GCL_layer_min+(i-1)*GCL_layer_step);
     GCL_x = vertcat(GCL_x,x_s);
     GCL_y = vertcat(GCL_y,y_s);
     GCL_z = vertcat(GCL_z,z_s);
@@ -136,18 +136,25 @@ GCL_pts               = [GCL_x(:),GCL_y(:),GCL_z(:)];
 GCL_uv                = [GCL_u(:),GCL_v(:)];
 clear GCL_x GCL_y GCL_z GCL_u GCL_v
 
-[x_mid,y_mid,z_mid,u_mid,v_mid]   = layer_eq_GCL_2(HL_layer_mid);
-[x_min,y_min,z_min,u_min,v_min]   = layer_eq_GCL_2(HL_layer_min);
-[x_max,y_max,z_max,u_max,v_max]   = layer_eq_GCL_2(HL_layer_max);
-HL_x                 = [x_min;x_mid;x_max];
-HL_y                 = [y_min;y_mid;y_max];
-HL_z                 = [z_min;z_mid;z_max];
+HL_x = [];
+HL_y = [];
+HL_z = [];
+HL_u = [];
+HL_v = [];
+HL_layer_step = (HL_layer_max-HL_layer_min)/N_sublayers
+for i = 1:N_sublayers
+    [x_s,y_s,z_s,u_s,v_s] = layer_eq_GCL_2_randunif(HL_layer_min+(i-1)*HL_layer_step,0.05);
+    HL_x = vertcat(HL_x,x_s);
+    HL_y = vertcat(HL_y,y_s);
+    HL_z = vertcat(HL_z,z_s);
+    HL_u = vertcat(HL_u,u_s);
+    HL_v = vertcat(HL_v,v_s);
+end
 HL_pts               = [HL_x(:),HL_y(:),HL_z(:)];
-HL_u                 = [u_min;u_mid;u_max];
-HL_v                 = [v_min;v_mid;v_max];
 HL_uv                = [HL_u(:),HL_v(:)];
 clear HL_x HL_y HL_z HL_u HL_v
-
+size(HL_pts)
+  
 [x_mid,y_mid,z_mid,u_mid,v_mid]   = layer_eq_ML(IML_layer_mid);
 [x_min,y_min,z_min,u_min,v_min]   = layer_eq_ML(IML_layer_min);
 [x_max,y_max,z_max,u_max,v_max]   = layer_eq_ML(IML_layer_max);
@@ -192,7 +199,6 @@ GCL_ns = createns(GCL_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 IML_ns = createns(IML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 MML_ns = createns(MML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
 OML_ns = createns(OML_pts(:,1:3),'nsmethod','kdtree','BucketSize',500);
-clear HL_pts GCL_pts IML_pts MML_pts OML_pts
 
 knn = 1;
 for i = 2
@@ -205,56 +211,64 @@ for i = 2
         case 1
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,HL_layer_min,HL_layer_mid,HL_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,HL_layer_min,HL_layer_mid,HL_layer_max);
              sz                = size(soma_grid);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(HL_ns,sel_xyz_points,'K',knn);
-             soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = HL_uv(index_nn(:,randsample(knn,1)),:);
+             sz_nn             = size(index_nn,1);
+             ridx              = randsample(knn,1);
+             nn_xyz_points     = HL_pts(index_nn(:,ridx),:);
+             soma_xyz_points   = vertcat(soma_xyz_points,nn_xyz_points);
+             nn_uv_points      = HL_uv(index_nn(:,ridx),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 2
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
              sz                = size(soma_grid);
+             ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(GCL_ns,sel_xyz_points,'K',knn);
-             soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = GCL_uv(index_nn(:,randsample(knn,1)),:);
+             nn_xyz_points     = GCL_pts(index_nn(:,ridx),:);
+             soma_xyz_points   = vertcat(soma_xyz_points,nn_xyz_points);
+             nn_uv_points      = GCL_uv(index_nn(:,ridx),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 3
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,IML_layer_min,IML_layer_mid,IML_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,IML_layer_min,IML_layer_mid,IML_layer_max);
              sz                = size(soma_grid);
+             ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(IML_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = IML_uv(index_nn(:,randsample(knn,1)),:);
+             nn_uv_points      = IML_uv(index_nn(:,ridx),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 4
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,MML_layer_min,MML_layer_mid,MML_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,MML_layer_min,MML_layer_mid,MML_layer_max);
              sz                = size(soma_grid);
+             ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(MML_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = MML_uv(index_nn(:,randsample(knn,1)),:);
+             nn_uv_points      = MML_uv(index_nn(:,ridx),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         case 5
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_11_s_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,OML_layer_min,OML_layer_mid,OML_layer_max);
+             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,OML_layer_min,OML_layer_mid,OML_layer_max);
              sz                = size(soma_grid);
+             ridx              = randsample(knn,1);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
              [index_nn,d_nn]   = knnsearch(OML_ns,sel_xyz_points,'K',knn);
              soma_xyz_points   = vertcat(soma_xyz_points,sel_xyz_points);
-             nn_uv_points      = OML_uv(index_nn(:,randsample(knn,1)),:);
+             nn_uv_points      = OML_uv(index_nn(:,ridx),:);
              soma_uv_points    = vertcat(soma_uv_points, nn_uv_points);
           end
         end
@@ -265,7 +279,10 @@ for i = 2
     [y,sortidx]=sort(locs(:,4));
     soma_locations{i} = locs(sortidx,:);
 
-    clear locs sortidx soma_xyz_points soma_uv_points
+    save('soma_grid.mat','soma_grid','-v7.3');
+    save('sel_xyz_points.mat','sel_xyz_points','-v7.3');
+	
+    clear locs sortidx soma_xyz_points soma_uv_points soma_grid
 end
 
 % Save somata to file
