@@ -39,16 +39,16 @@ if rank == 0:
 sys.stdout.flush()
 
 # neurotrees_dir = '../morphologies/'
-neurotrees_dir = os.environ['PI_SCRATCH']+'/dentate/Full_Scale_Control/'
+neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
-forest_file = 'DGC_forest_connectivity_20170426.h5'
+forest_file = 'DGC_forest_connectivity_20170427.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 #synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
 #                                    namespace='Synapse_Attributes')
 
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-coords_dir = os.environ['PI_SCRATCH']+'/dentate/Full_Scale_Control/'
+coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 coords_file = 'dentate_Full_Scale_Control_coords.h5'
 
 start_time = time.time()

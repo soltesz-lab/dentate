@@ -6,6 +6,7 @@ idxfile = fopen ('lec3_placespikeindex.bin', 'w');
 fwrite(binfile, [0 4], 'int32'); % 4 = type double
 fwrite(idxfile, [0 5], 'int32'); % 5 = type int
 
+rand("seed", 2);
 pos = 0;
 numitems = 0;
 idx_i = randperm(100);
