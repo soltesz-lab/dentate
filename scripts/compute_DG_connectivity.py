@@ -38,8 +38,8 @@ if rank == 0:
     print '%i ranks have been allocated' % comm.size
 sys.stdout.flush()
 
-# neurotrees_dir = '../morphologies/'
-neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+neurotrees_dir = '../morphologies/'
+# neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
 forest_file = 'DGC_forest_connectivity_20170427.h5'
 
@@ -48,7 +48,8 @@ forest_file = 'DGC_forest_connectivity_20170427.h5'
 #                                    namespace='Synapse_Attributes')
 
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+coords_dir = neurotrees_dir
+# coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 coords_file = 'dentate_Full_Scale_Control_coords.h5'
 
 start_time = time.time()
@@ -108,7 +109,7 @@ layer_IML   = 2
 layer_MML   = 3
 layer_OML   = 4 
 
-layers = {'GC': {'MPP': [layer_MML], 'LPP': [layer_OML], 'MC': [layer_GCL],
+layers = {'GC': {'MPP': [layer_MML], 'LPP': [layer_OML], 'MC': [layer_IML],
                  'NGFC': [layer_MML, layer_OML], 'AAC': [layer_Hilus], 'BC': [layer_Hilus, layer_GCL],
                  'MOPP': [layer_MML, layer_OML], 'HCC': [layer_GCL], 'HC': [layer_MML, layer_OML]}}
 syn_types = {'GC': {'MPP': [0], 'LPP': [0], 'MC': [0],
@@ -300,6 +301,7 @@ for source in layers[target]:
     swc_type_set.update(swc_types[target][source])
     syn_type_set.update(syn_types[target][source])
 
+"""
 count = 0
 for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target, io_size=256, cache_size=50, namespace='Synapse_Attributes'):
     last_time = time.time()
@@ -366,6 +368,7 @@ global_count = comm.gather(count, root=0)
 if rank == 0:
     print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                               np.sum(global_count))
+"""
 
 """
 syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
