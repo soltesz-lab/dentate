@@ -38,8 +38,8 @@ if rank == 0:
     print '%i ranks have been allocated' % comm.size
 sys.stdout.flush()
 
-neurotrees_dir = '../morphologies/'
-# neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+# neurotrees_dir = '../morphologies/'
+neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
 forest_file = 'DGC_forest_connectivity_20170427.h5'
 
@@ -48,8 +48,7 @@ forest_file = 'DGC_forest_connectivity_20170427.h5'
 #                                    namespace='Synapse_Attributes')
 
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-coords_dir = neurotrees_dir
-# coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 coords_file = 'dentate_Full_Scale_Control_coords.h5'
 
 start_time = time.time()
@@ -109,15 +108,25 @@ layer_IML   = 2
 layer_MML   = 3
 layer_OML   = 4 
 
-layers = {'GC': {'MPP': [layer_MML], 'LPP': [layer_OML], 'MC': [layer_IML],
-                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_Hilus], 'BC': [layer_Hilus, layer_GCL],
-                 'MOPP': [layer_MML, layer_OML], 'HCC': [layer_GCL], 'HC': [layer_MML, layer_OML]}}
-syn_types = {'GC': {'MPP': [0], 'LPP': [0], 'MC': [0],
-                    'NGFC': [1, 1], 'AAC': [1], 'BC': [1, 1],
-                    'MOPP': [1, 1], 'HCC': [1], 'HC': [1, 1]}}
-swc_types = {'GC': {'MPP': [4], 'LPP': [4], 'MC': [4],
-                    'NGFC': [4, 4], 'AAC': [2], 'BC': [1, 4],
-                    'MOPP': [4, 4], 'HCC': [4], 'HC': [4, 4]}}
+layers = {'GC': {'MPP':  [layer_MML], 'LPP': [layer_OML], 'MC': [layer_IML],
+                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_Hilus], 'BC': [layer_GCL, layer_IML],
+                 'MOPP': [layer_MML, layer_OML], 'HCC': [layer_IML], 'HC': [layer_MML, layer_OML]}}
+
+syn_Exc = 0
+syn_Inh = 1
+
+syn_types = {'GC': {'MPP': [syn_Exc], 'LPP': [syn_Exc], 'MC': [syn_Exc],
+                    'NGFC': [syn_Inh, syn_Inh], 'AAC': [syn_Inh], 'BC': [syn_Inh, syn_Inh],
+                    'MOPP': [syn_Inh, syn_Inh], 'HCC': [syn_Inh], 'HC': [syn_Inh, syn_Inh]}}
+
+swc_Dend = 4
+swc_Axon = 2
+swc_Soma = 1
+
+swc_types = {'GC': {'MPP': [swc_Dend], 'LPP': [swc_Dend], 'MC': [swc_Dend],
+                    'NGFC': [swc_Dend, swc_Dend], 'AAC': [swc_Axon], 'BC': [swc_Soma, swc_Dend],
+                    'MOPP': [swc_Dend, swc_Dend], 'HCC': [swc_Dend], 'HC': [swc_Dend, swc_Dend]}}
+
 # fraction of synapses matching this layer, syn_type, sec_type, and source
 proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
                       'NGFC': [0.15, 0.15], 'AAC': [1.], 'BC': [1., 0.4],
@@ -301,9 +310,8 @@ for source in layers[target]:
     swc_type_set.update(swc_types[target][source])
     syn_type_set.update(syn_types[target][source])
 
-"""
 count = 0
-for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target, io_size=256, cache_size=50, namespace='Synapse_Attributes'):
+for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target, io_size=comm.size, cache_size=50, namespace='Synapse_Attributes'):
     last_time = time.time()
     connection_dict = {}
     p_dict = {}
@@ -368,7 +376,6 @@ global_count = comm.gather(count, root=0)
 if rank == 0:
     print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                               np.sum(global_count))
-"""
 
 """
 syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
