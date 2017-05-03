@@ -1,7 +1,7 @@
 %% Create Grid of Packed Somata and Select Those That Lie Within
 %% the layer volume
 
-function [Soma_Points] = DGnetwork_11_s_somagrid(SomaDistH,SomaDistV,layer_eq,layer_min,layer_mid,layer_max)
+function [Soma_Points] = DGnetwork_somagrid(SomaDistH,SomaDistV,layer_eq,layer_min,layer_mid,layer_max)
 
 % Define parameters
 Kepler      =   pi / (3 * sqrt (2));
