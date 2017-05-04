@@ -5,32 +5,11 @@ from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import population_ranges
 import scipy.optimize as optimize
 import random
+import click # CLI argument processing
+
 # import mkl
 
 # mkl.set_num_threads(1)
-
-log_dir = '../logs/'
-log_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
-               '_interpolate_DG_soma_locations.o'
-
-sys.stdout = Logger(log_dir+log_filename)
-
-coords_dir = '../morphologies/'
-coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
-
-comm = MPI.COMM_WORLD
-rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
-
-if rank == 0:
-    print '%i ranks have been allocated' % comm.size
-sys.stdout.flush()
-
-# U, V, L
-p0 = [1.555, 1.876, -1.]  # center of the volume
-pmin = [-0.064, -0.810, -4.1]
-pmax = [3.187, 4.564, 3.1]
-
-populations = population_ranges(MPI._addressof(comm), coords_dir+coords_file).keys()
 
 
 class CheckBounds(object):
@@ -125,61 +104,94 @@ def euc_distance(params, args):
 
     return error
 
+@click.command()
+@click.option("--log-dir", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--io-size", type=int, default=-1)
+@click.option("--chunk-size", type=int, default=1000)
+@click.option("--value-chunk-size", type=int, default=1000)
+def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
 
-check_bounds = CheckBounds(pmin, pmax)
+    log_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
+               '_interpolate_DG_soma_locations.o'
 
-for population in populations:
-# for population in ['MC']:
-    start_time = time.time()
-    count = 0
-    coords_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_dir+coords_file, population, io_size=comm.size,
-                                  cache_size=50, namespace='Coordinates')
-    for gid, orig_coords_dict in coords_gen:
-    # gid, orig_coords_dict = coords_gen.next()
-        coords_dict = {}
-        if gid is not None:
-            orig_coords_dict = orig_coords_dict['Coordinates']
+    sys.stdout = Logger(log_dir+'/'+log_filename)
 
-            coords_dict[gid] = {parameter: np.array([], dtype='float32') for parameter in
-                                ['X Coordinate', 'Y Coordinate', 'Z Coordinate', 'U Coordinate', 'V Coordinate',
-                                 'L Coordinate', 'Interpolation Error']}
-            x = orig_coords_dict['X Coordinate'][0]
-            y = orig_coords_dict['Y Coordinate'][0]
-            z = orig_coords_dict['Z Coordinate'][0]
-            this_p0 = p0
-            for i in range(5):
-                result = optimize.minimize(euc_distance, this_p0, method='Powell', args=([x, y, z],),
-                                           options={'disp': False})
-                formatted_x = '[' + ', '.join(['%.4E' % xi for xi in [x, y, z]]) + ']'
-                interp_coords = interp_points(result.x)
-                formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
-                print 'Rank %i: %s gid: %i, target: %s, result: %s, error: %.4E, iteration: %i' % \
-                      (rank, population, gid, formatted_x, formatted_xi, result.fun, i)
-                if result.fun < 1.:
-                    break
-                else:
-                    this_p0 = check_bounds.return_to_bounds(result.x)
-            coords_dict[gid]['X Coordinate'] = np.append(coords_dict[gid]['X Coordinate'],
-                                                         interp_coords[0]).astype('float32', copy=False)
-            coords_dict[gid]['Y Coordinate'] = np.append(coords_dict[gid]['Y Coordinate'],
-                                                         interp_coords[1]).astype('float32', copy=False)
-            coords_dict[gid]['Z Coordinate'] = np.append(coords_dict[gid]['Z Coordinate'],
-                                                         interp_coords[2]).astype('float32', copy=False)
-            coords_dict[gid]['U Coordinate'] = np.append(coords_dict[gid]['U Coordinate'],
-                                                         result.x[0]).astype('float32', copy=False)
-            coords_dict[gid]['V Coordinate'] = np.append(coords_dict[gid]['V Coordinate'],
-                                                         result.x[1]).astype('float32', copy=False)
-            coords_dict[gid]['L Coordinate'] = np.append(coords_dict[gid]['L Coordinate'],
-                                                         result.x[2]).astype('float32', copy=False)
-            coords_dict[gid]['Interpolation Error'] = np.append(coords_dict[gid]['Interpolation Error'],
-                                                                result.fun).astype('float32', copy=False)
-            count += 1
-        sys.stdout.flush()
-        append_cell_attributes(MPI._addressof(comm), coords_dir+coords_file, population, coords_dict,
-                               namespace='Interpolated Coordinates', io_size=comm.size, chunk_size=100000,
-                               value_chunk_size=2000000)
-        del coords_dict
-        gc.collect()
-    global_count = comm.gather(count, root=0)
+    comm = MPI.COMM_WORLD
+    rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
+    
     if rank == 0:
-        print 'Interpolation of %i %s cells took %i s' % (np.sum(global_count), population, time.time()-start_time)
+        print '%i ranks have been allocated' % comm.size
+    sys.stdout.flush()
+    
+    # U, V, L
+    p0 = [1.555, 1.876, -1.]  # center of the volume
+    pmin = [-0.064, -0.810, -4.1]
+    pmax = [3.187, 4.564, 3.1]
+    
+    populations = population_ranges(MPI._addressof(comm), coords_path).keys()
+        
+    check_bounds = CheckBounds(pmin, pmax)
+
+    if io_size == -1:
+        io_size = comm.size
+    
+    for population in populations:
+    # for population in ['MC']:
+        start_time = time.time()
+        count = 0
+        coords_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_path, population, io_size=io_size,
+                                      cache_size=50, namespace='Coordinates')
+        for gid, orig_coords_dict in coords_gen:
+        # gid, orig_coords_dict = coords_gen.next()
+            coords_dict = {}
+            if gid is not None:
+                orig_coords_dict = orig_coords_dict['Coordinates']
+
+                coords_dict[gid] = {parameter: np.array([], dtype='float32') for parameter in
+                                    ['X Coordinate', 'Y Coordinate', 'Z Coordinate', 'U Coordinate', 'V Coordinate',
+                                     'L Coordinate', 'Interpolation Error']}
+                x = orig_coords_dict['X Coordinate'][0]
+                y = orig_coords_dict['Y Coordinate'][0]
+                z = orig_coords_dict['Z Coordinate'][0]
+                this_p0 = p0
+                for i in range(5):
+                    result = optimize.minimize(euc_distance, this_p0, method='Powell', args=([x, y, z],),
+                                               options={'disp': False})
+                    formatted_x = '[' + ', '.join(['%.4E' % xi for xi in [x, y, z]]) + ']'
+                    interp_coords = interp_points(result.x)
+                    formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
+                    print 'Rank %i: %s gid: %i, target: %s, result: %s, error: %.4E, iteration: %i' % \
+                          (rank, population, gid, formatted_x, formatted_xi, result.fun, i)
+                    if result.fun < 1.:
+                        break
+                    else:
+                        this_p0 = check_bounds.return_to_bounds(result.x)
+                coords_dict[gid]['X Coordinate'] = np.append(coords_dict[gid]['X Coordinate'],
+                                                             interp_coords[0]).astype('float32', copy=False)
+                coords_dict[gid]['Y Coordinate'] = np.append(coords_dict[gid]['Y Coordinate'],
+                                                             interp_coords[1]).astype('float32', copy=False)
+                coords_dict[gid]['Z Coordinate'] = np.append(coords_dict[gid]['Z Coordinate'],
+                                                             interp_coords[2]).astype('float32', copy=False)
+                coords_dict[gid]['U Coordinate'] = np.append(coords_dict[gid]['U Coordinate'],
+                                                             result.x[0]).astype('float32', copy=False)
+                coords_dict[gid]['V Coordinate'] = np.append(coords_dict[gid]['V Coordinate'],
+                                                             result.x[1]).astype('float32', copy=False)
+                coords_dict[gid]['L Coordinate'] = np.append(coords_dict[gid]['L Coordinate'],
+                                                             result.x[2]).astype('float32', copy=False)
+                coords_dict[gid]['Interpolation Error'] = np.append(coords_dict[gid]['Interpolation Error'],
+                                                                    result.fun).astype('float32', copy=False)
+                count += 1
+            sys.stdout.flush()
+            append_cell_attributes(MPI._addressof(comm), coords_path, population, coords_dict,
+                                   namespace='Interpolated Coordinates', io_size=io_size, chunk_size=chunk_size,
+                                   value_chunk_size=value_chunk_size)
+            del coords_dict
+            gc.collect()
+        global_count = comm.gather(count, root=0)
+        if rank == 0:
+            print 'Interpolation of %i %s cells took %i s' % (np.sum(global_count), population, time.time()-start_time)
+
+if __name__ == '__main__':
+    main(args=sys.argv[(sys.argv.index("main.py")+1):])
+
