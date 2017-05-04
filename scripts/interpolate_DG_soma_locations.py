@@ -4,6 +4,16 @@ from neurotrees.io import append_cell_attributes
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import population_ranges
 import scipy.optimize as optimize
+import random
+# import mkl
+
+# mkl.set_num_threads(1)
+
+log_dir = '../logs/'
+log_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
+               '_interpolate_DG_soma_locations.o'
+
+sys.stdout = Logger(log_dir+log_filename)
 
 coords_dir = '../morphologies/'
 coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
@@ -21,6 +31,47 @@ pmin = [-0.064, -0.810, -4.1]
 pmax = [3.187, 4.564, 3.1]
 
 populations = population_ranges(MPI._addressof(comm), coords_dir+coords_file).keys()
+
+
+class CheckBounds(object):
+    """
+
+    """
+
+    def __init__(self, xmin, xmax):
+        """
+
+        :param xmin: array of float
+        :param xmax: array of float
+        """
+        self.xmin = xmin
+        self.xmax = xmax
+
+    def within_bounds(self, x):
+        """
+        For optimize.minimize, check that the current set of parameters are within the bounds.
+        :param x: array
+        :param param_name: str
+        :return: bool
+        """
+        for i in range(len(x)):
+            if ((self.xmin[i] is not None and x[i] < self.xmin[i]) or
+                    (self.xmax[i] is not None and x[i] > self.xmax[i])):
+                return False
+        return True
+
+    def return_to_bounds(self, x):
+        """
+        If a parameter is out of bounds, choose a random value within the bounds
+        :param x: array
+        :return: array
+        """
+        new_x = list(x)
+        for i in range(len(new_x)):
+            if self.xmin[i] is not None and self.xmax[i] is not None:
+                if new_x[i] < self.xmin[i] or new_x[i] > self.xmax[i]:
+                    new_x[i] = random.uniform(self.xmin[i], self.xmax[i])
+        return new_x
 
 
 def rotate3d(vec, rot_deg):
@@ -75,8 +126,10 @@ def euc_distance(params, args):
     return error
 
 
+check_bounds = CheckBounds(pmin, pmax)
+
 for population in populations:
-#for population in ['MC']:
+# for population in ['MC']:
     start_time = time.time()
     count = 0
     coords_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_dir+coords_file, population, io_size=comm.size,
@@ -93,10 +146,19 @@ for population in populations:
             x = orig_coords_dict['X Coordinate'][0]
             y = orig_coords_dict['Y Coordinate'][0]
             z = orig_coords_dict['Z Coordinate'][0]
-            result = optimize.minimize(euc_distance, p0, method='Powell', args=([x, y, z],), options={'disp': False})
-            formatted_x = '[' + ', '.join(['%.4E' % xi for xi in [x, y, z]]) + ']'
-            interp_coords = interp_points(result.x)
-            formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
+            this_p0 = p0
+            for i in range(5):
+                result = optimize.minimize(euc_distance, this_p0, method='Powell', args=([x, y, z],),
+                                           options={'disp': False})
+                formatted_x = '[' + ', '.join(['%.4E' % xi for xi in [x, y, z]]) + ']'
+                interp_coords = interp_points(result.x)
+                formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
+                print 'Rank %i: %s gid: %i, target: %s, result: %s, error: %.4E, iteration: %i' % \
+                      (rank, population, gid, formatted_x, formatted_xi, result.fun, i)
+                if result.fun < 1.:
+                    break
+                else:
+                    this_p0 = check_bounds.return_to_bounds(result.x)
             coords_dict[gid]['X Coordinate'] = np.append(coords_dict[gid]['X Coordinate'],
                                                          interp_coords[0]).astype('float32', copy=False)
             coords_dict[gid]['Y Coordinate'] = np.append(coords_dict[gid]['Y Coordinate'],
@@ -111,8 +173,6 @@ for population in populations:
                                                          result.x[2]).astype('float32', copy=False)
             coords_dict[gid]['Interpolation Error'] = np.append(coords_dict[gid]['Interpolation Error'],
                                                                 result.fun).astype('float32', copy=False)
-            print 'Rank %i: %s gid: %i, target: %s, result: %s, error: %.4E' % (rank, population, gid, formatted_x,
-                                                                                formatted_xi, result.fun)
             count += 1
         sys.stdout.flush()
         append_cell_attributes(MPI._addressof(comm), coords_dir+coords_file, population, coords_dict,

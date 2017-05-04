@@ -1,8 +1,10 @@
 from function_lib import *
 import scipy.optimize as optimize
+import random
+
 
 coords_dir = '../morphologies/'
-coords_file = 'dentate_Sampled_Soma_Locations.h5'
+coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
 
 f = h5py.File(coords_dir+coords_file, 'r')
 
@@ -39,8 +41,21 @@ class CheckBounds(object):
                 return False
         return True
 
+    def return_to_bounds(self, x):
+        """
+        If a parameter is out of bounds, choose a random value within the bounds
+        :param x: array
+        :return: array
+        """
+        new_x = list(x)
+        for i in range(len(new_x)):
+            if self.xmin[i] is not None and self.xmax[i] is not None:
+                if new_x[i] < self.xmin[i] or new_x[i] > self.xmax[i]:
+                    new_x[i] = random.uniform(self.xmin[i], self.xmax[i])
+        return new_x
 
-check_bounds = CheckBounds(pmin, pmax).within_bounds
+
+check_bounds = CheckBounds(pmin, pmax)
 
 
 def rotate3d(vec, rot_deg):
@@ -90,23 +105,26 @@ def euc_distance(params, args):
     error = 0.
     for d, di in zip(args, params_rot):
         error += ((d - di)/0.1) ** 2.
-    error = np.sqrt(error)
 
     return error
+
 
 start_time = time.time()
 coords_dict = {}
 
 population = 'MC'
-pop_size = len(f['Populations'][population]['Coordinates']['X Coordinate']['value'])
+
+indexes = np.where(f['Populations'][population]['Interpolated Coordinates']['Interpolation Error']['value'][:] > 1.)[0]
+
+# pop_size = len(f['Populations'][population]['Coordinates']['X Coordinate']['value'])
 # interval = max(1,int(pop_size/500))
 # for gid in range(pop_size)[::interval]:
-if population not in coords_dict:
-    coords_dict[population] = {'gid': [], 'u': [], 'v': [], 'l': [], 'err': []}
+
 #for gid_index in range(1000):
-for gid_index in range(pop_size):
+#for gid_index in range(pop_size):
+for gid_index in indexes:
     gid = f['Populations'][population]['Coordinates']['X Coordinate']['gid'][gid_index]
-    coords_dict[population]['gid'].append(gid)
+    coords_dict[gid] = {}
     x = f['Populations'][population]['Coordinates']['X Coordinate']['value'][gid_index]
     y = f['Populations'][population]['Coordinates']['Y Coordinate']['value'][gid_index]
     z = f['Populations'][population]['Coordinates']['Z Coordinate']['value'][gid_index]
@@ -114,15 +132,22 @@ for gid_index in range(pop_size):
     # result = optimize.minimize(euc_distance, p0, method='L-BFGS-B', bounds=zip(pmin, pmax), args=([x, y, z],),
     #                           options={'disp': True})
     # result = optimize.minimize(euc_distance, p0, method='Nelder-Mead', args=([x, y, z],), options={'disp': True})
-    result = optimize.minimize(euc_distance, p0, method='Powell', args=([x, y, z],), options={'disp': False})
-    formatted_x = '[' + ', '.join(['%.4E' % xi for xi in [x, y, z]]) + ']'
-    formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_points(result.x)]) + ']'
-    coords_dict[population]['u'].append(result.x[0])
-    coords_dict[population]['v'].append(result.x[1])
-    coords_dict[population]['l'].append(result.x[2])
-    coords_dict[population]['err'].append(result.fun)
-    print 'gid: %i, target: %s, result: %s, error: %.4E' % (gid, formatted_x, formatted_xi, result.fun)
-print 'Interpolation of %i %s cells took %i s' % (len(coords_dict[population]['u']), population, time.time()-start_time)
+    this_p0 = p0
+    for i in range(5):
+        result = optimize.minimize(euc_distance, this_p0, method='Powell', args=([x, y, z],), options={'disp': False})
+        formatted_x = '[' + ', '.join(['%.4E' % xi for xi in [x, y, z]]) + ']'
+        formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_points(result.x)]) + ']'
+        print 'gid: %i, target: %s, result: %s, error: %.4E, iterations: %i' % (gid, formatted_x, formatted_xi,
+                                                                                result.fun, i)
+        if result.fun < 1.:
+            break
+        else:
+            this_p0 = check_bounds.return_to_bounds(result.x)
+    coords_dict[gid]['u'] = result.x[0]
+    coords_dict[gid]['v'] = result.x[1]
+    coords_dict[gid]['l']  = result.x[2]
+    coords_dict[gid]['err'] = result.fun
+
 
 
 """

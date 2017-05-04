@@ -14,6 +14,7 @@ import math
 freq = 100      # Hz, frequency at which AC length constant will be computed
 d_lambda = 0.1  # no segment will be longer than this fraction of the AC length constant
 
+
 """
 Structure of Mechanism Dictionary: dict of dicts
 
@@ -135,3 +136,16 @@ def read_from_pkl(fname):
         return data
     else:
         raise Exception('File: {} does not exist.'.format(fname))
+
+
+class Logger(object):
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.terminal.flush()
