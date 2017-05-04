@@ -25,7 +25,7 @@ forest_file = 'DGC_forest_syns_20170421.h5'
 population = 'GC'
 count = 0
 start_time = time.time()
-for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_file, population, io_size=256):
+for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_file, population, io_size=comm.size):
     local_time = time.time()
     # mismatched_section_dict = {}
     synapse_dict = {}
@@ -37,21 +37,20 @@ for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), neurotrees_dir+forest_
         #    mismatched_section_dict[gid] = this_mismatched_sections
         synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
         del cell
+        print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
+        count += 1
     else:
         print  'Rank %i gid is None' % rank
-    print 'Rank %i before append_cell_attributes' % rank
+    # print 'Rank %i before append_cell_attributes' % rank
     append_cell_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, population, synapse_dict,
-                           namespace='Synapse_Attributes', io_size=256, chunk_size=100000, value_chunk_size=2000000)
-    if gid is not None:
-        print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
-    count += 1
+                           namespace='Synapse_Attributes', io_size=min(comm.size, 256), chunk_size=100000,
+                           value_chunk_size=2000000)
     sys.stdout.flush()
     del synapse_dict
     gc.collect()
-print  'Rank %i completed iterator' % rank
+# print 'Rank %i completed iterator' % rank
 
 # len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
-# len_GID_fragments = comm.gather(len(GID), root=0)
 global_count = comm.gather(count, root=0)
 if rank == 0:
     print 'target: %s, %i ranks took %i s to compute syn_locs for %i cells' % (population, comm.size,

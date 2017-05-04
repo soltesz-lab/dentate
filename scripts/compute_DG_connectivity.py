@@ -115,7 +115,7 @@ layer_MML   = 3
 layer_OML   = 4 
 
 layers = {'GC': {'MPP':  [layer_MML], 'LPP': [layer_OML], 'MC': [layer_IML],
-                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_Hilus], 'BC': [layer_GCL, layer_IML],
+                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_GCL], 'BC': [layer_GCL, layer_IML],
                  'MOPP': [layer_MML, layer_OML], 'HCC': [layer_IML], 'HC': [layer_MML, layer_OML]}}
 
 syn_Exc = 0
@@ -317,20 +317,21 @@ for source in layers[target]:
     syn_type_set.update(syn_types[target][source])
 
 count = 0
-for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target, io_size=comm.size, cache_size=50, namespace='Synapse_Attributes'):
+for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target,
+                                                    io_size=comm.size, cache_size=50, namespace='Synapse_Attributes'):
     last_time = time.time()
     connection_dict = {}
     p_dict = {}
     source_gid_dict = {}
     if target_gid is None:    
-        print  'Rank %i target gid is None' % rank
-        synapse_dict = {}
+        print 'Rank %i target gid is None' % rank
     else:
         print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
         synapse_dict = attributes_dict['Synapse_Attributes']
+        connection_dict[target_gid] = {}
         local_np_random.seed(target_gid + connectivity_seed_offset)
-        connection_dict['source_gid'] = np.array([], dtype='uint32')
-        connection_dict['syn_id'] = np.array([], dtype='uint32')
+        connection_dict[target_gid]['source_gid'] = np.array([], dtype='uint32')
+        connection_dict[target_gid]['syn_id'] = np.array([], dtype='uint32')
 
         for layer in layer_set:
             for swc_type in swc_type_set:
@@ -354,22 +355,19 @@ for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurot
                             p = np.append(p, this_p * this_proportion)
                             source_gid = np.append(source_gid, this_source_gid)
                         syn_indexes = filter_synapses(synapse_dict, layer, swc_type, syn_type)
-                        connection_dict['syn_id'] = np.append(connection_dict['syn_id'],
+                        connection_dict[target_gid]['syn_id'] = np.append(connection_dict[target_gid]['syn_id'],
                                                               synapse_dict['syn_id'][syn_indexes]).astype('uint32', copy=False)
                         this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
-                        connection_dict['source_gid'] = np.append(connection_dict['source_gid'],
+                        connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
                                                                   this_source_gid).astype('uint32', copy=False)
-    
-    if target_gid is not None:    
-        print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time, target, target_gid)
-    sys.stdout.flush()
+        count += 1
+        print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time,
+                                                                                     target, target_gid)
+        sys.stdout.flush()
     last_time = time.time()
-    d = {}
-    if target_gid is not None:    
-        d[target_gid] = connection_dict
-    append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, d,
-                           namespace='Connectivity', io_size=256, chunk_size=100000, value_chunk_size=2000000)
-    count += 1
+    append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, connection_dict,
+                           namespace='Connectivity', io_size=min(comm.size, 256), chunk_size=100000,
+                           value_chunk_size=2000000)
     if rank == 0:
         print 'Appending connectivity attributes for target: %s took %i s' % (target, time.time() - last_time)
     sys.stdout.flush()
@@ -382,44 +380,3 @@ global_count = comm.gather(count, root=0)
 if rank == 0:
     print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                               np.sum(global_count))
-
-"""
-syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
-                          for source in convergence[target]} for target in convergence}
-
-syn_out_degree = {source: {target: {i: 0 for i in range(len(pop_locs_X[source]))}
-                           for target in divergence[source]} for source in divergence}
-
-with h5py.File(data_dir+rec_filename+'.hdf5', 'r') as f:
-    for target in f:
-        for target_index in f[target]:
-            for source in f[target][target_index]:
-                syn_in_degree[target][source][int(target_index)] += len(f[target][target_index][source])
-                for source_index in f[target][target_index][source]:
-                    syn_out_degree[source][target][source_index] += 1
-
-print 'Calculating out degree took %i s' % (time.time() - start_time)
-
-
-for target in convergence:
-    for source in convergence[target]:
-        sc = plt.scatter(pop_locs_X[target], pop_locs_Y[target], c=np.array(syn_in_degree[target][source].values()),
-                         linewidths=0)
-        plt.xlabel('Location S-T (um)')
-        plt.ylabel('Location M-L (um)')
-        plt.title(source+' -> '+target+' Convergence (# of Synapses)')
-        plt.colorbar(sc)
-        plt.show()
-        plt.close()
-
-for source in divergence:
-    for target in divergence[source]:
-        sc = plt.scatter(pop_locs_X[source], pop_locs_Y[source], c=np.array(syn_out_degree[source][target].values()),
-                         linewidths=0)
-        plt.xlabel('Location S-T (um)')
-        plt.ylabel('Location M-L (um)')
-        plt.title(source + ' -> ' + target + ' Divergence (# of Synapses)')
-        plt.colorbar(sc)
-        plt.show()
-        plt.close()
-"""
