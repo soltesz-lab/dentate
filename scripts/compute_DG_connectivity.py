@@ -38,19 +38,24 @@ if rank == 0:
     print '%i ranks have been allocated' % comm.size
 sys.stdout.flush()
 
-neurotrees_dir = '../morphologies/'
-# neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+# neurotrees_dir = '../morphologies/'
 # neurotrees_dir = os.environ['PI_HOME']+'/'
-forest_file = 'DGC_forest_connectivity_20170427.h5'
+neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+forest_file = 'DGC_forest_connectivity_20170501.h5'
+
+neurotrees_dir = os.environ['PI_HOME']+'/Reduced_Scale_1000/'
+forest_file = 'DGC_forest_subset_1000_20170501.h5'
 
 # synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
 #synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
 #                                    namespace='Synapse_Attributes')
 
 # coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-coords_dir = neurotrees_dir
-# coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
+coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
 coords_file = 'dentate_Full_Scale_Control_coords.h5'
+
+coords_dir = os.environ['PI_HOME']+'/Reduced_Scale_1000/'
+coords_file = 'dentate_Reduced_Scale_coords.h5'
 
 start_time = time.time()
 last_time = start_time
@@ -110,7 +115,7 @@ layer_MML   = 3
 layer_OML   = 4 
 
 layers = {'GC': {'MPP':  [layer_MML], 'LPP': [layer_OML], 'MC': [layer_IML],
-                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_GCL], 'BC': [layer_GCL, layer_IML],
+                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_Hilus], 'BC': [layer_GCL, layer_IML],
                  'MOPP': [layer_MML, layer_OML], 'HCC': [layer_IML], 'HC': [layer_MML, layer_OML]}}
 
 syn_Exc = 0
@@ -310,7 +315,7 @@ for source in layers[target]:
     layer_set.update(layers[target][source])
     swc_type_set.update(swc_types[target][source])
     syn_type_set.update(syn_types[target][source])
-"""
+
 count = 0
 for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target, io_size=comm.size, cache_size=50, namespace='Synapse_Attributes'):
     last_time = time.time()
@@ -378,7 +383,7 @@ if rank == 0:
     print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                               np.sum(global_count))
 
-
+"""
 syn_in_degree = {target: {source: {i: 0 for i in range(len(pop_locs_X[target]))}
                           for source in convergence[target]} for target in convergence}
 
