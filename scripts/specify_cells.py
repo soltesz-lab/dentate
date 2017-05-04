@@ -77,13 +77,13 @@ class HocCell(object):
             node = self.make_section('soma')
             node.sec.L = soma_length / 2.
             node.sec.diam = soma_diam
-            node.append_layer(0)
+            node.append_layer(1)
             self._init_cable(node)  # consults the mech_dict to initialize Ra, cm, and nseg
         self.tree.root = self.soma[0]
         self.soma[1].connect(self.soma[0], 0, 0)
         for index in range(3):
             self.make_section('axon')
-            self.axon[index].append_layer(0)
+            self.axon[index].append_layer(1)
         self.axon[0].type = 'axon_hill'
         self.axon[0].sec.L = 10.
         self.axon[0].set_diam_bounds(3., 2.)  # stores the diameter boundaries for a tapered cylindrical section
