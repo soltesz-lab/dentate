@@ -259,7 +259,8 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
                 count += 1
             sys.stdout.flush()
             append_cell_attributes(MPI._addressof(comm), coords_path, population, coords_dict,
-                                   namespace='Interpolated Coordinates', io_size=io_size, value_chunk_size=value_chunk_size)
+                                   namespace='Interpolated Coordinates', io_size=io_size, chunk_size=chunk_size,
+                                   value_chunk_size=value_chunk_size)
             del coords_dict
             gc.collect()
         global_count = comm.gather(count, root=0)
@@ -267,5 +268,5 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
             print 'Interpolation of %i %s cells took %i s' % (np.sum(global_count), population, time.time()-start_time)
 
 if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index("main.py")+1):])
+    main(args=sys.argv[(sys.argv.index("interpolate_DG_soma_locations.py")+1):])
 
