@@ -4,8 +4,13 @@ from neurotrees.io import append_cell_attributes
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import bcast_cell_attributes
 from neurotrees.io import population_ranges
-# import mkl
 
+
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
 
 """
 Determine synaptic connectivity onto DG GCs based on target convergences, divergences, and axonal distances.
@@ -138,7 +143,22 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
                       'NGFC': [0.15, 0.15], 'AAC': [1.], 'BC': [1., 0.4],
                       'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
 
-get_array_index = np.vectorize(lambda val_array, this_val: np.where(val_array >= this_val)[0][0], excluded=[0])
+
+def get_array_index_func(val_array, this_val):
+    """
+
+    :param val_array: array 
+    :param this_val: float
+    :return: int
+    """
+    indexes = np.where(val_array >= this_val)[0]
+    if np.any(indexes):
+        return indexes[0]
+    else:
+        return val_array[-1]
+
+
+get_array_index = np.vectorize(get_array_index_func, excluded=[0])
 
 for population in soma_coords:
     for cell in soma_coords[population].itervalues():

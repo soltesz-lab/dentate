@@ -2,9 +2,13 @@ from specify_cells import *
 from mpi4py import MPI
 from neurotrees.io import NeurotreeGen
 from neurotrees.io import append_cell_attributes
-# import mkl
 
-# mkl.set_num_threads(1)
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
+
 
 comm = MPI.COMM_WORLD
 rank = comm.rank
