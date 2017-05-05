@@ -12,7 +12,7 @@ import click
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
+def main(log_dir, forest_path, io_size, chunk_size, value_chunk_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
