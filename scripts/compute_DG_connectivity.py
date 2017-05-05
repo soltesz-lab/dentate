@@ -396,3 +396,6 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
         print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                                   np.sum(global_count))
 
+if __name__ == '__main__':
+    main(args=sys.argv[(sys.argv.index("compute_DG_connectivity.py")+1):])
+
