@@ -8,8 +8,8 @@
 ### set the job name
 #PBS -N dentate_repack
 ### set the job stdout and stderr
-#PBS -e ./results/$PBS_JOBID.err
-#PBS -o ./results/$PBS_JOBID.out
+#PBS -e ./results/repack_graph.$PBS_JOBID.err
+#PBS -o ./results/repack_graph.$PBS_JOBID.out
 ### set email notification
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
@@ -22,33 +22,33 @@ set -x
 
 cd $PBS_O_WORKDIR
 
-export prefix=/projects/sciteam/baef
-export input=$prefix/DGC_forest_syns_020217.h5
-export copy=$prefix/DGC_forest_syns_020217_copy.h5
-export output=$prefix/DGC_forest_syns_020217_compressed.h5
+export prefix=/projects/sciteam/baef/Full_Scale_Control
+export input=$prefix/dentate_Full_Scale_GC_20170501.h5
+#export copy=$prefix/DGC_forest_syns_020217_copy.h5
+export output=$prefix/dentate_Full_Scale_GC_20170501_compressed.h5
 
-aprun h5copy -v -i $input -o $copy -s /Populations -d /Populations
+#aprun h5copy -v -i $input -o $copy -s /Populations -d /Populations
 
 aprun h5repack -L -v \
--f /Populations/GC/Synapse_Attributes/layer/gid,\
-/Populations/GC/Synapse_Attributes/layer/ptr,\
-/Populations/GC/Synapse_Attributes/layer/value,\
-/Populations/GC/Synapse_Attributes/section/gid,\
-/Populations/GC/Synapse_Attributes/section/ptr,\
-/Populations/GC/Synapse_Attributes/section/value,\
-/Populations/GC/Synapse_Attributes/syn_id/gid,\
-/Populations/GC/Synapse_Attributes/syn_id/ptr,\
-/Populations/GC/Synapse_Attributes/syn_id/value,\
-/Populations/GC/Synapse_Attributes/syn_locs/value,\
-/Populations/GC/Synapse_Attributes/syn_locs/gid,\
-/Populations/GC/Synapse_Attributes/syn_locs/ptr,\
-/Populations/GC/Synapse_Attributes/syn_type/gid,\
-/Populations/GC/Synapse_Attributes/syn_type/ptr,\
-/Populations/GC/Synapse_Attributes/syn_type/value,\
-/Populations/GC/Synapse_Attributes/swc_type/gid,\
-/Populations/GC/Synapse_Attributes/swc_type/ptr,\
-/Populations/GC/Synapse_Attributes/swc_type/value:GZIP=9 \
- -i $copy -o $output
+-f /Projections/AACtoGC/Attributes/Edge/syn_id,\
+/Projections/BCtoGC/Attributes/Edge/syn_id,\
+/Projections/HCtoGC/Attributes/Edge/syn_id,\
+/Projections/HCCtoGC/Attributes/Edge/syn_id,\
+/Projections/MCtoGC/Attributes/Edge/syn_id,\
+/Projections/MOPPtoGC/Attributes/Edge/syn_id,\
+/Projections/MPPtoGC/Attributes/Edge/syn_id,\
+#/Projections/LPPtoGC/Attributes/Edge/syn_id,\
+/Projections/NGFCtoGC/Attributes/Edge/syn_id,\
+/Projections/AACtoGC/Connectivity/Source\ Index,\
+/Projections/BCtoGC/Connectivity/Source\ Index,\
+/Projections/HCtoGC/Connectivity/Source\ Index,\
+/Projections/HCCtoGC/Connectivity/Source\ Index,\
+/Projections/MCtoGC/Connectivity/Source\ Index,\
+/Projections/MOPPtoGC/Connectivity/Source\ Index,\
+#/Projections/LPPtoGC/Connectivity/Source\ Index,\
+/Projections/MPPtoGC/Connectivity/Source\ Index\
+:GZIP=9 \
+ -i $input -o $output
 
 
 
