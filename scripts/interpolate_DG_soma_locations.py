@@ -7,9 +7,11 @@ import scipy.optimize as optimize
 import random
 import click # CLI argument processing
 
-# import mkl
-
-# mkl.set_num_threads(1)
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
 
 
 class CheckBounds(object):
