@@ -160,7 +160,7 @@ pmax = {'GC': [3.079, 4.476, 0.5], 'MPP': [3.173, 4.476, 2.5], 'LPP': [3.173, 4.
         'HC': [3.079, 4.476, -1.5], 'IS': [3.079, 4.476, -1.5]}
 
 @click.command()
-@click.option("--log-dir", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--log-dir", default=None, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -170,7 +170,8 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
     log_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
                '_interpolate_DG_soma_locations.o'
 
-    sys.stdout = Logger(log_dir+'/'+log_filename)
+    if log_dir is not None:
+        sys.stdout = Logger(log_dir+'/'+log_filename)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
