@@ -3,16 +3,21 @@ from mpi4py import MPI
 from neurotrees.io import NeurotreeGen
 from neurotrees.io import append_cell_attributes
 import click
-# import mkl
 
-# mkl.set_num_threads(1)
+
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
+
 
 @click.command()
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(log_dir, forest_path, io_size, chunk_size, value_chunk_size):
+def main(forest_path, io_size, chunk_size, value_chunk_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -43,7 +48,7 @@ def main(log_dir, forest_path, io_size, chunk_size, value_chunk_size):
         else:
             print  'Rank %i gid is None' % rank
         # print 'Rank %i before append_cell_attributes' % rank
-        append_cell_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, population, synapse_dict,
+        append_cell_attributes(MPI._addressof(comm), forest_path, population, synapse_dict,
                                 namespace='Synapse_Attributes', io_size=io_size, chunk_size=chunk_size,
                                 value_chunk_size=value_chunk_size)
         sys.stdout.flush()
@@ -58,7 +63,7 @@ def main(log_dir, forest_path, io_size, chunk_size, value_chunk_size):
                                                                                        time.time() - start_time,
                                                                                        np.sum(global_count))
         # print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)
-      
+
 
 if __name__ == '__main__':
     main(args=sys.argv[(sys.argv.index("compute_GC_synapse_locs.py")+1):])

@@ -5,7 +5,8 @@ from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import population_ranges
 import scipy.optimize as optimize
 import random
-import click # CLI argument processing
+import click  # CLI argument processing
+
 
 try:
     import mkl

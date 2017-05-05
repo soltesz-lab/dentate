@@ -5,7 +5,13 @@ from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import bcast_cell_attributes
 from neurotrees.io import population_ranges
 import click
-# import mkl
+
+
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
 
 
 """
@@ -30,7 +36,6 @@ syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 
 """
 
-# mkl.set_num_threads(2)
 
 spatial_resolution = 1.  # um
 max_u = 11690.
@@ -104,9 +109,22 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
                       'NGFC': [0.15, 0.15], 'AAC': [1.], 'BC': [1., 0.4],
                       'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
 
-get_array_index = np.vectorize(lambda val_array, this_val: np.where(val_array >= this_val)[0][0], excluded=[0])
+
+def get_array_index_func(val_array, this_val):
+    """
+
+    :param val_array: array 
+    :param this_val: float
+    :return: int
+    """
+    indexes = np.where(val_array >= this_val)[0]
+    if np.any(indexes):
+        return indexes[0]
+    else:
+        return val_array[-1]
 
 
+get_array_index = np.vectorize(get_array_index_func, excluded=[0])
 
 
 def filter_sources(target, layer, swc_type, syn_type):
@@ -288,7 +306,7 @@ for source in layers[target]:
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size):
+def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
@@ -312,7 +330,7 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size):
         for cell in soma_coords[population].itervalues():
             cell['u_index'] = get_array_index(u, cell['U Coordinate'][0])
             cell['v_index'] = get_array_index(v, cell['V Coordinate'][0])
-        
+
     count = 0
     for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target,
                                                         io_size=io_size, cache_size=cache_size, namespace='Synapse_Attributes'):
@@ -320,7 +338,7 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size):
         connection_dict = {}
         p_dict = {}
         source_gid_dict = {}
-        if target_gid is None:    
+        if target_gid is None:
             print 'Rank %i target gid is None' % rank
         else:
             print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
@@ -377,4 +395,7 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size):
     if rank == 0:
         print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                                   np.sum(global_count))
-        
+
+if __name__ == '__main__':
+    main(args=sys.argv[(sys.argv.index("compute_DG_connectivity.py")+1):])
+
