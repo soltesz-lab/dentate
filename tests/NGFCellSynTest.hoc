@@ -75,7 +75,7 @@ proc synapse_test() { local gid localobj ngfc, syn, logfile strdef log_fn, resul
     sprint (log_fn, "%s/NGFCellSyn.dat", results_path )
     logfile.wopen ( log_fn )
     
-    synapse_group_test(gid, ngfc, ngfc.syns_MPP, 0.0075, -70, -70, "MPP-NGFC", logfile)
+    synapse_group_test(gid, ngfc, ngfc.syns_MPP, 0.001, -70, -70, "MPP-NGFC", logfile)
 
     v_init = -70
     

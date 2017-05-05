@@ -67,13 +67,13 @@ for population in source_populations:
                                                     namespace='Coordinates')
 
 spatial_resolution = 1.  # um
-max_u = 10750.
-max_v = 2957.
+max_u = 11690.
+max_v = 2956.
 
-du = (0.98*np.pi-0.01*np.pi)/max_u*spatial_resolution
+du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
 dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
-u = np.arange(0.01*np.pi-10.*du, 0.98*np.pi+10.*du, du)
-v = np.arange(-0.23*np.pi-10*dv, 1.425*np.pi+10.*dv, dv)
+u = np.arange(-0.016*np.pi, 1.01*np.pi, du)
+v = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
 
 U, V = np.meshgrid(u, v, indexing='ij')
 
