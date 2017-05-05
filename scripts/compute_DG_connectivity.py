@@ -4,6 +4,7 @@ from neurotrees.io import append_cell_attributes
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import bcast_cell_attributes
 from neurotrees.io import population_ranges
+import click
 # import mkl
 
 
@@ -30,41 +31,6 @@ syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 """
 
 # mkl.set_num_threads(2)
-
-comm = MPI.COMM_WORLD
-rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
-
-if rank == 0:
-    print '%i ranks have been allocated' % comm.size
-sys.stdout.flush()
-
-# neurotrees_dir = '../morphologies/'
-# neurotrees_dir = os.environ['PI_HOME']+'/'
-neurotrees_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
-forest_file = 'DGC_forest_connectivity_20170501.h5'
-
-neurotrees_dir = os.environ['PI_HOME']+'/Reduced_Scale_1000/'
-forest_file = 'DGC_forest_subset_1000_20170501.h5'
-
-# synapse_dict = read_from_pkl(neurotrees_dir+'010117_GC_test_synapse_attrs.pkl')
-#synapse_dict = read_tree_attributes(MPI._addressof(comm), neurotrees_dir+forest_file, 'GC',
-#                                    namespace='Synapse_Attributes')
-
-# coords_dir = os.environ['PI_SCRATCH']+'/DG/'
-coords_dir = os.environ['PI_HOME']+'/Full_Scale_Control/'
-coords_file = 'dentate_Full_Scale_Control_coords.h5'
-
-coords_dir = os.environ['PI_HOME']+'/Reduced_Scale_1000/'
-coords_file = 'dentate_Reduced_Scale_coords.h5'
-
-start_time = time.time()
-last_time = start_time
-
-soma_coords = {}
-source_populations = population_ranges(MPI._addressof(comm), coords_dir+coords_file).keys()
-for population in source_populations:
-    soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_dir+coords_file, population,
-                                                    namespace='Coordinates')
 
 spatial_resolution = 1.  # um
 max_u = 11690.
@@ -140,10 +106,7 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
 
 get_array_index = np.vectorize(lambda val_array, this_val: np.where(val_array >= this_val)[0][0], excluded=[0])
 
-for population in soma_coords:
-    for cell in soma_coords[population].itervalues():
-        cell['u_index'] = get_array_index(u, cell['U Coordinate'][0])
-        cell['v_index'] = get_array_index(v, cell['V Coordinate'][0])
+
 
 
 def filter_sources(target, layer, swc_type, syn_type):
@@ -316,67 +279,102 @@ for source in layers[target]:
     swc_type_set.update(swc_types[target][source])
     syn_type_set.update(syn_types[target][source])
 
-count = 0
-for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), neurotrees_dir+forest_file, target,
-                                                    io_size=comm.size, cache_size=50, namespace='Synapse_Attributes'):
-    last_time = time.time()
-    connection_dict = {}
-    p_dict = {}
-    source_gid_dict = {}
-    if target_gid is None:    
-        print 'Rank %i target gid is None' % rank
-    else:
-        print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
-        synapse_dict = attributes_dict['Synapse_Attributes']
-        connection_dict[target_gid] = {}
-        local_np_random.seed(target_gid + connectivity_seed_offset)
-        connection_dict[target_gid]['source_gid'] = np.array([], dtype='uint32')
-        connection_dict[target_gid]['syn_id'] = np.array([], dtype='uint32')
 
-        for layer in layer_set:
-            for swc_type in swc_type_set:
-                for syn_type in syn_type_set:
-                    sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
-                    if sources:
-                        if rank == 0 and count == 0:
-                            print 'Connections to target: %s in layer: %i ' \
-                                '(swc_type: %i, syn_type: %i): %s' % \
-                                (target, layer, swc_type, syn_type, '[' + ', '.join(['%s' % xi for xi in sources]) + ']')
-                        p, source_gid = np.array([]), np.array([])
-                        for source, this_proportion in zip(sources, this_proportions):
-                            if source not in source_gid_dict:
-                                this_p, this_source_gid = p_connect.get_p(target, source, target_gid, soma_coords,
-                                                                          distance_U, distance_V)
-                                source_gid_dict[source] = this_source_gid
-                                p_dict[source] = this_p
-                            else:
-                                this_source_gid = source_gid_dict[source]
-                                this_p = p_dict[source]
-                            p = np.append(p, this_p * this_proportion)
-                            source_gid = np.append(source_gid, this_source_gid)
-                        syn_indexes = filter_synapses(synapse_dict, layer, swc_type, syn_type)
-                        connection_dict[target_gid]['syn_id'] = np.append(connection_dict[target_gid]['syn_id'],
-                                                              synapse_dict['syn_id'][syn_indexes]).astype('uint32', copy=False)
-                        this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
-                        connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
-                                                                  this_source_gid).astype('uint32', copy=False)
-        count += 1
-        print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time,
-                                                                                     target, target_gid)
-        sys.stdout.flush()
-    last_time = time.time()
-    append_cell_attributes(MPI._addressof(comm), neurotrees_dir + forest_file, target, connection_dict,
-                           namespace='Connectivity', io_size=min(comm.size, 256), chunk_size=100000,
-                           value_chunk_size=2000000)
+
+@click.command()
+@click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--io-size", type=int, default=-1)
+@click.option("--chunk-size", type=int, default=1000)
+@click.option("--value-chunk-size", type=int, default=1000)
+@click.option("--cache-size", type=int, default=50)
+def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size):
+
+    comm = MPI.COMM_WORLD
+    rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
+
+    if io_size == 1:
+        io_size = comm.size
     if rank == 0:
-        print 'Appending connectivity attributes for target: %s took %i s' % (target, time.time() - last_time)
+        print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
-    del connection_dict
-    del p_dict
-    del source_gid_dict
-    gc.collect()
 
-global_count = comm.gather(count, root=0)
-if rank == 0:
-    print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
-                                                                              np.sum(global_count))
+    start_time = time.time()
+    last_time = start_time
+
+    soma_coords = {}
+    source_populations = population_ranges(MPI._addressof(comm), coords_path).keys()
+    for population in source_populations:
+        soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
+                                                            namespace='Coordinates')
+
+    for population in soma_coords:
+        for cell in soma_coords[population].itervalues():
+            cell['u_index'] = get_array_index(u, cell['U Coordinate'][0])
+            cell['v_index'] = get_array_index(v, cell['V Coordinate'][0])
+        
+    count = 0
+    for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target,
+                                                        io_size=io_size, cache_size=cache_size, namespace='Synapse_Attributes'):
+        last_time = time.time()
+        connection_dict = {}
+        p_dict = {}
+        source_gid_dict = {}
+        if target_gid is None:    
+            print 'Rank %i target gid is None' % rank
+        else:
+            print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
+            synapse_dict = attributes_dict['Synapse_Attributes']
+            connection_dict[target_gid] = {}
+            local_np_random.seed(target_gid + connectivity_seed_offset)
+            connection_dict[target_gid]['source_gid'] = np.array([], dtype='uint32')
+            connection_dict[target_gid]['syn_id'] = np.array([], dtype='uint32')
+
+            for layer in layer_set:
+                for swc_type in swc_type_set:
+                    for syn_type in syn_type_set:
+                        sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
+                        if sources:
+                            if rank == 0 and count == 0:
+                                print 'Connections to target: %s in layer: %i ' \
+                                    '(swc_type: %i, syn_type: %i): %s' % \
+                                    (target, layer, swc_type, syn_type, '[' + ', '.join(['%s' % xi for xi in sources]) + ']')
+                            p, source_gid = np.array([]), np.array([])
+                            for source, this_proportion in zip(sources, this_proportions):
+                                if source not in source_gid_dict:
+                                    this_p, this_source_gid = p_connect.get_p(target, source, target_gid, soma_coords,
+                                                                              distance_U, distance_V)
+                                    source_gid_dict[source] = this_source_gid
+                                    p_dict[source] = this_p
+                                else:
+                                    this_source_gid = source_gid_dict[source]
+                                    this_p = p_dict[source]
+                                p = np.append(p, this_p * this_proportion)
+                                source_gid = np.append(source_gid, this_source_gid)
+                            syn_indexes = filter_synapses(synapse_dict, layer, swc_type, syn_type)
+                            connection_dict[target_gid]['syn_id'] = np.append(connection_dict[target_gid]['syn_id'],
+                                                                  synapse_dict['syn_id'][syn_indexes]).astype('uint32', copy=False)
+                            this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
+                            connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
+                                                                      this_source_gid).astype('uint32', copy=False)
+            count += 1
+            print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time,
+                                                                                         target, target_gid)
+            sys.stdout.flush()
+        last_time = time.time()
+        append_cell_attributes(MPI._addressof(comm), forest_path, target, connection_dict,
+                               namespace='Connectivity', io_size=io_size, chunk_size=chunk_size,
+                               value_chunk_size=value_chunk_size)
+        if rank == 0:
+            print 'Appending connectivity attributes for target: %s took %i s' % (target, time.time() - last_time)
+        sys.stdout.flush()
+        del connection_dict
+        del p_dict
+        del source_gid_dict
+        gc.collect()
+
+    global_count = comm.gather(count, root=0)
+    if rank == 0:
+        print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
+                                                                                  np.sum(global_count))
+        
