@@ -72,7 +72,7 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, 
     // target in this subset
     // source may be on this or another machine
     sprint(errmsg,"nc_appendsyn: gid %d does not exist on host %d",ltar,pc.id())
-//    assert (pc.gid_exists(ltar), errmsg)
+    assert (pc.gid_exists(ltar), errmsg)
     if (pc.gid_exists(ltar)) {
     cell = pc.gid2cell(ltar)
     assert (synIndex.is_undefined == 0,"synIndex is undefined")
