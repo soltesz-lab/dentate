@@ -212,7 +212,7 @@ for population in populations:
     ax1 = fig1.add_subplot(111, projection='3d')
     ax1.scatter(f['Populations'][population][namespace]['X Coordinate']['value'][:][indexes],
                 f['Populations'][population][namespace]['Y Coordinate']['value'][:][indexes],
-                f['Populations'][population][namespace]['Z Coordinate']['value'][:][indexes], c='k', alpha=0.1)
+                f['Populations'][population][namespace]['Z Coordinate']['value'][:][indexes], c='grey', alpha=0.1)
     ax1.scatter(f['Populations'][population]['Coordinates']['X Coordinate']['value'][:][re_positioned],
                 f['Populations'][population]['Coordinates']['Y Coordinate']['value'][:][re_positioned],
                 f['Populations'][population]['Coordinates']['Z Coordinate']['value'][:][re_positioned], c='c', alpha=0.1)
