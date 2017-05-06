@@ -12,6 +12,15 @@ except:
     pass
 
 
+def list_find (f, lst):
+    i=0
+    for x in lst:
+        if f(x):
+            return i
+        else:
+            i=i+1
+    return None
+
 @click.command()
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
@@ -66,4 +75,4 @@ def main(forest_path, io_size, chunk_size, value_chunk_size):
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index("compute_GC_synapse_locs.py")+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find("compute_GC_synapse_locs.py") != -1,sys.argv)+1):])

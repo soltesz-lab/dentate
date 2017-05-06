@@ -134,6 +134,14 @@ def euc_distance(params, args):
 
     return error
 
+def list_find (f, lst):
+    i=0
+    for x in lst:
+        if f(x):
+            return i
+        else:
+            i=i+1
+    return None
 
 """
 HIL -4.5:-1.5
@@ -272,5 +280,5 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
             print 'Interpolation of %i %s cells took %i s' % (np.sum(global_count), population, time.time()-start_time)
 
 if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index("interpolate_DG_soma_locations.py")+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find("interpolate_DG_soma_locations.py") != -1,sys.argv)+1):])
 
