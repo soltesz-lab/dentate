@@ -225,11 +225,6 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
                     #                           args=([x, y, z],), options={'disp': False})
                     fixed_coords = check_bounds.fix_periodic_coords(result.x)
                     error = euc_distance(fixed_coords, [x, y, z])
-                    interp_coords = interp_points(fixed_coords)
-                    formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
-                    formatted_pi = '[' + ', '.join(['%.4E' % pi for pi in fixed_coords]) + ']'
-                    print 'Rank %i: %s gid: %i, target: %s, result: %s, params: %s, error: %.4E, iteration: %i' % \
-                          (rank, population, gid, formatted_x, formatted_xi, formatted_pi, error, i)
                     if error < 1. and check_bounds.within_bounds(fixed_coords):
                         best_coords = fixed_coords
                         min_error = error
@@ -237,6 +232,11 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
                     else:
                         fixed_coords = check_bounds.return_to_bounds(fixed_coords)
                         error = euc_distance(fixed_coords, [x, y, z])
+                        interp_coords = interp_points(fixed_coords)
+                        formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
+                        formatted_pi = '[' + ', '.join(['%.4E' % pi for pi in fixed_coords]) + ']'
+                        print 'Rank %i: %s gid: %i, target: %s, result: %s, params: %s, error: %.4E, iteration: %i' % \
+                              (rank, population, gid, formatted_x, formatted_xi, formatted_pi, error, i)
                         if error < min_error:
                             min_error = error
                             best_coords = fixed_coords
