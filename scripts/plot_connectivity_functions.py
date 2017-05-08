@@ -104,7 +104,7 @@ def get_array_index_func(val_array, this_val):
     if np.any(indexes):
         return indexes[0]
     else:
-        return val_array[-1]
+        return len(val_array) - 1
 
 
 get_array_index = np.vectorize(get_array_index_func, excluded=[0])

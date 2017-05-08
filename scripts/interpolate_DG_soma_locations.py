@@ -135,15 +135,6 @@ def euc_distance(params, args):
     return error
 
 
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
-
 """
 HIL -4.5:-1.5
 GCL: -2.5: 0.5
@@ -195,7 +186,6 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
     sys.stdout.flush()
 
     populations = population_ranges(MPI._addressof(comm), coords_path).keys()
-
 
     for population in populations:
     # for population in ['MC']:
