@@ -110,16 +110,6 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
                       'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
 
 
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
-
-
 def get_array_index_func(val_array, this_val):
     """
 
