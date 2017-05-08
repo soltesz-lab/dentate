@@ -119,6 +119,7 @@ def list_find (f, lst):
             i=i+1
     return None
 
+
 def get_array_index_func(val_array, this_val):
     """
 

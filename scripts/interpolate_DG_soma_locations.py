@@ -134,6 +134,7 @@ def euc_distance(params, args):
 
     return error
 
+
 def list_find (f, lst):
     i=0
     for x in lst:
