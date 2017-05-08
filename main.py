@@ -227,21 +227,30 @@ def mksyn1(cell,synapses,env):
                     cell.syns.o(synorder).append(h.syn)
                     h.pop_section()
 
+
+swc_Dend = 4
+swc_Axon = 2
+swc_Soma = 1
                     
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
     sort_idx = np.argsort(syn_ids)
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
+      if syn_type == swc_Dend:
         cell.alldendritesList[syn_section].root.push()
-        h.syn      = h.Exp2Syn(syn_loc)
-        h.syn.tau1 = synapses[syn_type]['t_rise']
-        h.syn.tau2 = synapses[syn_type]['t_decay']
-        h.syn.e    = synapses[syn_type]['e_rev']
-        cell.allsyns.append(h.syn)
-        cell.syntypes.o(syn_type).append(h.syn)
-        h.pop_section()
         cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-
-    
+      elif syn_type == swc_Axon:
+        cell.allaxonsList[syn_section].root.push()
+      elif syn_type == swc_Soma:
+        cell.allsomaList[syn_section].root.push()
+      else: 
+        raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
+      h.syn      = h.Exp2Syn(syn_loc)
+      h.syn.tau1 = synapses[syn_type]['t_rise']
+      h.syn.tau2 = synapses[syn_type]['t_decay']
+      h.syn.e    = synapses[syn_type]['e_rev']
+      cell.allsyns.append(h.syn)
+      cell.syntypes.o(syn_type).append(h.syn)
+      h.pop_section()
 
 def connectgjs(env):
     rank = int(env.pc.id())

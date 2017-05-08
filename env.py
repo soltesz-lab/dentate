@@ -15,8 +15,9 @@ class Env:
         for k in prjnames:
             projection = projections[k]
             if projection['type'] == 'syn':
-                weights = np.fromfile(projection['weightsFile'],sep='\n')
-                projection['weights'] = weights
+                if projection.has_key('weightsFile'):
+                    weights = np.fromfile(projection['weightsFile'],sep='\n')
+                    projection['weights'] = weights
 
     def load_celltypes(self):
         # use this communicator for small size I/O operations performed by rank 0

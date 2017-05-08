@@ -110,6 +110,29 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
                       'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
 
 
+local_np_random = np.random.RandomState()
+connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
+                                      # stochastic sampling
+
+target = 'GC'
+
+layer_set, swc_type_set, syn_type_set = set(), set(), set()
+for source in layers[target]:
+    layer_set.update(layers[target][source])
+    swc_type_set.update(swc_types[target][source])
+    syn_type_set.update(syn_types[target][source])
+
+
+def list_find (f, lst):
+    i=0
+    for x in lst:
+        if f(x):
+            return i
+        else:
+            i=i+1
+    return None
+
+
 def get_array_index_func(val_array, this_val):
     """
 
@@ -121,7 +144,7 @@ def get_array_index_func(val_array, this_val):
     if np.any(indexes):
         return indexes[0]
     else:
-        return val_array[-1]
+        return val_array.size - 1
 
 
 get_array_index = np.vectorize(get_array_index_func, excluded=[0])
@@ -282,20 +305,6 @@ class AxonProb(object):
 
 
 p_connect = AxonProb(axon_width, axon_offset)
-if rank == 0:
-    print 'Initialization of parallel connectivity took %i s' % (time.time() - last_time)
-
-local_np_random = np.random.RandomState()
-connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
-                                      # stochastic sampling
-
-target = 'GC'
-
-layer_set, swc_type_set, syn_type_set = set(), set(), set()
-for source in layers[target]:
-    layer_set.update(layers[target][source])
-    swc_type_set.update(swc_types[target][source])
-    syn_type_set.update(syn_types[target][source])
 
 
 
@@ -324,7 +333,7 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
     source_populations = population_ranges(MPI._addressof(comm), coords_path).keys()
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
-                                                            namespace='Coordinates')
+                                                            namespace='Interpolated Coordinates')
 
     for population in soma_coords:
         for cell in soma_coords[population].itervalues():
