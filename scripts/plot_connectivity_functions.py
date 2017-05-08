@@ -37,7 +37,8 @@ coords_dir = '../morphologies/'
 # coords_file = 'DG_Soma_Coordinates.h5'
 # coords_file = 'dentate_Full_Scale_Control_coords.bak'
 # coords_file = 'Somata.h5'
-coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
+# coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
+coords_file = 'dentate_Sampled_Soma_Locations_050517.h5'
 
 # forest_file = '100716_dentate_MPPtoDGC.h5'
 # degrees_file = 'DGC_forest_connectivity_degrees_orig.h5'
@@ -103,7 +104,7 @@ def get_array_index_func(val_array, this_val):
     if np.any(indexes):
         return indexes[0]
     else:
-        return val_array[-1]
+        return len(val_array) - 1
 
 
 get_array_index = np.vectorize(get_array_index_func, excluded=[0])

@@ -149,3 +149,13 @@ class Logger(object):
 
     def flush(self):
         self.terminal.flush()
+
+
+def list_find (f, lst):
+    i = 0
+    for x in lst:
+        if f(x):
+            return i
+        else:
+            i += 1
+    return None

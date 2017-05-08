@@ -138,23 +138,41 @@ def connectprj(env, graph, prjname, prjvalue):
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
-        wgtvector = prjvalue['weights']
-        h.syn_weight_vector = h.Vector()
-        h.syn_weight_vector.from_python(wgtvector)
         h.syn_type = h.Value(0,prjvalue['synType'])
         velocity = prjvalue['velocity']
-        for destination in prj:
+        if prjvalue.has_key('weights'):
+          wgtvector = prjvalue['weights']
+          h.syn_weight_vector = h.Vector()
+          h.syn_weight_vector.from_python(wgtvector)
+          for destination in prj:
             edges  = prj[destination]
             sources = edges[0]
             synidxs = edges[1]
             if indexType == 'absolute':
-                for i in range(0,len(sources)):
-                    source   = sources[i]
-                    h.syn_index = h.Value(0,synidxs[i])
-                    delay = 1.0
-                    h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
-            else:
+              for i in range(0,len(sources)):
+                source   = sources[i]
+                h.syn_index = h.Value(0,synidxs[i])
+                delay = 1.0
+                h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
+              else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
+        elif prjvalue.has_key('weight'):
+          w = prjvalue['weight']
+          for destination in prj:
+            edges  = prj[destination]
+            sources = edges[0]
+            synidxs = edges[1]
+            if indexType == 'absolute':
+              for i in range(0,len(sources)):
+                source   = sources[i]
+                h.syn_index  = h.Value(0,synidxs[i])
+                h.syn_weight = h.Value(0,w)
+                delay = 1.0
+                h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight, delay)
+              else:
+                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
+        else:
+          raise RuntimeError ("Projection %s has no weights attribute" % prjname)
     else:
         raise RuntimeError ("Unsupported projection type %s of projection %s" % (prjType, prjname))
                        
@@ -209,31 +227,30 @@ def mksyn1(cell,synapses,env):
                     cell.syns.o(synorder).append(h.syn)
                     h.pop_section()
 
+
+swc_Dend = 4
+swc_Axon = 2
+swc_Soma = 1
+                    
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
-    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids,syn_types,swc_types,syn_locs,syn_sections):
-        if (syn_type == 0)
-                cell.alldendritesList[syn_section].root.push()
-                h.syn      = h.Exp2Syn(syn_loc)
-                h.syn.tau1 = synapses[syn_type]['t_rise']
-                h.syn.tau2 = synapses[syn_type]['t_decay']
-                h.syn.e    = synapses[syn_type]['e_rev']
-                cell.allsyns.o(syn_type).append(h.syn)
-                h.pop_section()
-                cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-
-def mksyn3(cell,syn_ids,syn_types,syn_locs,syn_sections,synapses,env):
     sort_idx = np.argsort(syn_ids)
-    for (syn_id,syn_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
+    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
+      if syn_type == swc_Dend:
         cell.alldendritesList[syn_section].root.push()
-        h.syn      = h.Exp2Syn(syn_loc)
-        h.syn.tau1 = synapses[syn_type]['t_rise']
-        h.syn.tau2 = synapses[syn_type]['t_decay']
-        h.syn.e    = synapses[syn_type]['e_rev']
-        cell.allsyns.o(syn_type).append(h.syn)
-        h.pop_section()
         cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-
-    
+      elif syn_type == swc_Axon:
+        cell.allaxonsList[syn_section].root.push()
+      elif syn_type == swc_Soma:
+        cell.allsomaList[syn_section].root.push()
+      else: 
+        raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
+      h.syn      = h.Exp2Syn(syn_loc)
+      h.syn.tau1 = synapses[syn_type]['t_rise']
+      h.syn.tau2 = synapses[syn_type]['t_decay']
+      h.syn.e    = synapses[syn_type]['e_rev']
+      cell.allsyns.append(h.syn)
+      cell.syntypes.o(syn_type).append(h.syn)
+      h.pop_section()
 
 def connectgjs(env):
     rank = int(env.pc.id())
@@ -408,10 +425,7 @@ def mkcells(env):
                 verboseflag = 0
                 hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
                 h(hstmt)
-                if h.swc_types is None:
-                    mksyn3(h.cell,h.syn_ids,h.syn_types,h.syn_locs,h.syn_sections,synapses,env)
-                else:
-                    mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
+                mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
                 h.cell.correct_for_spines()
                 env.gidlist.append(gid)
                 env.cells.append(h.cell)

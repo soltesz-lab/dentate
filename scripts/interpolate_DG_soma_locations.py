@@ -134,14 +134,6 @@ def euc_distance(params, args):
 
     return error
 
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
 
 """
 HIL -4.5:-1.5
@@ -159,14 +151,15 @@ HC: HIL
 IS: HIL
 """
 
-pmin = {'GC': [0.0314, -0.811, -2.5], 'MPP': [-0.051, -0.723, 0.5], 'LPP': [-0.051, -0.723, 1.5],
-        'MC': [0.0314, -0.811, -4.5], 'NGFC': [-0.051, -0.723, 0.5], 'AAC': [-0.051, -0.723, -4.5],
-        'BC': [-0.051, -0.723, -4.5], 'MOPP': [-0.051, -0.723, -0.5], 'HCC': [0.0314, -0.811, -4.5],
-        'HC': [0.0314, -0.811, -4.5], 'IS': [0.0314, -0.811, -4.5]}
-pmax = {'GC': [3.079, 4.476, 0.5], 'MPP': [3.173, 4.476, 2.5], 'LPP': [3.173, 4.476, 3.5],
-        'MC': [3.079, 4.476, -1.5], 'NGFC': [3.173, 4.476, 3.5], 'AAC': [3.173, 4.476, 1.5],
-        'BC': [3.173, 4.476, 1.5], 'MOPP': [3.173, 4.476, 3.5], 'HCC': [3.079, 4.476, 0.5],
-        'HC': [3.079, 4.476, -1.5], 'IS': [3.079, 4.476, -1.5]}
+pmin = {'GC': [0.03142, -0.7225, -2.5], 'MPP': [-0.0502, -0.7225, 0.5], 'LPP': [-0.0502, -0.7225, 1.5],
+        'MC': [0.03142, -0.7225, -4.5], 'NGFC': [-0.0502, -0.7225, 0.5], 'AAC': [-0.0502, -0.7225, -4.5],
+        'BC': [-0.0502, -0.7225, -4.5], 'MOPP': [-0.0502, -0.7225, -0.5], 'HCC': [0.03142, -0.7225, -4.5],
+        'HC': [0.03142, -0.7225, -4.5], 'IS': [0.03142, -0.7225, -4.5]}
+pmax = {'GC': [3.0787, 4.4767, 0.5], 'MPP': [3.1730, 4.4767, 2.5], 'LPP': [3.1730, 4.4767, 3.5],
+        'MC': [3.0787, 4.4767, -1.5], 'NGFC': [3.1730, 4.4767, 3.5], 'AAC': [3.1730, 4.4767, 1.5],
+        'BC': [3.1730, 4.4767, 1.5], 'MOPP': [3.1730, 4.4767, 3.5], 'HCC': [3.0787, 4.4767, 0.5],
+        'HC': [3.0787, 4.4767, -1.5], 'IS': [3.0787, 4.4767, -1.5]}
+
 
 @click.command()
 @click.option("--log-dir", default=None, type=click.Path(exists=True, file_okay=False, dir_okay=True))
@@ -174,12 +167,19 @@ pmax = {'GC': [3.079, 4.476, 0.5], 'MPP': [3.173, 4.476, 2.5], 'LPP': [3.173, 4.
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
-
-    log_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
-               '_interpolate_DG_soma_locations.o'
-
+@click.option("--cache-size", type=int, default=50)
+def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size, cache_size):
+    """
+    
+    :param log_dir: 
+    :param coords_path: 
+    :param io_size: 
+    :param chunk_size: 
+    :param value_chunk_size: 
+    """
     if log_dir is not None:
+        log_filename = str(time.strftime('%m%d%Y', time.localtime()))+'_'+\
+                       str(time.strftime('%H%M%S', time.localtime()))+'_interpolate_DG_soma_locations.o'
         sys.stdout = Logger(log_dir+'/'+log_filename)
 
     comm = MPI.COMM_WORLD
@@ -194,7 +194,6 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
 
     populations = population_ranges(MPI._addressof(comm), coords_path).keys()
 
-
     for population in populations:
     # for population in ['MC']:
         # U, V, L
@@ -207,7 +206,7 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
         start_time = time.time()
         count = 0
         coords_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_path, population, io_size=io_size,
-                                      cache_size=50, namespace='Coordinates')
+                                      cache_size=cache_size, namespace='Coordinates')
         for gid, orig_coords_dict in coords_gen:
         # gid, orig_coords_dict = coords_gen.next()
             coords_dict = {}
@@ -233,11 +232,6 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
                     #                           args=([x, y, z],), options={'disp': False})
                     fixed_coords = check_bounds.fix_periodic_coords(result.x)
                     error = euc_distance(fixed_coords, [x, y, z])
-                    interp_coords = interp_points(fixed_coords)
-                    formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
-                    formatted_pi = '[' + ', '.join(['%.4E' % pi for pi in fixed_coords]) + ']'
-                    print 'Rank %i: %s gid: %i, target: %s, result: %s, params: %s, error: %.4E, iteration: %i' % \
-                          (rank, population, gid, formatted_x, formatted_xi, formatted_pi, error, i)
                     if error < 1. and check_bounds.within_bounds(fixed_coords):
                         best_coords = fixed_coords
                         min_error = error
@@ -245,6 +239,11 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
                     else:
                         fixed_coords = check_bounds.return_to_bounds(fixed_coords)
                         error = euc_distance(fixed_coords, [x, y, z])
+                        interp_coords = interp_points(fixed_coords)
+                        formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'
+                        formatted_pi = '[' + ', '.join(['%.4E' % pi for pi in fixed_coords]) + ']'
+                        print 'Rank %i: %s gid: %i, target: %s, result: %s, params: %s, error: %.4E, iteration: %i' % \
+                              (rank, population, gid, formatted_x, formatted_xi, formatted_pi, error, i)
                         if error < min_error:
                             min_error = error
                             best_coords = fixed_coords

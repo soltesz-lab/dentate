@@ -110,14 +110,10 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
                       'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
 
 
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
+local_np_random = np.random.RandomState()
+connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
+                                      # stochastic sampling
+
 
 def get_array_index_func(val_array, this_val):
     """
@@ -130,7 +126,7 @@ def get_array_index_func(val_array, this_val):
     if np.any(indexes):
         return indexes[0]
     else:
-        return val_array[-1]
+        return len(val_array) - 1
 
 
 get_array_index = np.vectorize(get_array_index_func, excluded=[0])
@@ -291,21 +287,6 @@ class AxonProb(object):
 
 
 p_connect = AxonProb(axon_width, axon_offset)
-if rank == 0:
-    print 'Initialization of parallel connectivity took %i s' % (time.time() - last_time)
-
-local_np_random = np.random.RandomState()
-connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
-                                      # stochastic sampling
-
-target = 'GC'
-
-layer_set, swc_type_set, syn_type_set = set(), set(), set()
-for source in layers[target]:
-    layer_set.update(layers[target][source])
-    swc_type_set.update(swc_types[target][source])
-    syn_type_set.update(syn_types[target][source])
-
 
 
 @click.command()
@@ -333,12 +314,20 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
     source_populations = population_ranges(MPI._addressof(comm), coords_path).keys()
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
-                                                            namespace='Coordinates')
+                                                            namespace='Interpolated Coordinates')
 
     for population in soma_coords:
         for cell in soma_coords[population].itervalues():
             cell['u_index'] = get_array_index(u, cell['U Coordinate'][0])
             cell['v_index'] = get_array_index(v, cell['V Coordinate'][0])
+
+    target = 'GC'
+
+    layer_set, swc_type_set, syn_type_set = set(), set(), set()
+    for source in layers[target]:
+        layer_set.update(layers[target][source])
+        swc_type_set.update(swc_types[target][source])
+        syn_type_set.update(syn_types[target][source])
 
     count = 0
     for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target,
@@ -363,9 +352,10 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
                         sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
                         if sources:
                             if rank == 0 and count == 0:
+                                source_list_str = '[' + ', '.join(['%s' % xi for xi in sources]) + ']'
                                 print 'Connections to target: %s in layer: %i ' \
                                     '(swc_type: %i, syn_type: %i): %s' % \
-                                    (target, layer, swc_type, syn_type, '[' + ', '.join(['%s' % xi for xi in sources]) + ']')
+                                    (target, layer, swc_type, syn_type, source_list_str)
                             p, source_gid = np.array([]), np.array([])
                             for source, this_proportion in zip(sources, this_proportions):
                                 if source not in source_gid_dict:
@@ -379,11 +369,13 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
                                 p = np.append(p, this_p * this_proportion)
                                 source_gid = np.append(source_gid, this_source_gid)
                             syn_indexes = filter_synapses(synapse_dict, layer, swc_type, syn_type)
-                            connection_dict[target_gid]['syn_id'] = np.append(connection_dict[target_gid]['syn_id'],
-                                                                  synapse_dict['syn_id'][syn_indexes]).astype('uint32', copy=False)
+                            connection_dict[target_gid]['syn_id'] = \
+                                np.append(connection_dict[target_gid]['syn_id'],
+                                          synapse_dict['syn_id'][syn_indexes]).astype('uint32', copy=False)
                             this_source_gid = local_np_random.choice(source_gid, len(syn_indexes), p=p)
-                            connection_dict[target_gid]['source_gid'] = np.append(connection_dict[target_gid]['source_gid'],
-                                                                      this_source_gid).astype('uint32', copy=False)
+                            connection_dict[target_gid]['source_gid'] = \
+                                np.append(connection_dict[target_gid]['source_gid'],
+                                          this_source_gid).astype('uint32', copy=False)
             count += 1
             print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time,
                                                                                          target, target_gid)
@@ -404,6 +396,7 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
     if rank == 0:
         print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                                   np.sum(global_count))
+
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find("compute_DG_connectivity.py") != -1,sys.argv)+1):])

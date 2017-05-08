@@ -5,7 +5,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 coords_dir = '../morphologies/'
-coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
+# coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
+coords_file = 'dentate_Sampled_Soma_Locations_050517.h5'
 
 f = h5py.File(coords_dir+coords_file, 'r')
 
@@ -205,7 +206,7 @@ for population in populations:
     pop_size = len(f['Populations'][population][namespace]['U Coordinate']['value'])
     if 'Interpolation Error' in f['Populations'][population][namespace]:
         re_positioned = np.where(f['Populations'][population][namespace]['Interpolation Error']['value'][:] > 1.)[0]
-    print 'population: %s, re-positioned %i' % (population, len(re_positioned))
+    print 'population: %s, re-positioned %i out of %i' % (population, len(re_positioned), pop_size)
     indexes = random.sample(range(pop_size), min(pop_size, 5000))
 
     fig1 = plt.figure()
