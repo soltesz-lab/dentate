@@ -314,7 +314,7 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
     source_populations = population_ranges(MPI._addressof(comm), coords_path).keys()
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
-                                                            namespace='Interpolated Coordinates')
+                                                            namespace='Sorted Coordinates')
 
     for population in soma_coords:
         for cell in soma_coords[population].itervalues():
