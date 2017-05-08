@@ -151,14 +151,14 @@ HC: HIL
 IS: HIL
 """
 
-pmin = {'GC': [0.0314, -0.811, -2.5], 'MPP': [-0.051, -0.723, 0.5], 'LPP': [-0.051, -0.723, 1.5],
-        'MC': [0.0314, -0.811, -4.5], 'NGFC': [-0.051, -0.723, 0.5], 'AAC': [-0.051, -0.723, -4.5],
-        'BC': [-0.051, -0.723, -4.5], 'MOPP': [-0.051, -0.723, -0.5], 'HCC': [0.0314, -0.811, -4.5],
-        'HC': [0.0314, -0.811, -4.5], 'IS': [0.0314, -0.811, -4.5]}
-pmax = {'GC': [3.079, 4.476, 0.5], 'MPP': [3.174, 4.476, 2.5], 'LPP': [3.174, 4.476, 3.5],
-        'MC': [3.079, 4.476, -1.5], 'NGFC': [3.174, 4.476, 3.5], 'AAC': [3.174, 4.476, 1.5],
-        'BC': [3.174, 4.476, 1.5], 'MOPP': [3.174, 4.476, 3.5], 'HCC': [3.079, 4.476, 0.5],
-        'HC': [3.079, 4.476, -1.5], 'IS': [3.079, 4.476, -1.5]}
+pmin = {'GC': [0.03142, -0.7225, -2.5], 'MPP': [-0.0502, -0.7225, 0.5], 'LPP': [-0.0502, -0.7225, 1.5],
+        'MC': [0.03142, -0.7225, -4.5], 'NGFC': [-0.0502, -0.7225, 0.5], 'AAC': [-0.0502, -0.7225, -4.5],
+        'BC': [-0.0502, -0.7225, -4.5], 'MOPP': [-0.0502, -0.7225, -0.5], 'HCC': [0.03142, -0.7225, -4.5],
+        'HC': [0.03142, -0.7225, -4.5], 'IS': [0.03142, -0.7225, -4.5]}
+pmax = {'GC': [3.0787, 4.4767, 0.5], 'MPP': [3.1730, 4.4767, 2.5], 'LPP': [3.1730, 4.4767, 3.5],
+        'MC': [3.0787, 4.4767, -1.5], 'NGFC': [3.1730, 4.4767, 3.5], 'AAC': [3.1730, 4.4767, 1.5],
+        'BC': [3.1730, 4.4767, 1.5], 'MOPP': [3.1730, 4.4767, 3.5], 'HCC': [3.0787, 4.4767, 0.5],
+        'HC': [3.0787, 4.4767, -1.5], 'IS': [3.0787, 4.4767, -1.5]}
 
 
 @click.command()
@@ -167,12 +167,19 @@ pmax = {'GC': [3.079, 4.476, 0.5], 'MPP': [3.174, 4.476, 2.5], 'LPP': [3.174, 4.
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
-
-    log_filename = str(time.strftime('%m%d%Y', time.gmtime()))+'_'+str(time.strftime('%H%M%S', time.gmtime()))+\
-               '_interpolate_DG_soma_locations.o'
-
+@click.option("--cache-size", type=int, default=50)
+def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size, cache_size):
+    """
+    
+    :param log_dir: 
+    :param coords_path: 
+    :param io_size: 
+    :param chunk_size: 
+    :param value_chunk_size: 
+    """
     if log_dir is not None:
+        log_filename = str(time.strftime('%m%d%Y', time.localtime()))+'_'+\
+                       str(time.strftime('%H%M%S', time.localtime()))+'_interpolate_DG_soma_locations.o'
         sys.stdout = Logger(log_dir+'/'+log_filename)
 
     comm = MPI.COMM_WORLD
@@ -199,7 +206,7 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size):
         start_time = time.time()
         count = 0
         coords_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_path, population, io_size=io_size,
-                                      cache_size=50, namespace='Coordinates')
+                                      cache_size=cache_size, namespace='Coordinates')
         for gid, orig_coords_dict in coords_gen:
         # gid, orig_coords_dict = coords_gen.next()
             coords_dict = {}
