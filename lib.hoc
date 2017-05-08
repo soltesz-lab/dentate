@@ -113,7 +113,7 @@ func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx
     if (synType.is_number) {
       synidx = synIndex.n
       widx = (ltar + synidx) % wsize
-      mknetcon1(pc, nclist, lsrc, ltar, cell.allsyns.o(synType.n), synidx, w.x[widx]/1000.0, del)
+      mknetcon1(pc, nclist, lsrc, ltar, cell.allsyns, synidx, w.x[widx]/1000.0, del)
     } else {
       execerror ("Unsupported synapse type")
     }
