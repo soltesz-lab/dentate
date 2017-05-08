@@ -1,10 +1,10 @@
 #!/bin/bash
-#PBS -l nodes=32:ppn=16:xe
+#PBS -l nodes=128:ppn=16:xe
 #PBS -q high
-#PBS -l walltime=3:00:00
+#PBS -l walltime=5:00:00
 #PBS -e ./results/compute_connectivity.$PBS_JOBID.err
 #PBS -o ./results/compute_connectivity.$PBS_JOBID.out
-#PBS -N compute_connectivity_reduced_20170501
+#PBS -N compute_connectivity_20170505
 ### set email notification
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
@@ -24,4 +24,8 @@ export PI_HOME=/projects/sciteam/baef
 cd $PBS_O_WORKDIR
 
 set -x
-aprun -n 256 -d 2 python ./scripts/compute_DG_connectivity.py
+aprun -n 1024 -d 2 python ./scripts/compute_DG_connectivity.py \
+  --forest-path=/projects/sciteam/baef/Full_Scale_Control/DGC_forest_connectivity_20170505.h5 \
+  --coords-path=/projects/sciteam/baef/Full_Scale_Control/dentate_Full_Scale_Control_coords_20170505.h5 \
+  --io-size=256 --chunk-size=100000 --value-chunk-size=2000000
+

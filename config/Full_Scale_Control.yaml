@@ -32,7 +32,7 @@ celltypes:
         t_decay: 2.5
         e_rev: -75
   MC:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: MossyCell
     templateType: single
     synapses:
@@ -75,7 +75,7 @@ celltypes:
         t_decay: 4.7
         e_rev: -70
   HC:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: HIPPCell
     templateType: single
     synapses:
@@ -108,7 +108,7 @@ celltypes:
         t_decay: 2.88
         e_rev: -70
   BC:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: BasketCell
     templateType: single
     synapses:
@@ -176,7 +176,7 @@ celltypes:
         t_decay: 3.35
         e_rev: 0
   AAC:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: AxoAxonicCell
     templateType: single
     synapses:
@@ -216,7 +216,7 @@ celltypes:
         t_decay: 428.1
         e_rev: -70
   HCC:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: HICAPCell
     templateType: single
     synapses:
@@ -263,7 +263,7 @@ celltypes:
          t_decay: 428.1
          e_rev: -70
   NGFC:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: NGFCell
     templateType: single
     synapses:
@@ -303,7 +303,7 @@ celltypes:
         t_decay: 3.35
         e_rev: 0
   MPP:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: MPPCell
     templateType: single
     vectorStimulus:
@@ -311,7 +311,7 @@ celltypes:
       indexFile: mec2_vecstim_ptr.bin
       activeFile: mec2_35_vecstim_active.bin
   LPP:
-    indexFile: dentate_Full_Scale_Control_coords.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
     templateName: LPPCell
     templateType: single
     vectorStimulus:

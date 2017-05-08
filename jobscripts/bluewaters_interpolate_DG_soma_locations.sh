@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l nodes=4:ppn=16:xe
+#PBS -l nodes=16:ppn=16:xe
 #PBS -q high
-#PBS -l walltime=3:00:00
+#PBS -l walltime=4:00:00
 #PBS -e ./results/interpolate_DG_soma_locations.$PBS_JOBID.err
 #PBS -o ./results/interpolate_DG_soma_locations.$PBS_JOBID.out
 #PBS -N interpolate_DG_soma_locations_20170505
@@ -23,4 +23,5 @@ export PI_HOME=/projects/sciteam/baef
 cd $PBS_O_WORKDIR
 
 set -x
-aprun -n 64 python ./scripts/interpolate_DG_soma_locations.py --coords-path=/projects/sciteam/baef/Full_Scale_Control/dentate_Sampled_Soma_Locations.h5
+aprun -n 256 python ./scripts/interpolate_DG_soma_locations.py \
+    --coords-path=/projects/sciteam/baef/Full_Scale_Control/dentate_Sampled_Soma_Locations.h5
