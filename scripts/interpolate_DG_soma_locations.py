@@ -123,14 +123,11 @@ def euc_distance(params, args):
     :param args: array
     :return: float 
     """
-    #if not check_bounds(params):
-    #    return 1e9
     params_rot = interp_points(params)
 
     error = 0.
     for d, di in zip(args, params_rot):
         error += ((d - di)/0.1) ** 2.
-    error = np.sqrt(error)
 
     return error
 

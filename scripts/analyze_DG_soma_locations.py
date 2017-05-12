@@ -4,8 +4,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 coords_dir = '../morphologies/'
-coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
-# coords_file = 'dentate_Sampled_Soma_Locations_050517.h5'
+# coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
+coords_file = 'dentate_Sampled_Soma_Locations_test_051017.h5'
 
 f = h5py.File(coords_dir+coords_file, 'r')
 
