@@ -44,7 +44,7 @@ class Env:
             elif celltypes[k].has_key('indexFile'):
                 fpath = os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexFile'])
                 if rank == 0:
-                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Coordinates")
+                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Sorted Coordinates")
                     index  = coords.keys()
                     index.sort()
                 else:

@@ -233,7 +233,7 @@ swc_Axon = 2
 swc_Soma = 1
                     
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
-    sort_idx = np.argsort(syn_ids)
+    sort_idx = np.argsort(syn_ids,axis=0)
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
       if syn_type == swc_Dend:
         cell.alldendritesList[syn_section].root.push()
