@@ -154,7 +154,7 @@ def connectprj(env, graph, prjname, prjvalue):
                 h.syn_index = h.Value(0,synidxs[i])
                 delay = 1.0
                 h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
-              else:
+            else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
         elif prjvalue.has_key('weight'):
           w = prjvalue['weight']
@@ -235,12 +235,12 @@ swc_Soma = 1
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
     sort_idx = np.argsort(syn_ids,axis=0)
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
-      if syn_type == swc_Dend:
+      if swc_type == swc_Dend:
         cell.alldendritesList[syn_section].root.push()
         cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-      elif syn_type == swc_Axon:
+      elif swc_type == swc_Axon:
         cell.allaxonsList[syn_section].root.push()
-      elif syn_type == swc_Soma:
+      elif swc_type == swc_Soma:
         cell.allsomaList[syn_section].root.push()
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
@@ -418,8 +418,7 @@ def mkcells(env):
                 ## syn_id syn_type syn_locs section layer
                 h.syn_ids      = tree['Synapse_Attributes']['syn_id']
                 h.syn_types    = tree['Synapse_Attributes']['syn_type']
-                if tree.has_key('Synapse_Attributes.swc_type'):
-                    h.swc_types    = tree['Synapse_Attributes']['swc_type']
+                h.swc_types    = tree['Synapse_Attributes']['swc_type']
                 h.syn_locs     = tree['Synapse_Attributes']['syn_locs']
                 h.syn_sections = tree['Synapse_Attributes']['section']
                 verboseflag = 0
