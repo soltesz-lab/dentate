@@ -157,7 +157,15 @@ def connectprj(env, graph, prjname, prjvalue):
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
         elif prjvalue.has_key('weight'):
-          w = prjvalue['weight']
+          wgtval = prjvalue['weight']
+          if isinstance(wgtval,list):
+            wgtlst = h.List()
+            for val in wgtval:
+                hval = h.Value(0, val)
+                wgtlst.append(hval)
+            h.syn_weight = h.Value(2,wgtlst)
+          else:
+            h.syn_weight = h.Value(0,wgtval)
           for destination in prj:
             edges  = prj[destination]
             sources = edges[0]
@@ -166,9 +174,8 @@ def connectprj(env, graph, prjname, prjvalue):
               for i in range(0,len(sources)):
                 source   = sources[i]
                 h.syn_index  = h.Value(0,synidxs[i])
-                h.syn_weight = h.Value(0,w)
                 delay = 1.0
-                h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight, delay)
+                h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
               else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
         else:
