@@ -102,7 +102,7 @@ def connectprj(env, graph, prjname, prjvalue):
                         source   = sources[i]
                         distance = ldists[i] + tdists[i]
                         delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
+                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'dist'):
@@ -134,7 +134,7 @@ def connectprj(env, graph, prjname, prjvalue):
                         source   = sources[i]
                         distance = dists[i]
                         delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
+                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
@@ -175,8 +175,8 @@ def connectprj(env, graph, prjname, prjvalue):
                 source   = sources[i]
                 h.syn_index  = h.Value(0,synidxs[i])
                 delay = 1.0
-                h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
-              else:
+                h.nc_appendsyn2(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
+            else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
         else:
           raise RuntimeError ("Projection %s has no weights attribute" % prjname)
