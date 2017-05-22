@@ -23,27 +23,9 @@ proc printCellSections() { localobj cell strdef typeName
     }
 }
 
-// Adds a network connection to a single synapse in a list
-proc mknetcon1() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc strdef errmsg
-    pc      = $o1
-    nclist  = $o2
-    srcgid  = $3
-    dstgid  = $4
-    synlist = $o5
-    index   = $6
-    if (index < synlist.count()) {
-        nc = pc.gid_connect(srcgid, synlist.o(index))
-        nc.weight = $7
-	nc.delay = $8
-	nclist.append(nc)
-    }
-    sprint(errmsg,"mknetcon1: connection %d -> %d: synapse index %d is greater than total number of synapses (%d)",srcgid,dstgid,index,synlist.count())
-    assert (index < synlist.count(), errmsg)
-}
-
 
 // Adds network connections to all synapses in a list
-proc mknetcon() { local i localobj synlist, nclist, pc, nc
+proc mknetcon1() { local i localobj synlist, nclist, pc, nc
     pc      = $o1
     nclist  = $o2
     src     = $3
@@ -57,10 +39,28 @@ proc mknetcon() { local i localobj synlist, nclist, pc, nc
 }
 
 
+// Adds a network connection to a single synapse in a list
+proc mknetcon2() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc strdef errmsg
+    pc      = $o1
+    nclist  = $o2
+    srcgid  = $3
+    dstgid  = $4
+    synlist = $o5
+    index   = $6
+    if (index < synlist.count()) {
+        nc = pc.gid_connect(srcgid, synlist.o(index))
+        nc.weight = $7
+	nc.delay = $8
+	nclist.append(nc)
+    }
+    sprint(errmsg,"mknetcon2: connection %d -> %d: synapse index %d is greater than total number of synapses (%d)",srcgid,dstgid,index,synlist.count())
+    assert (index < synlist.count(), errmsg)
+}
+
 
 // A variant of ParallelNetManager.nc_append that takes in a synaptic
 // point process as an argument (as opposed to the index of a synapse in cell.synlist)
-func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
+func nc_appendsyn1() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
     i = 0
     pc       = $o1
     nclist   = $o2
@@ -79,10 +79,38 @@ func nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, 
         assert (w.is_undefined == 0,"w is undefined")
         i = nclist.count()
   	if (synIndex.is_number) {
-           mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.n), w.n/1000.0, del)
+           mknetcon1(pc, nclist, lsrc, cell.syns.o(synIndex.n), w.n/1000.0, del)
 	} else {
-           mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(0).n), w.l.o(0).n/1000.0, del)
-           mknetcon(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(1).n), w.l.o(1).n/1000.0, del)
+           mknetcon1(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(0).n), w.l.o(0).n/1000.0, del)
+           mknetcon1(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(1).n), w.l.o(1).n/1000.0, del)
+        }
+    }
+    return i
+}
+
+func nc_appendsyn2() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
+    i = 0
+    pc       = $o1
+    nclist   = $o2
+    lsrc     = $3
+    ltar     = $4
+    synIndex = $o5
+    w        = $o6
+    del      = $7
+    // target in this subset
+    // source may be on this or another machine
+    sprint(errmsg,"nc_appendsyn: gid %d does not exist on host %d",ltar,pc.id())
+    assert (pc.gid_exists(ltar), errmsg)
+    if (pc.gid_exists(ltar)) {
+        cell = pc.gid2cell(ltar)
+        assert (synIndex.is_undefined == 0,"synIndex is undefined")
+        assert (w.is_undefined == 0,"w is undefined")
+        i = nclist.count()
+  	if (synIndex.is_number) {
+	   mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synIndex.n, w.n/1000.0, del)
+	} else {
+	   mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synIndex.l.o(0).n, w.l.o(0).n/1000.0, del)
+	   mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synIndex.l.o(1).n, w.l.o(1).n/1000.0, del)
         }
     }
     return i
@@ -114,7 +142,7 @@ func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx
     if (synType.is_number) {
       synidx = synIndex.n
       widx = (ltar + synidx) % wsize
-      mknetcon1(pc, nclist, lsrc, ltar, cell.allsyns, synidx, w.x[widx]/1000.0, del)
+      mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synidx, w.x[widx]/1000.0, del)
     } else {
       execerror ("Unsupported synapse type")
     }

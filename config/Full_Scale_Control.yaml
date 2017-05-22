@@ -12,16 +12,16 @@ synapses:
     HCC:  5
     NGFC_A: 6
     NGFC_B: 7
-    MPP:  8
-    LPP:  9
-    MOPP: 10
-    IS: 11
+    MOPP: 8
+    IS: 9
+    MPP:  10
+    LPP:  11
 ## Cell types for dentate gyrus model
 celltypes: 
   GC:
     templateName: DGC
     templateType: forest
-    forestFile: DGC_forest_connectivity_20170505.h5
+    forestFile: DGC_forest_syns_20170501.h5
     synapses:
       0:
         t_rise: 1.5
@@ -32,7 +32,7 @@ celltypes:
         t_decay: 2.5
         e_rev: -75
   MC:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: MossyCell
     templateType: single
     synapses:
@@ -75,7 +75,7 @@ celltypes:
         t_decay: 4.7
         e_rev: -70
   HC:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: HIPPCell
     templateType: single
     synapses:
@@ -108,7 +108,7 @@ celltypes:
         t_decay: 2.88
         e_rev: -70
   BC:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: BasketCell
     templateType: single
     synapses:
@@ -176,7 +176,7 @@ celltypes:
         t_decay: 3.35
         e_rev: 0
   AAC:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: AxoAxonicCell
     templateType: single
     synapses:
@@ -216,7 +216,7 @@ celltypes:
         t_decay: 428.1
         e_rev: -70
   HCC:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: HICAPCell
     templateType: single
     synapses:
@@ -263,7 +263,7 @@ celltypes:
          t_decay: 428.1
          e_rev: -70
   NGFC:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: NGFCell
     templateType: single
     synapses:
@@ -303,7 +303,7 @@ celltypes:
         t_decay: 3.35
         e_rev: 0
   MPP:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: MPPCell
     templateType: single
     vectorStimulus:
@@ -311,7 +311,7 @@ celltypes:
       indexFile: mec2_vecstim_ptr.bin
       activeFile: mec2_35_vecstim_active.bin
   LPP:
-    indexFile: dentate_Full_Scale_Control_coords_20170505.h5
+    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: LPPCell
     templateType: single
     vectorStimulus:
@@ -320,18 +320,18 @@ celltypes:
       activeFile: lec2_35_vecstim_active.bin
 ## Connectivity configuration for dentate gyrus model
 connectivity:
-  connectivityFile: dentate_Full_Scale_Control_20170507.h5
+  connectivityFile: dentate_Full_Scale_Control_20170510.h5
   gapjunctionsFile: dentate_Full_Scale_Control_gapjunctions.h5
   ## Projection definitions
   projections: 
-    AACtoGC:
-      source: AAC
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 1
-      weight: 1.0
-      velocity: 250.0
+#    AACtoGC:
+#      source: AAC
+#      destination: GC
+#      index: absolute
+#      type: syn
+#      synType: 1
+#      weight: 1.0
+#      velocity: 250.0
     BCtoGC:
       source: BC
       destination: GC
