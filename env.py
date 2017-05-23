@@ -44,7 +44,7 @@ class Env:
             elif celltypes[k].has_key('indexFile'):
                 fpath = os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexFile'])
                 if rank == 0:
-                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Sorted Coordinates")
+                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Coordinates")
                     index  = coords.keys()
                     index.sort()
                 else:
@@ -56,10 +56,11 @@ class Env:
                 offset=max(index)+1
         iocomm.Free()
     
-    def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
+    def __init__(self, comm, configFile, defsFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
                  IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, ldbal, lptbal, verbose):
         """
         :param configFile: the name of the model configuration file
+        :param defsFile: the name of the definitions file
         :param datasetPrefix: the location of all datasets
         :param resultsPath: the directory in which to write spike raster and voltage trace files
         :param nodeRankFile: the name of a file that specifies assignment of node gids to MPI ranks
@@ -75,6 +76,14 @@ class Env:
         :param lptbal: calculate load balance with LPT algorithm
         :param verbose: print verbose diagnostic messages while constructing the network
         """
+
+        self.SWC_Types = {}
+        self.Synapse_Types = {}
+        
+        with open(defsFile) as fp:
+            defs = yaml.load(fp)
+            self.SWC_Types = defs['SWC_Types']
+            self.Synapse_Types = defs['Synapse_Types']
 
         self.gidlist = []
         self.cells  = []
