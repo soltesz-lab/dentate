@@ -2,7 +2,7 @@
 #
 #SBATCH -J dentate_Full_Scale_Control
 #SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
-#SBATCH -N 32
+#SBATCH -N 64
 #SBATCH --ntasks-per-node=32
 #SBATCH -p debug
 #SBATCH -t 0:30:00
@@ -35,7 +35,7 @@ nodefile=`generate_pbs_nodefile`
 
 echo python is `which python`
 
-srun -n 1024 python main.py \
+srun -n 2048 python main.py \
  --config-file=config/Full_Scale_Control.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="$SCRATCH/dentate" \
