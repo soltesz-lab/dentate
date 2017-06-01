@@ -9,6 +9,7 @@ import copy
 import pprint
 import pickle
 import math
+import random
 
 
 freq = 100      # Hz, frequency at which AC length constant will be computed
@@ -159,3 +160,37 @@ def list_find (f, lst):
         else:
             i += 1
     return None
+
+
+def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., generator=None):
+    """
+    Given a time series of instantaneous spike rates in Hz, produce a spike train consistent with an inhomogeneous
+    Poisson process with a refractory period after each spike.
+    :param rate: instantaneous rates in time (Hz)
+    :param t: corresponding time values (ms)
+    :param dt: temporal resolution for spike times (ms)
+    :param refractory: absolute deadtime following a spike (ms)
+    :param generator: :class:'random.Random()'
+    :return: list of m spike times (ms)
+    """
+    if generator is None:
+        generator = random
+    interp_t = np.arange(t[0], t[-1] + dt, dt)
+    interp_rate = np.interp(interp_t, t, rate)
+    interp_rate /= 1000.
+    non_zero = np.where(interp_rate > 0.)[0]
+    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
+    spike_times = []
+    max_rate = np.max(interp_rate)
+    i = 0
+    ISI_memory = 0.
+    while i < len(interp_t):
+        x = generator.random()
+        if x > 0.:
+            ISI = -np.log(x) / max_rate
+            i += int(ISI / dt)
+            ISI_memory += ISI
+            if (i < len(interp_t)) and (generator.random() <= interp_rate[i] / max_rate) and ISI_memory >= 0.:
+                spike_times.append(interp_t[i])
+                ISI_memory = -refractory
+    return spike_times
