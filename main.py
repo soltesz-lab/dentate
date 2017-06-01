@@ -102,7 +102,7 @@ def connectprj(env, graph, prjname, prjvalue):
                         source   = sources[i]
                         distance = ldists[i] + tdists[i]
                         delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
+                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'dist'):
@@ -134,7 +134,7 @@ def connectprj(env, graph, prjname, prjvalue):
                         source   = sources[i]
                         distance = dists[i]
                         delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
+                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
             else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
     elif (prjType == 'syn'):
@@ -154,10 +154,18 @@ def connectprj(env, graph, prjname, prjvalue):
                 h.syn_index = h.Value(0,synidxs[i])
                 delay = 1.0
                 h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
-              else:
+            else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
         elif prjvalue.has_key('weight'):
-          w = prjvalue['weight']
+          wgtval = prjvalue['weight']
+          if isinstance(wgtval,list):
+            wgtlst = h.List()
+            for val in wgtval:
+                hval = h.Value(0, val)
+                wgtlst.append(hval)
+            h.syn_weight = h.Value(2,wgtlst)
+          else:
+            h.syn_weight = h.Value(0,wgtval)
           for destination in prj:
             edges  = prj[destination]
             sources = edges[0]
@@ -166,10 +174,9 @@ def connectprj(env, graph, prjname, prjvalue):
               for i in range(0,len(sources)):
                 source   = sources[i]
                 h.syn_index  = h.Value(0,synidxs[i])
-                h.syn_weight = h.Value(0,w)
                 delay = 1.0
-                h.nc_appendsyn(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight, delay)
-              else:
+                h.nc_appendsyn2(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
+            else:
                 raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
         else:
           raise RuntimeError ("Projection %s has no weights attribute" % prjname)
@@ -235,12 +242,12 @@ swc_Soma = 1
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
     sort_idx = np.argsort(syn_ids,axis=0)
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
-      if syn_type == swc_Dend:
+      if swc_type == swc_Dend:
         cell.alldendritesList[syn_section].root.push()
         cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-      elif syn_type == swc_Axon:
+      elif swc_type == swc_Axon:
         cell.allaxonsList[syn_section].root.push()
-      elif syn_type == swc_Soma:
+      elif swc_type == swc_Soma:
         cell.allsomaList[syn_section].root.push()
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
@@ -418,8 +425,7 @@ def mkcells(env):
                 ## syn_id syn_type syn_locs section layer
                 h.syn_ids      = tree['Synapse_Attributes']['syn_id']
                 h.syn_types    = tree['Synapse_Attributes']['syn_type']
-                if tree.has_key('Synapse_Attributes.swc_type'):
-                    h.swc_types    = tree['Synapse_Attributes']['swc_type']
+                h.swc_types    = tree['Synapse_Attributes']['swc_type']
                 h.syn_locs     = tree['Synapse_Attributes']['syn_locs']
                 h.syn_sections = tree['Synapse_Attributes']['section']
                 verboseflag = 0
