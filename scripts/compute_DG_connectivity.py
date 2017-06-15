@@ -19,15 +19,15 @@ Determine synaptic connectivity onto DG GCs based on target convergences, diverg
 
 Algorithm:
 1. For each cell population:
-    i. Load the soma locations of each cell population from an .hdf5 file. The (U, V) coordinates of each cell will be
-        projected onto a plane in the middle of the granule cell layer (U', V') (L = -1), and used to calculate the
-        orthogonal arc distances (S-T and M-L) between the projected soma locations.
+    i. Load the soma locations of each cell population from a NeuroIO file. The (U, V) coordinates of each cell are
+        projected onto a plane in the middle of the granule cell layer (L = -1), and used to calculate the orthogonal 
+        arc distances (S-T and M-L) between the projected soma locations.
 2. For each cell, for each type of connection:
     i. Compute a probability of connection across all possible sources, based on the estimated arc distances between
         their projected soma locations.
-    ii. Load from a neurotree file the synapses metadata, including layer, type, syn_loc, sec_type, and unique indexes 
+    ii. Load from a NeuroIO file the synapses attributes, including layer, type, syn_loc, sec_type, and unique indexes 
         for each synapse.
-    ii. Write to a neurotree file the source_gids and synapse_indexes for all the connections that have been
+    ii. Write to a NeuroIO file the source_gids and synapse_indexes for all the connections that have been
         specified in this step. Iterating through connection types will keep appending to this data structure.
     TODO: Implement a parallel write method to the separate connection edge data structure, use that instead.
 
@@ -111,8 +111,8 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
 
 
 local_np_random = np.random.RandomState()
-connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
-                                      # stochastic sampling
+# make sure random seeds are not being reused for various types of stochastic sampling
+connectivity_seed_offset = int(1 * 2e6)
 
 
 def get_array_index_func(val_array, this_val):
@@ -330,8 +330,8 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
         syn_type_set.update(syn_types[target][source])
 
     count = 0
-    for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target,
-                                                        io_size=io_size, cache_size=cache_size, namespace='Synapse_Attributes'):
+    for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size,
+                                                        cache_size=cache_size, namespace='Synapse_Attributes'):
         last_time = time.time()
         connection_dict = {}
         p_dict = {}
