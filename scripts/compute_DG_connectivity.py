@@ -111,8 +111,8 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
 
 
 local_np_random = np.random.RandomState()
-connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
-                                      # stochastic sampling
+# make sure random seeds are not being reused for various types of stochastic sampling
+connectivity_seed_offset = int(1 * 2e6)
 
 
 def get_array_index_func(val_array, this_val):

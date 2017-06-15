@@ -152,7 +152,7 @@ class Logger(object):
         self.terminal.flush()
 
 
-def list_find (f, lst):
+def list_find(f, lst):
     i = 0
     for x in lst:
         if f(x):
@@ -194,3 +194,16 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
                 spike_times.append(interp_t[i])
                 ISI_memory = -refractory
     return spike_times
+
+
+def split_array(a, size):
+    start = 0
+    chunk_size = int(len(a) / size)
+    sub_arrays = []
+    for i in range(size):
+        if i == size - 1:
+            sub_arrays.append(a[start:])
+        else:
+            sub_arrays.append(a[start:start+chunk_size])
+            start += chunk_size
+    return sub_arrays
