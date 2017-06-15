@@ -1,5 +1,5 @@
 
-function [soma_points] =  DGnetwork_somapos_sample(output_path)
+function [soma_points] =  DG_somapos_sample(output_path)
 
 % layer boundaries
 HL_layer_min       = -3.95;
@@ -32,8 +32,8 @@ N_HICAP    = 6;
 N_NGFC     = 7;
 N_IS       = 8;
 N_MOPP     = 9;
-N_MPP      = 10;
-N_LPP      = 11;
+N_MEC      = 10;
+N_LEC      = 11;
 
 num_types       = 11;
 num_cells       = cell(num_types,1);
@@ -117,25 +117,21 @@ soma_distv(N_MOPP)   = 80;
 septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
 distribution{N_MOPP} = septotemporal/sum(septotemporal(:,1));
 
-%10 MPP
-cell_names{N_MPP}   = 'MPP';
-num_cells{N_MPP}    = [0;0;0;38000;0;38000];
-soma_disth(N_MPP)   = 20;
-soma_distv(N_MPP)   = 20;
+%10 MEC
+cell_names{N_MEC}   = 'MEC';
+num_cells{N_MEC}    = [0;0;0;38000;0;38000];
+soma_disth(N_MEC)   = 20;
+soma_distv(N_MEC)   = 20;
 septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
-distribution{N_MPP} = septotemporal/sum(septotemporal(:,1));
+distribution{N_MEC} = septotemporal/sum(septotemporal(:,1));
 
-%11 LPP
-cell_names{N_LPP}   = 'LPP';
-num_cells{N_LPP}    = [0;0;0;0;34000;34000];
-soma_disth(N_LPP)   = 20;
-soma_distv(N_LPP)   = 20;
+%11 LEC
+cell_names{N_LEC}   = 'LEC';
+num_cells{N_LEC}    = [0;0;0;0;34000;34000];
+soma_disth(N_LEC)   = 20;
+soma_distv(N_LEC)   = 20;
 septotemporal   = [16.2;35.3;38.1;31.8;36.1;38.8;39.6;55.0;73.1;141.5];
-distribution{N_LPP} = septotemporal/sum(septotemporal(:,1));
-
-
-
-
+distribution{N_LEC} = septotemporal/sum(septotemporal(:,1));
 
 for i = 1:11
     i
@@ -147,7 +143,7 @@ for i = 1:11
         case 1
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,HL_layer_min,HL_layer_mid,HL_layer_max);
+             soma_grid         = DG_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,HL_layer_min,HL_layer_mid,HL_layer_max);
              sz                = size(soma_grid);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
 	     sampled_xyz_points = vertcat(sampled_xyz_points, sel_xyz_points);
@@ -155,7 +151,7 @@ for i = 1:11
         case 2
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
+             soma_grid         = DG_somagrid(soma_disth(i),soma_distv(i),@layer_eq_GCL_2,GCL_layer_min,GCL_layer_mid,GCL_layer_max);
              sz                = size(soma_grid)
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
 	     sampled_xyz_points = vertcat(sampled_xyz_points, sel_xyz_points);
@@ -163,7 +159,7 @@ for i = 1:11
         case 3
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,IML_layer_min,IML_layer_mid,IML_layer_max);
+             soma_grid         = DG_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,IML_layer_min,IML_layer_mid,IML_layer_max);
              sz                = size(soma_grid);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
 	     sampled_xyz_points = vertcat(sampled_xyz_points, sel_xyz_points);
@@ -171,7 +167,7 @@ for i = 1:11
         case 4
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,MML_layer_min,MML_layer_mid,MML_layer_max);
+             soma_grid         = DG_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,MML_layer_min,MML_layer_mid,MML_layer_max);
              sz                = size(soma_grid);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
 	     sampled_xyz_points = vertcat(sampled_xyz_points, sel_xyz_points);
@@ -179,7 +175,7 @@ for i = 1:11
         case 5
           k = num_cells{i}(section);
           if k > 0
-             soma_grid         = DGnetwork_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,OML_layer_min,OML_layer_mid,OML_layer_max);
+             soma_grid         = DG_somagrid(soma_disth(i),soma_distv(i),@layer_eq_ML,OML_layer_min,OML_layer_mid,OML_layer_max);
              sz                = size(soma_grid);
              sel_xyz_points    = soma_grid(randsample(sz(1),k),:);
 	     sampled_xyz_points = vertcat(sampled_xyz_points, sel_xyz_points);

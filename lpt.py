@@ -1,4 +1,5 @@
 import heapq
+
 ## Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def lpt(cx, npart):

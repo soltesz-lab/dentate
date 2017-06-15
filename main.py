@@ -10,7 +10,7 @@ import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neurograph.io import scatter_graph, bcast_graph
-from neurotrees.io import scatter_read_trees
+from neurotrees.io import scatter_read_trees, population_ranges
 from env import Env
 import lpt
 
@@ -65,7 +65,42 @@ def lpt_bal(env):
           fp.write('%d %d\n' % (x[1],part_rank))
         part_rank = part_rank+1
 
-    
+def mkspikeout (env, spikeout_filename):
+    populationsFile = h5py.File(env.populationsFile)
+    spikeoutFile    = h5py.File(spikeout_filename)
+    populationsFile.copy('/H5Types',spikeoutFile)
+    populationsFile.close()
+    spikeoutFile.close()
+        
+def spikeout (env, output_path, t_vec, id_vec):
+    binlst  = []
+    typelst = env.celltypes.keys()
+    for k in typelst:
+        binlst.append(env.celltypes[k]['start'])
+        
+    binvect  = np.array(binlst)
+    sort_idx = np.argsort(binvect,axis=0)
+    bins     = binvect[sort_idx]
+    types    = [ typelst[i] for i in sort_idx ]
+    inds     = np.digitize(id_vec, bins)
+
+    for i in range(0,len(types)):
+        sinds    = inds[np.where(inds == i)]
+        ids      = id_vec[sinds]
+        ts       = t_vec[sinds]
+        spkdict  = {}
+        for j in range(0,len(ids)):
+            id = ids[j]
+            t  = ts[j]
+            if spkdict.has_key(id):
+                spkdict[id]['t'].append(t)
+            else:
+                spkdict[id]= {'t': [t]}
+        for j in spkdict.keys():
+            spkdict[j]['t'] = np.array(spkdict[j]['t'])
+        write_cell_attributes(MPI._addressof(env.comm), output_path, pop_name, spkdict, namespace="Spike Events")
+        ## {0: {'t': a }}
+        
     
 def connectprj(env, graph, prjname, prjvalue):
     prjType    = prjvalue['type']
@@ -234,20 +269,16 @@ def mksyn1(cell,synapses,env):
                     cell.syns.o(synorder).append(h.syn)
                     h.pop_section()
 
-
-swc_Dend = 4
-swc_Axon = 2
-swc_Soma = 1
                     
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
     sort_idx = np.argsort(syn_ids,axis=0)
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
-      if swc_type == swc_Dend:
+      if swc_type == env.defs.SWC_Types['apical']:
         cell.alldendritesList[syn_section].root.push()
         cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-      elif swc_type == swc_Axon:
+      elif swc_type == env.defs.SWC_Types['axon']:
         cell.allaxonsList[syn_section].root.push()
-      elif swc_type == swc_Soma:
+      elif swc_type == env.defs.SWC_Types['soma']:
         cell.allsomaList[syn_section].root.push()
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
@@ -563,15 +594,20 @@ def run (env):
 
     if (rank == 0):
         print "*** Simulation completed"
-    h.vcnts      = h.Vector(nhosts)
-    h.vcnts.x[0]   = env.t_vec.size()
-    h.t_vec_all  = h.Vector()
-    h.id_vec_all = h.Vector()
-    env.pc.alltoall(env.t_vec, h.vcnts, h.t_vec_all)
-    env.pc.alltoall(env.id_vec, h.vcnts, h.id_vec_all)
-    
+
+    spikeoutPath = "%s/%s_spikeout.h5" % (env.resultsPath, env.modelName)
     if (rank == 0):
-        h.spikeout("%s/%s_spikeout.dat" % (env.resultsPath, env.modelName),h.t_vec_all,h.id_vec_all)
+        mkspikeout (env, spikeoutPath)
+    spikeout(env, spikeoutPath, env.t_vec, env.id_vec)
+    
+    #if (rank == 0):
+        #h.spikeout("%s/%s_spikeout.dat" % (env.resultsPath, env.modelName),h.t_vec_all,h.id_vec_all)
+        #h.vcnts      = h.Vector(nhosts)
+        #h.vcnts.x[0] = env.t_vec.size()
+        #h.t_vec_all  = h.Vector()
+        #h.id_vec_all = h.Vector()
+        #env.pc.alltoall(env.t_vec, h.vcnts, h.t_vec_all)
+        #env.pc.alltoall(env.id_vec, h.vcnts, h.id_vec_all)
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
@@ -597,6 +633,7 @@ def run (env):
     
 @click.command()
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--defs-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False, default='./config/Definitions.yaml'))
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
@@ -612,9 +649,9 @@ def run (env):
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)
 @click.option('--verbose', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+def main(config_file, defs_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose)
+    env = Env(MPI.COMM_WORLD, config_file, defs_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose)
     init(env)
     run(env)
 
