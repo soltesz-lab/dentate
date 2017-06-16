@@ -137,8 +137,9 @@ def filter_synapses(synapse_dict, layer, swc_type, syn_type):
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
+@click.option("--debug", is_flag=True)
 def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_size, chunk_size, value_chunk_size,
-         cache_size):
+         cache_size, debug):
     """
 
     :param forest_path:
@@ -186,8 +187,11 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
         syn_type_set.update(syn_types[target][source])
 
     count = 0
-    for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size,
-                                                            cache_size=cache_size, namespace='Synapse_Attributes'):
+    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size, cache_size=cache_size,
+                                namespace='Synapse_Attributes')
+    if debug:
+        attr_gen = [attr_gen.next()]
+    for target_gid, attributes_dict in attr_gen:
         last_time = time.time()
         connection_dict = {}
         p_dict = {}
@@ -233,12 +237,14 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
                                 np.append(connection_dict[target_gid]['source_gid'],
                                           this_source_gid).astype('uint32', copy=False)
             count += 1
-            print 'Rank %i took %i s to compute connectivity for target: %s, gid: %i' % (rank, time.time() - last_time,
-                                                                                         target, target_gid)
+            print 'Rank %i took %.2f s to compute connectivity for target: %s, gid: %i' % (rank,
+                                                                                           time.time() - last_time,
+                                                                                           target, target_gid)
             sys.stdout.flush()
-        append_cell_attributes(MPI._addressof(comm), forest_path, target, connection_dict,
-                               namespace=connectivity_namespace, io_size=io_size, chunk_size=chunk_size,
-                               value_chunk_size=value_chunk_size)
+        if not debug:
+            append_cell_attributes(MPI._addressof(comm), forest_path, target, connection_dict,
+                                   namespace=connectivity_namespace, io_size=io_size, chunk_size=chunk_size,
+                                   value_chunk_size=value_chunk_size)
         sys.stdout.flush()
         del connection_dict
         del p_dict
@@ -247,7 +253,7 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
+        print '%i ranks took took %.2f s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
                                                                                   np.sum(global_count))
 
 
