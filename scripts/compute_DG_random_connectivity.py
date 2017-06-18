@@ -153,8 +153,8 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
     """
     # troubleshooting
     if False:
-        forest_path = '../morphologies/DGC_forest_connectivity_20170427.h5'
-        coords_path = '../morphologies/dentate_Full_Scale_Control_coords_selectivity_20170615a.h5'
+        forest_path = '../morphologies/DGC_forest_connectivity_20170508.h5'
+        coords_path = '../morphologies/dentate_Full_Scale_Control_coords_selectivity_20170615.h5'
         coords_namespace = 'Coordinates'
         io_size = -1
         chunk_size = 1000

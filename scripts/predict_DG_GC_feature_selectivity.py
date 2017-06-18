@@ -14,6 +14,11 @@ try:
 except:
     pass
 
+# log_normal weights:
+# sigma = 0.35
+# mu = 0.
+# test = 1./(sigma * x * np.sqrt(2. * np.pi)) * np.exp(-((np.log(x)-mu)**2.)/(2. * sigma**2.))
+
 
 script_name = 'predict_DG_GC_feature_selectivity.py'
 
@@ -115,6 +120,7 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
         local_time = time.time()
         source_gid_counts = {}
         response_dict = {}
+        response = np.zeros_like(d, dtype='float32')
         if gid is not None:
             for population in ['MPP', 'LPP']:
                 indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'][:] >=
@@ -123,7 +129,6 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
                                     population_range_dict[population][0] + population_range_dict[population][1]))[0]
                 source_gid_counts[population] = \
                     Counter(connectivity_dict[connectivity_namespace]['source_gid'][:][indexes])
-            response = np.zeros_like(d, dtype='float32')
             for population in ['MPP', 'LPP']:
                 for source_gid in (source_gid for source_gid in source_gid_counts[population]
                                    if source_gid in features_dict[population]):
