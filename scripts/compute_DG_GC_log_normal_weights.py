@@ -76,9 +76,9 @@ def main(weights_path, weights_namespace, connectivity_path, connectivity_namesp
         weights = np.array([], dtype='float32')
         if gid is not None:
             for population in ['MPP', 'LPP']:
-                indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'][:] >=
+                indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'] >=
                                     population_range_dict[population][0]) &
-                                   (connectivity_dict[connectivity_namespace]['source_gid'][:] <
+                                   (connectivity_dict[connectivity_namespace]['source_gid'] <
                                     population_range_dict[population][0] + population_range_dict[population][1]))[0]
                 syn_ids = np.append(syn_ids,
                                     connectivity_dict[connectivity_namespace]['syn_id'][indexes]).astype('uint32',

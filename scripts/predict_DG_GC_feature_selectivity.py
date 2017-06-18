@@ -118,12 +118,12 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
         response = np.zeros_like(d, dtype='float32')
         if gid is not None:
             for population in ['MPP', 'LPP']:
-                indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'][:] >=
+                indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'] >=
                                     population_range_dict[population][0]) &
-                                   (connectivity_dict[connectivity_namespace]['source_gid'][:] <
+                                   (connectivity_dict[connectivity_namespace]['source_gid'] <
                                     population_range_dict[population][0] + population_range_dict[population][1]))[0]
                 source_gid_counts[population] = \
-                    Counter(connectivity_dict[connectivity_namespace]['source_gid'][:][indexes])
+                    Counter(connectivity_dict[connectivity_namespace]['source_gid'][indexes])
             for population in ['MPP', 'LPP']:
                 for source_gid in (source_gid for source_gid in source_gid_counts[population]
                                    if source_gid in features_dict[population]):
