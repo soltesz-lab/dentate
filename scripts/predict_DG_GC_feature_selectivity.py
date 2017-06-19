@@ -52,8 +52,9 @@ place_rate = lambda field_width, x_offset, y_offset: \
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--trajectory-id", type=int, default=0)
+@click.option("--debug", is_flag=True)
 def main(features_path, connectivity_path, connectivity_namespace, io_size, chunk_size, value_chunk_size, cache_size,
-         trajectory_id):
+         trajectory_id, debug):
     """
 
     :param features_path:
@@ -64,6 +65,7 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     :param value_chunk_size:
     :param cache_size:
     :param trajectory_id:
+    :param debug:
     """
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -109,9 +111,11 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     target_population = 'GC'
     count = 0
     start_time = time.time()
-    for gid, connectivity_dict in NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population,
-                                                       io_size=io_size, cache_size=cache_size,
-                                                       namespace=connectivity_namespace):
+    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
+                                cache_size=cache_size, namespace=connectivity_namespace)
+    if debug:
+        attr_gen = [attr_gen.next() for i in xrange(2)]
+    for gid, connectivity_dict in attr_gen:
         local_time = time.time()
         source_gid_counts = {}
         response_dict = {}
@@ -144,12 +148,19 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
                         rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
                         response = np.add(response, contact_count * rate(x, y), dtype='float32')
             response_dict[gid] = {'waveform': response}
+            baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
+            peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
+            modulation = peak / baseline - 1.
+            peak_index = np.where(response == np.max(response))[0][0]
+            response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
+            response_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')
             print 'Rank %i: took %.2f s to compute predicted response for %s gid %i' % \
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
-        append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_dict,
-                            namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
-                            value_chunk_size=value_chunk_size)
+        if not debug:
+            append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_dict,
+                                   namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
+                                   value_chunk_size=value_chunk_size)
         sys.stdout.flush()
         del response
         del response_dict
