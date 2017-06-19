@@ -1,5 +1,4 @@
 from function_lib import *
-from collections import Counter
 from mpi4py import MPI
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import append_cell_attributes
@@ -15,7 +14,7 @@ except:
     pass
 
 
-script_name = 'predict_DG_GC_feature_selectivity.py'
+script_name = 'predict_DG_GC_feature_selectivity_weighted.py'
 
 example_features_path = '../morphologies/dentate_Full_Scale_Control_selectivity_20170615.h5'
 example_connectivity_path = '../morphologies/DGC_forest_connectivity_20170427.h5'
@@ -45,6 +44,8 @@ place_rate = lambda field_width, x_offset, y_offset: \
 
 @click.command()
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--weights-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--weights-namespace", type=str, default='Weights')
 @click.option("--connectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--io-size", type=int, default=-1)
@@ -53,11 +54,13 @@ place_rate = lambda field_width, x_offset, y_offset: \
 @click.option("--cache-size", type=int, default=50)
 @click.option("--trajectory-id", type=int, default=0)
 @click.option("--debug", is_flag=True)
-def main(features_path, connectivity_path, connectivity_namespace, io_size, chunk_size, value_chunk_size, cache_size,
-         trajectory_id, debug):
+def main(features_path, weights_path, weights_namespace, connectivity_path, connectivity_namespace, io_size,
+         chunk_size, value_chunk_size, cache_size, trajectory_id, debug):
     """
 
     :param features_path:
+    :param weights_path:
+    :param weights_namespace:
     :param connectivity_path:
     :param connectivity_namespace:
     :param io_size:
@@ -82,6 +85,9 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     for population in ['MPP', 'LPP']:
         features_dict[population] = bcast_cell_attributes(MPI._addressof(comm), 0, features_path, population,
                                                           namespace='Feature Selectivity')
+
+    if weights_path is None:
+        weights_path = features_path
 
     run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
@@ -111,60 +117,70 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     target_population = 'GC'
     count = 0
     start_time = time.time()
-    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
-                                cache_size=cache_size, namespace=connectivity_namespace)
-    if debug:
-        attr_gen = [attr_gen.next() for i in xrange(2)]
-    for gid, connectivity_dict in attr_gen:
+    connectivity_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
+                                        cache_size=cache_size, namespace=connectivity_namespace)
+    weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, target_population, io_size=io_size,
+                                        cache_size=cache_size, namespace=weights_namespace)
+    for (gid, connectivity_dict), (weights_gid, weights_dict) in zip(connectivity_gen, weights_gen):
         local_time = time.time()
-        source_gid_counts = {}
+        source_map = {}
+        weight_map = {}
         response_dict = {}
         response = np.zeros_like(d, dtype='float32')
         if gid is not None:
+            if gid != weights_gid:
+                raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen')
+            weight_map = {weights_dict[weights_namespace]['syn_id'][i]:
+                              weights_dict[weights_namespace]['weight'][i]
+                          for i in xrange(len(weights_dict[weights_namespace]['syn_id']))}
             for population in ['MPP', 'LPP']:
                 indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'] >=
                                     population_range_dict[population][0]) &
                                    (connectivity_dict[connectivity_namespace]['source_gid'] <
                                     population_range_dict[population][0] + population_range_dict[population][1]))[0]
-                source_gid_counts[population] = \
-                    Counter(connectivity_dict[connectivity_namespace]['source_gid'][indexes])
+                source_map[population] = {connectivity_dict[connectivity_namespace]['source_gid'][index]:
+                                           connectivity_dict[connectivity_namespace]['syn_id'][index]
+                                           for index in indexes}
             for population in ['MPP', 'LPP']:
-                for source_gid in (source_gid for source_gid in source_gid_counts[population]
+                for source_gid in (source_gid for source_gid in source_map[population]
                                    if source_gid in features_dict[population]):
                     this_feature_dict = features_dict[population][source_gid]
                     selectivity_type = this_feature_dict['Selectivity Type'][0]
-                    contact_count = source_gid_counts[population][source_gid]
+                    syn_id = source_map[population][source_gid]
+                    weight = weight_map[syn_id]
                     if selectivity_type == selectivity_grid:
                         ori_offset = this_feature_dict['Grid Orientation'][0]
                         grid_spacing = this_feature_dict['Grid Spacing'][0]
                         x_offset = this_feature_dict['X Offset'][0]
                         y_offset = this_feature_dict['Y Offset'][0]
                         rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
-                        response = np.add(response, contact_count * rate(x, y), dtype='float32')
                     elif selectivity_type == selectivity_place_field:
                         field_width = this_feature_dict['Field Width'][0]
                         x_offset = this_feature_dict['X Offset'][0]
                         y_offset = this_feature_dict['Y Offset'][0]
                         rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
-                        response = np.add(response, contact_count * rate(x, y), dtype='float32')
+                    response = np.add(response, weight * rate(x, y), dtype='float32')
             response_dict[gid] = {'waveform': response}
             baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
             peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
-            modulation = peak / baseline - 1.
+            modulation = peak/baseline - 1.
             peak_index = np.where(response == np.max(response))[0][0]
             response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
             response_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')
             print 'Rank %i: took %.2f s to compute predicted response for %s gid %i' % \
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
+            if debug and count > 1:
+                break
         if not debug:
             append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_dict,
-                                   namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
-                                   value_chunk_size=value_chunk_size)
+                            namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
+                            value_chunk_size=value_chunk_size)
         sys.stdout.flush()
         del response
         del response_dict
-        del source_gid_counts
+        del source_map
+        del weight_map
         gc.collect()
 
     global_count = comm.gather(count, root=0)
