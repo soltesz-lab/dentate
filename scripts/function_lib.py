@@ -251,3 +251,17 @@ def serial_neuroh5_get_attr(file_path, population, namespace, gid, header='Popul
                     attr_dict[namespace][attr] = group[attr]['value'][start:stop]
     return attr_dict
 
+
+def gid_in_population_list(gid, population_list, population_range_dict):
+    """
+    If the gid is in the gid range of a population, the name of the population is returned. Otherwise, None.
+    :param gid: int
+    :param population_list: list of str
+    :param population_range_dict: dict of tuple of int
+    :return: str or None
+    """
+    for population in population_list:
+        if population_range_dict[population][0] <= gid < population_range_dict[population][0] + \
+                population_range_dict[population][1]:
+            return population
+    return None

@@ -15,10 +15,19 @@ except:
     pass
 
 
-script_name = 'predict_DG_GC_feature_selectivity.py'
+# log_normal weights: 1./(sigma * x * np.sqrt(2. * np.pi)) * np.exp(-((np.log(x)-mu)**2.)/(2. * sigma**2.))
 
-example_features_path = '../morphologies/dentate_Full_Scale_Control_selectivity_20170615.h5'
-example_connectivity_path = '../morphologies/DGC_forest_connectivity_20170427.h5'
+script_name = 'compute_DG_GC_structured_weights.py'
+
+local_random = np.random.RandomState()
+# yields a distribution of synaptic weights with mean  ~>1., and tail ~2.-4.
+mu = 0.
+sigma = 0.35
+
+
+plasticity_mask_sigma = 90. / 3. / np.sqrt(2.)  # cm
+plasticity_mask = lambda d, d_offset: np.exp(-((d-d_offset)/plasticity_mask_sigma) ** 2.)
+plasticity_mask = np.vectorize(plasticity_mask, excluded=[1])
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
@@ -45,6 +54,8 @@ place_rate = lambda field_width, x_offset, y_offset: \
 
 @click.command()
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--weights-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--weights-namespace", type=str, default='Weights')
 @click.option("--connectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--io-size", type=int, default=-1)
@@ -52,12 +63,15 @@ place_rate = lambda field_width, x_offset, y_offset: \
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--trajectory-id", type=int, default=0)
+@click.option("--seed", type=int, default=6)
 @click.option("--debug", is_flag=True)
-def main(features_path, connectivity_path, connectivity_namespace, io_size, chunk_size, value_chunk_size, cache_size,
-         trajectory_id, debug):
+def main(features_path, weights_path, weights_namespace, connectivity_path, connectivity_namespace, io_size, chunk_size,
+         value_chunk_size, cache_size, trajectory_id, seed, debug):
     """
 
     :param features_path:
+    :param weights_path:
+    :param weights_namespace:
     :param connectivity_path:
     :param connectivity_namespace:
     :param io_size:
@@ -65,8 +79,12 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     :param value_chunk_size:
     :param cache_size:
     :param trajectory_id:
+    :param seed:
     :param debug:
     """
+    # make sure random seeds are not being reused for various types of stochastic sampling
+    weights_seed_offset = int(seed * 2e6)
+
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
@@ -76,12 +94,15 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    population_range_dict = population_ranges(MPI._addressof(comm), features_path)
+    population_range_dict = population_ranges(MPI._addressof(comm), connectivity_path)
 
     features_dict = {}
     for population in ['MPP', 'LPP']:
         features_dict[population] = bcast_cell_attributes(MPI._addressof(comm), 0, features_path, population,
                                                           namespace='Feature Selectivity')
+
+    if weights_path is None:
+        weights_path = features_path
 
     arena_dimension = 100.  # minimum distance from origin to boundary (cm)
 
@@ -108,7 +129,7 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
         y = f['Trajectories'][str(trajectory_id)]['y'][:]
         d = f['Trajectories'][str(trajectory_id)]['d'][:]
 
-    prediction_namespace = 'Response Prediction '+str(trajectory_id)
+    prediction_namespace = 'Response Prediction ' + str(trajectory_id)
 
     target_population = 'GC'
     count = 0
@@ -119,59 +140,37 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
         attr_gen = [attr_gen.next() for i in xrange(2)]
     for gid, connectivity_dict in attr_gen:
         local_time = time.time()
-        source_gid_counts = {}
-        response_dict = {}
-        response = np.zeros_like(d, dtype='float32')
+        weights_dict = {}
+        syn_ids = np.array([], dtype='uint32')
+        weights = np.array([], dtype='float32')
         if gid is not None:
             for population in ['MPP', 'LPP']:
                 indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'] >=
                                     population_range_dict[population][0]) &
                                    (connectivity_dict[connectivity_namespace]['source_gid'] <
                                     population_range_dict[population][0] + population_range_dict[population][1]))[0]
-                source_gid_counts[population] = \
-                    Counter(connectivity_dict[connectivity_namespace]['source_gid'][indexes])
-            for population in ['MPP', 'LPP']:
-                for source_gid in (source_gid for source_gid in source_gid_counts[population]
-                                   if source_gid in features_dict[population]):
-                    this_feature_dict = features_dict[population][source_gid]
-                    selectivity_type = this_feature_dict['Selectivity Type'][0]
-                    contact_count = source_gid_counts[population][source_gid]
-                    if selectivity_type == selectivity_grid:
-                        ori_offset = this_feature_dict['Grid Orientation'][0]
-                        grid_spacing = this_feature_dict['Grid Spacing'][0]
-                        x_offset = this_feature_dict['X Offset'][0]
-                        y_offset = this_feature_dict['Y Offset'][0]
-                        rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
-                        response = np.add(response, contact_count * rate(x, y), dtype='float32')
-                    elif selectivity_type == selectivity_place_field:
-                        field_width = this_feature_dict['Field Width'][0]
-                        x_offset = this_feature_dict['X Offset'][0]
-                        y_offset = this_feature_dict['Y Offset'][0]
-                        rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
-                        response = np.add(response, contact_count * rate(x, y), dtype='float32')
-            response_dict[gid] = {'waveform': response}
-            baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
-            peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
-            modulation = peak / baseline - 1.
-            peak_index = np.where(response == np.max(response))[0][0]
-            response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
-            response_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')
-            print 'Rank %i: took %.2f s to compute predicted response for %s gid %i' % \
+                syn_ids = np.append(syn_ids,
+                                    connectivity_dict[connectivity_namespace]['syn_id'][indexes]).astype('uint32',
+                                                                                                         copy=False)
+            local_random.seed(gid + weights_seed_offset)
+            weights = np.append(weights, local_random.lognormal(mu, sigma, len(syn_ids))).astype('float32', copy=False)
+            weights_dict[gid] = {'syn_id': syn_ids, 'weight': weights}
+            print 'Rank %i: took %.2f s to compute synaptic weights for %s gid %i' % \
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
         if not debug:
-            append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_dict,
-                                   namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
+            append_cell_attributes(MPI._addressof(comm), weights_path, target_population, weights_dict,
+                                   namespace=weights_namespace, io_size=io_size, chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
         sys.stdout.flush()
-        del response
-        del response_dict
-        del source_gid_counts
+        del syn_ids
+        del weights
+        del weights_dict
         gc.collect()
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print '%i ranks took %.2f s to compute selectivity parameters for %i %s cells' % \
+        print '%i ranks took %.2f s to compute synaptic weights for %i %s cells' % \
               (comm.size, time.time() - start_time, np.sum(global_count), target_population)
 
 

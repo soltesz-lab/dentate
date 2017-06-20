@@ -1,9 +1,7 @@
 from function_lib import *
-from collections import Counter
 from mpi4py import MPI
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import append_cell_attributes
-from neurotrees.io import bcast_cell_attributes
 from neurotrees.io import population_ranges
 import click
 
@@ -18,9 +16,6 @@ except:
 # log_normal weights: 1./(sigma * x * np.sqrt(2. * np.pi)) * np.exp(-((np.log(x)-mu)**2.)/(2. * sigma**2.))
 
 script_name = 'compute_DG_GC_log_normal_weights.py'
-
-# make sure random seeds are not being reused for various types of stochastic sampling
-weights_seed_offset = int(4 * 2e6)
 
 local_random = np.random.RandomState()
 # yields a distribution of synaptic weights with mean  ~>1., and tail ~2.-4.
@@ -37,9 +32,10 @@ sigma = 0.35
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
+@click.option("--seed", type=int, default=4)
 @click.option("--debug", is_flag=True)
 def main(weights_path, weights_namespace, connectivity_path, connectivity_namespace, io_size, chunk_size,
-         value_chunk_size, cache_size, debug):
+         value_chunk_size, cache_size, seed, debug):
     """
 
     :param weights_path:
@@ -50,7 +46,12 @@ def main(weights_path, weights_namespace, connectivity_path, connectivity_namesp
     :param chunk_size:
     :param value_chunk_size:
     :param cache_size:
+    :param seed:
+    :param debug:
     """
+    # make sure random seeds are not being reused for various types of stochastic sampling
+    weights_seed_offset = int(seed * 2e6)
+
     comm = MPI.COMM_WORLD
     rank = comm.rank
 

@@ -1,4 +1,5 @@
 from function_lib import *
+from collections import defaultdict
 from mpi4py import MPI
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import append_cell_attributes
@@ -89,10 +90,12 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
     if weights_path is None:
         weights_path = features_path
 
+    arena_dimension = 100.  # minimum distance from origin to boundary (cm)
+
     run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
-    x = np.arange(-100., 100., 1.)
-    y = np.arange(-100., 100., 1.)
+    x = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
+    y = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
     t = interp_distance / run_vel * 1000.  # ms
@@ -115,13 +118,18 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
     prediction_namespace = 'Response Prediction '+str(trajectory_id)
 
     target_population = 'GC'
+    source_population_list = ['MPP', 'LPP']
     count = 0
     start_time = time.time()
     connectivity_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
                                         cache_size=cache_size, namespace=connectivity_namespace)
     weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, target_population, io_size=io_size,
                                         cache_size=cache_size, namespace=weights_namespace)
-    for (gid, connectivity_dict), (weights_gid, weights_dict) in zip(connectivity_gen, weights_gen):
+    if debug:
+        attr_gen = [(connectivity_gen.next(), weights_gen.next()) for i in xrange(2)]
+    else:
+        attr_gen = zip(connectivity_gen, weights_gen)
+    for (gid, connectivity_dict), (weights_gid, weights_dict) in attr_gen:
         local_time = time.time()
         source_map = {}
         weight_map = {}
@@ -133,21 +141,18 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
             weight_map = {weights_dict[weights_namespace]['syn_id'][i]:
                               weights_dict[weights_namespace]['weight'][i]
                           for i in xrange(len(weights_dict[weights_namespace]['syn_id']))}
-            for population in ['MPP', 'LPP']:
-                indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'] >=
-                                    population_range_dict[population][0]) &
-                                   (connectivity_dict[connectivity_namespace]['source_gid'] <
-                                    population_range_dict[population][0] + population_range_dict[population][1]))[0]
-                source_map[population] = {connectivity_dict[connectivity_namespace]['source_gid'][index]:
-                                           connectivity_dict[connectivity_namespace]['syn_id'][index]
-                                           for index in indexes}
-            for population in ['MPP', 'LPP']:
-                for source_gid in (source_gid for source_gid in source_map[population]
-                                   if source_gid in features_dict[population]):
+            for population in source_population_list:
+                source_map[population] = defaultdict(list)
+            for i in xrange(len(connectivity_dict[connectivity_namespace]['source_gid'])):
+                source_gid = connectivity_dict[connectivity_namespace]['source_gid'][i]
+                population = gid_in_population_list(source_gid, source_population_list, population_range_dict)
+                if population is not None:
+                    syn_id = connectivity_dict[connectivity_namespace]['syn_id'][i]
+                    source_map[population][source_gid].append(syn_id)
+            for population in source_population_list:
+                for source_gid in source_map[population]:
                     this_feature_dict = features_dict[population][source_gid]
                     selectivity_type = this_feature_dict['Selectivity Type'][0]
-                    syn_id = source_map[population][source_gid]
-                    weight = weight_map[syn_id]
                     if selectivity_type == selectivity_grid:
                         ori_offset = this_feature_dict['Grid Orientation'][0]
                         grid_spacing = this_feature_dict['Grid Spacing'][0]
@@ -159,7 +164,9 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
                         x_offset = this_feature_dict['X Offset'][0]
                         y_offset = this_feature_dict['Y Offset'][0]
                         rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
-                    response = np.add(response, weight * rate(x, y), dtype='float32')
+                    for syn_id in source_map[population][source_gid]:
+                        weight = weight_map[syn_id]
+                        response = np.add(response, weight * rate(x, y), dtype='float32')
             response_dict[gid] = {'waveform': response}
             baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
             peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
@@ -185,7 +192,7 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print '%i ranks took %.2f s to compute selectivity parameters for %i %s cells' % \
+        print '%i ranks took %.2f s to compute predicted response parameters for %i %s cells' % \
               (comm.size, time.time() - start_time, np.sum(global_count), target_population)
 
 
