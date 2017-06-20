@@ -1,11 +1,22 @@
 from function_lib import *
-from collections import Counter
+from itertools import izip
+from collections import defaultdict
 from mpi4py import MPI
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import append_cell_attributes
 from neurotrees.io import bcast_cell_attributes
 from neurotrees.io import population_ranges
 import click
+
+"""
+features_path: contains 'Feature Selectivity' namespace describing inputs, and 'Response Prediction %i' based on a
+    previous prediction to act as a seed for further sculpting by plasticity
+weights_path: contains existing 'Weights' namespace; write 'Sculpted Weights' namespace to this path
+connectivity_path: contains existing mapping of syn_id to source_gid
+
+10% of GCs will have a subset of weights modified according to a slow timescale plasticity rule, the rest are inherited
+    from the previous set of weights
+"""
 
 
 try:
@@ -20,10 +31,10 @@ except:
 script_name = 'compute_DG_GC_structured_weights.py'
 
 local_random = np.random.RandomState()
+
 # yields a distribution of synaptic weights with mean  ~>1., and tail ~2.-4.
 mu = 0.
 sigma = 0.35
-
 
 plasticity_mask_sigma = 90. / 3. / np.sqrt(2.)  # cm
 plasticity_mask = lambda d, d_offset: np.exp(-((d-d_offset)/plasticity_mask_sigma) ** 2.)
@@ -56,6 +67,7 @@ place_rate = lambda field_width, x_offset, y_offset: \
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--weights-namespace", type=str, default='Weights')
+@click.option("--structured-weights-namespace", type=str, default='Structured Weights')
 @click.option("--connectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--io-size", type=int, default=-1)
@@ -64,14 +76,17 @@ place_rate = lambda field_width, x_offset, y_offset: \
 @click.option("--cache-size", type=int, default=50)
 @click.option("--trajectory-id", type=int, default=0)
 @click.option("--seed", type=int, default=6)
+@click.option("--target-sparsity", type=float, default=0.05)
 @click.option("--debug", is_flag=True)
-def main(features_path, weights_path, weights_namespace, connectivity_path, connectivity_namespace, io_size, chunk_size,
-         value_chunk_size, cache_size, trajectory_id, seed, debug):
+def main(features_path, weights_path, weights_namespace, structured_weights_namespace, connectivity_path,
+         connectivity_namespace, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id, seed,
+         target_sparsity, debug):
     """
 
     :param features_path:
     :param weights_path:
     :param weights_namespace:
+    :param structured_weights_namespace:
     :param connectivity_path:
     :param connectivity_namespace:
     :param io_size:
@@ -80,6 +95,7 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
     :param cache_size:
     :param trajectory_id:
     :param seed:
+    :param target_sparsity:
     :param debug:
     """
     # make sure random seeds are not being reused for various types of stochastic sampling
@@ -97,7 +113,8 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
     population_range_dict = population_ranges(MPI._addressof(comm), connectivity_path)
 
     features_dict = {}
-    for population in ['MPP', 'LPP']:
+    source_population_list = ['MPP', 'LPP']
+    for population in source_population_list:
         features_dict[population] = bcast_cell_attributes(MPI._addressof(comm), 0, features_path, population,
                                                           namespace='Feature Selectivity')
 
@@ -108,64 +125,68 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
 
     run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
-    x = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-    y = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-    distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
-    interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
-    t = interp_distance / run_vel * 1000.  # ms
-    interp_x = np.interp(interp_distance, distance, x)
-    interp_y = np.interp(interp_distance, distance, y)
 
     with h5py.File(features_path, 'a', driver='mpio', comm=comm) as f:
-        if 'Trajectories' not in f:
-            f.create_group('Trajectories')
-        if str(trajectory_id) not in f['Trajectories']:
-            f['Trajectories'].create_group(str(trajectory_id))
-            f['Trajectories'][str(trajectory_id)].create_dataset('x', dtype='float32', data=interp_x)
-            f['Trajectories'][str(trajectory_id)].create_dataset('y', dtype='float32', data=interp_y)
-            f['Trajectories'][str(trajectory_id)].create_dataset('d', dtype='float32', data=interp_distance)
-            f['Trajectories'][str(trajectory_id)].create_dataset('t', dtype='float32', data=t)
-        x = f['Trajectories'][str(trajectory_id)]['x'][:]
-        y = f['Trajectories'][str(trajectory_id)]['y'][:]
-        d = f['Trajectories'][str(trajectory_id)]['d'][:]
+        try:
+            x = f['Trajectories'][str(trajectory_id)]['x'][:]
+            y = f['Trajectories'][str(trajectory_id)]['y'][:]
+            d = f['Trajectories'][str(trajectory_id)]['d'][:]
+        except:
+            raise AttributeError('compute_DG_GC_structured_weights: features file does not contain trajectory')
 
     prediction_namespace = 'Response Prediction ' + str(trajectory_id)
 
     target_population = 'GC'
     count = 0
     start_time = time.time()
-    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
-                                cache_size=cache_size, namespace=connectivity_namespace)
+    connectivity_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
+                                        cache_size=cache_size, namespace=connectivity_namespace)
+    weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, target_population, io_size=io_size,
+                                   cache_size=cache_size, namespace=weights_namespace)
+    prediction_gen = NeurotreeAttrGen(MPI._addressof(comm), features_path, target_population, io_size=io_size,
+                                   cache_size=cache_size, namespace=prediction_namespace)
     if debug:
-        attr_gen = [attr_gen.next() for i in xrange(2)]
-    for gid, connectivity_dict in attr_gen:
+        attr_gen = ((connectivity_gen.next(), weights_gen.next(), prediction_gen.next()) for i in xrange(2))
+    else:
+        attr_gen = izip(connectivity_gen, weights_gen, prediction_gen)
+    for (gid, connectivity_dict), (weights_gid, weights_dict), (prediction_gid, prediction_dict) in attr_gen:
         local_time = time.time()
-        weights_dict = {}
-        syn_ids = np.array([], dtype='uint32')
-        weights = np.array([], dtype='float32')
+        source_map = {}
+        weight_map = {}
+        structured_weights_dict = {}
         if gid is not None:
-            for population in ['MPP', 'LPP']:
-                indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'] >=
-                                    population_range_dict[population][0]) &
-                                   (connectivity_dict[connectivity_namespace]['source_gid'] <
-                                    population_range_dict[population][0] + population_range_dict[population][1]))[0]
-                syn_ids = np.append(syn_ids,
-                                    connectivity_dict[connectivity_namespace]['syn_id'][indexes]).astype('uint32',
-                                                                                                         copy=False)
+            if gid != weights_gid:
+                raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen')
+            if gid != prediction_gid:
+                raise Exception('gid %i from connectivity_gen does not match gid %i from prediction_gen')
             local_random.seed(gid + weights_seed_offset)
-            weights = np.append(weights, local_random.lognormal(mu, sigma, len(syn_ids))).astype('float32', copy=False)
-            weights_dict[gid] = {'syn_id': syn_ids, 'weight': weights}
+            if local_random.rand() <= target_sparsity:
+                weight_map = dict(zip(weights_dict[weights_namespace]['syn_id'],
+                                      weights_dict[weights_namespace]['weight']))
+                for population in source_population_list:
+                    source_map[population] = defaultdict(list)
+                for i in xrange(len(connectivity_dict[connectivity_namespace]['source_gid'])):
+                    source_gid = connectivity_dict[connectivity_namespace]['source_gid'][i]
+                    population = gid_in_population_list(source_gid, source_population_list, population_range_dict)
+                    if population is not None:
+                        syn_id = connectivity_dict[connectivity_namespace]['syn_id'][i]
+                        source_map[population][source_gid].append(syn_id)
+                structured_weights_dict[gid] = {'syn_id': np.array(weight_map.keys()).astype('uint32', copy=False),
+                                                'weight': np.array(weight_map.values()).astype('float32', copy=False)}
+            else:
+                structured_weights_dict[gid] = weights_dict[weights_namespace]
             print 'Rank %i: took %.2f s to compute synaptic weights for %s gid %i' % \
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
         if not debug:
-            append_cell_attributes(MPI._addressof(comm), weights_path, target_population, weights_dict,
-                                   namespace=weights_namespace, io_size=io_size, chunk_size=chunk_size,
+            append_cell_attributes(MPI._addressof(comm), weights_path, target_population, structured_weights_dict,
+                                   namespace=structured_weights_namespace, io_size=io_size, chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
         sys.stdout.flush()
-        del syn_ids
-        del weights
+        del source_map
+        del weight_map
         del weights_dict
+        del structured_weights_dict
         gc.collect()
 
     global_count = comm.gather(count, root=0)

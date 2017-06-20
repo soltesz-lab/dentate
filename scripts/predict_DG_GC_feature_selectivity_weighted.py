@@ -1,4 +1,5 @@
 from function_lib import *
+from itertools import izip
 from collections import defaultdict
 from mpi4py import MPI
 from neurotrees.io import NeurotreeAttrGen
@@ -126,9 +127,9 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
     weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, target_population, io_size=io_size,
                                         cache_size=cache_size, namespace=weights_namespace)
     if debug:
-        attr_gen = [(connectivity_gen.next(), weights_gen.next()) for i in xrange(2)]
+        attr_gen = ((connectivity_gen.next(), weights_gen.next()) for i in xrange(2))
     else:
-        attr_gen = zip(connectivity_gen, weights_gen)
+        attr_gen = izip(connectivity_gen, weights_gen)
     for (gid, connectivity_dict), (weights_gid, weights_dict) in attr_gen:
         local_time = time.time()
         source_map = {}
@@ -177,8 +178,6 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
             print 'Rank %i: took %.2f s to compute predicted response for %s gid %i' % \
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
-            if debug and count > 1:
-                break
         if not debug:
             append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_dict,
                             namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,

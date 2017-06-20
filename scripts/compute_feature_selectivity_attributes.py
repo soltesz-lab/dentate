@@ -132,7 +132,7 @@ def main(coords_path, coords_namespace, io_size, chunk_size, value_chunk_size, c
         attr_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_path, population, io_size=io_size,
                                     cache_size=cache_size, namespace=coords_namespace)
         if debug:
-            attr_gen = [attr_gen.next() for i in xrange(2)]
+            attr_gen = (attr_gen.next() for i in xrange(2))
         for gid, coords_dict in attr_gen:
             selectivity_dict = {}
             if gid is not None:
