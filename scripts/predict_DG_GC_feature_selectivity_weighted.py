@@ -139,9 +139,8 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
         if gid is not None:
             if gid != weights_gid:
                 raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen')
-            weight_map = {weights_dict[weights_namespace]['syn_id'][i]:
-                              weights_dict[weights_namespace]['weight'][i]
-                          for i in xrange(len(weights_dict[weights_namespace]['syn_id']))}
+            weight_map = dict(zip(weights_dict[weights_namespace]['syn_id'],
+                                  weights_dict[weights_namespace]['weight']))
             for population in source_population_list:
                 source_map[population] = defaultdict(list)
             for i in xrange(len(connectivity_dict[connectivity_namespace]['source_gid'])):
@@ -165,9 +164,10 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
                         x_offset = this_feature_dict['X Offset'][0]
                         y_offset = this_feature_dict['Y Offset'][0]
                         rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
+                    this_rate = rate(x, y)
                     for syn_id in source_map[population][source_gid]:
                         weight = weight_map[syn_id]
-                        response = np.add(response, weight * rate(x, y), dtype='float32')
+                        response = np.add(response, weight * this_rate, dtype='float32')
             response_dict[gid] = {'waveform': response}
             baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
             peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])

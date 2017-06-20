@@ -9,13 +9,14 @@ from neurotrees.io import population_ranges
 import click
 
 """
-features_path: contains 'Feature Selectivity' namespace describing inputs, and 'Response Prediction %i' based on a
-    previous prediction to act as a seed for further sculpting by plasticity
-weights_path: contains existing 'Weights' namespace; write 'Sculpted Weights' namespace to this path
+features_path: contains 'Feature Selectivity' namespace describing inputs
+weights_path: contains existing 'Weights' namespace; write 'Structured Weights' namespace to this path
 connectivity_path: contains existing mapping of syn_id to source_gid
 
 10% of GCs will have a subset of weights modified according to a slow timescale plasticity rule, the rest are inherited
     from the previous set of weights
+    
+TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the previous weight distribution.
 """
 
 
@@ -31,14 +32,6 @@ except:
 script_name = 'compute_DG_GC_structured_weights.py'
 
 local_random = np.random.RandomState()
-
-# yields a distribution of synaptic weights with mean  ~>1., and tail ~2.-4.
-mu = 0.
-sigma = 0.35
-
-plasticity_mask_sigma = 90. / 3. / np.sqrt(2.)  # cm
-plasticity_mask = lambda d, d_offset: np.exp(-((d-d_offset)/plasticity_mask_sigma) ** 2.)
-plasticity_mask = np.vectorize(plasticity_mask, excluded=[1])
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
@@ -125,6 +118,10 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
 
     run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
+    plasticity_window_dur = 3.  # s
+    plasticity_kernel_sigma = plasticity_window_dur * run_vel / 3. / np.sqrt(2.)  # cm
+    plasticity_kernel = lambda d, d_offset: np.exp(-((d - d_offset) / plasticity_kernel_sigma) ** 2.)
+    plasticity_kernel = np.vectorize(plasticity_kernel, excluded=[1])
 
     with h5py.File(features_path, 'a', driver='mpio', comm=comm) as f:
         try:
@@ -134,8 +131,6 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
         except:
             raise AttributeError('compute_DG_GC_structured_weights: features file does not contain trajectory')
 
-    prediction_namespace = 'Response Prediction ' + str(trajectory_id)
-
     target_population = 'GC'
     count = 0
     start_time = time.time()
@@ -143,26 +138,24 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
                                         cache_size=cache_size, namespace=connectivity_namespace)
     weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, target_population, io_size=io_size,
                                    cache_size=cache_size, namespace=weights_namespace)
-    prediction_gen = NeurotreeAttrGen(MPI._addressof(comm), features_path, target_population, io_size=io_size,
-                                   cache_size=cache_size, namespace=prediction_namespace)
     if debug:
-        attr_gen = ((connectivity_gen.next(), weights_gen.next(), prediction_gen.next()) for i in xrange(2))
+        attr_gen = ((connectivity_gen.next(), weights_gen.next()) for i in xrange(2))
     else:
-        attr_gen = izip(connectivity_gen, weights_gen, prediction_gen)
-    for (gid, connectivity_dict), (weights_gid, weights_dict), (prediction_gid, prediction_dict) in attr_gen:
+        attr_gen = izip(connectivity_gen, weights_gen)
+    for (gid, connectivity_dict), (weights_gid, weights_dict) in attr_gen:
         local_time = time.time()
         source_map = {}
         weight_map = {}
+        structured_weight_map = {}
         structured_weights_dict = {}
         if gid is not None:
             if gid != weights_gid:
                 raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen')
-            if gid != prediction_gid:
-                raise Exception('gid %i from connectivity_gen does not match gid %i from prediction_gen')
             local_random.seed(gid + weights_seed_offset)
-            if local_random.rand() <= target_sparsity:
+            if local_random.uniform() <= target_sparsity:
                 weight_map = dict(zip(weights_dict[weights_namespace]['syn_id'],
                                       weights_dict[weights_namespace]['weight']))
+                print 'Rank: %i, %s gid: %i, loaded %i inputs' % (rank, target_population, gid, len(weight_map))
                 for population in source_population_list:
                     source_map[population] = defaultdict(list)
                 for i in xrange(len(connectivity_dict[connectivity_namespace]['source_gid'])):
@@ -171,12 +164,52 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
                     if population is not None:
                         syn_id = connectivity_dict[connectivity_namespace]['syn_id'][i]
                         source_map[population][source_gid].append(syn_id)
+                peak_loc = local_random.choice(d)
+                this_plasticity_kernel = plasticity_kernel(d, peak_loc)
+                plasticity_kernel_area = np.sum(this_plasticity_kernel) * spatial_resolution
+                plasticity_signal_list = []
+                for population in source_population_list:
+                    for source_gid in source_map[population]:
+                        this_feature_dict = features_dict[population][source_gid]
+                        selectivity_type = this_feature_dict['Selectivity Type'][0]
+                        if selectivity_type == selectivity_grid:
+                            rate_threshold = grid_peak_rate / 10.
+                            ori_offset = this_feature_dict['Grid Orientation'][0]
+                            grid_spacing = this_feature_dict['Grid Spacing'][0]
+                            x_offset = this_feature_dict['X Offset'][0]
+                            y_offset = this_feature_dict['Y Offset'][0]
+                            rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
+                        elif selectivity_type == selectivity_place_field:
+                            rate_threshold = place_peak_rate / 10.
+                            field_width = this_feature_dict['Field Width'][0]
+                            x_offset = this_feature_dict['X Offset'][0]
+                            y_offset = this_feature_dict['Y Offset'][0]
+                            rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
+                        this_plasticity_signal = np.sum(np.multiply(rate(x, y), this_plasticity_kernel)) * \
+                                                 spatial_resolution
+                        if this_plasticity_signal / plasticity_kernel_area > rate_threshold:
+                            if population not in structured_weight_map:
+                                structured_weight_map[population] = {}
+                            structured_weight_map[population][source_gid] = this_plasticity_signal
+                            plasticity_signal_list.append(this_plasticity_signal)
+                plasticity_signal_min = np.min(plasticity_signal_list)
+                plasticity_signal_amp = np.max(plasticity_signal_list) - plasticity_signal_min
+                for population in structured_weight_map:
+                    for source_gid in structured_weight_map[population]:
+                        weight = 1.5 * (structured_weight_map[population][source_gid] - plasticity_signal_min) \
+                                 / plasticity_signal_amp + 1.
+                        for syn_id in source_map[population][source_gid]:
+                            weight_map[syn_id] = weight
+                print 'Rank: %i, %s gid: %i, ended with %i inputs' % (rank, target_population, gid, len(weight_map))
                 structured_weights_dict[gid] = {'syn_id': np.array(weight_map.keys()).astype('uint32', copy=False),
                                                 'weight': np.array(weight_map.values()).astype('float32', copy=False)}
+                print 'Rank %i: took %.2f s to compute structured weights for %s gid %i (%i inputs)' % \
+                      (rank, time.time() - local_time, target_population, gid, len(plasticity_signal_list))
+                del plasticity_signal_list
             else:
                 structured_weights_dict[gid] = weights_dict[weights_namespace]
-            print 'Rank %i: took %.2f s to compute synaptic weights for %s gid %i' % \
-                  (rank, time.time() - local_time, target_population, gid)
+                print 'Rank %i: took %.2f s; %s gid %i was not selected for structured weights' % \
+                      (rank, time.time() - local_time, target_population, gid)
             count += 1
         if not debug:
             append_cell_attributes(MPI._addressof(comm), weights_path, target_population, structured_weights_dict,
