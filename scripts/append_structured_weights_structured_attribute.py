@@ -3,15 +3,20 @@ from mpi4py import MPI
 from itertools import izip
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import append_cell_attributes
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
 import click
+
+
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
 
 script_name = 'append_structured_weights_structured_attribute.py'
 
 
 @click.command()
-@click.option("--weights-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
+@click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--weights-namespace", type=str, default='Weights')
 @click.option("--structured-weights-namespace", type=str, default='Structured Weights')
 @click.option("--io-size", type=int, default=-1)
