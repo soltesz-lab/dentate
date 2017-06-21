@@ -69,8 +69,10 @@ def main(weights_path, weights_namespace, connectivity_path, connectivity_namesp
     attr_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
                                 cache_size=cache_size, namespace=connectivity_namespace)
     if debug:
-        attr_gen = (attr_gen.next() for i in xrange(2))
-    for gid, connectivity_dict in attr_gen:
+        attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+    else:
+        attr_gen_wrapper = attr_gen
+    for gid, connectivity_dict in attr_gen_wrapper:
         local_time = time.time()
         weights_dict = {}
         syn_ids = np.array([], dtype='uint32')

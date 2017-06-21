@@ -138,7 +138,8 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
         response = np.zeros_like(d, dtype='float32')
         if gid is not None:
             if gid != weights_gid:
-                raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen')
+                raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen') % \
+                      (gid, weights_gid)
             weight_map = dict(zip(weights_dict[weights_namespace]['syn_id'],
                                   weights_dict[weights_namespace]['weight']))
             for population in source_population_list:
@@ -171,7 +172,7 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
             response_dict[gid] = {'waveform': response}
             baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
             peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
-            modulation = peak/baseline - 1.
+            modulation = 0. if peak <= 0.1 else (peak - baseline) / peak
             peak_index = np.where(response == np.max(response))[0][0]
             response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
             response_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')

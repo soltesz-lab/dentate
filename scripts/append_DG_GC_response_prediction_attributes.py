@@ -59,8 +59,10 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
     attr_gen = NeurotreeAttrGen(MPI._addressof(comm), features_path, target_population, io_size=io_size,
                                 cache_size=cache_size, namespace=prediction_namespace)
     if debug:
-        attr_gen = [attr_gen.next() for i in xrange(2)]
-    for gid, response_dict in attr_gen:
+        attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+    else:
+        attr_gen_wrapper = attr_gen
+    for gid, response_dict in attr_gen_wrapper:
         local_time = time.time()
         response_attr_dict = {}
         response = None

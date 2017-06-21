@@ -12,11 +12,11 @@ except:
     pass
 
 
-script_name = 'compute_feature_selectivity_attributes.py'
+script_name = 'compute_DG_PP_feature_selectivity_parameters.py'
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
 #  sample uniformly from 10 modules with spacing that increases exponentially from 40 cm to 8 m. While organized
-#  dorsal-ventrally, organization in the transverse or septo-temporal extent of their projections to DG.
+#  dorsal-ventrally, there is no organization in the transverse or septo-temporal extent of their projections to DG.
 #  CA3 and LEC are assumed to exhibit place fields. Their field width varies septal-temporally. Here we assume a
 #  continuous exponential gradient of field widths, with the same parameters as those controlling MEC grid width.
 
@@ -132,8 +132,10 @@ def main(coords_path, coords_namespace, io_size, chunk_size, value_chunk_size, c
         attr_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_path, population, io_size=io_size,
                                     cache_size=cache_size, namespace=coords_namespace)
         if debug:
-            attr_gen = (attr_gen.next() for i in xrange(2))
-        for gid, coords_dict in attr_gen:
+            attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+        else:
+            attr_gen_wrapper = attr_gen
+        for gid, coords_dict in attr_gen_wrapper:
             selectivity_dict = {}
             if gid is not None:
                 local_time = time.time()

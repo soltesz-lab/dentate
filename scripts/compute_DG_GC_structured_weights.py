@@ -168,7 +168,8 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
         peak_indexes = np.array([], dtype='uint32')
         if gid is not None:
             if gid != weights_gid:
-                raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen')
+                raise Exception('gid %i from connectivity_gen does not match gid %i from weights_gen') % \
+                      (gid, weights_gid)
             local_random.seed(gid + weights_seed_offset)
             if local_random.uniform() <= target_sparsity:
                 modify_weights = True
@@ -233,7 +234,8 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
             structured_weights_dict[gid] = {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
                                             'weight': np.array(syn_weight_map.values()).astype('float32',
                                                                                                copy=False),
-                                            'peak_index': peak_indexes}
+                                            'peak_index': peak_indexes,
+                                            'structured': np.array([int(modify_weights)], dtype='uint32')}
             if modify_weights:
                 print 'Rank %i: %s gid %i: computed structured weights for %i/%i inputs in %.2f s' % \
                       (rank, target_population, gid, len(plasticity_signal_list), len(syn_weight_map),

@@ -116,8 +116,10 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     attr_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
                                 cache_size=cache_size, namespace=connectivity_namespace)
     if debug:
-        attr_gen = [attr_gen.next() for i in xrange(2)]
-    for gid, connectivity_dict in attr_gen:
+        attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+    else:
+        attr_gen_wrapper = attr_gen
+    for gid, connectivity_dict in attr_gen_wrapper:
         local_time = time.time()
         source_gid_counts = {}
         response_dict = {}
@@ -142,17 +144,16 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
                         x_offset = this_feature_dict['X Offset'][0]
                         y_offset = this_feature_dict['Y Offset'][0]
                         rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
-                        response = np.add(response, contact_count * rate(x, y), dtype='float32')
                     elif selectivity_type == selectivity_place_field:
                         field_width = this_feature_dict['Field Width'][0]
                         x_offset = this_feature_dict['X Offset'][0]
                         y_offset = this_feature_dict['Y Offset'][0]
                         rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
-                        response = np.add(response, contact_count * rate(x, y), dtype='float32')
+                    response = np.add(response, contact_count * rate(x, y), dtype='float32')
             response_dict[gid] = {'waveform': response}
             baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
             peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
-            modulation = peak / baseline - 1.
+            modulation = 0. if peak <= 0.1 else (peak - baseline) / peak
             peak_index = np.where(response == np.max(response))[0][0]
             response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
             response_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')

@@ -190,8 +190,10 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
     attr_gen = NeurotreeAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size, cache_size=cache_size,
                                 namespace='Synapse_Attributes')
     if debug:
-        attr_gen = [attr_gen.next()]
-    for target_gid, attributes_dict in attr_gen:
+        attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+    else:
+        attr_gen_wrapper = attr_gen
+    for target_gid, attributes_dict in attr_gen_wrapper:
         last_time = time.time()
         connection_dict = {}
         p_dict = {}
