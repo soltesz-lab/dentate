@@ -1,7 +1,7 @@
 import sys, os.path, string
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurotrees.io import read_cell_attributes
+from neuroh5.io import read_cell_attributes
 import numpy as np
 import yaml
 
@@ -56,8 +56,8 @@ class Env:
                 offset=max(index)+1
         iocomm.Free()
     
-    def __init__(self, comm, configFile, defsFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
-                 IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, ldbal, lptbal, verbose):
+    def __init__(self, comm=None, configFile=None, defsFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, nodeRankFile=None,
+                 IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param defsFile: the name of the definitions file
@@ -79,11 +79,12 @@ class Env:
 
         self.SWC_Types = {}
         self.Synapse_Types = {}
-        
-        with open(defsFile) as fp:
-            defs = yaml.load(fp)
-            self.SWC_Types = defs['SWC_Types']
-            self.Synapse_Types = defs['Synapse_Types']
+
+        if defsFile is not None:
+            with open(defsFile) as fp:
+                defs = yaml.load(fp)
+                self.SWC_Types = defs['SWC Types']
+                self.Synapse_Types = defs['Synapse Types']
 
         self.gidlist = []
         self.cells  = []
@@ -98,7 +99,7 @@ class Env:
 
         # Directories for cell templates
         self.templatePaths=[]
-        if templatePaths:
+        if templatePaths is not None:
             self.templatePaths = string.split(templatePaths, ':')
 
         # The location of all datasets
@@ -149,8 +150,11 @@ class Env:
                     dval[int(a[0])] = int(a[1])
                 self.nodeRanks = dval
 
-        with open(configFile) as fp:
-            self.modelConfig = yaml.load(fp)
+        if configFile is not None:
+            with open(configFile) as fp:
+                self.modelConfig = yaml.load(fp)
+        else
+            raise RuntimeError "missing configuration file"
             
         # The name of this model
         self.modelName = self.modelConfig['modelname']

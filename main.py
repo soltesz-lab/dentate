@@ -274,12 +274,12 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
     sort_idx = np.argsort(syn_ids,axis=0)
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
       if swc_type == env.defs.SWC_Types['apical']:
-        cell.alldendritesList[syn_section].root.push()
-        cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
+        cell.alldendrites[syn_section].root.push()
+        cell.alldendrites[syn_section].sec(syn_loc).count_spines += 1
       elif swc_type == env.defs.SWC_Types['axon']:
-        cell.allaxonsList[syn_section].root.push()
+        cell.allaxons[syn_section].root.push()
       elif swc_type == env.defs.SWC_Types['soma']:
-        cell.allsomaList[syn_section].root.push()
+        cell.allsoma[syn_section].root.push()
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
       h.syn      = h.Exp2Syn(syn_loc)

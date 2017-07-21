@@ -2,7 +2,7 @@
 load_file("nrngui.hoc")
 load_file("./tests/cell_protocol.ses")
 
-nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
+//nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
 
 // RandomStream template
 {load_file("./templates/ranstream.hoc")}
@@ -251,6 +251,11 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     
 }
 
-
 passive_test()
 ap_rate_test()
+objref bc
+bc = new BasketCell(1, 1)
+
+
+
+
