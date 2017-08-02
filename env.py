@@ -153,8 +153,8 @@ class Env:
         if configFile is not None:
             with open(configFile) as fp:
                 self.modelConfig = yaml.load(fp)
-        else
-            raise RuntimeError "missing configuration file"
+        else:
+            raise RuntimeError("missing configuration file")
             
         # The name of this model
         self.modelName = self.modelConfig['modelname']

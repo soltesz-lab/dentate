@@ -20,7 +20,7 @@ rank = comm.Get_rank()
 def main(forest_path, selection):
 
     popName = "BC"
-    trees = read_tree_selection (MPI._addressof(comm), forest_path, popName, selection, attributes=True)
+    trees = read_tree_selection (comm, forest_path, popName, selection, attributes=True)
 
     for tree in trees:
         cell = new_cell ("BasketCell", neurotree_dict=tree)
