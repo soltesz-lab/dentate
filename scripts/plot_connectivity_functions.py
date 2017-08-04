@@ -168,7 +168,7 @@ def plot_in_degree_single_target(target_gid, target, source, forest_file, soma_c
     unique_source_indexes_v = \
         get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][unique_source_indexes_gid])
     ax = plt.gca()
-    ax.scatter(distance_U[unique_source_indexes_u, unique_source_indexes_v],
+    sc = ax.scatter(distance_U[unique_source_indexes_u, unique_source_indexes_v],
                      distance_V[unique_source_indexes_u, unique_source_indexes_v], c=counts, linewidths=0)
     ax.set_xlabel('Arc distance (Septal - Temporal) (um)')
     ax.set_ylabel('Arc distance (Suprapyramidal - Infrapyramidal)  (um)')
@@ -177,7 +177,7 @@ def plot_in_degree_single_target(target_gid, target, source, forest_file, soma_c
     clean_axes(ax)
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="3%", pad=0.05)
-    cbar = plt.colorbar(pcm, cax=cax)
+    cbar = plt.colorbar(sc, cax=cax)
     cbar.ax.set_ylabel('Counts')
 
     plt.show()
@@ -255,6 +255,7 @@ def plot_in_degree_single_target_orig(target_gid, target, source, projection, fo
         plt.show()
         plt.close()
     """
+
 
 def plot_out_degree_single_source(source_gid, target, source, forest_file, soma_coords, u, v, distance_U, distance_V):
     """
