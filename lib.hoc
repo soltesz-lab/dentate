@@ -251,17 +251,16 @@ proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
     pc     = $o1
     gjlist = $o2
     gid    = $3
-    branch = $4
-    sec    = $5
-    sgid   = $6
-    dgid   = $7
-    w      = $8
+    sec    = $4
+    sgid   = $5
+    dgid   = $6
+    w      = $7
     
     cell = pc.gid2cell(gid)
     
     //printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
     
-    cell.dendrites[branch][sec] { 
+    cell.dendrites[sec] { 
         gj = new ggap(0.5) 
         pc.source_var(&v(0.5), sgid)
         pc.target_var(gj, &gj.vgap, dgid)

@@ -237,9 +237,33 @@ def connectcells(env):
             if env.pc.id() == 0:
                 print "*** Creating projection %s" % name
         connectprj(env, graph, name, projections[name])
-    
-def mksyn1(cell,synapses,env):
+
+
+my_syns = defaultdict(lambda: {})
+
+
+def syn_in_seg(seg,syns_dict):
+    if seg.sec not in syns_dict:
+        return False
+    if any(seg.sec(x) == seg for x in syns_dict[seg.sec]): return True
+    return False
+
+
+def add_syn(seg,syns_dict):
+    # returns the existing synapse in segment if any, else creates it
+    if not syn_in_seg(seg,syns_dict):
+        syn = h.Exp2Syn(seg)
+        syns_dict[seg.sec][syn.get_segment().x] = syn
+        return syn
+    else:
+        for x, syn in syns_dict[seg.sec].iteritems():
+            if seg.sec(x) == seg:
+               return syn
+
+           
+def mksyn1(cell,synapses,syns_dict,env):
     for synkey in synapses.keys():
+        syns_dict = defaultdict(lambda: {})
         synval = synapses[synkey]
         synorder = env.synapseOrder[synkey]
         location = synval['location']
@@ -261,34 +285,38 @@ def mksyn1(cell,synapses,env):
                 else:
                     compartments=[location['compartment']]
                 for secindex in compartments:
-                    cell.dendrites[dendindex][secindex].push()
-                    h.syn = h.Exp2Syn(0.5)
+                    h.syn = add_syn(cell.dendrites[dendindex][secindex](0.5),syns_dict)
                     h.syn.tau1 = t_rise
                     h.syn.tau2 = t_decay
                     h.syn.e    = e_rev
                     cell.syns.o(synorder).append(h.syn)
-                    h.pop_section()
 
                     
 def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
-    sort_idx = np.argsort(syn_ids,axis=0)
+    sort_idx  = np.argsort(syn_ids,axis=0)
+    syns_dict_dend = defaultdict(lambda: {})
+    syns_dict_axon = defaultdict(lambda: {})
+    syns_dict_soma = defaultdict(lambda: {})
     for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
+      sref = None
       if swc_type == env.defs.SWC_Types['apical']:
-        cell.alldendrites[syn_section].root.push()
-        cell.alldendrites[syn_section].sec(syn_loc).count_spines += 1
+        syns_dict = syns_dict_dend
+        sref = cell.alldendrites[syn_section]
+        sref.sec(syn_loc).count_spines += 1
       elif swc_type == env.defs.SWC_Types['axon']:
-        cell.allaxons[syn_section].root.push()
+        syns_dict = syns_dict_axon
+        sref = cell.allaxons[syn_section]
       elif swc_type == env.defs.SWC_Types['soma']:
-        cell.allsoma[syn_section].root.push()
+        syns_dict = syns_dict_soma
+        sref = cell.allsoma[syn_section]
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      h.syn      = h.Exp2Syn(syn_loc)
+      h.syn      = add_syn(sref.sec(syn_loc),syns_dict)
       h.syn.tau1 = synapses[syn_type]['t_rise']
       h.syn.tau2 = synapses[syn_type]['t_decay']
       h.syn.e    = synapses[syn_type]['e_rev']
       cell.allsyns.append(h.syn)
       cell.syntypes.o(syn_type).append(h.syn)
-      h.pop_section()
 
 def connectgjs(env):
     rank = int(env.pc.id())

@@ -10,34 +10,6 @@ from neuroh5.io import read_tree_selection
 from env import Env
 import utils
 
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
-
-def hoc_results_to_python(hoc_results):
-    results_dict = {}
-    for i in xrange(0, int(hoc_results.count())):
-        vect   = hoc_results.o(i)
-        gid    = int(vect.x[0])
-        pyvect = vect.to_python()
-        results_dict[gid] = pyvect[1:]
-    hoc_results.remove_all()
-    return results_dict
-
-def write_results(results, filepath, header):
-    f = open(filepath,'w')
-    f.write(header+'\n')
-    for item in results:
-        for (gid, vect) in item.iteritems():
-            f.write (str(gid)+"\t")
-            f.write (("\t".join(['{:0.3f}'.format(i) for i in vect])) + "\n")
-    f.close()
-
 @click.command()
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -63,6 +35,9 @@ def main(template_path, forest_path):
 
     h.cells.append(cell1)
     h.cells.append(cell2)
+
+    ndends   = 4
+    ndendsec = 4
     
     ggid        = 20000000
     source      = 10422930
@@ -105,8 +80,8 @@ def main(template_path, forest_path):
     h.Vlog2 = h.Vector(log_size)
     h.Vlog2.record (cell2.soma(0.5)._ref_v)
     
-    h.mkgap(h.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
-    h.mkgap(h.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
+    h.mkgap(h.pc, h.gjlist, source, srcbranch*ndendsec+srcsec, ggid, ggid+1, weight)
+    h.mkgap(h.pc, h.gjlist, destination, dstbranch*ndendsec+dstsec, ggid+1, ggid, weight)
 
     h.pc.setup_transfer()
     h.pc.set_maxstep(10.0)
@@ -125,4 +100,4 @@ def main(template_path, forest_path):
     
     
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("BasketCellGJTest.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find("BasketCellGJTest.py") != -1,sys.argv)+1):])

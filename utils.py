@@ -2,6 +2,15 @@ import sys, os.path, string
 from neuron import h
 import numpy as np
 
+def list_find (f, lst):
+    i=0
+    for x in lst:
+        if f(x):
+            return i
+        else:
+            i=i+1
+    return None
+
 def new_cell (template_name, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
     h('objref cell, vx, vy, vz, vradius, vlayer, vsection, secnodes, vsrc, vdst')
     h.vx       = neurotree_dict['x']
@@ -27,6 +36,24 @@ def hoc_results_to_python(hoc_results):
         results_dict[gid] = pyvect[1:]
     hoc_results.remove_all()
     return results_dict
+
+
+def write_results(results, filepath, header):
+    f = open(filepath,'w')
+    f.write(header+'\n')
+    for item in results:
+        for (gid, vect) in item.iteritems():
+            f.write (str(gid)+"\t")
+            f.write (("\t".join(['{:0.3f}'.format(i) for i in vect])) + "\n")
+    f.close()
+
+    
+def simulate(h, v_init, prelength, mainlength):
+    h.cvode_active (1)
+    h.finitialize(v_init)
+    h.tstop = prelength+mainlength
+    h.fadvance()
+    h.continuerun(h.tstop)
 
     
 def get_node_attribute (name, content, sec, x=None):

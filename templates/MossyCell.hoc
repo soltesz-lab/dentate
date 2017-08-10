@@ -3,86 +3,91 @@ begintemplate MossyCell
 public connect2target, subsets,is_art, is_connected
 public soma, dendrites
 public all, pdend, ddend
-public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
+objref pdendidx, ddendidx
+public syns
 public syn_stim
 public xx, yy, zz, position
 
 cellid = -1
 gid = -1
 
-nst=10
-
 // dends is properly created in init()
 create soma, dendrites[1][1]
 
 objref fl//, rs
-objref stim[nst]
 objref all, pdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
+objref syns
 objref syn_stim
+
+ndends   = -1
+ndendsec = -1
+nDends   = -1
+
+proc assert() { local test strdef errmsg
+    
+    test = $1
+    errmsg = $s2
+    
+    if (!test) {
+        execerror ("Assertion failed: ", errmsg)
+    }
+}
 
 proc init() { // arguments are id, gid
     
-    ndends=4
-    ndendsec=4
-    create dendrites[ndends][ndendsec]
+    adendidx = new Vector()
+    bdendidx = new Vector()
     
     cellid = $1
     gid = $2
-
-    subsets(ndends,ndendsec)
-    geom()
-    biophys(ndends,ndendsec)
-
-    syns_GC = new List()
-    syns_MC = new List()
-    syns_HC = new List()
-    syns_BC = new List()
-    syns_AA = new List()
-    syns_HCC = new List()
-    syns_NGFC = new List()
-    syns_NGFCB = new List()
+    
+    if (numarg() > 0) {
+        topol_from_python($o4,$o5,$o6,$o7)
+        shape_from_python($o7,$o8,$o9,$o10,$o11)
+    } else {
+        ndends   = 4
+        ndendsec = 4
+        create dendrites[ndends*ndendsec]
+        
+        pdend  = new SectionList()
+        for i=0, ndends-1 {
+            pdendidx.append(i*ndendsec+0)
+        }
+        
+        ddend  = new SectionList()
+        for i=0, ndends-1 {
+            for j=1, ndendsec-1 {
+                ddendidx.append(i*ndendsec+j)
+            }
+        }
+        
+        topol(ndends,ndendsec)
+        geom()
+    }
+    subsets()
+    geom_nseg()
+    biophys()
     
     syns = new List()
-    syns.append(syns_GC)
-    syns.append(syns_MC)
-    syns.append(syns_HC)
-    syns.append(syns_BC)
-    syns.append(syns_AA)
-    syns.append(syns_HCC)
-    syns.append(syns_NGFC)
-    syns.append(syns_NGFCB)
-    
-    soma {
-        syn_stim = new ExpSyn(0.5)
-        syn_stim.tau = 1
-    }
 }
 
 
 proc subsets() { local i, ndends, ndendsec
     
-    ndends = $1
-    ndendsec = $2
-    
     all = new SectionList()
     soma all.append()
-    for i=0, ndends-1 {
-        for j=0, ndendsec-1 { 
-            dendrites[i][j] { all.append() }
-        }
+    for i=0, nDends-1 {
+        dendrites[i] { all.append() }
     }
     
     pdend  = new SectionList()
-    for i=0, ndends-1 {
-        dendrites[i][0] pdend.append()
+    for i=0, pdendidx.size()-1 {
+        dendrites[pdendidx.x[i]] pdend.append() 
     }
     
     ddend  = new SectionList()
-    for i=0, ndends-1 {
-        for j=1, ndendsec-1 {
-            dendrites[i][j] ddend.append()
-        }
+    for i=0, ddendidx.size()-1 {
+        dendrites[ddendidx.x[i]] ddend.append() 
     }
     
 }
@@ -92,13 +97,70 @@ proc geom() {
     soma {nseg=1 L=20 diam=20} // changed L & diam
     
     for i=0, ndends-1 {
-        dendrites[i][0] {nseg=1 L=24 diam=5.78}
-        dendrites[i][1] {nseg=1 L=24 diam=4}
-        dendrites[i][2] {nseg=1 L=24 diam=2.5}
-        dendrites[i][3] {nseg=1 L=24 diam=1}
+        dendrites[i*ndendsec+0] {nseg=1 L=24 diam=5.78}
+        dendrites[i*ndendsec+1] {nseg=1 L=24 diam=4}
+        dendrites[i*ndendsec+2] {nseg=1 L=24 diam=2.5}
+        dendrites[i*ndendsec+3] {nseg=1 L=24 diam=1}
     }
     
 }
+
+func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
+    
+    /*
+    printf("lambda_f: n3d() = %d\n", n3d())
+    if (n3d() <= 3) {
+        for i=0, n3d()-1 {
+            x = x3d(i)
+            y = x3d(i)
+            z = x3d(i)
+            d = diam3d(i)
+            printf("lambda_f: i = %d x = %g y = %g z = %g\n", i, x3d(i), y3d(i), z3d(i))
+        }
+    }
+    */
+    
+    if (n3d() < 2) {
+        return 1e5*sqrt(diam/(4*PI*$1*Ra*cm))
+    }
+    x1 = arc3d(0)
+    d1 = diam3d(0)
+    lam = 0
+    for i=1, n3d()-1 {
+        x2 = arc3d(i)
+        d2 = diam3d(i)
+        lam += (x2 - x1)/sqrt(d1 + d2)
+        x1 = x2   d1 = d2
+    }
+    //  length of the section in units of lambda
+    lam *= sqrt(2) * 1e-5*sqrt(4*PI*$1*Ra*cm)
+    
+    return L/lam
+}
+
+proc geom_nseg() {
+  	forsec all { nseg = int((L/(0.1*lambda_f(100))+.9)/2)*2 + 1  }
+}
+
+proc topol() {
+    
+    ndends = $1
+    ndendsec = $2
+    
+    nDends = ndends*ndendsec
+    
+    connect dendrites[0*ndendsec+0](0), soma(1)
+    connect dendrites[1*ndendsec+0](0), soma(1)
+    connect dendrites[2*ndendsec+0](0), soma(0)
+    connect dendrites[3*ndendsec+0](0), soma(0)
+    
+    for i=0,ndends-1 {
+        for j=1,ndendsec-1 {
+	    connect dendrites[i*ndendsec+j](0), dendrites[i*ndendsec+(j-1)](1)
+        }
+    }
+}    
+
 
 proc biophys() { local ndends, ndendsec
     
@@ -150,14 +212,14 @@ proc biophys() { local ndends, ndendsec
 	cm=2.4
     }
     
-    connect dendrites[0][0](0), soma(1)
-    connect dendrites[1][0](0), soma(1)
-    connect dendrites[2][0](0), soma(0)
-    connect dendrites[3][0](0), soma(0)
+    connect dendrites[0*ndendsec+0](0), soma(1)
+    connect dendrites[1*ndendsec+0](0), soma(1)
+    connect dendrites[2*ndendsec+0](0), soma(0)
+    connect dendrites[3*ndendsec+0](0), soma(0)
     
     for i = 0,ndends-1 {
         for j=1,ndendsec-1 {
-            connect dendrites[i][j](0), dendrites[i][j-1](1)
+            connect dendrites[i*ndendsec+j](0), dendrites[i*ndendsec+j-1](1)
         }
     }
     
@@ -187,6 +249,101 @@ proc biophys() { local ndends, ndendsec
     // use the random Gaussian distribution stream in the Gfluct2 mechanism
     //fl.noiseFromRandom(rs.r)
     //fl.noiseFromRandom123(gid, 0, 3)
+    
+}
+
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, smembers, ndendpts
+    
+    // vlayers, vsrc, vdst, secnodes
+    vlayers  = new Vector()
+    vlayers.from_python($o1)
+    vsrc     = new Vector()
+    vsrc.from_python($o2)
+    vdst     = new Vector()
+    vdst.from_python($o3)
+    secnodes = $o4
+    smembers = new Vector()
+    ndendpts = new Vector()
+    
+    nDends = secnodes.__len__()
+    ndendpts.resize(nDends)
+    for s=0, nDends-1 {
+        vidxs = new Vector()
+        vidxs.from_python(secnodes.__getitem__(s))
+        ndendpts.x[s] = vidxs.size()
+        for i=0, vidxs.size()-1 {
+            p = vidxs.x[i]
+            if (!smembers.contains(p)) {
+                if (vlayers.x[p] == 0) {
+                    adendidx.append(s)
+                } else if (vlayers.x[p] == 1) {
+                    bdendidx.append(s)
+                } else if (vlayers.x[p] == 2) {
+                    cdendidx.append(s)
+                } else if (vlayers.x[p] >= 3) {
+                    ddendidx.append(s)
+                }
+                smembers.append(p)
+                break
+            }
+        }
+    }
+    
+    na  = adendidx.size()
+    nb  = bdendidx.size()
+    nc  = cdendidx.size()
+    nd  = ddendidx.size()
+    
+    create dendrites[nDends]
+    for p = 0, vsrc.size-1 {
+        i = vsrc.x[p]
+        j = vdst.x[p]
+        assert (i >= 0,  "compartment index in topology matrix is less than zero")
+        assert (j >= 0,  "compartment index in topology matrix is less than zero")
+        assert (i < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        assert (j < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        connect dendrites[j](0),dendrites[i](1)
+        
+    }
+    connect dendrites[0](0),soma(1)
+    
+    vlayers.resize(0)
+    vsrc.resize(0)
+    vdst.resize(0)
+    smembers.resize(0)
+    
+}
+
+proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius, idxs, vidxs
+    
+    secnodes = $o1
+    vx = new Vector()
+    vx.from_python($o2)
+    vy = new Vector()
+    vy.from_python($o3)
+    vz = new Vector()
+    vz.from_python($o4)
+    vradius = new Vector()
+    vradius.from_python($o5)
+    
+    for s=0, secnodes.__len__()-1 {
+        idxs = secnodes.__getitem__(s)
+        vidxs = new Vector()
+        vidxs.from_python(idxs)
+        dendrites[s] {
+            pt3dconst(0)
+            for i=0, vidxs.size()-1 {
+                k = vidxs.x[i]
+                pt3dadd(vx.x[k], vy.x[k], vz.x[k], vradius.x[k]) 
+            }
+        }
+    }
+    
+
+    vx.resize(0)
+    vy.resize(0)
+    vz.resize(0)
+    vradius.resize(0)
     
 }
 
