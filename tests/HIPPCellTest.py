@@ -1,5 +1,3 @@
-
-
 import sys, os
 import os.path
 import click
@@ -14,7 +12,7 @@ import utils
     
 def passive_test (tree, v_init):
 
-    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    cell = utils.new_cell ("HIPPCell", neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -50,7 +48,7 @@ def passive_test (tree, v_init):
     vtau0  = vrest - amp23
     tau0   = h.tlog.x[int(h.Vlog.indwhere ("<=", vtau0))] - prelength
 
-    f=open("BasketCell_passive_results.dat",'w')
+    f=open("HIPPCell_passive_results.dat",'w')
     
     f.write ("DC input resistance: %g MOhm\n" % h.rn(cell))
     f.write ("vmin: %g mV\n" % vmin)
@@ -61,7 +59,7 @@ def passive_test (tree, v_init):
 
 def ap_rate_test (tree, v_init):
 
-    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    cell = utils.new_cell ("HIPPCell", neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
@@ -91,13 +89,13 @@ def ap_rate_test (tree, v_init):
 
 
     it = 1
-    ## Increase the injected current until at least 60 spikes occur
+    ## Increase the injected current until at least 30 spikes occur
     ## or up to 5 steps
-    while (h.spikelog.size() < 60):
+    while (h.spikelog.size() < 30):
 
         utils.simulate(h, v_init, prelength,mainlength)
         
-        if ((h.spikelog.size() < 50) & (it < 5)):
+        if ((h.spikelog.size() < 30) & (it < 5)):
             print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
             stim1.amp = stim1.amp + 0.1
             h.spikelog.clear()
@@ -137,7 +135,7 @@ def ap_rate_test (tree, v_init):
         isivect.printf()
         raise RuntimeError("Unable to find ISI greater than first ISI: forest_path = %s gid = %d" % (forest_path, gid))
     
-    f=open("BasketCell_ap_rate_results.dat",'w')
+    f=open("HIPPCell_ap_rate_results.dat",'w')
 
     f.write ("## number of spikes: %g\n" % h.spikelog.size())
     f.write ("## FR mean: %g\n" % (1.0 / isimean))
@@ -151,80 +149,9 @@ def ap_rate_test (tree, v_init):
 
     f.close()
 
-    f=open("BasketCell_voltage_trace.dat",'w')
+    f=open("HIPPCell_voltage_trace.dat",'w')
     for i in xrange(0, int(h.tlog.size())):
         f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
-    f.close()
-
-def gap_junction_test (tree, v_init):
-    
-    h('objref gjlist, cells, Vlog1, Vlog2')
-
-    h.pc = h.ParallelContext()
-    h.cells  = h.List()
-    h.gjlist = h.List()
-    
-    cell1 = utils.new_cell ("BasketCell", neurotree_dict=tree)
-    cell2 = utils.new_cell ("BasketCell", neurotree_dict=tree)
-
-    h.cells.append(cell1)
-    h.cells.append(cell2)
-
-    ggid        = 20000000
-    source      = 10422930
-    destination = 10422670
-    srcbranch   = 1
-    dstbranch   = 2
-    weight      = 5.4e-4
-
-    stimdur     = 500
-    tstop       = 2000
-    
-    h.pc.set_gid2node(source, int(h.pc.id()))
-    nc = cell1.connect2target(h.nil)
-    h.pc.cell(source, nc, 1)
-
-    h.pc.set_gid2node(destination, int(h.pc.id()))
-    nc = cell2.connect2target(h.nil)
-    h.pc.cell(destination, nc, 1)
-
-    stim1 = h.IClamp(cell1.sections[0](0.5))
-    stim1.delay = 250
-    stim1.dur = stimdur
-    stim1.amp = -0.1
-
-    stim2 = h.IClamp(cell2.sections[0](0.5))
-    stim2.delay = 500+stimdur
-    stim2.dur = stimdur
-    stim2.amp = -0.1
-
-    log_size = tstop/h.dt + 1
-    
-    h.tlog = h.Vector(log_size,0)
-    h.tlog.record (h._ref_t)
-
-    h.Vlog1 = h.Vector(log_size)
-    h.Vlog1.record (cell1.sections[0](0.5)._ref_v)
-
-    h.Vlog2 = h.Vector(log_size)
-    h.Vlog2.record (cell2.sections[0](0.5)._ref_v)
-    
-    h.mkgap(h.pc, h.gjlist, source, srcbranch, ggid, ggid+1, weight)
-    h.mkgap(h.pc, h.gjlist, destination, dstbranch, ggid+1, ggid, weight)
-
-    h.pc.setup_transfer()
-    h.pc.set_maxstep(10.0)
-
-    h.stdinit()
-    h.finitialize(v_init)
-    h.pc.barrier()
-
-    h.tstop = tstop
-    h.pc.psolve(h.tstop)
-
-    f=open("BasketCellGJ.dat",'w')
-    for (t,v1,v2) in itertools.izip(h.tlog,h.Vlog1,h.Vlog2):
-        f.write("%f %f %f\n" % (t,v1,v2))
     f.close()
     
 
@@ -240,17 +167,16 @@ def main(template_path,forest_path):
     h.load_file("nrngui.hoc")
     h.xopen("./lib.hoc")
     h.xopen ("./tests/rn.hoc")
-    h.xopen(template_path+'/BasketCell.hoc')
+    h.xopen(template_path+'/HIPPCell.hoc')
     h.pc = h.ParallelContext()
     
-    popName = "BC"
-    (trees,_) = read_tree_selection (comm, forest_path, popName, [1039000])
+    popName = "HC"
+    (trees,_) = read_tree_selection (comm, forest_path, popName, [1030000])
     
     tree = trees.itervalues().next()
     
-    passive_test(tree,-60)
-    ap_rate_test(tree,-60)
-    gap_junction_test(tree,-60)
+    passive_test(tree,-70)
+    ap_rate_test(tree,-70)
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find("BasketCellTest.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find("HIPPCellTest.py") != -1,sys.argv)+1):])

@@ -95,13 +95,13 @@ proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur l
     
     bc = new BasketCell(1, 1)
     
-    bc.soma stim1 = new IClamp(0.5)
+    bc.sections[0] stim1 = new IClamp(0.5)
     stim1.del = prelength
     stim1.dur = stimdur
     stim1.amp = -0.1
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&bc.soma.v(0.5))
+    Vlog_soma.record (&bc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -156,25 +156,24 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     
     bc = new BasketCell(1, 1)
     
-    bc.soma stim1 = new IClamp(0.5)
+    bc.sections[0] stim1 = new IClamp(0.5)
     stim1.del = prelength
     stim1.dur = stimdur
     stim1.amp = 0.3
     
     spikelog = new Vector()
-    bc.soma nc = new NetCon(&bc.soma.v(.5), nil)
+    bc.sections[0] nc = new NetCon(&bc.sections[0].v(.5), nil)
     nc.threshold = -40.0
     nc.record(spikelog)
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&bc.soma.v(0.5))
+    Vlog_soma.record (&bc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
     
     it = 1
     // Increase the injected current until at least 30 spikes occur
-    // or up to 3 steps
     while (spikelog.size() < 30) {
 
         simulate(prelength,mainlength)
@@ -190,6 +189,7 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
             break
         }
     }
+    printf ("ap_rate_test: stim1.amp = %g spikelog.size = %d\n", stim1.amp, spikelog.size())
     
     logfile = new File()
     sprint (log_fn, "BasketCell_ap_rate.dat" )

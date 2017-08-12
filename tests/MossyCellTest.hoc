@@ -2,7 +2,7 @@
 load_file("nrngui.hoc")
 load_file("./tests/cell_protocol.ses")
 
-nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
+//nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
 
 // randomstream template
 {load_file("./templates/ranstream.hoc")}
@@ -16,8 +16,6 @@ v_init = -60
 
 //**********************************************************************
 proc simulate() { local prelength, mainlength, preDT, mainDT
-    
-    printf("entering simulate\n")
     
     prelength = $1
     mainlength = $2
@@ -101,7 +99,7 @@ proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur l
     stim1.amp = -0.1
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&mc.soma.v(0.5))
+    Vlog_soma.record (&mc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -162,12 +160,12 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     stim1.amp = $1
     
     spikelog = new Vector()
-    mc.soma nc = new NetCon(&mc.soma.v(.5), nil)
+    mc.soma nc = new NetCon(&mc.sections[0].v(.5), nil)
     nc.threshold = -40.0
     nc.record(spikelog)
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&mc.soma.v(0.5))
+    Vlog_soma.record (&mc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -257,4 +255,5 @@ ap_rate_test(0.2) // 61 / 3s
 ap_rate_test(0.3) // 69 / 3s
 ap_rate_test(0.4) // 78 / 3s
 
-
+objref mc
+mc = new MossyCell(1, 1)
