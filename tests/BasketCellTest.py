@@ -228,6 +228,41 @@ def gap_junction_test (tree, v_init):
     f.close()
     
 
+def synapse_group_test (label, syntype, cell, w, v_holding, v_init)
+    
+    vv = h.Vector()
+    vv.append(0,0,0,0,0,0)
+    
+    se = h.SEClamp(cell1.sections[0](0.5))
+    
+    v = cell.syntest(syntype,se,w,v_holding,v_init)
+    vv = vv.add(v)
+    
+    amp     = vv.x[0]
+    t_10_90 = vv.x[1]
+    t_20_80 = vv.x[2]
+    t_all   = vv.x[3]
+    t_50    = vv.x[4]
+    t_decay = vv.x[5]
+
+    f=open("BasketCell_synapse_results.dat",'w')
+
+    f.write("%s synapses: " % label)
+    f.write("  Amplitude %f" % amp)
+    f.write("  10-90 Rise Time %f" % t_10_90)
+    f.write("  20-80 Rise Time %f" % t_20_80)
+    f.write("  Decay Time Constant %f\n" % t_decay)
+
+    f.close()
+
+
+def synapse_test(tree,v_init)
+    
+    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    synapse_group_test(, "Inhibitory", 1, cell, 0.00033, -70, v_init)
+
+    
+
 @click.command()
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
