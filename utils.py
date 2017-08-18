@@ -57,7 +57,7 @@ def simulate(h, v_init, prelength, mainlength):
 
     
 def get_node_attribute (name, content, sec, x=None):
-    if name in content:
+    if content.has_key(name):
         if x is None:
             return content[name]
         elif sec.n3d() == 0:
@@ -71,13 +71,14 @@ def get_node_attribute (name, content, sec, x=None):
 
 
 
-def synapse_relcounts(layer_density_dicts, seglist, seed, neurotree_dict=None):
+def synapse_relcounts(syn_type_dict, layer_density_dicts, seglist, seed, neurotree_dict=None):
     """Computes per-segment relative counts of synapse placement"""
     relcounts_dict  = {}
     relcount_total  = 0
     layers_dict     = {}
     relcount_total  = 0
-    for (syn_type, layer_density_dict) in layer_density_dicts.iteritems():
+    for (syn_type_label, layer_density_dict) in layer_density_dicts.iteritems():
+        syn_type = syn_type_dict[syn_type_label] 
         rans = {}
         for (layer,density_dict) in layer_density_dict.iteritems():
             ran = h.Random(seed)
@@ -96,7 +97,7 @@ def synapse_relcounts(layer_density_dicts, seglist, seed, neurotree_dict=None):
             
             ran=None
             if layer > -1:
-                if layer in rans:
+                if rans.has_key(layer):
                     ran = rans[layer]
             else:
                 ran = rans['default']
@@ -110,11 +111,11 @@ def synapse_relcounts(layer_density_dicts, seglist, seed, neurotree_dict=None):
                 relcounts.append(0)
                 
         relcounts_dict[syn_type] = relcounts
-        layers_dict[syn_type]   = layers
+        layers_dict[syn_type]    = layers
     return (relcounts_dict, relcount_total, layers_dict)
     
            
-def distribute_uniform_synapses(seed, sec_layer_density_dicts, sec_lists, sec_swc_types, neurotree_dicts):
+def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_density_dict, neurotree_dict, sec_dict):
     """Computes uniformly-spaced synapse locations"""
 
     syn_ids    = []
@@ -125,29 +126,28 @@ def distribute_uniform_synapses(seed, sec_layer_density_dicts, sec_lists, sec_sw
     swc_types  = []
     syn_index  = 0
 
-    for (layer_density_dicts, sec_list, swc_type, neurotree_dict) in itertools.izip(sec_layer_density_dicts,
-                                                                                    sec_lists,
-                                                                                    sec_swc_types,
-                                                                                    neurotree_dicts):
-        
+    for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
+
+        swc_type = swc_type_dict[sec_name]
         seg_list = []
-        sec_dict = {}
+        sec_index_dict = {}
         sec_index = 0
         L_total   = 0
-        for sec in sec_list:
+        for sec in sec_dict[sec_name]:
             L_total += sec.L
-            sec_dict[sec] = sec_index
+            sec_index_dict[sec] = sec_index
             sec_index    += 1
             for seg in sec:
                 if seg.x < 1.0 and seg.x > 0.0:
                     seg_list.append(seg)
             
     
-        relcounts_dict, total, layers_dict = synapse_relcounts(layer_density_dicts, seg_list, seed, neurotree_dict=neurotree_dict)
+        relcounts_dict, total, layers_dict = synapse_relcounts(syn_type_dict, layer_density_dict, seg_list, seed, neurotree_dict=neurotree_dict)
 
         sample_size = total
         cumcount  = 0
-        for (syn_type, _) in layer_density_dicts.iteritems():
+        for (syn_type_label, _) in layer_density_dict.iteritems():
+            syn_type  = syn_type_dict[syn_type_label]
             relcounts = relcounts_dict[syn_type]
             layers    = layers_dict[syn_type]
             for i in xrange(0,len(seg_list)):
@@ -163,7 +163,7 @@ def distribute_uniform_synapses(seed, sec_layer_density_dicts, sec_lists, sec_sw
                     syn_loc = seg_start + seg_range * ((syn_count + 1) / rel_count)
                     syn_locs.append(syn_loc)
                     syn_ids.append(syn_index)
-                    syn_secs.append(sec_dict[seg.sec])
+                    syn_secs.append(sec_index_dict[seg.sec])
                     syn_layers.append(layer)
                     syn_types.append(syn_type)
                     swc_types.append(swc_type)

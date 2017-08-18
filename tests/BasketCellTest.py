@@ -93,7 +93,7 @@ def ap_rate_test (tree, v_init):
     it = 1
     ## Increase the injected current until at least 60 spikes occur
     ## or up to 5 steps
-    while (h.spikelog.size() < 60):
+    while (h.spikelog.size() < 50):
 
         utils.simulate(h, v_init, prelength,mainlength)
         
@@ -155,6 +155,58 @@ def ap_rate_test (tree, v_init):
     for i in xrange(0, int(h.tlog.size())):
         f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
     f.close()
+
+def fi_test (tree, v_init):
+
+    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    h.dt = 0.025
+
+    prelength = 1000.0
+    mainlength = 2000.0
+
+    tstop = prelength+mainlength
+    
+    stimdur = 1000.0
+    
+    stim1 = h.IClamp(cell.sections[0](0.5))
+    stim1.delay = prelength
+    stim1.dur   = stimdur
+    stim1.amp   = 0.2
+
+    h.tlog = h.Vector()
+    h.tlog.record (h._ref_t)
+
+    h.Vlog = h.Vector()
+    h.Vlog.record (cell.sections[0](0.5)._ref_v)
+
+    h.spikelog = h.Vector()
+    nc = h.NetCon(cell.sections[0](0.5)._ref_v, h.nil)
+    nc.threshold = -40.0
+    nc.record(h.spikelog)
+    
+    h.tstop = tstop
+
+    frs = []
+    stim_amps = [stim1.amp]
+    for it in range(1, 9):
+
+        utils.simulate(h, v_init, prelength, mainlength)
+        
+        print "fi_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
+        stim1.amp = stim1.amp + 0.1
+        stim_amps.append(stim1.amp)
+        frs.append(h.spikelog.size())
+        h.spikelog.clear()
+        h.tlog.clear()
+        h.Vlog.clear()
+
+    f=open("BasketCell_fi_results.dat",'w')
+
+    for (fr,stim_amp) in itertools.izip(frs,stim_amps):
+        f.write("%g %g\n" % (stim_amp,fr))
+
+    f.close()
+
 
 def gap_junction_test (tree, v_init):
     
@@ -228,7 +280,7 @@ def gap_junction_test (tree, v_init):
     f.close()
     
 
-def synapse_group_test (label, syntype, cell, w, v_holding, v_init)
+def synapse_group_test (label, syntype, cell, w, v_holding, v_init):
     
     vv = h.Vector()
     vv.append(0,0,0,0,0,0)
@@ -256,10 +308,11 @@ def synapse_group_test (label, syntype, cell, w, v_holding, v_init)
     f.close()
 
 
-def synapse_test(tree,v_init)
+def synapse_test(tree, v_init):
     
     cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
-    synapse_group_test(, "Inhibitory", 1, cell, 0.00033, -70, v_init)
+    synapse_group_test("Inhibitory", 1, cell, 0.0033, -70, v_init)
+    synapse_group_test("Excitatory", 0, cell, 0.006, 0, v_init)
 
     
 
@@ -285,6 +338,7 @@ def main(template_path,forest_path):
     
     passive_test(tree,-60)
     ap_rate_test(tree,-60)
+    fi_test(tree,-60)
     gap_junction_test(tree,-60)
 
 if __name__ == '__main__':

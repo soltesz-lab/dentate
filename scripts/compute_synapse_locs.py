@@ -1,10 +1,13 @@
 
+import sys, time, gc
+import numpy as np
 from mpi4py import MPI
-from neuroh5.io import NeurotreeGen
-from neuroh5.io import append_cell_attributes, compute_syn_locations
+from neuron import h
+from neuroh5.io import NeuroH5TreeGen
+from neuroh5.io import append_cell_attributes
 import utils
 import click
-
+from env import Env
 
 try:
     import mkl
@@ -23,18 +26,24 @@ def list_find (f, lst):
     return None
 
 @click.command()
-@click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-paths", type=str)
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--template-path", type=str)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--populations", required=True, multiple=True, type=str)
+@click.option("--distribution", type=str, default='uniform')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(config_file, template_paths, forest_path, io_size, chunk_size, value_chunk_size):
+def main(config, template_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
-
-    env = Env(comm=MPI.COMM_WORLD, config_file=config_file, template_paths=template_paths)
+    
+    env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path, defsFile='config/Definitions.yaml')
+    h('objref nil, pc')
+    h.load_file("nrngui.hoc")
+    h.xopen("./lib.hoc")
+    h.pc = h.ParallelContext()
     
     if io_size == -1:
         io_size = comm.size
@@ -42,14 +51,14 @@ def main(config_file, template_paths, forest_path, io_size, chunk_size, value_ch
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    populations = population_contents(MPI._addressof(comm), forest_path)
+    #populations = population_contents(comm, forest_path)
     start_time = time.time()
     for population in populations:
         count = 0
         template_name = env.celltypes[population]['templateName']
-        h.find_template(env.pc, h.templatePaths, templateName)
-        synapse_density = env.modelConfig['synapses']['density'][population]
-        for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), forest_path, population, io_size=io_size):
+        h.find_template(h.pc, env.templatePaths, template_name)
+        density_dict = env.celltypes[population]['synapses']['density']
+        for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
             local_time = time.time()
             # mismatched_section_dict = {}
             synapse_dict = {}
@@ -59,14 +68,18 @@ def main(config_file, template_paths, forest_path, io_size, chunk_size, value_ch
                 # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
                 # if this_mismatched_sections is not None:
                 #    mismatched_section_dict[gid] = this_mismatched_sections
-                synapse_dict[gid] = distribute_uniform_synapses(env.Synapse_Types['excitatory'], gid, density_dict, morph_dict, cell.alldendrites)
+                cell_sec_dict = {'apical': cell.apical, 'basal': cell.basal, 'soma': cell.soma, 'ais': cell.ais}
+                
+                if distribution == 'uniform':
+                    synapse_dict[gid] = utils.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types,
+                                                                          density_dict, morph_dict, cell_sec_dict)
                 del cell
                 print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
                 count += 1
             else:
                 print  'Rank %i gid is None' % rank
             # print 'Rank %i before append_cell_attributes' % rank
-            append_cell_attributes(MPI._addressof(comm), forest_path, population, synapse_dict,
+            append_cell_attributes(comm, forest_path, population, synapse_dict,
                                     namespace='Synapse_Attributes', io_size=io_size, chunk_size=chunk_size,
                                     value_chunk_size=value_chunk_size)
             sys.stdout.flush()

@@ -173,8 +173,9 @@ class Env:
             self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
         else:
             self.gapjunctionsFile = None
-        self.load_celltypes()
-        self.load_prjtypes()
+        if self.datasetPrefix is not None:
+            self.load_celltypes()
+            self.load_prjtypes()
 
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host

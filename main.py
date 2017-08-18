@@ -312,9 +312,9 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
       h.syn      = add_syn(sref.sec(syn_loc),syns_dict)
-      h.syn.tau1 = synapses[syn_type]['t_rise']
-      h.syn.tau2 = synapses[syn_type]['t_decay']
-      h.syn.e    = synapses[syn_type]['e_rev']
+      h.syn.tau1 = synapses['kinetics'][syn_type]['t_rise']
+      h.syn.tau2 = synapses['kinetics'][syn_type]['t_decay']
+      h.syn.e    = synapses['kinetics'][syn_type]['e_rev']
       cell.allsyns.append(h.syn)
       cell.syntypes.o(syn_type).append(h.syn)
 

@@ -2,15 +2,15 @@ begintemplate BasketCell
 
 public connect2target, subsets, is_art, is_connected
 public sections
-public all, soma, adend, bdend, cdend, ddend
+public all, soma, basal, apical, ais
 public xx, yy, zz, position
 public syns
 public syn_stim, syntest
 
 create sections[1]
 
-objref all, soma, adend, bdend, cdend, ddend
-objref adendidx, bdendidx, cdendidx, ddendidx
+objref all, soma, basal, apical, ais
+objref apicalidx, basalidx
 objref syns
 
 id  = -1
@@ -30,18 +30,10 @@ proc assert() { local test strdef errmsg
     }
 }
 
-// dendrites 1 and 2 are apical
-// dendrites 3 and 4 are basal
-
 proc init() {
     
-    // dendrites 1*ndendsec and 2*ndendsec are apical
-    // dendrites 3*ndendsec and 4*ndendsec are basal
-    
-    adendidx = new Vector()
-    bdendidx = new Vector()
-    cdendidx = new Vector()
-    ddendidx = new Vector()
+    apicalidx = new Vector()
+    basalidx = new Vector()
     
     id  = $1
     gid = $2
@@ -56,19 +48,19 @@ proc init() {
         
         i=0
         for j=0, ndendsec-1 { 
-            adendidx.append(1+i*ndendsec + j)
+            basalidx.append(1+i*ndendsec + j)
         }
         i=1
         for j=0, ndendsec-1 { 
-            bdendidx.append(1+i*ndendsec + j)
+            basalidx.append(1+i*ndendsec + j)
         }
         i=2
         for j=0, ndendsec-1 { 
-            cdendidx.append(1+i*ndendsec + j)
+            apicalidx.append(1+i*ndendsec + j)
         }
         i=3
         for j=0, ndendsec-1 { 
-            ddendidx.append(1+i*ndendsec + j)
+            apicalidx.append(1+i*ndendsec + j)
         }
         
         topol(ndends,ndendsec)
@@ -84,8 +76,6 @@ proc init() {
 
 proc subsets() { local i, ndends, ndendsec
     
-    objref all, adend, bdend, cdend, ddend
-    
     all = new SectionList()
     sections[0] all.append()
     for i=0, nDends-1 { 
@@ -95,44 +85,36 @@ proc subsets() { local i, ndends, ndendsec
     soma = new SectionList()
     sections[0] soma.append()
     
-    adend  = new SectionList()
-    for i=0, adendidx.size()-1 { 
-        sections[adendidx.x[i]] adend.append() 
+    basal = new SectionList()
+    for i=0, basalidx.size()-1 { 
+        sections[basalidx.x[i]] basal.append() 
     }
     
-    bdend  = new SectionList()
-    for i=0, bdendidx.size()-1 { 
-        sections[bdendidx.x[i]] bdend.append() 
+    apical = new SectionList()
+    for i=0, apicalidx.size()-1 { 
+        sections[apicalidx.x[i]] apical.append() 
     }
     
-    cdend  = new SectionList()
-    for i=0, cdendidx.size()-1 { 
-        sections[cdendidx.x[i]] cdend.append() 
-    }
-    
-    ddend  = new SectionList()
-    for i=0, ddendidx.size()-1 { 
-        sections[ddendidx.x[i]] ddend.append() 
-    }
+    ais  = new SectionList()
 
 }
 
 proc geom() {
     
-    sections[0] {nseg=1 L=20 diam=20} // changed L & diam
-    
-    for i = 0,1 {
-        sections[1+i*ndendsec+0]  {nseg=3 L=75 diam=4}	// bcdend 1 and 2 are apical
-        sections[1+i*ndendsec+1] {nseg=3 L=75 diam=3}
-        sections[1+i*ndendsec+2] {nseg=3 L=75 diam=2}
-        sections[1+i*ndendsec+3] {nseg=3 L=75 diam=1}
-    }
+    sections[0] {nseg=1 L=20 diam=20}
         
+    for i = 0,1 {
+        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4} 	// dend 0 and 1 are basal
+        sections[1+i*ndendsec+1] {nseg=3 L=200 diam=1.5}
+        sections[1+i*ndendsec+2] {nseg=3 L=200 diam=1}
+        sections[1+i*ndendsec+3] {nseg=3 L=200 diam=0.5} 
+    }
+    
     for i = 2,3 {
-        sections[1+i*ndendsec+0] {nseg=3 L=50 diam=4} 	// bcdend 3 and 4 are basal
-        sections[1+i*ndendsec+1] {nseg=3 L=50 diam=3}
-        sections[1+i*ndendsec+2] {nseg=3 L=50 diam=2}
-        sections[1+i*ndendsec+3] {nseg=3 L=50 diam=1} 
+        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4}	// dend 1 and 2 are apical
+        sections[1+i*ndendsec+1] {nseg=3 L=200 diam=1.5}
+        sections[1+i*ndendsec+2] {nseg=3 L=200 diam=1}
+        sections[1+i*ndendsec+3] {nseg=3 L=200 diam=0.5}
     }
 }
 
@@ -171,10 +153,10 @@ func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
 
 proc geom_nseg() { local freq, d_lambda
     
-    freq = 100 // Hz, frequency at which AC length constant will be computed
+    freq = 200 // Hz, frequency at which AC length constant will be computed
     d_lambda = 0.1
     
-    forsec all { nseg = int((L/(d_lambda*lambda_f(freq))+0.9)/2)*2 + 1  }
+    forsec all { nseg = int((L/(d_lambda*lambda_f(freq))+0.9)/2)*2 + 1 }
 
 }
 
@@ -202,12 +184,12 @@ proc biophys() {
     
     forsec all {
         Ra=100
-        cm=1.4
+        cm=1.3
     }
     
     forsec all {
 	insert ccanl
-	catau_ccanl = 0.5
+	catau_ccanl = 0.25
 	caiinf_ccanl = 5.e-6
 	insert borgka
 	gkabar_borgka=0.00015
@@ -222,38 +204,24 @@ proc biophys() {
     }
     
     forsec soma {
-        insert ichan2  //ildikos ichan
+        insert ichan2
 	gnatbar_ichan2=0.24
 	gkfbar_ichan2=0.018 
-	gl_ichan2 = 0.00018
+	gl_ichan2 = 0.000125
     } 
     
-    forsec adend {
+    forsec apical {
         insert ichan2
 	gnatbar_ichan2=0.2
 	gkfbar_ichan2=0.018
-	gl_ichan2 = 0.00018
+	gl_ichan2 = 0.000125
     }		
     
-    forsec bdend {
+    forsec basal {
         insert ichan2
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.0
-	gl_ichan2 = 0.00018
-    }
-    
-    forsec cdend {
-        insert ichan2
-	gnatbar_ichan2=0.0
-	gkfbar_ichan2=0.00
-	gl_ichan2 = 0.00018
-    }
-    
-    forsec ddend {
-        insert ichan2
-	gnatbar_ichan2=0.0
-	gkfbar_ichan2=0.00
-	gl_ichan2 = 0.00018
+	gl_ichan2 = 0.000125
     }
     
     
@@ -282,15 +250,10 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
     
     nDends = secnodes.__len__()-1
     
-    adendidx.append(1)
-    bdendidx.append(2)
-    cdendidx.append(3)
-    ddendidx.append(4)
-    
-    na  = adendidx.size()
-    nb  = bdendidx.size()
-    nc  = cdendidx.size()
-    nd  = ddendidx.size()
+    basalidx.append(1)
+    basalidx.append(2)
+    apicalidx.append(3)
+    apicalidx.append(4)
     
     create sections[nDends+1]
     for p = 0, vsrc.size-1 {
@@ -369,5 +332,99 @@ proc position() { local i
   xx = $1  yy = $2  zz = $3
 }
 
+
+obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist, vec, syntype, results, tlog, nil
+    
+    syntype = $1
+    se = $o2
+    w = $3
+    v_holding = $4
+    v_init = $5
+    
+    soma { 
+        se.rs = 10
+        se.dur1 = 1010
+        se.amp1 = v_holding 
+    }
+    
+    mainDT = 0.001
+    dt = mainDT
+    tstop = 1000
+    
+    vec_size = tstop/mainDT + 1
+    
+    vec = new Vector(vec_size)
+    vec.record(&se.i)
+    
+    tlog = new Vector(vec_size)
+    tlog.record(&t)
+    
+    ns = new NetStim()
+    ns.interval = 1000
+    ns.number = 1
+    ns.start  = 200
+    ns.noise  = 0
+    
+    nclist = new List()
+    for idx=0, syns.o(syntype).count()-1 {
+        nc = new NetCon(ns,syns.o(syntype).o(idx))
+        nc.weight = w
+        nc.delay = 0
+        nclist.append(nc)
+    }
+    
+    cvode_active(1)
+
+    finitialize(v_init)
+    fadvance()
+    continuerun(tstop)
+    
+    i_holding = vec.x[tlog.indwhere(">=",ns.start)]
+    idx = tlog.indwhere(">=",ns.start) - 1
+    vec.remove(0,idx)
+    tlog.remove(0,idx)
+    
+    vec.printf()
+    tlog.printf()
+    
+    i_peak = vec.min()
+    t_peak = tlog.x[vec.indwhere("==",i_peak)]
+    
+    print "i_peak = ", i_peak
+    print "i_holding = ", i_holding
+    print "i_peak - i_holding = ", i_peak - i_holding
+    
+    amp = abs(i_peak - i_holding) * 1000
+    
+    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
+    i_10 = i_holding + (i_peak - i_holding) * 1/10
+    i_20 = i_holding + (i_peak - i_holding) * 2/10
+    i_50 = i_holding + (i_peak - i_holding) * 5/10
+    i_80 = i_holding + (i_peak - i_holding) * 8/10
+    i_90 = i_holding + (i_peak - i_holding) * 9/10
+    
+    t_10_90 = tlog.x[vec.indwhere("<",i_90)] - tlog.x[vec.indwhere("<",i_10)]
+    t_20_80 = tlog.x[vec.indwhere("<",i_80)] - tlog.x[vec.indwhere("<",i_20)]
+    
+    t_all = t_peak - tlog.x[(vec.indwhere("<",i_0001))]
+    t_50  = t_peak - tlog.x[(vec.indwhere(">",i_50))]
+    
+    idx = vec.indwhere("==",i_peak) - 1
+    if (idx >= 0) {
+        vec.remove(0,idx)
+        tlog.remove(0,idx)
+    }
+    
+    i_t	= i_holding - ((1/exp(1)) * abs(i_peak - i_holding))
+    t_decay = tlog.x[vec.indwhere(">",i_t)] - tlog.x[0]
+    
+    results = new Vector()
+    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
+    
+    ns = nil
+    nc = nil
+    
+    return results
+}
 
 endtemplate BasketCell

@@ -23,14 +23,44 @@ celltypes:
     templateType: forest
     forestFile: DGC_forest_syns_20170501.h5
     synapses:
-      0:
-        t_rise: 1.5
-        t_decay: 5.5
-        e_rev: 0
-      1:
-        t_rise: 1.5
-        t_decay: 2.5
-        e_rev: -75
+      density:
+        apical:
+          excitatory: # Excitatory https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2538941/
+            2: # layer
+             mean: 2.26 
+             variance: 0.07
+            3: # layer
+             mean: 2.26
+             variance: 0.07
+            4: # layer
+             mean: 2.26
+             variance: 0.07
+          inhibitory: # type 1: Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            2: # layer
+              mean: 1.0
+              variance: 0.01
+            4: # layer
+              mean: 3.5
+              variance: 0.01
+        soma:
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            default: # layer
+              mean: 8.0
+              variance: 0.2
+        ais:
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            default: # layer
+              mean: 8.0
+              variance: 0.2
+      kinetics:
+        0:
+          t_rise: 1.5
+          t_decay: 5.5
+          e_rev: 0
+        1:
+          t_rise: 1.5
+          t_decay: 2.5
+          e_rev: -75
   MC:
     indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: MossyCell
@@ -112,69 +142,85 @@ celltypes:
     templateName: BasketCell
     templateType: single
     synapses:
-      GC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 0.3
-        t_decay: 0.6
-        e_rev: 0
-      MC:
-        location:
-          dendrite: [0, 1]
-          compartment: 1
-        t_rise: 0.9
-        t_decay: 3.6
-        e_rev: 0
-      HC:
-        location:
-          dendrite: [0, 1]
-          compartment: 3
-        t_rise: 0.46
-        t_decay: 4.43
-        e_rev: -70
-      BC:
-        location:
-          dendrite: [0, 1]
-          compartment: 1
-        t_rise: 0.22
-        t_decay: 3.35
-        e_rev: -70
-      HCC:
-        location:
-          dendrite: [0, 1]
-          compartment: 1
-        t_rise: 0.6
-        t_decay: 4.78
-        e_rev: -70
-      NGFC_A:
-        location:
-          dendrite: [0, 1]
-          compartment: 3
-        t_rise: 4.2
-        t_decay: 14
-        e_rev: -70
-      NGFC_B:
-        location:
-          dendrite: [0, 1]
-          compartment: 3
-        t_rise: 86.8
-        t_decay: 428.1
-        e_rev: -70
-      MPP:
-        location:
-          dendrite: [0, 1]
-          compartment: 1
-        t_rise: 0.22
-        t_decay: 3.35
-        e_rev: 0
-      LPP:
-        location:
-          dendrite: [0, 1]
-          compartment: 2
-        t_rise: 0.22
-        t_decay: 3.35
-        e_rev: 0
+      density:
+        apical:
+          excitatory: 
+            default: # layer
+             mean: 0.5 
+             variance: 0.2
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            default: # layer
+              mean: 0.25
+              variance: 0.1
+        basal:
+          excitatory: # Excitatory
+            default: # layer
+              mean: 0.5
+              variance: 0.2
+      kinetics:
+       GC:
+         location:
+           dendrite: [0, 1, 2, 3]
+           compartment: 0
+         t_rise: 0.3
+         t_decay: 0.6
+         e_rev: 0
+       MC:
+         location:
+           dendrite: [0, 1]
+           compartment: 1
+         t_rise: 0.9
+         t_decay: 3.6
+         e_rev: 0
+       HC:
+         location:
+           dendrite: [0, 1]
+           compartment: 3
+         t_rise: 0.46
+         t_decay: 4.43
+         e_rev: -70
+       BC:
+         location:
+           dendrite: [0, 1]
+           compartment: 1
+         t_rise: 0.22
+         t_decay: 3.35
+         e_rev: -70
+       HCC:
+         location:
+           dendrite: [0, 1]
+           compartment: 1
+         t_rise: 0.6
+         t_decay: 4.78
+         e_rev: -70
+       NGFC_A:
+         location:
+           dendrite: [0, 1]
+           compartment: 3
+         t_rise: 4.2
+         t_decay: 14
+         e_rev: -70
+       NGFC_B:
+         location:
+           dendrite: [0, 1]
+           compartment: 3
+         t_rise: 86.8
+         t_decay: 428.1
+         e_rev: -70
+       MPP:
+         location:
+           dendrite: [0, 1]
+           compartment: 1
+         t_rise: 0.22
+         t_decay: 3.35
+         e_rev: 0
+       LPP:
+         location:
+           dendrite: [0, 1]
+           compartment: 2
+         t_rise: 0.22
+         t_decay: 3.35
+         e_rev: 0
   AAC:
     indexFile: dentate_Full_Scale_Control_coords_20170508.h5
     templateName: AxoAxonicCell

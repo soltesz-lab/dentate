@@ -1,12 +1,13 @@
 ## Common definitions used in model configuration of dentate gyrus network
-SWC_Types:
+SWC Types:
   soma:   1
   axon:   2
+  ais:    2
   basal:  3
   apical: 4
   trunk:  5 
   tuft:   6
-Synapse_Types:
+Synapse Types:
   excitatory: 0
   inhibitory: 1
   neuromodulatory: 2
