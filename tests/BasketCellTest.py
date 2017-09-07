@@ -7,14 +7,14 @@ import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_tree_selection
+from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 from env import Env
-import utils
+import utils, cells
 
     
 def passive_test (tree, v_init):
 
-    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell ("BasketCell", neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -61,7 +61,7 @@ def passive_test (tree, v_init):
 
 def ap_rate_test (tree, v_init):
 
-    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell ("BasketCell", neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
@@ -158,7 +158,7 @@ def ap_rate_test (tree, v_init):
 
 def fi_test (tree, v_init):
 
-    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell ("BasketCell", neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
@@ -216,8 +216,8 @@ def gap_junction_test (tree, v_init):
     h.cells  = h.List()
     h.gjlist = h.List()
     
-    cell1 = utils.new_cell ("BasketCell", neurotree_dict=tree)
-    cell2 = utils.new_cell ("BasketCell", neurotree_dict=tree)
+    cell1 = cells.make_neurotree_cell ("BasketCell", neurotree_dict=tree)
+    cell2 = cells.make_neurotree_cell ("BasketCell", neurotree_dict=tree)
 
     h.cells.append(cell1)
     h.cells.append(cell2)
@@ -285,9 +285,13 @@ def synapse_group_test (label, syntype, cell, w, v_holding, v_init):
     vv = h.Vector()
     vv.append(0,0,0,0,0,0)
     
-    se = h.SEClamp(cell1.sections[0](0.5))
-    
-    v = cell.syntest(syntype,se,w,v_holding,v_init)
+    se = h.SEClamp(cell.sections[0](0.5))
+
+    if syntype == 0:
+        v = cell.syntest_exc(cell.syntypes.o(syntype),se,w,v_holding,v_init)
+    else:
+        v = cell.syntest_inh(cell.syntypes.o(syntype),se,w,v_holding,v_init)
+        
     vv = vv.add(v)
     
     amp     = vv.x[0]
@@ -297,32 +301,69 @@ def synapse_group_test (label, syntype, cell, w, v_holding, v_init):
     t_50    = vv.x[4]
     t_decay = vv.x[5]
 
-    f=open("BasketCell_synapse_results.dat",'w')
+    f=open("BasketCell_%s_synapse_results.dat" % label,'w')
 
-    f.write("%s synapses: " % label)
-    f.write("  Amplitude %f" % amp)
-    f.write("  10-90 Rise Time %f" % t_10_90)
-    f.write("  20-80 Rise Time %f" % t_20_80)
+    f.write("%s synapses: \n" % label)
+    f.write("  Amplitude %f\n" % amp)
+    f.write("  10-90 Rise Time %f\n" % t_10_90)
+    f.write("  20-80 Rise Time %f\n" % t_20_80)
     f.write("  Decay Time Constant %f\n" % t_decay)
 
     f.close()
 
 
-def synapse_test(tree, v_init):
+def synapse_group_rate_test (label, syntype, cell, w, rate, v_init):
+
+    res = cell.syntest_rate(cell.syntypes.o(syntype),w,rate,v_init)
+
+    tlog = res.o(0)
+    vlog = res.o(1)
     
-    cell = utils.new_cell ("BasketCell", neurotree_dict=tree)
-    synapse_group_test("Inhibitory", 1, cell, 0.0033, -70, v_init)
+    f=open("BasketCell_%s_synapse_rate.dat" % label,'w')
+
+    for i in xrange(0, int(tlog.size())):
+        f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
+
+    f.close()
+    
+
+def synapse_test(tree, synapses, v_init, env):
+    
+    cell = cells.make_neurotree_cell ("BasketCell", neurotree_dict=tree)
+
+    syn_ids      = synapses['syn_ids']
+    syn_types    = synapses['syn_types']
+    swc_types    = synapses['swc_types']
+    syn_locs     = synapses['syn_locs']
+    syn_sections = synapses['syn_secs']
+
+    synapse_kinetics = {}
+    synapse_kinetics[env.Synapse_Types['excitatory']] = env.celltypes['BC']['synapses']['kinetics']['MPP']
+    synapse_kinetics[env.Synapse_Types['inhibitory']] = env.celltypes['BC']['synapses']['kinetics']['BC']
+    
+    utils.mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapse_kinetics,env)
+
+    print int(cell.syntypes.o(env.Synapse_Types['inhibitory']).count()), " inhibitory synapses"
+    print int(cell.syntypes.o(env.Synapse_Types['excitatory']).count()), " excitatory synapses"
+    
+    synapse_group_test("Inhibitory", 1, cell, 0.0033, -70, 0)
     synapse_group_test("Excitatory", 0, cell, 0.006, 0, v_init)
+
+    synapse_group_rate_test("Inhibitory", 1, cell, 0.0033, 150, v_init)
+    synapse_group_rate_test("Excitatory", 0, cell, 0.006, 150, v_init)
 
     
 
 @click.command()
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def main(template_path,forest_path):
+@click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def main(template_path,forest_path,config_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+
+    env = Env(comm=MPI.COMM_WORLD, configFile=config_path, templatePaths=template_path, defsFile='config/Definitions.yaml')
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
@@ -332,14 +373,19 @@ def main(template_path,forest_path):
     h.pc = h.ParallelContext()
     
     popName = "BC"
-    (trees,_) = read_tree_selection (comm, forest_path, popName, [1039000])
+    (trees_dict,_) = read_tree_selection (comm, forest_path, popName, [1039000])
+    synapses_dict = read_cell_attribute_selection (comm, forest_path, popName, [1039000], "Synapse_Attributes")
     
-    tree = trees.itervalues().next()
-    
-    passive_test(tree,-60)
-    ap_rate_test(tree,-60)
-    fi_test(tree,-60)
-    gap_junction_test(tree,-60)
+    tree = trees_dict.itervalues().next()
+    synapses = synapses_dict.itervalues().next()
 
+    v_init = -60
+    
+    passive_test(tree, v_init)
+    ap_rate_test(tree, v_init)
+    fi_test(tree, v_init)
+    gap_junction_test(tree, v_init)
+    synapse_test(tree, synapses, v_init, env)
+    
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("BasketCellTest.py") != -1,sys.argv)+1):])

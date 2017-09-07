@@ -6,13 +6,13 @@ import sys, os
 import os.path
 import click
 import itertools
+from collections import defaultdict
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurograph.io import scatter_graph, bcast_graph
-from neurotrees.io import scatter_read_trees, population_ranges
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, population_ranges
 from env import Env
-import lpt
+import lpt, utils, synapses
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
@@ -65,13 +65,15 @@ def lpt_bal(env):
           fp.write('%d %d\n' % (x[1],part_rank))
         part_rank = part_rank+1
 
+        
 def mkspikeout (env, spikeout_filename):
     populationsFile = h5py.File(env.populationsFile)
     spikeoutFile    = h5py.File(spikeout_filename)
     populationsFile.copy('/H5Types',spikeoutFile)
     populationsFile.close()
     spikeoutFile.close()
-        
+
+    
 def spikeout (env, output_path, t_vec, id_vec):
     binlst  = []
     typelst = env.celltypes.keys()
@@ -98,7 +100,7 @@ def spikeout (env, output_path, t_vec, id_vec):
                 spkdict[id]= {'t': [t]}
         for j in spkdict.keys():
             spkdict[j]['t'] = np.array(spkdict[j]['t'])
-        write_cell_attributes(MPI._addressof(env.comm), output_path, pop_name, spkdict, namespace="Spike Events")
+        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace="Spike Events")
         ## {0: {'t': a }}
         
     
@@ -229,9 +231,9 @@ def connectcells(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     if env.nodeRanks is None:
-        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,attributes=True)
     else:
-        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_map=env.nodeRanks,attributes=True)
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,node_rank_map=env.nodeRanks,attributes=True)
     for name in projections.keys():
         if env.verbose:
             if env.pc.id() == 0:
@@ -240,25 +242,6 @@ def connectcells(env):
 
 
 my_syns = defaultdict(lambda: {})
-
-
-def syn_in_seg(seg,syns_dict):
-    if seg.sec not in syns_dict:
-        return False
-    if any(seg.sec(x) == seg for x in syns_dict[seg.sec]): return True
-    return False
-
-
-def add_syn(seg,syns_dict):
-    # returns the existing synapse in segment if any, else creates it
-    if not syn_in_seg(seg,syns_dict):
-        syn = h.Exp2Syn(seg)
-        syns_dict[seg.sec][syn.get_segment().x] = syn
-        return syn
-    else:
-        for x, syn in syns_dict[seg.sec].iteritems():
-            if seg.sec(x) == seg:
-               return syn
 
            
 def mksyn1(cell,synapses,syns_dict,env):
@@ -285,7 +268,7 @@ def mksyn1(cell,synapses,syns_dict,env):
                 else:
                     compartments=[location['compartment']]
                 for secindex in compartments:
-                    h.syn = add_syn(cell.dendrites[dendindex][secindex](0.5),syns_dict)
+                    h.syn = synapses.add_shared_synapse(cell.dendrites[dendindex][secindex](0.5),syns_dict)
                     h.syn.tau1 = t_rise
                     h.syn.tau2 = t_decay
                     h.syn.e    = e_rev
@@ -311,7 +294,7 @@ def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
         sref = cell.allsoma[syn_section]
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      h.syn      = add_syn(sref.sec(syn_loc),syns_dict)
+      h.syn      = synapses.add_shared_synapse(sref.sec(syn_loc),syns_dict)
       h.syn.tau1 = synapses['kinetics'][syn_type]['t_rise']
       h.syn.tau2 = synapses['kinetics'][syn_type]['t_decay']
       h.syn.e    = synapses['kinetics'][syn_type]['e_rev']
@@ -338,7 +321,7 @@ def connectgjs(env):
             if env.pc.id() == 0:
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-        (graph, a) = bcast_graph(MPI._addressof(env.comm),gapjunctionsFilePath,attributes=True)
+        (graph, a) = bcast_graph(env.comm,gapjunctionsFilePath,attributes=True)
 
         ggid = 2e6
         for name in gapjunctions.keys():
@@ -454,11 +437,11 @@ def mkcells(env):
             h('gid = fid = node = 0')
             inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
             if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
-                                                        attributes=True, namespace='Synapse_Attributes')
+                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, env.IOsize,
+                                                        attributes=True, namespace='Synapse Attributes')
             else:
-                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
-                                                        attributes=True, namespace='Synapse_Attributes',
+                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, env.IOsize,
+                                                        attributes=True, namespace='Synapse Attributes',
                                                         node_rank_map=env.nodeRanks)
             if env.celltypes[popName].has_key('synapses'):
                 synapses = env.celltypes[popName]['synapses']
@@ -482,14 +465,13 @@ def mkcells(env):
                 h.vsrc     = tree['section_topology']['src']
                 h.vdst     = tree['section_topology']['dst']
                 ## syn_id syn_type syn_locs section layer
-                h.syn_ids      = tree['Synapse_Attributes']['syn_id']
-                h.syn_types    = tree['Synapse_Attributes']['syn_type']
-                h.swc_types    = tree['Synapse_Attributes']['swc_type']
-                h.syn_locs     = tree['Synapse_Attributes']['syn_locs']
-                h.syn_sections = tree['Synapse_Attributes']['section']
+                h.syn_ids      = tree['Synapse Attributes']['syn_id']
+                h.syn_types    = tree['Synapse Attributes']['syn_type']
+                h.swc_types    = tree['Synapse Attributes']['swc_type']
+                h.syn_locs     = tree['Synapse Attributes']['syn_locs']
+                h.syn_sections = tree['Synapse Attributes']['section']
                 verboseflag = 0
-                hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
-                h(hstmt)
+                h.cell = cells.make_neurotree_cell(template_name, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
                 mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
                 h.cell.correct_for_spines()
                 env.gidlist.append(gid)

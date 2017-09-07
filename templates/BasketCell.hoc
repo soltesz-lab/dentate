@@ -4,14 +4,14 @@ public connect2target, subsets, is_art, is_connected
 public sections
 public all, soma, basal, apical, ais
 public xx, yy, zz, position
-public syns
-public syn_stim, syntest
+public syns, syntypes
+public syn_stim, syntest_exc, syntest_inh
 
 create sections[1]
 
 objref all, soma, basal, apical, ais
 objref apicalidx, basalidx
-objref syns
+objref syns, syntypes
 
 id  = -1
 gid = -1
@@ -71,6 +71,9 @@ proc init() {
     biophys()
 
     syns = new List()
+    syntypes = new List()
+    syntypes.append(new List())
+    syntypes.append(new List())
 }
 
 
@@ -332,14 +335,15 @@ proc position() { local i
   xx = $1  yy = $2  zz = $3
 }
 
+external cvode_active, continuerun
 
-obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist, vec, syntype, results, tlog, nil
+obfunc syntest_exc() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist, vec, synlst, results, tlog, nil
     
-    syntype = $1
-    se = $o2
-    w = $3
+    synlst = $o1
+    se     = $o2
+    w      = $3
     v_holding = $4
-    v_init = $5
+    v_init    = $5
     
     soma { 
         se.rs = 10
@@ -366,8 +370,8 @@ obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist
     ns.noise  = 0
     
     nclist = new List()
-    for idx=0, syns.o(syntype).count()-1 {
-        nc = new NetCon(ns,syns.o(syntype).o(idx))
+    for idx=0, synlst.count()-1 {
+        nc = new NetCon(ns,synlst.o(idx))
         nc.weight = w
         nc.delay = 0
         nclist.append(nc)
@@ -379,7 +383,9 @@ obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist
     fadvance()
     continuerun(tstop)
     
-    i_holding = vec.x[tlog.indwhere(">=",ns.start)]
+    t_holding_index = tlog.indwhere(">=",ns.start)
+    t_holding = tlog.x[t_holding_index]
+    i_holding = vec.x[t_holding_index]
     idx = tlog.indwhere(">=",ns.start) - 1
     vec.remove(0,idx)
     tlog.remove(0,idx)
@@ -393,7 +399,9 @@ obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist
     print "i_peak = ", i_peak
     print "i_holding = ", i_holding
     print "i_peak - i_holding = ", i_peak - i_holding
-    
+    print "t_peak = ", t_peak
+    print "t_holding = ", t_holding
+
     amp = abs(i_peak - i_holding) * 1000
     
     i_0001 = i_holding + (i_peak - i_holding) * 1/10000
@@ -420,6 +428,157 @@ obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist
     
     results = new Vector()
     results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
+    
+    ns = nil
+    nc = nil
+    
+    return results
+}
+
+obfunc syntest_inh() { local vec_size, i_holding, t_holding, t_holding_index, w, idx localobj se, ns, nc, nclist, vec, synlist, results, tlog, nil
+    
+    synlist = $o1
+    se = $o2
+    w = $3
+    v_holding = $4
+    v_init = $5
+    
+    soma { 
+        se.dur1 = 1010
+        se.amp1 = v_holding 
+    }
+    
+    mainDT = 0.001
+    dt = mainDT
+    tstop = 1000
+    
+    vec_size = tstop/mainDT + 1
+    
+    vec = new Vector(vec_size)
+    vec.record(&se.i)
+    
+    tlog = new Vector(vec_size)
+    tlog.record(&t)
+    
+    ns = new NetStim()
+    ns.interval = 1000
+    ns.number = 1
+    ns.start  = 200
+    ns.noise  = 0
+    
+    nclist = new List()
+    for idx=0, synlist.count()-1 {
+        nc = new NetCon(ns,synlist.o(idx))
+        nc.weight = w
+        nc.delay = 0
+        nclist.append(nc)
+    }
+    
+    cvode_active(1)
+    //cvode.use_daspk(1)
+    //cvode.dae_init_dteps(1e-9, 2)
+    finitialize(v_init)
+    fadvance()
+    continuerun(tstop)
+    
+    
+    t_holding_index = tlog.indwhere(">=",ns.start)
+    t_holding = tlog.x(t_holding_index)
+    i_holding = vec.x[t_holding_index]
+    idx = tlog.indwhere(">=",ns.start) - 1
+    vec.remove(0,idx)
+    tlog.remove(0,idx)
+    
+    vec.printf()
+    tlog.printf()
+    
+    i_peak = vec.max()
+    t_peak = tlog.x[vec.indwhere("==",i_peak)]
+    
+    print "celsius = ", celsius
+    print "i_peak = ", i_peak
+    print "i_holding = ", i_holding
+    print "i_peak - i_holding = ", i_peak - i_holding
+    print "t_peak = ", t_peak
+    print "t_holding = ", t_holding
+
+    amp = abs(i_peak - i_holding) * 1000
+    
+    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
+    i_10 = i_holding + (i_peak - i_holding) * 1/10
+    i_20 = i_holding + (i_peak - i_holding) * 2/10
+    i_50 = i_holding + (i_peak - i_holding) * 5/10
+    i_80 = i_holding + (i_peak - i_holding) * 8/10
+    i_90 = i_holding + (i_peak - i_holding) * 9/10
+    
+    t_10_90 = tlog.x[vec.indwhere(">",i_90)] - tlog.x[vec.indwhere(">",i_10)]
+    t_20_80 = tlog.x[vec.indwhere(">",i_80)] - tlog.x[vec.indwhere(">",i_20)]
+    
+    t_all = t_peak - tlog.x[(vec.indwhere(">",i_0001))]
+    t_50  = t_peak - tlog.x[(vec.indwhere(">",i_50))]
+    
+    idx = vec.indwhere("==",i_peak) - 1
+    if (idx >= 0) {
+        vec.remove(0,idx)
+        tlog.remove(0,idx)
+    }
+    
+    i_t	= i_holding + ((1/exp(1)) * abs(i_peak - i_holding))
+    t_decay = tlog.x[vec.indwhere("<",i_t)] - tlog.x[0]
+    
+    results = new Vector()
+    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
+    
+    ns = nil
+    nc = nil
+    
+    return results
+}
+
+
+obfunc syntest_rate() { local vec_size, w, rate, idx localobj ns, nc, nclist, vec, synlist, results, tlog, nil
+    
+    synlist = $o1
+    w = $2
+    rate = $3
+    v_init = $4
+    
+    mainDT = 0.001
+    dt = mainDT
+    tstop = 1000
+    
+    vec_size = tstop/mainDT + 1
+    
+    vec = new Vector(vec_size)
+    vec.record(&sections[0].v(0.5))
+    
+    tlog = new Vector(vec_size)
+    tlog.record(&t)
+    
+    ns = new NetStim()
+    ns.interval = 1000/rate
+    ns.number = rate
+    ns.start  = 200
+    ns.noise  = 0
+    
+    nclist = new List()
+    for idx=0, synlist.count()-1 {
+        nc = new NetCon(ns,synlist.o(idx))
+        nc.weight = w
+        nc.delay = 0
+        nclist.append(nc)
+    }
+    
+    cvode_active(1)
+    //cvode.use_daspk(1)
+    //cvode.dae_init_dteps(1e-9, 2)
+    finitialize(v_init)
+    fadvance()
+    continuerun(tstop)
+    
+    results = new List()
+    results.append(tlog)
+    results.append(vec)
     
     ns = nil
     nc = nil

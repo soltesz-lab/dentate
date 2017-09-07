@@ -3,18 +3,10 @@ import sys, time, gc
 import numpy as np
 from mpi4py import MPI
 from neuron import h
-from neuroh5.io import NeuroH5TreeGen
-from neuroh5.io import append_cell_attributes
-import utils
+from neuroh5.io import population_ranges, NeuroH5TreeGen, append_cell_attributes
 import click
 from env import Env
-
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except:
-    pass
-
+import utils, synapses
 
 def list_find (f, lst):
     i=0
@@ -51,10 +43,11 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    #populations = population_contents(comm, forest_path)
+    (pop_ranges, _) = population_ranges(comm, forest_path)
     start_time = time.time()
     for population in populations:
         count = 0
+        (population_start, _) = pop_ranges[population]
         template_name = env.celltypes[population]['templateName']
         h.find_template(h.pc, env.templatePaths, template_name)
         density_dict = env.celltypes[population]['synapses']['density']
@@ -71,8 +64,8 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 cell_sec_dict = {'apical': cell.apical, 'basal': cell.basal, 'soma': cell.soma, 'ais': cell.ais}
                 
                 if distribution == 'uniform':
-                    synapse_dict[gid] = utils.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types,
-                                                                          density_dict, morph_dict, cell_sec_dict)
+                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types,
+                                                                                              density_dict, morph_dict, cell_sec_dict)
                 del cell
                 print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
                 count += 1
@@ -80,7 +73,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 print  'Rank %i gid is None' % rank
             # print 'Rank %i before append_cell_attributes' % rank
             append_cell_attributes(comm, forest_path, population, synapse_dict,
-                                    namespace='Synapse_Attributes', io_size=io_size, chunk_size=chunk_size,
+                                    namespace='Synapse Attributes', io_size=io_size, chunk_size=chunk_size,
                                     value_chunk_size=value_chunk_size)
             sys.stdout.flush()
             del synapse_dict

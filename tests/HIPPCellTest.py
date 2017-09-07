@@ -7,12 +7,12 @@ from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection
 from env import Env
-import utils
+import utils, cells
 
     
 def passive_test (tree, v_init):
 
-    cell = utils.new_cell ("HIPPCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell ("HIPPCell", neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -59,7 +59,7 @@ def passive_test (tree, v_init):
 
 def ap_rate_test (tree, v_init):
 
-    cell = utils.new_cell ("HIPPCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell ("HIPPCell", neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
