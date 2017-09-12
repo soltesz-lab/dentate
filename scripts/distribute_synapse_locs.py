@@ -3,7 +3,7 @@ import sys, time, gc
 import numpy as np
 from mpi4py import MPI
 from neuron import h
-from neuroh5.io import population_ranges, NeuroH5TreeGen, append_cell_attributes
+from neuroh5.io import NeuroH5TreeGen, population_ranges, append_cell_attributes
 import click
 from env import Env
 import utils, synapses
@@ -31,7 +31,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     comm = MPI.COMM_WORLD
     rank = comm.rank
     
-    env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path, defsFile='config/Definitions.yaml')
+    env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path)
     h('objref nil, pc')
     h.load_file("nrngui.hoc")
     h.xopen("./lib.hoc")

@@ -5,12 +5,12 @@ from neuron import h
 import numpy as np
 import utils
 
-def synapse_relcounts(syn_type_dict, layer_density_dicts, seglist, seed, neurotree_dict=None):
-    """Computes per-segment relative counts of synapse placement"""
-    relcounts_dict  = {}
-    relcount_total  = 0
+def synapse_seg_counts(syn_type_dict, layer_density_dicts, seglist, seed, neurotree_dict=None):
+    """Computes per-segment relative counts of synapse placement. """
+    segcounts_dict  = {}
+    segcount_total  = 0
     layers_dict     = {}
-    relcount_total  = 0
+    segcount_total  = 0
     for (syn_type_label, layer_density_dict) in layer_density_dicts.iteritems():
         syn_type = syn_type_dict[syn_type_label] 
         rans = {}
@@ -18,7 +18,7 @@ def synapse_relcounts(syn_type_dict, layer_density_dicts, seglist, seed, neurotr
             ran = h.Random(seed)
             ran.normal(density_dict['mean'], density_dict['variance'])
             rans[layer] = ran
-        relcounts = []
+        segcounts = []
         layers    = []
         for seg in seglist:
             L    = seg.sec.L
@@ -39,18 +39,18 @@ def synapse_relcounts(syn_type_dict, layer_density_dicts, seglist, seed, neurotr
             if ran is not None:
                 l         = L/nseg
                 rc        = ran.repick()*l
-                relcount_total += rc
-                relcounts.append(rc)
+                segcount_total += rc
+                segcounts.append(rc)
             else:
-                relcounts.append(0)
+                segcounts.append(0)
                 
-        relcounts_dict[syn_type] = relcounts
+        segcounts_dict[syn_type] = segcounts
         layers_dict[syn_type]    = layers
-    return (relcounts_dict, relcount_total, layers_dict)
+    return (segcounts_dict, segcount_total, layers_dict)
     
            
 def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_density_dict, neurotree_dict, sec_dict):
-    """Computes uniformly-spaced synapse locations"""
+    """Computes uniformly-spaced synapse locations. """
 
     syn_ids    = []
     syn_locs   = []
@@ -76,20 +76,20 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
                     seg_list.append(seg)
             
     
-        relcounts_dict, total, layers_dict = synapse_relcounts(syn_type_dict, layer_density_dict, seg_list, seed, neurotree_dict=neurotree_dict)
+        segcounts_dict, total, layers_dict = synapse_seg_counts(syn_type_dict, layer_density_dict, seg_list, seed, neurotree_dict=neurotree_dict)
 
         sample_size = total
         cumcount  = 0
         for (syn_type_label, _) in layer_density_dict.iteritems():
             syn_type  = syn_type_dict[syn_type_label]
-            relcounts = relcounts_dict[syn_type]
+            segcounts = segcounts_dict[syn_type]
             layers    = layers_dict[syn_type]
             for i in xrange(0,len(seg_list)):
                 seg = seg_list[i]
                 seg_start = seg.x - (0.5/seg.sec.nseg)
                 seg_end   = seg.x + (0.5/seg.sec.nseg)
                 seg_range = seg_end - seg_start
-                rel_count = relcounts[i]
+                seg_count = segcounts[i]
                 int_rel_count = round(rel_count)
                 layer = layers[i]
                 syn_count = 0
@@ -123,7 +123,7 @@ def syn_in_seg(seg,syns_dict):
 
 
 def add_shared_synapse(seg, syns_dict):
-    """Returns the existing synapse in segment if any, else creates it."""
+    """Returns the existing synapse in segment if any, otherwise creates it."""
     if not syn_in_seg(seg,syns_dict):
         syn = h.Exp2Syn(seg)
         syns_dict[seg.sec][syn.get_segment().x] = syn
@@ -134,7 +134,7 @@ def add_shared_synapse(seg, syns_dict):
                return syn
 
 def add_unique_synapse(seg, syns_dict):
-    """Creates a synapse in the segment"""
+    """Creates a synapse in the segment."""
     syn = h.Exp2Syn(seg)
     return syn
     

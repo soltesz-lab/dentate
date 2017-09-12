@@ -4,6 +4,7 @@ from neuron import h
 from neuroh5.io import read_cell_attributes
 import numpy as np
 import yaml
+import utils
 
 class Env:
     """Network model configuration."""
@@ -56,11 +57,10 @@ class Env:
                 offset=max(index)+1
         iocomm.Free()
     
-    def __init__(self, comm=None, configFile=None, defsFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, nodeRankFile=None,
+    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
-        :param defsFile: the name of the definitions file
         :param datasetPrefix: the location of all datasets
         :param resultsPath: the directory in which to write spike raster and voltage trace files
         :param nodeRankFile: the name of a file that specifies assignment of node gids to MPI ranks
@@ -79,12 +79,6 @@ class Env:
 
         self.SWC_Types = {}
         self.Synapse_Types = {}
-
-        if defsFile is not None:
-            with open(defsFile) as fp:
-                defs = yaml.load(fp)
-                self.SWC_Types = defs['SWC Types']
-                self.Synapse_Types = defs['Synapse Types']
 
         self.gidlist = []
         self.cells  = []
@@ -152,9 +146,13 @@ class Env:
 
         if configFile is not None:
             with open(configFile) as fp:
-                self.modelConfig = yaml.load(fp)
+                self.modelConfig = yaml.load(fp, utils.IncludeLoader)
         else:
             raise RuntimeError("missing configuration file")
+
+        defs = self.modelConfig['definitions']
+        self.SWC_Types = defs['SWC Types']
+        self.Synapse_Types = defs['Synapse Types']
             
         # The name of this model
         self.modelName = self.modelConfig['modelname']

@@ -1,8 +1,32 @@
 import itertools
 from collections import defaultdict
 import sys, os.path, string
-from neuron import h
+try:
+    from neuron import h
+except:
+    pass
 import numpy as np
+import yaml
+import os.path
+
+
+class IncludeLoader(yaml.Loader):
+
+    def __init__(self, stream):
+
+        self._root = os.path.split(stream.name)[0]
+
+        super(Loader, self).__init__(stream)
+
+    def include(self, node):
+
+        filename = os.path.join(self._root, self.construct_scalar(node))
+
+        with open(filename, 'r') as f:
+            return yaml.load(f, Loader)
+
+IncludeLoader.add_constructor('!include', IncludeLoader.include)
+
 
 def list_find (f, lst):
     i=0

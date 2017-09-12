@@ -609,15 +609,8 @@ def run (env):
     if (rank == 0):
         mkspikeout (env, spikeoutPath)
     spikeout(env, spikeoutPath, env.t_vec, env.id_vec)
-    
-    #if (rank == 0):
-        #h.spikeout("%s/%s_spikeout.dat" % (env.resultsPath, env.modelName),h.t_vec_all,h.id_vec_all)
-        #h.vcnts      = h.Vector(nhosts)
-        #h.vcnts.x[0] = env.t_vec.size()
-        #h.t_vec_all  = h.Vector()
-        #h.id_vec_all = h.Vector()
-        #env.pc.alltoall(env.t_vec, h.vcnts, h.t_vec_all)
-        #env.pc.alltoall(env.id_vec, h.vcnts, h.id_vec_all)
+
+    # TODO:
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 

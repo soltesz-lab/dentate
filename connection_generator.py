@@ -2,7 +2,7 @@
 import itertools
 import numpy as np
 from mpi4py import MPI
-from neuroh5.io import NeurotreeAttrGen, bcast_cell_attributes, population_ranges, append_graph
+from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 import click
 import utils
 
@@ -12,6 +12,122 @@ try:
 except:
     pass
 
+
+class ConnectionProb(object):
+    """
+    An object of this class will instantiate customized vectorized functions describing the connection probabilities
+    for each presynaptic population. These functions can then be used to get the distribution of connection 
+    probabilities across all possible source neurons, given the soma coordinates of a target neuron. 
+    """
+    def __init__(self, extent, nstdev = 5.):
+        """
+        Warning: This method does not produce an absolute probability. It must be normalized so that the total area
+        (volume) under the distribution is 1 before sampling.
+        :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
+        """
+        self.p_dist = {}
+        self.width  = {}
+        self.offset = {}
+        self.sigma  = {}
+        for source in extent:
+            extent_width  = extent[source]['width']
+            if extent[source].has_key('offset'):
+                extent_offset = extent[source]['offset']
+            else:
+                extent_offset = None
+            self.width[source] = {'u': extent_width[0], 'v': extent_width[1]}
+            self.sigma[source] = {axis: self.width[source][axis] / nstdev / np.sqrt(2.) for axis in self.width[source]}
+            if extent_offset is None:
+                self.offset[source] = {'u': 0., 'v': 0.}
+            else:
+                self.offset[source] = {'u': extent_offset[source][0], 'v': axon_offset[source][1]}
+            self.p_dist[source] = (lambda source:
+                                   np.vectorize(lambda distance_u, distance_v:
+                                                np.exp(-(((abs(distance_u) - self.offset[source]['u']) /
+                                                          self.sigma[source]['u'])**2. +
+                                                         ((abs(distance_v) - self.offset[source]['v']) /
+                                                          self.sigma[source]['v'])**2.)))) (source)
+
+
+    def filter_by_soma_coords(self, target, source, target_gid, soma_coords, ip_surface):
+        """
+        Given the coordinates of a target neuron, filter the set of source neurons, and return the arc_distances in two
+        dimensions and the gids of source neurons whose axons potentially contact the target neuron.
+        :param target: str
+        :param source: str
+        :param target_gid: int
+        :param soma_coords: nested dict of array
+        :param ip_surface: surface interpolation function
+        :return: tuple of array of int
+        """
+        target_index_u = soma_coords[target][target_gid]['u_index']
+        target_index_v = soma_coords[target][target_gid]['v_index']
+        source_distance_u = []
+        source_distance_v = []
+        source_gid = []
+        for this_source_gid in soma_coords[source]:
+            this_source_distance_u, this_source_distance_v = \
+                self.get_approximate_arc_distances(target_index_u, target_index_v,
+                                                   soma_coords[source][this_source_gid]['u_index'],
+                                                   soma_coords[source][this_source_gid]['v_index'], distance_U,
+                                                   distance_V)
+            if ((np.abs(this_source_distance_u) <= self.width[source]['u'] / 2. + self.offset[source]['u']) &
+                    (np.abs(this_source_distance_v) <= self.width[source]['v'] / 2. + self.offset[source]['v'])):
+                source_distance_u.append(this_source_distance_u)
+                source_distance_v.append(this_source_distance_v)
+                source_gid.append(this_source_gid)
+
+        return np.array(source_distance_u), np.array(source_distance_v), np.array(source_gid)
+
+    def get_p(self, target, source, target_gid, soma_coords, ip_surface, plot=False):
+        """
+        Given the soma coordinates of a target neuron and a population source, return an array of connection 
+        probabilities and an array of corresponding source gids.
+        :param target: str
+        :param source: str
+        :param target_gid: int
+        :param soma_coords: nested dict of array
+        :param distance_U: array of float
+        :param distance_V: array of float
+        :param plot: bool
+        :return: array of float, array of int
+        """
+        source_distance_u, source_distance_v, source_gid = self.filter_by_soma_coords(target, source, target_gid,
+                                                                                      soma_coords, ip_surface)
+        p = self.p_dist[source](source_distance_u, source_distance_v)
+        p /= np.sum(p)
+        if plot:
+            plt.scatter(source_distance_u, source_distance_v, c=p)
+            plt.title(source+' -> '+target)
+            plt.xlabel('Septotemporal distance (um)')
+            plt.ylabel('Tranverse distance (um)')
+            plt.show()
+            plt.close()
+        return p, source_gid
+
+
+def filter_sources(target, layer, swc_type, syn_type):
+    """
+    
+    :param target: str 
+    :param layer: int
+    :param swc_type: int
+    :param syn_type: int
+    :return: list
+    """
+    source_list = []
+    proportion_list = []
+    for source in layers[target]:
+        for i, this_layer in enumerate(layers[target][source]):
+            if this_layer == layer:
+                if swc_types[target][source][i] == swc_type:
+                    if syn_types[target][source][i] == syn_type:
+                        source_list.append(source)
+                        proportion_list.append(proportions[target][source][i])
+    if proportion_list and np.sum(proportion_list) != 1.:
+        raise Exception('Proportions of synapses to target: %s, layer: %i, swc_type: %i, '
+                        'syn_type: %i do not sum to 1' % (target, layer, swc_type, syn_type))
+    return source_list, proportion_list
 
 
 def generate_uv_distance_connections(comm, destination, forest_path, connection_layers,
@@ -45,11 +161,6 @@ def generate_uv_distance_connections(comm, destination, forest_path, connection_
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                         namespace=coords_namespace)
-
-    for population in soma_coords:
-        for cell in soma_coords[population].itervalues():
-            cell['u_index'] = get_array_index(u, cell['U Coordinate'][0])
-            cell['v_index'] = get_array_index(v, cell['V Coordinate'][0])
 
     layer_set, swc_type_set, syn_type_set = set(), set(), set()
     for source in connection_layers[destination]:
