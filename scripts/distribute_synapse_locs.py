@@ -3,10 +3,10 @@ import sys, time, gc
 import numpy as np
 from mpi4py import MPI
 from neuron import h
-from neuroh5.io import NeuroH5TreeGen, population_ranges, append_cell_attributes
+from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 import click
 from env import Env
-import utils, synapses
+import utils, cells, synapses
 
 def list_find (f, lst):
     i=0
@@ -43,7 +43,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    (pop_ranges, _) = population_ranges(comm, forest_path)
+    (pop_ranges, _) = read_population_ranges(comm, forest_path)
     start_time = time.time()
     for population in populations:
         count = 0
@@ -57,7 +57,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
             synapse_dict = {}
             if gid is not None:
                 print  'Rank %i gid: %i' % (rank, gid)
-                cell = utils.new_cell(template_name, neurotree_dict=morph_dict, gid=gid)
+                cell = cells.make_neurotree_cell(template_name, neurotree_dict=morph_dict, gid=gid)
                 # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
                 # if this_mismatched_sections is not None:
                 #    mismatched_section_dict[gid] = this_mismatched_sections
@@ -90,4 +90,4 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("compute_synapse_locs.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find("distribute_synapse_locs.py") != -1,sys.argv)+1):])

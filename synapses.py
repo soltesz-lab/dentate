@@ -3,7 +3,7 @@ from collections import defaultdict
 import sys, os.path, string
 from neuron import h
 import numpy as np
-import utils
+import utils, cells
 
 def synapse_seg_counts(syn_type_dict, layer_density_dicts, seglist, seed, neurotree_dict=None):
     """Computes per-segment relative counts of synapse placement. """
@@ -24,7 +24,7 @@ def synapse_seg_counts(syn_type_dict, layer_density_dicts, seglist, seed, neurot
             L    = seg.sec.L
             nseg = seg.sec.nseg
             if neurotree_dict is not None:
-                layer = get_node_attribute('layer', neurotree_dict, seg.sec, seg.x)
+                layer = cells.get_node_attribute('layer', neurotree_dict, seg.sec, seg.x)
             else:
                 layer = -1
             layers.append(layer)
@@ -90,11 +90,11 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
                 seg_end   = seg.x + (0.5/seg.sec.nseg)
                 seg_range = seg_end - seg_start
                 seg_count = segcounts[i]
-                int_rel_count = round(rel_count)
+                int_seg_count = round(seg_count)
                 layer = layers[i]
                 syn_count = 0
-                while syn_count < int_rel_count:
-                    syn_loc = seg_start + seg_range * ((syn_count + 1) / rel_count)
+                while syn_count < int_seg_count:
+                    syn_loc = seg_start + seg_range * ((syn_count + 1) / seg_count)
                     syn_locs.append(syn_loc)
                     syn_ids.append(syn_index)
                     syn_secs.append(sec_index_dict[seg.sec])

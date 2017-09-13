@@ -3,6 +3,7 @@ import itertools
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
+from bspline_surface import BSplineSurface
 import click
 import utils
 
