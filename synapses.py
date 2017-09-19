@@ -115,7 +115,7 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
     return syn_dict
 
 
-def syn_in_seg(seg,syns_dict):
+def syn_in_seg(seg, syns_dict):
     if seg.sec not in syns_dict:
         return False
     if any(seg.sec(x) == seg for x in syns_dict[seg.sec]): return True
@@ -124,7 +124,7 @@ def syn_in_seg(seg,syns_dict):
 
 def add_shared_synapse(seg, syns_dict):
     """Returns the existing synapse in segment if any, otherwise creates it."""
-    if not syn_in_seg(seg,syns_dict):
+    if not syn_in_seg(seg, syns_dict):
         syn = h.Exp2Syn(seg)
         syns_dict[seg.sec][syn.get_segment().x] = syn
         return syn
@@ -138,15 +138,15 @@ def add_unique_synapse(seg, syns_dict):
     syn = h.Exp2Syn(seg)
     return syn
     
-def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapse_kinetics,env,add_synapse=add_shared_synapse,spines=False):
+def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,presyn_ids,syn_kinetics,env,add_synapse=add_shared_synapse,spines=False):
     sort_idx       = np.argsort(syn_ids,axis=0)
-    syns_dict_dend = defaultdict(lambda: {})
-    syns_dict_axon = defaultdict(lambda: {})
-    syns_dict_soma = defaultdict(lambda: {})
+    syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_soma = defaultdict(lambda: defaultdict(lambda: {}))
     py_apical = [sec for sec in cell.apical]
     py_basal  = [sec for sec in cell.basal]
-    py_ais = [sec for sec in cell.ais]
-    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
+    py_ais    = [sec for sec in cell.ais]
+    for (syn_id,syn_type,swc_type,syn_loc,syn_section,presyn_id) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx],presyn_ids[sort_idx]):
       sref = None
       if swc_type == env.SWC_Types['apical']:
         syns_dict = syns_dict_dend
@@ -166,10 +166,11 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapse_kineti
         sec = cell.soma[syn_section]
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      syn      = add_synapse(sec(syn_loc), syns_dict)
-      syn.tau1 = synapse_kinetics[syn_type]['t_rise']
-      syn.tau2 = synapse_kinetics[syn_type]['t_decay']
-      syn.e    = synapse_kinetics[syn_type]['e_rev']
+      syn = add_synapse(sec(syn_loc), syns_dict[presyn_id])
+      syn_kinetic_params = syn_kinetics[presyn_id][syn_type]
+      syn.tau1 = syn_kinetic_params['t_rise']
+      syn.tau2 = syn_kinetic_params['t_decay']
+      syn.e    = syn_kinetic_params['e_rev']
       cell.syns.append(syn)
       cell.syntypes.o(syn_type).append(syn)
 

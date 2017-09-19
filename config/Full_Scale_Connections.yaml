@@ -1,0 +1,687 @@
+# full width in um [S-T, M-L]
+Axon Width:
+    GC:   [900., 900.]
+    MPP:  [1500., 3000.]
+    LPP:  [1500., 3000.]
+    MC:   [4000., 4000.]
+    NGFC: [2000., 2000.]
+    AAC:  [1100., 1100.]
+    BC:   [1700., 1000.]
+    HCC:  [2600., 2600.]
+    HC:   [3000., 3000.]
+    IS:   [3000., 3000.]
+    MOPP: [2000., 2000.]
+Axon Offset:
+    MC:   [1000., 0.]
+    GC:   [0., 0.]
+    MPP:  [0., 0.]
+    LPP:  [0., 0.]
+    NGFC: [0., 0.]
+    AAC:  [0., 0.]
+    BC:   [0., 0.]
+    HCC:  [0., 0.]
+    HC:   [0., 0.]
+    IS:   [0., 0.]
+    MOPP: [0., 0.]
+Synapse Layers:
+    GC:
+      MPP:  [MML]
+      LPP:  [OML]
+      MC:   [IML]
+      NGFC: [MML, OML]
+      AAC:  [GCL]
+      BC:   [GCL, IML]
+      MOPP: [IML, MML]
+      HCC:  [IML]
+      HC:   [MML, OML]
+    MC:
+      GC:  [Hilus]
+      MC:  [Hilus]
+      HC:  [IML]
+      BC:  [Hilus]
+      AAC: [Hilus]
+      HCC: [IML]
+    HC:
+      GC:  [Hilus]
+      MC:  [GCL]
+      HC:  [Hilus]
+      BC:  [GCL]
+      IS:  [Hilus]
+    BC:
+      GC:   [Hilus]
+      MC:   [GCL]
+      HC:   [MML]
+      BC:   [GCL]
+      HCC:  [GCL]
+      NGFC: [MML, OML]
+      MOPP: [IML, MML]
+      IS:   [Hilus]
+      MPP:  [MML]
+      LPP:  [OML]
+    AAC:
+      GC:   [Hilus]
+      MC:   [GCL]
+      HC:   [MML]
+      NGFC: [MML, OML]
+      MOPP: [IML, MML]
+    HCC:
+      GC:   [Hilus]
+      MC:   [GCL]
+      BC:   [GCL]
+      GCC:  [GCL]
+      NGFC: [OML]
+      MOPP: [MML]
+      IS:   [Hilus]
+    NGFC:
+      HC:   [MML, OML]
+      NGFC: [OML]
+      MPP:  [MML]
+      LPP:  [OML]
+    MOPP:
+      MC:   [IML]
+      MOPP: [MML]
+      HC:   [IML]
+      HCC:  [IML]
+      MPP:  [MML]
+    IS:
+      GC:   [Hilus]
+      IS:   [Hilus]
+Synapse Types:
+    GC:
+      MPP:  [AMPA]
+      LPP:  [AMPA]
+      MC:   [AMPA]
+      NGFC: [GABA_AB]
+      AAC:  [GABA_A]
+      BC:   [GABA_A]
+      HCC:  [GABA_A]
+      HC:   [GABA_A]
+      MOPP: [GABA_AB]
+    MC:
+      GC:   [AMPA]
+      MC:   [AMPA]
+      HC:   [GABA_A]
+      BC:   [GABA_A]
+      AAC:  [GABA_A]
+      HCC:  [GABA_A]
+    HC:
+      GC:  [AMPA]
+      MC:  [AMPA]
+      HC:  [GABA_A]
+      BC:  [GABA_A]
+      IS:  [GABA_A]
+    BC:
+      GC:   [AMPA]
+      MC:   [AMPA]
+      HC:   [GABA_A]
+      BC:   [GABA_A]
+      HCC:  [GABA_A]
+      NGFC: [GABA_AB]
+      MOPP: [GABA_AB]
+      IS:   [GABA_A]
+      MPP:  [AMPA]
+      LPP:  [AMPA]
+    AAC:
+      GC:   [AMPA]
+      MC:   [AMPA]
+      HC:   [GABA_A]
+      NGFC: [GABA_AB]
+      MOPP: [GABA_AB]
+    HCC:
+      GC:   [AMPA]
+      MC:   [AMPA]
+      BC:   [GABA_A]
+      HCC:  [GABA_A]
+      NGFC: [GABA_AB]
+      MOPP: [GABA_AB]
+      IS:   [GABA_A]
+    NGFC:
+      HC:   [GABA_A]
+      NGFC: [GABA_AB]
+      MPP:  [AMPA]
+      LPP:  [AMPA]
+    MOPP:
+      MC:   [AMPA]
+      MOPP: [GABA_AB]
+      HC:   [GABA_A]
+      HCC:  [GABA_A]
+      MPP:  [AMPA]
+    IS:
+      GC:   [AMPA]
+      IS:   [GABA_A]
+Synapse Locations:
+    GC:
+      MPP:  [apical]
+      LPP:  [apical]
+      MC:   [apical]
+      NGFC: [apical]
+      AAC:  [ais]
+      BC:   [soma, apical]
+      MOPP: [apical]
+      HCC:  [apical]
+      HC:   [apical]
+    MC:
+      GC:   [apical]
+      MC:   [apical]
+      HC:   [apical]
+      BC:   [soma]
+      AAC:  [soma]
+      HCC:  [apical]
+    HC:
+      GC:   [apical, basal]
+      MC:   [apical, basal]
+      HC:   [apical, basal]
+      BC:   [apical, basal]
+      IS:   [basal]
+    BC:
+      GC:   [apical, basal]
+      MC:   [basal]
+      HC:   [basal]
+      BC:   [basal]
+      HCC:  [basal]
+      NGFC: [apical, basal]
+      MOPP: [apical, basal]
+      IS:   [basal]
+      MPP:  [apical]
+      LPP:  [apical]
+    AAC:
+      GC: [apical, basal]
+      MC: [basal]
+      HC: [basal]
+      NGFC: [apical, basal]
+      MOPP: [apical, basal]
+      IS:   [basal]
+    HCC:
+      GC: [apical, basal]
+      MC: [basal]
+      BC: [basal]
+      HCC: [basal]
+      NGFC: [apical, basal]
+      MOPP: [apical, basal]
+      IS:   [basal]
+    NGFC:
+      HC: [apical]
+      NGFC: [apical]
+      MOPP: [apical]
+      MPP:  [apical]
+      LPP:  [apical]
+    MOPP:
+      HC:   [apical]
+      HCC:  [apical]
+      MOPP: [apical]
+      NGFC: [apical]
+    IS:
+      GC:   [apical]
+      IS:   [apical]
+Synapse Kinetics:
+  GC:
+    GC:
+        AMPA:
+          t_rise: 1.5
+          t_decay: 5.5
+          e_rev: 0
+    MC:
+        AMPA:
+          t_rise: 1.5
+          t_decay: 5.5
+          e_rev: 0
+    HC:
+        GABA_A:
+          t_rise: 0.005
+          t_decay: 0.001
+          e_rev: -75
+    BC:
+        GABA_A:
+          t_rise: 0.25
+          t_decay: 2.5
+          e_rev: -75
+    AAC:
+        GABA_A:
+          t_rise: 0.3
+          t_decay: 2.9
+          e_rev: -75
+    HCC:
+        GABA_A:
+          t_rise: 0.04
+          t_decay: 1.1
+          e_rev: -75
+    NGFC:
+        GABA_AB:
+          t_rise: [0.1, 86.8]
+          t_decay: [10.0, 428.1]
+          e_rev: -75
+    MOPP:
+        GABA_AB:
+          t_rise: [0.1, 86.8]
+          t_decay: [10.0, 428.1]
+          e_rev: -75
+    MPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+    LPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+  MC:
+    GC:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 6.2
+          e_rev: 0
+    MC:
+        AMPA:
+          t_rise: 0.45
+          t_decay: 2.2
+          e_rev: 0
+    HC:
+        GABA_A:
+          t_rise: 0.5
+          t_decay: 6.0
+          e_rev: -75
+    BC:
+        GABA_A:
+          t_rise: 0.3
+          t_decay: 3.3
+          e_rev: -75
+    AAC:
+        GABA_A:
+          t_rise: 0.3
+          t_decay: 3.3
+          e_rev: -75
+    HCC:
+        GABA_A:
+          t_rise: 0.6
+          t_decay: 4.7
+          e_rev: -75
+  HC:
+    GC:
+        AMPA:
+          t_rise: 0.3
+          t_decay: 6.2
+          e_rev: 0
+    MC:
+        AMPA:
+          t_rise: 0.9
+          t_decay: 3.6
+          e_rev: 0
+    HC:
+        GABA_A:
+          t_rise: 0.37
+          t_decay: 10.48
+          e_rev: -75
+    BC:
+        GABA_A:
+          t_rise: 0.265
+          t_decay: 2.88
+          e_rev: -75
+    IS:
+        GABA_A:
+          t_rise: 0.37
+          t_decay: 10.48
+          e_rev: -75
+  BC:
+    GC:
+        AMPA:
+          t_rise: 0.3
+          t_decay: 6.2
+          e_rev: 0
+    MC:
+        AMPA:
+          t_rise: 0.9
+          t_decay: 3.6
+          e_rev: 0
+    HC:
+        GABA_A:
+          t_rise: 0.46
+          t_decay: 4.43
+          e_rev: -75
+    BC:
+        GABA_A:
+          t_rise: 0.22
+          t_decay: 3.35
+          e_rev: -75
+    HCC:
+        GABA_A:
+          t_rise: 0.6
+          t_decay: 4.78
+          e_rev: -75
+    NGFC:
+        GABA_AB:
+          t_rise: [4.2, 86.8]
+          t_decay: [14.0, 428.1]
+          e_rev: -75
+    MPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+    LPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+    IS:
+        GABA_A:
+          t_rise: 0.46
+          t_decay: 4.43
+          e_rev: -75
+  AAC:
+    GC:
+        AMPA:
+          t_rise: 0.3
+          t_decay: 6.2
+          e_rev: 0
+    MC:
+        AMPA:
+          t_rise: 0.9
+          t_decay: 3.6
+          e_rev: 0
+    HC:
+        GABA_A:
+          t_rise: 0.46
+          t_decay: 4.43
+          e_rev: -75
+    NGFC:
+        GABA_AB:
+          t_rise: [4.2, 86.8]
+          t_decay: [14.0, 428.1]
+          e_rev: -75
+    IS:
+        GABA_A:
+          t_rise: 0.46
+          t_decay: 4.43
+          e_rev: -75
+  HCC:
+    GC:
+        AMPA:
+          t_rise: 0.3
+          t_decay: 6.2
+          e_rev: 0
+    MC:
+        AMPA:
+          t_rise: 0.9
+          t_decay: 3.6
+          e_rev: 0
+    BC:
+        GABA_A:
+          t_rise: 0.28
+          t_decay: 3.45
+          e_rev: -75
+    HCC:
+        GABA_A:
+          t_rise: 0.72
+          t_decay: 4.7
+          e_rev: -75
+    IS:
+        GABA_A:
+          t_rise: 0.46
+          t_decay: 4.43
+          e_rev: -75
+    NGFC:
+        GABA_AB:
+          t_rise: [4.2, 86.8]
+          t_decay: [16.2, 428.1]
+          e_rev: -75
+  NGFC:
+    BC:
+        GABA_A:
+          t_rise: 0.72
+          t_decay: 10.0
+          e_rev: -75
+    HCC:
+        GABA_A:
+          t_rise: 0.72
+          t_decay: 4.7
+          e_rev: -75
+    IS:
+        GABA_A:
+          t_rise: 0.46
+          t_decay: 4.43
+          e_rev: -75
+    NGFC:
+        GABA_AB:
+          t_rise: [4.5, 86.8]
+          t_decay: [13.8, 428.1]
+          e_rev: -75
+    MPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+    LPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+  MOPP:
+    BC:
+        GABA_A:
+          t_rise: 0.72
+          t_decay: 10.0
+          e_rev: -75
+    HCC:
+        GABA_A:
+          t_rise: 0.72
+          t_decay: 4.7
+          e_rev: -75
+    IS:
+        GABA_A:
+          t_rise: 0.46
+          t_decay: 4.43
+          e_rev: -75
+    NGFC:
+        GABA_AB:
+          t_rise: [4.5, 86.8]
+          t_decay: [13.8, 428.1]
+          e_rev: -75
+    MOPP:
+        GABA_AB:
+          t_rise: [4.5, 86.8]
+          t_decay: [13.8, 428.1]
+          e_rev: -75
+Connection Properties:
+  GC:
+    BC:
+      GABA_A: 
+        weight: 0.65
+        velocity: 250.0
+    HC:
+      GABA_A:
+        weight: 6.0
+        velocity: 250.0
+    HCC:
+      GABA_A:
+        weight: 0.2
+        velocity: 250.0
+    MC:
+      AMPA:
+        weight: 0.3
+        velocity: 250.0
+    NGFC:
+      GABA_AB:
+        weight: [0.2, 0.1]
+        velocity: 250.0
+    MOPP:
+      GABA_AB:
+        weight: [0.2, 0.1]
+        velocity: 250.0
+    MPP:
+      AMPA:
+        weight:
+          from file: ./dat/MPPsynweights.dat
+        velocity: 250.0
+    LPP:
+      AMPA:
+        weight:
+          from file: ./dat/LPPsynweights.dat
+        velocity: 250.0
+  MC:
+    AAC:
+      GABA_A:
+        weight: 3.0
+        velocity: 250.0
+    BC:
+      GABA_A:
+        weight: 1.5
+        velocity: 250.0
+    GC:
+      AMPA:
+        weight: 0.7
+        velocity: 250.0
+    HC:
+      GABA_A:
+        weight: 1.0
+        velocity: 250.0
+    HCC:
+      GABA_A:
+      weight: 0.6
+      velocity: 250.0
+    MC:
+      AMPA:
+        weight: 0.5
+        velocity: 250.0
+  HC:
+    GC:
+      AMPA:
+        weight: 0.5
+        velocity: 250.0
+    HC:
+      GABA_A:
+        weight: 0.623
+        velocity: 250.0
+    MC:
+      AMPA:
+        weight: 0.2
+        velocity: 250.0
+    BC:
+      GABA_A:
+        weight: 5.2
+        velocity: 250.0
+  BC:
+    GC:
+      AMPA:
+        weight: 4.7
+        velocity: 250.0
+    MC:
+      AMPA:
+        weight: 0.3
+        velocity: 250.0
+    HC:
+      GABA_A:
+        weight: 2.14
+        velocity: 250.0
+    IS:
+      GABA_A:
+        weight: 2.14
+        velocity: 250.0
+    BC:
+      GABA_A:
+        weight: 4.27
+        velocity: 250.0
+    HCC:
+      GABA_A:
+        weight: 0.664
+        velocity: 250.0
+    NGFC:
+      GABA_AB:
+        weight: [0.183, 0.181]
+        velocity: 250.0
+    MOPP:
+      GABA_AB:
+        weight: [0.2, 0.1]
+        velocity: 250.0
+    LPP:
+      AMPA:
+        weight: 2.5
+        velocity: 250.0
+    MPP:
+      AMPA:
+        weight: 2.5
+        velocity: 250.0
+  AAC:
+    GC:
+      AMPA:
+        weight: 4.7
+        velocity: 250.0
+    MC:
+      AMPA:
+        weight: 0.3
+        velocity: 250.0
+    HC:
+      GABA_A:
+        weight: 2.14
+        velocity: 250.0
+    IS:
+      GABA_A:
+        weight: 2.14
+        velocity: 250.0
+    NGFC:
+      GABA_AB:
+        weight: [0.183, 0.181]
+        velocity: 250.0
+    MOPP:
+      GABA_AB:
+        weight: [0.2, 0.1]
+        velocity: 250.0
+  NGFC:
+    HC:
+      GABA_A:
+        weight: 0.473
+        velocity: 250.0
+    NGFC:
+      GABA_AB:
+        weight: [0.113, 0.169]
+        velocity: 250.0
+    MOPP:
+      GABA_AB:
+        weight: [0.113, 0.169]
+        velocity: 250.0
+    GC:
+      AMPA:
+        weight: 4.7
+        velocity: 250.0
+    LPP:
+      AMPA:
+        weight: 2.0
+        velocity: 250.0
+    MPP:
+      AMPA:
+        weight: 2.0
+        velocity: 250.0
+  HCC:
+    MC:
+      AMPA:
+        weight: 0.3
+        velocity: 250.0
+    BC:
+      GABA_A:
+        weight: 3.82
+        velocity: 250.0
+    HCC:
+      GABA_A:
+        weight: 0.325
+        velocity: 250.0
+    NGFC:
+      GABA_AB:
+        weight: [0.168, 0.215]
+        velocity: 250.0
+    MOPP:
+      GABA_AB:
+        weight: [0.168, 0.215]
+        velocity: 250.0
+    IS:
+      GABA_A:
+        weight: 2.14
+        velocity: 250.0
+  IS:
+    GC:
+      AMPA:
+        weight: 0.3
+        velocity: 250.0
+    IS:
+      GABA_A:
+        weight: 1.0
+        velocity: 250.0

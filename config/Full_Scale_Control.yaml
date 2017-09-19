@@ -1,147 +1,77 @@
 ## Model configuration of dentate gyrus network
-modelname: dentatenet
-datasetName: Full_Scale_Control
-definitions: !include Definitions.yaml
-# Synapse indexing used for cells in dentate gyrus model
-synapses:
-  order:
-    GC: 0
-    MC: 1
-    HC: 2
-    BC: 3
-    AAC:  4
-    HCC:  5
-    NGFC_A: 6
-    NGFC_B: 7
-    MOPP: 8
-    IS: 9
-    MPP:  10
-    LPP:  11
+Model Name: dentatenet
+Dataset Name: Full_Scale_Control
+Definitions: !include Definitions.yaml
+Cell Data: DG_Forest_Full_Scale_20170501.h5
+Connection Data: DG_Connections_Full_Scale_20170501.h5
+Connection Generator: !include Full_Scale_Connections.yaml
 ## Cell types for dentate gyrus model
-celltypes: 
+Cell Types: 
   GC:
-    templateName: DGC
-    templateType: forest
-    forestFile: DGC_forest_syns_20170501.h5
+    template: DGC
     synapses:
       density:
         apical:
-          excitatory: # Excitatory https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2538941/
-            2: # layer
+          AMPA: # Excitatory https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2538941/
+            IML: # layer
              mean: 2.26 
              variance: 0.07
-            3: # layer
+            MML: # layer
              mean: 2.26
              variance: 0.07
-            4: # layer
+            OML: # layer
              mean: 2.26
              variance: 0.07
-          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
-            2: # layer
+          GABA_A: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            IML: # layer
               mean: 1.0
               variance: 0.01
-            4: # layer
+            OML: # layer
+              mean: 3.5
+              variance: 0.01
+            MML: # layer
+              mean: 3.5
+              variance: 0.01
+          GABA_AB: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            IML: # layer
+              mean: 1.0
+              variance: 0.01
+            MML: # layer
+              mean: 3.5
+              variance: 0.01
+            OML: # layer
               mean: 3.5
               variance: 0.01
         soma:
-          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+          GABA_A: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
               mean: 8.0
               variance: 0.2
         ais:
-          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+          GABA_A: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
               mean: 8.0
               variance: 0.2
-      kinetics:
-        0:
-          t_rise: 1.5
-          t_decay: 5.5
-          e_rev: 0
-        1:
-          t_rise: 1.5
-          t_decay: 2.5
-          e_rev: -75
   MC:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: MossyCell
-    templateType: single
+    template: MossyCell
     synapses:
-      GC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 0.5
-        t_decay: 6.2
-        e_rev: 0
-      MC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 0.45
-        t_decay: 2.2
-        e_rev: 0
-      HC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 2
-        t_rise: 0.5
-        t_decay: 6.0
-        e_rev: -70
-      BC:
-        location: soma
-        t_rise: 0.3
-        t_decay: 3.3
-        e_rev: -70
-      AAC:
-        location: soma
-        t_rise: 0.3
-        t_decay: 3.3
-        e_rev: -70
-      HCC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 2
-        t_rise: 0.6
-        t_decay: 4.7
-        e_rev: -70
+      density:
+        apical:
+          AMPA: 
+            default: # layer
+             mean: 3.5 
+             variance: 0.2
+          GABA_A: # Inhibitory
+            default: # layer
+              mean: 1.25
+              variance: 0.1
+        soma:
+          GABA_A: # Inhibitory
+            default: # layer
+              mean: 8.0
+              variance: 0.2
   HC:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: HIPPCell
-    templateType: single
-    synapses:
-      GC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 0.3
-        t_decay: 0.6
-        e_rev: 0
-      MC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 1
-        t_rise: 0.9
-        t_decay: 3.6
-        e_rev: 0
-      HC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 0.37
-        t_decay: 10.48
-        e_rev: -70
-      BC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 1
-        t_rise: 0.265
-        t_decay: 2.88
-        e_rev: -70
-  BC:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: BasketCell
-    templateType: single
+    template: HIPPCell
     synapses:
       density:
         apical:
@@ -158,557 +88,123 @@ celltypes:
             default: # layer
               mean: 0.5
               variance: 0.2
-      kinetics:
-       GC:
-         location:
-           dendrite: [0, 1, 2, 3]
-           compartment: 0
-         t_rise: 0.3
-         t_decay: 0.6
-         e_rev: 0
-       MC:
-         location:
-           dendrite: [0, 1]
-           compartment: 1
-         t_rise: 0.9
-         t_decay: 3.6
-         e_rev: 0
-       HC:
-         location:
-           dendrite: [0, 1]
-           compartment: 3
-         t_rise: 0.46
-         t_decay: 4.43
-         e_rev: -70
-       BC:
-         location:
-           dendrite: [0, 1]
-           compartment: 1
-         t_rise: 0.22
-         t_decay: 3.35
-         e_rev: -70
-       HCC:
-         location:
-           dendrite: [0, 1]
-           compartment: 1
-         t_rise: 0.6
-         t_decay: 4.78
-         e_rev: -70
-       NGFC_A:
-         location:
-           dendrite: [0, 1]
-           compartment: 3
-         t_rise: 4.2
-         t_decay: 14
-         e_rev: -70
-       NGFC_B:
-         location:
-           dendrite: [0, 1]
-           compartment: 3
-         t_rise: 86.8
-         t_decay: 428.1
-         e_rev: -70
-       MPP:
-         location:
-           dendrite: [0, 1]
-           compartment: 1
-         t_rise: 0.22
-         t_decay: 3.35
-         e_rev: 0
-       LPP:
-         location:
-           dendrite: [0, 1]
-           compartment: 2
-         t_rise: 0.22
-         t_decay: 3.35
-         e_rev: 0
+  BC:
+    template: BasketCell
+    synapses:
+      density:
+        apical:
+          excitatory: 
+            default: # layer
+             mean: 0.5 
+             variance: 0.2
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            default: # layer
+              mean: 0.25
+              variance: 0.1
+        basal:
+          excitatory: # Excitatory
+            default: # layer
+              mean: 0.5
+              variance: 0.2
   AAC:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: AxoAxonicCell
-    templateType: single
+    template: AxoAxonicCell
     synapses:
-      GC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 0.3
-        t_decay: 0.6
-        e_rev: 0
-      MC:
-        location:
-          dendrite: [0, 1]
-          compartment: 1
-        t_rise: 0.9
-        t_decay: 3.6
-        e_rev: 0
-      HC:
-        location:
-          dendrite: [0, 1]
-          compartment: 3
-        t_rise: 0.46
-        t_decay: 4.43
-        e_rev: -70
-      NGFC_A:
-        location:
-          dendrite: [0, 1]
-          compartment: 3
-        t_rise: 4.2
-        t_decay: 14
-        e_rev: -70
-      NGFC_B:
-        location:
-          dendrite: [0, 1]
-          compartment: 3
-        t_rise: 86.8
-        t_decay: 428.1
-        e_rev: -70
+      density:
+        apical:
+          excitatory: 
+            default: # layer
+             mean: 0.5 
+             variance: 0.2
+          inhibitory: 
+            default: # layer
+              mean: 0.25
+              variance: 0.1
+        basal:
+          excitatory: # Excitatory
+            default: # layer
+              mean: 0.5
+              variance: 0.2
   HCC:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: HICAPCell
-    templateType: single
+    template: HICAPCell
     synapses:
-       GC:
-         location:
-           dendrite: [0, 1, 2, 3]
-           compartment: 0
-         t_rise: 0.3
-         t_decay: 0.6
-         e_rev: 0
-       MC:
-         location:
-           dendrite: [0, 1]
-           compartment: 1
-         t_rise: 0.9
-         t_decay: 3.6
-         e_rev: 0
-       BC:
-         location:
-           dendrite: [0, 1]
-           compartment: 1
-         t_rise: 0.28
-         t_decay: 3.45
-         e_rev: -70
-       HCC:
-         location:
-           dendrite: [0, 1]
-           compartment: 1
-         t_rise: 0.72
-         t_decay: 4.7
-         e_rev: -70
-       NGFC_A:
-         location:
-           dendrite: [0, 1]
-           compartment: 3
-         t_rise: 4.2
-         t_decay: 14
-         e_rev: -70
-       NGFC_B:
-         location:
-          dendrite: [0, 1]
-          compartment: 3
-         t_rise: 86.8
-         t_decay: 428.1
-         e_rev: -70
+      density:
+        apical:
+          excitatory: 
+            default: # layer
+             mean: 0.5 
+             variance: 0.2
+          inhibitory: 
+            default: # layer
+              mean: 0.25
+              variance: 0.1
+        basal:
+          excitatory: # Excitatory
+            default: # layer
+              mean: 0.5
+              variance: 0.2
   NGFC:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: NGFCell
-    templateType: single
+    template: NGFCell
     synapses:
-      HC:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 0.72
-        t_decay: 10
-        e_rev: -70
-      NGFC_A:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 4.5
-        t_decay: 13.8
-        e_rev: -70
-      NGFC_B:
-        location:
-          dendrite: [0, 1, 2, 3]
-          compartment: 0
-        t_rise: 86.8
-        t_decay: 428.1
-        e_rev: -70
-      MPP:
-        location:
-          dendrite: [0, 1]
-          compartment: 0
-        t_rise: 0.22
-        t_decay: 3.35
-        e_rev: 0
-      LPP:
-        location:
-          dendrite: [0, 1]
-          compartment: 0
-        t_rise: 0.22
-        t_decay: 3.35
-        e_rev: 0
+      density:
+        apical:
+          excitatory: 
+            default: # layer
+             mean: 0.5 
+             variance: 0.2
+          inhibitory: 
+            default: # layer
+              mean: 0.25
+              variance: 0.1
+        basal:
+          excitatory: # Excitatory
+            default: # layer
+              mean: 0.5
+              variance: 0.2
+  MOPP:
+    template: MOPPCell
+    synapses:
+      density:
+        apical:
+          excitatory: 
+            default: # layer
+             mean: 0.5 
+             variance: 0.2
+          inhibitory: 
+            default: # layer
+              mean: 0.25
+              variance: 0.1
+        basal:
+          excitatory: # Excitatory
+            default: # layer
+              mean: 0.5
+              variance: 0.2
+  IS:
+    template: ISCell
+    synapses:
+      density:
+        apical:
+          excitatory: 
+            default: # layer
+             mean: 0.5 
+             variance: 0.2
+          inhibitory: 
+            default: # layer
+              mean: 0.25
+              variance: 0.1
+        basal:
+          excitatory: # Excitatory
+            default: # layer
+              mean: 0.5
+              variance: 0.2
   MPP:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: MPPCell
-    templateType: single
+    template: MPPCell
     vectorStimulus:
       spikeFile: mec2_vecstim.bin
       indexFile: mec2_vecstim_ptr.bin
       activeFile: mec2_35_vecstim_active.bin
   LPP:
-    indexFile: dentate_Full_Scale_Control_coords_20170508.h5
-    templateName: LPPCell
-    templateType: single
+    template: LPPCell
     vectorStimulus:
       spikeFile: lec2_vecstim.bin
       indexFile: lec2_vecstim_ptr.bin
       activeFile: lec2_35_vecstim_active.bin
-## Connectivity configuration for dentate gyrus model
-connectivity:
-  connectivityFile: dentate_Full_Scale_Control_20170510.h5
-  gapjunctionsFile: dentate_Full_Scale_Control_gapjunctions.h5
-  ## Projection definitions
-  projections: 
-#    AACtoGC:
-#      source: AAC
-#      destination: GC
-#      index: absolute
-#      type: syn
-#      synType: 1
-#      weight: 1.0
-#      velocity: 250.0
-    BCtoGC:
-      source: BC
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 1
-      weight: 0.65
-      velocity: 250.0
-    HCtoGC:
-      source: HC
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 1
-      weight: 6.0
-      velocity: 250.0
-    HCCtoGC:
-      source: HCC
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 1
-      weight: 0.2
-      velocity: 250.0
-    MCtoGC:
-      source: MC
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 1
-      weight: 0.3
-      velocity: 250.0
-    NGFCtoGC:
-      source: NGFC
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 1
-      weight: [0.2, 0.1]
-      velocity: 250.0
-    AACtoMC:
-      source: AAC
-      destination: MC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 4
-      weight: 3.0
-      velocity: 250.0
-    BCtoMC:
-      source: BC
-      destination: MC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 3
-      weight: 1.5
-      velocity: 250.0
-    GCtoMC:
-      source: GC
-      destination: MC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 0
-      weight: 0.7
-      velocity: 250.0
-    HCtoMC:
-      source: HC
-      destination: MC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 2
-      weight: 1.0
-      velocity: 250.0
-    HCCtoMC:
-      source: HCC
-      destination: MC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 5
-      weight: 0.6
-      velocity: 250.0
-    MCtoMC:
-      source: MC
-      destination: MC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 1
-      weight: 0.5
-      velocity: 250.0
-    GCtoHC:
-      source: GC
-      destination: HC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 0
-      weight: 0.5
-      velocity: 250.0
-    HCtoHC:
-      source: HC
-      destination: HC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 2
-      weight: 0.623
-      velocity: 250.0
-    MCtoHC:
-      source: MC
-      destination: HC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 1
-      weight: 0.2
-      velocity: 250.0
-    BCtoHC:
-      source: BC
-      destination: HC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 3
-      weight: 5.2
-      velocity: 250.0
-    GCtoBC:
-      source: GC
-      destination: BC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 0
-      weight: 4.7
-      velocity: 250.0
-    MCtoBC:
-      source: MC
-      destination: BC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 1
-      weight: 0.3
-      velocity: 250.0
-    HCtoBC:
-      source: HC
-      destination: BC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 2
-      weight: 2.14
-      velocity: 250.0
-    BCtoBC:
-      source: BC
-      destination: BC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 3
-      weight: 4.27
-      velocity: 250.0
-    HCCtoBC:
-      source: HCC
-      destination: BC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 5
-      weight: 0.664
-      velocity: 250.0
-    NGFCtoBC:
-      source: NGFC
-      destination: BC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: [6, 7]
-      weight: [0.183, 0.181]
-      velocity: 250.0
-    GCtoAAC:
-      source: GC
-      destination: AAC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 0
-      weight: 4.7
-      velocity: 250.0
-    MCtoAAC:
-      source: MC
-      destination: AAC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 1
-      weight: 0.3
-      velocity: 250.0
-    HCtoAAC:
-      source: HC
-      destination: AAC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 2
-      weight: 2.14
-      velocity: 250.0
-    NGFCtoAAC:
-      source: NGFC
-      destination: AAC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: [6, 7]
-      weight: [0.183, 0.181]
-      velocity: 250.0
-    HCtoNGFC:
-      source: HC
-      destination: NGFC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 2
-      weight: 0.473
-      velocity: 250.0
-    NGFCtoNGFC:
-      source: NGFC
-      destination: NGFC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: [6, 7]
-      weight: [0.113, 0.169]
-      velocity: 250.0
-    GCtoHCC:
-      source: GC
-      destination: HCC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 0
-      weight: 4.7
-      velocity: 250.0
-    MCtoHCC:
-      source: MC
-      destination: HCC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 1
-      weight: 0.3
-      velocity: 250.0
-    BCtoHCC:
-      source: BC
-      destination: HCC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 3
-      weight: 3.82
-      velocity: 250.0
-    HCCtoHCC:
-      source: HCC
-      destination: HCC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: 5
-      weight: 0.325
-      velocity: 250.0
-    NGFCtoHCC:
-      source: NGFC
-      destination: HCC
-      index: absolute
-      type: long.+trans.dist
-      synIndex: [6, 7]
-      weight: [0.168, 0.215]
-      velocity: 250.0
-    LPPtoNGFC:
-      source: LPP
-      destination: NGFC
-      index: absolute
-      type: dist
-      synIndex: 8
-      weight: 2.0
-      velocity: 250.0
-    LPPtoBC:
-      source: LPP
-      destination: BC
-      index: absolute
-      type: dist
-      synIndex: 8
-      weight: 2.5
-      velocity: 250.0
-    MPPtoGC:
-      source: MPP
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 0
-      weightsFile:  ./dat/MPPsynweights.dat
-      velocity: 250.0
-    LPPtoGC:
-      source: LPP
-      destination: GC
-      index: absolute
-      type: syn
-      synType: 0
-      weightsFile:  ./dat/LPPsynweights.dat
-      velocity: 250.0
-    MPPtoBC:
-      source: MPP
-      destination: BC
-      index: absolute
-      type: dist
-      synIndex: 9
-      weight: 2.5
-      velocity: 250.0
-    MPPtoNGFC:
-      source: MPP
-      destination: NGFC
-      index: absolute
-      type: dist
-      synIndex: 9
-      weight: 2.0
-      velocity: 250.0
-  ## Gap junction projection definitions for dentate gyrus model
-  gapjunctions: 
-    AACtoAAC:
-      source: AAC
-      destination: AAC
-#    AACtoBC:
-#      source: AAC
-#      destination: BC
-    HCtoHC:
-      source: HC
-      destination: HC
-    HCCtoHCC:
-      source: HCC
-      destination: HCC
-    BCtoBC:
-      source: BC
-      destination: BC
-#    NGFCtoAAC:
-#      source: NGFC
-#      destination: AAC
-#    NGFCtoBC:
-#      source: NGFC
-#      destination: BC
-#    NGFCtoHCC:
-#      source: NGFC
-#      destination: HCC
-    NGFCtoNGFC:
-      source: NGFC
-      destination: NGFC

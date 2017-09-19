@@ -8,6 +8,26 @@ SWC Types:
   trunk:  5 
   tuft:   6
 Synapse Types:
-  excitatory: 0
-  inhibitory: 1
-  neuromodulatory: 2
+  AMPA:    0
+  GABA_A:  1
+  GABA_AB: 2
+  NMDA:    3
+Layers:
+  Hilus: 0
+  GCL:   1
+  IML:   2
+  MML:   3
+  OML:   4 
+Populations:
+  GC:   0
+  MC:   1
+  AAC:  2
+  BC:   3
+  HCC:  4
+  HC:   5
+  NGFC: 6
+  MOPP: 7
+  IS:   8
+  MPP:  9
+  LPP:  10
+
