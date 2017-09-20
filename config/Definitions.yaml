@@ -8,9 +8,13 @@ SWC Types:
   trunk:  5 
   tuft:   6
 Synapse Types:
+  excitatory:    0
+  inhibitory:    1
+  modulatory:    2
+Synapse Mechanisms:
   AMPA:    0
   GABA_A:  1
-  GABA_AB: 2
+  GABA_B:  2
   NMDA:    3
 Layers:
   Hilus: 0
@@ -21,13 +25,13 @@ Layers:
 Populations:
   GC:   0
   MC:   1
-  AAC:  2
+  HC:   2
   BC:   3
-  HCC:  4
-  HC:   5
+  AAC:  4
+  HCC:  5
   NGFC: 6
-  MOPP: 7
-  IS:   8
+  IS:   7
+  MOPP: 8
   MPP:  9
   LPP:  10
 
