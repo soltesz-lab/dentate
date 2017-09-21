@@ -170,8 +170,8 @@ def main(template_path,forest_path):
     h.xopen(template_path+'/ISCell.hoc')
     h.pc = h.ParallelContext()
     
-    popName = "HC"
-    (trees,_) = read_tree_selection (comm, forest_path, popName, [1030000])
+    popName = "IS"
+    (trees,_) = read_tree_selection (comm, forest_path, popName, [1049650])
     
     tree = trees.itervalues().next()
     

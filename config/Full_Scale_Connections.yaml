@@ -88,67 +88,67 @@ Synapse Layers:
       IS:   [Hilus]
 Synapse Types:
     GC:
-      MPP:  [AMPA]
-      LPP:  [AMPA]
-      MC:   [AMPA]
-      NGFC: [GABA_AB]
-      AAC:  [GABA_A]
-      BC:   [GABA_A]
-      HCC:  [GABA_A]
-      HC:   [GABA_A]
-      MOPP: [GABA_AB]
+      MPP:  [excitatory]
+      LPP:  [excitatory]
+      MC:   [excitatory]
+      NGFC: [inhibitory]
+      AAC:  [inhibitory]
+      BC:   [inhibitory]
+      HCC:  [inhibitory]
+      HC:   [inhibitory]
+      MOPP: [inhibitory]
     MC:
-      GC:   [AMPA]
-      MC:   [AMPA]
-      HC:   [GABA_A]
-      BC:   [GABA_A]
-      AAC:  [GABA_A]
-      HCC:  [GABA_A]
+      GC:   [excitatory]
+      MC:   [excitatory]
+      HC:   [inhibitory]
+      BC:   [inhibitory]
+      AAC:  [inhibitory]
+      HCC:  [inhibitory]
     HC:
-      GC:  [AMPA]
-      MC:  [AMPA]
-      HC:  [GABA_A]
-      BC:  [GABA_A]
-      IS:  [GABA_A]
+      GC:  [excitatory]
+      MC:  [excitatory]
+      HC:  [inhibitory]
+      BC:  [inhibitory]
+      IS:  [inhibitory]
     BC:
-      GC:   [AMPA]
-      MC:   [AMPA]
-      HC:   [GABA_A]
-      BC:   [GABA_A]
-      HCC:  [GABA_A]
-      NGFC: [GABA_AB]
-      MOPP: [GABA_AB]
-      IS:   [GABA_A]
-      MPP:  [AMPA]
-      LPP:  [AMPA]
+      GC:   [excitatory]
+      MC:   [excitatory]
+      HC:   [inhibitory]
+      BC:   [inhibitory]
+      HCC:  [inhibitory]
+      NGFC: [inhibitory]
+      MOPP: [inhibitory]
+      IS:   [inhibitory]
+      MPP:  [excitatory]
+      LPP:  [excitatory]
     AAC:
-      GC:   [AMPA]
-      MC:   [AMPA]
-      HC:   [GABA_A]
-      NGFC: [GABA_AB]
-      MOPP: [GABA_AB]
+      GC:   [excitatory]
+      MC:   [excitatory]
+      HC:   [inhibitory]
+      NGFC: [inhibitory]
+      MOPP: [inhibitory]
     HCC:
-      GC:   [AMPA]
-      MC:   [AMPA]
-      BC:   [GABA_A]
-      HCC:  [GABA_A]
-      NGFC: [GABA_AB]
-      MOPP: [GABA_AB]
-      IS:   [GABA_A]
+      GC:   [excitatory]
+      MC:   [excitatory]
+      BC:   [inhibitory]
+      HCC:  [inhibitory]
+      NGFC: [inhibitory]
+      MOPP: [inhibitory]
+      IS:   [inhibitory]
     NGFC:
-      HC:   [GABA_A]
-      NGFC: [GABA_AB]
-      MPP:  [AMPA]
-      LPP:  [AMPA]
+      HC:   [inhibitory]
+      NGFC: [inhibitory]
+      MPP:  [excitatory]
+      LPP:  [excitatory]
     MOPP:
-      MC:   [AMPA]
-      MOPP: [GABA_AB]
-      HC:   [GABA_A]
-      HCC:  [GABA_A]
-      MPP:  [AMPA]
+      MC:   [excitatory]
+      MOPP: [inhibitory]
+      HC:   [inhibitory]
+      HCC:  [inhibitory]
+      MPP:  [excitatory]
     IS:
-      GC:   [AMPA]
-      IS:   [GABA_A]
+      GC:   [excitatory]
+      IS:   [inhibitory]
 Synapse Locations:
     GC:
       MPP:  [apical]
@@ -246,15 +246,23 @@ Synapse Kinetics:
           t_decay: 1.1
           e_rev: -75
     NGFC:
-        GABA_AB:
-          t_rise: [0.1, 86.8]
-          t_decay: [10.0, 428.1]
-          e_rev: -75
+        GABA_A:
+          t_rise:  0.1
+          t_decay: 10.0
+          e_rev:   -75
+        GABA_B:
+          t_rise:  86.8
+          t_decay: 428.1
+          e_rev:   -75
     MOPP:
-        GABA_AB:
-          t_rise: [0.1, 86.8]
-          t_decay: [10.0, 428.1]
-          e_rev: -75
+        GABA_A:
+          t_rise:  0.1
+          t_decay: 10.0
+          e_rev:   -75
+        GABA_B:
+          t_rise:  86.8
+          t_decay: 428.1
+          e_rev:   -75
     MPP:
         AMPA:
           t_rise: 0.5
@@ -349,20 +357,24 @@ Synapse Kinetics:
           t_decay: 4.78
           e_rev: -75
     NGFC:
-        GABA_AB:
-          t_rise: [4.2, 86.8]
-          t_decay: [14.0, 428.1]
-          e_rev: -75
+        GABA_A:
+          t_rise:   4.2
+          t_decay: 14.0
+          e_rev:    -75
+        GABA_B:
+          t_rise:  86.8
+          t_decay: 428.1
+          e_rev:   -75
     MPP:
         AMPA:
-          t_rise: 0.5
+          t_rise:  0.5
           t_decay: 3.0
-          e_rev: 0
+          e_rev:     0
     LPP:
         AMPA:
-          t_rise: 0.5
+          t_rise:  0.5
           t_decay: 3.0
-          e_rev: 0
+          e_rev:     0
     IS:
         GABA_A:
           t_rise: 0.46
@@ -385,9 +397,13 @@ Synapse Kinetics:
           t_decay: 4.43
           e_rev: -75
     NGFC:
-        GABA_AB:
-          t_rise: [4.2, 86.8]
-          t_decay: [14.0, 428.1]
+        GABA_A:
+          t_rise:  4.2
+          t_decay: 14.0
+          e_rev: -75
+        GABA_B:
+          t_rise:  86.8
+          t_decay: 428.1
           e_rev: -75
     IS:
         GABA_A:
@@ -442,9 +458,13 @@ Synapse Kinetics:
           t_decay: 4.43
           e_rev: -75
     NGFC:
-        GABA_AB:
-          t_rise: [4.5, 86.8]
-          t_decay: [13.8, 428.1]
+        GABA_A:
+          t_rise:  4.2
+          t_decay: 14.0
+          e_rev: -75
+        GABA_B:
+          t_rise:  86.8
+          t_decay: 428.1
           e_rev: -75
     MPP:
         AMPA:
@@ -473,14 +493,22 @@ Synapse Kinetics:
           t_decay: 4.43
           e_rev: -75
     NGFC:
-        GABA_AB:
-          t_rise: [4.5, 86.8]
-          t_decay: [13.8, 428.1]
+        GABA_A:
+          t_rise:  4.5
+          t_decay: 13.8
+          e_rev: -75
+        GABA_B:
+          t_rise:  86.8
+          t_decay: 428.1
           e_rev: -75
     MOPP:
-        GABA_AB:
-          t_rise: [4.5, 86.8]
-          t_decay: [13.8, 428.1]
+        GABA_A:
+          t_rise:  4.5
+          t_decay: 13.8
+          e_rev: -75
+        GABA_B:
+          t_rise:  86.8
+          t_decay: 428.1
           e_rev: -75
 Connection Properties:
   GC:
@@ -501,12 +529,18 @@ Connection Properties:
         weight: 0.3
         velocity: 250.0
     NGFC:
-      GABA_AB:
-        weight: [0.2, 0.1]
+      GABA_A:
+        weight: 0.2
+        velocity: 250.0
+      GABA_B:
+        weight: 0.1
         velocity: 250.0
     MOPP:
-      GABA_AB:
-        weight: [0.2, 0.1]
+      GABA_A:
+        weight: 0.2
+        velocity: 250.0
+      GABA_B:
+        weight: 0.1
         velocity: 250.0
     MPP:
       AMPA:
@@ -586,12 +620,18 @@ Connection Properties:
         weight: 0.664
         velocity: 250.0
     NGFC:
-      GABA_AB:
-        weight: [0.183, 0.181]
+      GABA_A:
+        weight: 0.183
+        velocity: 250.0
+      GABA_B:
+        weight: 0.181
         velocity: 250.0
     MOPP:
-      GABA_AB:
-        weight: [0.2, 0.1]
+      GABA_A:
+        weight: 0.2
+        velocity: 250.0
+      GABA_B:
+        weight: 0.1
         velocity: 250.0
     LPP:
       AMPA:
@@ -619,12 +659,18 @@ Connection Properties:
         weight: 2.14
         velocity: 250.0
     NGFC:
-      GABA_AB:
-        weight: [0.183, 0.181]
+      GABA_A:
+        weight: 0.183
+        velocity: 250.0
+      GABA_B:
+        weight: 0.181
         velocity: 250.0
     MOPP:
-      GABA_AB:
-        weight: [0.2, 0.1]
+      GABA_A:
+        weight: 0.2
+        velocity: 250.0
+      GABA_B:
+        weight: 0.1
         velocity: 250.0
   NGFC:
     HC:
@@ -632,12 +678,18 @@ Connection Properties:
         weight: 0.473
         velocity: 250.0
     NGFC:
-      GABA_AB:
-        weight: [0.113, 0.169]
+      GABA_A:
+        weight: 0.113
+        velocity: 250.0
+      GABA_B:
+        weight: 0.169
         velocity: 250.0
     MOPP:
-      GABA_AB:
-        weight: [0.113, 0.169]
+      GABA_A:
+        weight: 0.113
+        velocity: 250.0
+      GABA_B:
+        weight: 0.169
         velocity: 250.0
     GC:
       AMPA:
@@ -665,12 +717,18 @@ Connection Properties:
         weight: 0.325
         velocity: 250.0
     NGFC:
-      GABA_AB:
-        weight: [0.168, 0.215]
+      GABA_A:
+        weight: 0.168
+        velocity: 250.0
+      GABA_B:
+        weight: 0.215
         velocity: 250.0
     MOPP:
-      GABA_AB:
-        weight: [0.168, 0.215]
+      GABA_A:
+        weight: 0.168
+        velocity: 250.0
+      GABA_B:
+        weight: 0.215
         velocity: 250.0
     IS:
       GABA_A:

@@ -6,7 +6,7 @@ load_file("./tests/cell_protocol.ses")
 {load_file("./templates/ranstream.hoc")}
 
 // Load the cell template
-xopen("./templates/NGFCell.hoc")
+xopen("./templates/MOPPCell.hoc")
 
 xopen ("./tests/rn.hoc")
 
@@ -78,7 +78,7 @@ proc write_dvdt() { local logsize  localobj logfile, tlog, dvdt
 }
 
 
-proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur localobj ngfc, stim1, Vlog_soma, tlog, logfile 
+proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur localobj mopp, stim1, Vlog_soma, tlog, logfile 
     
     strdef log_fn
     
@@ -89,21 +89,21 @@ proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur l
     
     stimdur = 500.0
     
-    ngfc = new NGFCell(1, 1)
+    mopp = new MOPPCell(1, 1)
     
-    ngfc.soma stim1 = new IClamp(0.5)
+    mopp.soma stim1 = new IClamp(0.5)
     stim1.del = prelength
     stim1.dur = stimdur
     stim1.amp = -0.1
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&ngfc.sections[0].v(0.5))
+    Vlog_soma.record (&mopp.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
     
     logfile = new File()
-    sprint (log_fn, "NGFCell_passive.dat")
+    sprint (log_fn, "MOPPCell_passive.dat")
     logfile.wopen ( log_fn )
     
     simulate(prelength,mainlength)
@@ -121,15 +121,15 @@ proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur l
     tau0   = tlog.x[Vlog_soma.indwhere ("<=", vtau0)] - prelength
     
     logfile = new File()
-    sprint (log_fn, "NGFCell_passive_results.dat")
+    sprint (log_fn, "MOPPCell_passive_results.dat")
     logfile.wopen ( log_fn )
     
-    logfile.printf ("DC input resistance: %g MOhm\n", rn(ngfc))
+    logfile.printf ("DC input resistance: %g MOhm\n", rn(mopp))
     logfile.printf ("vmin: %g mV\n", vmin)
     logfile.printf ("vtau0: %g mV\n", vtau0)
     logfile.printf ("tau0: %g ms\n", tau0)
     
-    printf ("DC input resistance: %g MOhm\n", rn(ngfc))
+    printf ("DC input resistance: %g MOhm\n", rn(mopp))
     printf ("vmin: %g mV\n", vmin)
     printf ("vtau0: %g mV\n", vtau0)
     printf ("tau0: %g ms\n", tau0)
@@ -139,7 +139,7 @@ proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur l
 
 
 
-proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, isimean, isivar, isistdev, it localobj ngfc, stim1, Vlog_soma, tlog, logfile, nil, nc, spikelog, spikefile, isivect strdef errmsg
+proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, isimean, isivar, isistdev, it localobj mopp, stim1, Vlog_soma, tlog, logfile, nil, nc, spikelog, spikefile, isivect strdef errmsg
     
     strdef spikelog_fn, log_fn
     
@@ -150,20 +150,20 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     
     stimdur = 1000
     
-    ngfc = new NGFCell(1, 1)
+    mopp = new MOPPCell(1, 1)
     
-    ngfc.soma stim1 = new IClamp(0.5)
+    mopp.soma stim1 = new IClamp(0.5)
     stim1.del = prelength
     stim1.dur = stimdur
     stim1.amp = 0.3
     
     spikelog = new Vector()
-    ngfc.soma nc = new NetCon(&ngfc.sections[0].v(.5), nil)
+    mopp.soma nc = new NetCon(&mopp.sections[0].v(.5), nil)
     nc.threshold = -40.0
     nc.record(spikelog)
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&ngfc.sections[0].v(0.5))
+    Vlog_soma.record (&mopp.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -188,13 +188,13 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     }
     
     logfile = new File()
-    sprint (log_fn, "NGFCell_ap_rate.dat" )
+    sprint (log_fn, "MOPPCell_ap_rate.dat" )
     logfile.wopen ( log_fn )
     write_voltage_trace(logfile,tlog,Vlog_soma)
     logfile.close()
     
     spikefile = new File()
-    sprint (spikelog_fn, "NGFCell_spikes.dat")
+    sprint (spikelog_fn, "MOPPCell_spikes.dat")
     spikefile.wopen ( spikelog_fn )
     for i=0,spikelog.size()-1 {
         spikefile.printf("%g\n", spikelog.x[i])
@@ -252,5 +252,5 @@ passive_test()
 ap_rate_test()
 
 
-objref ngfc
-ngfc = new NGFCell(1, 1)
+objref mopp
+mopp = new MOPPCell(1, 1)

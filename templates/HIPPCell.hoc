@@ -2,15 +2,16 @@
 begintemplate HIPPCell
 
 public connect2target, subsets, is_art, is_connected
-public soma, dendrites, sections
-public all, dendrites, soma
+public sections
+public all, soma, basal, apical, ais
 public xx, yy, zz, position
 public syns
 
-objref all, dendrites, soma
-objref syns
-
 create sections[1]
+
+objref all, soma, basal, apical, ais
+objref apicalidx, basalidx
+objref syns, syntypes
 
 id  = -1
 gid = -1
@@ -32,9 +33,11 @@ proc assert() { local test strdef errmsg
 
 proc init() { // arguments are id, gid
     
-    
     cellid = $1
     gid = $2
+    
+    apicalidx = new Vector()
+    basalidx = new Vector()
     
     if (numarg() > 2) {
         topol_from_python($o4,$o5,$o6,$o7)
@@ -44,7 +47,26 @@ proc init() { // arguments are id, gid
         ndendsec = 3
         create sections[1+ndends*ndendsec]
         
+        i=0
+        for j=0, ndendsec-1 { 
+            basalidx.append(1+i*ndendsec + j)
+        }
+        i=1
+        for j=0, ndendsec-1 { 
+            basalidx.append(1+i*ndendsec + j)
+        }
+        i=2
+        for j=0, ndendsec-1 { 
+            apicalidx.append(1+i*ndendsec + j)
+        }
+        i=3
+        for j=0, ndendsec-1 { 
+            apicalidx.append(1+i*ndendsec + j)
+        }
+        
+        print "HIPP before topol"
         topol(ndends,ndendsec)
+        print "HIPP before geom"
         geom()
     }
     subsets()
@@ -52,39 +74,51 @@ proc init() { // arguments are id, gid
     biophys()
     
     syns = new List()
+    syntypes = new List()
+    syntypes.append(new List()) // excitatory
+    syntypes.append(new List()) // inhibitory
 }
 
 
 proc subsets() { local i, ndends, ndendsec
     
     all = new SectionList()
-    dendrites = new SectionList()
     sections[0] all.append()
-    for i=0, nDends-1 {
-        sections[i+1] { 
-            all.append() 
-            dendrites.append()
-        }
+    for i=0, nDends-1 { 
+        sections[i+1] all.append() 
     }
     
     soma = new SectionList()
     sections[0] soma.append()
+    
+    basal = new SectionList()
+    for i=0, basalidx.size()-1 { 
+        sections[basalidx.x[i]] basal.append() 
+    }
+    
+    apical = new SectionList()
+    for i=0, apicalidx.size()-1 { 
+        sections[apicalidx.x[i]] apical.append() 
+    }
+    
+    ais  = new SectionList()
 }
 
 proc geom() {
     
     sections[0] {nseg=3 L=20 diam=10} // changed L & diam
         
-    for i = 0,1 {
-        sections[1+i*ndendsec+0] {nseg=3 L=75 diam=3}
-        sections[1+i*ndendsec+1] {nseg=3 L=75 diam=2}
-        sections[1+i*ndendsec+2] {nseg=3 L=75 diam=1}
-    }
         
-    for i = 2,3 {
+    for i = 0,1 {
         sections[1+i*ndendsec+0] {nseg=3 L=50 diam=3}
         sections[1+i*ndendsec+1] {nseg=3 L=50 diam=2}
         sections[1+i*ndendsec+2] {nseg=3 L=50 diam=1}
+    }
+    
+    for i = 2,3 {
+        sections[1+i*ndendsec+0] {nseg=3 L=75 diam=3}
+        sections[1+i*ndendsec+1] {nseg=3 L=75 diam=2}
+        sections[1+i*ndendsec+2] {nseg=3 L=75 diam=1}
     }
 }
 
@@ -179,7 +213,23 @@ proc biophys() {
         cm=0.5
     } 
     
-    forsec dendrites {
+    forsec apical {
+        for (x,0) {
+            insert ichan2
+            cm=1.1
+            if (distance(x) <= 75) {
+	        gnatbar_ichan2=0.2  
+	        gkfbar_ichan2=0.006
+	        gl_ichan2 = 0.000036
+            } else {
+	        gnatbar_ichan2=0.0
+	        gkfbar_ichan2=0.00
+	        gl_ichan2 = 0.000036
+            }
+        }
+    }
+    
+    forsec basal {
         for (x,0) {
             insert ichan2
             cm=1.1
@@ -222,6 +272,11 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
     secnodes = $o4
     
     nDends = secnodes.__len__()-1
+    
+    apicalidx.append(1)
+    apicalidx.append(2)
+    basalidx.append(3)
+    basalidx.append(4)
     
     create sections[nDends+1]
     for p = 0, vsrc.size-1 {
@@ -271,6 +326,7 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
                 k = vidxs.x[i]
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
             }
+            print "section ", s, " length is ", L
         }
     }
     

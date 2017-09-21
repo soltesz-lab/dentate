@@ -12,7 +12,7 @@ Cell Types:
     synapses:
       density:
         apical:
-          AMPA: # Excitatory https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2538941/
+          excitatory: # Excitatory https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2538941/
             IML: # layer
              mean: 2.26 
              variance: 0.07
@@ -22,7 +22,7 @@ Cell Types:
             OML: # layer
              mean: 2.26
              variance: 0.07
-          GABA_A: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             IML: # layer
               mean: 1.0
               variance: 0.01
@@ -30,25 +30,15 @@ Cell Types:
               mean: 3.5
               variance: 0.01
             MML: # layer
-              mean: 3.5
-              variance: 0.01
-          GABA_AB: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
-            IML: # layer
-              mean: 1.0
-              variance: 0.01
-            MML: # layer
-              mean: 3.5
-              variance: 0.01
-            OML: # layer
               mean: 3.5
               variance: 0.01
         soma:
-          GABA_A: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
               mean: 8.0
               variance: 0.2
         ais:
-          GABA_A: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
               mean: 8.0
               variance: 0.2
@@ -57,16 +47,16 @@ Cell Types:
     synapses:
       density:
         apical:
-          AMPA: 
+          excitatory: 
             default: # layer
              mean: 3.5 
              variance: 0.2
-          GABA_A: # Inhibitory
+          inhibitory: # Inhibitory
             default: # layer
               mean: 1.25
               variance: 0.1
         soma:
-          GABA_A: # Inhibitory
+          inhibitory: # Inhibitory
             default: # layer
               mean: 8.0
               variance: 0.2
@@ -84,7 +74,7 @@ Cell Types:
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # Excitatory
+          excitatory: # excitatory
             default: # layer
               mean: 0.5
               variance: 0.2
@@ -102,7 +92,7 @@ Cell Types:
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # Excitatory
+          excitatory: # excitatory
             default: # layer
               mean: 0.5
               variance: 0.2
@@ -120,7 +110,7 @@ Cell Types:
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # Excitatory
+          excitatory: # excitatory
             default: # layer
               mean: 0.5
               variance: 0.2
@@ -138,7 +128,7 @@ Cell Types:
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # Excitatory
+          excitatory: # excitatory
             default: # layer
               mean: 0.5
               variance: 0.2
@@ -156,7 +146,7 @@ Cell Types:
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # Excitatory
+          excitatory: # excitatory
             default: # layer
               mean: 0.5
               variance: 0.2
@@ -174,7 +164,7 @@ Cell Types:
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # Excitatory
+          excitatory: # excitatory
             default: # layer
               mean: 0.5
               variance: 0.2
@@ -192,7 +182,7 @@ Cell Types:
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # Excitatory
+          excitatory: # excitatory
             default: # layer
               mean: 0.5
               variance: 0.2

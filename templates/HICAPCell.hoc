@@ -2,16 +2,16 @@ begintemplate HICAPCell
 
 public connect2target, subsets, is_art, is_connected
 public sections
-public all, soma, adend, bdend, cdend, ddend
+public all, soma, basal, apical, ais
 public xx, yy, zz, position
 public syns
 public syn_stim, syntest
 
 create sections[1]
 
-objref all, soma, adend, bdend, cdend, ddend
-objref adendidx, bdendidx, cdendidx, ddendidx
-objref syns
+objref all, soma, basal, apical, ais
+objref apicalidx, basalidx
+objref syns, syntypes
 
 id  = -1
 gid = -1
@@ -30,18 +30,13 @@ proc assert() { local test strdef errmsg
     }
 }
 
-// dendrites 1 and 2 are apical
-// dendrites 3 and 4 are basal
-
 proc init() {
     
     // dendrites 1*ndendsec and 2*ndendsec are apical
     // dendrites 3*ndendsec and 4*ndendsec are basal
     
-    adendidx = new Vector()
-    bdendidx = new Vector()
-    cdendidx = new Vector()
-    ddendidx = new Vector()
+    apicalidx = new Vector()
+    basalidx = new Vector()
     
     id  = $1
     gid = $2
@@ -56,19 +51,19 @@ proc init() {
         
         i=0
         for j=0, ndendsec-1 { 
-            adendidx.append(1+i*ndendsec + j)
+            basalidx.append(1+i*ndendsec + j)
         }
         i=1
         for j=0, ndendsec-1 { 
-            bdendidx.append(1+i*ndendsec + j)
+            basalidx.append(1+i*ndendsec + j)
         }
         i=2
         for j=0, ndendsec-1 { 
-            cdendidx.append(1+i*ndendsec + j)
+            apicalidx.append(1+i*ndendsec + j)
         }
         i=3
         for j=0, ndendsec-1 { 
-            ddendidx.append(1+i*ndendsec + j)
+            apicalidx.append(1+i*ndendsec + j)
         }
         
         topol(ndends,ndendsec)
@@ -79,12 +74,12 @@ proc init() {
     biophys()
 
     syns = new List()
+    syntypes = new List()
+    syntypes.append(new List()) // excitatory
+    syntypes.append(new List()) // inhibitory
 }
 
-
 proc subsets() { local i, ndends, ndendsec
-    
-    objref all, adend, bdend, cdend, ddend
     
     all = new SectionList()
     sections[0] all.append()
@@ -95,25 +90,17 @@ proc subsets() { local i, ndends, ndendsec
     soma = new SectionList()
     sections[0] soma.append()
     
-    adend  = new SectionList()
-    for i=0, adendidx.size()-1 { 
-        sections[adendidx.x[i]] adend.append() 
+    basal = new SectionList()
+    for i=0, basalidx.size()-1 { 
+        sections[basalidx.x[i]] basal.append() 
     }
     
-    bdend  = new SectionList()
-    for i=0, bdendidx.size()-1 { 
-        sections[bdendidx.x[i]] bdend.append() 
+    apical = new SectionList()
+    for i=0, apicalidx.size()-1 { 
+        sections[apicalidx.x[i]] apical.append() 
     }
     
-    cdend  = new SectionList()
-    for i=0, cdendidx.size()-1 { 
-        sections[cdendidx.x[i]] cdend.append() 
-    }
-    
-    ddend  = new SectionList()
-    for i=0, ddendidx.size()-1 { 
-        sections[ddendidx.x[i]] ddend.append() 
-    }
+    ais  = new SectionList()
 
 }
 
@@ -121,18 +108,19 @@ proc geom() {
     
     sections[0] {nseg=1 L=20 diam=15} // changed L & diam
     
-    for i = 0,1 {
-        sections[1+i*ndendsec+0]  {nseg=3 L=75 diam=4}	// bcdend 1 and 2 are apical
-        sections[1+i*ndendsec+1] {nseg=3 L=75 diam=3}
-        sections[1+i*ndendsec+2] {nseg=3 L=75 diam=2}
-        sections[1+i*ndendsec+3] {nseg=3 L=75 diam=1}
-    }
         
-    for i = 2,3 {
-        sections[1+i*ndendsec+0] {nseg=3 L=50 diam=4} 	// bcdend 3 and 4 are basal
+    for i = 0,1 {
+        sections[1+i*ndendsec+0] {nseg=3 L=50 diam=4} 	// dend 1 and 2 are basal
         sections[1+i*ndendsec+1] {nseg=3 L=50 diam=3}
         sections[1+i*ndendsec+2] {nseg=3 L=50 diam=2}
         sections[1+i*ndendsec+3] {nseg=3 L=50 diam=1} 
+    }
+    
+    for i = 2,3 {
+        sections[1+i*ndendsec+0] {nseg=3 L=75 diam=4}	// dend 3 and 4 are apical
+        sections[1+i*ndendsec+1] {nseg=3 L=75 diam=3}
+        sections[1+i*ndendsec+2] {nseg=3 L=75 diam=2}
+        sections[1+i*ndendsec+3] {nseg=3 L=75 diam=1}
     }
 }
 
@@ -232,28 +220,14 @@ proc biophys() {
 	gl_ichan2 = g_leak
     } 
     
-    forsec adend {
+    forsec apical {
         insert ichan2
 	gnatbar_ichan2=g_na
 	gkfbar_ichan2=g_k
 	gl_ichan2 = g_leak
     }
     
-    forsec bdend {
-        insert ichan2
-	gnatbar_ichan2=0.0 
-	gkfbar_ichan2=0.00
-	gl_ichan2 = g_leak
-    }
-    
-    forsec cdend {
-        insert ichan2
-	gnatbar_ichan2=0.0
-	gkfbar_ichan2=0.00
-	gl_ichan2 = g_leak
-    }		
-    
-    forsec ddend {
+    forsec basal {
         insert ichan2
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.00
@@ -288,15 +262,10 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
     
     nDends = secnodes.__len__()-1
     
-    adendidx.append(1)
-    bdendidx.append(2)
-    cdendidx.append(3)
-    ddendidx.append(4)
-    
-    na  = adendidx.size()
-    nb  = bdendidx.size()
-    nc  = cdendidx.size()
-    nd  = ddendidx.size()
+    apicalidx.append(1)
+    apicalidx.append(2)
+    basalidx.append(3)
+    basalidx.append(4)
     
     create sections[nDends+1]
     for p = 0, vsrc.size-1 {
@@ -348,6 +317,7 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
             }
             pt3dconst(0)
+            print "section ", s, " length is ", L
         }
     }
     

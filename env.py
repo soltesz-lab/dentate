@@ -150,31 +150,31 @@ class Env:
         else:
             raise RuntimeError("missing configuration file")
 
-        defs = self.modelConfig['definitions']
+        defs = self.modelConfig['Definitions']
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
             
         # The name of this model
-        self.modelName = self.modelConfig['modelname']
+        self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network
-        self.datasetName = self.modelConfig['datasetName']
+        self.datasetName = self.modelConfig['Dataset Name']
 
-        self.celltypes     = self.modelConfig['celltypes']
-        self.synapseOrder  = self.modelConfig['synapses']['order']
-        self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
-        self.projections   = self.modelConfig['connectivity']['projections']
-        if self.modelConfig['connectivity'].has_key('gapjunctions'):
-            self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
-        else:
-            self.gapjunctions  = None
-        if self.modelConfig['connectivity'].has_key('gapjunctionsFile'):
-            self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
-        else:
-            self.gapjunctionsFile = None
+        self.celltypes     = self.modelConfig['Cell Types']
+        if self.modelConfig.has_key('connectivity'):
+            self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
+            self.projections   = self.modelConfig['connectivity']['projections']
+            if self.modelConfig['connectivity'].has_key('gapjunctions'):
+                self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
+            else:
+                self.gapjunctions  = None
+            if self.modelConfig['connectivity'].has_key('gapjunctionsFile'):
+                self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
+            else:
+                self.gapjunctionsFile = None
         if self.datasetPrefix is not None:
             self.load_celltypes()
             self.load_prjtypes()
-
+                
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
 

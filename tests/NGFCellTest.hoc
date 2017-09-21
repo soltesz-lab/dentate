@@ -252,3 +252,5 @@ passive_test()
 ap_rate_test()
 
 
+objref ngfc
+ngfc = new NGFCell(1, 1)

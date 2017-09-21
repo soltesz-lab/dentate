@@ -253,5 +253,7 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
 
 passive_test()
 ap_rate_test()
+objref hc
+hc = new HIPPCell(1, 1)
 
 

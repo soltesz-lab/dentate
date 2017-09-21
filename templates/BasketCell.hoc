@@ -107,14 +107,14 @@ proc geom() {
     sections[0] {nseg=1 L=20 diam=20}
         
     for i = 0,1 {
-        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4} 	// dend 0 and 1 are basal
+        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4} 	// dend 1 and 2 are basal
         sections[1+i*ndendsec+1] {nseg=3 L=200 diam=1.5}
         sections[1+i*ndendsec+2] {nseg=3 L=200 diam=1}
         sections[1+i*ndendsec+3] {nseg=3 L=200 diam=0.5} 
     }
     
     for i = 2,3 {
-        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4}	// dend 1 and 2 are apical
+        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4}	// dend 3 and 4 are apical
         sections[1+i*ndendsec+1] {nseg=3 L=200 diam=1.5}
         sections[1+i*ndendsec+2] {nseg=3 L=200 diam=1}
         sections[1+i*ndendsec+3] {nseg=3 L=200 diam=0.5}
@@ -308,6 +308,7 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
             }
             pt3dconst(0)
+            print "section ", s, " length is ", L
         }
     }
     

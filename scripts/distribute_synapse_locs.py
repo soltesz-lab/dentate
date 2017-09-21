@@ -48,7 +48,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     for population in populations:
         count = 0
         (population_start, _) = pop_ranges[population]
-        template_name = env.celltypes[population]['templateName']
+        template_name = env.celltypes[population]['template']
         h.find_template(h.pc, env.templatePaths, template_name)
         density_dict = env.celltypes[population]['synapses']['density']
         for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
@@ -67,7 +67,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                     synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types,
                                                                                               density_dict, morph_dict, cell_sec_dict)
                 del cell
-                print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
+                print 'Rank %i took %i s to compute synapse locations for %s gid: %i' % (rank, time.time() - local_time, population, gid)
                 count += 1
             else:
                 print  'Rank %i gid is None' % rank
@@ -83,7 +83,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     # len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
         global_count = comm.gather(count, root=0)
         if rank == 0:
-            print 'target: %s, %i ranks took %i s to compute syn_locs for %i cells' % (population, comm.size,
+            print 'target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,
                                                                                         time.time() - start_time,
                                                                                         np.sum(global_count))
         # print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)

@@ -2,8 +2,8 @@ begintemplate MossyCell
 
 public connect2target, subsets,is_art, is_connected
 public sections
-public all, soma, dendrites
-public syns
+public all, soma, basal, apical, ais
+public syns, syntypes
 public syn_stim
 public xx, yy, zz, position
 
@@ -14,9 +14,10 @@ gid = -1
 create sections[1]
 
 objref fl//, rs
-objref all, soma, dendrites
-objref syns
+objref all, soma, basal, apical, ais
+objref syns, syntypes
 objref syn_stim
+objref apicalidx, basalidx
 
 ndends   = -1
 ndendsec = -1
@@ -34,6 +35,8 @@ proc assert() { local test strdef errmsg
 
 proc init() { // arguments are id, gid
     
+    apicalidx = new Vector()
+    basalidx = new Vector()
     
     cellid = $1
     gid = $2
@@ -46,6 +49,12 @@ proc init() { // arguments are id, gid
         ndendsec = 4
         create sections[1+ndends*ndendsec]
         
+        for i=0, ndends-1 {
+            for j=0, ndendsec-1 { 
+                apicalidx.append(1+i*ndendsec + j)
+            }
+        }
+        
         topol(ndends,ndendsec)
         geom()
     }
@@ -54,23 +63,31 @@ proc init() { // arguments are id, gid
     biophys()
     
     syns = new List()
+    syntypes = new List()
+    syntypes.append(new List()) // excitatory
+    syntypes.append(new List()) // inhibitory
 }
 
 
 proc subsets() { local i, ndends, ndendsec
     
     all = new SectionList()
-    dendrites = new SectionList()
     sections[0] all.append()
-    for i=0, nDends-1 {
-        sections[i+1] { 
-            all.append() 
-            dendrites.append()
-        }
+    for i=0, nDends-1 { 
+        sections[i+1] all.append() 
     }
     
     soma = new SectionList()
     sections[0] soma.append()
+    
+    apical = new SectionList()
+    for i=0, apicalidx.size()-1 { 
+        sections[apicalidx.x[i]] apical.append() 
+    }
+    
+    basal = new SectionList()
+    ais  = new SectionList()
+
 }
 
 proc geom() {
@@ -176,7 +193,7 @@ proc biophys() { local ndends, ndendsec
         cm=1.6
     }
     
-    forsec dendrites {
+    forsec apical {
         for (x,0) {
             insert ichan2
             if (distance(x) <= 25) {
@@ -234,6 +251,11 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
     secnodes = $o4
     
     nDends = secnodes.__len__()-1
+    
+    apicalidx.append(1)
+    apicalidx.append(2)
+    apicalidx.append(3)
+    apicalidx.append(4)
     
     create sections[nDends+1]
     for p = 0, vsrc.size-1 {

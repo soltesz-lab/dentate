@@ -244,7 +244,7 @@ def main(template_path,forest_path):
     h.pc = h.ParallelContext()
     
     popName = "MOPP"
-    (trees,_) = read_tree_selection (comm, forest_path, popName, [1044650])
+    (trees,_) = read_tree_selection (comm, forest_path, popName, [1052650])
     
     tree = trees.itervalues().next()
     
