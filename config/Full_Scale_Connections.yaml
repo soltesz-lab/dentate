@@ -215,37 +215,49 @@ Synapse Locations:
       IS:   [apical]
 Synapse Kinetics:
   GC:
-    GC:
+    excitatory:
+      GC:
         AMPA:
           t_rise: 1.5
           t_decay: 5.5
           e_rev: 0
-    MC:
+      MC:
         AMPA:
           t_rise: 1.5
           t_decay: 5.5
           e_rev: 0
-    HC:
+      MPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+      LPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+    inhibitory:
+      HC:
         GABA_A:
           t_rise: 0.005
           t_decay: 0.001
           e_rev: -75
-    BC:
+      BC:
         GABA_A:
           t_rise: 0.25
           t_decay: 2.5
           e_rev: -75
-    AAC:
+      AAC:
         GABA_A:
           t_rise: 0.3
           t_decay: 2.9
           e_rev: -75
-    HCC:
+      HCC:
         GABA_A:
           t_rise: 0.04
           t_decay: 1.1
           e_rev: -75
-    NGFC:
+      NGFC:
         GABA_A:
           t_rise:  0.1
           t_decay: 10.0
@@ -254,7 +266,7 @@ Synapse Kinetics:
           t_rise:  86.8
           t_decay: 428.1
           e_rev:   -75
-    MOPP:
+      MOPP:
         GABA_A:
           t_rise:  0.1
           t_decay: 10.0
@@ -263,100 +275,106 @@ Synapse Kinetics:
           t_rise:  86.8
           t_decay: 428.1
           e_rev:   -75
-    MPP:
-        AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
-          e_rev: 0
-    LPP:
-        AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
-          e_rev: 0
   MC:
-    GC:
+    excitatory:
+      GC:
         AMPA:
           t_rise: 0.5
           t_decay: 6.2
           e_rev: 0
-    MC:
+      MC:
         AMPA:
           t_rise: 0.45
           t_decay: 2.2
           e_rev: 0
-    HC:
+    inhibitory:
+      HC:
         GABA_A:
           t_rise: 0.5
           t_decay: 6.0
           e_rev: -75
-    BC:
+      BC:
         GABA_A:
           t_rise: 0.3
           t_decay: 3.3
           e_rev: -75
-    AAC:
+      AAC:
         GABA_A:
           t_rise: 0.3
           t_decay: 3.3
           e_rev: -75
-    HCC:
+      HCC:
         GABA_A:
           t_rise: 0.6
           t_decay: 4.7
           e_rev: -75
   HC:
-    GC:
+    excitatory:
+      GC:
         AMPA:
           t_rise: 0.3
           t_decay: 6.2
           e_rev: 0
-    MC:
+      MC:
         AMPA:
           t_rise: 0.9
           t_decay: 3.6
           e_rev: 0
-    HC:
+    inhibitory:
+      HC:
         GABA_A:
           t_rise: 0.37
           t_decay: 10.48
           e_rev: -75
-    BC:
+      BC:
         GABA_A:
           t_rise: 0.265
           t_decay: 2.88
           e_rev: -75
-    IS:
+      IS:
         GABA_A:
           t_rise: 0.37
           t_decay: 10.48
           e_rev: -75
   BC:
-    GC:
+    excitatory:
+      GC:
         AMPA:
           t_rise: 0.3
           t_decay: 6.2
           e_rev: 0
-    MC:
+      MC:
         AMPA:
           t_rise: 0.9
           t_decay: 3.6
           e_rev: 0
-    HC:
+      MPP:
+        AMPA:
+          t_rise:  0.5
+          t_decay: 3.0
+          e_rev:     0
+      LPP:
+        AMPA:
+          t_rise:  0.5
+          t_decay: 3.0
+          e_rev:     0
+    inhibitory:
+      HC:
         GABA_A:
           t_rise: 0.46
           t_decay: 4.43
           e_rev: -75
-    BC:
+      BC:
         GABA_A:
           t_rise: 0.22
           t_decay: 3.35
           e_rev: -75
-    HCC:
+      HCC:
         GABA_A:
           t_rise: 0.6
           t_decay: 4.78
           e_rev: -75
-    NGFC:
+      NGFC:
         GABA_A:
           t_rise:   4.2
           t_decay: 14.0
@@ -365,38 +383,30 @@ Synapse Kinetics:
           t_rise:  86.8
           t_decay: 428.1
           e_rev:   -75
-    MPP:
-        AMPA:
-          t_rise:  0.5
-          t_decay: 3.0
-          e_rev:     0
-    LPP:
-        AMPA:
-          t_rise:  0.5
-          t_decay: 3.0
-          e_rev:     0
-    IS:
+      IS:
         GABA_A:
           t_rise: 0.46
           t_decay: 4.43
           e_rev: -75
   AAC:
-    GC:
+    excitatory:
+      GC:
         AMPA:
           t_rise: 0.3
           t_decay: 6.2
           e_rev: 0
-    MC:
+      MC:
         AMPA:
           t_rise: 0.9
           t_decay: 3.6
           e_rev: 0
-    HC:
+    inhibitory:
+      HC:
         GABA_A:
           t_rise: 0.46
           t_decay: 4.43
           e_rev: -75
-    NGFC:
+      NGFC:
         GABA_A:
           t_rise:  4.2
           t_decay: 14.0
@@ -405,59 +415,77 @@ Synapse Kinetics:
           t_rise:  86.8
           t_decay: 428.1
           e_rev: -75
-    IS:
+      IS:
         GABA_A:
           t_rise: 0.46
           t_decay: 4.43
           e_rev: -75
   HCC:
-    GC:
+    excitatory:
+      GC:
         AMPA:
           t_rise: 0.3
           t_decay: 6.2
           e_rev: 0
-    MC:
+      MC:
         AMPA:
           t_rise: 0.9
           t_decay: 3.6
           e_rev: 0
-    BC:
+    inhibitory:
+      BC:
         GABA_A:
           t_rise: 0.28
           t_decay: 3.45
           e_rev: -75
-    HCC:
+      HCC:
         GABA_A:
           t_rise: 0.72
           t_decay: 4.7
           e_rev: -75
-    IS:
+      IS:
         GABA_A:
           t_rise: 0.46
           t_decay: 4.43
           e_rev: -75
-    NGFC:
-        GABA_AB:
-          t_rise: [4.2, 86.8]
-          t_decay: [16.2, 428.1]
+      NGFC:
+        GABA_A:
+          t_rise:  4.2
+          t_decay: 16.2
+          e_rev: -75
+        GABA_B:
+          t_rise: 86.8
+          t_decay: 428.1
           e_rev: -75
   NGFC:
-    BC:
+    excitatory:
+      MPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+      LPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+    inhibitory:
+      BC:
         GABA_A:
           t_rise: 0.72
           t_decay: 10.0
           e_rev: -75
-    HCC:
+      HCC:
         GABA_A:
           t_rise: 0.72
           t_decay: 4.7
           e_rev: -75
-    IS:
+      IS:
         GABA_A:
           t_rise: 0.46
           t_decay: 4.43
           e_rev: -75
-    NGFC:
+      NGFC:
         GABA_A:
           t_rise:  4.2
           t_decay: 14.0
@@ -466,33 +494,30 @@ Synapse Kinetics:
           t_rise:  86.8
           t_decay: 428.1
           e_rev: -75
-    MPP:
-        AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
-          e_rev: 0
-    LPP:
-        AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
-          e_rev: 0
   MOPP:
-    BC:
+    excitatory:
+      MPP:
+        AMPA:
+          t_rise: 0.5
+          t_decay: 3.0
+          e_rev: 0
+    inhibitory:
+      BC:
         GABA_A:
           t_rise: 0.72
           t_decay: 10.0
           e_rev: -75
-    HCC:
+      HCC:
         GABA_A:
           t_rise: 0.72
           t_decay: 4.7
           e_rev: -75
-    IS:
+      IS:
         GABA_A:
           t_rise: 0.46
           t_decay: 4.43
           e_rev: -75
-    NGFC:
+      NGFC:
         GABA_A:
           t_rise:  4.5
           t_decay: 13.8
@@ -501,7 +526,7 @@ Synapse Kinetics:
           t_rise:  86.8
           t_decay: 428.1
           e_rev: -75
-    MOPP:
+      MOPP:
         GABA_A:
           t_rise:  4.5
           t_decay: 13.8
@@ -509,6 +534,19 @@ Synapse Kinetics:
         GABA_B:
           t_rise:  86.8
           t_decay: 428.1
+          e_rev: -75
+  IS:
+    excitatory:
+      GC:
+        AMPA:
+          t_rise: 0.3
+          t_decay: 6.2
+          e_rev: 0
+    inhibitory:
+      IS:
+        GABA_A:
+          t_rise: 0.37
+          t_decay: 10.48
           e_rev: -75
 Connection Properties:
   GC:

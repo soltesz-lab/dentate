@@ -1,11 +1,11 @@
 import itertools
 from collections import defaultdict
-import sys, os.path, string
+import sys, os.path, string, math
 from neuron import h
 import numpy as np
 import utils, cells
 
-def synapse_seg_counts(syn_type_dict, layer_density_dicts, sec_index_dict, seglist, neurotree_dict=None):
+def synapse_seg_counts(syn_type_dict, layer_density_dicts, sec_index_dict, seglist, seed, neurotree_dict=None):
     """Computes per-segment relative counts of synapse placement. """
     segcounts_dict  = {}
     segcount_total  = 0
@@ -68,19 +68,18 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
 
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
 
-        sec_index_dict = secidxs_dict[sec_name]
+        sec_index_dict = secidx_dict[sec_name]
         swc_type = swc_type_dict[sec_name]
         seg_list = []
         sec_obj_index_dict = {}
         L_total   = 0
-        for (sec, secindex) in (sec_dict[sec_name], secidx_dict[sec_name]):
+        for (sec, secindex) in itertools.izip(sec_dict[sec_name], secidx_dict[sec_name]):
             sec_obj_index_dict[sec] = secindex
             L_total += sec.L
             for seg in sec:
                 if seg.x < 1.0 and seg.x > 0.0:
                     seg_list.append(seg)
-            
-    
+
         segcounts_dict, total, layers_dict = synapse_seg_counts(syn_type_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed, neurotree_dict=neurotree_dict)
 
         sample_size = total
@@ -99,10 +98,11 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
                 layer = layers[i]
                 syn_count = 0
                 while syn_count < int_seg_count:
-                    syn_loc = seg_start + seg_range * ((syn_count + 1) / seg_count)
+                    syn_loc = seg_start + seg_range * ((syn_count + 1) / math.ceil(seg_count))
+                    assert((syn_loc <= 1) & (syn_loc >= 0))
                     syn_locs.append(syn_loc)
                     syn_ids.append(syn_index)
-                    syn_secs.append(sec_index_dict[seg.sec])
+                    syn_secs.append(sec_obj_index_dict[seg.sec])
                     syn_layers.append(layer)
                     syn_types.append(syn_type)
                     swc_types.append(swc_type)
@@ -126,11 +126,21 @@ def syn_in_seg(seg, syns_dict):
     if any(seg.sec(x) == seg for x in syns_dict[seg.sec]): return True
     return False
 
+def make_syn_mech(mech_name, seg):
+    if mech_name == 'AMPA':
+        syn = h.Exp2Syn(seg)
+    elif mech_name == 'GABA_A':
+        syn = h.Exp2Syn(seg)
+    elif mech_name == 'GABA_B':
+        syn = h.Exp2Syn(seg)
+    else:
+        syn = None
+    return syn
 
-def add_shared_synapse(seg, syns_dict):
+def add_shared_synapse(mech_name, seg, syns_dict):
     """Returns the existing synapse in segment if any, otherwise creates it."""
     if not syn_in_seg(seg, syns_dict):
-        syn = h.Exp2Syn(seg)
+        syn = make_syn_mech(mech_name, seg)
         syns_dict[seg.sec][syn.get_segment().x] = syn
         return syn
     else:
@@ -138,9 +148,9 @@ def add_shared_synapse(seg, syns_dict):
             if seg.sec(x) == seg:
                return syn
 
-def add_unique_synapse(seg, syns_dict):
+def add_unique_synapse(mech_name, seg, syns_dict):
     """Creates a synapse in the segment."""
-    syn = h.Exp2Syn(seg)
+    syn = make_syn_mech(mech_name, seg)
     return syn
     
 def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,presyn_ids,syn_kinetics,env,add_synapse=add_shared_synapse,spines=False):
@@ -148,36 +158,33 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,presyn_ids,syn
     syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_soma = defaultdict(lambda: defaultdict(lambda: {}))
-    py_apical = [sec for sec in cell.apical]
-    py_basal  = [sec for sec in cell.basal]
-    py_ais    = [sec for sec in cell.ais]
+    py_sections = [sec for sec in cell.sections]
+
     for (syn_id,syn_type,swc_type,syn_loc,syn_section,presyn_id) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx],presyn_ids[sort_idx]):
       sref = None
+      sec = py_sections[syn_section]
       if swc_type == env.SWC_Types['apical']:
         syns_dict = syns_dict_dend
-        sec = py_apical[syn_section]
         if spines and h.ismembrane('spines',sec=sec):
           sec(syn_loc).count_spines += 1
       elif swc_type == env.SWC_Types['basal']:
         syns_dict = syns_dict_dend
-        sec = py_basal[syn_section]
         if spines and h.ismembrane('spines',sec=sec):
           sec(syn_loc).count_spines += 1
       elif swc_type == env.SWC_Types['axon']:
         syns_dict = syns_dict_axon
-        sec = py_ais[syn_section]
       elif swc_type == env.SWC_Types['soma']:
         syns_dict = syns_dict_soma
-        sec = cell.soma[syn_section]
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      syn = add_synapse(sec(syn_loc), syns_dict[presyn_id])
-      syn_kinetic_params = syn_kinetics[presyn_id][syn_type]
-      syn.tau1 = syn_kinetic_params['t_rise']
-      syn.tau2 = syn_kinetic_params['t_decay']
-      syn.e    = syn_kinetic_params['e_rev']
-      cell.syns.append(syn)
-      cell.syntypes.o(syn_type).append(syn)
+      syn_kinetic_params = syn_kinetics[syn_type][presyn_id]
+      for (syn_mech, params) in syn_kinetic_params.iteritems():
+        syn = add_synapse(syn_mech, sec(syn_loc), syns_dict[presyn_id])
+        syn.tau1 = params['t_rise']
+        syn.tau2 = params['t_decay']
+        syn.e    = params['e_rev']
+        cell.syns.append(syn)
+        cell.syntypes.o(syn_type).append(syn)
 
            
 def print_syn_summary (gid,syn_dict):

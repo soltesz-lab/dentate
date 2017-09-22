@@ -7,8 +7,8 @@ import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_tree_selection
-from env import Env
+from neuroh5.io import read_tree_selection, read_cell_attribute_selectionfrom env
+import Env
 import utils, cells
 
     

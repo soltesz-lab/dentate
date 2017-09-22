@@ -9,6 +9,20 @@ import utils
 class Env:
     """Network model configuration."""
 
+    def load_synapse_kinetics(self):
+        populations_dict = self.modelConfig['Definitions']['Populations']
+        syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
+        synapse_kinetics = self.modelConfig['Connection Generator']['Synapse Kinetics']
+        synapse_kinetics_dict = {}
+        for (key_celltype, val_celltype) in synapse_kinetics.iteritems():
+            synapse_kinetics_dict[key_celltype] = {}
+            for (key_syntype, val_syntype) in val_celltype.iteritems():
+                val_syntype1 = {}
+                for (key_presyn, val_presyn) in val_syntype.iteritems():
+                    val_syntype1[populations_dict[key_presyn]] = val_presyn
+                synapse_kinetics_dict[key_celltype][syntypes_dict[key_syntype]] = val_syntype1
+        self.synapse_kinetics = synapse_kinetics_dict
+    
     def load_prjtypes(self):
         projections = self.projections
         prjnames = projections.keys()
@@ -154,12 +168,15 @@ class Env:
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
             
+        self.celltypes = self.modelConfig['Cell Types']
+        self.synapse_kinetics = None
+        self.load_synapse_kinetics()
+
         # The name of this model
         self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network
         self.datasetName = self.modelConfig['Dataset Name']
-
-        self.celltypes     = self.modelConfig['Cell Types']
+        
         if self.modelConfig.has_key('connectivity'):
             self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
             self.projections   = self.modelConfig['connectivity']['projections']
@@ -171,10 +188,13 @@ class Env:
                 self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
             else:
                 self.gapjunctionsFile = None
+                
+
+                
         if self.datasetPrefix is not None:
             self.load_celltypes()
             self.load_prjtypes()
-                
+            
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
 
