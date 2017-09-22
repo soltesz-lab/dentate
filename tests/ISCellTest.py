@@ -174,7 +174,7 @@ def main(template_path,forest_path):
     (trees,_) = read_tree_selection (comm, forest_path, popName, [1049650])
     
     tree = trees.itervalues().next()
-    
+
     passive_test(tree,-70)
     ap_rate_test(tree,-70)
 

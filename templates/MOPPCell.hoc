@@ -45,7 +45,7 @@ proc init() {
     gid = $2
     
     if (numarg() > 2) {
-        topol_from_python($o4,$o5,$o6,$o7)
+        topol_from_python($o4,$o5,$o6,$o7,$o12)
         shape_from_python($o7,$o8,$o9,$o10,$o11)
     } else {
         ndends   = 4
@@ -257,23 +257,30 @@ proc biophys() {
 }
 
 
-proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
     
     // vlayers, vsrc, vdst, secnodes
-    vlayers  = new Vector()
-    vlayers.from_python($o1)
-    vsrc     = new Vector()
-    vsrc.from_python($o2)
-    vdst     = new Vector()
-    vdst.from_python($o3)
-    secnodes = $o4
+    vlayers   = new Vector($o1)
+    vsrc      = new Vector($o2)
+    vdst      = new Vector($o3)
+    secnodes  = $o4
+    swc_types = new Vector($o5)
     
     nDends = secnodes.__len__()-1
     
-    apicalidx.append(1)
-    apicalidx.append(2)
-    basalidx.append(3)
-    basalidx.append(4)
+    for s = 0, secnodes.__len__()-1 {
+        vidxs = new Vector(secnodes.__getitem__(s))
+        i = vidxs.x[vidxs.size()-1]
+        swc_type = swc_types.x[i]
+        if (swc_type == 4) {
+            apicalidx.append(s)
+            print "apical: ", s
+        }
+        if (swc_type == 3) {
+            basalidx.append(s)
+            print "basal: ", s
+        }
+    }
     
     create sections[nDends+1]
     for p = 0, vsrc.size-1 {
@@ -306,25 +313,20 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
 proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius, idxs, vidxs
     
     secnodes = $o1
-    vx = new Vector()
-    vx.from_python($o2)
-    vy = new Vector()
-    vy.from_python($o3)
-    vz = new Vector()
-    vz.from_python($o4)
-    vradius = new Vector()
-    vradius.from_python($o5)
+    vx = new Vector($o2)
+    vy = new Vector($o3)
+    vz = new Vector($o4)
+    vradius = new Vector($o5)
     
     for s=0, secnodes.__len__()-1 {
         idxs = secnodes.__getitem__(s)
-        vidxs = new Vector()
-        vidxs.from_python(idxs)
+        vidxs = new Vector(idxs)
         sections[s] {
+            pt3dconst(1)
             for i=0, vidxs.size()-1 {
                 k = vidxs.x[i]
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
             }
-            pt3dconst(0)
             print "section ", s, " length is ", L
         }
     }
