@@ -3,6 +3,7 @@ begintemplate HICAPCell
 public connect2target, subsets, is_art, is_connected
 public sections
 public all, soma, basal, apical, ais
+public somaidx, basalidx, apicalidx, aisidx
 public xx, yy, zz, position
 public syns
 public syn_stim, syntest
@@ -10,7 +11,7 @@ public syn_stim, syntest
 create sections[1]
 
 objref all, soma, basal, apical, ais
-objref apicalidx, basalidx
+objref apicalidx, basalidx, somaidx, aisidx
 objref syns, syntypes
 
 id  = -1
@@ -37,6 +38,8 @@ proc init() {
     
     apicalidx = new Vector()
     basalidx = new Vector()
+    somaidx = new Vector()
+    aisidx = new Vector()
     
     id  = $1
     gid = $2
@@ -49,6 +52,7 @@ proc init() {
         ndendsec = 4
         create sections[ndends*ndendsec+1]
         
+        somaidx.append(0)
         i=0
         for j=0, ndendsec-1 { 
             basalidx.append(1+i*ndendsec + j)
@@ -271,6 +275,10 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         if (swc_type == 3) {
             basalidx.append(s)
             print "basal: ", s
+        }
+        if (swc_type == 1) {
+            somaidx.append(s)
+            print "soma: ", s
         }
     }
     

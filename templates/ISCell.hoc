@@ -3,12 +3,13 @@ begintemplate ISCell
 
 public connect2target, subsets, is_art, is_connected
 public all, soma, basal, apical, ais, sections
+public somaidx, basalidx, apicalidx, aisidx
 public xx, yy, zz, position
 public syns, syntypes
 public syn_stim
 
 objref all, soma, basal, apical, ais
-objref apicalidx, basalidx
+objref apicalidx, basalidx, somaidx, aisidx
 objref syns, syntypes
 objref syn_stim
 
@@ -37,6 +38,8 @@ proc init() { // arguments are id, gid
     
     apicalidx = new Vector()
     basalidx = new Vector()
+    somaidx = new Vector()
+    aisidx = new Vector()
     
     cellid = $1
     gid = $2
@@ -49,6 +52,7 @@ proc init() { // arguments are id, gid
         ndendsec = 3
         create sections[1+ndends*ndendsec]
         
+        somaidx.append(0)
         i=0
         for j=0, ndendsec-1 { 
             basalidx.append(1+i*ndendsec + j)
@@ -282,6 +286,10 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         if (swc_type == 3) {
             basalidx.append(s)
             print "basal: ", s
+        }
+        if (swc_type == 1) {
+            somaidx.append(s)
+            print "soma: ", s
         }
     }
     

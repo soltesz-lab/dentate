@@ -62,10 +62,12 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 # if this_mismatched_sections is not None:
                 #    mismatched_section_dict[gid] = this_mismatched_sections
                 cell_sec_dict = {'apical': cell.apical, 'basal': cell.basal, 'soma': cell.soma, 'ais': cell.ais}
+                cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
                 
                 if distribution == 'uniform':
                     synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types,
-                                                                                              density_dict, morph_dict, cell_sec_dict)
+                                                                                              density_dict, morph_dict,
+                                                                                              cell_sec_dict, cell_secidx_dict)
                 del cell
                 print 'Rank %i took %i s to compute synapse locations for %s gid: %i' % (rank, time.time() - local_time, population, gid)
                 count += 1

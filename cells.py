@@ -3,7 +3,8 @@ import itertools
 from neuron import h
 import numpy as np
 
-def get_node_attribute (name, content, sec, x=None):
+## TODO: use neurotree_dict['section_topology']['nodes'] to determine node att
+def get_node_attribute (name, content, sec, secnodes, x=None):
     if content.has_key(name):
         if x is None:
             return content[name]
@@ -12,7 +13,7 @@ def get_node_attribute (name, content, sec, x=None):
         else:
             for i in xrange(sec.n3d()):
                 if sec.arc3d(i)/sec.L >= x:
-                    return content[name][i]
+                    return content[name][secnodes[i]]
     else:
         return None
 

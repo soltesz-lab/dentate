@@ -5,12 +5,16 @@ from neuron import h
 import numpy as np
 import utils, cells
 
-def synapse_seg_counts(syn_type_dict, layer_density_dicts, seglist, seed, neurotree_dict=None):
+def synapse_seg_counts(syn_type_dict, layer_density_dicts, sec_index_dict, seglist, neurotree_dict=None):
     """Computes per-segment relative counts of synapse placement. """
     segcounts_dict  = {}
     segcount_total  = 0
     layers_dict     = {}
     segcount_total  = 0
+    if neurotree_dict is not None:
+        secnodes_dict = neurotree_dict['section_topology']['nodes']
+    else:
+        secnodes_dict = None
     for (syn_type_label, layer_density_dict) in layer_density_dicts.iteritems():
         syn_type = syn_type_dict[syn_type_label] 
         rans = {}
@@ -24,7 +28,9 @@ def synapse_seg_counts(syn_type_dict, layer_density_dicts, seglist, seed, neurot
             L    = seg.sec.L
             nseg = seg.sec.nseg
             if neurotree_dict is not None:
-                layer = cells.get_node_attribute('layer', neurotree_dict, seg.sec, seg.x)
+                secindex = sec_index_dict[seg.sec]
+                secnodes = secnodes_dict[secindex]
+                layer = cells.get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
             else:
                 layer = -1
             layers.append(layer)
@@ -49,7 +55,7 @@ def synapse_seg_counts(syn_type_dict, layer_density_dicts, seglist, seed, neurot
     return (segcounts_dict, segcount_total, layers_dict)
     
            
-def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_density_dict, neurotree_dict, sec_dict):
+def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_density_dict, neurotree_dict, sec_dict, secidx_dict):
     """Computes uniformly-spaced synapse locations. """
 
     syn_ids    = []
@@ -62,21 +68,20 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
 
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
 
+        sec_index_dict = secidxs_dict[sec_name]
         swc_type = swc_type_dict[sec_name]
         seg_list = []
-        sec_index_dict = {}
-        sec_index = 0
+        sec_obj_index_dict = {}
         L_total   = 0
-        for sec in sec_dict[sec_name]:
+        for (sec, secindex) in (sec_dict[sec_name], secidx_dict[sec_name]):
+            sec_obj_index_dict[sec] = secindex
             L_total += sec.L
-            sec_index_dict[sec] = sec_index
-            sec_index    += 1
             for seg in sec:
                 if seg.x < 1.0 and seg.x > 0.0:
                     seg_list.append(seg)
             
     
-        segcounts_dict, total, layers_dict = synapse_seg_counts(syn_type_dict, layer_density_dict, seg_list, seed, neurotree_dict=neurotree_dict)
+        segcounts_dict, total, layers_dict = synapse_seg_counts(syn_type_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed, neurotree_dict=neurotree_dict)
 
         sample_size = total
         cumcount  = 0

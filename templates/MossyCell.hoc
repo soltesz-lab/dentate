@@ -3,6 +3,7 @@ begintemplate MossyCell
 public connect2target, subsets,is_art, is_connected
 public sections
 public all, soma, basal, apical, ais
+public somaidx, basalidx, apicalidx, aisidx
 public syns, syntypes
 public syn_stim
 public xx, yy, zz, position
@@ -15,9 +16,9 @@ create sections[1]
 
 objref fl//, rs
 objref all, soma, basal, apical, ais
+objref somaidx, basalidx, apicalidx, aisidx
 objref syns, syntypes
 objref syn_stim
-objref apicalidx, basalidx
 
 ndends   = -1
 ndendsec = -1
@@ -49,6 +50,7 @@ proc init() { // arguments are id, gid
         ndendsec = 4
         create sections[1+ndends*ndendsec]
         
+        somaidx.append(0)
         for i=0, ndends-1 {
             for j=0, ndendsec-1 { 
                 apicalidx.append(1+i*ndendsec + j)
@@ -239,7 +241,7 @@ proc biophys() { local ndends, ndendsec
     
 }
 
-proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
     
     // vlayers, vsrc, vdst, secnodes
     vlayers  = new Vector()
@@ -249,13 +251,27 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
     vdst     = new Vector()
     vdst.from_python($o3)
     secnodes = $o4
+    swc_types = $o5
     
     nDends = secnodes.__len__()-1
     
-    apicalidx.append(1)
-    apicalidx.append(2)
-    apicalidx.append(3)
-    apicalidx.append(4)
+    for s = 0, secnodes.__len__()-1 {
+        vidxs = new Vector(secnodes.__getitem__(s))
+        i = vidxs.x[vidxs.size()-1]
+        swc_type = swc_types.x[i]
+        if (swc_type == 4) {
+            apicalidx.append(s)
+            print "apical: ", s
+        }
+        if (swc_type == 3) {
+            basalidx.append(s)
+            print "basal: ", s
+        }
+        if (swc_type == 1) {
+            somaidx.append(s)
+            print "soma: ", s
+        }
+    }
     
     create sections[nDends+1]
     for p = 0, vsrc.size-1 {
