@@ -149,7 +149,7 @@ def add_shared_synapse(mech_name, seg, syns_dict):
                return syn
 
 def add_unique_synapse(mech_name, seg, syns_dict):
-    """Creates a synapse in the segment."""
+    """Creates a synapse in the given segment."""
     syn = make_syn_mech(mech_name, seg)
     return syn
     
