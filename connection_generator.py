@@ -42,31 +42,26 @@ class ConnectionProb(object):
                 self.offset[source] = {'u': 0., 'v': 0.}
             else:
                 self.offset[source] = {'u': extent_offset[source][0], 'v': axon_offset[source][1]}
-            self.p_dist[source] = (lambda source:
-                                   np.vectorize(lambda distance_u, distance_v:
-                                                np.exp(-(((abs(distance_u) - self.offset[source]['u']) /
-                                                          self.sigma[source]['u'])**2. +
-                                                         ((abs(distance_v) - self.offset[source]['v']) /
-                                                          self.sigma[source]['v'])**2.)))) (source)
 
 
-    def filter_by_soma_coords(self, target, source, target_gid, soma_coords, ip_surface):
+    def filter_by_arc_lengths_uv(self, destination, source, destination_gid, soma_coords, ip_surface):
         """
-        Given the coordinates of a target neuron, filter the set of source neurons, and return the arc_distances in two
-        dimensions and the gids of source neurons whose axons potentially contact the target neuron.
-        :param target: str
-        :param source: str
+        Given the coordinates of a target neuron, returns the arc distances along u and v
+        and the gids of source neurons whose axons potentially contact the target neuron.
+        :param target: string
+        :param source: string
         :param target_gid: int
         :param soma_coords: nested dict of array
         :param ip_surface: surface interpolation function
         :return: tuple of array of int
         """
-        target_index_u = soma_coords[target][target_gid]['u_index']
-        target_index_v = soma_coords[target][target_gid]['v_index']
+        soma_uv = soma_coords[destination][destination_gid]['u_index']
+        target_index_u = soma_uv['u_index']
+        target_index_v = soma_uv['v_index']
         source_distance_u = []
         source_distance_v = []
         source_gid = []
-        for this_source_gid in soma_coords[source]:
+        for source_gid in soma_coords[source]:
             this_source_distance_u, this_source_distance_v = \
                 self.get_approximate_arc_distances(target_index_u, target_index_v,
                                                    soma_coords[source][this_source_gid]['u_index'],
@@ -131,10 +126,12 @@ def filter_sources(target, layer, swc_type, syn_type):
     return source_list, proportion_list
 
 
-def generate_uv_distance_connections(comm, destination, forest_path, connection_layers,
-                                     synapse_namespace, connectivity_namespace,
+def generate_uv_distance_connections(comm,
+                                     destination, forest_path,
+                                     synapse_layers, synapse_types,
+                                     synapse_locations, synapse_namespace, 
                                      coords_path, coords_namespace,
-                                     connectivity_seed,
+                                     connectivity_seed, connectivity_namespace,
                                      io_size, chunk_size, value_chunk_size, cache_size):
     """
 
@@ -158,20 +155,20 @@ def generate_uv_distance_connections(comm, destination, forest_path, connection_
     start_time = time.time()
 
     soma_coords = {}
-    source_populations = population_ranges(comm, coords_path).keys()
-    for population in source_populations:
-        soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
-                                                        namespace=coords_namespace)
+    source_populations = synapse_layers[destination].keys()
+    for source in source_populations:
+        soma_coords[source] = bcast_cell_attributes(comm, 0, coords_path, population,
+                                                    namespace=coords_namespace)
 
-    layer_set, swc_type_set, syn_type_set = set(), set(), set()
-    for source in connection_layers[destination]:
-        layer_set.update(connection_layers[destination][source])
-        swc_type_set.update(swc_types[destination][source])
+    syn_layer_set, syn_location_set, syn_type_set = set(), set(), set()
+    for source in source_populations:
+        syn_layer_set.update(synapse_layers[destination][source])
+        syn_location_set.update(syn_locations[destination][source])
         syn_type_set.update(syn_types[destination][source])
 
     count = 0
-    for destination_gid, attributes_dict in NeurotreeAttrGen(comm, forest_path, destination, io_size=io_size,
-                                                             cache_size=cache_size, namespace=synapse_namespace):
+    for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination, io_size=io_size,
+                                                               cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
         connection_dict = {}
         p_dict = {}
@@ -180,12 +177,17 @@ def generate_uv_distance_connections(comm, destination, forest_path, connection_
             print 'Rank %i destination gid is None' % rank
         else:
             print 'Rank %i received attributes for destination: %s, gid: %i' % (rank, destination, destination_gid)
-            synapse_dict = attributes_dict['Synapse Attributes']
+            synapse_dict = attributes_dict[synapse_namespace]
             connection_dict[destination_gid] = {}
             local_np_random.seed(destination_gid + connectivity_seed)
+
+            ## Candidate presynaptic cells to be connected to destination_gid
+            candidates = 
+            
             connection_dict[destination_gid]['source_gid'] = np.array([], dtype='uint32')
             connection_dict[destination_gid]['syn_id']     = np.array([], dtype='uint32')
 
+        
             for layer in layer_set:
                 for swc_type in swc_type_set:
                     for syn_type in syn_type_set:
