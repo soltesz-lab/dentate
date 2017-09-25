@@ -73,12 +73,19 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
         seg_list = []
         sec_obj_index_dict = {}
         L_total   = 0
-        for (sec, secindex) in itertools.izip(sec_dict[sec_name], secidx_dict[sec_name]):
+        (seclst, maxdist) = sec_dict[sec_name]
+        secidxlst         = secidx_dict[sec_name]
+        for (sec, secindex) in itertools.izip(seclst, secidxlst):
             sec_obj_index_dict[sec] = secindex
+            if (maxdist <= 0):
+                for seg in sec:
+                    if seg.x < 1.0 and seg.x > 0.0:
+                        seg_list.append(seg)
+            else:
+                for seg in sec:
+                    if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
+                        seg_list.append(seg)
             L_total += sec.L
-            for seg in sec:
-                if seg.x < 1.0 and seg.x > 0.0:
-                    seg_list.append(seg)
 
         segcounts_dict, total, layers_dict = synapse_seg_counts(syn_type_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed, neurotree_dict=neurotree_dict)
 

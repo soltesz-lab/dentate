@@ -32,8 +32,9 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     rank = comm.rank
     
     env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path)
-    h('objref nil, pc')
+    h('objref nil, pc, templatePaths')
     h.load_file("nrngui.hoc")
+    h.load_file("./templates/Value.hoc")
     h.xopen("./lib.hoc")
     h.pc = h.ParallelContext()
     
@@ -43,13 +44,17 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
+    h.templatePaths = h.List()
+    for path in env.templatePaths:
+        h.templatePaths.append(h.Value(1,path))
+    
     (pop_ranges, _) = read_population_ranges(comm, forest_path)
     start_time = time.time()
     for population in populations:
         count = 0
         (population_start, _) = pop_ranges[population]
         template_name = env.celltypes[population]['template']
-        h.find_template(h.pc, env.templatePaths, template_name)
+        h.find_template(h.pc, h.templatePaths, template_name)
         density_dict = env.celltypes[population]['synapses']['density']
         for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
             local_time = time.time()
@@ -61,8 +66,8 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
                 # if this_mismatched_sections is not None:
                 #    mismatched_section_dict[gid] = this_mismatched_sections
-                cell_sec_dict = {'apical': cell.apical, 'basal': cell.basal, 'soma': cell.soma, 'ais': cell.ais}
-                cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
+                cell_sec_dict = {'apical': (cell.apical, 0), 'basal': (cell.basal, 0), 'soma': (cell.soma, 0), 'axon': (cell.axon, 50.0)}
+                cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
                 
                 if distribution == 'uniform':
                     synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types,
