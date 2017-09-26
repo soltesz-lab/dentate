@@ -202,7 +202,7 @@ def generate_uv_distance_connections(comm,
                 h = []
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
                 for (prob, source_gid) in itertools.izip(probs, source_gids):
-                    heapq.heappush(h, (1.0-prob, source_gid))
+                    heapq.heappush(h, (prob, source_gid))
                 connection_prob_dict[source_population] = h
 
             syn_id_lst, source_gid_lst = generate_synaptic_connections(synapse_dict, projection_synapse_dict, projection_prob_dict)
