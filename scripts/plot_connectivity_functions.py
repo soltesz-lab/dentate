@@ -2,6 +2,11 @@ from function_lib import *
 from scipy import interpolate
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib as mpl
+mpl.rcParams['svg.fonttype'] = 'none'
+mpl.rcParams['font.size'] = 16.
+mpl.rcParams['font.sans-serif'] = 'Myriad Pro'
+mpl.rcParams['text.usetex'] = False
 import random
 
 
@@ -38,7 +43,8 @@ coords_dir = '../morphologies/'
 # coords_file = 'dentate_Full_Scale_Control_coords.bak'
 # coords_file = 'Somata.h5'
 # coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
-coords_file = 'dentate_Sampled_Soma_Locations_050517.h5'
+# coords_file = 'dentate_Sampled_Soma_Locations_test_051017.h5'
+coords_file = 'dentate_Full_Scale_Control_coords_20170508.h5'
 
 # forest_file = '100716_dentate_MPPtoDGC.h5'
 # degrees_file = 'DGC_forest_connectivity_degrees_orig.h5'
@@ -461,9 +467,12 @@ def plot_population_density(population, soma_coords, u, v, distance_U, distance_
     pop_size = len(soma_coords[population]['x'])
     indexes = random.sample(range(pop_size), min(pop_size, 5000))
     ax.scatter(soma_coords[population]['x'][indexes], soma_coords[population]['y'][indexes],
-               soma_coords[population]['z'][indexes], alpha=0.1, linewidth=0)
+               soma_coords[population]['z'][indexes], c='grey', alpha=0.15, linewidth=0)
     scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
-    ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]] * 3)
+    # ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]] * 3)
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
     ax.set_xlabel('X (um)')
     ax.set_ylabel('Y (um)')
     ax.set_zlabel('Z (um)')
@@ -479,9 +488,9 @@ def plot_population_density(population, soma_coords, u, v, distance_U, distance_
     Hmasked = np.ma.masked_where(H == 0, H)
     ax = plt.gca()
     pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
-    ax.set_xlabel('Arc distance (septal - temporal) (um)')
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
-    ax.set_title(population)
+    ax.set_xlabel('Septotemporal arc distance (um)')
+    ax.set_ylabel('Transverse arc distance (um)')
+    ax.set_title(population+' cell density', fontsize=mpl.rcParams['font.size'])
     ax.set_aspect('equal', 'box')
     clean_axes(ax)
     divider = make_axes_locatable(ax)
@@ -493,7 +502,7 @@ def plot_population_density(population, soma_coords, u, v, distance_U, distance_
     plt.close()
 
 
-for population in populations:
+for population in ['GC']:  # populations:
     plot_population_density(population, soma_coords, u, v, distance_U, distance_V, max_u, max_v)
 
 # plot_in_degree('GC', 'MEC', 'MPPtoGC', degrees_file, soma_coords, u, v, distance_U, distance_V)

@@ -9,6 +9,7 @@ import copy
 import pprint
 import pickle
 import math
+import random
 
 
 freq = 100      # Hz, frequency at which AC length constant will be computed
@@ -151,11 +152,116 @@ class Logger(object):
         self.terminal.flush()
 
 
-def list_find (f, lst):
+def list_find(f, lst):
     i = 0
     for x in lst:
         if f(x):
             return i
         else:
             i += 1
+    return None
+
+
+def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., generator=None):
+    """
+    Given a time series of instantaneous spike rates in Hz, produce a spike train consistent with an inhomogeneous
+    Poisson process with a refractory period after each spike.
+    :param rate: instantaneous rates in time (Hz)
+    :param t: corresponding time values (ms)
+    :param dt: temporal resolution for spike times (ms)
+    :param refractory: absolute deadtime following a spike (ms)
+    :param generator: :class:'random.Random()'
+    :return: list of m spike times (ms)
+    """
+    if generator is None:
+        generator = random
+    interp_t = np.arange(t[0], t[-1] + dt, dt)
+    interp_rate = np.interp(interp_t, t, rate)
+    interp_rate /= 1000.
+    non_zero = np.where(interp_rate > 0.)[0]
+    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
+    spike_times = []
+    max_rate = np.max(interp_rate)
+    i = 0
+    ISI_memory = 0.
+    while i < len(interp_t):
+        x = generator.random()
+        if x > 0.:
+            ISI = -np.log(x) / max_rate
+            i += int(ISI / dt)
+            ISI_memory += ISI
+            if (i < len(interp_t)) and (generator.random() <= interp_rate[i] / max_rate) and ISI_memory >= 0.:
+                spike_times.append(interp_t[i])
+                ISI_memory = -refractory
+    return spike_times
+
+
+def split_array(a, size):
+    start = 0
+    chunk_size = int(math.ceil(float(len(a)) / size))
+    sub_arrays = []
+    for i in xrange(size):
+        if i == size - 1:
+            sub_arrays.append(a[start:])
+        else:
+            sub_arrays.append(a[start:start+chunk_size])
+            start += chunk_size
+    return sub_arrays
+
+
+def serial_neuroh5_get_attr(file_path, population, namespace, gid, header='Populations'):
+    """
+
+    :param file_path: str
+    :param population: str
+    :param namespace: str
+    :param gid: int
+    :param header: str
+    :return: dict
+    """
+    attr_dict = {}
+    if not os.path.isfile(file_path):
+        raise IOError('serial_neuroh5_get_attr: invalid file_path: %s' % file_path)
+    with h5py.File(file_path, 'r') as f:
+        if header not in f:
+            raise AttributeError('serial_neuroh5_get_attr: invalid header: %s' % header)
+        elif population not in f[header]:
+            raise AttributeError('serial_neuroh5_get_attr: invalid population: %s' % population)
+        elif namespace not in f[header][population]:
+            raise AttributeError('serial_neuroh5_get_attr: invalid namespace: %s' % namespace)
+        group = f[header][population][namespace]
+        gid_offset = None
+        pop_size = None
+        attr_dict[namespace] = {}
+        for attr in group:
+            if not ('gid' in group[attr] and 'ptr' in group[attr] and 'value' in group[attr]):
+                print 'serial_neuroh5_get_attr: excluding namespace: %s; attribute: %s; format not recognized' % \
+                      (namespace, attr)
+            else:
+                if gid_offset is None:
+                    gid_offset = group[attr]['gid'][0]
+                    pop_size = len(group[attr]['gid'])
+                gid_index = gid - gid_offset
+                if gid_index > pop_size:
+                    raise ValueError('serial_neuroh5_get_attr: gid: %i out of range for population: %s' %
+                                     (gid, population))
+                else:
+                    start = group[attr]['ptr'][gid_index]
+                    stop = group[attr]['ptr'][gid_index+1]
+                    attr_dict[namespace][attr] = group[attr]['value'][start:stop]
+    return attr_dict
+
+
+def gid_in_population_list(gid, population_list, population_range_dict):
+    """
+    If the gid is in the gid range of a population, the name of the population is returned. Otherwise, None.
+    :param gid: int
+    :param population_list: list of str
+    :param population_range_dict: dict of tuple of int
+    :return: str or None
+    """
+    for population in population_list:
+        if population_range_dict[population][0] <= gid < population_range_dict[population][0] + \
+                population_range_dict[population][1]:
+            return population
     return None

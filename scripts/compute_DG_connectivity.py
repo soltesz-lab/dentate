@@ -19,15 +19,15 @@ Determine synaptic connectivity onto DG GCs based on target convergences, diverg
 
 Algorithm:
 1. For each cell population:
-    i. Load the soma locations of each cell population from an .hdf5 file. The (U, V) coordinates of each cell will be
-        projected onto a plane in the middle of the granule cell layer (U', V') (L = -1), and used to calculate the
-        orthogonal arc distances (S-T and M-L) between the projected soma locations.
+    i. Load the soma locations of each cell population from a NeuroIO file. The (U, V) coordinates of each cell are
+        projected onto a plane in the middle of the granule cell layer (L = -1), and used to calculate the orthogonal 
+        arc distances (S-T and M-L) between the projected soma locations.
 2. For each cell, for each type of connection:
     i. Compute a probability of connection across all possible sources, based on the estimated arc distances between
         their projected soma locations.
-    ii. Load from a neurotree file the synapses metadata, including layer, type, syn_loc, sec_type, and unique indexes 
+    ii. Load from a NeuroIO file the synapses attributes, including layer, type, syn_loc, sec_type, and unique indexes 
         for each synapse.
-    ii. Write to a neurotree file the source_gids and synapse_indexes for all the connections that have been
+    ii. Write to a NeuroIO file the source_gids and synapse_indexes for all the connections that have been
         specified in this step. Iterating through connection types will keep appending to this data structure.
     TODO: Implement a parallel write method to the separate connection edge data structure, use that instead.
 
@@ -35,6 +35,8 @@ swc_type_enumerator = {'soma': 1, 'axon': 2, 'basal': 3, 'apical': 4, 'trunk': 5
 syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 
 """
+
+script_name = 'compute_DG_connectivity.py'
 
 
 spatial_resolution = 1.  # um
@@ -111,8 +113,8 @@ proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
 
 
 local_np_random = np.random.RandomState()
-connectivity_seed_offset = 100000000  # make sure random seeds are not being reused for various types of
-                                      # stochastic sampling
+# make sure random seeds are not being reused for various types of stochastic sampling
+connectivity_seed_offset = int(1 * 2e6)
 
 
 def get_array_index_func(val_array, this_val):
@@ -291,30 +293,42 @@ p_connect = AxonProb(axon_width, axon_offset)
 
 @click.command()
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_size):
+def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_size, chunk_size, value_chunk_size,
+         cache_size):
+    """
 
+    :param forest_path:
+    :param connectivity_namespace:
+    :param coords_path:
+    :param coords_namespace:
+    :param io_size:
+    :param chunk_size:
+    :param value_chunk_size:
+    :param cache_size:
+    """
     comm = MPI.COMM_WORLD
     rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
 
-    if io_size == 1:
+    if io_size == -1:
         io_size = comm.size
     if rank == 0:
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
     start_time = time.time()
-    last_time = start_time
 
     soma_coords = {}
     source_populations = population_ranges(MPI._addressof(comm), coords_path).keys()
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
-                                                            namespace='Sorted Coordinates')
+                                                            namespace=coords_namespace)
 
     for population in soma_coords:
         for cell in soma_coords[population].itervalues():
@@ -330,8 +344,8 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
         syn_type_set.update(syn_types[target][source])
 
     count = 0
-    for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target,
-                                                        io_size=io_size, cache_size=cache_size, namespace='Synapse_Attributes'):
+    for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size,
+                                                        cache_size=cache_size, namespace='Synapse_Attributes'):
         last_time = time.time()
         connection_dict = {}
         p_dict = {}
@@ -382,7 +396,7 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
             sys.stdout.flush()
         last_time = time.time()
         append_cell_attributes(MPI._addressof(comm), forest_path, target, connection_dict,
-                               namespace='Connectivity', io_size=io_size, chunk_size=chunk_size,
+                               namespace=connectivity_namespace, io_size=io_size, chunk_size=chunk_size,
                                value_chunk_size=value_chunk_size)
         if rank == 0:
             print 'Appending connectivity attributes for target: %s took %i s' % (target, time.time() - last_time)
@@ -399,5 +413,5 @@ def main(forest_path, coords_path, io_size, chunk_size, value_chunk_size, cache_
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("compute_DG_connectivity.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
 
