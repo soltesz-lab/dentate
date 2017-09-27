@@ -2,8 +2,8 @@ begintemplate MossyCell
 
 public connect2target, subsets,is_art, is_connected
 public sections
-public all, soma, basal, apical, ais
-public somaidx, basalidx, apicalidx, aisidx
+public all, soma, basal, apical, axon
+public somaidx, basalidx, apicalidx, axonidx
 public syns, syntypes
 public syn_stim
 public xx, yy, zz, position
@@ -15,8 +15,8 @@ gid = -1
 create sections[1]
 
 objref fl//, rs
-objref all, soma, basal, apical, ais
-objref somaidx, basalidx, apicalidx, aisidx
+objref all, soma, basal, apical, axon
+objref somaidx, basalidx, apicalidx, axonidx
 objref syns, syntypes
 objref syn_stim
 
@@ -38,12 +38,14 @@ proc init() { // arguments are id, gid
     
     apicalidx = new Vector()
     basalidx = new Vector()
+    somaidx = new Vector()
+    axonidx = new Vector()
     
     cellid = $1
     gid = $2
     
     if (numarg() > 2) {
-        topol_from_python($o4,$o5,$o6,$o7)
+        topol_from_python($o4,$o5,$o6,$o7,$o12)
         shape_from_python($o7,$o8,$o9,$o10,$o11)
     } else {
         ndends   = 4
@@ -88,7 +90,7 @@ proc subsets() { local i, ndends, ndendsec
     }
     
     basal = new SectionList()
-    ais  = new SectionList()
+    axon  = new SectionList()
 
 }
 
@@ -244,14 +246,11 @@ proc biophys() { local ndends, ndendsec
 proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
     
     // vlayers, vsrc, vdst, secnodes
-    vlayers  = new Vector()
-    vlayers.from_python($o1)
-    vsrc     = new Vector()
-    vsrc.from_python($o2)
-    vdst     = new Vector()
-    vdst.from_python($o3)
+    vlayers  = new Vector($o1)
+    vsrc     = new Vector($o2)
+    vdst     = new Vector($o3)
     secnodes = $o4
-    swc_types = $o5
+    swc_types = new Vector($o5)
     
     nDends = secnodes.__len__()-1
     
@@ -261,15 +260,12 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         swc_type = swc_types.x[i]
         if (swc_type == 4) {
             apicalidx.append(s)
-            print "apical: ", s
         }
         if (swc_type == 3) {
             basalidx.append(s)
-            print "basal: ", s
         }
         if (swc_type == 1) {
             somaidx.append(s)
-            print "soma: ", s
         }
     }
     

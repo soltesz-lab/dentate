@@ -2,16 +2,16 @@ begintemplate BasketCell
 
 public connect2target, subsets, is_art, is_connected
 public sections
-public all, soma, basal, apical, ais
-public apicalidx, basalidx, somaidx, aisidx
+public all, soma, basal, apical, axon
+public apicalidx, basalidx, somaidx, axonidx
 public xx, yy, zz, position
 public syns, syntypes
 public syn_stim, syntest_exc, syntest_inh
 
 create sections[1]
 
-objref all, soma, basal, apical, ais
-objref apicalidx, basalidx, somaidx, aisidx
+objref all, soma, basal, apical, axon
+objref apicalidx, basalidx, somaidx, axonidx
 objref syns, syntypes
 
 id  = -1
@@ -36,7 +36,7 @@ proc init() {
     apicalidx = new Vector()
     basalidx = new Vector()
     somaidx = new Vector()
-    aisidx = new Vector()
+    axonidx = new Vector()
     
     id  = $1
     gid = $2
@@ -102,7 +102,7 @@ proc subsets() { local i, ndends, ndendsec
         sections[apicalidx.x[i]] apical.append() 
     }
     
-    ais  = new SectionList()
+    axon  = new SectionList()
 
 }
 
@@ -261,15 +261,12 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         swc_type = swc_types.x[i]
         if (swc_type == 4) {
             apicalidx.append(s)
-            print "apical: ", s
         }
         if (swc_type == 3) {
             basalidx.append(s)
-            print "basal: ", s
         }
         if (swc_type == 1) {
             somaidx.append(s)
-            print "soma: ", s
         }
     }
     
@@ -319,7 +316,6 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
             }
             pt3dconst(0)
-            print "section ", s, " length is ", L
         }
     }
     

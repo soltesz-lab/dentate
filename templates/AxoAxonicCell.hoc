@@ -3,16 +3,16 @@ begintemplate AxoAxonicCell
 
 public connect2target, subsets, is_art, is_connected
 public sections
-public all, soma, basal, apical, ais
-public somaidx, basalidx, apicalidx, aisidx
+public all, soma, basal, apical, axon
+public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
 public syns
 public syn_stim, syntest
 
 create sections[1]
 
-objref all, soma, basal, apical, ais
-objref apicalidx, basalidx, somaidx, aisidx
+objref all, soma, basal, apical, axon
+objref apicalidx, basalidx, somaidx, axonidx
 objref syns, syntypes
 objref syn_stim
 
@@ -38,7 +38,7 @@ proc init() {
     apicalidx = new Vector()
     basalidx = new Vector()
     somaidx = new Vector()
-    aisidx = new Vector()
+    axonidx = new Vector()
     
     id  = $1
     gid = $2
@@ -76,10 +76,12 @@ proc init() {
     geom_nseg()
     biophys()
     
+    /*
     forall {
         print " nseg is ", nseg, " length is ", L, " diam is ", diam(0.1), ":", diam(0.9), " area is ", area(0.5)
     }
-
+    */
+    
     syns = new List()
     syntypes = new List()
     syntypes.append(new List()) // excitatory
@@ -108,7 +110,7 @@ proc subsets() { local i, ndends, ndendsec
         sections[apicalidx.x[i]] apical.append() 
     }
     
-    ais  = new SectionList()
+    axon  = new SectionList()
 
 }
 
@@ -268,15 +270,12 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         swc_type = swc_types.x[i]
         if (swc_type == 4) {
             apicalidx.append(s)
-            print "apical: ", s
         }
         if (swc_type == 3) {
             basalidx.append(s)
-            print "basal: ", s
         }
         if (swc_type == 1) {
             somaidx.append(s)
-            print "soma: ", s
         }
     }
     
