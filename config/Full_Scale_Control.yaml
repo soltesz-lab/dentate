@@ -35,12 +35,12 @@ Cell Types:
         soma:
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
-              mean: 8.0
+              mean: 4.0
               variance: 0.2
         axon:
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
-              mean: 8.0
+              mean: 4.0
               variance: 0.2
   MC:
     template: MossyCell

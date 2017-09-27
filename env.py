@@ -22,6 +22,19 @@ class Env:
                     val_syntype1[populations_dict[key_presyn]] = val_presyn
                 synapse_kinetics_dict[key_celltype][syntypes_dict[key_syntype]] = val_syntype1
         self.synapse_kinetics = synapse_kinetics_dict
+
+    def load_synapse_density(self):
+        populations_dict = self.modelConfig['Definitions']['Populations']
+        syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
+        synapse_density_dict = {}
+        for (key_celltype, val_celltype) in self.celltypes.iteritems():
+            synapse_density_dict[key_celltype] = {}
+            for (key_swctype, val_swctype) in val_celltype['synapses'].iteritems():
+                val_syndens1 = {}
+                for (key_presyn, val_presyn) in val_syndens.iteritems():
+                    val_syntype1[populations_dict[key_presyn]] = val_presyn
+                synapse_kinetics_dict[key_celltype][syntypes_dict[key_syntype]] = val_syntype1
+        self.synapse_density = synapse_kinetics_dict
     
     def load_prjtypes(self):
         projections = self.projections
@@ -165,9 +178,10 @@ class Env:
             raise RuntimeError("missing configuration file")
 
         defs = self.modelConfig['Definitions']
-        self.SWC_Types = defs['SWC Types']
-        self.Synapse_Types = defs['Synapse Types']
-            
+        self.SWC_types = defs['SWC Types']
+        self.synapse_types = defs['Synapse Types']
+        self.layers = defs['Layers']
+
         self.celltypes = self.modelConfig['Cell Types']
         self.synapse_kinetics = None
         self.load_synapse_kinetics()
