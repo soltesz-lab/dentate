@@ -4,9 +4,9 @@ import numpy as np
 from mpi4py import MPI
 from neuron import h
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
-import click
 from env import Env
 import utils, cells, synapses
+import click
 
 def list_find (f, lst):
     i=0
@@ -66,7 +66,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
                 # if this_mismatched_sections is not None:
                 #    mismatched_section_dict[gid] = this_mismatched_sections
-                cell_sec_dict = {'apical': (cell.apical, 0), 'basal': (cell.basal, 0), 'soma': (cell.soma, 0), 'axon': (cell.axon, 50.0)}
+                cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'axon': (cell.axon, 50.0)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
                 
                 if distribution == 'uniform':

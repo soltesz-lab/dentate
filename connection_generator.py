@@ -1,17 +1,12 @@
 
 import itertools
 import numpy as np
-import heapq
+import itertools
+from collections import defaultdict
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 import click
 import utils
-
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except:
-    pass
 
 
 class ConnectionProb(object):
@@ -119,34 +114,70 @@ class ConnectionProb(object):
             plt.close()
         return p, source_gid
 
-def filter_projections (syn_layer, swc_type, syn_type, projection_synapse_dict, projection_prob_dict):
-    {k: projection_prob_dict[k] for k,v in projection_synapse_dict.iteritems() if (syn_layer in v[0]) and (swc_type in v[1]) and (syn_type in v[2])}
     
-def generate_synaptic_connections(synapse_dict, projection_synapse_dict, projection_prob_dict):
+def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, projection_synapse_dict):
+    """Given a synapse projection, SWC synapse location, and synapse
+    type, chooses a projection from the given projection dictionary
+    based on 1) whether the projection properties match the given
+    synapse properties and 2) random choice between all the projections that satisfy the given criteria.
+    :param ranstream_syn: random state object
+    :param syn_layer: synapse layer
+    :param swc_type: SWC location for synapse (soma, axon, apical, basal)
+    :param syn_type: synapse type (excitatory, inhibitory, neuromodulatory)
+    :param projection_synapse_dict:
     """
+    projection_lst = []
+    projection_prob_lst = []
+    for k, v in projection_synapse_dict.iteritems():
+        if  (syn_type in v[2]) and (swc_type in v[1]) and (v[0].has_key(syn_layer))
+            projection_lst.append(k)
+            ord_index = v[0][syn_layer]
+            projection_prob_lst.append(v[3][ord_index])
+     if len(candidate_projections_lst) > 1:
+        candidate_projections = np.asarray(projection_lst)
+        candidate_probs       = np.asarray(projection_prob_lst)
+        projection            = ranstream_syn.choice(candidate_projections, 1, p=candidate_probs)
+     elif len(candidate_projections_lst) > 0:
+        projection = candidate_projections_lst[0]
+     else:
+        projection = None
+     return projection
+
+ 
+def generate_synaptic_connections(ranstream_syn, ranstream_con, synapse_dict, projection_synapse_dict, projection_prob_dict):
+    """
+    :param ranstream_syn:
+    :param ranstream_con:
     :param synapse_dict:
     :param projection_synapse_dict:
     :param projection_prob_dict:
     """
-    syn_id_lst = []
-    source_gid_lst = []
+    synapse_prj_partition = defaultdict(list)
     for (syn_id,syn_type,swc_type,syn_layer) in itertools.izip(synapse_dict['syn_ids'],
                                                                synapse_dict['syn_types'],
                                                                synapse_dict['swc_types'],
                                                                synapse_dict['syn_layers']):
-        candidate_connections = filter_projections(syn_type, swc_type, syn_layer, projection_synapse_dict, projection_prob_dict)
-        while True:
-            for (source_population, h) in candidate_connections.iteritems():
-            ## choose random number / compare with prob of top heap element
-            ## if random > top heap elem:
-            ##    add to syn_id_lst and source_gid_lst
-            ##    remove top heap elem
-            ##    break loop
+        projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type, projection_synapse_dict)
+        synapse_prj_partition[projection].append(syn_id)
+
+    syn_id_lst     = []
+    source_gid_lst = []
+    source_pop_lst = []
+    
+    for projection, syn_ids in synapse_prj_partition.iteritems():
+        source_probs, source_gids = projection_prob_dict[projection]
+        syn_id_lst.append(syn_ids)
+        source_gid_lst.append(ranstream_con.choice(source_gids, len(syn_ids), p=source_probs))
+        source_pop_lst.append(itertools.repeat(projection, len(syn_ids)))
+        
+    return (itertools.chain(syn_id_lst), itertools.chain(source_gid_lst), itertools.chain(source_pop_lst))
+
 
 def generate_uv_distance_connections(comm, 
                                      connection_prob, forest_path,
                                      synapse_layers, synapse_types,
-                                     synapse_locations, synapse_namespace, 
+                                     synapse_locations, synapse_proportions,
+                                     synapse_seed, synapse_namespace, 
                                      connectivity_seed, connectivity_namespace,
                                      io_size, chunk_size, value_chunk_size, cache_size):
     """
@@ -156,15 +187,16 @@ def generate_uv_distance_connections(comm,
     :param synapse_layers:
     :param synapse_types:
     :param synapse_locations:
-    :param synapse_namespace:
     :param synapse_seed:
+    :param synapse_namespace:
+    :param connectivity_seed:
     :param connectivity_namespace:
     :param io_size:
     :param chunk_size:
     :param value_chunk_size:
     :param cache_size:
     """
-    rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
+    rank = comm.rank
 
     if io_size == -1:
         io_size = comm.size
@@ -174,11 +206,19 @@ def generate_uv_distance_connections(comm,
 
     start_time = time.time()
 
+    ranstream_syn = np.random.RandomState()
+    ranstream_con = np.random.RandomState()
+    
     destination_population = connection_prob.destination_population
 
-    projection_synapse_dict = {source_population: (set(synapse_layers[destination_population][source_population]),
+    prj_synapse_layers  = [synapse_layers[destination_population][source_population]
+                           for source_population in source_populations]
+    synapse_layers_dict = {layer : ordindex
+                           for (ordindex, layer) in enumerate(prj_synapse_layers)}
+    projection_synapse_dict = {source_population: (synapse_layers_dict,
                                                    set(synapse_locations[destination_population][source_population]),
-                                                   set(synapse_types[destination_population][source_population]))
+                                                   set(synapse_types[destination_population][source_population]),
+                                                   synapse_proportions[destination_population][source_population])
                                 for source_population in source_populations}
 
     count = 0
@@ -187,31 +227,36 @@ def generate_uv_distance_connections(comm,
         last_time = time.time()
         
         connection_dict = {}
-        p_dict          = {}
 
         if destination_gid is None:
             print 'Rank %i destination gid is None' % rank
         else:
             print 'Rank %i received attributes for destination: %s, gid: %i' % (rank, destination, destination_gid)
-            local_np_random.seed(destination_gid + connectivity_seed)
-            synapse_dict   = attributes_dict[synapse_namespace]
-            syn_id_dict    = {}
+            ranstream_con.seed(destination_gid + connectivity_seed)
+            ranstream_syn.seed(destination_gid + synapse_seed)
+
+            synapse_dict = attributes_dict[synapse_namespace]
 
             projection_prob_dict = {}
             for source_population in source_populations:
-                h = []
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
-                for (prob, source_gid) in itertools.izip(probs, source_gids):
-                    heapq.heappush(h, (prob, source_gid))
-                connection_prob_dict[source_population] = h
+                projection_prob_dict[source_population] = (probs, source_gids)
 
-            syn_id_lst, source_gid_lst = generate_synaptic_connections(synapse_dict, projection_synapse_dict, projection_prob_dict)
-            
-            count += len(syn_id_lst)
+            syn_id_iter, source_gid_iter, source_pop_iter = generate_synaptic_connections(ranstream_syn,
+                                                                                          ranstream_con,
+                                                                                          synapse_dict,
+                                                                                          projection_synapse_dict,
+                                                                                          projection_prob_dict)
+
+            syn_ids     = np.asarray(syn_id_iter, dtype='uint32')
+            source_gids = np.asarray(source_gid_iter, dtype='uint32')
+            presyn_ids  = np.asarray(source_pop_iter, dtype='uint8')
+            count += syn_ids.size
             
             connection_dict[destination_gid] = {}
-            connection_dict[destination_gid]['source_gid'] = np.asarray(source_gid_lst, dtype='uint32')
-            connection_dict[destination_gid]['syn_id']     = np.asarray(syn_id_lst, dtype='uint32')
+            connection_dict[destination_gid]['syn_id']     = syn_ids
+            connection_dict[destination_gid]['source_gid'] = source_gids
+            connection_dict[destination_gid]['presyn_id']  = presyn_ids
             print 'Rank %i took %i s to compute connectivity for destination: %s, gid: %i' % (rank, time.time() - last_time,
                                                                                          destination, destination_gid)
             sys.stdout.flush()
@@ -221,7 +266,6 @@ def generate_uv_distance_connections(comm,
             print 'Appending connectivity for destination: %s took %i s' % (destination, time.time() - last_time)
         sys.stdout.flush()
         del connection_dict
-        del p_dict
         gc.collect()
 
     global_count = comm.gather(count, root=0)

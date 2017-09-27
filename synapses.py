@@ -77,7 +77,7 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
         secidxlst         = secidx_dict[sec_name]
         for (sec, secindex) in itertools.izip(seclst, secidxlst):
             sec_obj_index_dict[sec] = secindex
-            if (maxdist <= 0):
+            if maxdist is None:
                 for seg in sec:
                     if seg.x < 1.0 and seg.x > 0.0:
                         seg_list.append(seg)
