@@ -26,7 +26,8 @@ def list_find (f, lst):
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(config, template_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size):
+@click.option("--cache-size", type=int, default=10000)
+def main(config, template_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size, cache_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -81,7 +82,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
             # print 'Rank %i before append_cell_attributes' % rank
             append_cell_attributes(comm, forest_path, population, synapse_dict,
                                     namespace='Synapse Attributes', io_size=io_size, chunk_size=chunk_size,
-                                    value_chunk_size=value_chunk_size)
+                                    value_chunk_size=value_chunk_size, cache_size=cache_size)
             sys.stdout.flush()
             del synapse_dict
             gc.collect()

@@ -117,6 +117,7 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, sec_layer_de
                     syn_count += 1
                 cumcount += syn_count
 
+    assert(len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
                 'syn_locs': np.asarray(syn_locs, dtype='float32'),
                 'syn_secs': np.asarray(syn_secs, dtype='uint32'),
