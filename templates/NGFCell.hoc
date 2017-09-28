@@ -2,16 +2,16 @@ begintemplate NGFCell
 
 public connect2target, subsets, is_art, is_connected
 public sections
-public all, soma, basal, apical, ais
-public somaidx, basalidx, apicalidx, aisidx
+public all, soma, basal, apical, axon
+public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
 public syns
 public syn_stim, syntest
 
 create sections[1]
 
-objref all, soma, basal, apical, ais
-objref basalidx, apicalidx, somaidx, aisidx
+objref all, soma, basal, apical, axon
+objref basalidx, apicalidx, somaidx, axonidx
 objref syns, syntypes
 
 id  = -1
@@ -42,7 +42,7 @@ proc init() {
     apicalidx = new Vector()
     basalidx = new Vector()
     somaidx = new Vector()
-    aisidx = new Vector()
+    axonidx = new Vector()
     
     id  = $1
     gid = $2
@@ -108,7 +108,7 @@ proc subsets() { local i, ndends, ndendsec
         sections[apicalidx.x[i]] apical.append() 
     }
     
-    ais  = new SectionList()
+    axon  = new SectionList()
 
 }
 
