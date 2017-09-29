@@ -1,0 +1,11 @@
+## Random seeds used in model configuration of dentate gyrus network
+Synapse Locations: 0 ## Distributing synapse locations
+Distance-Dependent Connectivity:   2e+6 ## Generating distance-dependent connectivity
+PP Feature Selectivity:            4e+6 ## Computing MPP and LPP feature selectivity
+Random Connectivity:               6e+6 ## Computing random connectivity (not distance-dependent)
+PP Log-Normal Weigths 1:           8e+6 ## Computing log-normal weights for PP-GC
+PP Log-Normal Weigths 2:           10e+6 ## Computing log-normal weights for PP-GC
+PP Structured Weights:             12e+6 ## Computing structured weights for PP-GC
+Synaptic Integration Optimization: 14e+6 ## Choosing synapses and branches for optimization of synaptic integration in GCs.
+EPSC Attenuation Optimization:     16e+6 ## Choosing branches for optimization of EPSC attenuation in GCs.
+Synapse Projection Partitions:     18e+6 ## Partitioning synapse locations by projection

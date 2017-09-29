@@ -3,49 +3,63 @@ from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_cell_attributes
 import numpy as np
+from collections import namedtuple
 import yaml
 import utils
+
+ConnectionGenerator = namedtuple('ConnectionGenerator',
+                                 ['synapse_types',
+                                  'synapse_locations',
+                                  'synapse_layers',
+                                  'synapse_proportions',
+                                  'synapse_kinetics',
+                                  'connection_properties'])
+
 
 class Env:
     """Network model configuration."""
 
-    def load_synapse_kinetics(self):
+    def load_connection_generator(self):
         populations_dict = self.modelConfig['Definitions']['Populations']
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
+        swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
+        layers_dict      = self.modelConfig['Definitions']['Layers']
         synapse_kinetics = self.modelConfig['Connection Generator']['Synapse Kinetics']
-        synapse_kinetics_dict = {}
-        for (key_celltype, val_celltype) in synapse_kinetics.iteritems():
-            synapse_kinetics_dict[key_celltype] = {}
-            for (key_syntype, val_syntype) in val_celltype.iteritems():
-                val_syntype1 = {}
-                for (key_presyn, val_presyn) in val_syntype.iteritems():
-                    val_syntype1[populations_dict[key_presyn]] = val_presyn
-                synapse_kinetics_dict[key_celltype][syntypes_dict[key_syntype]] = val_syntype1
-        self.synapse_kinetics = synapse_kinetics_dict
+        synapse_types    = self.modelConfig['Connection Generator']['Synapse Types']
+        synapse_locs     = self.modelConfig['Connection Generator']['Synapse Locations']
+        synapse_layers   = self.modelConfig['Connection Generator']['Synapse Layers']
+        synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
+        connection_properties = self.modelConfig['Connection Generator']['Connection Properties']
 
-    def load_synapse_density(self):
-        populations_dict = self.modelConfig['Definitions']['Populations']
-        syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
-        synapse_density_dict = {}
-        for (key_celltype, val_celltype) in self.celltypes.iteritems():
-            synapse_density_dict[key_celltype] = {}
-            for (key_swctype, val_swctype) in val_celltype['synapses'].iteritems():
-                val_syndens1 = {}
-                for (key_presyn, val_presyn) in val_syndens.iteritems():
-                    val_syntype1[populations_dict[key_presyn]] = val_presyn
-                synapse_kinetics_dict[key_celltype][syntypes_dict[key_syntype]] = val_syntype1
-        self.synapse_density = synapse_kinetics_dict
-    
-    def load_prjtypes(self):
-        projections = self.projections
-        prjnames = projections.keys()
-        prjnames.sort()
-        for k in prjnames:
-            projection = projections[k]
-            if projection['type'] == 'syn':
-                if projection.has_key('weightsFile'):
-                    weights = np.fromfile(projection['weightsFile'],sep='\n')
-                    projection['weights'] = weights
+        connection_generator_dict = {}
+        
+        for (key_postsyn, val_syntypes) in synapse_types.iteritems():
+            connection_generator_dict[key_postsyn]  = {}
+            
+            print 'key_postsyn = ', key_postsyn
+            for (key_presyn, val_syntypes) in val_syntypes.iteritems():
+                val_synlocs     = synapse_locs[key_postsyn][key_presyn]
+                val_synlayers   = synapse_layers[key_postsyn][key_presyn]
+                val_proportions = synapse_proportions[key_postsyn][key_presyn]
+                print 'val_synkins = ', synapse_kinetics[key_postsyn].keys()
+                val_synkins     = synapse_kinetics[key_postsyn][key_presyn]
+                val_connprops   = connection_properties[key_postsyn][key_presyn]
+                
+                print 'val_syntypes = ', val_syntypes
+                print 'val_synlocs = ', val_synlocs
+                val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
+                val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
+                val_synlayers1 = [layers_dict[val_synlayer] for val_synlayer in val_synlayers]
+                
+                connection_generator_dict[key_postsyn][key_presyn] = ConnectionGenerator(val_syntypes1,
+                                                                                         val_synlocs1,
+                                                                                         val_synlayers1,
+                                                                                         val_proportions,
+                                                                                         val_synkins,
+                                                                                         val_connprops)
+                
+            
+        self.connection_generator = connection_generator_dict
 
     def load_celltypes(self):
         # use this communicator for small size I/O operations performed by rank 0
@@ -183,31 +197,17 @@ class Env:
         self.layers = defs['Layers']
 
         self.celltypes = self.modelConfig['Cell Types']
-        self.synapse_kinetics = None
-        self.load_synapse_kinetics()
 
         # The name of this model
         self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network
         self.datasetName = self.modelConfig['Dataset Name']
-        
-        if self.modelConfig.has_key('connectivity'):
-            self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
-            self.projections   = self.modelConfig['connectivity']['projections']
-            if self.modelConfig['connectivity'].has_key('gapjunctions'):
-                self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
-            else:
-                self.gapjunctions  = None
-            if self.modelConfig['connectivity'].has_key('gapjunctionsFile'):
-                self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
-            else:
-                self.gapjunctionsFile = None
-                
 
-                
+        if self.modelConfig.has_key('Connection Generator'):
+            self.load_connection_generator()
+        
         if self.datasetPrefix is not None:
             self.load_celltypes()
-            self.load_prjtypes()
             
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host

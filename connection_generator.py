@@ -64,7 +64,7 @@ class ConnectionProb(object):
         destination_coords = self.soma_coords[self.destination_population][destination_gid]
         destination_u = destination_coords['U Coordinate']
         destination_v = destination_coords['V Coordinate']
-        source_soma_coords = soma_coords[source_population]:
+        source_soma_coords = soma_coords[source_population]
         
         source_distance_u_lst = []
         source_distance_v_lst = []
@@ -129,19 +129,19 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pro
     projection_lst = []
     projection_prob_lst = []
     for k, v in projection_synapse_dict.iteritems():
-        if  (syn_type in v[2]) and (swc_type in v[1]) and (v[0].has_key(syn_layer))
+        if (syn_type in v[2]) and (swc_type in v[1]) and (v[0].has_key(syn_layer)):
             projection_lst.append(k)
             ord_index = v[0][syn_layer]
             projection_prob_lst.append(v[3][ord_index])
-     if len(candidate_projections_lst) > 1:
-        candidate_projections = np.asarray(projection_lst)
-        candidate_probs       = np.asarray(projection_prob_lst)
-        projection            = ranstream_syn.choice(candidate_projections, 1, p=candidate_probs)
-     elif len(candidate_projections_lst) > 0:
-        projection = candidate_projections_lst[0]
-     else:
-        projection = None
-     return projection
+    if len(projection_lst) > 1:
+       candidate_projections = np.asarray(projection_lst)
+       candidate_probs       = np.asarray(projection_prob_lst)
+       projection            = ranstream_syn.choice(candidate_projections, 1, p=candidate_probs)
+    elif len(projection_lst) > 0:
+       projection = projection_lst[0]
+    else:
+       projection = None
+    return projection
 
  
 def generate_synaptic_connections(ranstream_syn, ranstream_con, synapse_dict, projection_synapse_dict, projection_prob_dict):
@@ -173,20 +173,15 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, synapse_dict, pr
     return (itertools.chain(syn_id_lst), itertools.chain(source_gid_lst), itertools.chain(source_pop_lst))
 
 
-def generate_uv_distance_connections(comm, 
-                                     connection_prob, forest_path,
-                                     synapse_layers, synapse_types,
-                                     synapse_locations, synapse_proportions,
+def generate_uv_distance_connections(comm, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
                                      connectivity_seed, connectivity_namespace,
                                      io_size, chunk_size, value_chunk_size, cache_size):
     """
     :param comm:
+    :param connection_config:
     :param connection_prob:
     :param forest_path:
-    :param synapse_layers:
-    :param synapse_types:
-    :param synapse_locations:
     :param synapse_seed:
     :param synapse_namespace:
     :param connectivity_seed:
@@ -211,14 +206,16 @@ def generate_uv_distance_connections(comm,
     
     destination_population = connection_prob.destination_population
 
-    prj_synapse_layers  = [synapse_layers[destination_population][source_population]
+
+    
+    prj_synapse_layers  = [connection_config[destination_population][source_population].synapse_layers
                            for source_population in source_populations]
     synapse_layers_dict = {layer : ordindex
                            for (ordindex, layer) in enumerate(prj_synapse_layers)}
     projection_synapse_dict = {source_population: (synapse_layers_dict,
-                                                   set(synapse_locations[destination_population][source_population]),
-                                                   set(synapse_types[destination_population][source_population]),
-                                                   synapse_proportions[destination_population][source_population])
+                                                   set(connection_config[destination_population][source_population].synapse_locations),
+                                                   set(connection_config[destination_population][source_population].synapse_types),
+                                                   connection_config[destination_population][source_population].synapse_proportions)
                                 for source_population in source_populations}
 
     count = 0

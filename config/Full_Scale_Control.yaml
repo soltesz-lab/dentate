@@ -2,6 +2,7 @@
 Model Name: dentatenet
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
+Random Seeds: !include Random.yaml
 Cell Data: DG_Forest_Full_Scale_20170501.h5
 Connection Data: DG_Connections_Full_Scale_20170501.h5
 Connection Generator: !include Full_Scale_Connections.yaml
