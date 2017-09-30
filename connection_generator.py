@@ -116,7 +116,7 @@ class ConnectionProb(object):
         return p, source_gid
 
     
-def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, projection_synapse_dict):
+def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict):
     """Given a synapse projection, SWC synapse location, and synapse
     type, chooses a projection from the given projection dictionary
     based on 1) whether the projection properties match the given
@@ -131,12 +131,15 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pro
     projection_prob_lst = []
     for k, v in projection_synapse_dict.iteritems():
         if (syn_type in v[2]) and (swc_type in v[1]):
+            print 'syn_layer = %d: ' % syn_layer, v[0]
             for (ord_index, layers) in v[0]:
+                print 'layers = ', layers
                 if syn_layer in layers:
-                    projection_lst.append(k)
+                    projection_lst.append(population_dict[k])
                     projection_prob_lst.append(v[3][ord_index])
                     break
     print 'projection_lst = ', projection_lst
+    print 'projection_prob_lst = ', projection_prob_lst
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
@@ -148,7 +151,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pro
     return projection
 
  
-def generate_synaptic_connections(ranstream_syn, ranstream_con, synapse_dict, projection_synapse_dict, projection_prob_dict):
+def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict, synapse_dict, projection_synapse_dict, projection_prob_dict):
     """
     :param ranstream_syn:
     :param ranstream_con:
@@ -161,7 +164,8 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, synapse_dict, pr
                                                                synapse_dict['syn_types'],
                                                                synapse_dict['swc_types'],
                                                                synapse_dict['syn_layers']):
-        projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type, projection_synapse_dict)
+        projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
+                                               population_dict, projection_synapse_dict)
         print 'projection = ', projection
         synapse_prj_partition[projection].append(syn_id)
 
@@ -178,7 +182,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, synapse_dict, pr
     return (itertools.chain(syn_id_lst), itertools.chain(source_gid_lst), itertools.chain(source_pop_lst))
 
 
-def generate_uv_distance_connections(comm, connection_config, connection_prob, forest_path,
+def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
                                      connectivity_seed, connectivity_namespace,
                                      io_size, chunk_size, value_chunk_size, cache_size):
@@ -208,7 +212,7 @@ def generate_uv_distance_connections(comm, connection_config, connection_prob, f
 
     ranstream_syn = np.random.RandomState()
     ranstream_con = np.random.RandomState()
-    
+
     destination_population = connection_prob.destination_population
     
     source_populations = connection_config[destination_population].keys()
@@ -245,6 +249,7 @@ def generate_uv_distance_connections(comm, connection_config, connection_prob, f
 
             syn_id_iter, source_gid_iter, source_pop_iter = generate_synaptic_connections(ranstream_syn,
                                                                                           ranstream_con,
+                                                                                          population_dict,
                                                                                           synapse_dict,
                                                                                           projection_synapse_dict,
                                                                                           projection_prob_dict)

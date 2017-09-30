@@ -50,7 +50,8 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
         connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
         connectivity_namespace = 'Connections'
 
-        generate_uv_distance_connections(comm, 
+        populations_dict = env.modelConfig['Definitions']['Populations']
+        generate_uv_distance_connections(comm, populations_dict,
                                          env.connection_generator,
                                          connection_prob, forest_path,
                                          synapse_seed, synapse_namespace, 

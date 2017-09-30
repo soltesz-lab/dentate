@@ -20,7 +20,7 @@ class Env:
     """Network model configuration."""
 
     def load_connection_generator(self):
-        populations_dict = self.modelConfig['Definitions']['Populations']
+        
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
         swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
         layers_dict      = self.modelConfig['Definitions']['Layers']
