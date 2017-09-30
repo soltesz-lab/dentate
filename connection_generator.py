@@ -1,4 +1,4 @@
-
+import sys, time
 import itertools
 import numpy as np
 import itertools
@@ -43,7 +43,7 @@ class ConnectionProb(object):
             if extent_offset is None:
                 self.offset[source_population] = {'u': 0., 'v': 0.}
             else:
-                self.offset[source_population] = {'u': extent_offset[source_population][0], 'v': extent_offset[source][1]}
+                self.offset[source_population] = {'u': extent_offset[0], 'v': extent_offset[1]}
             self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v:
                                                 np.exp(-(((abs(distance_u) - self.offset[source_population]['u']) /
                                                             self.sigma[source_population]['u'])**2. +
@@ -57,14 +57,13 @@ class ConnectionProb(object):
         and the gids of source neurons whose axons potentially contact the target neuron.
         :param destination_gid: int
         :param source_population: string
-        :param soma_coords: nested dict of array
         :param npoints: number of points for arc length approximation [default: 250]
         :return: tuple of array of int
         """
         destination_coords = self.soma_coords[self.destination_population][destination_gid]
         destination_u = destination_coords['U Coordinate']
         destination_v = destination_coords['V Coordinate']
-        source_soma_coords = soma_coords[source_population]
+        source_soma_coords = self.soma_coords[source_population]
         
         source_distance_u_lst = []
         source_distance_v_lst = []
@@ -81,15 +80,17 @@ class ConnectionProb(object):
             source_distance_u = self.ip_surface.arc_length(U, destination_v)
             source_distance_v = self.ip_surface.arc_length(destination_u, V)
 
-            if ((source_distance_u <= self.width[source]['u'] / 2. + self.offset[source]['u']) &
-                 this_source_distance_v <= self.width[source]['v'] / 2. + self.offset[source]['v']):
+            source_width = self.width[source_population]
+            source_offset = self.offset[source_population]
+            if ((source_distance_u <= source_width['u'] / 2. + source_offset['u']) &
+                (source_distance_v <= source_width['v'] / 2. + source_offset['v'])):
                 source_distance_u_lst.append(source_distance_u)
                 source_distance_v_lst.append(source_distance_v)
                 source_gid_lst.append(source_gid)
 
         return np.asarray(source_distance_u_lst), np.asarray(source_distance_v_lst), np.asarray(source_gid_lst)
 
-    def get_prob(self, destination_gid, source, soma_coords, plot=False):
+    def get_prob(self, destination_gid, source, plot=False):
         """
         Given the soma coordinates of a destination neuron and a population source, return an array of connection 
         probabilities and an array of corresponding source gids.
@@ -129,10 +130,13 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pro
     projection_lst = []
     projection_prob_lst = []
     for k, v in projection_synapse_dict.iteritems():
-        if (syn_type in v[2]) and (swc_type in v[1]) and (v[0].has_key(syn_layer)):
-            projection_lst.append(k)
-            ord_index = v[0][syn_layer]
-            projection_prob_lst.append(v[3][ord_index])
+        if (syn_type in v[2]) and (swc_type in v[1]):
+            for (ord_index, layers) in v[0]:
+                if syn_layer in layers:
+                    projection_lst.append(k)
+                    projection_prob_lst.append(v[3][ord_index])
+                    break
+    print 'projection_lst = ', projection_lst
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
@@ -158,6 +162,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, synapse_dict, pr
                                                                synapse_dict['swc_types'],
                                                                synapse_dict['syn_layers']):
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type, projection_synapse_dict)
+        print 'projection = ', projection
         synapse_prj_partition[projection].append(syn_id)
 
     syn_id_lst     = []
@@ -205,30 +210,27 @@ def generate_uv_distance_connections(comm, connection_config, connection_prob, f
     ranstream_con = np.random.RandomState()
     
     destination_population = connection_prob.destination_population
-
-
     
-    prj_synapse_layers  = [connection_config[destination_population][source_population].synapse_layers
+    source_populations = connection_config[destination_population].keys()
+    
+    prj_synapse_layers  = [set(connection_config[destination_population][source_population].synapse_layers)
                            for source_population in source_populations]
-    synapse_layers_dict = {layer : ordindex
-                           for (ordindex, layer) in enumerate(prj_synapse_layers)}
-    projection_synapse_dict = {source_population: (synapse_layers_dict,
+    projection_synapse_dict = {source_population: (enumerate(prj_synapse_layers),
                                                    set(connection_config[destination_population][source_population].synapse_locations),
                                                    set(connection_config[destination_population][source_population].synapse_types),
                                                    connection_config[destination_population][source_population].synapse_proportions)
                                 for source_population in source_populations}
 
     count = 0
-    for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination, io_size=io_size,
+    for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
                                                                cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
         
         connection_dict = {}
-
         if destination_gid is None:
             print 'Rank %i destination gid is None' % rank
         else:
-            print 'Rank %i received attributes for destination: %s, gid: %i' % (rank, destination, destination_gid)
+            print 'Rank %i received attributes for destination: %s, gid: %i' % (rank, destination_population, destination_gid)
             ranstream_con.seed(destination_gid + connectivity_seed)
             ranstream_syn.seed(destination_gid + synapse_seed)
 
@@ -236,7 +238,9 @@ def generate_uv_distance_connections(comm, connection_config, connection_prob, f
 
             projection_prob_dict = {}
             for source_population in source_populations:
+                print ('destination %d: source %s:' % (destination_gid, source_population))
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
+                print ('source %s: len(source_gids) = %d' % (source_population, len(source_gids)))
                 projection_prob_dict[source_population] = (probs, source_gids)
 
             syn_id_iter, source_gid_iter, source_pop_iter = generate_synaptic_connections(ranstream_syn,

@@ -36,17 +36,13 @@ class Env:
         for (key_postsyn, val_syntypes) in synapse_types.iteritems():
             connection_generator_dict[key_postsyn]  = {}
             
-            print 'key_postsyn = ', key_postsyn
             for (key_presyn, val_syntypes) in val_syntypes.iteritems():
                 val_synlocs     = synapse_locs[key_postsyn][key_presyn]
                 val_synlayers   = synapse_layers[key_postsyn][key_presyn]
                 val_proportions = synapse_proportions[key_postsyn][key_presyn]
-                print 'val_synkins = ', synapse_kinetics[key_postsyn].keys()
                 val_synkins     = synapse_kinetics[key_postsyn][key_presyn]
                 val_connprops   = connection_properties[key_postsyn][key_presyn]
                 
-                print 'val_syntypes = ', val_syntypes
-                print 'val_synlocs = ', val_synlocs
                 val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
                 val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
                 val_synlayers1 = [layers_dict[val_synlayer] for val_synlayer in val_synlayers]

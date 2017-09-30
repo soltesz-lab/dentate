@@ -27,3 +27,6 @@ def make_surface(l=-1.): # default l is for the middle of the granule cell layer
     srf = BSplineSurface(np.linspace(0, 1, len(u)),
                          np.linspace(0, 1, xyz.shape[2]),
                          xyz)
+
+    return srf
+

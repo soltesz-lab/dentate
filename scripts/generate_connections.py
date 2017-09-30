@@ -44,10 +44,10 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
 
         connection_prob = ConnectionProb(destination_population, soma_coords, ip_surface, extent)
 
-        synapse_seed        = env.modelConfig['Random Seeds']['Synapse Projection Partitions']
+        synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         synapse_namespace   = 'Synapse Attributes'
         
-        connectivity_seed = env.modelConfig['Random Seeds']['Distance-Dependent Connectivity']
+        connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
         connectivity_namespace = 'Connections'
 
         generate_uv_distance_connections(comm, 
