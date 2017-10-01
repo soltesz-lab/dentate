@@ -236,7 +236,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                                cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
         
-        connection_dict = defaultdict({})
+        connection_dict = defaultdict(lambda: {})
         if destination_gid is None:
             print 'Rank %i destination gid is None' % rank
         else:
