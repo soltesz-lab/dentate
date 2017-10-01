@@ -42,7 +42,7 @@ class Env:
                 val_proportions = synapse_proportions[key_postsyn][key_presyn]
                 val_synkins     = synapse_kinetics[key_postsyn][key_presyn]
                 val_connprops   = connection_properties[key_postsyn][key_presyn]
-                
+
                 val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
                 val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
                 val_synlayers1 = [layers_dict[val_synlayer] for val_synlayer in val_synlayers]

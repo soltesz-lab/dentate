@@ -8,6 +8,12 @@ from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_populatio
 import click
 import utils
 
+def list_index (element, lst):
+    try:
+        index_element = lst.index(element)
+        return index_element
+    except ValueError:
+        return None
 
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -131,15 +137,11 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     projection_prob_lst = []
     for k, v in projection_synapse_dict.iteritems():
         if (syn_type in v[2]) and (swc_type in v[1]):
-            print 'syn_layer = %d: ' % syn_layer, v[0]
-            for (ord_index, layers) in v[0]:
-                print 'layers = ', layers
-                if syn_layer in layers:
-                    projection_lst.append(population_dict[k])
-                    projection_prob_lst.append(v[3][ord_index])
-                    break
-    print 'projection_lst = ', projection_lst
-    print 'projection_prob_lst = ', projection_prob_lst
+            ord_index = list_index(syn_layer, v[0])
+            if ord_index is not None:
+                projection_lst.append(population_dict[k])
+                projection_prob_lst.append(v[3][ord_index])
+                break
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
@@ -166,7 +168,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict,
                                                                synapse_dict['syn_layers']):
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
                                                population_dict, projection_synapse_dict)
-        print 'projection = ', projection
+        assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
     syn_id_lst     = []
@@ -179,7 +181,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict,
         source_gid_lst.append(ranstream_con.choice(source_gids, len(syn_ids), p=source_probs))
         source_pop_lst.append(itertools.repeat(projection, len(syn_ids)))
         
-    return (itertools.chain(syn_id_lst), itertools.chain(source_gid_lst), itertools.chain(source_pop_lst))
+    return (itertools.chain(*syn_id_lst), itertools.chain(*source_gid_lst), itertools.chain(*source_pop_lst))
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
@@ -216,21 +218,23 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     destination_population = connection_prob.destination_population
     
     source_populations = connection_config[destination_population].keys()
-    
-    prj_synapse_layers  = [set(connection_config[destination_population][source_population].synapse_layers)
-                           for source_population in source_populations]
-    projection_synapse_dict = {source_population: (enumerate(prj_synapse_layers),
+
+    for source_population in source_populations:
+        print('%s -> %s:' % (source_population, destination_population), connection_config[destination_population][source_population])
+                           
+    projection_synapse_dict = {source_population: (connection_config[destination_population][source_population].synapse_layers,
                                                    set(connection_config[destination_population][source_population].synapse_locations),
                                                    set(connection_config[destination_population][source_population].synapse_types),
                                                    connection_config[destination_population][source_population].synapse_proportions)
                                 for source_population in source_populations}
 
+    print projection_synapse_dict
     count = 0
     for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
                                                                cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
         
-        connection_dict = {}
+        connection_dict = defaultdict({})
         if destination_gid is None:
             print 'Rank %i destination gid is None' % rank
         else:
@@ -245,7 +249,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 print ('destination %d: source %s:' % (destination_gid, source_population))
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
                 print ('source %s: len(source_gids) = %d' % (source_population, len(source_gids)))
-                projection_prob_dict[source_population] = (probs, source_gids)
+                projection_prob_dict[population_dict[source_population]] = (probs, source_gids)
 
             syn_id_iter, source_gid_iter, source_pop_iter = generate_synaptic_connections(ranstream_syn,
                                                                                           ranstream_con,
@@ -254,9 +258,9 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                                                           projection_synapse_dict,
                                                                                           projection_prob_dict)
 
-            syn_ids     = np.asarray(syn_id_iter, dtype='uint32')
-            source_gids = np.asarray(source_gid_iter, dtype='uint32')
-            presyn_ids  = np.asarray(source_pop_iter, dtype='uint8')
+            syn_ids     = np.fromiter(syn_id_iter, dtype='uint32')
+            source_gids = np.fromiter(source_gid_iter, dtype='uint32')
+            presyn_ids  = np.fromiter(source_pop_iter, dtype='uint8')
             count += syn_ids.size
             
             connection_dict[destination_gid] = {}
@@ -264,10 +268,12 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             connection_dict[destination_gid]['source_gid'] = source_gids
             connection_dict[destination_gid]['presyn_id']  = presyn_ids
             print 'Rank %i took %i s to compute connectivity for destination: %s, gid: %i' % (rank, time.time() - last_time,
-                                                                                         destination, destination_gid)
+                                                                                         destination_population, destination_gid)
             sys.stdout.flush()
         last_time = time.time()
-        append_graph(comm, connectivity_path, source, destination, connection_dict, io_size=io_size)
+        
+        for source_population in source_populations:
+            append_graph(comm, connectivity_path, source_population, destination_population, connection_dict[source_population], io_size=io_size)
         if rank == 0:
             print 'Appending connectivity for destination: %s took %i s' % (destination, time.time() - last_time)
         sys.stdout.flush()
