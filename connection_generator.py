@@ -251,7 +251,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 print ('destination %d: source %s:' % (destination_gid, source_population))
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
                 print ('source %s: len(source_gids) = %d' % (source_population, len(source_gids)))
-                projection_prob_dict[population_dict[source_population]] = (probs, source_gids)
+                projection_prob_dict[source_population] = (probs, source_gids)
 
             connection_dict[destination_gid] = generate_synaptic_connections(ranstream_syn,
                                                                              ranstream_con,
