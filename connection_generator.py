@@ -266,13 +266,13 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             print 'Rank %i took %i s to compute connectivity for destination: %s, gid: %i' % (rank, time.time() - last_time,
                                                                                          destination, destination_gid)
             sys.stdout.flush()
-        last_time = time.time()
-        append_graph(comm, connectivity_path, source, destination, connection_dict, io_size=io_size)
-        if rank == 0:
-            print 'Appending connectivity for destination: %s took %i s' % (destination, time.time() - last_time)
-        sys.stdout.flush()
-        del connection_dict
-        gc.collect()
+    last_time = time.time()
+    append_graph(comm, connectivity_path, source, destination, connection_dict, io_size=io_size)
+    if rank == 0:
+        print 'Appending connectivity for destination: %s took %i s' % (destination, time.time() - last_time)
+    sys.stdout.flush()
+    del connection_dict
+    gc.collect()
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
