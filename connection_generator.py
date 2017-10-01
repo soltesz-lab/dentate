@@ -133,6 +133,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param syn_type: synapse type (excitatory, inhibitory, neuromodulatory)
     :param projection_synapse_dict:
     """
+    ivd = { v:k for k,v in population_dict.iteritems() }
     projection_lst = []
     projection_prob_lst = []
     for k, v in projection_synapse_dict.iteritems():
@@ -150,7 +151,11 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
        projection = projection_lst[0]
     else:
        projection = None
-    return projection
+
+    if projection is not None:
+        return ivd[projection]
+    else:
+        return None
 
  
 def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict, synapse_dict, projection_synapse_dict, projection_prob_dict):
@@ -171,17 +176,14 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict,
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
-    syn_id_lst     = []
-    source_gid_lst = []
-    source_pop_lst = []
+    prj_dict = {}
     
     for projection, syn_ids in synapse_prj_partition.iteritems():
         source_probs, source_gids = projection_prob_dict[projection]
-        syn_id_lst.append(syn_ids)
-        source_gid_lst.append(ranstream_con.choice(source_gids, len(syn_ids), p=source_probs))
-        source_pop_lst.append(itertools.repeat(projection, len(syn_ids)))
+        prj_dict[projection] = { 'syn_id': syn_ids,
+                                 'source_gid': ranstream_con.choice(source_gids, len(syn_ids), p=source_probs) }
         
-    return (itertools.chain(*syn_id_lst), itertools.chain(*source_gid_lst), itertools.chain(*source_pop_lst))
+    return prj_dict
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
@@ -251,30 +253,22 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 print ('source %s: len(source_gids) = %d' % (source_population, len(source_gids)))
                 projection_prob_dict[population_dict[source_population]] = (probs, source_gids)
 
-            syn_id_iter, source_gid_iter, source_pop_iter = generate_synaptic_connections(ranstream_syn,
-                                                                                          ranstream_con,
-                                                                                          population_dict,
-                                                                                          synapse_dict,
-                                                                                          projection_synapse_dict,
-                                                                                          projection_prob_dict)
+            connection_dict[destination_gid] = generate_synaptic_connections(ranstream_syn,
+                                                                             ranstream_con,
+                                                                             population_dict,
+                                                                             synapse_dict,
+                                                                             projection_synapse_dict,
+                                                                             projection_prob_dict)
 
-            syn_ids     = np.fromiter(syn_id_iter, dtype='uint32')
-            source_gids = np.fromiter(source_gid_iter, dtype='uint32')
-            presyn_ids  = np.fromiter(source_pop_iter, dtype='uint8')
-            count += syn_ids.size
+            for edge_dict in connection_dict[destination_gid].itervalues():
+                count += len(edge_dict['syn_id'])
             
-            connection_dict[destination_gid] = {}
-            connection_dict[destination_gid]['syn_id']     = syn_ids
-            connection_dict[destination_gid]['source_gid'] = source_gids
-            connection_dict[destination_gid]['presyn_id']  = presyn_ids
             print 'Rank %i took %i s to compute connectivity for destination: %s, gid: %i' % (rank, time.time() - last_time,
                                                                                          destination_population, destination_gid)
             sys.stdout.flush()
 
     last_time = time.time()
-    for source_population in source_populations:
-        append_graph(comm, connectivity_path, source_population, destination_population, connection_dict[source_population], io_size=io_size)
-    append_graph(comm, connectivity_path, source, destination, connection_dict, io_size=io_size)
+    append_graph(comm, connectivity_path, {destination_population: connection_dict}, io_size=io_size)
     if rank == 0:
         print 'Appending connectivity for destination: %s took %i s' % (destination, time.time() - last_time)
     sys.stdout.flush()
