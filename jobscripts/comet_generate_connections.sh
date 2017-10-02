@@ -2,7 +2,7 @@
 #
 #SBATCH -J generate_connections
 #SBATCH -o ./results/generate_connections.%j.o
-#SBATCH --nodes=6
+#SBATCH --nodes=12
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -25,7 +25,7 @@ export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 
 set -x
 
-ibrun -np 144  python ./scripts/generate_connections.py \
+ibrun -np 288 python ./scripts/generate_connections.py \
        --config=./config/Full_Scale_Control.yaml \
        --forest-path=$SCRATCH/dentate/DG_test_forest_syns_20170927.h5 \
        --connectivity-path=$SCRATCH/dentate/DG_test_connections_20171001.h5 \
