@@ -8,6 +8,13 @@ from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_populatio
 import click
 import utils
 
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
+
+
 def list_index (element, lst):
     try:
         index_element = lst.index(element)
@@ -15,6 +22,10 @@ def list_index (element, lst):
     except ValueError:
         return None
 
+def random_choice_w_replacement(ranstream,n,p):
+    return ranstream.multinomial(n,p)
+
+    
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
     the connection probabilities for each presynaptic population. These
@@ -178,7 +189,8 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
 
     for projection, syn_ids in synapse_prj_partition.iteritems():
         source_probs, source_gids = projection_prob_dict[projection]
-        connection_dict[projection] = ( ranstream_con.choice(source_gids, len(syn_ids), p=source_probs),
+        source_gid_counts = random_choice_w_replacement(ranstream_con,len(syn_ids),source_probs)
+        connection_dict[projection] = ( np.repeat(source_gids, source_gid_counts),
                                         { 'Synapses' : { 'syn_id': syn_ids } } )
         
     return prj_dict
@@ -260,16 +272,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                    projection_prob_dict,
                                                    connection_dict)
 
-<<<<<<< HEAD
-            print 'Rank %i took %i s to compute connectivity for destination: %s, gid: %i' % (rank, time.time() - last_time,
-                                                                                         destination_population, destination_gid)
-=======
-            for prj_dict in connection_dict[destination_gid].itervalues():
-                for edge_dict in prj_dict.itervalues():
-                    count += len(edge_dict[1]['Synapses']['syn_id'])
             
             print 'Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid)
->>>>>>> cf6fccbce62caa00d20a8aa73d0662871e1c8959
             sys.stdout.flush()
 
     last_time = time.time()
