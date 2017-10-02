@@ -7,6 +7,15 @@ Code from https://gist.github.com/subnivean/c622cc2b58e6376263b8.js
 import math
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
+from scipy.spatial.distance import cdist
+
+def euclidean_distance(a, b):
+    """Row-wise euclidean distance.
+    a, b are row vectors of points.
+    """
+    return np.sqrt(np.sum((a-b)**2,axis=1))
+
+vdist = np.vectorize(euclidean_distance)
 
 class BSplineSurface(object):
     def __init__(self, u, v, xyz, ku=3, kv=3, bbox=[0, 1, 0, 1],
@@ -246,8 +255,7 @@ class BSplineSurface(object):
         else:
             arr = normals.transpose(2, 0, 1)
             return arr
-
-
+ 
     def arc_length(self, u, v):
         """Calculate arc length between pairs of (u, v) coordinates.
 
@@ -265,14 +273,13 @@ class BSplineSurface(object):
 
         npts   = max(u.shape[0], v.shape[0])
         pts    = self.ev(u, v, mesh=False).T.reshape(npts, 3)
-        x      = pts[:,0]
-        y      = pts[:,1]
-        z      = pts[:,2]
-        del pts, u, v
+        del u, v
         length = 0
+
         if npts > 1:
-            for i in xrange(1, npts):
-                length = length + np.sqrt((x[i] - x[i-1])**2 + (y[i] - y[i-1])**2 + (z[i] - z[i-1])**2)
+            a = pts[1:,:]
+            b = pts[0:npts-1,:]
+            length = np.sum(euclidean_distance(a, b))
 
         return length
 
@@ -478,7 +485,7 @@ def test_surface(u, v, l):
 
 
 if __name__ == '__main__':
-    from mayavi import mlab
+##    from mayavi import mlab
 
     spatial_resolution = 50.  # um
     max_u = 11690.
@@ -502,13 +509,16 @@ if __name__ == '__main__':
     npts = 400
     U = np.linspace(0, 1, npts)
     V = np.linspace(0, 1, npts)
-    srf.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
+##    srf.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
 
     # Plot u,v-isosplines on the surface
     upts = srf(U, V[100]).reshape(3, npts)
     vpts = srf(U[100], V).reshape(3, npts)
-        
-    mlab.points3d(*upts,  scale_factor=100.0, color=(1, 1, 0))
-    mlab.points3d(*vpts,  scale_factor=100.0, color=(1, 1, 0))
 
-    mlab.show()
+    print srf.arc_length(U[100], V)
+    print srf.arc_length(V, U[100])
+    
+##    mlab.points3d(*upts,  scale_factor=100.0, color=(1, 1, 0))
+##    mlab.points3d(*vpts,  scale_factor=100.0, color=(1, 1, 0))
+
+##    mlab.show()
