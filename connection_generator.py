@@ -190,8 +190,8 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
     for projection, syn_ids in synapse_prj_partition.iteritems():
         source_probs, source_gids = projection_prob_dict[projection]
         source_gid_counts = random_choice_w_replacement(ranstream_con,len(syn_ids),source_probs)
-        connection_dict[projection] = ( np.repeat(source_gids, source_gid_counts),
-                                        { 'Synapses' : { 'syn_id': syn_ids } } )
+        connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
+                                                            { 'Synapses' : { 'syn_id': syn_ids } } ) }
         
     return prj_dict
 
