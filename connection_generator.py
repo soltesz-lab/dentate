@@ -8,6 +8,13 @@ from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_populatio
 import click
 import utils
 
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass
+
+
 def list_index (element, lst):
     try:
         index_element = lst.index(element)
@@ -15,6 +22,10 @@ def list_index (element, lst):
     except ValueError:
         return None
 
+def random_choice_w_replacement(ranstream,n,p):
+    return ranstream.multinomial(n,p)
+
+    
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
     the connection probabilities for each presynaptic population. These
@@ -57,7 +68,7 @@ class ConnectionProb(object):
                                                             self.sigma[source_population]['v'])**2.))))(source_population)
             
 
-    def filter_by_arc_lengths(self, destination_gid, source_population, npoints=250):
+    def filter_by_arc_lengths(self, destination_gid, source_population, npoints=100):
         """
         Given the id of a target neuron, returns the arc distances along u and v
         and the gids of source neurons whose axons potentially contact the target neuron.
@@ -180,8 +191,9 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict,
     
     for projection, syn_ids in synapse_prj_partition.iteritems():
         source_probs, source_gids = projection_prob_dict[projection]
+        source_gid_counts = random_choice_w_replacement(ranstream_con,len(syn_ids),source_probs)
         prj_dict[projection] = { 'syn_id': syn_ids,
-                                 'source_gid': ranstream_con.choice(source_gids, len(syn_ids), p=source_probs) }
+                                 'source_gid': np.repeat(source_gids, source_gid_counts) }
         
     return prj_dict
 
