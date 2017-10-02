@@ -158,7 +158,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
         return None
 
  
-def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict, synapse_dict, projection_synapse_dict, projection_prob_dict):
+def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid, synapse_dict, population_dict, projection_synapse_dict, projection_prob_dict, connection_dict):
     """
     :param ranstream_syn:
     :param ranstream_con:
@@ -176,12 +176,10 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict,
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
-    prj_dict = {}
-    
     for projection, syn_ids in synapse_prj_partition.iteritems():
         source_probs, source_gids = projection_prob_dict[projection]
-        prj_dict[projection] = { 'syn_id': syn_ids,
-                                 'source_gid': ranstream_con.choice(source_gids, len(syn_ids), p=source_probs) }
+        connection_dict[projection] = { 'syn_id': syn_ids,
+                                        'source_gid': ranstream_con.choice(source_gids, len(syn_ids), p=source_probs) }
         
     return prj_dict
 
@@ -253,16 +251,15 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 print ('source %s: len(source_gids) = %d' % (source_population, len(source_gids)))
                 projection_prob_dict[source_population] = (probs, source_gids)
 
-            connection_dict[destination_gid] = generate_synaptic_connections(ranstream_syn,
-                                                                             ranstream_con,
-                                                                             population_dict,
-                                                                             synapse_dict,
-                                                                             projection_synapse_dict,
-                                                                             projection_prob_dict)
+            count += generate_synaptic_connections(ranstream_syn,
+                                                   ranstream_con,
+                                                   destination_gid,
+                                                   synapse_dict,
+                                                   population_dict,
+                                                   projection_synapse_dict,
+                                                   projection_prob_dict,
+                                                   connection_dict)
 
-            for edge_dict in connection_dict[destination_gid].itervalues():
-                count += len(edge_dict['syn_id'])
-            
             print 'Rank %i took %i s to compute connectivity for destination: %s, gid: %i' % (rank, time.time() - last_time,
                                                                                          destination_population, destination_gid)
             sys.stdout.flush()
