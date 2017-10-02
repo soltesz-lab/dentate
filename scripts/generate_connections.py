@@ -12,6 +12,7 @@ script_name = 'generate_connections.py'
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--connectivity-path", required=True, type=click.Path())
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
@@ -19,7 +20,7 @@ script_name = 'generate_connections.py'
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-def main(config, forest_path, connectivity_namespace, coords_path, coords_namespace,
+def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
          io_size, chunk_size, value_chunk_size, cache_size):
 
     comm = MPI.COMM_WORLD
@@ -55,7 +56,7 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
                                          env.connection_generator,
                                          connection_prob, forest_path,
                                          synapse_seed, synapse_namespace, 
-                                         connectivity_seed, connectivity_namespace,
+                                         connectivity_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size)
         
 
