@@ -56,7 +56,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          env.connection_generator,
                                          connection_prob, forest_path,
                                          synapse_seed, synapse_namespace, 
-                                         connectivity_seed, connectivity_namespace,
+                                         connectivity_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size)
         
 
