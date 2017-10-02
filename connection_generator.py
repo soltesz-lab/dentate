@@ -105,7 +105,7 @@ class ConnectionProb(object):
                 source_distance_v_lst.append(source_distance_v)
                 source_gid_lst.append(source_gid)
 
-        return np.asarray(source_distance_u_lst), np.asarray(source_distance_v_lst), np.asarray(source_gid_lst)
+        return np.asarray(source_distance_u_lst), np.asarray(source_distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
 
     def get_prob(self, destination_gid, source, plot=False):
         """
