@@ -272,9 +272,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                                              projection_synapse_dict,
                                                                              projection_prob_dict)
 
-            for prj_dict in connection_dict[destination_gid].itervalues():
-                for edge_dict in prj_dict.itervalues():
-                    count += len(edge_dict[1]['Synapses']['syn_id'])
+            for edge_dict in connection_dict[destination_gid].itervalues():
+                count += len(edge_dict[1]['Synapses']['syn_id'])
             
             print 'Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid)
             sys.stdout.flush()
