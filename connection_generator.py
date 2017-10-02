@@ -177,6 +177,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
     :param projection_synapse_dict:
     :param projection_prob_dict:
     """
+    count = len(synapse_dict['syn_ids'])
     synapse_prj_partition = defaultdict(list)
     for (syn_id,syn_type,swc_type,syn_layer) in itertools.izip(synapse_dict['syn_ids'],
                                                                synapse_dict['syn_types'],
@@ -193,7 +194,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
         connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
                                                             { 'Synapses' : { 'syn_id': syn_ids } } ) }
         
-    return prj_dict
+    return count
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
