@@ -188,7 +188,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, population_dict,
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
-                                     connectivity_seed, connectivity_namespace,
+                                     connectivity_seed, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size):
     """
     :param comm:
