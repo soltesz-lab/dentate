@@ -1,4 +1,4 @@
-import sys, time
+import sys, time, gc
 import itertools
 import numpy as np
 import itertools
@@ -57,7 +57,7 @@ class ConnectionProb(object):
                                                             self.sigma[source_population]['v'])**2.))))(source_population)
             
 
-    def filter_by_arc_lengths(self, destination_gid, source_population, npoints=250):
+    def filter_by_arc_lengths(self, destination_gid, source_population, npoints=100):
         """
         Given the id of a target neuron, returns the arc distances along u and v
         and the gids of source neurons whose axons potentially contact the target neuron.
@@ -178,15 +178,15 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
 
     for projection, syn_ids in synapse_prj_partition.iteritems():
         source_probs, source_gids = projection_prob_dict[projection]
-        connection_dict[projection] = { 'syn_id': syn_ids,
-                                        'source_gid': ranstream_con.choice(source_gids, len(syn_ids), p=source_probs) }
+        connection_dict[projection] = ( ranstream_con.choice(source_gids, len(syn_ids), p=source_probs),
+                                        { 'Synapses' : { 'syn_id': syn_ids } } )
         
     return prj_dict
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
-                                     connectivity_seed, connectivity_namespace,
+                                     connectivity_seed, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size):
     """
     :param comm:
@@ -260,12 +260,20 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                    projection_prob_dict,
                                                    connection_dict)
 
+<<<<<<< HEAD
             print 'Rank %i took %i s to compute connectivity for destination: %s, gid: %i' % (rank, time.time() - last_time,
                                                                                          destination_population, destination_gid)
+=======
+            for prj_dict in connection_dict[destination_gid].itervalues():
+                for edge_dict in prj_dict.itervalues():
+                    count += len(edge_dict[1]['Synapses']['syn_id'])
+            
+            print 'Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid)
+>>>>>>> cf6fccbce62caa00d20a8aa73d0662871e1c8959
             sys.stdout.flush()
 
     last_time = time.time()
-    append_graph(comm, connectivity_path, {destination_population: connection_dict}, io_size=io_size)
+    append_graph(comm, connectivity_path, {destination_population: connection_dict}, io_size)
     if rank == 0:
         print 'Appending connectivity for destination: %s took %i s' % (destination, time.time() - last_time)
     sys.stdout.flush()

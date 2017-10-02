@@ -8,7 +8,7 @@ H = 200.0; %
 N = 80400; % Approximately reflecting 67% of Layer III LEC cells in the rat
 M = 1;
 lambda_range = [W*2, W*2];
-grid_unit = 25;
+grid_unit = 4;
 
 seed = 23;
 

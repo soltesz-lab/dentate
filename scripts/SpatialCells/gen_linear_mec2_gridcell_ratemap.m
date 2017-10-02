@@ -19,7 +19,7 @@
 
 W = 200.0; % linear track length, cm
 H = 200.0; % 
-N = 250; % active grid cells per module
+N = 250; % grid cells per module
 M = 152; % number of grid cell modules
 grid_unit = 25;
 
