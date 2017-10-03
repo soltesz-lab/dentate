@@ -143,6 +143,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param swc_type: SWC location for synapse (soma, axon, apical, basal)
     :param syn_type: synapse type (excitatory, inhibitory, neuromodulatory)
     :param projection_synapse_dict:
+    :param population_dict:
     """
     ivd = { v:k for k,v in population_dict.iteritems() }
     projection_lst = []
@@ -173,9 +174,12 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
     """
     :param ranstream_syn:
     :param ranstream_con:
+    :param destination_gid:
     :param synapse_dict:
+    :param population_dict:
     :param projection_synapse_dict:
     :param projection_prob_dict:
+    :param connection_dict:
     """
     synapse_prj_partition = defaultdict(list)
     for (syn_id,syn_type,swc_type,syn_layer) in itertools.izip(synapse_dict['syn_ids'],
@@ -281,14 +285,13 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     last_time = time.time()
     append_graph(comm, connectivity_path, {destination_population: connection_dict}, io_size)
     if rank == 0:
-        print 'Appending connectivity for destination: %s took %i s' % (destination, time.time() - last_time)
+        print 'Appending connectivity for destination: %s took %i s' % (destination_population, time.time() - last_time)
     sys.stdout.flush()
     del connection_dict
     gc.collect()
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print '%i ranks took took %i s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
-                                                                                np.sum(global_count))
+        print '%i ranks took %i s to generate %i edges' % (comm.size, time.time() - start_time, np.sum(global_count))
 
 

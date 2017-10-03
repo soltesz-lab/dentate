@@ -1,6 +1,6 @@
 import sys
 from mpi4py import MPI
-from neuroh5.io import read_population_ranges, bcast_cell_attributes
+from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes
 from connection_generator import ConnectionProb, generate_uv_distance_connections
 from DG_surface import make_surface
 from env import Env
@@ -32,14 +32,16 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
     
-    populations = read_population_ranges(comm, coords_path)[0].keys()
-    for population in populations:
+    population_ranges = read_population_ranges(comm, coords_path)[0].keys()
+    for population in population_ranges:
         soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                         namespace=coords_namespace)
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
+
+    populations = read_population_names(comm, forest_path)
     
     for destination_population in populations:
 
