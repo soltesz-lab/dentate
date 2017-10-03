@@ -74,7 +74,7 @@ class ConnectionProb(object):
         and the gids of source neurons whose axons potentially contact the target neuron.
         :param destination_gid: int
         :param source_population: string
-        :param npoints: number of points for arc length approximation [default: 250]
+        :param npoints: number of points for arc length approximation [default: 100]
         :return: tuple of array of int
         """
         destination_coords = self.soma_coords[self.destination_population][destination_gid]
@@ -120,7 +120,7 @@ class ConnectionProb(object):
         :param plot: bool
         :return: array of float, array of int
         """
-        source_distance_u, source_distance_v, source_gid = self.filter_by_arc_lengths(destination_gid, source)
+        source_distance_u, source_distance_v, source_gid = self.filter_by_arc_lengths(destination_gid, source, )
         p = self.p_dist[source](source_distance_u, source_distance_v)
         p /= np.sum(p)
         if plot:
@@ -264,9 +264,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
             projection_prob_dict = {}
             for source_population in source_populations:
-                print ('destination %d: source %s:' % (destination_gid, source_population))
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
-                print ('source %s: len(source_gids) = %d' % (source_population, len(source_gids)))
                 projection_prob_dict[source_population] = (probs, source_gids)
 
             count += generate_synaptic_connections(ranstream_syn,
