@@ -16,17 +16,15 @@ def make_surface(l=-1.): # default l is for the middle of the granule cell layer
     
     du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
     dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
-    u = np.arange(-0.016*np.pi, 1.01*np.pi, du)
-    v = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
+    su = np.arange(-0.016*np.pi, 1.01*np.pi, du)
+    sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
 
-    u, v = np.meshgrid(u, v, indexing='ij')
+    u, v = np.meshgrid(su, sv, indexing='ij')
     
     
     xyz = DG_surface (u, v, l)
 
-    srf = BSplineSurface(np.linspace(0, 1, len(u)),
-                         np.linspace(0, 1, xyz.shape[2]),
-                         xyz)
+    srf = BSplineSurface(su, sv, xyz)
 
     return srf
 

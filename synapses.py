@@ -40,13 +40,18 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
             layers.append(layer)
             
             ran=None
+
             if layer > -1:
                 if rans.has_key(layer):
                     ran = rans[layer]
-                else:
+                elif rans.has_key('default'):
                     ran = rans['default']
-            else:
+                else:
+                    ran = None
+            elif rans.has_key('default'):
                 ran = rans['default']
+            else:
+                ran = None
             if ran is not None:
                 l         = L/nseg
                 dens      = ran.repick()

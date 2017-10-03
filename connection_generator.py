@@ -86,6 +86,7 @@ class ConnectionProb(object):
         source_distance_v_lst = []
         source_gid_lst        = []
 
+
         for (source_gid, coords_dict) in source_soma_coords.iteritems():
 
             source_u = coords_dict['U Coordinate']
@@ -94,11 +95,12 @@ class ConnectionProb(object):
             U = np.linspace(destination_u, source_u, npoints)
             V = np.linspace(destination_v, source_v, npoints)
 
-            source_distance_u = self.ip_surface.arc_length(U, destination_v)
-            source_distance_v = self.ip_surface.arc_length(destination_u, V)
+            source_distance_u = self.ip_surface.arc_length(U, destination_v, normalize_uv=True)
+            source_distance_v = self.ip_surface.arc_length(destination_u, V, normalize_uv=True)
 
             source_width = self.width[source_population]
             source_offset = self.offset[source_population]
+            #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
             if ((source_distance_u <= source_width['u'] / 2. + source_offset['u']) &
                 (source_distance_v <= source_width['v'] / 2. + source_offset['v'])):
                 source_distance_u_lst.append(source_distance_u)
@@ -120,7 +122,7 @@ class ConnectionProb(object):
         :param plot: bool
         :return: array of float, array of int
         """
-        source_distance_u, source_distance_v, source_gid = self.filter_by_arc_lengths(destination_gid, source, )
+        source_distance_u, source_distance_v, source_gid = self.filter_by_arc_lengths(destination_gid, source)
         p = self.p_dist[source](source_distance_u, source_distance_v)
         p /= np.sum(p)
         if plot:
@@ -188,6 +190,8 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
                                                                synapse_dict['syn_layers']):
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
                                                population_dict, projection_synapse_dict)
+        if projection is None:
+            print 'Projection is none for syn_type = ', syn_type, 'swc_type = ', swc_type, ' syn_layer = ', syn_layer
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
@@ -247,7 +251,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                 for source_population in source_populations}
 
     print projection_synapse_dict
-    count = 0
+    total_count = 0
     for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
                                                                cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
@@ -267,7 +271,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
                 projection_prob_dict[source_population] = (probs, source_gids)
 
-            count += generate_synaptic_connections(ranstream_syn,
+            
+            count = generate_synaptic_connections(ranstream_syn,
                                                    ranstream_con,
                                                    destination_gid,
                                                    synapse_dict,
@@ -275,7 +280,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                    projection_synapse_dict,
                                                    projection_prob_dict,
                                                    connection_dict)
-
+            total_count += count
             
             print 'Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid)
             sys.stdout.flush()
@@ -288,7 +293,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     del connection_dict
     gc.collect()
 
-    global_count = comm.gather(count, root=0)
+    global_count = comm.gather(total_count, root=0)
     if rank == 0:
         print '%i ranks took %i s to generate %i edges' % (comm.size, time.time() - start_time, np.sum(global_count))
 

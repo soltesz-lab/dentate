@@ -6,7 +6,7 @@ Code from https://gist.github.com/subnivean/c622cc2b58e6376263b8.js
 
 import math
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import RectBivariateSpline, InterpolatedUnivariateSpline
 from scipy.spatial.distance import cdist
 
 def euclidean_distance(a, b):
@@ -17,6 +17,14 @@ def euclidean_distance(a, b):
 
 vdist = np.vectorize(euclidean_distance)
 
+def normcoords(su, sv):
+    nu = np.linspace(0, 1, len(su))
+    nv = np.linspace(0, 1, len(sv))
+    ip_u = InterpolatedUnivariateSpline(su, nu)
+    ip_v = InterpolatedUnivariateSpline(sv, nv)
+
+    return nu, ip_u, nv, ip_v
+
 class BSplineSurface(object):
     def __init__(self, u, v, xyz, ku=3, kv=3, bbox=[0, 1, 0, 1],
                  controlpts=False, U=None, V=None):
@@ -25,7 +33,7 @@ class BSplineSurface(object):
         Parameters
         ----------
         u, v : array_like
-            1-D arrays of coordinates in strictly ascending order.
+            1-D arrays of coordinates.
         xyz : array_like
             3-D array of (x, y, z) data with shape (3, u.size, v.size).
         bbox : array_like, optional
@@ -50,11 +58,15 @@ class BSplineSurface(object):
             assert V is not None, \
                 "Knot vector `V` must be passed when `controlpts` is True"
 
-        self._create_srf(u, v, xyz, ku, kv, bbox, controlpts, U, V)
+        nu, ip_u, nv, ip_v = normcoords(u, v)
 
+        self._create_srf(nu, nv, xyz, ku, kv, bbox, controlpts, U, V)
+
+        self.ip_u = ip_u
+        self.ip_v = ip_v
         self.bbox = bbox
-        self.u = u
-        self.v = v
+        self.u = nu
+        self.v = nv
         self.ku = ku
         self.kv = kv
 
@@ -116,7 +128,7 @@ class BSplineSurface(object):
         hrv = np.interp(newvndxs, *nvs)
         return hru, hrv
 
-    def ev(self, u, v, mesh=True):
+    def ev(self, su, sv, mesh=True, normalize_uv=False):
         """Get point(s) on surface at (u, v).
 
         Parameters
@@ -138,8 +150,12 @@ class BSplineSurface(object):
         of shape 3 x len(u) x len(v), suitable for feeding to Mayavi's
         mlab.mesh() plotting function (as mlab.mesh(*arr)).
         """
-        u = np.array([u]).reshape(-1,)
-        v = np.array([v]).reshape(-1,)
+        if normalize_uv:
+            u = np.array([self.ip_u(su)]).reshape(-1,)
+            v = np.array([self.ip_v(sv)]).reshape(-1,)
+        else:
+            u = np.array([su]).reshape(-1,)
+            v = np.array([sv]).reshape(-1,)
         if mesh:
             # I'm still not sure why we're required to flip u and v
             # below, but trust me, it doesn't work otherwise.
@@ -148,7 +164,10 @@ class BSplineSurface(object):
             V = V.ravel()
         else:
             if len(u) != len(v): # *Need* to mesh this, like above!
-                V, U = np.meshgrid(v, u)
+                if len(v) < len(u):
+                    V, U = np.meshgrid(v, u)
+                else:
+                    U, V = np.meshgrid(u, v)
                 U = U.ravel()
                 V = V.ravel()
             else:
@@ -169,9 +188,13 @@ class BSplineSurface(object):
             return arr
 
 
-    def utan(self, u, v, normalize=True, mesh=True):
-        u = np.asarray([u]).reshape(-1,)
-        v = np.asarray([v]).reshape(-1,)
+    def utan(self, su, sv, normalize=True, mesh=True, normalize_uv=False):
+        if normalize_uv:
+            u = np.array([self.ip_u(su)]).reshape(-1,)
+            v = np.array([self.ip_v(sv)]).reshape(-1,)
+        else:
+            u = np.array([su]).reshape(-1,)
+            v = np.array([sv]).reshape(-1,)
 
         dxdu = self._xsrf(u, v, dx=1, dy=0, grid=mesh)
         dydu = self._ysrf(u, v, dx=1, dy=0, grid=mesh)
@@ -192,9 +215,13 @@ class BSplineSurface(object):
             arr = du.transpose(2, 0, 1)
             return arr
 
-    def vtan(self, u, v, normalize=True, mesh=True):
-        u = np.asarray([u]).reshape(-1,)
-        v = np.asarray([v]).reshape(-1,)
+    def vtan(self, su, sv, normalize=True, mesh=True, normalize_uv=False):
+        if normalize_uv:
+            u = np.array([self.ip_u(su)]).reshape(-1,)
+            v = np.array([self.ip_v(sv)]).reshape(-1,)
+        else:
+            u = np.array([su]).reshape(-1,)
+            v = np.array([sv]).reshape(-1,)
 
         dxdv = self._xsrf(u, v, dx=0, dy=1, grid=mesh)
         dydv = self._ysrf(u, v, dx=0, dy=1, grid=mesh)
@@ -216,7 +243,7 @@ class BSplineSurface(object):
             return arr
 
 
-    def normal(self, u, v, mesh=True):
+    def normal(self, su, sv, mesh=True, normalize_uv=False):
         """Get normal(s) at (u, v).
 
         Parameters
@@ -231,8 +258,12 @@ class BSplineSurface(object):
         of shape 3 x len(u) x len(v), suitable for feeding to Mayavi's
         mlab.mesh() plotting function (as mlab.mesh(*arr)).
         """
-        u = np.asarray([u]).reshape(-1,)
-        v = np.asarray([v]).reshape(-1,)
+        if normalize_uv:
+            u = np.array([self.ip_u(su)]).reshape(-1,)
+            v = np.array([self.ip_v(sv)]).reshape(-1,)
+        else:
+            u = np.array([su]).reshape(-1,)
+            v = np.array([sv]).reshape(-1,)
 
         dxdus = self._xsrf(u, v, dx=1, grid=mesh)
         dydus = self._ysrf(u, v, dx=1, grid=mesh)
@@ -256,20 +287,24 @@ class BSplineSurface(object):
             arr = normals.transpose(2, 0, 1)
             return arr
  
-    def arc_length(self, u, v):
-        """Calculate arc length between pairs of (u, v) coordinates.
+    def arc_length(self, su, sv, normalize_uv=False):
+        """Calculate arc length between pairs of normalized (u, v) coordinates.
 
         Parameters
         ----------
         u, v : array-like
-
+ 
         Returns
         -------
         If the lengths of u and v are at least 2, returns the total arc length
         between each u,v pair.
         """
-        u = np.asarray([u]).reshape(-1,)
-        v = np.asarray([v]).reshape(-1,)
+        if normalize_uv:
+            u = np.array([self.ip_u(su)]).reshape(-1,)
+            v = np.array([self.ip_v(sv)]).reshape(-1,)
+        else:
+            u = np.array([su]).reshape(-1,)
+            v = np.array([sv]).reshape(-1,)
 
         npts   = max(u.shape[0], v.shape[0])
         pts    = self.ev(u, v, mesh=False).T.reshape(npts, 3)
@@ -483,9 +518,7 @@ def test_surface(u, v, l):
     z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi-u)))
     return np.array([x, y, z])
 
-
-if __name__ == '__main__':
-##    from mayavi import mlab
+def test_arc_length():
 
     spatial_resolution = 50.  # um
     max_u = 11690.
@@ -493,10 +526,44 @@ if __name__ == '__main__':
     
     du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
     dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
-    u = np.arange(-0.016*np.pi, 1.01*np.pi, du)
-    v = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
+    su = np.arange(-0.016*np.pi, 1.01*np.pi, du)
+    sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
 
-    u, v = np.meshgrid(u, v, indexing='ij')
+    u, v = np.meshgrid(su, sv, indexing='ij')
+    l = -1.
+    xyz = test_surface (u, v, l)
+
+    srf = BSplineSurface(su, sv, xyz)
+
+    destination_u = -0.020377
+    destination_v = 3.971938
+    source_u = 0.091337
+    source_v = 1.932854
+
+    npts=100
+    
+    U = np.linspace(destination_u, source_u, npts)
+    V = np.linspace(destination_u, source_u, npts)
+
+    source_distance_u = srf.arc_length(U, destination_v, normalize_uv=True)
+    source_distance_v = srf.arc_length(destination_u, V, normalize_uv=True)
+
+    print source_distance_u
+    print source_distance_v
+
+    
+def test_uv_isospline():
+
+    spatial_resolution = 50.  # um
+    max_u = 11690.
+    max_v = 2956.
+    
+    du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
+    dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
+    su = np.arange(-0.016*np.pi, 1.01*np.pi, du)
+    sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
+
+    u, v = np.meshgrid(su, sv, indexing='ij')
     # for the middle of the granule cell layer:
     l = -1.
 
@@ -509,7 +576,6 @@ if __name__ == '__main__':
     npts = 400
     U = np.linspace(0, 1, npts)
     V = np.linspace(0, 1, npts)
-##    srf.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
 
     # Plot u,v-isosplines on the surface
     upts = srf(U, V[100]).reshape(3, npts)
@@ -517,8 +583,21 @@ if __name__ == '__main__':
 
     print srf.arc_length(U[100], V)
     print srf.arc_length(V, U[100])
-    
-##    mlab.points3d(*upts,  scale_factor=100.0, color=(1, 1, 0))
-##    mlab.points3d(*vpts,  scale_factor=100.0, color=(1, 1, 0))
 
-##    mlab.show()
+    try:
+        from mayavi import mlab
+
+        srf.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
+        
+        mlab.points3d(*upts,  scale_factor=100.0, color=(1, 1, 0))
+        mlab.points3d(*vpts,  scale_factor=100.0, color=(1, 1, 0))
+        
+        mlab.show()
+    except:
+        pass
+    
+    
+if __name__ == '__main__':
+    test_arc_length()
+    test_uv_isospline()
+    
