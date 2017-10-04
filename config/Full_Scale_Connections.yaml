@@ -150,7 +150,7 @@ Synapse Locations:
       MOPP: [apical]
       NGFC: [apical]
     IS:
-      GC:   [apical]
+      GC:   [apical, basal]
       IS:   [apical]
 Synapse Layers:
     GC:
