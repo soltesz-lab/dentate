@@ -127,16 +127,22 @@ Cell Types:
       density:
         apical:
           excitatory: 
-            default: # layer
+            GCL: # layer
              mean: 0.5 
              variance: 0.2
           inhibitory: 
-            default: # layer
+            MML: # layer
+              mean: 0.25
+              variance: 0.1
+            OML: # layer
               mean: 0.25
               variance: 0.1
         basal:
           excitatory: # excitatory
-            default: # layer
+            Hilus: # layer
+             mean: 0.5 
+             variance: 0.2
+            GCL: # layer
               mean: 0.5
               variance: 0.2
   NGFC:

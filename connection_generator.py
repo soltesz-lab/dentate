@@ -87,6 +87,10 @@ class ConnectionProb(object):
         source_gid_lst        = []
 
 
+        max_u = float('inf')
+        min_u = float('-inf')
+        max_v = float('inf')
+        min_v = float('-inf')
         for (source_gid, coords_dict) in source_soma_coords.iteritems():
 
             source_u = coords_dict['U Coordinate']
@@ -100,7 +104,7 @@ class ConnectionProb(object):
 
             source_width = self.width[source_population]
             source_offset = self.offset[source_population]
-            #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
+                #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
             if ((source_distance_u <= source_width['u'] / 2. + source_offset['u']) &
                 (source_distance_v <= source_width['v'] / 2. + source_offset['v'])):
                 source_distance_u_lst.append(source_distance_u)
@@ -268,8 +272,10 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
             projection_prob_dict = {}
             for source_population in source_populations:
+                print 'Rank %i selecting sources from population %s for destination: %s, gid: %i' % (rank, source_population, destination_population, destination_gid)
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
                 projection_prob_dict[source_population] = (probs, source_gids)
+                print 'Rank %i has %d sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
 
             
             count = generate_synaptic_connections(ranstream_syn,

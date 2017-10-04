@@ -194,7 +194,7 @@ Synapse Layers:
       NGFC: [MML, OML]
       MOPP: [IML, MML]
     HCC:
-      GC:   [Hilus]
+      GC:   [Hilus, GCL]
       MC:   [GCL]
       BC:   [GCL]
       HCC:  [GCL]
@@ -257,8 +257,8 @@ Synapse Proportions:
     NGFC: [0.05, 1.0]
     MOPP: [1.0, 0.05]
   HCC:
-    GC:   [1.0]
-    MC:   [1.0]
+    GC:   [1.0, 0.5]
+    MC:   [0.5]
     BC:   [0.2]
     HCC:  [0.8]
     NGFC: [1.0]
