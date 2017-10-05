@@ -14,8 +14,10 @@ script_name = 'compute_arc_distance.py'
 @click.option("--npoints", type=int, default=12000)
 @click.option("--origin-u", type=float, default=0.0)
 @click.option("--origin-v", type=float, default=0.0)
+@click.option("--spatial-resolution", type=float, default=1.0)
+@click.option("--layer", type=float, default=3.0)  ## Corresponds to OML boundary
 @click.option("--io-size", type=int, default=-1)
-def main(coords_path, coords_namespace, npoints, origin_u, origin_v, io_size):
+def main(coords_path, coords_namespace, npoints, origin_u, origin_v, spatial_resolution, layer, io_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -28,7 +30,7 @@ def main(coords_path, coords_namespace, npoints, origin_u, origin_v, io_size):
         soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                         namespace=coords_namespace)
         
-    ip_surface  = make_surface(l=3.0, spatial_resolution=10.) ## Corresponds to OML boundary
+    ip_surface  = make_surface(l=layer, spatial_resolution=spatial_resolution)
     
     for population in population_ranges:
         (population_start, _) = population_ranges[population]

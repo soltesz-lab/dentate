@@ -2,12 +2,11 @@ import sys
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes
 from connection_generator import ConnectionProb, generate_uv_distance_connections
-from DG_surface import make_surface
 from env import Env
 import utils
 import click
 
-script_name = 'generate_connections.py'
+script_name = 'generate_distance_connections.py'
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -16,6 +15,7 @@ script_name = 'generate_connections.py'
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
+@click.option("--distances-namespace", type=str, default='Arc Distances')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -28,7 +28,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     env = Env(comm=comm, configFile=config)
 
-    ip_surface  = make_surface(l=3.0) ## Corresponds to OML boundary
     extent      = {}
     soma_coords = {}
     
@@ -36,16 +35,19 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     for population in population_ranges:
         soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                         namespace=coords_namespace)
+        soma_distances[population] = bcast_cell_attributes(comm, 0, coords_path, population,
+                                                            namespace=distances_namespace)
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
+        
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
     populations = read_population_names(comm, forest_path)
     
     for destination_population in populations:
 
-        connection_prob = ConnectionProb(destination_population, soma_coords, ip_surface, extent)
+        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         synapse_namespace   = 'Synapse Attributes'
