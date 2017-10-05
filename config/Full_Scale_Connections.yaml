@@ -101,7 +101,7 @@ Synapse Locations:
       GC:   [apical]
       MC:   [apical]
       HC:   [apical]
-      BC:   [soma]
+      BC:   [soma, apical]
       AAC:  [soma]
       HCC:  [apical]
     HC:

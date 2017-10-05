@@ -49,7 +49,7 @@ Cell Types:
       density:
         apical:
           excitatory: 
-            default: # layer
+            Hilus: # layer
              mean: 3.5 
              variance: 0.2
           inhibitory: # Inhibitory
