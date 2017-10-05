@@ -12,8 +12,10 @@ script_name = 'compute_arc_distance.py'
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--npoints", type=int, default=12000)
+@click.option("--origin-u", type=float, default=0.0)
+@click.option("--origin-v", type=float, default=0.0)
 @click.option("--io-size", type=int, default=-1)
-def main(coords_path, coords_namespace, npoints, io_size):
+def main(coords_path, coords_namespace, npoints, origin_u, origin_v, io_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -26,9 +28,6 @@ def main(coords_path, coords_namespace, npoints, io_size):
         soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                         namespace=coords_namespace)
         
-    origin_u = 0.0
-    origin_v = 0.0
-
     ip_surface  = make_surface(l=3.0, spatial_resolution=10.) ## Corresponds to OML boundary
     
     for population in population_ranges:
@@ -42,8 +41,8 @@ def main(coords_path, coords_namespace, npoints, io_size):
             cell_u = cell_coords_dict['U Coordinate']
             cell_v = cell_coords_dict['V Coordinate']
 
-            U = np.linspace(origin_u, cell_u, npts)
-            V = np.linspace(origin_v, cell_v, npts)
+            U = np.linspace(origin_u, cell_u, npoints)
+            V = np.linspace(origin_v, cell_v, npoints)
 
             arc_distance_u = ip_surface.point_distance(U, cell_v, normalize_uv=True)
             arc_distance_v = ip_surface.point_distance(cell_u, V, normalize_uv=True)
