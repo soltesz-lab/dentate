@@ -26,7 +26,7 @@ def normcoords(su, sv):
     return nu, ip_u, nv, ip_v
 
 class BSplineSurface(object):
-    def __init__(self, u, v, xyz, ku=3, kv=3, bbox=[0, 1, 0, 1],
+    def __init__(self, u, v, xyz, ku=3, kv=3, bbox=[0, 1, 0, 1], s=0,
                  controlpts=False, U=None, V=None):
         """Parametric (u,v) surface approximation over a rectangular mesh.
 
@@ -60,7 +60,7 @@ class BSplineSurface(object):
 
         nu, ip_u, nv, ip_v = normcoords(u, v)
 
-        self._create_srf(nu, nv, xyz, ku, kv, bbox, controlpts, U, V)
+        self._create_srf(nu, nv, xyz, ku, kv, bbox, controlpts, s, U, V)
 
         self.ip_u = ip_u
         self.ip_v = ip_v
@@ -80,12 +80,12 @@ class BSplineSurface(object):
         return self.ev(*args, **kwargs)
 
     def _create_srf(self, u, v, xyz, ku, kv, bbox,
-                    controlpts, U, V):
+                    controlpts, s, U, V):
 
         # Create surface definitions
-        xsrf = RectBivariateSpline(u, v, xyz[0], bbox=bbox, kx=ku, ky=kv, s=0)
-        ysrf = RectBivariateSpline(u, v, xyz[1], bbox=bbox, kx=ku, ky=kv, s=0)
-        zsrf = RectBivariateSpline(u, v, xyz[2], bbox=bbox, kx=ku, ky=kv, s=0)
+        xsrf = RectBivariateSpline(u, v, xyz[0], bbox=bbox, kx=ku, ky=kv, s=s)
+        ysrf = RectBivariateSpline(u, v, xyz[1], bbox=bbox, kx=ku, ky=kv, s=s)
+        zsrf = RectBivariateSpline(u, v, xyz[2], bbox=bbox, kx=ku, ky=kv, s=s)
 
         if controlpts is True:
             # A little back-dooring here - replace the calculated
@@ -135,6 +135,7 @@ class BSplineSurface(object):
         ----------
         u, v : scalar or array-like
             u and v may be scalar or vector
+        normalize_uv: 
 
         mesh : boolean
             If True, will expand the u and v values into a mesh.
@@ -250,6 +251,7 @@ class BSplineSurface(object):
         ----------
         u, v : scalar or array-like
             u and v may be scalar or vector (see below)
+        normalize_uv: 
 
         Returns
         -------
@@ -275,7 +277,6 @@ class BSplineSurface(object):
         normals = np.cross([dxdus, dydus, dzdus],
                            [dxdvs, dydvs, dzdvs],
                            axisa=0, axisb=0)
-
         if mesh is False:
             normals = normals[:, np.newaxis, :]
 
@@ -287,12 +288,13 @@ class BSplineSurface(object):
             arr = normals.transpose(2, 0, 1)
             return arr
  
-    def arc_length(self, su, sv, normalize_uv=False):
-        """Calculate arc length between pairs of normalized (u, v) coordinates.
+    def point_distance(self, su, sv, normalize_uv=False):
+        """Cumulative distance between pairs of (u, v) coordinates.
 
         Parameters
         ----------
         u, v : array-like
+        normalize_uv: 
  
         Returns
         -------
@@ -308,15 +310,17 @@ class BSplineSurface(object):
 
         npts   = max(u.shape[0], v.shape[0])
         pts    = self.ev(u, v, mesh=False).T.reshape(npts, 3)
-        del u, v
-        length = 0
 
+        del u, v
+        distance = 0
+        
         if npts > 1:
             a = pts[1:,:]
             b = pts[0:npts-1,:]
-            length = np.sum(euclidean_distance(a, b))
+            distance = np.sum(euclidean_distance(a, b))
 
-        return length
+                
+        return distance
 
 
 
@@ -518,9 +522,9 @@ def test_surface(u, v, l):
     z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi-u)))
     return np.array([x, y, z])
 
-def test_arc_length():
+def test_point_distance():
 
-    spatial_resolution = 50.  # um
+    spatial_resolution = 10.  # um
     max_u = 11690.
     max_v = 2956.
     
@@ -543,10 +547,10 @@ def test_arc_length():
     npts=100
     
     U = np.linspace(destination_u, source_u, npts)
-    V = np.linspace(destination_u, source_u, npts)
+    V = np.linspace(destination_v, source_v, npts)
 
-    source_distance_u = srf.arc_length(U, destination_v, normalize_uv=True)
-    source_distance_v = srf.arc_length(destination_u, V, normalize_uv=True)
+    source_distance_u = srf.point_distance(U, destination_v, normalize_uv=True)
+    source_distance_v = srf.point_distance(destination_u, V, normalize_uv=True)
 
     print source_distance_u
     print source_distance_v
@@ -554,7 +558,7 @@ def test_arc_length():
     
 def test_uv_isospline():
 
-    spatial_resolution = 50.  # um
+    spatial_resolution = 1.  # um
     max_u = 11690.
     max_v = 2956.
     
@@ -569,23 +573,35 @@ def test_uv_isospline():
 
     xyz = test_surface (u, v, l)
 
-    srf = BSplineSurface(np.linspace(0, 1, len(u)),
-                         np.linspace(0, 1, xyz.shape[2]),
-                         xyz)
+    s = [3e9, 2e9, 1e9, 1e8, 1e6, 0]
+    for ii in xrange(len(s)):
+        srf = BSplineSurface(np.linspace(0, 1, len(u)),
+                             np.linspace(0, 1, xyz.shape[2]),
+                             xyz, s=s[ii])
 
-    npts = 400
-    U = np.linspace(0, 1, npts)
-    V = np.linspace(0, 1, npts)
+        for npts in [10, 100, 1000, ]:
 
-    # Plot u,v-isosplines on the surface
-    upts = srf(U, V[100]).reshape(3, npts)
-    vpts = srf(U[100], V).reshape(3, npts)
-
-    print srf.arc_length(U[100], V)
-    print srf.arc_length(V, U[100])
+            U = np.linspace(0, 1, npts)
+            V = np.linspace(0, 1, npts)
+            
+            print 's = ', s[ii], ' npts = ', npts
+            
+            print srf.point_distance(U[0], V)
+            print srf.point_distance(V, U[0])
+            print srf.point_distance(U[int(npts/2)], V)
+            print srf.point_distance(V, U[int(npts/2)])
 
     try:
         from mayavi import mlab
+
+        npts = 400
+        
+        U = np.linspace(0, 1, npts)
+        V = np.linspace(0, 1, npts)
+
+        # Plot u,v-isosplines on the surface
+        upts = srf(U, V[int(npts/2)]).reshape(3, npts)
+        vpts = srf(U[int(npts/2)], V).reshape(3, npts)
 
         srf.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
         
@@ -598,6 +614,6 @@ def test_uv_isospline():
     
     
 if __name__ == '__main__':
-    test_arc_length()
+    test_point_distance()
     test_uv_isospline()
     

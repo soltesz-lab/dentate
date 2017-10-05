@@ -87,10 +87,6 @@ class ConnectionProb(object):
         source_gid_lst        = []
 
 
-        max_u = float('inf')
-        min_u = float('-inf')
-        max_v = float('inf')
-        min_v = float('-inf')
         for (source_gid, coords_dict) in source_soma_coords.iteritems():
 
             source_u = coords_dict['U Coordinate']
@@ -176,7 +172,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
         return None
 
  
-def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid, synapse_dict, population_dict, projection_synapse_dict, projection_prob_dict, connection_dict):
+def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid, synapse_dict, population_dict, projection_synapse_dict, projection_prob_dict, connection_dict, random_choice=random_choice_w_replacement):
     """
     :param ranstream_syn:
     :param ranstream_con:
@@ -203,7 +199,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
     for projection, syn_ids in synapse_prj_partition.iteritems():
         count += len(syn_ids)
         source_probs, source_gids = projection_prob_dict[projection]
-        source_gid_counts = random_choice_w_replacement(ranstream_con,len(syn_ids),source_probs)
+        source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
         connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
                                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) } } ) }
         

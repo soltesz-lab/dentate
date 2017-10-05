@@ -9,8 +9,8 @@ def DG_surface(u, v, l):
     return np.array([x, y, z])
 
 
-def make_surface(l=-1.): # default l is for the middle of the granule cell layer:
-    spatial_resolution = 50.  # um
+def make_surface(l=-1., spatial_resolution = 1.): # default l is for the middle of the granule cell layer;
+    
     max_u = 11690.
     max_v = 2956.
     
@@ -20,7 +20,6 @@ def make_surface(l=-1.): # default l is for the middle of the granule cell layer
     sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
 
     u, v = np.meshgrid(su, sv, indexing='ij')
-    
     
     xyz = DG_surface (u, v, l)
 
