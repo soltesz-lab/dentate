@@ -11,13 +11,14 @@ script_name = 'compute_arc_distance.py'
 @click.command()
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
+@click.option("--distance-namespace", type=str, default='Arc Distance')
 @click.option("--npoints", type=int, default=12000)
 @click.option("--origin-u", type=float, default=0.0)
 @click.option("--origin-v", type=float, default=0.0)
 @click.option("--spatial-resolution", type=float, default=1.0)
 @click.option("--layer", type=float, default=3.0)  ## Corresponds to OML boundary
 @click.option("--io-size", type=int, default=-1)
-def main(coords_path, coords_namespace, npoints, origin_u, origin_v, spatial_resolution, layer, io_size):
+def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, origin_v, spatial_resolution, layer, io_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -55,7 +56,7 @@ def main(coords_path, coords_namespace, npoints, origin_u, origin_v, spatial_res
             print 'Rank %i: gid = %i u = %f v = %f dist u = %f dist v = %f' % (rank, cell_gid, cell_u, cell_v, arc_distance_u, arc_distance_v)
 
             append_cell_attributes(comm, coords_path, population, arc_distance_dict,
-                                   namespace='Arc Distance', io_size=io_size)
+                                   namespace=distance_namespace, io_size=io_size)
 
 
 if __name__ == '__main__':
