@@ -3,8 +3,16 @@ from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
 from DG_surface import make_surface
 import numpy as np
-import utils
 import click
+
+def list_find (f, lst):
+    i=0
+    for x in lst:
+        if f(x):
+            return i
+        else:
+            i=i+1
+    return None
 
 script_name = 'compute_arc_distance.py'
 
@@ -60,5 +68,5 @@ def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, o
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
 
