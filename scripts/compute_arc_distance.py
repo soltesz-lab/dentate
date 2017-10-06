@@ -1,6 +1,6 @@
 import sys
 from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
+from neuroh5.io import read_population_ranges, read_population_names, append_cell_attributes, NeuroH5CellAttrGen
 from DG_surface import make_surface
 import numpy as np
 import click
@@ -34,37 +34,37 @@ def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, o
 
     population_ranges = read_population_ranges(comm, coords_path)[0]
     
-    soma_coords = {}
-    for population in population_ranges.keys():
-        soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
-                                                        namespace=coords_namespace)
         
     ip_surface  = make_surface(l=layer, spatial_resolution=spatial_resolution)
     
     for population in population_ranges:
         (population_start, _) = population_ranges[population]
-        coords = soma_coords[population]
 
-        for (cell_gid, cell_coords_dict) in coords.iteritems():
+        for cell_gid, attr_dict in NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size,
+                                                       namespace=coords_namespace):
+            if cell_gid is None:
+                print 'Rank %i cell gid is None' % rank
+            else:
+                cell_coords_dict = attr_dict[coords_namespace]
 
-            arc_distance_dict = {}
+                arc_distance_dict = {}
             
-            cell_u = cell_coords_dict['U Coordinate']
-            cell_v = cell_coords_dict['V Coordinate']
+                cell_u = cell_coords_dict['U Coordinate']
+                cell_v = cell_coords_dict['V Coordinate']
 
-            U = np.linspace(origin_u, cell_u, npoints)
-            V = np.linspace(origin_v, cell_v, npoints)
+                U = np.linspace(origin_u, cell_u, npoints)
+                V = np.linspace(origin_v, cell_v, npoints)
 
-            arc_distance_u = ip_surface.point_distance(U, cell_v, normalize_uv=True)
-            arc_distance_v = ip_surface.point_distance(cell_u, V, normalize_uv=True)
+                arc_distance_u = ip_surface.point_distance(U, cell_v, normalize_uv=True)
+                arc_distance_v = ip_surface.point_distance(cell_u, V, normalize_uv=True)
 
-            arc_distance_dict[cell_gid-population_start] = {'U Distance': np.asarray([arc_distance_u], dtype='float32'),
-                                                            'V Distance': np.asarray([arc_distance_u], dtype='float32') }
+                arc_distance_dict[cell_gid-population_start] = {'U Distance': np.asarray([arc_distance_u], dtype='float32'),
+                                                                'V Distance': np.asarray([arc_distance_u], dtype='float32') }
 
-            print 'Rank %i: gid = %i u = %f v = %f dist u = %f dist v = %f' % (rank, cell_gid, cell_u, cell_v, arc_distance_u, arc_distance_v)
-
-            append_cell_attributes(comm, coords_path, population, arc_distance_dict,
-                                   namespace=distance_namespace, io_size=io_size)
+                print 'Rank %i: gid = %i u = %f v = %f dist u = %f dist v = %f' % (rank, cell_gid, cell_u, cell_v, arc_distance_u, arc_distance_v)
+                
+                append_cell_attributes(comm, coords_path, population, arc_distance_dict,
+                                       namespace=distance_namespace, io_size=io_size)
 
 
 if __name__ == '__main__':

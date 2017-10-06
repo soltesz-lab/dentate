@@ -1,6 +1,6 @@
 import sys
 from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
+from neuroh5.io import read_population_ranges, read_population_names, NeuroH5CellAttrGen
 import numpy as np
 import click
 
@@ -23,25 +23,30 @@ def main(coords_path, coords_namespace, io_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
+    size = comm.size
 
+    print 'Allocated %i ranks' % size
 
     population_ranges = read_population_ranges(comm, coords_path)[0]
+
+    print population_ranges
     
     soma_coords = {}
     for population in population_ranges.keys():
-        soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
-                                                        namespace=coords_namespace)
-        
-    for population in population_ranges:
         (population_start, _) = population_ranges[population]
-        coords = soma_coords[population]
 
-        for (cell_gid, cell_coords_dict) in coords.iteritems():
+        for cell_gid, attr_dict in NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size,
+                                                       namespace=coords_namespace):
 
-            cell_u = cell_coords_dict['U Coordinate']
-            cell_v = cell_coords_dict['V Coordinate']
+            if cell_gid is None:
+                print 'Rank %i cell gid is None' % rank
+            else:
+                coords_dict = attr_dict[coords_namespace]
 
-            print 'Rank %i: gid = %i u = %f v = %f' % (rank, cell_gid, cell_u, cell_v)
+                cell_u = coords_dict['U Coordinate']
+                cell_v = coords_dict['V Coordinate']
+                
+                print 'Rank %i: gid = %i u = %f v = %f' % (rank, cell_gid, cell_u, cell_v)
 
 
 if __name__ == '__main__':
