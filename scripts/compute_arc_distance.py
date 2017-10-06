@@ -42,12 +42,12 @@ def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, o
 
         for cell_gid, attr_dict in NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size,
                                                        namespace=coords_namespace):
+            arc_distance_dict = {}
             if cell_gid is None:
                 print 'Rank %i cell gid is None' % rank
             else:
                 cell_coords_dict = attr_dict[coords_namespace]
 
-                arc_distance_dict = {}
             
                 cell_u = cell_coords_dict['U Coordinate']
                 cell_v = cell_coords_dict['V Coordinate']
@@ -63,8 +63,8 @@ def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, o
 
                 print 'Rank %i: gid = %i u = %f v = %f dist u = %f dist v = %f' % (rank, cell_gid, cell_u, cell_v, arc_distance_u, arc_distance_v)
                 
-                append_cell_attributes(comm, coords_path, population, arc_distance_dict,
-                                       namespace=distance_namespace, io_size=io_size)
+            append_cell_attributes(comm, coords_path, population, arc_distance_dict,
+                                   namespace=distance_namespace, io_size=io_size)
 
 
 if __name__ == '__main__':
