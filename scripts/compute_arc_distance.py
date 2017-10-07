@@ -59,14 +59,14 @@ def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, o
                 arc_distance_v = ip_surface.point_distance(cell_u, V, normalize_uv=True)
 
                 arc_distance_dict[cell_gid-population_start] = {'U Distance': np.asarray([arc_distance_u], dtype='float32'),
-                                                                'V Distance': np.asarray([arc_distance_u], dtype='float32') }
+                                                                'V Distance': np.asarray([arc_distance_v], dtype='float32') }
 
                 print 'Rank %i: gid = %i u = %f v = %f dist u = %f dist v = %f' % (rank, cell_gid, cell_u, cell_v, arc_distance_u, arc_distance_v)
-                
+
             append_cell_attributes(comm, coords_path, population, arc_distance_dict,
                                    namespace=distance_namespace, io_size=io_size)
-
-
+            comm.Barrier()
+            
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
 
