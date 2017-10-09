@@ -110,7 +110,10 @@ Cell Types:
              mean: 0.5 
              variance: 0.2
           inhibitory: 
-            default: # layer
+            IML: # layer
+              mean: 0.25
+              variance: 0.1
+            MML: # layer
               mean: 0.25
               variance: 0.1
         basal:
