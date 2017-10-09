@@ -260,7 +260,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                    connection_config[destination_population][source_population].synapse_proportions)
                                 for source_population in source_populations}
 
-    print projection_synapse_dict
     total_count = 0
     for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
                                                                cache_size=cache_size, namespace=synapse_namespace):
