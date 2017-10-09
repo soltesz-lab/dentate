@@ -23,7 +23,7 @@ def list_index (element, lst):
         return None
 
 def random_choice_w_replacement(ranstream,n,p):
-    return ranstream.multinomial(n,p)
+    return ranstream.multinomial(n,p.ravel())
 
     
 class ConnectionProb(object):
@@ -85,7 +85,7 @@ class ConnectionProb(object):
         destination_u  = destination_coords['U Coordinate']
         destination_v  = destination_coords['V Coordinate']
         destination_distance_u = destination_distances['U Distance']
-        destination_distance_v = destination_distance['V Distance']
+        destination_distance_v = destination_distances['V Distance']
         
         distance_u_lst = []
         distance_v_lst = []
@@ -129,15 +129,20 @@ class ConnectionProb(object):
         """
         distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
         p = self.p_dist[source](distance_u, distance_v)
-        p /= np.sum(p)
+        psum = np.sum(p)
+        if psum > 0.:
+            p1 = p / psum
+        else:
+            p1 = p
+        assert((p1 >= 0.).all() and (p1 <= 1.).all())
         if plot:
-            plt.scatter(distance_u, distance_v, c=p)
+            plt.scatter(distance_u, distance_v, c=p1)
             plt.title(source+' -> '+target)
             plt.xlabel('Septotemporal distance (um)')
             plt.ylabel('Transverse distance (um)')
             plt.show()
             plt.close()
-        return p, source_gid
+        return p1, source_gid
 
     
 def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict):

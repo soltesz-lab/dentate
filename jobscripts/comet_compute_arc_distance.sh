@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-#SBATCH -J generate_distance_connections
-#SBATCH -o ./results/generate_distance_connections.%j.o
-#SBATCH --nodes=12
+#SBATCH -J compute_arc_distance
+#SBATCH -o ./results/compute_arc_distance.%j.o
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=24
-#SBATCH -t 4:00:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -25,12 +25,8 @@ export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 
 set -x
 
-ibrun -np 288 python ./scripts/generate_distance_connections.py \
-       --config=./config/Full_Scale_Control.yaml \
-       --forest-path=$SCRATCH/dentate/DG_test_forest_syns_20170927.h5 \
-       --connectivity-path=$SCRATCH/dentate/DG_test_connections_20171001.h5 \
-       --connectivity-namespace=Connections \
+ibrun -np 96 python ./scripts/compute_arc_distance.py \
        --coords-path=$SCRATCH/dentate/dentate_Full_Scale_Control_coords_20171005.h5 \
        --coords-namespace=Coordinates \
-       --io-size=32
+       --io-size=24
 

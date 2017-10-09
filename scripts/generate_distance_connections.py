@@ -15,13 +15,13 @@ script_name = 'generate_distance_connections.py'
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
-@click.option("--distances-namespace", type=str, default='Arc Distances')
+@click.option("--distances-namespace", type=str, default='Arc Distance')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         io_size, chunk_size, value_chunk_size, cache_size):
+         distances_namespace, io_size, chunk_size, value_chunk_size, cache_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -30,6 +30,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     extent      = {}
     soma_coords = {}
+    soma_distances = {}
     
     population_ranges = read_population_ranges(comm, coords_path)[0].keys()
     for population in population_ranges:
