@@ -280,7 +280,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 print 'Rank %i selecting sources from population %s for destination: %s, gid: %i' % (rank, source_population, destination_population, destination_gid)
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
                 projection_prob_dict[source_population] = (probs, source_gids)
-                print 'Rank %i has %d sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
+                print 'Rank %i has possible %d sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
 
             
             count = generate_synaptic_connections(ranstream_syn,
@@ -299,7 +299,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             last_time = time.time()
             append_graph(comm, connectivity_path, {destination_population: connection_dict}, io_size)
             if rank == 0:
-                print 'Appending connectivity for destination: %s took %i s' % (destination_population, time.time() - last_time)
+                print 'Appending connectivity for destination: %i took %i s' % (destination_gid, time.time() - last_time)
             sys.stdout.flush()
             del connection_dict
             gc.collect()
