@@ -208,6 +208,11 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
         connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
                                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) } } ) }
         
+    for projection in projection_synapse_dict.iterkeys():
+        if not connection_dict.has_key(projection):
+            connection_dict[projection] = { destination_gid : ( np.asarray ([], dtype=np.uint32),
+                                                            { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) } } ) }
+
     return count
 
 
@@ -272,10 +277,9 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
             projection_prob_dict = {}
             for source_population in source_populations:
-                print 'Rank %i selecting sources from population %s for destination: %s, gid: %i' % (rank, source_population, destination_population, destination_gid)
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
                 projection_prob_dict[source_population] = (probs, source_gids)
-                print 'Rank %i has possible %d sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
+                print 'Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
 
             
             count = generate_synaptic_connections(ranstream_syn,
