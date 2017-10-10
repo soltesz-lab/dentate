@@ -109,7 +109,7 @@ Synapse Locations:
       MC:   [apical, basal]
       HC:   [apical, basal]
       BC:   [apical, basal]
-      IS:   [basal]
+      IS:   [apical, basal]
     BC:
       GC:   [apical, basal]
       MC:   [basal]

@@ -213,7 +213,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
             connection_dict[projection] = { destination_gid : ( np.asarray ([], dtype=np.uint32),
                                                             { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) } } ) }
 
-            return count
+    return count
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
