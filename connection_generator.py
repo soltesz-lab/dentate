@@ -213,7 +213,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
             connection_dict[projection] = { destination_gid : ( np.asarray ([], dtype=np.uint32),
                                                             { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) } } ) }
 
-    return count
+            return count
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
@@ -298,7 +298,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         last_time = time.time()
         append_graph(comm, connectivity_path, {destination_population: connection_dict}, io_size)
         if rank == 0:
-            print 'Appending connectivity for destination: %i took %i s' % (destination_gid, time.time() - last_time)
+            if destination_gid is not None: 
+                print 'Appending connectivity for destination: %i took %i s' % (destination_gid, time.time() - last_time)
         sys.stdout.flush()
         del connection_dict
         gc.collect()
