@@ -1,6 +1,6 @@
-import sys
+import sys, gc
 from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes
+from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
 from connection_generator import ConnectionProb, generate_uv_distance_connections
 from env import Env
 import utils
@@ -34,14 +34,18 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     
     population_ranges = read_population_ranges(comm, coords_path)[0].keys()
     for population in population_ranges:
-        soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
-                                                        namespace=coords_namespace)
-        soma_distances[population] = bcast_cell_attributes(comm, 0, coords_path, population,
-                                                            namespace=distances_namespace)
+        coords = bcast_cell_attributes(comm, 0, coords_path, population,
+                                       namespace=coords_namespace)
+        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0]) for (k,v) in coords.iteritems() }
+        del coords
+        distances = bcast_cell_attributes(comm, 0, coords_path, population,
+                                          namespace=distances_namespace)
+        soma_distances[population] = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances.iteritems() }
+        del distances
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
-
-        
+        gc.collect()
+    
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
     populations = read_population_names(comm, forest_path)
@@ -63,7 +67,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          synapse_seed, synapse_namespace, 
                                          connectivity_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size)
-        
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

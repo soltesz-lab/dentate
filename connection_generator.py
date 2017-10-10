@@ -82,23 +82,18 @@ class ConnectionProb(object):
         source_soma_coords = self.soma_coords[source_population]
         source_soma_distances = self.soma_distances[source_population]
 
-        destination_u  = destination_coords['U Coordinate']
-        destination_v  = destination_coords['V Coordinate']
-        destination_distance_u = destination_distances['U Distance']
-        destination_distance_v = destination_distances['V Distance']
+        destination_u, destination_v  = destination_coords
+        destination_distance_u, destination_distance_v = destination_distances
         
         distance_u_lst = []
         distance_v_lst = []
         source_gid_lst = []
 
-        for (source_gid, coords_dict) in source_soma_coords.iteritems():
+        for (source_gid, coords) in source_soma_coords.iteritems():
 
-            source_u = coords_dict['U Coordinate']
-            source_v = coords_dict['V Coordinate']
+            source_u, source_v = coords
 
-            distance_dict = source_soma_distances[source_gid]
-            source_distance_u = distance_dict['U Distance']
-            source_distance_v = distance_dict['V Distance']
+            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
 
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
