@@ -113,8 +113,8 @@ Synapse Locations:
     BC:
       GC:   [apical, basal]
       MC:   [basal]
-      HC:   [basal]
-      BC:   [basal]
+      HC:   [apical, basal]
+      BC:   [apical, basal]
       HCC:  [basal]
       NGFC: [apical, basal]
       MOPP: [apical, basal]
