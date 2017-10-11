@@ -296,7 +296,11 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             sys.stdout.flush()
 
         last_time = time.time()
-        append_graph(comm, connectivity_path, {destination_population: connection_dict}, io_size)
+        if destination_gid is None:
+            projection_dict = {}
+        else:
+            projection_dict = {destination_population: connection_dict}
+        append_graph(comm, connectivity_path, projection_dict, io_size)
         if rank == 0:
             if destination_gid is not None: 
                 print 'Appending connectivity for destination: %i took %i s' % (destination_gid, time.time() - last_time)
