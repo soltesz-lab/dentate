@@ -522,6 +522,28 @@ def test_surface(u, v, l):
     z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi-u)))
     return np.array([x, y, z])
 
+def test_normal():
+
+    spatial_resolution = 10.  # um
+    max_u = 11690.
+    max_v = 2956.
+    
+    du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
+    dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
+    su = np.arange(-0.016*np.pi, 1.01*np.pi, du)
+    sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
+
+    u, v = np.meshgrid(su, sv, indexing='ij')
+    l = -1.
+    xyz = test_surface (u, v, l)
+
+    srf = BSplineSurface(su, sv, xyz)
+
+    u = -0.020377
+    v = 3.971938
+
+    print 'Normal: ', srf.ev(u, v, normalize_uv=True), srf.normal(u, v, normalize_uv=True)
+    
 def test_point_distance():
 
     spatial_resolution = 10.  # um
@@ -614,6 +636,7 @@ def test_uv_isospline():
     
     
 if __name__ == '__main__':
+    test_normal()
     test_point_distance()
-    test_uv_isospline()
+#    test_uv_isospline()
     

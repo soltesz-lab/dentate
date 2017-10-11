@@ -65,7 +65,7 @@ class ConnectionProb(object):
                                                 np.exp(-(((abs(distance_u) - self.offset[source_population]['u']) /
                                                             self.sigma[source_population]['u'])**2. +
                                                             ((abs(distance_v) - self.offset[source_population]['v']) /
-                                                            self.sigma[source_population]['v'])**2.))))(source_population)
+                                                            self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
             
 
     def filter_by_distance(self, destination_gid, source_population):
