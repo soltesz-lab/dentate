@@ -180,7 +180,7 @@ Synapse Layers:
       GC:   [Hilus, GCL]
       MC:   [GCL]
       HC:   [MML]
-      BC:   [GCL]
+      BC:   [GCL, IML]
       HCC:  [GCL]
       NGFC: [MML, OML]
       MOPP: [IML, MML]
