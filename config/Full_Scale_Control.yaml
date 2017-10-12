@@ -90,7 +90,13 @@ Cell Types:
         apical:
           excitatory: 
             GCL: # layer
-             mean: 0.5 
+             mean: 1.0 
+             variance: 0.2
+            MML: # layer
+             mean: 1.0 
+             variance: 0.2
+            OML: # layer
+             mean: 1.0 
              variance: 0.2
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
@@ -99,17 +105,24 @@ Cell Types:
         basal:
           excitatory: # excitatory
             Hilus: # layer
-              mean: 0.5
+              mean: 1.0
               variance: 0.2
             GCL: # layer
-              mean: 0.5
+              mean: 1.0
               variance: 0.2
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            default: # layer
+              mean: 0.25
+              variance: 0.1
   AAC:
     template: AxoAxonicCell
     synapses:
       density:
         apical:
           excitatory: 
+            Hilus: # layer
+             mean: 0.5 
+             variance: 0.2
             GCL: # layer
              mean: 0.5 
              variance: 0.2
@@ -122,9 +135,6 @@ Cell Types:
               variance: 0.1
         basal:
           excitatory: # excitatory
-            Hilus: # layer
-             mean: 0.5 
-             variance: 0.2
             GCL: # layer
               mean: 0.5
               variance: 0.2
@@ -152,6 +162,10 @@ Cell Types:
             GCL: # layer
               mean: 0.5
               variance: 0.2
+          inhibitory: 
+            Hilus: # layer
+              mean: 0.25
+              variance: 0.1
   NGFC:
     template: NGFCell
     synapses:
