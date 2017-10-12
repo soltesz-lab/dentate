@@ -38,13 +38,14 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                        namespace=coords_namespace)
         soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0]) for (k,v) in coords.iteritems() }
         del coords
+        gc.collect()
         distances = bcast_cell_attributes(comm, 0, coords_path, population,
                                           namespace=distances_namespace)
         soma_distances[population] = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances.iteritems() }
         del distances
+        gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
-        gc.collect()
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 

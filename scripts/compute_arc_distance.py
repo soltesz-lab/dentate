@@ -65,7 +65,6 @@ def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, o
 
             append_cell_attributes(comm, coords_path, population, arc_distance_dict,
                                    namespace=distance_namespace, io_size=io_size)
-            comm.Barrier()
             
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
