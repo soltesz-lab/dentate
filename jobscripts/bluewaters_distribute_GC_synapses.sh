@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -l nodes=128:ppn=16:xe
-#PBS -q debug
-#PBS -l walltime=0:30:00
+#PBS -q high
+#PBS -l walltime=4:00:00
 #PBS -e ./results/distribute_GC_synapses.$PBS_JOBID.err
 #PBS -o ./results/distribute_GC_synapses.$PBS_JOBID.out
 #PBS -N distribute_GC_synapses
