@@ -29,5 +29,5 @@ aprun -n 1024 python ./scripts/generate_distance_connections.py \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/Full_Scale_Control/dentate_Full_Scale_Control_coords_20171005.h5 \
        --coords-namespace=Coordinates \
-       --io-size=32
+       --io-size=64
 
