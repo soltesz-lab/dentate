@@ -117,14 +117,88 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
                 while syn_count < int_seg_count:
                     syn_loc = seg_start + seg_range * ((syn_count + 1) / math.ceil(seg_count))
                     assert((syn_loc <= 1) & (syn_loc >= 0))
-                    syn_locs.append(syn_loc)
-                    syn_ids.append(syn_index)
-                    syn_secs.append(sec_obj_index_dict[seg.sec])
-                    syn_layers.append(layer)
-                    syn_types.append(syn_type)
-                    swc_types.append(swc_type)
-                    syn_index += 1
-                    syn_count += 1
+                    if syn_loc < 1.0:
+                        syn_locs.append(syn_loc)
+                        syn_ids.append(syn_index)
+                        syn_secs.append(sec_obj_index_dict[seg.sec])
+                        syn_layers.append(layer)
+                        syn_types.append(syn_type)
+                        swc_types.append(swc_type)
+                        syn_index += 1
+                        syn_count += 1
+                cumcount += syn_count
+
+    assert(len(syn_ids) > 0)
+    syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
+                'syn_locs': np.asarray(syn_locs, dtype='float32'),
+                'syn_secs': np.asarray(syn_secs, dtype='uint32'),
+                'syn_layers': np.asarray(syn_layers, dtype='int8'),
+                'syn_types': np.asarray(syn_types, dtype='uint8'),
+                'swc_types': np.asarray(swc_types, dtype='uint8')}
+
+    return syn_dict
+
+
+def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict, sec_dict, secidx_dict):
+    """Computes synapse locations according to a Poisson distribution. """
+
+    syn_ids    = []
+    syn_locs   = []
+    syn_secs   = []
+    syn_layers = []
+    syn_types  = []
+    swc_types  = []
+    syn_index  = 0
+
+    for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
+
+        sec_index_dict = secidx_dict[sec_name]
+        swc_type = swc_type_dict[sec_name]
+        seg_list = []
+        sec_obj_index_dict = {}
+        L_total   = 0
+        (seclst, maxdist) = sec_dict[sec_name]
+        secidxlst         = secidx_dict[sec_name]
+        for (sec, secindex) in itertools.izip(seclst, secidxlst):
+            sec_obj_index_dict[sec] = int(secindex)
+            if maxdist is None:
+                for seg in sec:
+                    if seg.x < 1.0 and seg.x > 0.0:
+                        seg_list.append(seg)
+            else:
+                for seg in sec:
+                    if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
+                        seg_list.append(seg)
+            L_total += sec.L
+        segcounts_dict, total, layers_dict = synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed, neurotree_dict=neurotree_dict)
+
+        sample_size = total
+        cumcount  = 0
+        for (syn_type_label, _) in layer_density_dict.iteritems():
+            syn_type  = syn_type_dict[syn_type_label]
+            segcounts = segcounts_dict[syn_type]
+            layers    = layers_dict[syn_type]
+            for i in xrange(0,len(seg_list)):
+                seg = seg_list[i]
+                seg_start = seg.x - (0.5/seg.sec.nseg)
+                seg_end   = seg.x + (0.5/seg.sec.nseg)
+                seg_range = seg_end - seg_start
+                seg_count = segcounts[i]
+                int_seg_count = math.floor(seg_count)
+                layer = layers[i]
+                syn_count = 0
+                while syn_count < int_seg_count:
+                    syn_loc = seg_start + seg_range * ((syn_count + 1) / math.ceil(seg_count))
+                    assert((syn_loc <= 1) & (syn_loc >= 0))
+                    if syn_loc < 1.0:
+                        syn_locs.append(syn_loc)
+                        syn_ids.append(syn_index)
+                        syn_secs.append(sec_obj_index_dict[seg.sec])
+                        syn_layers.append(layer)
+                        syn_types.append(syn_type)
+                        swc_types.append(swc_type)
+                        syn_index += 1
+                        syn_count += 1
                 cumcount += syn_count
 
     assert(len(syn_ids) > 0)
