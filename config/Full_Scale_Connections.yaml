@@ -178,7 +178,7 @@ Synapse Layers:
       IS:  [Hilus]
     BC:
       GC:   [Hilus, GCL]
-      MC:   [GCL]
+      MC:   [Hilus]
       HC:   [MML]
       BC:   [GCL, IML]
       HCC:  [GCL]
