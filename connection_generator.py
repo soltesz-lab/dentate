@@ -161,11 +161,10 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
             if ord_index is not None:
                 projection_lst.append(population_dict[k])
                 projection_prob_lst.append(v[3][ord_index])
-                break
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
-       projection            = ranstream_syn.choice(candidate_projections, 1, p=candidate_probs)
+       projection            = ranstream_syn.choice(candidate_projections, 1, p=candidate_probs)[0]
     elif len(projection_lst) > 0:
        projection = projection_lst[0]
     else:
@@ -274,7 +273,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             ranstream_syn.seed(destination_gid + synapse_seed)
 
             synapse_dict = attributes_dict[synapse_namespace]
-
             projection_prob_dict = {}
             for source_population in source_populations:
                 probs, source_gids = connection_prob.get_prob(destination_gid, source_population)

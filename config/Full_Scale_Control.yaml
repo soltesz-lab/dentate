@@ -166,6 +166,9 @@ Cell Types:
             Hilus: # layer
               mean: 0.25
               variance: 0.1
+            GCL: # layer
+              mean: 0.25
+              variance: 0.1
   NGFC:
     template: NGFCell
     synapses:
