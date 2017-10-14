@@ -229,7 +229,7 @@ Synapse Proportions:
   MC:
     GC:  [0.05]
     MC:  [0.95]
-    BC:  [0.33]
+    BC:  [0.23]
     AAC: [0.77]
     HC:  [0.5]
     HCC: [0.5]
