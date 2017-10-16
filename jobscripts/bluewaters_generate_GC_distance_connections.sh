@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l nodes=128:ppn=16:xe
+#PBS -l nodes=256:ppn=16:xe
 #PBS -q high
-#PBS -l walltime=4:00:00
+#PBS -l walltime=8:00:00
 #PBS -e ./results/generate_GC_distance_connections.$PBS_JOBID.err
 #PBS -o ./results/generate_GC_distance_connections.$PBS_JOBID.out
 #PBS -N generate_distance_connections
@@ -22,12 +22,12 @@ export SCRATCH=/projects/sciteam/baef
 set -x
 cd $PBS_O_WORKDIR
 
-aprun -n 2048 python ./scripts/generate_distance_connections.py \
+aprun -n 2048 -d 2 python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
        --forest-path=$SCRATCH/Full_Scale_Control/DGC_forest_syns_20170925_compressed.h5 \
-       --connectivity-path=$SCRATCH/Full_Scale_Control/DG_GC_connections_20171012.h5 \
+       --connectivity-path=$SCRATCH/Full_Scale_Control/DG_GC_connections_20171013.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/Full_Scale_Control/dentate_Full_Scale_Control_coords_20171005.h5 \
        --coords-namespace=Coordinates \
-       --io-size=64
+       --io-size=160 --cache-size=2
 

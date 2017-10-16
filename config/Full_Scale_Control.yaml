@@ -205,6 +205,10 @@ Cell Types:
             default: # layer
               mean: 0.5
               variance: 0.2
+          inhibitory: 
+            default: # layer
+              mean: 0.25
+              variance: 0.1
   IS:
     template: ISCell
     synapses:
