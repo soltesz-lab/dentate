@@ -145,8 +145,8 @@ Synapse Locations:
     MOPP:
       MC:   [basal, apical]
       MPP:  [apical]
-      HC:   [apical]
-      HCC:  [apical]
+      HC:   [basal]
+      HCC:  [basal]
       MOPP: [apical]
       NGFC: [apical]
     IS:
