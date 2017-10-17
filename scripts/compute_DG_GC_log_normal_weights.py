@@ -1,11 +1,9 @@
 from function_lib import *
 from collections import Counter
 from mpi4py import MPI
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, population_ranges
 import click
+from env import Env
 
 
 try:
@@ -29,6 +27,7 @@ sigma = 0.35
 
 
 @click.command()
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-namespace", type=str, default='Weights')
 @click.option("--connectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -38,7 +37,7 @@ sigma = 0.35
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--debug", is_flag=True)
-def main(weights_path, weights_namespace, connectivity_path, connectivity_namespace, io_size, chunk_size,
+def main(config, weights_path, weights_namespace, connectivity_path, connectivity_namespace, io_size, chunk_size,
          value_chunk_size, cache_size, debug):
     """
 
@@ -54,19 +53,21 @@ def main(weights_path, weights_namespace, connectivity_path, connectivity_namesp
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    env = Env(comm=comm, configFile=config)
+
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    population_range_dict = population_ranges(MPI._addressof(comm), connectivity_path)
+    population_range_dict = population_ranges(comm, connectivity_path)
 
     target_population = 'GC'
     count = 0
     start_time = time.time()
-    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
-                                cache_size=cache_size, namespace=connectivity_namespace)
+    attr_gen = NeuroH5CellAttrGen(comm, connectivity_path, target_population, io_size=io_size,
+                                  cache_size=cache_size, namespace=connectivity_namespace)
     if debug:
         attr_gen = [attr_gen.next() for i in xrange(2)]
     for gid, connectivity_dict in attr_gen:
@@ -90,7 +91,7 @@ def main(weights_path, weights_namespace, connectivity_path, connectivity_namesp
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
         if not debug:
-            append_cell_attributes(MPI._addressof(comm), weights_path, target_population, weights_dict,
+            append_cell_attributes(comm, weights_path, target_population, weights_dict,
                                    namespace=weights_namespace, io_size=io_size, chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
         sys.stdout.flush()

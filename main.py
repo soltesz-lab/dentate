@@ -104,11 +104,20 @@ def spikeout (env, output_path, t_vec, id_vec):
         ## {0: {'t': a }}
         
     
-def connectprj(env, graph, prjname, prjvalue):
+def connectprj(env, presyn_name, postsyn_name, prjvalue):
     prjType    = prjvalue['type']
     indexType  = prjvalue['index']
     prj        = graph[prjname]
 
+    ## syn_id syn_type syn_locs section layer
+    h.syn_ids      = tree['Synapse Attributes']['syn_id']
+    h.syn_types    = tree['Synapse Attributes']['syn_type']
+    h.swc_types    = tree['Synapse Attributes']['swc_type']
+    h.syn_locs     = tree['Synapse Attributes']['syn_locs']
+    h.syn_sections = tree['Synapse Attributes']['section']
+    mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
+
+    
     if (prjType == 'long.+trans.dist'):
         wgtval = prjvalue['weight']
         if isinstance(wgtval,list):
@@ -224,82 +233,23 @@ def connectprj(env, graph, prjname, prjvalue):
 
 def connectcells(env):
     h('objref syn_type, syn_index, syn_weight, syn_weight_vector')
-    projections = env.projections
-    if env.verbose:
-        if env.pc.id() == 0:
-            print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     if env.nodeRanks is None:
-        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,attributes=True)
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,namespaces=['Synapses'])
     else:
-        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,node_rank_map=env.nodeRanks,attributes=True)
-    for name in projections.keys():
-        if env.verbose:
-            if env.pc.id() == 0:
-                print "*** Creating projection %s" % name
-        connectprj(env, graph, name, projections[name])
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,node_rank_map=env.nodeRanks,namespaces=['Synapses'])
+    for postsyn_name in graph.keys():
+        for presyn_name in graph[postsyn_name].keys():
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Creating projection %s -> %s" % (presyn_name, postsyn_name)
+            connectprj(env, presyn_name, postsyn_name, projections[postsyn_name][presyn_name])
 
 
 my_syns = defaultdict(lambda: {})
 
            
-def mksyn1(cell,synapses,syns_dict,env):
-    for synkey in synapses.keys():
-        syns_dict = defaultdict(lambda: {})
-        synval = synapses[synkey]
-        synorder = env.synapseOrder[synkey]
-        location = synval['location']
-        t_rise   = synval['t_rise']
-        t_decay  = synval['t_decay']
-        e_rev    = synval['e_rev']
-        if location == 'soma':
-            cell.soma.push()
-            h.syn = h.Exp2Syn(0.5)
-            h.syn.tau1 = t_rise
-            h.syn.tau2 = t_decay
-            h.syn.e    = e_rev
-    	    cell.syns.o(synorder).append(h.syn)
-            h.pop_section()
-        elif location.has_key('dendrite'):
-            for dendindex in location['dendrite']:
-                if isinstance(location['compartment'],list):
-                    compartments=location['compartment']
-                else:
-                    compartments=[location['compartment']]
-                for secindex in compartments:
-                    h.syn = synapses.add_shared_synapse(cell.dendrites[dendindex][secindex](0.5),syns_dict)
-                    h.syn.tau1 = t_rise
-                    h.syn.tau2 = t_decay
-                    h.syn.e    = e_rev
-                    cell.syns.o(synorder).append(h.syn)
-
-                    
-def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
-    sort_idx  = np.argsort(syn_ids,axis=0)
-    syns_dict_dend = defaultdict(lambda: {})
-    syns_dict_axon = defaultdict(lambda: {})
-    syns_dict_soma = defaultdict(lambda: {})
-    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
-      sref = None
-      if swc_type == env.defs.SWC_Types['apical']:
-        syns_dict = syns_dict_dend
-        sref = cell.alldendrites[syn_section]
-        sref.sec(syn_loc).count_spines += 1
-      elif swc_type == env.defs.SWC_Types['axon']:
-        syns_dict = syns_dict_axon
-        sref = cell.allaxons[syn_section]
-      elif swc_type == env.defs.SWC_Types['soma']:
-        syns_dict = syns_dict_soma
-        sref = cell.allsoma[syn_section]
-      else: 
-        raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      h.syn      = synapses.add_shared_synapse(sref.sec(syn_loc),syns_dict)
-      h.syn.tau1 = synapses['kinetics'][syn_type]['t_rise']
-      h.syn.tau2 = synapses['kinetics'][syn_type]['t_decay']
-      h.syn.e    = synapses['kinetics'][syn_type]['e_rev']
-      cell.allsyns.append(h.syn)
-      cell.syntypes.o(syn_type).append(h.syn)
 
 def connectgjs(env):
     rank = int(env.pc.id())
@@ -357,7 +307,8 @@ def connectgjs(env):
                     ggid = ggid+2
 
             del graph[name]
- 
+
+
 def mkcells(env):
 
     h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
@@ -390,89 +341,21 @@ def mkcells(env):
             synapses = {}
 
         i=0
-        if env.celltypes[popName]['templateType'] == 'single':
-            numCells  = env.celltypes[popName]['num']
-            h.numCells = numCells
-            h.totalNumCells = h.totalNumCells + numCells
-            index  = env.celltypes[popName]['index']
 
-            mygidlist = []
-            if env.nodeRanks is None:
-                for x in index:
-                    if (x % nhosts) == rank:
-                        mygidlist.append(x)
-            else:
-                for x in index:
-                    if env.nodeRanks[x] == rank:
-                        mygidlist.append(x)
-
-            if env.verbose:
-                print "Population %s, rank %d: " % (popName, env.pc.id())
-                print mygidlist
-        
-            env.gidlist.extend(mygidlist)
-            for gid in mygidlist:
-                hstmt = 'cell = new %s(%d, %d, "%s")' % (templateName, i, gid, datasetPath)
-                h(hstmt)
-
-                mksyn1(h.cell,synapses,env)
-                
-                env.cells.append(h.cell)
-                env.pc.set_gid2node(gid, int(env.pc.id()))
-                
-                ## Tell the ParallelContext that this cell is a spike source
-                ## for all other hosts. NetCon is temporary.
-                if (h.cell.is_art()):
-                    nc = h.NetCon(h.cell.pp, h.nil)
-                else:
-                    nc = h.cell.connect2target(h.nil)
-                env.pc.cell(gid, nc, 1)
-                nc = None
-                ## Record spikes of this cell
-                env.pc.spike_record(gid, env.t_vec, env.id_vec)
-                i = i+1
-                
-        elif env.celltypes[popName]['templateType'] == 'forest':
-            h('objref vx, vy, vz, vradius, vsection, vlayer, vsection, vsrc, vdst, secnodes')
-            h('gid = fid = node = 0')
-            inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
-            if env.nodeRanks is None:
+        inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
+        if env.nodeRanks is None:
+                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, env.IOsize)
+        else:
                 (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, env.IOsize,
-                                                        attributes=True, namespace='Synapse Attributes')
-            else:
-                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, env.IOsize,
-                                                        attributes=True, namespace='Synapse Attributes',
-                                                        node_rank_map=env.nodeRanks)
-            if env.celltypes[popName].has_key('synapses'):
-                synapses = env.celltypes[popName]['synapses']
-            else:
-                synapses = {}
-            mygidlist = trees.keys()
-            numCells = len(mygidlist)
-            h.numCells = numCells
-            i=0
-            for gid in mygidlist:
-                tree       = trees[gid]
-                h.gid      = gid
-                h.fid      = int(i%forestSize)
-                h.vx       = tree['x']
-                h.vy       = tree['y']
-                h.vz       = tree['z']
-                h.vradius  = tree['radius']
-                h.vlayer   = tree['layer']
-                h.vsection = tree['section']
-                h.secnodes = tree['section_topology']['nodes']
-                h.vsrc     = tree['section_topology']['src']
-                h.vdst     = tree['section_topology']['dst']
-                ## syn_id syn_type syn_locs section layer
-                h.syn_ids      = tree['Synapse Attributes']['syn_id']
-                h.syn_types    = tree['Synapse Attributes']['syn_type']
-                h.swc_types    = tree['Synapse Attributes']['swc_type']
-                h.syn_locs     = tree['Synapse Attributes']['syn_locs']
-                h.syn_sections = tree['Synapse Attributes']['section']
-                verboseflag = 0
+                                                         node_rank_map=env.nodeRanks)
+        mygidlist = trees.keys()
+        numCells = len(mygidlist)
+        h.numCells = numCells
+        i=0
+        for gid in mygidlist:
+            tree = trees[gid]
+            verboseflag = 0
                 h.cell = cells.make_neurotree_cell(template_name, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
-                mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
                 h.cell.correct_for_spines()
                 env.gidlist.append(gid)
                 env.cells.append(h.cell)
@@ -654,7 +537,12 @@ def run (env):
 @click.option('--verbose', is_flag=True)
 def main(config_file, defs_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, defs_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose)
+    env = Env(MPI.COMM_WORLD, config_file, defs_file,
+              template_paths, dataset_prefix, results_path,
+              node_rank_file, io_size,
+              vrecord_fraction, coredat, tstop, v_init,
+              max_walltime_hours, results_write_time,
+              dt, ldbal, lptbal, verbose)
     init(env)
     run(env)
 

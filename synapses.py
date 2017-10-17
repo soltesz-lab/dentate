@@ -5,10 +5,65 @@ from neuron import h
 import numpy as np
 import utils, cells
 
+def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seglist, seed, neurotree_dict=None):
+    """Computes per-segment density of synapse placement. """
+    segdensity_dict  = {}
+    layers_dict     = {}
+    if neurotree_dict is not None:
+        secnodes_dict = neurotree_dict['section_topology']['nodes']
+    else:
+        secnodes_dict = None
+    for (syn_type_label, layer_density_dict) in layer_density_dicts.iteritems():
+        syn_type = syn_type_dict[syn_type_label]
+        rans = {}
+        for (layer_label,density_dict) in layer_density_dict.iteritems():
+            if layer_label == 'default':
+                layer = layer_label
+            else:
+                layer = layer_dict[layer_label]
+            ran = h.Random(seed)
+            ran.normal(density_dict['mean'], density_dict['variance'])
+            rans[layer] = ran
+        segdensity = []
+        layers     = []
+        for seg in seglist:
+            L    = seg.sec.L
+            nseg = seg.sec.nseg
+            if neurotree_dict is not None:
+                secindex = sec_index_dict[seg.sec]
+                secnodes = secnodes_dict[secindex]
+                layer = cells.get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
+            else:
+                layer = -1
+            layers.append(layer)
+            
+            ran=None
+
+            if layer > -1:
+                if rans.has_key(layer):
+                    ran = rans[layer]
+                elif rans.has_key('default'):
+                    ran = rans['default']
+                else:
+                    ran = None
+            elif rans.has_key('default'):
+                ran = rans['default']
+            else:
+                ran = None
+            if ran is not None:
+                dens      = ran.repick()
+                segdensity.append(dens)
+            else:
+                segdensity.append(0)
+                
+        segdensity_dict[syn_type] = segdensity
+        layers_dict[syn_type]     = layers
+    return (segdensity_dict, layers_dict)
+
+
 def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seglist, seed, neurotree_dict=None):
     """Computes per-segment relative counts of synapse placement. """
     segcounts_dict  = {}
-    segcount_total  = 0
     layers_dict     = {}
     segcount_total  = 0
     if neurotree_dict is not None:
@@ -150,6 +205,8 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
     swc_types  = []
     syn_index  = 0
 
+    r = np.random.RandomState()
+    
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
 
         sec_index_dict = secidx_dict[sec_name]
@@ -170,25 +227,26 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
                     if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
                         seg_list.append(seg)
             L_total += sec.L
-        segcounts_dict, total, layers_dict = synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed, neurotree_dict=neurotree_dict)
+        segdensity_dict, layers_dict = synapse_seg_density(syn_type_dict, layer_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed, neurotree_dict=neurotree_dict)
 
         sample_size = total
         cumcount  = 0
         for (syn_type_label, _) in layer_density_dict.iteritems():
             syn_type  = syn_type_dict[syn_type_label]
-            segcounts = segcounts_dict[syn_type]
+            segdensity = segdensity_dict[syn_type]
             layers    = layers_dict[syn_type]
             for i in xrange(0,len(seg_list)):
                 seg = seg_list[i]
                 seg_start = seg.x - (0.5/seg.sec.nseg)
                 seg_end   = seg.x + (0.5/seg.sec.nseg)
                 seg_range = seg_end - seg_start
-                seg_count = segcounts[i]
-                int_seg_count = math.floor(seg_count)
+                L = seg.sec.L
                 layer = layers[i]
-                syn_count = 0
-                while syn_count < int_seg_count:
-                    syn_loc = seg_start + seg_range * ((syn_count + 1) / math.ceil(seg_count))
+                density = segdensity[i]
+                beta = 1./density
+                interval = seg_start*L + r.exponential(beta)
+                while interval < seg_range*L:
+                    syn_loc = interval/L
                     assert((syn_loc <= 1) & (syn_loc >= 0))
                     if syn_loc < 1.0:
                         syn_locs.append(syn_loc)
@@ -199,7 +257,7 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
                         swc_types.append(swc_type)
                         syn_index += 1
                         syn_count += 1
-                cumcount += syn_count
+                    interval += r.exponential(beta)
 
     assert(len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),

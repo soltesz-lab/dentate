@@ -1,3 +1,8 @@
+
+##
+## Classes and procedures related to neuronal connectivity generation.
+##
+
 import sys, time, gc
 import itertools
 import numpy as np
@@ -113,12 +118,8 @@ class ConnectionProb(object):
         """
         Given the soma coordinates of a destination neuron and a population source, return an array of connection 
         probabilities and an array of corresponding source gids.
-        :param destination: string
-        :param source: string
         :param destination_gid: int
-        :param soma_coords: nested dict of array
-        :param distance_U: array of float
-        :param distance_V: array of float
+        :param source: string
         :param plot: bool
         :return: array of float, array of int
         """
@@ -149,8 +150,8 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param syn_layer: synapse layer
     :param swc_type: SWC location for synapse (soma, axon, apical, basal)
     :param syn_type: synapse type (excitatory, inhibitory, neuromodulatory)
-    :param projection_synapse_dict:
-    :param population_dict:
+    :param population_dict: mapping of population names to population indices
+    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <syn_layer, swc_type, syn_type, syn_proportion>
     """
     ivd = { v:k for k,v in population_dict.iteritems() }
     projection_lst = []
@@ -176,17 +177,30 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
         return None
 
  
-def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid, synapse_dict, population_dict, projection_synapse_dict, projection_prob_dict, connection_dict, random_choice=random_choice_w_replacement):
+def generate_synaptic_connections(ranstream_syn,
+                                  ranstream_con,
+                                  destination_gid,
+                                  synapse_dict,
+                                  population_dict,
+                                  projection_synapse_dict,
+                                  projection_prob_dict,
+                                  connection_dict,
+                                  random_choice=random_choice_w_replacement):
+    """Given a set of synapses for a particular gid, projection configuration, projection and connection probability dictionaries,
+    generates a set of possible connections for each synapse. The procedure first assigns each synapse to a projection, using 
+    the given proportions of each synapse type, and then chooses source gids for each synapse using the given projection probability dictionary.
+    :param ranstream_syn: random stream for the synapse partitioning step
+    :param ranstream_con: random stream for the choosing source gids step
+    :param destination_gid: destination gid
+    :param synapse_dict: synapse configurations, a dictionary with fields: 1) syn_ids (synapse ids) 2) syn_types (excitatory, inhibitory, etc).,
+                        3) swc_types (SWC types(s) of synapse location in the neuronal morphological structure 3) syn_layers (synapse layer placement)
+    :param population_dict: mapping of population names to population indices
+    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <syn_layer, swc_type, syn_type, syn_proportion>
+    :param projection_prob_dict: mapping of presynaptic population names to sets of source probabilities and source gids
+    :param connection_dict: output connection dictionary
+    :param random_choice: random choice procedure (default uses np.ranstream.multinomial)
     """
-    :param ranstream_syn:
-    :param ranstream_con:
-    :param destination_gid:
-    :param synapse_dict:
-    :param population_dict:
-    :param projection_synapse_dict:
-    :param projection_prob_dict:
-    :param connection_dict:
-    """
+    ## assign each synapse to a projection
     synapse_prj_partition = defaultdict(list)
     for (syn_id,syn_type,swc_type,syn_layer) in itertools.izip(synapse_dict['syn_ids'],
                                                                synapse_dict['syn_types'],
@@ -199,6 +213,7 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
+    ## Choose source connections based on distance-weighted probability
     count = 0
     for projection, syn_ids in synapse_prj_partition.iteritems():
         count += len(syn_ids)
@@ -207,6 +222,9 @@ def generate_synaptic_connections(ranstream_syn, ranstream_con, destination_gid,
         connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
                                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) } } ) }
         
+    ## If any projection does not have connections associated with it, create empty entries
+    ## This is necessary for the parallel graph append operation, which performs a separate append for each projection,
+    ## and therefore needs all ranks to participate in it.
     for projection in projection_synapse_dict.iterkeys():
         if not connection_dict.has_key(projection):
             connection_dict[projection] = { destination_gid : ( np.asarray ([], dtype=np.uint32),
@@ -219,19 +237,19 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                      synapse_seed, synapse_namespace, 
                                      connectivity_seed, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size):
-    """
-    :param comm:
-    :param connection_config:
-    :param connection_prob:
-    :param forest_path:
-    :param synapse_seed:
-    :param synapse_namespace:
-    :param connectivity_seed:
-    :param connectivity_namespace:
-    :param io_size:
-    :param chunk_size:
-    :param value_chunk_size:
-    :param cache_size:
+    """Generates connectivity based on U, V distance-weighted probabilities.
+    :param comm: mpi4py MPI communicatory
+    :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
+    :param connection_prob: ConnectionProb instance
+    :param forest_path: location of file with neuronal trees and synapse information
+    :param synapse_seed: random seed for synapse partitioning
+    :param synapse_namespace: namespace of synapse properties
+    :param connectivity_seed: random seed for connectivity generation
+    :param connectivity_namespace: namespace of connectivity attributes
+    :param io_size: number of I/O ranks to use for parallel connectivity append
+    :param chunk_size: HDF5 chunk size for connectivity file (pointer and index datasets)
+    :param value_chunk_size: HDF5 chunk size for connectivity file (value datasets)
+    :param cache_size: how many cells to read ahead
     """
     rank = comm.rank
 
