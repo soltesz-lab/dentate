@@ -22,10 +22,10 @@ set -x
 
 mpirun -np 64 python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
-       --forest-path=$SCRATCH/dentate/DG_IN_forest_syns_20171012.h5 \
-       --connectivity-path=$SCRATCH/dentate/DG_IN_connections_20171012.h5 \
+       --forest-path=$SCRATCH/dentate/IS_forest_syns_20171013.h5 \
+       --connectivity-path=$SCRATCH/dentate/DG_IN_connections_20171014.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/dentate_Full_Scale_Control_coords_20171005.h5 \
        --coords-namespace=Coordinates \
-       --io-size=4
+       --io-size=32 --cache-size=1
 
