@@ -219,7 +219,7 @@ def generate_synaptic_connections(ranstream_syn,
         count += len(syn_ids)
         source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection]
         source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
-        uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float)
+        uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
         distances = np.repeat(uv_distance_sums, source_gid_counts)
         connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
                                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
@@ -233,7 +233,7 @@ def generate_synaptic_connections(ranstream_syn,
         if not connection_dict.has_key(projection):
             connection_dict[projection] = { destination_gid : ( np.asarray ([], dtype=np.uint32),
                                                             { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) },
-                                                              'Connections' : { 'distance': np.asarray ([], dtype=np.float) }
+                                                              'Connections' : { 'distance': np.asarray ([], dtype=np.float32) }
                                                              } ) }
 
     return count
