@@ -1,3 +1,7 @@
+##
+## Generates distance-weighted random connectivity between the specified populations.
+##
+
 import sys, gc
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
@@ -16,12 +20,13 @@ script_name = 'generate_distance_connections.py'
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--distances-namespace", type=str, default='Arc Distance')
+@click.option("--synapses-namespace", type=str, default='Synapse Attributes')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         distances_namespace, io_size, chunk_size, value_chunk_size, cache_size):
+         distances_namespace, synapses_namespace, io_size, chunk_size, value_chunk_size, cache_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -56,7 +61,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
-        synapse_namespace   = 'Synapse Attributes'
         
         connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
         connectivity_namespace = 'Connections'
@@ -65,7 +69,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         generate_uv_distance_connections(comm, populations_dict,
                                          env.connection_generator,
                                          connection_prob, forest_path,
-                                         synapse_seed, synapse_namespace, 
+                                         synapse_seed, synapses_namespace, 
                                          connectivity_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size)
 

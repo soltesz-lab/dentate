@@ -232,9 +232,9 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
         sample_size = total
         cumcount  = 0
         for (syn_type_label, _) in layer_density_dict.iteritems():
-            syn_type  = syn_type_dict[syn_type_label]
+            syn_type   = syn_type_dict[syn_type_label]
             segdensity = segdensity_dict[syn_type]
-            layers    = layers_dict[syn_type]
+            layers     = layers_dict[syn_type]
             for i in xrange(0,len(seg_list)):
                 seg = seg_list[i]
                 seg_start = seg.x - (0.5/seg.sec.nseg)
@@ -303,14 +303,15 @@ def add_unique_synapse(mech_name, seg, syns_dict):
     syn = make_syn_mech(mech_name, seg)
     return syn
     
-def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,presyn_ids,syn_kinetics,env,add_synapse=add_shared_synapse,spines=False):
+def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetics,env,add_synapse=add_shared_synapse,spines=False):
     sort_idx       = np.argsort(syn_ids,axis=0)
     syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_soma = defaultdict(lambda: defaultdict(lambda: {}))
     py_sections = [sec for sec in cell.sections]
 
-    for (syn_id,syn_type,swc_type,syn_loc,syn_section,presyn_id) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx],presyn_ids[sort_idx]):
+    syn_obj_dict = {}
+    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
       sref = None
       sec = py_sections[syn_section]
       if swc_type == env.SWC_Types['apical']:
@@ -327,16 +328,23 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,presyn_ids,syn
         syns_dict = syns_dict_soma
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      syn_kinetic_params = syn_kinetics[syn_type][presyn_id]
+      syn_kinetic_params = syn_kinetics[syn_type]
+      syn_mech_dict = {}
       for (syn_mech, params) in syn_kinetic_params.iteritems():
-        syn = add_synapse(syn_mech, sec(syn_loc), syns_dict[presyn_id])
+        syn = add_synapse(syn_mech, sec(syn_loc), syns_dict)
         syn.tau1 = params['t_rise']
         syn.tau2 = params['t_decay']
         syn.e    = params['e_rev']
         cell.syns.append(syn)
         cell.syntypes.o(syn_type).append(syn)
+        syn_mech_dict[syn_mech] = syn
+      syn_obj_dict[syn_id] = syn_mech_dict
+        
+    if spines:
+        cell.correct_for_spines()
 
-           
+    return syn_obj_dict
+        
 def print_syn_summary (gid,syn_dict):
     print 'gid %d: ' % gid
     print '\t total %d synapses' % len(syn_dict['syn_ids'])

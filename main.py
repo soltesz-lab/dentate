@@ -10,7 +10,7 @@ from collections import defaultdict
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, population_ranges
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, population_ranges, NeuroH5CellAttrGen
 from env import Env
 import lpt, utils, synapses
 
@@ -103,148 +103,79 @@ def spikeout (env, output_path, t_vec, id_vec):
         write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace="Spike Events")
         ## {0: {'t': a }}
         
+def filter_syn_dict (edge_syn_ids, cell_syn_dict):
     
-def connectprj(env, presyn_name, postsyn_name, prjvalue):
-    prjType    = prjvalue['type']
-    indexType  = prjvalue['index']
-    prj        = graph[prjname]
-
-    ## syn_id syn_type syn_locs section layer
-    h.syn_ids      = tree['Synapse Attributes']['syn_id']
-    h.syn_types    = tree['Synapse Attributes']['syn_type']
-    h.swc_types    = tree['Synapse Attributes']['swc_type']
-    h.syn_locs     = tree['Synapse Attributes']['syn_locs']
-    h.syn_sections = tree['Synapse Attributes']['section']
-    mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
-
+    syn_subset = np.where(np.isin(cell_syn_dict['syn_ids'], edge_syn_ids))
     
-    if (prjType == 'long.+trans.dist'):
-        wgtval = prjvalue['weight']
-        if isinstance(wgtval,list):
-            wgtlst = h.List()
-            for val in wgtval:
-                hval = h.Value(0, val)
-                wgtlst.append(hval)
-            h.syn_weight = h.Value(2,wgtlst)
-        else:
-            h.syn_weight = h.Value(0,wgtval)
-        idxval = prjvalue['synIndex']
-        if isinstance(idxval,list):
-            idxlst = h.List()
-            for val in idxval:
-                hval = h.Value(0, val)
-                idxlst.append(hval)
-            h.syn_index = h.Value(2,idxlst)
-        else:
-            h.syn_index = h.Value(0,idxval)
-        velocity = prjvalue['velocity']
-        for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            ldists  = edges[1]
-            tdists  = edges[2]
-            if indexType == 'absolute':
-                for i in range(0,len(sources)):
-                        source   = sources[i]
-                        distance = ldists[i] + tdists[i]
-                        delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-    elif (prjType == 'dist'):
-        wgtval = prjvalue['weight']
-        if isinstance(wgtval,list):
-            wgtlst = h.List()
-            for val in wgtval:
-                hval = h.Value(0, val)
-                wgtlst.append(hval)
-            h.syn_weight = h.Value(2,wgtlst)
-        else:
-            h.syn_weight = h.Value(0,wgtval)
-        idxval = prjvalue['synIndex']
-        if isinstance(idxval,list):
-            idxlst = h.List()
-            for val in idxval:
-                hval = h.Value(0, val)
-                idxlst.append(hval)
-            h.syn_index = h.Value(2,idxlst)
-        else:
-            h.syn_index = h.Value(0,idxval)
-        velocity = prjvalue['velocity']
-        for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            dists  = edges[1]
-            if indexType == 'absolute':
-                for i in range(0,len(sources)):
-                        source   = sources[i]
-                        distance = dists[i]
-                        delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-    elif (prjType == 'syn'):
-        h.syn_type = h.Value(0,prjvalue['synType'])
-        velocity = prjvalue['velocity']
-        if prjvalue.has_key('weights'):
-          wgtvector = prjvalue['weights']
-          h.syn_weight_vector = h.Vector()
-          h.syn_weight_vector.from_python(wgtvector)
-          for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            synidxs = edges[1]
-            if indexType == 'absolute':
-              for i in range(0,len(sources)):
-                source   = sources[i]
-                h.syn_index = h.Value(0,synidxs[i])
-                delay = 1.0
-                h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-        elif prjvalue.has_key('weight'):
-          wgtval = prjvalue['weight']
-          if isinstance(wgtval,list):
-            wgtlst = h.List()
-            for val in wgtval:
-                hval = h.Value(0, val)
-                wgtlst.append(hval)
-            h.syn_weight = h.Value(2,wgtlst)
-          else:
-            h.syn_weight = h.Value(0,wgtval)
-          for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            synidxs = edges[1]
-            if indexType == 'absolute':
-              for i in range(0,len(sources)):
-                source   = sources[i]
-                h.syn_index  = h.Value(0,synidxs[i])
-                delay = 1.0
-                h.nc_appendsyn2(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-        else:
-          raise RuntimeError ("Projection %s has no weights attribute" % prjname)
-    else:
-        raise RuntimeError ("Unsupported projection type %s of projection %s" % (prjType, prjname))
-                       
-    del graph[prjname]
+    edge_syn_types    = cell_syn_dict['syn_types'][syn_subset]
+    edge_swc_types    = cell_syn_dict['swc_types'][syn_subset]
+    edge_syn_locs     = cell_syn_dict['syn_locs'][syn_subset]
+    edge_syn_sections = cell_syn_dict['syn_secs'][syn_subset]
+
+    edge_syn_dict = { 'syn_types' : edge_syn_types,
+                      'syn_type'  : edge_syn_types,
+                      'syn_locs'  : edge_syn_locs,
+                      'syn_secs'  : edge_syn_sections }
+
+    return edge_syn_dict
+        
 
 def connectcells(env):
-    h('objref syn_type, syn_index, syn_weight, syn_weight_vector')
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
     if env.nodeRanks is None:
         (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,namespaces=['Synapses'])
     else:
         (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,node_rank_map=env.nodeRanks,namespaces=['Synapses'])
-    for postsyn_name in graph.keys():
-        for presyn_name in graph[postsyn_name].keys():
-            if env.verbose:
-                if env.pc.id() == 0:
-                    print "*** Creating projection %s -> %s" % (presyn_name, postsyn_name)
-            connectprj(env, presyn_name, postsyn_name, projections[postsyn_name][presyn_name])
+    
+    syn_id_attr_index = a['Synapses']['syn_id']
+    syn_distance_attr_index = a['Connections']['distance']
+    
+    for (postsyn_name, projections) in graph.iteritems():
+        connection_config = env.connection_generator.connection_properties
+        synapse_config = env.celltypes[postsyn_name]['synapses']
+        if synapse_config.has_key('spines'):
+            spines = synapse_config['spines']
+        else:
+            spines = False
+        for postsyn_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, postsyn_name, io_size=env.io_size,
+                                                                cache_size=env.cache_size, namespace=env.synapse_namespace):
+        
+            cell              = cell_dict[postsyn_gid]
+            cell_syn_dict     = attributes_dict[env.synapse_namespace][postsyn_gid]
+
+            for (presyn_name, edge_dict) in projections.iteritems():
+
+                edges          = edge_dict[postsyn_gid]
+                presyn_gids    = edges[0]
+                edge_syn_ids   = edges[1][syn_id_attr_index]
+                edge_dists     = edges[1][distance_attr_index]
+                edge_syn_dict  = filter_syn_dict (edge_syn_ids, cell_syn_dict)
+            
+                edge_syn_types    = edge_syn_dict['syn_types']
+                edge_swc_types    = edge_syn_dict['swc_types']
+                edge_syn_locs     = edge_syn_dict['syn_locs']
+                edge_syn_sections = edge_syn_dict['syn_secs']
+                
+                edge_syn_ps_dict  = synapses.mksyns(cell,
+                                                    edge_syn_ids,
+                                                    edge_syn_types,
+                                                    edge_swc_types,
+                                                    edge_syn_locs,
+                                                    edge_syn_sections,
+                                                    syn_kinetics, env,
+                                                    spines=spines)
+
+                connection_dict = connection_config[postsyn_name][presyn_name]
+                
+                for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+                    syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
+                    for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
+                        connection_syn_mech_config = connection_config[syn_mech]
+                        weight = connection_syn_mech_config['weight']
+                        delay  = distance / connection_syn_mech_config['velocity']
+                        h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+
 
 
 my_syns = defaultdict(lambda: {})
@@ -356,7 +287,6 @@ def mkcells(env):
             tree = trees[gid]
             verboseflag = 0
                 h.cell = cells.make_neurotree_cell(template_name, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
-                h.cell.correct_for_spines()
                 env.gidlist.append(gid)
                 env.cells.append(h.cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -450,7 +380,7 @@ def init(env):
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
     h.startsw()
-    connectgjs(env)
+    #connectgjs(env)
     env.connectgjstime = h.stopsw()
     if (env.pc.id() == 0):
         print "*** Gap junctions created in %g seconds" % env.connectgjstime

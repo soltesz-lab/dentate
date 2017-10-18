@@ -138,7 +138,7 @@ class ConnectionProb(object):
             plt.ylabel('Transverse distance (um)')
             plt.show()
             plt.close()
-        return p1, source_gid
+        return p1, source_gid, distance_u, distance_v
 
     
 def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict):
@@ -217,10 +217,14 @@ def generate_synaptic_connections(ranstream_syn,
     count = 0
     for projection, syn_ids in synapse_prj_partition.iteritems():
         count += len(syn_ids)
-        source_probs, source_gids = projection_prob_dict[projection]
+        source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection]
         source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
+        uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float)
+        distances = np.repeat(uv_distance_sums, source_gid_counts)
         connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
-                                                            { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) } } ) }
+                                                            { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
+                                                              'Connections' : { 'distance': distances }
+                                                            } ) }
         
     ## If any projection does not have connections associated with it, create empty entries
     ## This is necessary for the parallel graph append operation, which performs a separate append for each projection,
@@ -228,7 +232,9 @@ def generate_synaptic_connections(ranstream_syn,
     for projection in projection_synapse_dict.iterkeys():
         if not connection_dict.has_key(projection):
             connection_dict[projection] = { destination_gid : ( np.asarray ([], dtype=np.uint32),
-                                                            { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) } } ) }
+                                                            { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) },
+                                                              'Connections' : { 'distance': np.asarray ([], dtype=np.float) }
+                                                             } ) }
 
     return count
 
@@ -293,8 +299,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             synapse_dict = attributes_dict[synapse_namespace]
             projection_prob_dict = {}
             for source_population in source_populations:
-                probs, source_gids = connection_prob.get_prob(destination_gid, source_population)
-                projection_prob_dict[source_population] = (probs, source_gids)
+                probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)
+                projection_prob_dict[source_population] = (probs, source_gids, distances_u, distances_v)
                 print 'Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
 
             
@@ -315,7 +321,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         if destination_gid is None:
             projection_dict = {}
         else:
-            projection_dict = {destination_population: connection_dict}
+            projection_dict = { destination_population: connection_dict }
         append_graph(comm, connectivity_path, projection_dict, io_size)
         if rank == 0:
             if destination_gid is not None: 

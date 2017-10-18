@@ -1,3 +1,7 @@
+##
+## Computes arc distance approximations relative to beginning of U and V coordinate ranges.
+##
+
 import sys
 from mpi4py import MPI
 import itertools

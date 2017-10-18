@@ -24,49 +24,28 @@ proc printCellSections() { localobj cell strdef typeName
 }
 
 
-// Adds network connections to all synapses in a list
-proc mknetcon1() { local i localobj synlist, nclist, pc, nc
-    pc      = $o1
-    nclist  = $o2
-    src     = $3
-    synlist = $o4
-    for i=0, synlist.count()-1 {
-        nc = pc.gid_connect(src, synlist.o(i))
-        nc.weight = $5
-        nc.delay = $6
-        nclist.append(nc)
-    }
-}
 
-
-// Adds a network connection to a single synapse in a list
-proc mknetcon2() { local srcgid, dstgid, index localobj synlist, pc, nclist, nc strdef errmsg
+// Adds a network connection to a single synapse point process
+proc mknetcon() { local srcgid, dstgid, index localobj syn, pc, nclist, nc strdef errmsg
     pc      = $o1
     nclist  = $o2
     srcgid  = $3
     dstgid  = $4
-    synlist = $o5
+    syn     = $o5
     index   = $6
-    if (index < synlist.count()) {
-        nc = pc.gid_connect(srcgid, synlist.o(index))
-        nc.weight = $7
-	nc.delay = $8
-	nclist.append(nc)
-    }
-    sprint(errmsg,"mknetcon2: connection %d -> %d: synapse index %d is greater than total number of synapses (%d)",srcgid,dstgid,index,synlist.count())
-    assert (index < synlist.count(), errmsg)
+    nc = pc.gid_connect(srcgid, syn)
+    nc.weight = $7
+    nc.delay = $8
+    nclist.append(nc)
 }
 
 
-// A variant of ParallelNetManager.nc_append that takes in a synaptic
-// point process as an argument (as opposed to the index of a synapse in cell.synlist)
-func nc_appendsyn1() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
-    i = 0
+proc nc_appendsyn() {local i, se, lsrc, ltar localobj w, nc, pc, cell, syn, nclist, synIndex strdef errmsg
     pc       = $o1
     nclist   = $o2
     lsrc     = $3
     ltar     = $4
-    synIndex = $o5
+    syn      = $o5
     w        = $o6
     del      = $7
     // target in this subset
@@ -75,45 +54,9 @@ func nc_appendsyn1() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist,
     assert (pc.gid_exists(ltar), errmsg)
     if (pc.gid_exists(ltar)) {
         cell = pc.gid2cell(ltar)
-        assert (synIndex.is_undefined == 0,"synIndex is undefined")
         assert (w.is_undefined == 0,"w is undefined")
-        i = nclist.count()
-  	if (synIndex.is_number) {
-           mknetcon1(pc, nclist, lsrc, cell.syns.o(synIndex.n), w.n/1000.0, del)
-	} else {
-           mknetcon1(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(0).n), w.l.o(0).n/1000.0, del)
-           mknetcon1(pc, nclist, lsrc, cell.syns.o(synIndex.l.o(1).n), w.l.o(1).n/1000.0, del)
-        }
+	mknetcon(pc, nclist, lsrc, ltar, syn, synIndex.n, w.n/1000.0, del)
     }
-    return i
-}
-
-func nc_appendsyn2() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist, nclist, synIndex strdef errmsg
-    i = 0
-    pc       = $o1
-    nclist   = $o2
-    lsrc     = $3
-    ltar     = $4
-    synIndex = $o5
-    w        = $o6
-    del      = $7
-    // target in this subset
-    // source may be on this or another machine
-    sprint(errmsg,"nc_appendsyn: gid %d does not exist on host %d",ltar,pc.id())
-    assert (pc.gid_exists(ltar), errmsg)
-    if (pc.gid_exists(ltar)) {
-        cell = pc.gid2cell(ltar)
-        assert (synIndex.is_undefined == 0,"synIndex is undefined")
-        assert (w.is_undefined == 0,"w is undefined")
-        i = nclist.count()
-  	if (synIndex.is_number) {
-	   mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synIndex.n, w.n/1000.0, del)
-	} else {
-	   mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synIndex.l.o(0).n, w.l.o(0).n/1000.0, del)
-	   mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synIndex.l.o(1).n, w.l.o(1).n/1000.0, del)
-        }
-    }
-    return i
 }
 
 
@@ -122,14 +65,12 @@ func nc_appendsyn2() {local i, se, lsrc, ltar localobj w, nc, pc, cell, synlist,
 // synapse in cell.synlist) and 2) chooses the synaptic
 // weight from a predefined vector of synaptic weights for this
 // connection type
-func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx localobj w, nc, pc, cell, synlist, nclist, synType, synIndex strdef errmsg
-    i = -1
+proc nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx localobj w, nc, pc, cell, syn, nclist strdef errmsg
     pc       = $o1
     nclist   = $o2
     lsrc     = $3
     ltar     = $4
-    synType  = $o5
-    synIndex = $o6
+    syn      = $o5
     w        = $o7
     wsize    = w.size()
     del      = $8
@@ -138,112 +79,10 @@ func nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx
     // target in this subset
     // source may be on this or another machine
     cell = pc.gid2cell(ltar)
-    i = nclist.count()
-    if (synType.is_number) {
-      synidx = synIndex.n
-      widx = (ltar + synidx) % wsize
-      mknetcon2(pc, nclist, lsrc, ltar, cell.allsyns, synidx, w.x[widx]/1000.0, del)
-    } else {
-      execerror ("Unsupported synapse type")
-    }
-    return i
+    widx = (ltar + synidx) % wsize
+    mknetcon(pc, nclist, lsrc, ltar, syn, synidx, w.x[widx]/1000.0, del)
 }
 
-
-// helper function to create synapses
-proc mksyn() { local i, dendnum, compnum localobj cell, nc, syn, riseTime, decayTime, erev, dend, comp, count, rsdend, rscomp, dendindex, compindex strdef cellTypeName
-
-    cell = $o1
-    riseTime = $o2
-    decayTime = $o3
-    erev = $o4
-    dend = $o5 
-    comp = $o6
-    rsdend = $o7
-    rscomp = $o8
-    cellTypeName = $s9
-
-    if (verbose > 0) {
-        printf ("mksyn: cellTypeName = %s dend.count = %d comp.count = %d\n", cellTypeName, dend.count(), comp.count())
-    }
-    
-    // TODO: use count property for total number of synapses to create
-    rsdend.r.discunif(1,4)
-    rscomp.r.discunif(1,4)
-
-    for i = 0, dend.count()-1 {
-
-        dendindex = dend.o(i)
-        compindex = comp.o(i)
-        
-        assert (dendindex.is_undefined == 0,"mksyn: dendindex is undefined")
-        assert (compindex.is_undefined == 0,"mksyn: compindex is undefined")
-        
-        if (dendindex.is_nil) { continue }
-
-        if (dendindex.is_list) {
-
-            dendnum = rsdend.repick() % (dendindex.l.o(1).n+1)
-            if (compindex.is_list) {
-              compnum = rscomp.repick() % (compindex.l.o(1).n+1)
-            } else {
-              compnum = compindex.n
-            }
-            
-            if (verbose > 0) {
-                printf ("mksyn: cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
-            }
-
-            cell.dendrites[dendnum][compnum] {
-                
-	        syn = new Exp2Syn(0.5)
-                syn.tau1 = riseTime.o(i).n
-                syn.tau2 = decayTime.o(i).n
-                syn.e = erev.o(i).n
-    		cell.syns.o(i).append(syn)
-            }
-            
- 	} else if (dendindex.is_number) {
-            
-            dendnum = dendindex.n
-	    if (compindex.is_list) {
-                compnum = rscomp.repick() % (compindex.l.o(1).n+1)
-            } else {
-                compnum = compindex.n
-            }
-            
-            if (verbose > 0) {
-                printf ("mksyn (dendindex is a number): cellTypeName = %s dendnum = %d compnum = %d\n", cellTypeName, dendnum, compnum)
-            }
-            
-            cell.dendrites[dendnum][compnum] {
-	        syn = new Exp2Syn(0.5)
-                syn.tau1 = riseTime.o(i).n
-                syn.tau2 = decayTime.o(i).n
-                syn.e = erev.o(i).n
-    		cell.syns.o(i).append(syn)
-            }
-            
- 	} else {
-            
-            if (verbose > 0) {
-                printf ("mksyn: cellTypeName = %s synapse in soma\n", cellTypeName)
-            }
-            
-            cell.soma {
-	        syn = new Exp2Syn(0.5)
-                syn.tau1 = riseTime.o(i).n
-                syn.tau2 = decayTime.o(i).n
-                syn.e = erev.o(i).n
-    		cell.syns.o(i).append(syn)
-                
-            }
-        }
-        
-    }
-    
-    
-}
 
 // help function to create gap junctions
 proc mkgap() { local gid, sgid, dgid, w localobj pc, cell, gj, gjlist
