@@ -158,7 +158,7 @@ Synapse Layers:
       LPP:  [OML]
       MC:   [IML]
       NGFC: [MML, OML]
-      AAC:  [GCL]
+      AAC:  [Hilus]
       BC:   [GCL, IML]
       MOPP: [IML, MML]
       HCC:  [IML]
