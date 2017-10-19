@@ -71,12 +71,6 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'axon': (cell.axon, 50.0)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
 
-                print 'Rank %i gid: %i apical indices: ' % (rank, gid)
-                cell_secidx_dict['apical'].printf()
-                print 'Rank %i gid: %i soma indices: ' % (rank, gid)
-                cell_secidx_dict['soma'].printf()
-                print 'Rank %i gid: %i axon indices: ' % (rank, gid)
-                cell_secidx_dict['axon'].printf()
                 if distribution == 'uniform':
                     synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.synapse_types, env.SWC_types, env.layers,
                                                                                               density_dict, morph_dict,
@@ -85,8 +79,9 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                     synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.synapse_types, env.SWC_types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
+                else:
+                    raise Exception('Unknown distribution type: %s' % distribution)
                     
-                
                 del cell
                 num_syns = len(synapse_dict[gid-population_start]['syn_ids'])
                 print 'Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid)
