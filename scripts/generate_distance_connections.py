@@ -21,12 +21,13 @@ script_name = 'generate_distance_connections.py'
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--distances-namespace", type=str, default='Arc Distance')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
+@click.option("--quick", type=bool, default=False)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         distances_namespace, synapses_namespace, io_size, chunk_size, value_chunk_size, cache_size):
+         distances_namespace, synapses_namespace, quick, io_size, chunk_size, value_chunk_size, cache_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -71,7 +72,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          connection_prob, forest_path,
                                          synapse_seed, synapses_namespace, 
                                          connectivity_seed, connectivity_namespace, connectivity_path,
-                                         io_size, chunk_size, value_chunk_size, cache_size)
+                                         io_size, chunk_size, value_chunk_size, cache_size, quick=quick)
 
 
 if __name__ == '__main__':

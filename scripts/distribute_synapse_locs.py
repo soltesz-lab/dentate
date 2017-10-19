@@ -70,7 +70,13 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 #    mismatched_section_dict[gid] = this_mismatched_sections
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'axon': (cell.axon, 50.0)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
-                
+
+                print 'Rank %i gid: %i apical indices: ' % (rank, gid)
+                cell_secidx_dict['apical'].printf()
+                print 'Rank %i gid: %i soma indices: ' % (rank, gid)
+                cell_secidx_dict['soma'].printf()
+                print 'Rank %i gid: %i axon indices: ' % (rank, gid)
+                cell_secidx_dict['axon'].printf()
                 if distribution == 'uniform':
                     synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.synapse_types, env.SWC_types, env.layers,
                                                                                               density_dict, morph_dict,
