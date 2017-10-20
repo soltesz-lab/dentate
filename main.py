@@ -7,10 +7,11 @@ import os.path
 import click
 import itertools
 from collections import defaultdict
+from datetime import datetime
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
 import h5py
 from env import Env
 import lpt, utils, synapses, cells
@@ -90,21 +91,22 @@ def spikeout (env, output_path, t_vec, id_vec):
     inds     = np.digitize(id_vec, bins)
 
     for i in range(0,len(types)):
-        sinds    = inds[np.where(inds == i)]
-        ids      = id_vec[sinds]
-        ts       = t_vec[sinds]
         spkdict  = {}
-        for j in range(0,len(ids)):
-            id = ids[j]
-            t  = ts[j]
-            if spkdict.has_key(id):
-                spkdict[id]['t'].append(t)
-            else:
-                spkdict[id]= {'t': [t]}
-        for j in spkdict.keys():
-            spkdict[j]['t'] = np.array(spkdict[j]['t'])
-        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace="Spike Events")
-        ## {0: {'t': a }}
+        sinds    = inds[np.where(inds == i)]
+        if sinds:
+            ids      = id_vec[sinds]
+            ts       = t_vec[sinds]
+            for j in range(0,len(ids)):
+                id = ids[j]
+                t  = ts[j]
+                if spkdict.has_key(id):
+                    spkdict[id]['t'].append(t)
+                else:
+                    spkdict[id]= {'t': [t]}
+            for j in spkdict.keys():
+                spkdict[j]['t'] = np.array(spkdict[j]['t'])
+        pop_name = types[i]
+        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace="Spike Events %s" % str(datetime.now()))
         
 def filter_syn_dict (edge_syn_ids, cell_syn_dict):
     
@@ -447,7 +449,10 @@ def run (env):
 
     spikeoutPath = "%s/%s_spikeout.h5" % (env.resultsPath, env.modelName)
     if (rank == 0):
-        mkspikeout (env, spikeoutPath)
+        try:
+            mkspikeout (env, spikeoutPath)
+        except:
+            pass
     spikeout(env, spikeoutPath, env.t_vec, env.id_vec)
 
     # TODO:
