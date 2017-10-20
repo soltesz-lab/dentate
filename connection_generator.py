@@ -38,7 +38,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5., ip_surface=False):
+    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5., ip_surface=None):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -55,7 +55,6 @@ class ConnectionProb(object):
         self.width  = {}
         self.offset = {}
         self.sigma  = {}
-        self.quick  = quick
         self.ip_surface = ip_surface
             
         for source_population in extent:
@@ -96,6 +95,8 @@ class ConnectionProb(object):
         
         distance_u_lst = []
         distance_v_lst = []
+        source_u_lst   = []
+        source_v_lst   = []
         source_gid_lst = []
 
         for (source_gid, coords) in source_soma_coords.iteritems():
@@ -218,6 +219,7 @@ def generate_synaptic_connections(ranstream_syn,
                                                population_dict, projection_synapse_dict)
         if projection is None:
             print 'Projection is none for syn_type = ', syn_type, 'swc_type = ', swc_type, ' syn_layer = ', syn_layer
+            print projection_synapse_dict
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 

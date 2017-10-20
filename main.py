@@ -10,9 +10,9 @@ from collections import defaultdict
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, population_ranges
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, read_population_ranges
 from env import Env
-import lpt, utils, synapses
+import lpt, utils, synapses, cells
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
@@ -122,7 +122,7 @@ def filter_syn_dict (edge_syn_ids, cell_syn_dict):
 
 def connectcells(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-    connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
+    connectivityFilePath = os.path.join(datasetPath,env.modelConfig['Connection Data'])
     if env.nodeRanks is None:
         (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,
                                         namespaces=['Synapses','Connections'])
@@ -270,7 +270,7 @@ def mkcells(env):
     popNames = env.celltypes.keys()
     popNames.sort()
     for popName in popNames:
-        templateName = env.celltypes[popName]['templateName']
+        templateName = env.celltypes[popName]['template']
         h.find_template(env.pc, h.templatePaths, templateName)
 
     for popName in popNames:
@@ -278,8 +278,9 @@ def mkcells(env):
         if env.verbose:
             if env.pc.id() == 0:
                 print "*** Creating population %s" % popName
-        
-        templateName = env.celltypes[popName]['templateName']
+
+        templateName = env.celltypes[popName]['template']
+
         if env.celltypes[popName].has_key('synapses'):
             synapses = env.celltypes[popName]['synapses']
         else:
@@ -287,32 +288,34 @@ def mkcells(env):
 
         i=0
 
-        inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
+        inputFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
         if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, env.IOsize)
+                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize)
         else:
-                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, env.IOsize,
+                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize,
                                                          node_rank_map=env.nodeRanks)
         mygidlist = trees.keys()
         numCells = len(mygidlist)
         h.numCells = numCells
         i=0
         for gid in mygidlist:
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Creating gid %i" % gid
+            
             tree = trees[gid]
             verboseflag = 0
-                h.cell = cells.make_neurotree_cell(template_name, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
-                env.gidlist.append(gid)
-                env.cells.append(h.cell)
-                env.pc.set_gid2node(gid, int(env.pc.id()))
-                ## Tell the ParallelContext that this cell is a spike source
-                ## for all other hosts. NetCon is temporary.
-                nc = h.cell.connect2target(h.nil)
-                env.pc.cell(gid, nc, 1)
-                ## Record spikes of this cell
-                env.pc.spike_record(gid, env.t_vec, env.id_vec)
-                i = i+1
-        else:
-             error ("Unsupported template type %s" % (env.celltypes[popName]['templateType']))
+            h.cell = cells.make_neurotree_cell(templateName, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
+            env.gidlist.append(gid)
+            env.cells.append(h.cell)
+            env.pc.set_gid2node(gid, int(env.pc.id()))
+            ## Tell the ParallelContext that this cell is a spike source
+            ## for all other hosts. NetCon is temporary.
+            nc = h.cell.connect2target(h.nil)
+            env.pc.cell(gid, nc, 1)
+            ## Record spikes of this cell
+            env.pc.spike_record(gid, env.t_vec, env.id_vec)
+            i = i+1
 
              
 def mkstim(env):
@@ -324,6 +327,8 @@ def mkstim(env):
     
     h('objref vecstim_index')
 
+    inputFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+
     popNames = env.celltypes.keys()
     popNames.sort()
     for popName in popNames:
@@ -331,11 +336,11 @@ def mkstim(env):
             vecstim   = env.celltypes[popName]['vectorStimulus']
 
             if env.nodeRanks is None:
-              cell_attributes_dict = scatter_read_cell_attributes(comm, forest_path, postsyn_name, 
+              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
                                                                   namespaces=[vecstim],
                                                                   io_size=env.IOsize)
             else:
-              cell_attributes_dict = scatter_read_cell_attributes(comm, forest_path, postsyn_name, 
+              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
                                                                   namespaces=[vecstim],
                                                                   node_rank_map=env.nodeRanks,
                                                                   io_size=env.IOsize)
@@ -468,7 +473,6 @@ def run (env):
     
 @click.command()
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--defs-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False, default='./config/Definitions.yaml'))
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
@@ -483,10 +487,10 @@ def run (env):
 @click.option("--dt", type=float, default=0.025)
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)
-@click.option('--verbose', is_flag=True)
-def main(config_file, defs_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+@click.option('--verbose', '-v', is_flag=True)
+def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, defs_file,
+    env = Env(MPI.COMM_WORLD, config_file, 
               template_paths, dataset_prefix, results_path,
               node_rank_file, io_size,
               vrecord_fraction, coredat, tstop, v_init,
