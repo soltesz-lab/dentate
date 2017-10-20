@@ -113,7 +113,7 @@ def filter_syn_dict (edge_syn_ids, cell_syn_dict):
     edge_syn_sections = cell_syn_dict['syn_secs'][syn_subset]
 
     edge_syn_dict = { 'syn_types' : edge_syn_types,
-                      'syn_type'  : edge_syn_types,
+                      'swc_types'  : edge_swc_types,
                       'syn_locs'  : edge_syn_locs,
                       'syn_secs'  : edge_syn_sections }
 
@@ -123,29 +123,29 @@ def filter_syn_dict (edge_syn_ids, cell_syn_dict):
 def connectcells(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
     connectivityFilePath = os.path.join(datasetPath,env.modelConfig['Connection Data'])
+    forestFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+
     if env.nodeRanks is None:
-        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
                                         namespaces=['Synapses','Connections'])
     else:
-        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,env.IOsize,
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
                                         node_rank_map=env.nodeRanks,
                                         namespaces=['Synapses','Connections'])
     
-    if env.nodeRanks is None:
-      cell_attributes_dict = scatter_read_cell_attributes(comm, forest_path, postsyn_name, 
-                                                          namespaces=['Synapse Attributes'],
-                                                          io_size=env.IOsize)
-    else:
-      cell_attributes_dict = scatter_read_cell_attributes(comm, forest_path, postsyn_name, 
-                                                          namespaces=['Synapse Attributes'],
-                                                          node_rank_map=env.nodeRanks,
-                                                          io_size=env.IOsize)
-
-    cell_synapses_dict = cell_attributes_dict['Synapse Attributes']
-
-    
-    connection_config = env.connection_generator.connection_properties
     for (postsyn_name, projections) in graph.iteritems():
+
+        if env.nodeRanks is None:
+            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                                namespaces=['Synapse Attributes'],
+                                                                io_size=env.IOsize)
+        else:
+            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                                namespaces=['Synapse Attributes'],
+                                                                node_rank_map=env.nodeRanks,
+                                                                io_size=env.IOsize)
+
+        cell_synapses_dict = cell_attributes_dict['Synapse Attributes']
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if synapse_config.has_key('spines'):
             spines = synapse_config['spines']
@@ -154,43 +154,44 @@ def connectcells(env):
         
         for (presyn_name, edge_dict) in projections.iteritems():
 
-          connection_dict = connection_config[postsyn_name][presyn_name]
-          
-          syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
-          syn_distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+          if len(edge_dict) > 0:
+            connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
+            kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
 
-          for (postsyn_gid, edges) in edge_dict.iteritems():
+            syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
+            distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
 
+            for (postsyn_gid, edges) in edge_dict.iteritems():
 
-            cell           = env.pc.gid2cell(postsyn_gid)
-            cell_syn_dict  = cell_synapses_dict[postsyn_gid]
+              cell           = env.pc.gid2cell(postsyn_gid)
+              cell_syn_dict  = cell_synapses_dict[postsyn_gid]
 
-            presyn_gids    = edges[0]
-            edge_syn_ids   = edges[1][syn_id_attr_index]
-            edge_dists     = edges[1][distance_attr_index]
-            edge_syn_dict  = filter_syn_dict (edge_syn_ids, cell_syn_dict)
-            
-            edge_syn_types    = edge_syn_dict['syn_types']
-            edge_swc_types    = edge_syn_dict['swc_types']
-            edge_syn_locs     = edge_syn_dict['syn_locs']
-            edge_syn_sections = edge_syn_dict['syn_secs']
-            
-            edge_syn_ps_dict  = synapses.mksyns(cell,
-                                                edge_syn_ids,
-                                                edge_syn_types,
-                                                edge_swc_types,
-                                                edge_syn_locs,
-                                                edge_syn_sections,
-                                                syn_kinetics, env,
-                                                spines=spines)
+              presyn_gids    = edges[0]
+              edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
+              edge_dists     = edges[1]['Connections'][distance_attr_index]
+              edge_syn_dict  = filter_syn_dict (edge_syn_ids, cell_syn_dict)
+
+              edge_syn_types    = edge_syn_dict['syn_types']
+              edge_swc_types    = edge_syn_dict['swc_types']
+              edge_syn_locs     = edge_syn_dict['syn_locs']
+              edge_syn_sections = edge_syn_dict['syn_secs']
+
+              edge_syn_ps_dict  = synapses.mksyns(cell,
+                                                  edge_syn_ids,
+                                                  edge_syn_types,
+                                                  edge_swc_types,
+                                                  edge_syn_locs,
+                                                  edge_syn_sections,
+                                                  kinetics_dict, env,
+                                                  spines=spines)
                 
-            for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
-              syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
-              for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
-                connection_syn_mech_config = connection_config[syn_mech]
-                weight = connection_syn_mech_config['weight']
-                delay  = distance / connection_syn_mech_config['velocity']
-                h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+              for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+                syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
+                for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
+                  connection_syn_mech_config = connection_dict[syn_mech]
+                  weight = connection_syn_mech_config['weight']
+                  delay  = distance / connection_syn_mech_config['velocity']
+                  h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
 
 
 
@@ -326,8 +327,6 @@ def mkstim(env):
 
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
     
-    h('objref vecstim_index')
-
     inputFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
 
     popNames = env.celltypes.keys()

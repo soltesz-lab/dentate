@@ -188,7 +188,7 @@ class Env:
             raise RuntimeError("missing configuration file")
 
         defs = self.modelConfig['Definitions']
-        self.SWC_types = defs['SWC Types']
+        self.SWC_Types = defs['SWC Types']
         self.synapse_types = defs['Synapse Types']
         self.layers = defs['Layers']
 
