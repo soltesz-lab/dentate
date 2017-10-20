@@ -1,7 +1,7 @@
 import sys, os.path, string
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_cell_attributes
+from neuroh5.io import read_cell_attributes, read_population_ranges
 import numpy as np
 from collections import namedtuple
 import yaml
@@ -73,42 +73,22 @@ class Env:
         self.connection_generator = connection_generator_dict
 
     def load_celltypes(self):
-        # use this communicator for small size I/O operations performed by rank 0
         rank = self.comm.Get_rank()
         size = self.comm.Get_size()
-        if rank == 0:
-            color = 1
-        else:
-            color = 2
-        iocomm = self.comm.Split(color, rank)
-        offset = 0
         celltypes = self.celltypes
         typenames = celltypes.keys()
         typenames.sort()
+
+        datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
+        forestFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
+
+        (population_ranges, _) = read_population_ranges(self.comm, forestFilePath)
+
         for k in typenames:
-            if celltypes[k].has_key('cardinality'):
-                num = celltypes[k]['cardinality']
-                celltypes[k]['offset'] = offset
-                celltypes[k]['num'] = num
-                start  = offset
-                offset = offset+num
-                index  = range(start, offset)
-                celltypes[k]['index'] = index
-            elif celltypes[k].has_key('indexFile'):
-                fpath = os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexFile'])
-                if rank == 0:
-                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Coordinates")
-                    index  = coords.keys()
-                    index.sort()
-                else:
-                    index = None
-                index = self.comm.bcast(index, root=0)
-                celltypes[k]['index'] = index
-                celltypes[k]['offset'] = offset
-                celltypes[k]['num'] = len(index)
-                offset=max(index)+1
-        iocomm.Free()
-    
+            celltypes[k]['start'] = population_ranges[k][0]
+            celltypes[k]['num'] = population_ranges[k][1]
+
+            
     def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """

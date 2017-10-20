@@ -10,7 +10,7 @@ from collections import defaultdict
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, read_population_ranges
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes
 import h5py
 from env import Env
 import lpt, utils, synapses, cells
