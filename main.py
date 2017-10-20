@@ -131,20 +131,17 @@ def connectcells(env):
                                         node_rank_map=env.nodeRanks,
                                         namespaces=['Synapses','Connections'])
     
-    syn_id_attr_index = a['Synapses']['syn_id']
-    syn_distance_attr_index = a['Connections']['distance']
-    
     if env.nodeRanks is None:
       cell_attributes_dict = scatter_read_cell_attributes(comm, forest_path, postsyn_name, 
-                                                          namespaces=['Synapses'],
+                                                          namespaces=['Synapse Attributes'],
                                                           io_size=env.IOsize)
     else:
       cell_attributes_dict = scatter_read_cell_attributes(comm, forest_path, postsyn_name, 
-                                                          namespaces=['Synapses'],
+                                                          namespaces=['Synapse Attributes'],
                                                           node_rank_map=env.nodeRanks,
                                                           io_size=env.IOsize)
 
-    cell_synapses_dict = cell_attributes_dict['Synapses']
+    cell_synapses_dict = cell_attributes_dict['Synapse Attributes']
 
     
     connection_config = env.connection_generator.connection_properties
@@ -159,7 +156,11 @@ def connectcells(env):
 
           connection_dict = connection_config[postsyn_name][presyn_name]
           
+          syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
+          syn_distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+
           for (postsyn_gid, edges) in edge_dict.iteritems():
+
 
             cell           = env.pc.gid2cell(postsyn_gid)
             cell_syn_dict  = cell_synapses_dict[postsyn_gid]
