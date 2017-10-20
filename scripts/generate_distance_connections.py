@@ -6,6 +6,7 @@ import sys, gc
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
 from connection_generator import ConnectionProb, generate_uv_distance_connections
+from DG_surface import make_surface
 from env import Env
 import utils
 import click
@@ -21,7 +22,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--distances-namespace", type=str, default='Arc Distance')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
-@click.option("--quick", type=bool, default=False)
+@click.option("--quick", type=bool, default=False, is_flag=True)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -37,6 +38,10 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
     soma_distances = {}
+
+    ip_surface = None
+    if not quick:
+        ip_surface = make_surface(l=3.) ## corresponds to outer molecular layer
     
     population_ranges = read_population_ranges(comm, coords_path)[0].keys()
     for population in population_ranges:
@@ -59,7 +64,9 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     
     for destination_population in populations:
 
-        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
+        connection_prob = ConnectionProb(destination_population,
+                                         soma_coords, soma_distances,
+                                         extent, ip_surface=ip_surface)
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         

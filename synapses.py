@@ -332,7 +332,7 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_pa
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
       syn_mech_dict = {}
       for (syn_mech, params) in syn_kinetic_params.iteritems():
-        syn = add_synapse(syn_mech, swc_type, sec(syn_loc), syns_dict)
+        syn = add_synapse(syn_mech, sec(syn_loc), syns_dict)
         syn.tau1 = params['t_rise']
         syn.tau2 = params['t_decay']
         syn.e    = params['e_rev']

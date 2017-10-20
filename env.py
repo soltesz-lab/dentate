@@ -204,7 +204,7 @@ class Env:
 
         defs = self.modelConfig['Definitions']
         self.SWC_Types = defs['SWC Types']
-        self.synapse_types = defs['Synapse Types']
+        self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
 
         self.celltypes = self.modelConfig['Cell Types']

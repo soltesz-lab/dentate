@@ -74,7 +74,34 @@ class ConnectionProb(object):
                                                             self.sigma[source_population]['u'])**2. +
                                                             ((abs(distance_v) - self.offset[source_population]['v']) /
                                                             self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
+
+    def compute_srf_distances(self, destination_u, destination_v, source_u_vect, source_v_vect, npts=250):
+        """
+        Computes arc distances using interpolated surface. 
+        :param destination_u: float
+        :param destination_v: float
+        :param source_u_vect: vector
+        :param source_v_vect: vector
+        :param npts: int
+        """
+
+        distance_u_lst = []
+        distance_v_lst = []
+
+        for (source_u, source_v) in itertools.izip(source_u_vect, source_v_vect):
             
+            U = np.linspace(destination_u, source_u, npts)
+            V = np.linspace(destination_v, source_v, npts)
+            distance_u1 = self.ip_surface.point_distance(U, destination_v, normalize_uv=True)
+            distance_u2 = self.ip_surface.point_distance(U, source_v, normalize_uv=True)
+            distance_u  = (distance_u1 + distance_u2) / 2.
+            distance_v1 = self.ip_surface.point_distance(destination_u, V, normalize_uv=True)
+            distance_v2 = self.ip_surface.point_distance(source_u, V, normalize_uv=True)
+            distance_v  = (distance_v1 + distance_v2) / 2.
+            distance_u_lst.append(distance_u)
+            distance_v_lst.append(distance_v)
+
+        return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32)
 
     def filter_by_distance(self, destination_gid, source_population):
         """
@@ -119,7 +146,7 @@ class ConnectionProb(object):
                 distance_v_lst.append(source_distance_v)
                 source_gid_lst.append(source_gid)
 
-        return np.asarray(source_u_lst), np.asarray(source_v_lst), np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
+        return destination_u, destination_v, np.asarray(source_u_lst), np.asarray(source_v_lst), np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
 
     def get_prob(self, destination_gid, source, plot=False):
         """
@@ -130,9 +157,9 @@ class ConnectionProb(object):
         :param plot: bool
         :return: array of float, array of int
         """
-        source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
+        destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
         if self.ip_surface is not None:
-           self.compute_srf_distances(destination_gid, source_gid, source_u, source_v, distance_u, distance_v)
+           distance_u, distance_v = self.compute_srf_distances(destination_u, destination_v, source_u, source_v)
         p = self.p_dist[source](distance_u, distance_v)
         psum = np.sum(p)
         if psum > 0.:

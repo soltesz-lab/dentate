@@ -11,6 +11,7 @@ import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, read_population_ranges
+import h5py
 from env import Env
 import lpt, utils, synapses, cells
 
@@ -67,10 +68,12 @@ def lpt_bal(env):
 
         
 def mkspikeout (env, spikeout_filename):
-    populationsFile = h5py.File(env.populationsFile)
+    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
+    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    forestFile      = h5py.File(forestFilePath)
     spikeoutFile    = h5py.File(spikeout_filename)
-    populationsFile.copy('/H5Types',spikeoutFile)
-    populationsFile.close()
+    forestFile.copy('/H5Types',spikeoutFile)
+    forestFile.close()
     spikeoutFile.close()
 
     
@@ -195,9 +198,6 @@ def connectcells(env):
                     h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
                   else:
                     h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
-
-
-
 
            
 

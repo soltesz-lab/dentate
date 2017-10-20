@@ -72,11 +72,11 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
 
                 if distribution == 'uniform':
-                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.synapse_types, env.SWC_types, env.layers,
+                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 elif distribution == 'poisson':
-                    synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.synapse_types, env.SWC_types, env.layers,
+                    synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 else:
