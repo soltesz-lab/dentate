@@ -1,10 +1,7 @@
 from function_lib import *
 from collections import Counter
 from mpi4py import MPI
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, population_ranges
 import click
 
 
@@ -76,11 +73,11 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    population_range_dict = population_ranges(MPI._addressof(comm), features_path)
+    population_range_dict = population_ranges(comm, features_path)
 
     features_dict = {}
     for population in ['MPP', 'LPP']:
-        features_dict[population] = bcast_cell_attributes(MPI._addressof(comm), 0, features_path, population,
+        features_dict[population] = bcast_cell_attributes(comm, 0, features_path, population,
                                                           namespace='Feature Selectivity')
 
     run_vel = 30.  # cm/s
@@ -111,8 +108,8 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     target_population = 'GC'
     count = 0
     start_time = time.time()
-    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
-                                cache_size=cache_size, namespace=connectivity_namespace)
+    attr_gen = NeuroH5CellAttrGen(comm, connectivity_path, target_population, io_size=io_size,
+                                  cache_size=cache_size, namespace=connectivity_namespace)
     if debug:
         attr_gen = [attr_gen.next() for i in xrange(2)]
     for gid, connectivity_dict in attr_gen:
@@ -158,7 +155,7 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
         if not debug:
-            append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_dict,
+            append_cell_attributes(comm, features_path, target_population, response_dict,
                                    namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
         sys.stdout.flush()

@@ -1,8 +1,8 @@
 from function_lib import *
 from mpi4py import MPI
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import population_ranges
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import NeurotreeAttrGen
+from neuroh5.io import population_ranges
 import scipy.optimize as optimize
 import random
 import click  # CLI argument processing
@@ -148,11 +148,11 @@ HC: HIL
 IS: HIL
 """
 
-pmin = {'GC': [0.03142, -0.7225, -1.95], 'MPP': [-0.0502, -0.7225, 1.], 'LPP': [-0.0502, -0.7225, 2.],
+pmin = {'GC': [0.03142, -0.7225, -1.95], 'MEC': [-0.0502, -0.7225, 1.], 'LEC': [-0.0502, -0.7225, 2.],
         'MC': [0.03142, -0.7225, -3.95], 'NGFC': [-0.0502, -0.7225, 1.], 'AAC': [-0.0502, -0.7225, -3.95],
         'BC': [-0.0502, -0.7225, -3.95], 'MOPP': [-0.0502, -0.7225, 0.], 'HCC': [0.03142, -0.7225, -3.95],
         'HC': [0.03142, -0.7225, -3.95], 'IS': [0.03142, -0.7225, -3.95]}
-pmax = {'GC': [3.0787, 4.4767, 0.], 'MPP': [3.1730, 4.4767, 2.], 'LPP': [3.1730, 4.4767, 3.1],
+pmax = {'GC': [3.0787, 4.4767, 0.], 'MEC': [3.1730, 4.4767, 2.], 'LEC': [3.1730, 4.4767, 3.1],
         'MC': [3.0787, 4.4767, -1.95], 'NGFC': [3.1730, 4.4767, 3.1], 'AAC': [3.1730, 4.4767, 1.],
         'BC': [3.1730, 4.4767, 1.], 'MOPP': [3.1730, 4.4767, 3.1], 'HCC': [3.0787, 4.4767, 0.],
         'HC': [3.0787, 4.4767, -1.95], 'IS': [3.0787, 4.4767, -1.95]}
@@ -192,6 +192,7 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size, cache_size
     populations = population_ranges(MPI._addressof(comm), coords_path).keys()
 
     for population in populations:
+        print 'population: ', population
     # for population in ['MC']:
         # U, V, L
         this_pmin = pmin[population]
@@ -203,12 +204,12 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size, cache_size
         start_time = time.time()
         count = 0
         coords_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_path, population, io_size=io_size,
-                                      cache_size=cache_size, namespace='Coordinates')
+                                      cache_size=cache_size, namespace='Sampled Coordinates')
         for gid, orig_coords_dict in coords_gen:
         # gid, orig_coords_dict = coords_gen.next()
             coords_dict = {}
             if gid is not None:
-                orig_coords_dict = orig_coords_dict['Coordinates']
+                orig_coords_dict = orig_coords_dict['Sampled Coordinates']
 
                 coords_dict[gid] = {parameter: np.array([], dtype='float32') for parameter in
                                     ['X Coordinate', 'Y Coordinate', 'Z Coordinate', 'U Coordinate', 'V Coordinate',
@@ -244,6 +245,10 @@ def main(log_dir, coords_path, io_size, chunk_size, value_chunk_size, cache_size
                         if error < min_error:
                             min_error = error
                             best_coords = fixed_coords
+                        else:
+                            if best_coords is None:
+                                best_coords = fixed_coords
+                                min_error = error
                         this_p0 = check_bounds.point_in_bounds()
                 interp_coords = interp_points(best_coords)
                 formatted_xi = '[' + ', '.join(['%.4E' % xi for xi in interp_coords]) + ']'

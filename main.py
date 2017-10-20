@@ -6,13 +6,15 @@ import sys, os
 import os.path
 import click
 import itertools
+from collections import defaultdict
+from datetime import datetime
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurograph.io import scatter_graph, bcast_graph
-from neurotrees.io import scatter_read_trees, population_ranges
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
+import h5py
 from env import Env
-import lpt
+import lpt, utils, synapses, cells
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
@@ -65,13 +67,17 @@ def lpt_bal(env):
           fp.write('%d %d\n' % (x[1],part_rank))
         part_rank = part_rank+1
 
-def mkspikeout (env, spikeout_filename):
-    populationsFile = h5py.File(env.populationsFile)
-    spikeoutFile    = h5py.File(spikeout_filename)
-    populationsFile.copy('/H5Types',spikeoutFile)
-    populationsFile.close()
-    spikeoutFile.close()
         
+def mkspikeout (env, spikeout_filename):
+    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
+    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    forestFile      = h5py.File(forestFilePath)
+    spikeoutFile    = h5py.File(spikeout_filename)
+    forestFile.copy('/H5Types',spikeoutFile)
+    forestFile.close()
+    spikeoutFile.close()
+
+    
 def spikeout (env, output_path, t_vec, id_vec):
     binlst  = []
     typelst = env.celltypes.keys()
@@ -85,210 +91,117 @@ def spikeout (env, output_path, t_vec, id_vec):
     inds     = np.digitize(id_vec, bins)
 
     for i in range(0,len(types)):
-        sinds    = inds[np.where(inds == i)]
-        ids      = id_vec[sinds]
-        ts       = t_vec[sinds]
         spkdict  = {}
-        for j in range(0,len(ids)):
-            id = ids[j]
-            t  = ts[j]
-            if spkdict.has_key(id):
-                spkdict[id]['t'].append(t)
-            else:
-                spkdict[id]= {'t': [t]}
-        for j in spkdict.keys():
-            spkdict[j]['t'] = np.array(spkdict[j]['t'])
-        write_cell_attributes(MPI._addressof(env.comm), output_path, pop_name, spkdict, namespace="Spike Events")
-        ## {0: {'t': a }}
+        sinds    = inds[np.where(inds == i)]
+        if sinds:
+            ids      = id_vec[sinds]
+            ts       = t_vec[sinds]
+            for j in range(0,len(ids)):
+                id = ids[j]
+                t  = ts[j]
+                if spkdict.has_key(id):
+                    spkdict[id]['t'].append(t)
+                else:
+                    spkdict[id]= {'t': [t]}
+            for j in spkdict.keys():
+                spkdict[j]['t'] = np.array(spkdict[j]['t'])
+        pop_name = types[i]
+        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace="Spike Events %s" % str(datetime.now()))
         
+def filter_syn_dict (edge_syn_ids, cell_syn_dict):
     
-def connectprj(env, graph, prjname, prjvalue):
-    prjType    = prjvalue['type']
-    indexType  = prjvalue['index']
-    prj        = graph[prjname]
+    syn_subset = np.where(np.isin(cell_syn_dict['syn_ids'], edge_syn_ids))
+    
+    edge_syn_types    = cell_syn_dict['syn_types'][syn_subset]
+    edge_swc_types    = cell_syn_dict['swc_types'][syn_subset]
+    edge_syn_locs     = cell_syn_dict['syn_locs'][syn_subset]
+    edge_syn_sections = cell_syn_dict['syn_secs'][syn_subset]
 
-    if (prjType == 'long.+trans.dist'):
-        wgtval = prjvalue['weight']
-        if isinstance(wgtval,list):
-            wgtlst = h.List()
-            for val in wgtval:
-                hval = h.Value(0, val)
-                wgtlst.append(hval)
-            h.syn_weight = h.Value(2,wgtlst)
-        else:
-            h.syn_weight = h.Value(0,wgtval)
-        idxval = prjvalue['synIndex']
-        if isinstance(idxval,list):
-            idxlst = h.List()
-            for val in idxval:
-                hval = h.Value(0, val)
-                idxlst.append(hval)
-            h.syn_index = h.Value(2,idxlst)
-        else:
-            h.syn_index = h.Value(0,idxval)
-        velocity = prjvalue['velocity']
-        for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            ldists  = edges[1]
-            tdists  = edges[2]
-            if indexType == 'absolute':
-                for i in range(0,len(sources)):
-                        source   = sources[i]
-                        distance = ldists[i] + tdists[i]
-                        delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-    elif (prjType == 'dist'):
-        wgtval = prjvalue['weight']
-        if isinstance(wgtval,list):
-            wgtlst = h.List()
-            for val in wgtval:
-                hval = h.Value(0, val)
-                wgtlst.append(hval)
-            h.syn_weight = h.Value(2,wgtlst)
-        else:
-            h.syn_weight = h.Value(0,wgtval)
-        idxval = prjvalue['synIndex']
-        if isinstance(idxval,list):
-            idxlst = h.List()
-            for val in idxval:
-                hval = h.Value(0, val)
-                idxlst.append(hval)
-            h.syn_index = h.Value(2,idxlst)
-        else:
-            h.syn_index = h.Value(0,idxval)
-        velocity = prjvalue['velocity']
-        for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            dists  = edges[1]
-            if indexType == 'absolute':
-                for i in range(0,len(sources)):
-                        source   = sources[i]
-                        distance = dists[i]
-                        delay    = (distance / velocity) + 1.0
-                        h.nc_appendsyn1(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-    elif (prjType == 'syn'):
-        h.syn_type = h.Value(0,prjvalue['synType'])
-        velocity = prjvalue['velocity']
-        if prjvalue.has_key('weights'):
-          wgtvector = prjvalue['weights']
-          h.syn_weight_vector = h.Vector()
-          h.syn_weight_vector.from_python(wgtvector)
-          for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            synidxs = edges[1]
-            if indexType == 'absolute':
-              for i in range(0,len(sources)):
-                source   = sources[i]
-                h.syn_index = h.Value(0,synidxs[i])
-                delay = 1.0
-                h.nc_appendsyn_wgtvector(env.pc, h.nclist, source, destination, h.syn_type, h.syn_index, h.syn_weight_vector, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-        elif prjvalue.has_key('weight'):
-          wgtval = prjvalue['weight']
-          if isinstance(wgtval,list):
-            wgtlst = h.List()
-            for val in wgtval:
-                hval = h.Value(0, val)
-                wgtlst.append(hval)
-            h.syn_weight = h.Value(2,wgtlst)
-          else:
-            h.syn_weight = h.Value(0,wgtval)
-          for destination in prj:
-            edges  = prj[destination]
-            sources = edges[0]
-            synidxs = edges[1]
-            if indexType == 'absolute':
-              for i in range(0,len(sources)):
-                source   = sources[i]
-                h.syn_index  = h.Value(0,synidxs[i])
-                delay = 1.0
-                h.nc_appendsyn2(env.pc, h.nclist, source, destination, h.syn_index, h.syn_weight, delay)
-            else:
-                raise RuntimeError ("Unsupported index type %s of projection %s" % (indexType, prjname))
-        else:
-          raise RuntimeError ("Projection %s has no weights attribute" % prjname)
-    else:
-        raise RuntimeError ("Unsupported projection type %s of projection %s" % (prjType, prjname))
-                       
-    del graph[prjname]
+    edge_syn_dict = { 'syn_types' : edge_syn_types,
+                      'swc_types'  : edge_swc_types,
+                      'syn_locs'  : edge_syn_locs,
+                      'syn_secs'  : edge_syn_sections }
+
+    return edge_syn_dict
+        
 
 def connectcells(env):
-    h('objref syn_type, syn_index, syn_weight, syn_weight_vector')
-    projections = env.projections
-    if env.verbose:
-        if env.pc.id() == 0:
-            print projections
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-    connectivityFilePath = os.path.join(datasetPath,env.connectivityFile)
-    if env.nodeRanks is None:
-        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,attributes=True)
-    else:
-        (graph, a) = scatter_graph(MPI._addressof(env.comm),connectivityFilePath,env.IOsize,node_rank_map=env.nodeRanks,attributes=True)
-    for name in projections.keys():
-        if env.verbose:
-            if env.pc.id() == 0:
-                print "*** Creating projection %s" % name
-        connectprj(env, graph, name, projections[name])
-    
-def mksyn1(cell,synapses,env):
-    for synkey in synapses.keys():
-        synval = synapses[synkey]
-        synorder = env.synapseOrder[synkey]
-        location = synval['location']
-        t_rise   = synval['t_rise']
-        t_decay  = synval['t_decay']
-        e_rev    = synval['e_rev']
-        if location == 'soma':
-            cell.soma.push()
-            h.syn = h.Exp2Syn(0.5)
-            h.syn.tau1 = t_rise
-            h.syn.tau2 = t_decay
-            h.syn.e    = e_rev
-    	    cell.syns.o(synorder).append(h.syn)
-            h.pop_section()
-        elif location.has_key('dendrite'):
-            for dendindex in location['dendrite']:
-                if isinstance(location['compartment'],list):
-                    compartments=location['compartment']
-                else:
-                    compartments=[location['compartment']]
-                for secindex in compartments:
-                    cell.dendrites[dendindex][secindex].push()
-                    h.syn = h.Exp2Syn(0.5)
-                    h.syn.tau1 = t_rise
-                    h.syn.tau2 = t_decay
-                    h.syn.e    = e_rev
-                    cell.syns.o(synorder).append(h.syn)
-                    h.pop_section()
+    connectivityFilePath = os.path.join(datasetPath,env.modelConfig['Connection Data'])
+    forestFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
 
-                    
-def mksyn2(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapses,env):
-    sort_idx = np.argsort(syn_ids,axis=0)
-    for (syn_id,syn_type,swc_type,syn_loc,syn_section) in itertools.izip(syn_ids[sort_idx],syn_types[sort_idx],swc_types[sort_idx],syn_locs[sort_idx],syn_sections[sort_idx]):
-      if swc_type == env.defs.SWC_Types['apical']:
-        cell.alldendritesList[syn_section].root.push()
-        cell.alldendritesList[syn_section].sec(syn_loc).count_spines += 1
-      elif swc_type == env.defs.SWC_Types['axon']:
-        cell.allaxonsList[syn_section].root.push()
-      elif swc_type == env.defs.SWC_Types['soma']:
-        cell.allsomaList[syn_section].root.push()
-      else: 
-        raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      h.syn      = h.Exp2Syn(syn_loc)
-      h.syn.tau1 = synapses[syn_type]['t_rise']
-      h.syn.tau2 = synapses[syn_type]['t_decay']
-      h.syn.e    = synapses[syn_type]['e_rev']
-      cell.allsyns.append(h.syn)
-      cell.syntypes.o(syn_type).append(h.syn)
-      h.pop_section()
+    if env.nodeRanks is None:
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+                                        namespaces=['Synapses','Connections'])
+    else:
+        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+                                        node_rank_map=env.nodeRanks,
+                                        namespaces=['Synapses','Connections'])
+    
+    for (postsyn_name, projections) in graph.iteritems():
+
+        if env.nodeRanks is None:
+            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                                namespaces=['Synapse Attributes'],
+                                                                io_size=env.IOsize)
+        else:
+            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                                namespaces=['Synapse Attributes'],
+                                                                node_rank_map=env.nodeRanks,
+                                                                io_size=env.IOsize)
+
+        cell_synapses_dict = cell_attributes_dict['Synapse Attributes']
+        synapse_config = env.celltypes[postsyn_name]['synapses']
+        if synapse_config.has_key('spines'):
+            spines = synapse_config['spines']
+        else:
+            spines = False
+        
+        for (presyn_name, edge_dict) in projections.iteritems():
+
+          if len(edge_dict) > 0:
+            connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
+            kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
+
+            syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
+            distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+
+            for (postsyn_gid, edges) in edge_dict.iteritems():
+
+              cell           = env.pc.gid2cell(postsyn_gid)
+              cell_syn_dict  = cell_synapses_dict[postsyn_gid]
+
+              presyn_gids    = edges[0]
+              edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
+              edge_dists     = edges[1]['Connections'][distance_attr_index]
+              edge_syn_dict  = filter_syn_dict (edge_syn_ids, cell_syn_dict)
+
+              edge_syn_types    = edge_syn_dict['syn_types']
+              edge_swc_types    = edge_syn_dict['swc_types']
+              edge_syn_locs     = edge_syn_dict['syn_locs']
+              edge_syn_sections = edge_syn_dict['syn_secs']
+
+              edge_syn_ps_dict  = synapses.mksyns(cell,
+                                                  edge_syn_ids,
+                                                  edge_syn_types,
+                                                  edge_swc_types,
+                                                  edge_syn_locs,
+                                                  edge_syn_sections,
+                                                  kinetics_dict, env,
+                                                  spines=spines)
+                
+              for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+                syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
+                for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
+                  connection_syn_mech_config = connection_dict[syn_mech]
+                  weight = connection_syn_mech_config['weight']
+                  delay  = distance / connection_syn_mech_config['velocity']
+                  if type(weight) is float:
+                    h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                  else:
+                    h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+
+           
 
 def connectgjs(env):
     rank = int(env.pc.id())
@@ -310,7 +223,7 @@ def connectgjs(env):
             if env.pc.id() == 0:
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-        (graph, a) = bcast_graph(MPI._addressof(env.comm),gapjunctionsFilePath,attributes=True)
+        (graph, a) = bcast_graph(env.comm,gapjunctionsFilePath,attributes=True)
 
         ggid = 2e6
         for name in gapjunctions.keys():
@@ -346,7 +259,8 @@ def connectgjs(env):
                     ggid = ggid+2
 
             del graph[name]
- 
+
+
 def mkcells(env):
 
     h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
@@ -363,7 +277,7 @@ def mkcells(env):
     popNames = env.celltypes.keys()
     popNames.sort()
     for popName in popNames:
-        templateName = env.celltypes[popName]['templateName']
+        templateName = env.celltypes[popName]['template']
         h.find_template(env.pc, h.templatePaths, templateName)
 
     for popName in popNames:
@@ -371,112 +285,46 @@ def mkcells(env):
         if env.verbose:
             if env.pc.id() == 0:
                 print "*** Creating population %s" % popName
-        
-        templateName = env.celltypes[popName]['templateName']
+
+        templateName = env.celltypes[popName]['template']
+
         if env.celltypes[popName].has_key('synapses'):
             synapses = env.celltypes[popName]['synapses']
         else:
             synapses = {}
 
         i=0
-        if env.celltypes[popName]['templateType'] == 'single':
-            numCells  = env.celltypes[popName]['num']
-            h.numCells = numCells
-            h.totalNumCells = h.totalNumCells + numCells
-            index  = env.celltypes[popName]['index']
 
-            mygidlist = []
-            if env.nodeRanks is None:
-                for x in index:
-                    if (x % nhosts) == rank:
-                        mygidlist.append(x)
-            else:
-                for x in index:
-                    if env.nodeRanks[x] == rank:
-                        mygidlist.append(x)
-
-            if env.verbose:
-                print "Population %s, rank %d: " % (popName, env.pc.id())
-                print mygidlist
-        
-            env.gidlist.extend(mygidlist)
-            for gid in mygidlist:
-                hstmt = 'cell = new %s(%d, %d, "%s")' % (templateName, i, gid, datasetPath)
-                h(hstmt)
-
-                mksyn1(h.cell,synapses,env)
-                
-                env.cells.append(h.cell)
-                env.pc.set_gid2node(gid, int(env.pc.id()))
-                
-                ## Tell the ParallelContext that this cell is a spike source
-                ## for all other hosts. NetCon is temporary.
-                if (h.cell.is_art()):
-                    nc = h.NetCon(h.cell.pp, h.nil)
-                else:
-                    nc = h.cell.connect2target(h.nil)
-                env.pc.cell(gid, nc, 1)
-                nc = None
-                ## Record spikes of this cell
-                env.pc.spike_record(gid, env.t_vec, env.id_vec)
-                i = i+1
-                
-        elif env.celltypes[popName]['templateType'] == 'forest':
-            h('objref vx, vy, vz, vradius, vsection, vlayer, vsection, vsrc, vdst, secnodes')
-            h('gid = fid = node = 0')
-            inputFilePath = os.path.join(datasetPath,env.celltypes[popName]['forestFile'])
-            if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
-                                                        attributes=True, namespace='Synapse_Attributes')
-            else:
-                (trees, forestSize) = scatter_read_trees(MPI._addressof(env.comm), inputFilePath, popName, env.IOsize,
-                                                        attributes=True, namespace='Synapse_Attributes',
-                                                        node_rank_map=env.nodeRanks)
-            if env.celltypes[popName].has_key('synapses'):
-                synapses = env.celltypes[popName]['synapses']
-            else:
-                synapses = {}
-            mygidlist = trees.keys()
-            numCells = len(mygidlist)
-            h.numCells = numCells
-            i=0
-            for gid in mygidlist:
-                tree       = trees[gid]
-                h.gid      = gid
-                h.fid      = int(i%forestSize)
-                h.vx       = tree['x']
-                h.vy       = tree['y']
-                h.vz       = tree['z']
-                h.vradius  = tree['radius']
-                h.vlayer   = tree['layer']
-                h.vsection = tree['section']
-                h.secnodes = tree['section_topology']['nodes']
-                h.vsrc     = tree['section_topology']['src']
-                h.vdst     = tree['section_topology']['dst']
-                ## syn_id syn_type syn_locs section layer
-                h.syn_ids      = tree['Synapse_Attributes']['syn_id']
-                h.syn_types    = tree['Synapse_Attributes']['syn_type']
-                h.swc_types    = tree['Synapse_Attributes']['swc_type']
-                h.syn_locs     = tree['Synapse_Attributes']['syn_locs']
-                h.syn_sections = tree['Synapse_Attributes']['section']
-                verboseflag = 0
-                hstmt = 'cell = new %s(fid, gid, numCells, "", 0, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, %d)' % (templateName, verboseflag)
-                h(hstmt)
-                mksyn2(h.cell,h.syn_ids,h.syn_types,h.swc_types,h.syn_locs,h.syn_sections,synapses,env)
-                h.cell.correct_for_spines()
-                env.gidlist.append(gid)
-                env.cells.append(h.cell)
-                env.pc.set_gid2node(gid, int(env.pc.id()))
-                ## Tell the ParallelContext that this cell is a spike source
-                ## for all other hosts. NetCon is temporary.
-                nc = h.cell.connect2target(h.nil)
-                env.pc.cell(gid, nc, 1)
-                ## Record spikes of this cell
-                env.pc.spike_record(gid, env.t_vec, env.id_vec)
-                i = i+1
+        inputFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+        if env.nodeRanks is None:
+                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize)
         else:
-             error ("Unsupported template type %s" % (env.celltypes[popName]['templateType']))
+                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize,
+                                                         node_rank_map=env.nodeRanks)
+        mygidlist = trees.keys()
+        numCells = len(mygidlist)
+        h.numCells = numCells
+        i=0
+        for gid in mygidlist:
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Creating gid %i" % gid
+            
+            tree = trees[gid]
+            verboseflag = 0
+            h.cell = cells.make_neurotree_cell(templateName, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
+            env.gidlist.append(gid)
+            env.cells.append(h.cell)
+            env.pc.set_gid2node(gid, int(env.pc.id()))
+            ## Tell the ParallelContext that this cell is a spike source
+            ## for all other hosts. NetCon is temporary.
+            nc = h.cell.connect2target(h.nil)
+            env.pc.cell(gid, nc, 1)
+            ## Record spikes of this cell
+            env.pc.spike_record(gid, env.t_vec, env.id_vec)
+            i = i+1
 
+             
 def mkstim(env):
 
     rank = int(env.pc.id())
@@ -484,25 +332,29 @@ def mkstim(env):
 
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
     
-    h('objref vecstim_index')
+    inputFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
 
     popNames = env.celltypes.keys()
     popNames.sort()
     for popName in popNames:
         if env.celltypes[popName].has_key('vectorStimulus'):
             vecstim   = env.celltypes[popName]['vectorStimulus']
-            spikeFile = os.path.join(datasetPath, vecstim['spikeFile'])
-            indexFile = os.path.join(datasetPath, vecstim['indexFile'])
-            if vecstim.has_key('activeFile'):
-                activeFile = os.path.join(datasetPath, vecstim['activeFile'])
+
+            if env.nodeRanks is None:
+              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+                                                                  namespaces=[vecstim],
+                                                                  io_size=env.IOsize)
             else:
-                activeFile = ""
-            index     = env.celltypes[popName]['index']
-            h.vecstim_index = h.Vector()
-            for x in index:
-                h.vecstim_index.append(x)
-            h.loadVectorStimulation(env.pc, h.vecstim_index, indexFile, spikeFile, activeFile)
-            h.vecstim_index.resize(0)
+              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+                                                                  namespaces=[vecstim],
+                                                                  node_rank_map=env.nodeRanks,
+                                                                  io_size=env.IOsize)
+            cell_vecstim_dict = cell_attributes_dict[vecstim]
+
+            for (gid, cellspikes) in cell_vecstim_dict.iteritems():
+              cell = env.pc.gid2cell(gid)
+              cell.play(cellspikes)
+
             
 
             
@@ -557,7 +409,7 @@ def init(env):
     if (env.pc.id() == 0):
         print "*** Cells connected in %g seconds" % env.connectcellstime
     h.startsw()
-    connectgjs(env)
+    #connectgjs(env)
     env.connectgjstime = h.stopsw()
     if (env.pc.id() == 0):
         print "*** Gap junctions created in %g seconds" % env.connectgjstime
@@ -597,17 +449,13 @@ def run (env):
 
     spikeoutPath = "%s/%s_spikeout.h5" % (env.resultsPath, env.modelName)
     if (rank == 0):
-        mkspikeout (env, spikeoutPath)
+        try:
+            mkspikeout (env, spikeoutPath)
+        except:
+            pass
     spikeout(env, spikeoutPath, env.t_vec, env.id_vec)
-    
-    #if (rank == 0):
-        #h.spikeout("%s/%s_spikeout.dat" % (env.resultsPath, env.modelName),h.t_vec_all,h.id_vec_all)
-        #h.vcnts      = h.Vector(nhosts)
-        #h.vcnts.x[0] = env.t_vec.size()
-        #h.t_vec_all  = h.Vector()
-        #h.id_vec_all = h.Vector()
-        #env.pc.alltoall(env.t_vec, h.vcnts, h.t_vec_all)
-        #env.pc.alltoall(env.id_vec, h.vcnts, h.id_vec_all)
+
+    # TODO:
     #if (env.vrecordFraction > 0):
     #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
 
@@ -633,7 +481,6 @@ def run (env):
     
 @click.command()
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--defs-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False, default='./config/Definitions.yaml'))
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
@@ -648,10 +495,15 @@ def run (env):
 @click.option("--dt", type=float, default=0.025)
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)
-@click.option('--verbose', is_flag=True)
-def main(config_file, defs_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+@click.option('--verbose', '-v', is_flag=True)
+def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, defs_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose)
+    env = Env(MPI.COMM_WORLD, config_file, 
+              template_paths, dataset_prefix, results_path,
+              node_rank_file, io_size,
+              vrecord_fraction, coredat, tstop, v_init,
+              max_walltime_hours, results_write_time,
+              dt, ldbal, lptbal, verbose)
     init(env)
     run(env)
 

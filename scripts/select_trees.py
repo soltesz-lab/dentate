@@ -1,7 +1,7 @@
 import sys
 from mpi4py import MPI
 import numpy as np
-from neurotrees.io import append_cell_attributes, append_cell_trees, population_ranges
+from neuroh5.io import append_cell_attributes, append_cell_trees, population_ranges, NeuroH5TreeGen
 import click
 
 def list_find (f, lst):
@@ -47,12 +47,12 @@ def main(population, trees_path, index_path, chunk_size, value_chunk_size):
 
     
     selection_dict = {}
-    for gid, morph_dict in NeurotreeGen(MPI._addressof(comm), forest_path, population, io_size=io_size):
+    for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
         if index.has_key(gid):
             newgid = index[gid]
             selection_dict[newgid] = morph_dict
             
-    append_cell_trees (MPI._addressof(comm), output_path, population, selection_dict, io_size=io_size)
+    append_cell_trees (comm, output_path, population, selection_dict, io_size=io_size)
         
         
 

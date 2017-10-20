@@ -26,7 +26,7 @@ module load bwpy-mpi
 set -x
 
 
-export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
 export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
 export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
