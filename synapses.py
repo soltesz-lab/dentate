@@ -316,12 +316,14 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_pa
       sec = py_sections[syn_section]
       if swc_type == env.SWC_Types['apical']:
         syns_dict = syns_dict_dend
-        if spines and h.ismembrane('spines',sec=sec):
-          sec(syn_loc).count_spines += 1
+        if syn_type == env.Synapse_Types['excitatory']: 
+            if spines and h.ismembrane('spines',sec=sec):
+                sec(syn_loc).count_spines += 1
       elif swc_type == env.SWC_Types['basal']:
         syns_dict = syns_dict_dend
-        if spines and h.ismembrane('spines',sec=sec):
-          sec(syn_loc).count_spines += 1
+        if syn_type == env.Synapse_Types['excitatory']: 
+            if spines and h.ismembrane('spines',sec=sec):
+                sec(syn_loc).count_spines += 1
       elif swc_type == env.SWC_Types['axon']:
         syns_dict = syns_dict_axon
       elif swc_type == env.SWC_Types['soma']:
@@ -330,7 +332,7 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_pa
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
       syn_mech_dict = {}
       for (syn_mech, params) in syn_kinetic_params.iteritems():
-        syn = add_synapse(syn_mech, sec(syn_loc), syns_dict)
+        syn = add_synapse(syn_mech, swc_type, sec(syn_loc), syns_dict)
         syn.tau1 = params['t_rise']
         syn.tau2 = params['t_decay']
         syn.e    = params['e_rev']
