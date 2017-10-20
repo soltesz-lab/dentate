@@ -191,7 +191,10 @@ def connectcells(env):
                   connection_syn_mech_config = connection_dict[syn_mech]
                   weight = connection_syn_mech_config['weight']
                   delay  = distance / connection_syn_mech_config['velocity']
-                  h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                  if type(weight) is float:
+                    h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                  else:
+                    h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
 
 
 

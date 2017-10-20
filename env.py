@@ -41,7 +41,22 @@ class Env:
                 val_synlayers   = synapse_layers[key_postsyn][key_presyn]
                 val_proportions = synapse_proportions[key_postsyn][key_presyn]
                 val_synkins     = synapse_kinetics[key_postsyn][key_presyn]
-                val_connprops   = connection_properties[key_postsyn][key_presyn]
+                val_connprops1  = {}
+                for (k_mech,v_mech) in connection_properties[key_postsyn][key_presyn].iteritems():
+                    v_mech1 = {}
+                    for (k,v) in v_mech.iteritems():
+                        v1 = v
+                        if type(v) is dict:
+                            if v.has_key('from file'):
+                                with open(v['from file']) as fp:
+                                    lst = []
+                                    lines = fp.readlines()
+                                    for l in lines:
+                                        lst.append(float(l))
+                            v1 = h.Vector(np.asarray(lst, dtype=np.float32))
+                        v_mech1[k] = v1
+                    val_connprops1[k_mech] = v_mech1
+                            
 
                 val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
                 val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
@@ -52,7 +67,7 @@ class Env:
                                                                                          val_synlayers1,
                                                                                          val_proportions,
                                                                                          val_synkins,
-                                                                                         val_connprops)
+                                                                                         val_connprops1)
                 
             
         self.connection_generator = connection_generator_dict

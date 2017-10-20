@@ -697,8 +697,8 @@ Connection Properties:
         velocity: 250.0
     HCC:
       GABA_A:
-      weight: 0.6
-      velocity: 250.0
+        weight: 0.6
+        velocity: 250.0
     MC:
       AMPA:
         weight: 0.5

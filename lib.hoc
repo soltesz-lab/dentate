@@ -63,22 +63,22 @@ proc nc_appendsyn() {local w, i, se, lsrc, ltar localobj nc, pc, cell, syn, ncli
 // synapse in cell.synlist) and 2) chooses the synaptic
 // weight from a predefined vector of synaptic weights for this
 // connection type
-proc nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, synidx, widx localobj w, nc, pc, cell, syn, nclist strdef errmsg
+proc nc_appendsyn_wgtvector() {local i, se, lsrc, ltar, del, wsize, widx localobj w, nc, pc, cell, syn, nclist strdef errmsg
     pc       = $o1
     nclist   = $o2
     lsrc     = $3
     ltar     = $4
     syn      = $o5
-    w        = $o7
+    w        = $o6
     wsize    = w.size()
-    del      = $8
+    del      = $7
     sprint(errmsg,"nc_appendsyn_wgtvector: gid %d does not exist on host %d",ltar,pc.id())
     assert (pc.gid_exists(ltar), errmsg)
     // target in this subset
     // source may be on this or another machine
     cell = pc.gid2cell(ltar)
-    widx = (ltar + synidx) % wsize
-    mknetcon(pc, nclist, lsrc, ltar, syn, synidx, w.x[widx]/1000.0, del)
+    widx = ltar % wsize
+    mknetcon(pc, nclist, lsrc, ltar, syn, w.x[widx]/1000.0, del)
 }
 
 
