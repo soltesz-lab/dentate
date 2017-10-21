@@ -1,7 +1,7 @@
 import sys, os.path, string
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_cell_attributes
+from neuroh5.io import read_cell_attributes, read_population_ranges
 import numpy as np
 from collections import namedtuple
 import yaml
@@ -41,7 +41,22 @@ class Env:
                 val_synlayers   = synapse_layers[key_postsyn][key_presyn]
                 val_proportions = synapse_proportions[key_postsyn][key_presyn]
                 val_synkins     = synapse_kinetics[key_postsyn][key_presyn]
-                val_connprops   = connection_properties[key_postsyn][key_presyn]
+                val_connprops1  = {}
+                for (k_mech,v_mech) in connection_properties[key_postsyn][key_presyn].iteritems():
+                    v_mech1 = {}
+                    for (k,v) in v_mech.iteritems():
+                        v1 = v
+                        if type(v) is dict:
+                            if v.has_key('from file'):
+                                with open(v['from file']) as fp:
+                                    lst = []
+                                    lines = fp.readlines()
+                                    for l in lines:
+                                        lst.append(float(l))
+                            v1 = h.Vector(np.asarray(lst, dtype=np.float32))
+                        v_mech1[k] = v1
+                    val_connprops1[k_mech] = v_mech1
+                            
 
                 val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
                 val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
@@ -52,48 +67,28 @@ class Env:
                                                                                          val_synlayers1,
                                                                                          val_proportions,
                                                                                          val_synkins,
-                                                                                         val_connprops)
+                                                                                         val_connprops1)
                 
             
         self.connection_generator = connection_generator_dict
 
     def load_celltypes(self):
-        # use this communicator for small size I/O operations performed by rank 0
         rank = self.comm.Get_rank()
         size = self.comm.Get_size()
-        if rank == 0:
-            color = 1
-        else:
-            color = 2
-        iocomm = self.comm.Split(color, rank)
-        offset = 0
         celltypes = self.celltypes
         typenames = celltypes.keys()
         typenames.sort()
+
+        datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
+        forestFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
+
+        (population_ranges, _) = read_population_ranges(self.comm, forestFilePath)
+
         for k in typenames:
-            if celltypes[k].has_key('cardinality'):
-                num = celltypes[k]['cardinality']
-                celltypes[k]['offset'] = offset
-                celltypes[k]['num'] = num
-                start  = offset
-                offset = offset+num
-                index  = range(start, offset)
-                celltypes[k]['index'] = index
-            elif celltypes[k].has_key('indexFile'):
-                fpath = os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexFile'])
-                if rank == 0:
-                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Coordinates")
-                    index  = coords.keys()
-                    index.sort()
-                else:
-                    index = None
-                index = self.comm.bcast(index, root=0)
-                celltypes[k]['index'] = index
-                celltypes[k]['offset'] = offset
-                celltypes[k]['num'] = len(index)
-                offset=max(index)+1
-        iocomm.Free()
-    
+            celltypes[k]['start'] = population_ranges[k][0]
+            celltypes[k]['num'] = population_ranges[k][1]
+
+            
     def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
@@ -188,8 +183,8 @@ class Env:
             raise RuntimeError("missing configuration file")
 
         defs = self.modelConfig['Definitions']
-        self.SWC_types = defs['SWC Types']
-        self.synapse_types = defs['Synapse Types']
+        self.SWC_Types = defs['SWC Types']
+        self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
 
         self.celltypes = self.modelConfig['Cell Types']

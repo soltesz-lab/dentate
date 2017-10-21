@@ -38,7 +38,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5.):
+    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5., ip_surface=None):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -46,6 +46,7 @@ class ConnectionProb(object):
         :param soma_coords: a dictionary that contains per-population dicts of u, v coordinates of cell somas
         :param soma_distances: a dictionary that contains per-population dicts of distances along u, v to a reference position
         :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
+        :param ip_surface: an instance of bspline_surface; if this argument is provided, the supplied surface will be used for precise distance calculations
         """
         self.destination_population = destination_population
         self.soma_coords = soma_coords
@@ -54,6 +55,8 @@ class ConnectionProb(object):
         self.width  = {}
         self.offset = {}
         self.sigma  = {}
+        self.ip_surface = ip_surface
+            
         for source_population in extent:
             extent_width  = extent[source_population]['width']
             if extent[source_population].has_key('offset'):
@@ -71,7 +74,34 @@ class ConnectionProb(object):
                                                             self.sigma[source_population]['u'])**2. +
                                                             ((abs(distance_v) - self.offset[source_population]['v']) /
                                                             self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
+
+    def compute_srf_distances(self, destination_u, destination_v, source_u_vect, source_v_vect, npts=250):
+        """
+        Computes arc distances using interpolated surface. 
+        :param destination_u: float
+        :param destination_v: float
+        :param source_u_vect: vector
+        :param source_v_vect: vector
+        :param npts: int
+        """
+
+        distance_u_lst = []
+        distance_v_lst = []
+
+        for (source_u, source_v) in itertools.izip(source_u_vect, source_v_vect):
             
+            U = np.linspace(destination_u, source_u, npts)
+            V = np.linspace(destination_v, source_v, npts)
+            distance_u1 = self.ip_surface.point_distance(U, destination_v, normalize_uv=True)
+            distance_u2 = self.ip_surface.point_distance(U, source_v, normalize_uv=True)
+            distance_u  = (distance_u1 + distance_u2) / 2.
+            distance_v1 = self.ip_surface.point_distance(destination_u, V, normalize_uv=True)
+            distance_v2 = self.ip_surface.point_distance(source_u, V, normalize_uv=True)
+            distance_v  = (distance_v1 + distance_v2) / 2.
+            distance_u_lst.append(distance_u)
+            distance_v_lst.append(distance_v)
+
+        return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32)
 
     def filter_by_distance(self, destination_gid, source_population):
         """
@@ -92,6 +122,8 @@ class ConnectionProb(object):
         
         distance_u_lst = []
         distance_v_lst = []
+        source_u_lst   = []
+        source_v_lst   = []
         source_gid_lst = []
 
         for (source_gid, coords) in source_soma_coords.iteritems():
@@ -108,11 +140,13 @@ class ConnectionProb(object):
                 #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
             if ((distance_u <= source_width['u'] / 2. + source_offset['u']) &
                 (distance_v <= source_width['v'] / 2. + source_offset['v'])):
+                source_u_lst.append(source_u)
+                source_v_lst.append(source_v)
                 distance_u_lst.append(source_distance_u)
                 distance_v_lst.append(source_distance_v)
                 source_gid_lst.append(source_gid)
 
-        return np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
+        return destination_u, destination_v, np.asarray(source_u_lst), np.asarray(source_v_lst), np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
 
     def get_prob(self, destination_gid, source, plot=False):
         """
@@ -123,7 +157,9 @@ class ConnectionProb(object):
         :param plot: bool
         :return: array of float, array of int
         """
-        distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
+        destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
+        if self.ip_surface is not None:
+           distance_u, distance_v = self.compute_srf_distances(destination_u, destination_v, source_u, source_v)
         p = self.p_dist[source](distance_u, distance_v)
         psum = np.sum(p)
         if psum > 0.:
@@ -210,6 +246,7 @@ def generate_synaptic_connections(ranstream_syn,
                                                population_dict, projection_synapse_dict)
         if projection is None:
             print 'Projection is none for syn_type = ', syn_type, 'swc_type = ', swc_type, ' syn_layer = ', syn_layer
+            print projection_synapse_dict
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 

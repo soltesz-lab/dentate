@@ -303,7 +303,7 @@ def add_unique_synapse(mech_name, seg, syns_dict):
     syn = make_syn_mech(mech_name, seg)
     return syn
     
-def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetics,env,add_synapse=add_shared_synapse,spines=False):
+def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_params,env,add_synapse=add_shared_synapse,spines=False):
     sort_idx       = np.argsort(syn_ids,axis=0)
     syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
@@ -316,19 +316,20 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetics,e
       sec = py_sections[syn_section]
       if swc_type == env.SWC_Types['apical']:
         syns_dict = syns_dict_dend
-        if spines and h.ismembrane('spines',sec=sec):
-          sec(syn_loc).count_spines += 1
+        if syn_type == env.Synapse_Types['excitatory']: 
+            if spines and h.ismembrane('spines',sec=sec):
+                sec(syn_loc).count_spines += 1
       elif swc_type == env.SWC_Types['basal']:
         syns_dict = syns_dict_dend
-        if spines and h.ismembrane('spines',sec=sec):
-          sec(syn_loc).count_spines += 1
+        if syn_type == env.Synapse_Types['excitatory']: 
+            if spines and h.ismembrane('spines',sec=sec):
+                sec(syn_loc).count_spines += 1
       elif swc_type == env.SWC_Types['axon']:
         syns_dict = syns_dict_axon
       elif swc_type == env.SWC_Types['soma']:
         syns_dict = syns_dict_soma
       else: 
         raise RuntimeError ("Unsupported synapse SWC type %d" % swc_type)
-      syn_kinetic_params = syn_kinetics[syn_type]
       syn_mech_dict = {}
       for (syn_mech, params) in syn_kinetic_params.iteritems():
         syn = add_synapse(syn_mech, sec(syn_loc), syns_dict)

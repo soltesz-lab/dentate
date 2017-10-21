@@ -70,17 +70,18 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 #    mismatched_section_dict[gid] = this_mismatched_sections
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'axon': (cell.axon, 50.0)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
-                
+
                 if distribution == 'uniform':
-                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.synapse_types, env.SWC_types, env.layers,
+                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 elif distribution == 'poisson':
-                    synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.synapse_types, env.SWC_types, env.layers,
+                    synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
+                else:
+                    raise Exception('Unknown distribution type: %s' % distribution)
                     
-                
                 del cell
                 num_syns = len(synapse_dict[gid-population_start]['syn_ids'])
                 print 'Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid)

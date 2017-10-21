@@ -19,10 +19,13 @@ export PYTHONPATH=$HOME/model/dentate:$HOME/bin/nrn/lib/python:/projects/sciteam
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export SCRATCH=$HOME/scratch
 
+ulimit -c unlimited
+
 set -x
 cd $PBS_O_WORKDIR
 
-for pop in AAC BC HC HCC NGFC MOPP IS MC; do
+#for pop in AAC BC HC HCC NGFC MOPP IS MC; do
+for pop in MC; do
 
 cp $SCRATCH/dentate/dentate_h5types.h5 \
    $SCRATCH/dentate/DG_${pop}_connections_20171016.h5
