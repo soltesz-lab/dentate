@@ -103,7 +103,48 @@ class ConnectionProb(object):
 
         return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32)
 
-    def filter_by_distance(self, destination_gid, source_population):
+    def filter_by_distance1(self, destination_gid, source_population):
+        """
+        Given the id of a target neuron, returns the distances along u and v
+        and the gids of source neurons whose axons potentially contact the target neuron.
+        :param destination_gid: int
+        :param source_population: string
+        :return: tuple of array of int
+        """
+        destination_coords = self.soma_coords[self.destination_population][destination_gid]
+        destination_distances = self.soma_distances[self.destination_population][destination_gid]
+        
+        source_soma_coords = self.soma_coords[source_population]
+        source_soma_distances = self.soma_distances[source_population]
+
+        destination_u, destination_v  = destination_coords
+        destination_distance_u, destination_distance_v = destination_distances
+        
+        distance_u_lst = []
+        distance_v_lst = []
+        source_gid_lst = []
+
+        for (source_gid, coords) in source_soma_coords.iteritems():
+
+            source_u, source_v = coords
+
+            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
+
+            distance_u = abs(destination_distance_u - source_distance_u)
+            distance_v = abs(destination_distance_v - source_distance_v)
+            
+            source_width = self.width[source_population]
+            source_offset = self.offset[source_population]
+                #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
+            if ((distance_u <= source_width['u'] / 2. + source_offset['u']) &
+                (distance_v <= source_width['v'] / 2. + source_offset['v'])):
+                distance_u_lst.append(source_distance_u)
+                distance_v_lst.append(source_distance_v)
+                source_gid_lst.append(source_gid)
+
+        return np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
+    
+    def filter_by_distance2(self, destination_gid, source_population):
         """
         Given the id of a target neuron, returns the distances along u and v
         and the gids of source neurons whose axons potentially contact the target neuron.
@@ -157,9 +198,11 @@ class ConnectionProb(object):
         :param plot: bool
         :return: array of float, array of int
         """
-        destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
-        if self.ip_surface is not None:
-           distance_u, distance_v = self.compute_srf_distances(destination_u, destination_v, source_u, source_v)
+        if self.ip_surface is None:
+            distance_u, distance_v, source_gid = self.filter_by_distance1(destination_gid, source)
+        else:
+            destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance2(destination_gid, source)
+            distance_u, distance_v = self.compute_srf_distances(destination_u, destination_v, source_u, source_v)
         p = self.p_dist[source](distance_u, distance_v)
         psum = np.sum(p)
         if psum > 0.:
