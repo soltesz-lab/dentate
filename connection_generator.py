@@ -322,7 +322,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
     total_count = 0
     for destination_gid, synapse_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
-                                                               cache_size=cache_size, namespace=synapse_namespace):
+                                                            cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
         
         connection_dict = defaultdict(lambda: {})
