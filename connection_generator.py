@@ -321,8 +321,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                 for source_population in source_populations}
 
     total_count = 0
-    for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
-                                                               cache_size=cache_size, namespace=synapse_namespace):
+    for destination_gid, synapse_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
+                                                            cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
         
         connection_dict = defaultdict(lambda: {})
@@ -333,7 +333,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             ranstream_con.seed(destination_gid + connectivity_seed)
             ranstream_syn.seed(destination_gid + synapse_seed)
 
-            synapse_dict = attributes_dict[synapse_namespace]
             projection_prob_dict = {}
             for source_population in source_populations:
                 probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)

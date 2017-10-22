@@ -141,16 +141,17 @@ def connectcells(env):
     for (postsyn_name, projections) in graph.iteritems():
 
         if env.nodeRanks is None:
-            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                                namespaces=['Synapse Attributes'],
-                                                                io_size=env.IOsize)
+            cell_synapses = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                         namespaces=['Synapse Attributes'],
+                                                         io_size=env.IOsize)
         else:
-            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                                namespaces=['Synapse Attributes'],
-                                                                node_rank_map=env.nodeRanks,
-                                                                io_size=env.IOsize)
+            cell_synapses = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                         namespaces=['Synapse Attributes'],
+                                                         node_rank_map=env.nodeRanks,
+                                                         io_size=env.IOsize)
 
-        cell_synapses_dict = cell_attributes_dict['Synapse Attributes']
+        cell_synapses_dict = { k : v for for (k,v) in cell_synapses }
+            
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if synapse_config.has_key('spines'):
             spines = synapse_config['spines']
@@ -341,17 +342,15 @@ def mkstim(env):
             vecstim   = env.celltypes[popName]['vectorStimulus']
 
             if env.nodeRanks is None:
-              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
-                                                                  namespaces=[vecstim],
-                                                                  io_size=env.IOsize)
+              cell_vecstim = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+                                                          namespaces=[vecstim],
+                                                          io_size=env.IOsize)
             else:
-              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
-                                                                  namespaces=[vecstim],
-                                                                  node_rank_map=env.nodeRanks,
-                                                                  io_size=env.IOsize)
-            cell_vecstim_dict = cell_attributes_dict[vecstim]
-
-            for (gid, cellspikes) in cell_vecstim_dict.iteritems():
+              cell_vecstim = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+                                                          namespaces=[vecstim],
+                                                          node_rank_map=env.nodeRanks,
+                                                          io_size=env.IOsize)
+            for (gid, cellspikes) in cell_vecstim:
               cell = env.pc.gid2cell(gid)
               cell.play(cellspikes)
 
