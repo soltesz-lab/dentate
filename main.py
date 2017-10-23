@@ -176,19 +176,19 @@ def connectcells(env):
               presyn_gids    = edges[0]
               edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
               edge_dists     = edges[1]['Connections'][distance_attr_index]
-              edge_syn_dict  = filter_syn_dict (edge_syn_ids, cell_syn_dict)
+              ##edge_syn_dict  = filter_syn_dict (edge_syn_ids, cell_syn_dict)
 
-              edge_syn_types    = edge_syn_dict['syn_types']
-              edge_swc_types    = edge_syn_dict['swc_types']
-              edge_syn_locs     = edge_syn_dict['syn_locs']
-              edge_syn_sections = edge_syn_dict['syn_secs']
+              cell_syn_types    = cell_syn_dict['syn_types']
+              cell_swc_types    = cell_syn_dict['swc_types']
+              cell_syn_locs     = cell_syn_dict['syn_locs']
+              cell_syn_sections = cell_syn_dict['syn_secs']
 
               edge_syn_ps_dict  = synapses.mksyns(cell,
                                                   edge_syn_ids,
-                                                  edge_syn_types,
-                                                  edge_swc_types,
-                                                  edge_syn_locs,
-                                                  edge_syn_sections,
+                                                  cell_syn_types,
+                                                  cell_swc_types,
+                                                  cell_syn_locs,
+                                                  cell_syn_sections,
                                                   kinetics_dict, env,
                                                   spines=spines)
                 
