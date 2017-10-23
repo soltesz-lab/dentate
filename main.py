@@ -303,16 +303,13 @@ def mkcells(env):
         else:
                 (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize,
                                                          node_rank_map=env.nodeRanks)
-        mygidlist = trees.keys()
-        numCells = len(mygidlist)
-        h.numCells = numCells
+        numCells = 0
         i=0
-        for gid in mygidlist:
+        for (gid, tree) in trees:
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Creating gid %i" % gid
             
-            tree = trees[gid]
             verboseflag = 0
             h.cell = cells.make_neurotree_cell(templateName, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
             env.gidlist.append(gid)
@@ -325,6 +322,7 @@ def mkcells(env):
             ## Record spikes of this cell
             env.pc.spike_record(gid, env.t_vec, env.id_vec)
             i = i+1
+            h.numCells = h.numCells+1
 
              
 def mkstim(env):
