@@ -141,17 +141,16 @@ def connectcells(env):
     for (postsyn_name, projections) in graph.iteritems():
 
         if env.nodeRanks is None:
-            cell_synapses = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
                                                          namespaces=['Synapse Attributes'],
                                                          io_size=env.IOsize)
         else:
-            cell_synapses = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
                                                          namespaces=['Synapse Attributes'],
                                                          node_rank_map=env.nodeRanks,
                                                          io_size=env.IOsize)
-
-        cell_synapses_dict = { k : v for (k,v) in cell_synapses }
-        del cell_synapses
+        cell_synapses_dict = { k : v for (k,v) in cell_attributes_dict['Synapse Attributes'] }
+        del cell_attributes_dict
         
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if synapse_config.has_key('spines'):
@@ -161,7 +160,10 @@ def connectcells(env):
         
         for (presyn_name, edge_iter) in projections.iteritems():
 
-          if len(edge_dict) > 0:
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
+
             connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
             kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
 
@@ -303,7 +305,7 @@ def mkcells(env):
         else:
                 (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize,
                                                          node_rank_map=env.nodeRanks)
-        numCells = 0
+        h.numCells = 0
         i=0
         for (gid, tree) in trees:
             if env.verbose:
