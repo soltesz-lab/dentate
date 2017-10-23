@@ -151,14 +151,15 @@ def connectcells(env):
                                                          io_size=env.IOsize)
 
         cell_synapses_dict = { k : v for for (k,v) in cell_synapses }
-            
+        del cell_synapses
+        
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if synapse_config.has_key('spines'):
             spines = synapse_config['spines']
         else:
             spines = False
         
-        for (presyn_name, edge_dict) in projections.iteritems():
+        for (presyn_name, edge_iter) in projections.iteritems():
 
           if len(edge_dict) > 0:
             connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
@@ -167,7 +168,7 @@ def connectcells(env):
             syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
             distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
 
-            for (postsyn_gid, edges) in edge_dict.iteritems():
+            for (postsyn_gid, edges) in edge_iter:
 
               cell           = env.pc.gid2cell(postsyn_gid)
               cell_syn_dict  = cell_synapses_dict[postsyn_gid]
