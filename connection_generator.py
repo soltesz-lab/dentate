@@ -30,6 +30,10 @@ def list_index (element, lst):
 def random_choice_w_replacement(ranstream,n,p):
     return ranstream.multinomial(n,p.ravel())
 
+def softmax(x):
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
+
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -189,6 +193,7 @@ class ConnectionProb(object):
 
         return destination_u, destination_v, np.asarray(source_u_lst), np.asarray(source_v_lst), np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
 
+    
     def get_prob(self, destination_gid, source, plot=False):
         """
         Given the soma coordinates of a destination neuron and a population source, return an array of connection 
@@ -206,10 +211,11 @@ class ConnectionProb(object):
         p = self.p_dist[source](distance_u, distance_v)
         psum = np.sum(p)
         if psum > 0.:
-            p1 = p / psum
+            p1 = softmax(p)
         else:
             p1 = p
         assert((p1 >= 0.).all() and (p1 <= 1.).all())
+        
         if plot:
             plt.scatter(distance_u, distance_v, c=p1)
             plt.title(source+' -> '+target)
