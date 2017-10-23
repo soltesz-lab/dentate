@@ -150,7 +150,7 @@ def connectcells(env):
                                                          node_rank_map=env.nodeRanks,
                                                          io_size=env.IOsize)
 
-        cell_synapses_dict = { k : v for for (k,v) in cell_synapses }
+        cell_synapses_dict = { k : v for (k,v) in cell_synapses }
         del cell_synapses
         
         synapse_config = env.celltypes[postsyn_name]['synapses']
