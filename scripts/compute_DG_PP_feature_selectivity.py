@@ -11,7 +11,7 @@ except:
     pass
 
 
-script_name = 'compute_DG_PP_feature_selectivity_parameters.py'
+script_name = 'compute_DG_PP_feature_selectivity.py'
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
 #  sample uniformly from 10 modules with spacing that increases exponentially from 40 cm to 8 m. While organized
@@ -39,11 +39,11 @@ selectivity_type_dict = {'MPP': selectivity_grid, 'LPP': selectivity_place_field
 @click.option("--cache-size", type=int, default=50)
 @click.option("--seed", type=int, default=2)
 @click.option("--debug", is_flag=True)
-def main(coords_path, distances_namespace, origin_u, origin_v, io_size, chunk_size, value_chunk_size, cache_size, seed, debug):
+def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, seed, debug):
     """
 
     :param coords_path:
-    :param coords_namespace:
+    :param distances_namespace:
     :param io_size:
     :param chunk_size:
     :param value_chunk_size:
@@ -60,8 +60,6 @@ def main(coords_path, distances_namespace, origin_u, origin_v, io_size, chunk_si
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    srf = make_surface(l=3.)
-
     # make sure random seeds are not being reused for various types of stochastic sampling
     selectivity_seed_offset = int(seed * 2e6)
 
@@ -76,8 +74,7 @@ def main(coords_path, distances_namespace, origin_u, origin_v, io_size, chunk_si
         count = 0
         start_time = time.time()
         selectivity_type = selectivity_type_dict[population]
-        attr_gen = NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size,
-                                      cache_size=cache_size, namespace=coords_namespace):
+        attr_gen = NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size, cache_size=cache_size, namespace=distances_namespace)
         if debug:
             attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
         else:
