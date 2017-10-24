@@ -70,7 +70,10 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
 
     arena_dimension = 100.  # minimum distance from origin to boundary (cm)
 
+    population_ranges = read_population_ranges(comm, coords_path)[0]
+
     for population in ['MPP', 'LPP']:
+        (population_start, _) = population_ranges[population]
         count = 0
         start_time = time.time()
         selectivity_type = selectivity_type_dict[population]
@@ -83,45 +86,44 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
             selectivity_dict = {}
             if gid is not None:
                 local_time = time.time()
-                selectivity_dict[gid] = {}
+                selectivity_dict[gid-population_start] = {}
 
                 arc_distance_u = distances_dict['U Distance']
                 arc_distance_v = distances_dict['V Distance']
                     
                 local_random.seed(gid + selectivity_seed_offset)
-                selectivity_dict[gid]['Selectivity Type'] = np.array([selectivity_type], dtype='uint32')
+                selectivity_dict[gid-population_start]['Selectivity Type'] = np.array([selectivity_type], dtype='uint8')
                 
                 if selectivity_type == selectivity_grid:
                     this_module = local_random.choice(modules)
                     this_grid_spacing = field_width(float(this_module)/float(max(modules)))
-                    selectivity_dict[gid]['Grid Spacing'] = np.array([this_grid_spacing],
+                    selectivity_dict[gid-population_start]['Grid Spacing'] = np.array([this_grid_spacing],
                                                                     dtype='float32')
                     this_grid_orientation = grid_orientation[this_module]
-                    selectivity_dict[gid]['Grid Orientation'] = np.array([this_grid_orientation], dtype='float32')
+                    selectivity_dict[gid-population_start]['Grid Orientation'] = np.array([this_grid_orientation], dtype='float32')
                     
                     # aiming for close to uniform input density inside the square arena
                     radius = (this_grid_spacing + np.sqrt(2.) * arena_dimension) * np.sqrt(local_random.random())
                     phi_offset = local_random.uniform(-np.pi, np.pi)
                     x_offset = radius * np.cos(phi_offset)
                     y_offset = radius * np.sin(phi_offset)
-                    selectivity_dict[gid]['X Offset'] = np.array([x_offset], dtype='float32')
-                    selectivity_dict[gid]['Y Offset'] = np.array([y_offset], dtype='float32')
+                    selectivity_dict[gid-population_start]['X Offset'] = np.array([x_offset], dtype='float32')
+                    selectivity_dict[gid-population_start]['Y Offset'] = np.array([y_offset], dtype='float32')
                     
                 elif selectivity_type == selectivity_place_field:
                     this_field_width = field_width(arc_distance_u / DG_surface.max_u)
-                    selectivity_dict[gid]['Field Width'] = np.array([this_field_width], dtype='float32')
+                    selectivity_dict[gid-population_start]['Field Width'] = np.array([this_field_width], dtype='float32')
                     
                     # aiming for close to uniform input density inside the square arena
                     radius = (this_field_width + np.sqrt(2.) * arena_dimension) * np.sqrt(local_random.random())
                     phi_offset = local_random.uniform(-np.pi, np.pi)
                     x_offset = radius * np.cos(phi_offset)
                     y_offset = radius * np.sin(phi_offset)
-                    selectivity_dict[gid]['X Offset'] = np.array([x_offset], dtype='float32')
-                    selectivity_dict[gid]['Y Offset'] = np.array([y_offset], dtype='float32')
+                    selectivity_dict[gid-population_start]['X Offset'] = np.array([x_offset], dtype='float32')
+                    selectivity_dict[gid-population_start]['Y Offset'] = np.array([y_offset], dtype='float32')
                 print 'Rank %i: took %.2f s to compute selectivity parameters for %s gid %i' % \
                       (rank, time.time() - local_time, population, gid)
                 count += 1
-            comm.Barrier()
             if not debug:
                 append_cell_attributes(comm, coords_path, population, selectivity_dict,
                                        namespace='Feature Selectivity', io_size=io_size, 
