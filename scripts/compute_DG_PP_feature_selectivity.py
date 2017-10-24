@@ -1,6 +1,6 @@
 from function_lib import *
 from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import click
 import DG_surface
 
