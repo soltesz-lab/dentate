@@ -215,9 +215,6 @@ class ConnectionProb(object):
         else:
             p1 = p
         assert((p1 >= 0.).all() and (p1 <= 1.).all())
-        if np.sum(p1[:-1] > 1.):
-            print 'sum(p1) > 1: p1: ', p1
-            p1 = p1 / sum(p1[:-1])
         if plot:
             plt.scatter(distance_u, distance_v, c=p1)
             plt.title(source+' -> '+target)
@@ -314,6 +311,7 @@ def generate_synaptic_connections(ranstream_syn,
                                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
                                                               'Connections' : { 'distance': distances }
                                                             } ) }
+
         
     ## If any projection does not have connections associated with it, create empty entries
     ## This is necessary for the parallel graph append operation, which performs a separate append for each projection,

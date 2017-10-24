@@ -108,22 +108,6 @@ def spikeout (env, output_path, t_vec, id_vec):
         pop_name = types[i]
         write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace="Spike Events %s" % str(datetime.now()))
         
-def filter_syn_dict (edge_syn_ids, cell_syn_dict):
-    
-    syn_subset = np.where(np.isin(cell_syn_dict['syn_ids'], edge_syn_ids))
-    
-    edge_syn_types    = cell_syn_dict['syn_types'][syn_subset]
-    edge_swc_types    = cell_syn_dict['swc_types'][syn_subset]
-    edge_syn_locs     = cell_syn_dict['syn_locs'][syn_subset]
-    edge_syn_sections = cell_syn_dict['syn_secs'][syn_subset]
-
-    edge_syn_dict = { 'syn_types' : edge_syn_types,
-                      'swc_types'  : edge_swc_types,
-                      'syn_locs'  : edge_syn_locs,
-                      'syn_secs'  : edge_syn_sections }
-
-    return edge_syn_dict
-        
 
 def connectcells(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
@@ -178,7 +162,6 @@ def connectcells(env):
               presyn_gids    = edges[0]
               edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
               edge_dists     = edges[1]['Connections'][distance_attr_index]
-              ##edge_syn_dict  = filter_syn_dict (edge_syn_ids, cell_syn_dict)
 
               cell_syn_types    = cell_syn_dict['syn_types']
               cell_swc_types    = cell_syn_dict['swc_types']
