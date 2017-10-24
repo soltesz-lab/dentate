@@ -215,7 +215,6 @@ class ConnectionProb(object):
         else:
             p1 = p
         assert((p1 >= 0.).all() and (p1 <= 1.).all())
-        
         if plot:
             plt.scatter(distance_u, distance_v, c=p1)
             plt.title(source+' -> '+target)
@@ -304,13 +303,14 @@ def generate_synaptic_connections(ranstream_syn,
     for projection, syn_ids in synapse_prj_partition.iteritems():
         count += len(syn_ids)
         source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection]
-        source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
-        uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
-        distances = np.repeat(uv_distance_sums, source_gid_counts)
-        connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
-                                                            { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
-                                                              'Connections' : { 'distance': distances }
-                                                            } ) }
+        if len(source_gids) > 0:
+            source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
+            uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
+            distances = np.repeat(uv_distance_sums, source_gid_counts)
+            connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
+                                                                { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
+                                                                'Connections' : { 'distance': distances }
+                                                                } ) }
         
     ## If any projection does not have connections associated with it, create empty entries
     ## This is necessary for the parallel graph append operation, which performs a separate append for each projection,
