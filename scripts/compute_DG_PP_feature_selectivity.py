@@ -121,10 +121,11 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                 print 'Rank %i: took %.2f s to compute selectivity parameters for %s gid %i' % \
                       (rank, time.time() - local_time, population, gid)
                 count += 1
+            comm.Barrier()
             if not debug:
                 append_cell_attributes(comm, coords_path, population, selectivity_dict,
-                                       namespace='Feature Selectivity', io_size=io_size, chunk_size=chunk_size,
-                                       value_chunk_size=value_chunk_size)
+                                       namespace='Feature Selectivity', io_size=io_size, 
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
             sys.stdout.flush()
             del selectivity_dict
             gc.collect()

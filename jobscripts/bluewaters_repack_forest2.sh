@@ -23,10 +23,10 @@ set -x
 cd $PBS_O_WORKDIR
 
 export prefix=/projects/sciteam/baef/Full_Scale_Control
-export input=$prefix/DGC_forest_syns_20171020.h5
-export output=$prefix/DGC_forest_syns_20171029_compressed.h5
+export input=$prefix/DGC_forest_syns_20171024.h5
+export output=$prefix/DGC_forest_syns_20171024_compressed.h5
 
-aprun h5repack -v --file h5repack.flags -i $input -o $output
+aprun h5repack -v -i $input -o $output
 
 
 

@@ -23,4 +23,4 @@ cd $PBS_O_WORKDIR
 
 aprun -n 128 python ./scripts/compute_DG_PP_feature_selectivity.py \
               --coords-path=/projects/sciteam/baef/Full_Scale_Control/dentate_Full_Scale_Control_coords_20171006.h5 \
-              --io-size=8
+              --io-size=16
