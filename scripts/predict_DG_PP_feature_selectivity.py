@@ -1,7 +1,6 @@
-from function_lib import *
+
 from mpi4py import MPI
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
+from neuroh5.io import NeurotreeAttrGen, append_cell_attributes
 import click
 
 
@@ -13,9 +12,6 @@ except:
 
 
 script_name = 'predict_DG_PP_feature_selectivity.py'
-
-example_features_path = '../morphologies/dentate_Full_Scale_Control_selectivity_20170615.h5'
-example_connectivity_path = '../morphologies/DGC_forest_connectivity_20170427.h5'
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
@@ -103,8 +99,8 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
         count = 0
         start_time = time.time()
         selectivity_type = selectivity_type_dict[population]
-        attr_gen = NeurotreeAttrGen(MPI._addressof(comm), features_path, population, io_size=io_size,
-                                    cache_size=cache_size, namespace=features_namespace)
+        attr_gen = NeuroH5CellAttrGen(comm, features_path, population, io_size=io_size,
+                                      cache_size=cache_size, namespace=features_namespace)
         if debug:
             attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
         else:
@@ -138,7 +134,7 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
                       (rank, time.time() - local_time, population, gid)
                 count += 1
             if not debug:
-                append_cell_attributes(MPI._addressof(comm), features_path, population, response_dict,
+                append_cell_attributes(comm, features_path, population, response_dict,
                                        namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
                                        value_chunk_size=value_chunk_size)
             sys.stdout.flush()
