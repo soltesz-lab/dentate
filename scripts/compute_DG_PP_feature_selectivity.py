@@ -3,6 +3,7 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import click
 import DG_surface
+import utils
 
 try:
     import mkl
@@ -28,7 +29,7 @@ field_width = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_pa
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
 selectivity_place_field = 1
-selectivity_type_dict = {'MPP': selectivity_grid, 'LPP': selectivity_place_field}
+selectivity_type_dict = { 'MPP': selectivity_grid, 'LPP': selectivity_place_field }
 
 @click.command()
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -88,8 +89,8 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                 local_time = time.time()
                 selectivity_dict[gid-population_start] = {}
 
-                arc_distance_u = distances_dict['U Distance']
-                arc_distance_v = distances_dict['V Distance']
+                arc_distance_u = distances_dict['U Distance'][0]
+                arc_distance_v = distances_dict['V Distance'][0]
                     
                 local_random.seed(gid + selectivity_seed_offset)
                 selectivity_dict[gid-population_start]['Selectivity Type'] = np.array([selectivity_type], dtype='uint8')
