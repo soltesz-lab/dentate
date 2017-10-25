@@ -27,5 +27,5 @@ set -x
 aprun -n 1024 -d 2 python ./scripts/compute_DG_connectivity.py \
   --forest-path=/projects/sciteam/baef/Full_Scale_Control/DGC_forest_connectivity_20170508.h5 \
   --coords-path=/projects/sciteam/baef/Full_Scale_Control/dentate_Full_Scale_Control_coords_20170508.h5 \
-  --io-size=256 --chunk-size=100000 --value-chunk-size=2000000
+  --io-size=256 --chunk-size=10000 --value-chunk-size=50000
 

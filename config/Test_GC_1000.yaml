@@ -3,7 +3,7 @@ Model Name: dentatenet
 Dataset Name: Test_GC_1000
 Definitions: !include Definitions.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DGC_forest_test_syns_20171019.h5
+Cell Data: DG_test_cells_20171024.h5
 Connection Data: DGC_test_connections_20171019.h5
 Connection Generator: !include Full_Scale_Connections.yaml
 ## Cell types for dentate gyrus model
@@ -230,8 +230,8 @@ Cell Types:
               variance: 0.2
   MPP:
     template: MPPCell
-#    vectorStimulus: MPPinput
+    vectorStimulus: Vector Stimulus 0
   LPP:
     template: LPPCell
-#    vectorStimulus: LPPinput
+    vectorStimulus: Vector Stimulus 0
 
