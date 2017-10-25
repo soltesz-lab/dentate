@@ -321,6 +321,9 @@ def mkcells(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 i = i+1
                 h.numCells = h.numCells+1
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Created %i cells" % i
         elif env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Coordinates'):
             if env.verbose:
                 if env.pc.id() == 0:
@@ -388,9 +391,9 @@ def mkstim(env):
                                                                   node_rank_map=env.nodeRanks,
                                                                   io_size=env.IOsize)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
-            for (gid, cellspikes) in cell_vecstim:
+            for (gid, vecstim_dict) in cell_vecstim:
               cell = env.pc.gid2cell(gid)
-              cell.play(cellspikes)
+              cell.play(h.Vector(vecstim_dict['spiketrain']))
 
             
 
