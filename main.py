@@ -156,7 +156,7 @@ def connectcells(env):
 
             for (postsyn_gid, edges) in edge_iter:
 
-              cell           = env.pc.gid2cell(postsyn_gid)
+              model_cell     = env.pc.gid2cell(postsyn_gid)
               cell_syn_dict  = cell_synapses_dict[postsyn_gid]
 
               presyn_gids    = edges[0]
@@ -168,7 +168,7 @@ def connectcells(env):
               cell_syn_locs     = cell_syn_dict['syn_locs']
               cell_syn_sections = cell_syn_dict['syn_secs']
 
-              edge_syn_ps_dict  = synapses.mksyns(cell,
+              edge_syn_ps_dict  = synapses.mksyns(model_cell,
                                                   edge_syn_ids,
                                                   cell_syn_types,
                                                   cell_swc_types,
@@ -250,7 +250,7 @@ def connectgjs(env):
 
 def mkcells(env):
 
-    h('objref templatePaths, templatePathValue, cell, syn, syn_ids, syn_types, swc_types, syn_locs, syn_sections')
+    h('objref templatePaths, templatePathValue')
 
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
@@ -279,6 +279,7 @@ def mkcells(env):
                 print "*** Creating population %s" % popName
 
         templateName = env.celltypes[popName]['template']
+        templateClass = eval('h.%s' % templateName)
 
         if env.celltypes[popName].has_key('synapses'):
             synapses = env.celltypes[popName]['synapses']
@@ -309,13 +310,13 @@ def mkcells(env):
                         print "*** Creating gid %i" % gid
             
                 verboseflag = 0
-                h.cell = cells.make_neurotree_cell(templateName, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
+                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
                 env.gidlist.append(gid)
-                env.cells.append(h.cell)
+                env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
                 ## Tell the ParallelContext that this cell is a spike source
                 ## for all other hosts. NetCon is temporary.
-                nc = h.cell.connect2target(h.nil)
+                nc = model_cell.connect2target(h.nil)
                 env.pc.cell(gid, nc, 1)
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -324,6 +325,7 @@ def mkcells(env):
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Created %i cells" % i
+                    
         elif env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Coordinates'):
             if env.verbose:
                 if env.pc.id() == 0:
@@ -352,13 +354,13 @@ def mkcells(env):
                         print "*** Creating gid %i" % gid
             
                 verboseflag = 0
-                h.cell = cells.make_cell(templateName, gid=gid, local_id=i, dataset_path=datasetPath)
+                model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
                 env.gidlist.append(gid)
-                env.cells.append(h.cell)
+                env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
                 ## Tell the ParallelContext that this cell is a spike source
                 ## for all other hosts. NetCon is temporary.
-                nc = h.cell.connect2target(h.nil)
+                nc = model_cell.connect2target(h.nil)
                 env.pc.cell(gid, nc, 1)
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -392,6 +394,9 @@ def mkstim(env):
                                                                   io_size=env.IOsize)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, vecstim_dict) in cell_vecstim:
+              if env.verbose:
+                    if env.pc.id() == 0:
+                        print "*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain']))
               cell = env.pc.gid2cell(gid)
               cell.play(h.Vector(vecstim_dict['spiketrain']))
 
