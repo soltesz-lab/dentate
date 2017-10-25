@@ -104,10 +104,10 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                     selectivity_dict[gid-population_start]['Grid Orientation'] = np.array([this_grid_orientation], dtype='float32')
                     
                     # aiming for close to uniform input density inside the square arena
-                    radius = (this_grid_spacing + np.sqrt(2.) * arena_dimension) * np.sqrt(local_random.random())
+                    r_offset = this_grid_spacing * np.sqrt(local_random.random())
                     phi_offset = local_random.uniform(-np.pi, np.pi)
-                    x_offset = radius * np.cos(phi_offset)
-                    y_offset = radius * np.sin(phi_offset)
+                    x_offset = r_offset * np.cos(phi_offset)
+                    y_offset = r_offset * np.sin(phi_offset)
                     selectivity_dict[gid-population_start]['X Offset'] = np.array([x_offset], dtype='float32')
                     selectivity_dict[gid-population_start]['Y Offset'] = np.array([y_offset], dtype='float32')
                     
@@ -116,10 +116,10 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                     selectivity_dict[gid-population_start]['Field Width'] = np.array([this_field_width], dtype='float32')
                     
                     # aiming for close to uniform input density inside the square arena
-                    radius = (this_field_width + np.sqrt(2.) * arena_dimension) * np.sqrt(local_random.random())
+                    r_offset = this_field_width * np.sqrt(local_random.random())
                     phi_offset = local_random.uniform(-np.pi, np.pi)
-                    x_offset = radius * np.cos(phi_offset)
-                    y_offset = radius * np.sin(phi_offset)
+                    x_offset = r_offset * np.cos(phi_offset)
+                    y_offset = r_offset * np.sin(phi_offset)
                     selectivity_dict[gid-population_start]['X Offset'] = np.array([x_offset], dtype='float32')
                     selectivity_dict[gid-population_start]['Y Offset'] = np.array([y_offset], dtype='float32')
                 print 'Rank %i: took %.2f s to compute selectivity parameters for %s gid %i' % \

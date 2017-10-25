@@ -28,14 +28,14 @@ u = lambda ori: (np.cos(ori), np.sin(ori))
 ori_array = 2. * np.pi * np.array([-30., 30., 90.]) / 360.  # rads
 g = lambda x: np.exp(a * (x - b)) - 1.
 scale_factor = g(3.)
-grid_peak_rate = 20.  # Hz
+grid_peak_rate = 40.  # Hz
 grid_rate = lambda grid_spacing, ori_offset, x_offset, y_offset: \
     lambda x, y: grid_peak_rate / scale_factor * \
                  g(np.sum([np.cos(4. * np.pi / np.sqrt(3.) /
                                   grid_spacing * np.dot(u(theta - ori_offset), (x - x_offset, y - y_offset)))
                            for theta in ori_array]))
 
-place_peak_rate = 20.  # Hz
+place_peak_rate = 40.  # Hz
 place_rate = lambda field_width, x_offset, y_offset: \
     lambda x, y: place_peak_rate * np.exp(-((x - x_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.) * \
                  np.exp(-((y - y_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.)
@@ -83,6 +83,8 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
+
+    trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
     
     # with h5py.File(features_path, 'a', driver='mpio', comm=comm) as f:
     #     if 'Trajectories' not in f:
@@ -134,12 +136,9 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
                     y_offset = features_dict['Y Offset'][0]
                     rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
                 response = rate(interp_x, interp_y).astype('float32', copy=False)
-                response_dict[gid-population_start] = {'rate': response}
-                
                 stg   = stgen.StGen(seed=seed)
                 spiketrain = stg.inh_poisson_generator(response, t, t_stop)
-                response_dict[gid-population_start] = {'spiketrain': np.asarray(spiketrain, dtype='float32')}
-                
+                response_dict[gid-population_start] = {'rate': response,  'spiketrain': np.asarray(spiketrain, dtype='float32')}
                 baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
                 peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
                 modulation = 0. if peak <= 0.1 else (peak - baseline) / peak

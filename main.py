@@ -267,6 +267,11 @@ def mkcells(env):
         templateName = env.celltypes[popName]['template']
         h.find_template(env.pc, h.templatePaths, templateName)
 
+    dataFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+
+    if rank == 0:
+        print 'cell attributes: ', env.cellAttributeInfo
+
     for popName in popNames:
 
         if env.verbose:
@@ -281,34 +286,82 @@ def mkcells(env):
             synapses = {}
 
         i=0
-
-        inputFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-        if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize)
-        else:
-                (trees, forestSize) = scatter_read_trees(env.comm, inputFilePath, popName, io_size=env.IOsize,
-                                                         node_rank_map=env.nodeRanks)
-        h.numCells = 0
-        i=0
-        for (gid, tree) in trees:
+        
+        if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
             if env.verbose:
                 if env.pc.id() == 0:
-                    print "*** Creating gid %i" % gid
-            
-            verboseflag = 0
-            h.cell = cells.make_neurotree_cell(templateName, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
-            env.gidlist.append(gid)
-            env.cells.append(h.cell)
-            env.pc.set_gid2node(gid, int(env.pc.id()))
-            ## Tell the ParallelContext that this cell is a spike source
-            ## for all other hosts. NetCon is temporary.
-            nc = h.cell.connect2target(h.nil)
-            env.pc.cell(gid, nc, 1)
-            ## Record spikes of this cell
-            env.pc.spike_record(gid, env.t_vec, env.id_vec)
-            i = i+1
-            h.numCells = h.numCells+1
+                    print "*** Reading trees for population %s" % popName
 
+            if env.nodeRanks is None:
+                (trees, forestSize) = scatter_read_trees(env.comm, dataFilePath, popName, io_size=env.IOsize)
+            else:
+                (trees, forestSize) = scatter_read_trees(env.comm, dataFilePath, popName, io_size=env.IOsize,
+                                                            node_rank_map=env.nodeRanks)
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Done reading trees for population %s" % popName
+
+            h.numCells = 0
+            i=0
+            for (gid, tree) in trees:
+                if env.verbose:
+                    if env.pc.id() == 0:
+                        print "*** Creating gid %i" % gid
+            
+                verboseflag = 0
+                h.cell = cells.make_neurotree_cell(templateName, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
+                env.gidlist.append(gid)
+                env.cells.append(h.cell)
+                env.pc.set_gid2node(gid, int(env.pc.id()))
+                ## Tell the ParallelContext that this cell is a spike source
+                ## for all other hosts. NetCon is temporary.
+                nc = h.cell.connect2target(h.nil)
+                env.pc.cell(gid, nc, 1)
+                ## Record spikes of this cell
+                env.pc.spike_record(gid, env.t_vec, env.id_vec)
+                i = i+1
+                h.numCells = h.numCells+1
+        elif env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Coordinates'):
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Reading coordinates for population %s" % popName
+            
+            if env.nodeRanks is None:
+                cell_attributes_dict = scatter_read_cell_attributes(env.comm, dataFilePath, popName, 
+                                                                    namespaces=['Coordinates'],
+                                                                    io_size=env.IOsize)
+            else:
+                cell_attributes_dict = scatter_read_cell_attributes(env.comm, dataFilePath, popName, 
+                                                                    namespaces=['Coordinates'],
+                                                                    node_rank_map=env.nodeRanks,
+                                                                    io_size=env.IOsize)
+            if env.verbose:
+                if env.pc.id() == 0:
+                    print "*** Done reading coordinates for population %s" % popName
+                    
+            coords = cell_attributes_dict['Coordinates']
+
+            h.numCells = 0
+            i=0
+            for (gid, _) in coords:
+                if env.verbose:
+                    if env.pc.id() == 0:
+                        print "*** Creating gid %i" % gid
+            
+                verboseflag = 0
+                h.cell = cells.make_cell(templateName, gid=gid, local_id=i, dataset_path=datasetPath)
+                env.gidlist.append(gid)
+                env.cells.append(h.cell)
+                env.pc.set_gid2node(gid, int(env.pc.id()))
+                ## Tell the ParallelContext that this cell is a spike source
+                ## for all other hosts. NetCon is temporary.
+                nc = h.cell.connect2target(h.nil)
+                env.pc.cell(gid, nc, 1)
+                ## Record spikes of this cell
+                env.pc.spike_record(gid, env.t_vec, env.id_vec)
+                i = i+1
+                h.numCells = h.numCells+1
+            
              
 def mkstim(env):
 
@@ -323,17 +376,18 @@ def mkstim(env):
     popNames.sort()
     for popName in popNames:
         if env.celltypes[popName].has_key('vectorStimulus'):
-            vecstim   = env.celltypes[popName]['vectorStimulus']
+            vecstim_namespace = env.celltypes[popName]['vectorStimulus']
 
             if env.nodeRanks is None:
-              cell_vecstim = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
-                                                          namespaces=[vecstim],
-                                                          io_size=env.IOsize)
+              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+                                                                  namespaces=[vecstim_namespace],
+                                                                  io_size=env.IOsize)
             else:
-              cell_vecstim = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
-                                                          namespaces=[vecstim],
-                                                          node_rank_map=env.nodeRanks,
-                                                          io_size=env.IOsize)
+              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+                                                                  namespaces=[vecstim_namespace],
+                                                                  node_rank_map=env.nodeRanks,
+                                                                  io_size=env.IOsize)
+            cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, cellspikes) in cell_vecstim:
               cell = env.pc.gid2cell(gid)
               cell.play(cellspikes)

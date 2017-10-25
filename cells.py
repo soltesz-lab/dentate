@@ -33,3 +33,10 @@ def make_neurotree_cell (template_name, local_id=0, gid=0, dataset_path="", neur
     h(hstmt)
     return h.cell
 
+
+def make_cell (template_name, local_id=0, gid=0, dataset_path=""):
+    h('objref cell')
+    hstmt      = 'cell = new %s(%d, %d, "%s")' % (template_name, local_id, gid, dataset_path)
+    h(hstmt)
+    return h.cell
+
