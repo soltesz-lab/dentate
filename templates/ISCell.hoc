@@ -188,7 +188,7 @@ proc biophys() {
         Ra=100
     }
     
-    soma { distance() }
+    forsec soma { distance() }
 
     forsec all {
 	insert ccanl
@@ -209,7 +209,7 @@ proc biophys() {
 	ghysbar_hyperde3=0.000015
     }
     
-    soma {
+    forsec soma {
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=0.2  
 	gkfbar_ichan2=0.006  
