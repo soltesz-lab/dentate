@@ -319,9 +319,9 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_pa
     swc_type_axon   = env.SWC_Types['axon']
     
     syn_obj_dict = {}
-    for x in np.nditer(syn_ids, op_dtypes=['uint32']):
+    for i in xrange(0, syn_ids.size):
 
-      syn_id = int(x)
+      syn_id = syn_ids[i]
       syn_type    = syn_types[syn_id]
       swc_type    = swc_types[syn_id]
       syn_loc     = syn_locs[syn_id]
