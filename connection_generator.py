@@ -246,6 +246,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
             if ord_index is not None:
                 projection_lst.append(population_dict[k])
                 projection_prob_lst.append(v[3][ord_index])
+    print projection_lst, projection_prob_lst
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
