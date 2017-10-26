@@ -11,7 +11,7 @@ from datetime import datetime
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
+from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
 import h5py
 from env import Env
 import lpt, utils, synapses, cells
@@ -114,79 +114,89 @@ def connectcells(env):
     connectivityFilePath = os.path.join(datasetPath,env.modelConfig['Connection Data'])
     forestFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
 
-    if env.nodeRanks is None:
-        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
-                                        namespaces=['Synapses','Connections'])
-    else:
-        (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
-                                        node_rank_map=env.nodeRanks,
-                                        namespaces=['Synapses','Connections'])
-    
-    for (postsyn_name, projections) in graph.iteritems():
+    prj_dict = defaultdict(list)
+    for (src,dst) in read_projection_names(env.comm,connectivityFilePath):
+      prj_dict[dst].append(src)
+      
+    for (postsyn_name, presyn_names) in prj_dict.iteritems():
+
+      synapse_config = env.celltypes[postsyn_name]['synapses']
+      if synapse_config.has_key('spines'):
+        spines = synapse_config['spines']
+      else:
+        spines = False
+
+      if env.nodeRanks is None:
+        cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                            namespaces=['Synapse Attributes'],
+                                                            io_size=env.IOsize)
+      else:
+        cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
+                                                            namespaces=['Synapse Attributes'],
+                                                            node_rank_map=env.nodeRanks,
+                                                            io_size=env.IOsize)
+      cell_synapses_dict = { k : v for (k,v) in cell_attributes_dict['Synapse Attributes'] }
+      del cell_attributes_dict
+
+      for presyn_name in presyn_names:
+
+        if env.verbose:
+          if env.pc.id() == 0:
+            print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
 
         if env.nodeRanks is None:
-            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                         namespaces=['Synapse Attributes'],
-                                                         io_size=env.IOsize)
+          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+                                          projections=[(presyn_name, postsyn_name)],
+                                          namespaces=['Synapses','Connections'])
         else:
-            cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                         namespaces=['Synapse Attributes'],
-                                                         node_rank_map=env.nodeRanks,
-                                                         io_size=env.IOsize)
-        cell_synapses_dict = { k : v for (k,v) in cell_attributes_dict['Synapse Attributes'] }
-        del cell_attributes_dict
+          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+                                          node_rank_map=env.nodeRanks,
+                                          projections=[(presyn_name, postsyn_name)],
+                                          namespaces=['Synapses','Connections'])
         
-        synapse_config = env.celltypes[postsyn_name]['synapses']
-        if synapse_config.has_key('spines'):
-            spines = synapse_config['spines']
-        else:
-            spines = False
-        
-        for (presyn_name, edge_iter) in projections.iteritems():
+        (_, edge_iter) = graph.next()
 
-            if env.verbose:
-                if env.pc.id() == 0:
-                    print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
 
-            connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
-            kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
+        connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
+        kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
 
-            syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
-            distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+        syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
+        distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
 
-            for (postsyn_gid, edges) in edge_iter:
+        for (postsyn_gid, edges) in edge_iter:
 
-              model_cell     = env.pc.gid2cell(postsyn_gid)
-              cell_syn_dict  = cell_synapses_dict[postsyn_gid]
+          postsyn_cell     = env.pc.gid2cell(postsyn_gid)
+          cell_syn_dict  = cell_synapses_dict[postsyn_gid]
 
-              presyn_gids    = edges[0]
-              edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
-              edge_dists     = edges[1]['Connections'][distance_attr_index]
+          presyn_gids    = edges[0]
+          edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
+          edge_dists     = edges[1]['Connections'][distance_attr_index]
 
-              cell_syn_types    = cell_syn_dict['syn_types']
-              cell_swc_types    = cell_syn_dict['swc_types']
-              cell_syn_locs     = cell_syn_dict['syn_locs']
-              cell_syn_sections = cell_syn_dict['syn_secs']
+          cell_syn_types    = cell_syn_dict['syn_types']
+          cell_swc_types    = cell_syn_dict['swc_types']
+          cell_syn_locs     = cell_syn_dict['syn_locs']
+          cell_syn_sections = cell_syn_dict['syn_secs']
 
-              edge_syn_ps_dict  = synapses.mksyns(model_cell,
-                                                  edge_syn_ids,
-                                                  cell_syn_types,
-                                                  cell_swc_types,
-                                                  cell_syn_locs,
-                                                  cell_syn_sections,
-                                                  kinetics_dict, env,
-                                                  spines=spines)
+          edge_syn_ps_dict  = synapses.mksyns(postsyn_gid,
+                                              postsyn_cell,
+                                              edge_syn_ids,
+                                              cell_syn_types,
+                                              cell_swc_types,
+                                              cell_syn_locs,
+                                              cell_syn_sections,
+                                              kinetics_dict, env,
+                                              spines=spines)
                 
-              for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
-                syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
-                for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
-                  connection_syn_mech_config = connection_dict[syn_mech]
-                  weight = connection_syn_mech_config['weight']
-                  delay  = distance / connection_syn_mech_config['velocity']
-                  if type(weight) is float:
-                    h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
-                  else:
-                    h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+          for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+            syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
+            for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
+              connection_syn_mech_config = connection_dict[syn_mech]
+              weight = connection_syn_mech_config['weight']
+              delay  = distance / connection_syn_mech_config['velocity']
+              if type(weight) is float:
+                h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+              else:
+                h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
 
            
 

@@ -303,7 +303,7 @@ def add_unique_synapse(mech_name, seg, syns_dict):
     syn = make_syn_mech(mech_name, seg)
     return syn
     
-def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_params,env,add_synapse=add_shared_synapse,spines=False):
+def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_params,env,add_synapse=add_shared_synapse,spines=False):
 
     syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
@@ -319,13 +319,18 @@ def mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_pa
     swc_type_axon   = env.SWC_Types['axon']
     
     syn_obj_dict = {}
+
     for i in xrange(0, syn_ids.size):
 
-      syn_id = syn_ids[i]
+      syn_id      = syn_ids[i]
+      if not (syn_id < syn_types.size):
+          raise ValueError('mksyns: cell %i received invalid syn_id %d' % (gid, syn_id))
+      
       syn_type    = syn_types[syn_id]
       swc_type    = swc_types[syn_id]
       syn_loc     = syn_locs[syn_id]
       syn_section = syn_sections[syn_id]
+      
       sref = None
       sec = py_sections[syn_section]
       if swc_type == swc_type_apical:
