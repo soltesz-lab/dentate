@@ -324,6 +324,7 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
 
       syn_id      = syn_ids[i]
       if not (syn_id < syn_types.size):
+          print 'mksyns syn_ids for gid %i: ' % gid, syn_ids
           raise ValueError('mksyns: cell %i received invalid syn_id %d' % (gid, syn_id))
       
       syn_type    = syn_types[syn_id]

@@ -146,7 +146,7 @@ class ConnectionProb(object):
                 distance_v_lst.append(source_distance_v)
                 source_gid_lst.append(source_gid)
 
-        return np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
+        return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32), np.asarray(source_gid_lst, dtype=np.uint32)
     
     def filter_by_distance2(self, destination_gid, source_population):
         """
@@ -246,7 +246,6 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
             if ord_index is not None:
                 projection_lst.append(population_dict[k])
                 projection_prob_lst.append(v[3][ord_index])
-    print projection_lst, projection_prob_lst
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
