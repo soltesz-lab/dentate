@@ -230,13 +230,8 @@ Cell Types:
               variance: 0.2
   MPP:
     template: MPPCell
-    vectorStimulus:
-      spikeFile: mec2_vecstim.bin
-      indexFile: mec2_vecstim_ptr.bin
-      activeFile: mec2_35_vecstim_active.bin
+    vectorStimulus: Vector Stimulus 0
   LPP:
     template: LPPCell
-    vectorStimulus:
-      spikeFile: lec2_vecstim.bin
-      indexFile: lec2_vecstim_ptr.bin
-      activeFile: lec2_35_vecstim_active.bin
+    vectorStimulus: Vector Stimulus 0
+
