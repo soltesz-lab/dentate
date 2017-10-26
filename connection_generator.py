@@ -309,9 +309,10 @@ def generate_synaptic_connections(ranstream_syn,
             uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
             distances = np.repeat(uv_distance_sums, source_gid_counts)
             connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
-                                                                { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
-                                                                'Connections' : { 'distance': distances }
-                                                                } ) }
+                                                            { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
+                                                              'Connections' : { 'distance': distances }
+                                                            } ) }
+
         
     ## If any projection does not have connections associated with it, create empty entries
     ## This is necessary for the parallel graph append operation, which performs a separate append for each projection,
