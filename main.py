@@ -154,7 +154,7 @@ def connectcells(env):
                                           projections=[(presyn_name, postsyn_name)],
                                           namespaces=['Synapses','Connections'])
         
-        (_, edge_iter) = graph.next()
+        edge_iter = graph[postsyn_name][presyn_name]
 
 
         connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
