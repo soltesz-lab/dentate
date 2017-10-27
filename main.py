@@ -202,11 +202,8 @@ def connectcells(env):
 
           if env.verbose:
             if edge_count == 0:
-              print 'postsynaptic gid is ', postsyn_gid
-              print 'postsynaptic cell is ', postsyn_cell
               for sec in list(postsyn_cell.all):
                   h.psection(sec=sec)
-
           
           for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
             syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
@@ -342,7 +339,6 @@ def mkcells(env):
                 model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
                 if env.verbose:
                     if (rank == 0) and (i == 0):
-                        print "model_cell = ", model_cell
                         for sec in list(model_cell.all):
                             h.psection(sec=sec)
                 env.gidlist.append(gid)
@@ -354,8 +350,6 @@ def mkcells(env):
                 env.pc.cell(gid, nc, 1)
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
-                if env.pc.id() == 0:
-                    print "gid ", gid, ": ", env.pc.gid2cell(gid)
                 i = i+1
                 h.numCells = h.numCells+1
             if env.verbose:
