@@ -26,7 +26,7 @@ export prefix=/projects/sciteam/baef/Full_Scale_Control
 export input=$prefix/DGC_forest_syns_20171024.h5
 export output=$prefix/DGC_forest_syns_20171024_compressed.h5
 
-aprun h5repack -v -i $input -o $output
+aprun h5repack -v -f GZIP=9 -i $input -o $output
 
 
 

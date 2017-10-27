@@ -93,7 +93,7 @@ def spikeout (env, output_path, t_vec, id_vec):
     for i in range(0,len(types)):
         spkdict  = {}
         sinds    = inds[np.where(inds == i)]
-        if sinds:
+        if len(sinds) > 0:
             ids      = id_vec[sinds]
             ts       = t_vec[sinds]
             for j in range(0,len(ids)):
@@ -114,9 +114,17 @@ def connectcells(env):
     connectivityFilePath = os.path.join(datasetPath,env.modelConfig['Connection Data'])
     forestFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
 
+    if env.verbose:
+      if env.pc.id() == 0:
+        print '*** Connectivity file path is %s' % connectivityFilePath
+
     prj_dict = defaultdict(list)
     for (src,dst) in read_projection_names(env.comm,connectivityFilePath):
       prj_dict[dst].append(src)
+
+    if env.verbose:
+      if env.pc.id() == 0:
+        print '*** Reading projections: ', prj_dict.items()
       
     for (postsyn_name, presyn_names) in prj_dict.iteritems():
 
@@ -125,6 +133,10 @@ def connectcells(env):
         spines = synapse_config['spines']
       else:
         spines = False
+        
+      if env.verbose:
+          if env.pc.id() == 0:
+            print '*** Reading synapse attributes of population %s' % (postsyn_name)
 
       if env.nodeRanks is None:
         cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
@@ -464,6 +476,7 @@ def init(env):
     env.mkstimtime = h.stopsw()
     if (env.pc.id() == 0):
         print "*** Stimuli created in %g seconds" % env.mkstimtime
+    env.pc.barrier()
     h.startsw()
     connectcells(env)
     env.connectcellstime = h.stopsw()

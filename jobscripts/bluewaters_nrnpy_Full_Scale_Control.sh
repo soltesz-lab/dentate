@@ -22,10 +22,10 @@ module swap PrgEnv-cray PrgEnv-gnu
 module load cray-hdf5-parallel
 module load bwpy 
 module load bwpy-mpi
-
+module load atp
 set -x
 
-
+export ATP_ENABLED=1 
 #export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=/projects/sciteam/baef/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
 export PATH=/projects/sciteam/baef/nrn/x86_64/bin:$PATH
