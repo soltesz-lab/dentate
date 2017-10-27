@@ -2,7 +2,6 @@
 begintemplate HIPPCell
 
 public connect2target, subsets, is_art, is_connected
-public sections
 public all, soma, basal, apical, axon
 public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
