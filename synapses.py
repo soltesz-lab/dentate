@@ -284,7 +284,7 @@ def make_syn_mech(mech_name, seg):
     elif mech_name == 'GABA_B':
         syn = h.Exp2Syn(seg)
     else:
-        syn = None
+        raise ValueError("Unrecognized synaptic mechanism name %s", mech_name)
     return syn
 
 def add_shared_synapse(mech_name, seg, syns_dict):

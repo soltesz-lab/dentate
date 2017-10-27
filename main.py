@@ -89,7 +89,7 @@ def spikeout (env, output_path, t_vec, id_vec):
     bins     = binvect[sort_idx]
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
-
+    print 'inds = ', inds
     for i in range(0,len(types)):
         spkdict  = {}
         sinds    = inds[np.where(inds == i)]
@@ -186,7 +186,11 @@ def connectcells(env):
                                               cell_syn_sections,
                                               kinetics_dict, env,
                                               spines=spines)
-                
+
+          if postsyn_gid == 0:
+              h.psection(postsyn_cell.sections[0])
+              h.psection(postsyn_cell.sections[1])
+          
           for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
             syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
@@ -296,8 +300,6 @@ def mkcells(env):
         else:
             synapses = {}
 
-        i=0
-        
         if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
             if env.verbose:
                 if env.pc.id() == 0:
@@ -321,6 +323,8 @@ def mkcells(env):
             
                 verboseflag = 0
                 model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
+                if i == 0:
+                    h.psection(model_cell.sections[0])
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -365,6 +369,9 @@ def mkcells(env):
             
                 verboseflag = 0
                 model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+                if i == 0:
+                    h.psection(model_cell.sections[0])
+
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
