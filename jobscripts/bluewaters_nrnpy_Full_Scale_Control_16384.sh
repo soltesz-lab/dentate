@@ -3,14 +3,14 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=1024:ppn=16:xe
 ### which queue to use
-#PBS -q debug
+#PBS -q high
 ### set the wallclock time
-#PBS -l walltime=0:30:00
+#PBS -l walltime=3:30:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_16384
 ### set the job stdout and stderr
-#PBS -e ./results/$PBS_JOBID.err
-#PBS -o ./results/$PBS_JOBID.out
+#PBS -e ./results/dentate.$PBS_JOBID.err
+#PBS -o ./results/dentate.$PBS_JOBID.out
 ### set email notification
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
@@ -56,6 +56,6 @@ aprun -n 16384 \
     --io-size=256 \
     --tstop=250 \
     --v-init=-75 \
-    --max-walltime-hours=0.5 \
+    --max-walltime-hours=3.5 \
     --verbose
 
