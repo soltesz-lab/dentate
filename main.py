@@ -93,7 +93,7 @@ def spikeout (env, output_path, t_vec, id_vec):
     for i in range(0,len(types)):
         spkdict  = {}
         sinds    = inds[np.where(inds == i)]
-        if sinds:
+        if len(sinds) > 0:
             ids      = id_vec[sinds]
             ts       = t_vec[sinds]
             for j in range(0,len(ids)):
