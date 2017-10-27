@@ -89,10 +89,9 @@ def spikeout (env, output_path, t_vec, id_vec):
     bins     = binvect[sort_idx]
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
-    print 'inds = ', inds
     for i in range(0,len(types)):
         spkdict  = {}
-        sinds    = inds[np.where(inds == i)]
+        sinds    = np.where(inds == i)
         if len(sinds) > 0:
             ids      = id_vec[sinds]
             ts       = t_vec[sinds]
@@ -152,6 +151,8 @@ def connectcells(env):
 
       for presyn_name in presyn_names:
 
+        edge_count = 0
+
         if env.verbose:
           if env.pc.id() == 0:
             print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
@@ -177,7 +178,7 @@ def connectcells(env):
 
         for (postsyn_gid, edges) in edge_iter:
 
-          postsyn_cell     = env.pc.gid2cell(postsyn_gid)
+          postsyn_cell   = env.pc.gid2cell(postsyn_gid)
           cell_syn_dict  = cell_synapses_dict[postsyn_gid]
 
           presyn_gids    = edges[0]
@@ -199,9 +200,11 @@ def connectcells(env):
                                               kinetics_dict, env,
                                               spines=spines)
 
-          if postsyn_gid == 0:
-              h.psection(postsyn_cell.sections[0])
-              h.psection(postsyn_cell.sections[1])
+          if env.verbose:
+            if edge_count == 0:
+              for sec in list(postsyn_cell.all):
+                  h.psection(sec=sec)
+
           
           for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
             syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
@@ -214,7 +217,7 @@ def connectcells(env):
               else:
                 h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
 
-           
+            edge_count += len(presyn_gids)
 
 def connectgjs(env):
     rank = int(env.pc.id())
@@ -335,8 +338,10 @@ def mkcells(env):
             
                 verboseflag = 0
                 model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i, dataset_path=datasetPath)
-                if i == 0:
-                    h.psection(model_cell.sections[0])
+                if env.verbose:
+                    if (rank == 0) and (i == 0):
+                        for sec in list(model_cell.all):
+                            h.psection(sec=sec)
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -381,9 +386,6 @@ def mkcells(env):
             
                 verboseflag = 0
                 model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
-                if i == 0:
-                    h.psection(model_cell.sections[0])
-
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -471,6 +473,7 @@ def init(env):
     env.pc.barrier()
     if (env.pc.id() == 0):
         print "*** Cells created in %g seconds" % env.mkcellstime
+    print "*** Rank %i created %i cells" % (env.pc.id(), len(env.cells))
     h.startsw()
     mkstim(env)
     env.mkstimtime = h.stopsw()
@@ -482,7 +485,8 @@ def init(env):
     env.connectcellstime = h.stopsw()
     env.pc.barrier()
     if (env.pc.id() == 0):
-        print "*** Cells connected in %g seconds" % env.connectcellstime
+        print "*** Connections created in %g seconds" % env.connectcellstime
+    print "*** Rank %i created %i connections" % (env.pc.id(), int(h.nclist.count()))
     h.startsw()
     #connectgjs(env)
     env.connectgjstime = h.stopsw()
