@@ -89,6 +89,8 @@ def spikeout (env, output_path, t_vec, id_vec):
     bins     = binvect[sort_idx][1:]
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
+
+    namespace_id = "Spike Events %s" % str(datetime.now())
     
     for i in range(0,len(types)):
         if i > 0:
@@ -110,7 +112,7 @@ def spikeout (env, output_path, t_vec, id_vec):
             for j in spkdict.keys():
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
-        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace="Spike Events %s" % str(datetime.now()))
+        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
         
 
 def connectcells(env):
