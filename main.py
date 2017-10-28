@@ -86,22 +86,22 @@ def spikeout (env, output_path, t_vec, id_vec):
         
     binvect  = np.array(binlst)
     sort_idx = np.argsort(binvect,axis=0)
-    bins     = binvect[sort_idx]
+    bins     = binvect[sort_idx][1:]
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
     
-    print 'bins = ', bins
-    print 'id_vec = ', id_vec
-    
     for i in range(0,len(types)):
+        if i > 0:
+            start = bins[i-1]
+        else:
+            start = 0
         spkdict  = {}
         sinds    = np.where(inds == i)
-        print 'sinds = ', sinds
         if len(sinds) > 0:
             ids      = id_vec[sinds]
             ts       = t_vec[sinds]
             for j in range(0,len(ids)):
-                id = ids[j]
+                id = ids[j] - start
                 t  = ts[j]
                 if spkdict.has_key(id):
                     spkdict[id]['t'].append(t)
@@ -513,7 +513,9 @@ def init(env):
         print "dt = %g" % h.dt
         print "tstop = %g" % h.tstop
         h.fi_status = h.FInitializeHandler("simstatus()")
+    h.v_init = env.v_init
     h.stdinit()
+    h.finitialize(env.v_init)
     env.pc.barrier()
     if env.optldbal or env.optlptbal:
         cx(env)
@@ -523,8 +525,6 @@ def init(env):
 
 # Run the simulation
 def run (env):
-    h('objref vcnts, t_vec_all, id_vec_all')
-
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -540,7 +540,7 @@ def run (env):
             mkspikeout (env, spikeoutPath)
         except:
             pass
-    spikeout(env, spikeoutPath, np.array(env.t_vec), np.array(env.id_vec))
+    spikeout(env, spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
 
     # TODO:
     #if (env.vrecordFraction > 0):
