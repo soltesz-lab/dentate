@@ -89,9 +89,14 @@ def spikeout (env, output_path, t_vec, id_vec):
     bins     = binvect[sort_idx]
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
+    
+    print 'bins = ', bins
+    print 'id_vec = ', id_vec
+    
     for i in range(0,len(types)):
         spkdict  = {}
         sinds    = np.where(inds == i)
+        print 'sinds = ', sinds
         if len(sinds) > 0:
             ids      = id_vec[sinds]
             ts       = t_vec[sinds]
@@ -426,7 +431,11 @@ def mkstim(env):
             for (gid, vecstim_dict) in cell_vecstim:
               if env.verbose:
                     if env.pc.id() == 0:
-                        print "*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain']))
+                        if len(vecstim_dict['spiketrain']) > 0:
+                            print "*** Spike train for gid %i is of length %i (first spike at %g ms)" % (gid, len(vecstim_dict['spiketrain']),vecstim_dict['spiketrain'][0])
+                        else:
+                            print "*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain']))
+                        
               cell = env.pc.gid2cell(gid)
               cell.play(h.Vector(vecstim_dict['spiketrain']))
 
@@ -531,7 +540,7 @@ def run (env):
             mkspikeout (env, spikeoutPath)
         except:
             pass
-    spikeout(env, spikeoutPath, env.t_vec, env.id_vec)
+    spikeout(env, spikeoutPath, np.array(env.t_vec), np.array(env.id_vec))
 
     # TODO:
     #if (env.vrecordFraction > 0):
