@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from matplotlib import mlab
 
-
 color_list = [[0.42,0.67,0.84], [0.90,0.76,0.00], [0.42,0.83,0.59], [0.90,0.32,0.00],
               [0.34,0.67,0.67], [0.90,0.59,0.00], [0.42,0.82,0.83], [1.00,0.85,0.00],
               [0.33,0.67,0.47], [1.00,0.38,0.60], [0.57,0.67,0.33], [0.5,0.2,0.0],
@@ -47,7 +46,7 @@ def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
 
-def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = 1e6, orderInverse = False, labels = 'legend', popRates = False,
+def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
                 spikeHist = None, spikeHistBin = 5, syncLines = False, lw = 3, marker = '|', figSize = (10,8), saveFig = None,
                 showFig = True, verbose = False): 
     ''' 
@@ -129,6 +128,8 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = 1e6, or
         num_cell_spks[pop_name] = this_num_cell_spks
 
     spkts = np.asarray(spktlst, dtype=np.float32)
+    if verbose:
+        print 'Read %i spikes' % (len(spkts)) 
     del(spktlst)
     spkinds = np.asarray(spkindlst, dtype=np.uint32)
     del(spkindlst)
@@ -140,9 +141,10 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = 1e6, or
     # Limit to maxSpikes
     if (len(spkts)>maxSpikes):
         if verbose:
-            print('  Showing only the first %i out of %i spikes' % (maxSpikes, len(spkts))) 
-        spkts = spkts[:maxSpikes]
-        spkinds = spkinds[:maxSpikes]
+            print('  Showing only randomly sampled %i out of %i spikes' % (maxSpikes, len(spkts)))
+        sample_inds = np.random.random_integers(0, len(spkts), size=int(maxSpikes))
+        spkts = spkts[sample_inds]
+        spkinds = spkinds[sample_inds]
         timeRange[1] =  max(spkts)
 
     # Calculate spike histogram 
