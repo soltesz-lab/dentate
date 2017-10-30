@@ -722,7 +722,7 @@ Connection Properties:
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 1.0
+        weight: 0.5
         velocity: 250.0
   BC:
     GC:
@@ -890,7 +890,7 @@ Connection Properties:
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 2.14
+        weight: 0.75
         velocity: 250.0
   IS:
     GC:
