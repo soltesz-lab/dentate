@@ -199,7 +199,11 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
             pop_label_rates = [pop_name + ' (%.3g Hz)' % (avg_rates[pop_name]) for pop_name in population_names if pop_name in avg_rates]
 
         if labels == 'legend':
-            lgd = plt.legend(sctplots, population_names, fontsize=fontSize, scatterpoints=1, markerscale=5.,
+            if popRates:
+                legend_labels = pop_label_rates
+            else:
+                legend_labels = population_names
+            lgd = plt.legend(sctplots, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.,
                              loc='upper right', bbox_to_anchor=(1.1, 1.0))
             ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
             ## draw the legend on the canvas to assign it real pixel coordinates:
