@@ -79,6 +79,7 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
     spkcolorlst = []
     num_cell_spks = {}
     num_cells   = 0
+    pop_active_cells = {}
 
     tmin = float('inf')
     tmax = 0.
@@ -90,6 +91,8 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
 
         pop_spkindlst = []
         pop_spktlst   = []
+
+        active_set = set([])
         
         # Time Range
         if timeRange is None:
@@ -102,7 +105,7 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
                     if spkt > tmax:
                         tmax = spkt
                     this_num_cell_spks += 1
-                    num_cells += 1
+                    active_set.add(spkind)
         else:
             for spkind,spkts in spkiter:
                 for spkt in spkts['t']:
@@ -114,8 +117,9 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
                         if spkt > tmax:
                             tmax = spkt
                         this_num_cell_spks += 1
-                        num_cells += 1
-                        
+                        active_set.add(spkind)
+
+        pop_active_cells[pop_name] = active_set
         num_cell_spks[pop_name] = this_num_cell_spks
 
         pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
@@ -151,13 +155,13 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
     if popRates:
         avg_rates = {}
         tsecs = (timeRange[1]-timeRange[0])/1e3 
-        for i,pop in enumerate(population_names):
-            pop_num = pop_num_cells[pop]
+        for i,pop_name in enumerate(population_names):
+            pop_num = len(pop_active_cells[pop_name])
             if pop_num > 0:
-                if num_cell_spks[pop] == 0:
-                    avg_rates[pop] = 0
+                if num_cell_spks[pop_name] == 0:
+                    avg_rates[pop_name] = 0
                 else:
-                    avg_rates[pop] = num_cell_spks[pop] / pop_num / tsecs
+                    avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
 
                     
     # Plot spikes
@@ -198,13 +202,12 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
 
         # Add legend
         if popRates:
-            pop_label_rates = [pop_name + ' (%.3g Hz)' % (avg_rates[pop_name]) for pop_name in population_names if pop_name in avg_rates]
-
+            pop_labels = [pop_name + ' (%i active; %.3g Hz)' % (len(pop_active_cells[pop_name]), avg_rates[pop_name]) for pop_name in population_names if pop_name in avg_rates]
+        else:
+            pop_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))]
+            
         if labels == 'legend':
-            if popRates:
-                legend_labels = pop_label_rates
-            else:
-                legend_labels = population_names
+            legend_labels = pop_labels
             lgd = plt.legend(sctplots, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.,
                              loc='upper right', bbox_to_anchor=(1.1, 1.0))
             ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
