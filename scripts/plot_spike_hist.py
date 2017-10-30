@@ -4,7 +4,7 @@ from mpi4py import MPI
 import click
 import utils, plot
 
-script_name = 'plot_raster.py'
+script_name = 'plot_spike_hist.py'
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
@@ -14,8 +14,10 @@ script_name = 'plot_raster.py'
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
+@click.option("--graph-type", type=str, default='bar')
+@click.option("--overlay", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, max_spikes, spike_hist_bin, t_max, t_min, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, max_spikes, spike_hist_bin, t_max, t_min, font_size, graph_type, overlay, verbose):
     if t_max is None:
         timeRange = None
     else:
@@ -24,8 +26,9 @@ def main(spike_events_path, spike_events_namespace, max_spikes, spike_hist_bin, 
         else:
             timeRange = [t_min, t_max]
         
-    plot.plot_spike_raster (spike_events_path, spike_events_namespace, timeRange=timeRange, popRates=True, spikeHist='subplot',
-                            maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True, verbose=verbose)
+    plot.plot_spike_histogram (spike_events_path, spike_events_namespace, timeRange=timeRange, 
+                               maxSpikes=max_spikes, binSize=spike_hist_bin, fontSize=font_size,
+                               overlay=overlay, graphType=graph_type, saveFig=True, verbose=verbose)
     
 
 if __name__ == '__main__':
