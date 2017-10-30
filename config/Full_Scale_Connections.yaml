@@ -5,7 +5,7 @@ Axon Width:
     LPP:  [1500., 3000.]
     MC:   [4000., 4000.]
     NGFC: [2000., 2000.]
-    AAC:  [550., 550.]
+    AAC:  [1100., 1100.]
     BC:   [1700., 1000.]
     HCC:  [2600., 2600.]
     HC:   [3000., 3000.]
@@ -722,7 +722,7 @@ Connection Properties:
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 1.0
+        weight: 0.5
         velocity: 250.0
   BC:
     GC:
@@ -890,7 +890,7 @@ Connection Properties:
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 2.14
+        weight: 0.75
         velocity: 250.0
   IS:
     GC:
