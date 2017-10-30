@@ -115,12 +115,13 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
                             tmax = spkt
                         this_num_cell_spks += 1
                         num_cells += 1
+                        
+        num_cell_spks[pop_name] = this_num_cell_spks
 
         pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
         del(pop_spktlst)
         pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
         del(pop_spkindlst)
-
                         
         # Limit to maxSpikes
         if (len(pop_spkts)>maxSpikes):
@@ -131,7 +132,6 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
             pop_spkinds = pop_spkinds[sample_inds]
             tmax = max(tmax, max(pop_spkts))
                         
-        num_cell_spks[pop_name] = this_num_cell_spks
 
         spktlst.append(pop_spkts)
         spkindlst.append(pop_spkinds)
