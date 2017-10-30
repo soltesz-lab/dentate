@@ -1,19 +1,24 @@
 
 import itertools
 import numpy as np
+from scipy import interpolate
 from mpi4py import MPI
 from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names
 import matplotlib.pyplot as plt
 from matplotlib import gridspec, mlab
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-color_list = [[0.42,0.67,0.84], [0.90,0.76,0.00], [0.42,0.83,0.59], [0.90,0.32,0.00],
-              [0.34,0.67,0.67], [0.90,0.59,0.00], [0.42,0.82,0.83], [1.00,0.85,0.00],
-              [0.33,0.67,0.47], [1.00,0.38,0.60], [0.57,0.67,0.33], [0.5,0.2,0.0],
-              [0.71,0.82,0.41], [0.0,0.2,0.5], [0.70,0.32,0.10],
-              [0.42,0.67,0.84], [0.90,0.76,0.00], [0.42,0.83,0.59], [0.90,0.32,0.00],
-              [0.34,0.67,0.67], [0.90,0.59,0.00], [0.42,0.82,0.83], [1.00,0.85,0.00],
-              [0.33,0.67,0.47], [1.00,0.38,0.60], [0.57,0.67,0.33], [0.5,0.2,0.0],
-              [0.71,0.82,0.41], [0.0,0.2,0.5], [0.70,0.32,0.10]] 
+color_list = ["#000000", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
+                 "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
+                 "#90FB92", "#0076FF", "#D5FF00", "#FF937E", "#6A826C", "#FF029D", "#FE8900", "#7A4782",
+                 "#7E2DD2", "#85A900", "#FF0056", "#A42400", "#00AE7E", "#683D3B", "#BDC6FF", "#263400",
+                 "#BDD393", "#00B917", "#9E008E", "#001544", "#C28C9F", "#FF74A3", "#01D0FF", "#004754",
+                 "#E56FFE", "#788231", "#0E4CA1", "#91D0CB", "#BE9970", "#968AE8", "#BB8800", "#43002C",
+                 "#DEFF74", "#00FFC6", "#FFE502", "#620E00", "#008F9C", "#98FF52", "#7544B1", "#B500FF",
+                 "#00FF78", "#FF6E41", "#005F39", "#6B6882", "#5FAD4E", "#A75740", "#A5FFD2", "#FFB167", 
+                 "#009BFF", "#E85EBE"]
+
 
 
 
@@ -127,7 +132,7 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
             sample_inds = np.random.random_integers(0, len(pop_spkts)-1, size=int(maxSpikes))
             pop_spkts   = pop_spkts[sample_inds]
             pop_spkinds = pop_spkinds[sample_inds]
-            timeRange[1] =  max(pop_spkts)
+            tmax = max(tmax, max(pop_spkts))
                         
         num_cell_spks[pop_name] = this_num_cell_spks
 
@@ -255,4 +260,178 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
         show_figure()
     
     return fig
+
+def plot_in_degree(target, connectivity_path, coords_path, distances_namespace, source=None):
+    """
+
+    :param target: str
+    :param source: str
+    :param connectivity_file:
+    :param soma_coords: dict
+    :param u: array
+    :param v: array
+    :param distance_U: array
+    :param distance_V: array
+    """
+
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, _) = read_population_ranges(comm, coords_path)
+
+    target_start = population_ranges[target][0]
+    target_count = population_ranges[target][1]
+
+    with h5py.File(connectivity_path, 'r') as f:
+        if source is None:
+            in_degrees = f['Nodes']['Vertex Metrics']['Vertex indegree']['Attribute Value'][target_start:target_start+target_count]
+
+    print 'read in_degrees (%i elements)' % len(in_degrees)
+            
+    distances = read_cell_attributes(comm, coords_path, target, namespace=distances_namespace)
+
+    print 'read distances (%i elements)' % len(distances.keys())
+    
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances.iteritems() }
+    del distances
+    
+    fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    distance_U = np.asarray([ soma_distances[v+target_start][0] for v in range(0,len(in_degrees)) ])
+    distance_V = np.asarray([ soma_distances[v+target_start][1] for v in range(0,len(in_degrees)) ])
+
+
+    distance_points = np.vstack((distance_U, distance_V))
+    x_min = np.min(distance_U)
+    x_max = np.max(distance_U)
+    y_min = np.min(distance_V)
+    y_max = np.max(distance_V)
+    grid_x, grid_y = np.meshgrid(np.arange(x_min, x_max, 1),
+                                np.arange(y_min, y_max, 1))
+    in_degree_grid = interpolate.griddata(distance_points.T,
+                                          in_degrees,
+                                          (grid_x, grid_y),
+                                          method='nearest')
+
+    print in_degree_grid
+    
+    ###pcm = plt.pcolormesh (distance_U, distance_V, in_degree_grid, cmap='RdBu')
+
+    plt.imshow(in_degree_grid, origin='lower', cmap='RdBu',
+               vmin=np.min(in_degrees), vmax=np.max(in_degrees),
+               extent=[x_min, x_max, y_min, y_max])
+    plt.axis([x_min, x_max, y_min, y_max])
+    plt.colorbar()
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)')
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
+    #ax.set_title(target+' <-- '+source+' (in degree)')
+    #ax.set_aspect('equal', 'box')
+    #clean_axes(ax)
+    #divider = make_axes_locatable(ax)
+    #cax = divider.append_axes("right", size="3%", pad=0.05)
+    #cbar = plt.colorbar(pcm, cax=cax)
+    #cbar.ax.set_ylabel('Counts')
+
+    plt.show()
+    plt.close()
+
+
+def plot_out_degree(target, source, projection, degrees_file, soma_coords, u, v, distance_U, distance_V, bin_size=50.):
+    """
+
+    :param target: str
+    :param source: str
+    :param projection: str
+    :param degrees_file: :class:'h5py.Group'
+    :param soma_coords: dict
+    :param u: array
+    :param v: array
+    :param distance_U: array
+    :param distance_V: array
+    :param bin_size: float (um)
+    """
+    with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
+        out_degree_group = f['Projections'][projection]['Out degree']
+        raw_source_gids = soma_coords[source]['GID'][:]
+        sorted_source_indexes = range(len(raw_source_gids))
+        sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
+
+        source_indexes_gid = get_array_index(raw_source_gids[sorted_source_indexes], out_degree_group['gid'][:])
+        source_indexes_u = get_array_index(u, soma_coords[source]['u'][sorted_source_indexes][source_indexes_gid])
+        source_indexes_v = get_array_index(v, soma_coords[source]['v'][sorted_source_indexes][source_indexes_gid])
+
+        this_step_size = int(bin_size / spatial_resolution)
+        this_out_degree = interpolate.griddata((distance_U[source_indexes_u, source_indexes_v],
+                                               distance_V[source_indexes_u, source_indexes_v]),
+                                               out_degree_group['count'][:],
+                                               (distance_U[::this_step_size, ::this_step_size],
+                                                distance_V[::this_step_size, ::this_step_size]), method='nearest')
+        fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+        ax = plt.gca()
+        pcm = plt.pcolormesh(distance_U[::this_step_size, ::this_step_size],
+                             distance_V[::this_step_size, ::this_step_size], this_out_degree)
+        ax.set_xlabel('Arc distance (septal - temporal) (um)')
+        ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
+        ax.set_title(source+' --> '+target+' (out degree)')
+        ax.set_aspect('equal', 'box')
+        clean_axes(ax)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.05)
+        cbar = plt.colorbar(pcm, cax=cax)
+        cbar.ax.set_ylabel('Counts')
+
+        plt.show()
+        plt.close()
+
+
+def plot_population_density(population, soma_coords, u, v, distance_U, distance_V, max_u, max_v, bin_size=100.):
+    """
+
+    :param population: str
+    :param soma_coords: dict of array
+    :param u: array
+    :param v: array
+    :param distance_U: array
+    :param distance_V: array
+    :param max_u: float: u_distance
+    :param max_v: float: v_distance
+    :param bin_size: float
+    :return:
+    """
+    fig1 = plt.figure()
+    ax = fig1.add_subplot(111, projection='3d')
+    pop_size = len(soma_coords[population]['x'])
+    indexes = random.sample(range(pop_size), min(pop_size, 5000))
+    ax.scatter(soma_coords[population]['x'][indexes], soma_coords[population]['y'][indexes],
+               soma_coords[population]['z'][indexes], alpha=0.1, linewidth=0)
+    scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
+    ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]] * 3)
+    ax.set_xlabel('X (um)')
+    ax.set_ylabel('Y (um)')
+    ax.set_zlabel('Z (um)')
+
+    step_sizes = [int(max_u / bin_size), int(max_v / bin_size)]
+    plt.figure(figsize=plt.figaspect(1.)*2.)
+    population_indexes_u = get_array_index(u, soma_coords[population]['u'])
+    population_indexes_v = get_array_index(v, soma_coords[population]['v'])
+    H, u_edges, v_edges = np.histogram2d(distance_U[population_indexes_u, population_indexes_v],
+                                         distance_V[population_indexes_u, population_indexes_v], step_sizes)
+    H = np.rot90(H)
+    H = np.flipud(H)
+    Hmasked = np.ma.masked_where(H == 0, H)
+    ax = plt.gca()
+    pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
+    ax.set_xlabel('Arc distance (septal - temporal) (um)')
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
+    ax.set_title(population)
+    ax.set_aspect('equal', 'box')
+    clean_axes(ax)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cbar = plt.colorbar(pcm, cax=cax)
+    cbar.ax.set_ylabel('Counts')
+
+    plt.show()
+    plt.close()
 
