@@ -28,20 +28,19 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
+export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
+export LD_PRELOAD=$MPIHOME/lib/libmpi.so
+ulimit -c unlimited
 
-nodefile=`generate_pbs_nodefile`
 
-echo python is `which python`
-
-mpirun_rsh -export-all -hostfile $nodefile -np 1680  \
-PATH=$PATH LD_LIBRARY_PATH=$LD_LIBRARY_PATH PYTHONPATH=$PYTHONPATH \
-python main.py \
+ibrun -np 1680 python main.py \
  --config-file=config/Full_Scale_Control.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \
  --results-path=$results_path \
  --io-size=256 \
- --tstop=5 \
+ --tstop=500 \
  --v-init=-75 \
  --max-walltime-hours=2 \
  --verbose

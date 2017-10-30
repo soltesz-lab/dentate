@@ -32,7 +32,7 @@ for p in populations:
     grp[p]["Arc Distance"] = h5py.ExternalLink(coords_file,"/Populations/%s/Arc Distance" % p)
 
 for p in vecstim_populations:
-    grp[p]["Vector Stimulus 0"] = h5py.ExternalLink(ff,"/Populations/%s/Vector Stimulus 0" % p)
+    grp[p]["Vector Stimulus 0"] = h5py.ExternalLink(spiketrains_file,"/Populations/%s/Vector Stimulus 0" % p)
 
 for (p,ff) in itertools.izip (populations,forest_files):
     if ff is not None:
@@ -42,10 +42,10 @@ for (p,ff) in itertools.izip (populations,forest_files):
 f.close()
 
 
-IN_connectivity_file = "DG_IN_connections_20171024.h5"
+IN_connectivity_file = "DG_IN_connections_20171025.h5"
 GC_connectivity_file = "DG_GC_connections_20171022.h5"
 
-f = h5py.File("DG_connectivity_20171024.h5")
+f = h5py.File("DG_connectivity_20171025.h5")
 
 grp = f.create_group("Projections")
 
