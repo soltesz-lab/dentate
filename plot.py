@@ -121,10 +121,10 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
 
                         
         # Limit to maxSpikes
-        if (len(spkts)>maxSpikes):
+        if (len(pop_spkts)>maxSpikes):
             if verbose:
-                print('  Showing only randomly sampled %i out of %i spikes' % (maxSpikes, len(spkts)))
-            sample_inds = np.random.random_integers(0, len(spkts)-1, size=int(maxSpikes))
+                print('  Showing only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
+            sample_inds = np.random.random_integers(0, len(pop_spkts)-1, size=int(maxSpikes))
             pop_spkts   = pop_spkts[sample_inds]
             pop_spkinds = pop_spkinds[sample_inds]
             timeRange[1] =  max(pop_spkts)
