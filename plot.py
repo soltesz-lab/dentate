@@ -37,7 +37,141 @@ def ifilternone(iterable):
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
+def plot_in_degree(connectivity_path, coords_path, distances_namespace, destination_id, source=None, showFig = True, saveFig = False, verbose=True):
+    """
+    Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
+    :param connectivity_path:
+    :param coords_path:
+    :param distances_namespace: 
+    :param destination_id: 
+
+    """
+
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, _) = read_population_ranges(comm, coords_path)
+
+    target_start = population_ranges[target][0]
+    target_count = population_ranges[target][1]
+
+    with h5py.File(connectivity_path, 'r') as f:
+        if source is None:
+            in_degrees = f['Nodes']['Vertex Metrics']['Vertex indegree']['Attribute Value'][target_start:target_start+target_count]
+
+    if verbose:
+        print 'read in degrees (%i elements)' % len(in_degrees)
+            
+    distances = read_cell_attributes(comm, coords_path, target, namespace=distances_namespace)
+
+    if verbose:
+        print 'read distances (%i elements)' % len(distances.keys())
+    
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances.iteritems() }
+    del distances
+    
+    fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    distance_U = np.asarray([ soma_distances[v+target_start][0] for v in range(0,len(in_degrees)) ])
+    distance_V = np.asarray([ soma_distances[v+target_start][1] for v in range(0,len(in_degrees)) ])
+
+
+    distance_points = np.vstack((distance_U, distance_V))
+    x_min = np.min(distance_U)
+    x_max = np.max(distance_U)
+    y_min = np.min(distance_V)
+    y_max = np.max(distance_V)
+    grid_x, grid_y = np.meshgrid(np.arange(x_min, x_max, 1),
+                                np.arange(y_min, y_max, 1))
+    in_degree_grid = interpolate.griddata(distance_points.T,
+                                          in_degrees,
+                                          (grid_x, grid_y),
+                                          method='nearest')
+
+    ###pcm = plt.pcolormesh (distance_U, distance_V, in_degree_grid, cmap='RdBu')
+
+    plt.imshow(in_degree_grid, origin='lower', cmap='RdBu',
+               vmin=np.min(in_degrees), vmax=np.max(in_degrees),
+               extent=[x_min, x_max, y_min, y_max])
+    plt.axis([x_min, x_max, y_min, y_max])
+    plt.colorbar()
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)')
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
+    #ax.set_title(target+' <-- '+source+' (in degree)')
+    #ax.set_aspect('equal', 'box')
+    #clean_axes(ax)
+    #divider = make_axes_locatable(ax)
+    #cax = divider.append_axes("right", size="3%", pad=0.05)
+    #cbar = plt.colorbar(pcm, cax=cax)
+    #cbar.ax.set_ylabel('Counts')
+
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+' '+'in_degree.png'
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
+
+def plot_population_density(population, soma_coords, u, v, distance_U, distance_V, max_u, max_v, bin_size=100.):
+    """
+
+    :param population: str
+    :param soma_coords: dict of array
+    :param u: array
+    :param v: array
+    :param distance_U: array
+    :param distance_V: array
+    :param max_u: float: u_distance
+    :param max_v: float: v_distance
+    :param bin_size: float
+    :return:
+    """
+    fig1 = plt.figure()
+    ax = fig1.add_subplot(111, projection='3d')
+    pop_size = len(soma_coords[population]['x'])
+    indexes = random.sample(range(pop_size), min(pop_size, 5000))
+    ax.scatter(soma_coords[population]['x'][indexes], soma_coords[population]['y'][indexes],
+               soma_coords[population]['z'][indexes], alpha=0.1, linewidth=0)
+    scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
+    ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]] * 3)
+    ax.set_xlabel('X (um)')
+    ax.set_ylabel('Y (um)')
+    ax.set_zlabel('Z (um)')
+
+    step_sizes = [int(max_u / bin_size), int(max_v / bin_size)]
+    plt.figure(figsize=plt.figaspect(1.)*2.)
+    population_indexes_u = get_array_index(u, soma_coords[population]['u'])
+    population_indexes_v = get_array_index(v, soma_coords[population]['v'])
+    H, u_edges, v_edges = np.histogram2d(distance_U[population_indexes_u, population_indexes_v],
+                                         distance_V[population_indexes_u, population_indexes_v], step_sizes)
+    H = np.rot90(H)
+    H = np.flipud(H)
+    Hmasked = np.ma.masked_where(H == 0, H)
+    ax = plt.gca()
+    pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
+    ax.set_xlabel('Arc distance (septal - temporal) (um)')
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
+    ax.set_title(population)
+    ax.set_aspect('equal', 'box')
+    clean_axes(ax)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="3%", pad=0.05)
+    cbar = plt.colorbar(pcm, cax=cax)
+    cbar.ax.set_ylabel('Counts')
+
+    plt.show()
+    plt.close()
+
+## Plot spike histogram
 def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
                        spikeHist = None, spikeHistBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
                        showFig = True, verbose = False): 
@@ -259,137 +393,17 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
     
     return fig
 
-def plot_in_degree(connectivity_path, coords_path, distances_namespace, destination_id, source=None, verbose=True):
-    """
-    Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points)
-    :param connectivity_path:
-    :param coords_path:
-    :param distances_namespace: 
-    :param destination_id: 
-
-    """
-
-    comm = MPI.COMM_WORLD
-
-    (population_ranges, _) = read_population_ranges(comm, coords_path)
-
-    target_start = population_ranges[target][0]
-    target_count = population_ranges[target][1]
-
-    with h5py.File(connectivity_path, 'r') as f:
-        if source is None:
-            in_degrees = f['Nodes']['Vertex Metrics']['Vertex indegree']['Attribute Value'][target_start:target_start+target_count]
-
-    if verbose:
-        print 'read in degrees (%i elements)' % len(in_degrees)
-            
-    distances = read_cell_attributes(comm, coords_path, target, namespace=distances_namespace)
-
-    if verbose:
-        print 'read distances (%i elements)' % len(distances.keys())
-    
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances.iteritems() }
-    del distances
-    
-    fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
-    ax = plt.gca()
-
-    distance_U = np.asarray([ soma_distances[v+target_start][0] for v in range(0,len(in_degrees)) ])
-    distance_V = np.asarray([ soma_distances[v+target_start][1] for v in range(0,len(in_degrees)) ])
-
-
-    distance_points = np.vstack((distance_U, distance_V))
-    x_min = np.min(distance_U)
-    x_max = np.max(distance_U)
-    y_min = np.min(distance_V)
-    y_max = np.max(distance_V)
-    grid_x, grid_y = np.meshgrid(np.arange(x_min, x_max, 1),
-                                np.arange(y_min, y_max, 1))
-    in_degree_grid = interpolate.griddata(distance_points.T,
-                                          in_degrees,
-                                          (grid_x, grid_y),
-                                          method='nearest')
-
-    ###pcm = plt.pcolormesh (distance_U, distance_V, in_degree_grid, cmap='RdBu')
-
-    plt.imshow(in_degree_grid, origin='lower', cmap='RdBu',
-               vmin=np.min(in_degrees), vmax=np.max(in_degrees),
-               extent=[x_min, x_max, y_min, y_max])
-    plt.axis([x_min, x_max, y_min, y_max])
-    plt.colorbar()
-    
-    ax.set_xlabel('Arc distance (septal - temporal) (um)')
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
-    #ax.set_title(target+' <-- '+source+' (in degree)')
-    #ax.set_aspect('equal', 'box')
-    #clean_axes(ax)
-    #divider = make_axes_locatable(ax)
-    #cax = divider.append_axes("right", size="3%", pad=0.05)
-    #cbar = plt.colorbar(pcm, cax=cax)
-    #cbar.ax.set_ylabel('Counts')
-
-    plt.show()
-    plt.close()
-
-
-
-def plot_population_density(population, soma_coords, u, v, distance_U, distance_V, max_u, max_v, bin_size=100.):
-    """
-
-    :param population: str
-    :param soma_coords: dict of array
-    :param u: array
-    :param v: array
-    :param distance_U: array
-    :param distance_V: array
-    :param max_u: float: u_distance
-    :param max_v: float: v_distance
-    :param bin_size: float
-    :return:
-    """
-    fig1 = plt.figure()
-    ax = fig1.add_subplot(111, projection='3d')
-    pop_size = len(soma_coords[population]['x'])
-    indexes = random.sample(range(pop_size), min(pop_size, 5000))
-    ax.scatter(soma_coords[population]['x'][indexes], soma_coords[population]['y'][indexes],
-               soma_coords[population]['z'][indexes], alpha=0.1, linewidth=0)
-    scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
-    ax.auto_scale_xyz(*[[np.min(scaling), np.max(scaling)]] * 3)
-    ax.set_xlabel('X (um)')
-    ax.set_ylabel('Y (um)')
-    ax.set_zlabel('Z (um)')
-
-    step_sizes = [int(max_u / bin_size), int(max_v / bin_size)]
-    plt.figure(figsize=plt.figaspect(1.)*2.)
-    population_indexes_u = get_array_index(u, soma_coords[population]['u'])
-    population_indexes_v = get_array_index(v, soma_coords[population]['v'])
-    H, u_edges, v_edges = np.histogram2d(distance_U[population_indexes_u, population_indexes_v],
-                                         distance_V[population_indexes_u, population_indexes_v], step_sizes)
-    H = np.rot90(H)
-    H = np.flipud(H)
-    Hmasked = np.ma.masked_where(H == 0, H)
-    ax = plt.gca()
-    pcm = ax.pcolormesh(u_edges, v_edges, Hmasked)
-    ax.set_xlabel('Arc distance (septal - temporal) (um)')
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
-    ax.set_title(population)
-    ax.set_aspect('equal', 'box')
-    clean_axes(ax)
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3%", pad=0.05)
-    cbar = plt.colorbar(pcm, cax=cax)
-    cbar.ax.set_ylabel('Counts')
-
-    plt.show()
-    plt.close()
 
 
 ## Plot spike histogram
-def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeRange = None, binSize = 5., maxSpikes=int(1e6),
+def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeRange = None, maxSpikes=int(1e6), binSize = 5., 
                           overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8), fontSize = 14, lw = 3, 
                           saveFig = None, showFig = True, verbose = False): 
     ''' 
-    Plot spike histogram
+    Plots spike histogram. Returns figure handle.
+
+        - input_file: file with spike data
+        - namespace_id: attribute namespace for spike events
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
         - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
@@ -403,8 +417,6 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         - saveFig (None|True|'fileName'): File name where to save the figure;
             if set to True uses filename from simConfig (default: None)
         - showFig (True|False): Whether to show the figure or not (default: True)
-
-        - Returns figure handle
     '''
     comm = MPI.COMM_WORLD
 
@@ -524,7 +536,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         color = color_list[iplot%len(color_list)]
 
         if not overlay: 
-            plt.subplot(len(include),1,iplot+1)  # if subplot, create new subplot
+            plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
             plt.title (str(subset), fontsize=fontSize)
    
         if graphType == 'line':
@@ -563,3 +575,182 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         show_figure()
 
     return fig
+
+
+def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = None,
+                   maxSpikes = int(1e6), binSize = 5, Fs = 200, smooth = 0, overlay=True, 
+                   figSize = (15,8), fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Plots firing rate power spectral density (PSD). Returns figure handle.
+        - input_file: file with spike data
+        - namespace_id: attribute namespace for spike events
+        - include (['eachPop'|<population name>]): List of data series to include. 
+            (default: ['eachPop'] - expands to the name of each population)
+        - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+        - binSize (int): Size in ms of each bin (default: 5)
+        - Fs (float): frequency band
+        - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
+        - graphType ('line'|'bar'): Type of graph to use (line graph or bar plot) (default: 'line')
+        - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
+        - figSize ((width, height)): Size of figure (default: (10,8))
+        - fontSize (integer): Size of text font (default: 14)
+        - lw (integer): Line width for each spike (default: 3)
+        - saveFig (None|True|'fileName'): File name where to save the figure;
+            if set to True uses filename from simConfig (default: None)
+        - showFig (True|False): Whether to show the figure or not (default: True)
+
+    '''
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, N) = read_population_ranges(comm, input_file)
+    population_names  = read_population_names(comm, input_file)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkpoplst   = []
+    spkindlst   = []
+    spktlst     = []
+    num_cells   = 0
+    num_cell_spks    = {}
+    pop_active_cells = {}
+
+    tmin = float('inf')
+    tmax = 0.
+    for pop_name in include:
+ 
+        spkiter = read_cell_attributes(comm, input_file, pop_name, namespace=namespace_id)
+        this_num_cell_spks = 0
+        active_set = set([])
+
+        pop_spkindlst = []
+        pop_spktlst   = []
+        
+        # Time Range
+        if timeRange is None:
+            for spkind,spkts in spkiter:
+                for spkt in spkts['t']:
+                    pop_spkindlst.append(spkind)
+                    pop_spktlst.append(spkt)
+                    if spkt < tmin:
+                        tmin = spkt
+                    if spkt > tmax:
+                        tmax = spkt
+                    this_num_cell_spks += 1
+                    active_set.add(spkind)
+        else:
+            for spkind,spkts in spkiter:
+                for spkt in spkts['t']:
+                    if timeRange[0] <= spkt <= timeRange[1]:
+                        pop_spkindlst.append(spkind)
+                        pop_spktlst.append(spkt)
+                        if spkt < tmin:
+                            tmin = spkt
+                        if spkt > tmax:
+                            tmax = spkt
+                        this_num_cell_spks += 1
+                        active_set.add(spkind)
+
+        pop_active_cells[pop_name] = active_set
+        num_cell_spks[pop_name] = this_num_cell_spks
+
+        pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
+        del(pop_spktlst)
+        pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
+        del(pop_spkindlst)
+                        
+        # Limit to maxSpikes
+        if (len(pop_spkts)>maxSpikes):
+            if verbose:
+                print('  Showing only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
+            sample_inds = np.random.random_integers(0, len(pop_spkts)-1, size=int(maxSpikes))
+            pop_spkts   = pop_spkts[sample_inds]
+            pop_spkinds = pop_spkinds[sample_inds]
+            tmax = max(tmax, max(pop_spkts))
+
+        spkpoplst.append(pop_name)
+        spktlst.append(pop_spkts)
+        spkindlst.append(pop_spkinds)
+        
+        if verbose:
+            print 'Read %i spikes for population %s' % (this_num_cell_spks, pop_name)
+
+    timeRange = [tmin, tmax]
+
+    # create fig
+    fig, ax1 = plt.subplots(figsize=figSize)
+
+    if verbose:
+        print('Plotting firing rate power spectral density (PSD) ...')
+    
+    # Plot separate line for each entry in include
+    histData = []
+    for iplot, subset in enumerate(spkpoplst):
+
+        spkts = spktlst[iplot]
+
+        histo = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
+        histoT = histo[1][:-1]+binSize/2
+        histoCount = histo[0] 
+        
+        histData.append(histoCount)
+        
+        power = mlab.psd(histoCount, Fs=Fs, NFFT=256, detrend=mlab.detrend_none, window=mlab.window_hanning, 
+                         noverlap=0, pad_to=None, sides='default', scale_by_freq=None)
+
+        if smooth:
+            signal = smooth1d(10*np.log10(power[0]), smooth)
+        else:
+            signal = 10*np.log10(power[0])
+            
+        freqs = power[1]
+
+        color = color_list[iplot%len(color_list)]
+
+        if not overlay: 
+            plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
+            plt.title (str(subset), fontsize=fontSize)
+
+        plt.plot(freqs, signal, linewidth=lw, color=color)
+
+        plt.xlabel('Frequency (Hz)', fontsize=fontSize)
+        plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fontSize) # add yaxis in opposite side
+        plt.xlim([0, (Fs/2)-1])
+
+    if len(include) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
+        try:
+            plt.tight_layout()
+        except:
+            pass
+
+    # Add legend
+    if overlay:
+        for i,subset in enumerate(include):
+            color = color_list[i%len(color_list)]
+            plt.plot(0,0,color=color,label=str(subset))
+        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        maxLabelLen = min(10,max([len(str(l)) for l in include]))
+        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
+
+ 
+    # save figure
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+'_'+'ratePSD.png'
+        plt.savefig(filename)
+
+    # show fig 
+    if showFig:
+        show_figure()
+
+    return fig, power
