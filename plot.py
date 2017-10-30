@@ -37,14 +37,14 @@ def ifilternone(iterable):
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
-def plot_in_degree(connectivity_path, coords_path, distances_namespace, destination_id, source=None, showFig = True, saveFig = False, verbose=True):
+def plot_in_degree(connectivity_path, coords_path, distances_namespace, destination_pop, source=None, showFig = True, saveFig = False, verbose = False):
     """
     Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
     :param connectivity_path:
     :param coords_path:
     :param distances_namespace: 
-    :param destination_id: 
+    :param destination_pop: 
 
     """
 
@@ -52,17 +52,17 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
 
     (population_ranges, _) = read_population_ranges(comm, coords_path)
 
-    target_start = population_ranges[target][0]
-    target_count = population_ranges[target][1]
+    destination_start = population_ranges[destination_pop][0]
+    destination_count = population_ranges[destination_pop][1]
 
     with h5py.File(connectivity_path, 'r') as f:
         if source is None:
-            in_degrees = f['Nodes']['Vertex Metrics']['Vertex indegree']['Attribute Value'][target_start:target_start+target_count]
+            in_degrees = f['Nodes']['Vertex Metrics']['Vertex indegree']['Attribute Value'][destination_start:destination_start+destination_count]
 
     if verbose:
         print 'read in degrees (%i elements)' % len(in_degrees)
             
-    distances = read_cell_attributes(comm, coords_path, target, namespace=distances_namespace)
+    distances = read_cell_attributes(comm, coords_path, destination, namespace=distances_namespace)
 
     if verbose:
         print 'read distances (%i elements)' % len(distances.keys())
@@ -73,9 +73,11 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
     fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
-    distance_U = np.asarray([ soma_distances[v+target_start][0] for v in range(0,len(in_degrees)) ])
-    distance_V = np.asarray([ soma_distances[v+target_start][1] for v in range(0,len(in_degrees)) ])
+    distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
+    distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(in_degrees)) ])
 
+    if verbose:
+        print 'Plotting in-degree distribution...'
 
     distance_points = np.vstack((distance_U, distance_V))
     x_min = np.min(distance_U)
@@ -99,7 +101,7 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)')
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
-    #ax.set_title(target+' <-- '+source+' (in degree)')
+    #ax.set_title(destination+' <-- '+source+' (in degree)')
     #ax.set_aspect('equal', 'box')
     #clean_axes(ax)
     #divider = make_axes_locatable(ax)
@@ -111,7 +113,7 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = namespace_id+' '+'in_degree.png'
+            filename = destination_pop+' '+'in_degree.png'
             plt.savefig(filename)
 
     if showFig:
@@ -121,7 +123,7 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
 
 
 
-def plot_population_density(population, soma_coords, u, v, distance_U, distance_V, max_u, max_v, bin_size=100.):
+def plot_population_density(population, soma_coords, distances_namespace, max_u, max_v, bin_size=100., showFig = True, saveFig = False, verbose=True):
     """
 
     :param population: str
@@ -168,9 +170,18 @@ def plot_population_density(population, soma_coords, u, v, distance_U, distance_
     cbar = plt.colorbar(pcm, cax=cax)
     cbar.ax.set_ylabel('Counts')
 
-    plt.show()
-    plt.close()
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = distances_namespace+' '+'density.png'
+            plt.savefig(filename)
 
+    if showFig:
+        show_figure()
+
+    return ax
+    
 ## Plot spike histogram
 def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
                        spikeHist = None, spikeHistBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
