@@ -47,7 +47,7 @@ def flatten(iterables):
 
 
 def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
-                spikeHist = None, spikeHistBin = 5, syncLines = False, lw = 3, marker = '|', figSize = (10,8), saveFig = None,
+                spikeHist = None, spikeHistBin = 5, syncLines = False, lw = 3, marker = '|', figSize = (15,8), saveFig = None,
                 showFig = True, verbose = False): 
     ''' 
     Raster plot of network spike times 
@@ -72,7 +72,7 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
     '''
 
     if verbose:
-        print('Plotting raster...')
+        print('Reading spike data...')
     comm = MPI.COMM_WORLD
 
     (population_ranges, N) = read_population_ranges(comm, input_file)
@@ -142,9 +142,10 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
     if (len(spkts)>maxSpikes):
         if verbose:
             print('  Showing only randomly sampled %i out of %i spikes' % (maxSpikes, len(spkts)))
-        sample_inds = np.random.random_integers(0, len(spkts), size=int(maxSpikes))
-        spkts = spkts[sample_inds]
-        spkinds = spkinds[sample_inds]
+        sample_inds = np.random.random_integers(0, len(spkts)-1, size=int(maxSpikes))
+        spkts     = spkts[sample_inds]
+        spkinds   = spkinds[sample_inds]
+        spkcolors = spkcolors[sample_inds]
         timeRange[1] =  max(spkts)
 
     # Calculate spike histogram 
@@ -183,7 +184,10 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
         gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
         ax1=plt.subplot(gs[0])
  
-        ax1.scatter(spkts, spkinds, s=10, linewidths=lw, marker=marker, c=spkcolors, alpha=0.5)
+        if verbose:
+            print('Creating raster plot...')
+            
+        ax1.scatter(spkts, spkinds, s=10, linewidths=lw, marker=marker, c=spkcolors, alpha=0.5, label)
         ax1.set_xlim(timeRange)
 
         ax1.set_xlabel('Time (ms)', fontsize=fontsiz)
@@ -196,17 +200,15 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
             pop_label_rates = [pop_name + ' (%.3g Hz)' % (avg_rates[pop_name]) for pop_name in population_names if pop_name in avg_rates]
 
         if labels == 'legend':
-            for ipop, pop_name in enumerate(population_names):
-                label = pop_label_rates[ipop] if popRates else pop_name
-                plt.plot(0,0,color=pop_colors[pop_name],label=label)
-            plt.legend(fontsize=fontsiz, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+            plt.legend(ax1, fontsize=fontsiz, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
             maxLabelLen = max([len(l) for l in population_names])
             rightOffset = 0.85 if popRates else 0.9
             plt.subplots_adjust(right=(rightOffset-0.012*maxLabelLen))
     
         maxLabelLen = max([len(l) for l in population_names])
         plt.subplots_adjust(right=(1.0-0.011*maxLabelLen))
-
+        ##plt.tight_layout()
+        
         # Plot spike hist
         if spikeHist == 'overlay':
             ax2 = ax1.twinx()
@@ -222,6 +224,7 @@ def plot_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6
 
         if orderInverse:
             plt.gca().invert_yaxis()
+        plt.tight_layout()
 
         # save figure
         if saveFig: 
