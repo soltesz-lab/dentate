@@ -2,12 +2,14 @@
 import itertools
 import numpy as np
 from scipy import interpolate
-from mpi4py import MPI
-from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from matplotlib import gridspec, mlab
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpi4py import MPI
+from neuroh5.io import read_population_ranges, read_population_names
+import spikedata, stimulus
 
 color_list = ["#000000", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -206,8 +208,6 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
     showFig (True|False): Whether to show the figure or not (default: True)
     '''
 
-    if verbose:
-        print('Reading spike data...')
     comm = MPI.COMM_WORLD
 
     (population_ranges, N) = read_population_ranges(comm, input_file)
@@ -219,73 +219,17 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
 
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(population_names) }
 
-    spkindlst   = []
-    spktlst     = []
-    num_cell_spks = {}
-    num_cells   = 0
-    pop_active_cells = {}
+    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id,
+                                           timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
 
-    tmin = float('inf')
-    tmax = 0.
-    for pop_name in population_names:
- 
-        color   = pop_colors[pop_name]
-        spkiter = read_cell_attributes(comm, input_file, pop_name, namespace=namespace_id)
-        this_num_cell_spks = 0
-        active_set = set([])
-
-        pop_spkindlst = []
-        pop_spktlst   = []
-        
-        # Time Range
-        if timeRange is None:
-            for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
-                    pop_spkindlst.append(spkind)
-                    pop_spktlst.append(spkt)
-                    if spkt < tmin:
-                        tmin = spkt
-                    if spkt > tmax:
-                        tmax = spkt
-                    this_num_cell_spks += 1
-                    active_set.add(spkind)
-        else:
-            for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
-                    if timeRange[0] <= spkt <= timeRange[1]:
-                        pop_spkindlst.append(spkind)
-                        pop_spktlst.append(spkt)
-                        if spkt < tmin:
-                            tmin = spkt
-                        if spkt > tmax:
-                            tmax = spkt
-                        this_num_cell_spks += 1
-                        active_set.add(spkind)
-
-        pop_active_cells[pop_name] = active_set
-        num_cell_spks[pop_name] = this_num_cell_spks
-
-        pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
-        del(pop_spktlst)
-        pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
-        del(pop_spkindlst)
-                        
-        # Limit to maxSpikes
-        if (len(pop_spkts)>maxSpikes):
-            if verbose:
-                print('  Showing only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
-            sample_inds = np.random.random_integers(0, len(pop_spkts)-1, size=int(maxSpikes))
-            pop_spkts   = pop_spkts[sample_inds]
-            pop_spkinds = pop_spkinds[sample_inds]
-            tmax = max(tmax, max(pop_spkts))
-                        
-
-        spktlst.append(pop_spkts)
-        spkindlst.append(pop_spkinds)
-        
-        if verbose:
-            print 'Read %i spikes for population %s' % (this_num_cell_spks, pop_name)
-
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+    
     timeRange = [tmin, tmax]
 
     # Calculate spike histogram 
@@ -331,7 +275,6 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
 
         gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
         ax1=plt.subplot(gs[0])
-
         
         for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (population_names, spkindlst, spktlst):
             sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
@@ -445,72 +388,16 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         for pop in population_names:
             include.append(pop)
 
-    spkpoplst   = []
-    spkindlst   = []
-    spktlst     = []
-    num_cells   = 0
-    num_cell_spks    = {}
-    pop_active_cells = {}
+    spkdata = spikedata.read_spike_events (comm, input_file, include, namespace_id,
+                                           timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
 
-    tmin = float('inf')
-    tmax = 0.
-    for pop_name in include:
- 
-        spkiter = read_cell_attributes(comm, input_file, pop_name, namespace=namespace_id)
-        this_num_cell_spks = 0
-        active_set = set([])
-
-        pop_spkindlst = []
-        pop_spktlst   = []
-        
-        # Time Range
-        if timeRange is None:
-            for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
-                    pop_spkindlst.append(spkind)
-                    pop_spktlst.append(spkt)
-                    if spkt < tmin:
-                        tmin = spkt
-                    if spkt > tmax:
-                        tmax = spkt
-                    this_num_cell_spks += 1
-                    active_set.add(spkind)
-        else:
-            for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
-                    if timeRange[0] <= spkt <= timeRange[1]:
-                        pop_spkindlst.append(spkind)
-                        pop_spktlst.append(spkt)
-                        if spkt < tmin:
-                            tmin = spkt
-                        if spkt > tmax:
-                            tmax = spkt
-                        this_num_cell_spks += 1
-                        active_set.add(spkind)
-
-        pop_active_cells[pop_name] = active_set
-        num_cell_spks[pop_name] = this_num_cell_spks
-
-        pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
-        del(pop_spktlst)
-        pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
-        del(pop_spkindlst)
-                        
-        # Limit to maxSpikes
-        if (len(pop_spkts)>maxSpikes):
-            if verbose:
-                print('  Showing only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
-            sample_inds = np.random.random_integers(0, len(pop_spkts)-1, size=int(maxSpikes))
-            pop_spkts   = pop_spkts[sample_inds]
-            pop_spkinds = pop_spkinds[sample_inds]
-            tmax = max(tmax, max(pop_spkts))
-
-        spkpoplst.append(pop_name)
-        spktlst.append(pop_spkts)
-        spkindlst.append(pop_spkinds)
-        
-        if verbose:
-            print 'Read %i spikes for population %s' % (this_num_cell_spks, pop_name)
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
 
     timeRange = [tmin, tmax]
             
@@ -531,7 +418,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         
     # Plot separate line for each entry in include
     histData = []
-    for iplot, subset in enumerate(spkpoplst):
+    for iplot, spkts in enumerate(spkpoplst):
 
         spkts = spktlst[iplot]
 
@@ -590,7 +477,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
 
 def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = None,
                    maxSpikes = int(1e6), binSize = 5, Fs = 200, smooth = 0, overlay=True, 
-                   figSize = (15,8), fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
+                   figSize = (8,8), fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots firing rate power spectral density (PSD). Returns figure handle.
         - input_file: file with spike data
@@ -599,11 +486,11 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
             (default: ['eachPop'] - expands to the name of each population)
         - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - binSize (int): Size in ms of each bin (default: 5)
-        - Fs (float): frequency band
+        - Fs (float): sampling frequency
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
         - graphType ('line'|'bar'): Type of graph to use (line graph or bar plot) (default: 'line')
         - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
-        - figSize ((width, height)): Size of figure (default: (10,8))
+        - figSize ((width, height)): Size of figure (default: (8,8))
         - fontSize (integer): Size of text font (default: 14)
         - lw (integer): Line width for each spike (default: 3)
         - saveFig (None|True|'fileName'): File name where to save the figure;
@@ -627,72 +514,16 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
         for pop in population_names:
             include.append(pop)
 
-    spkpoplst   = []
-    spkindlst   = []
-    spktlst     = []
-    num_cells   = 0
-    num_cell_spks    = {}
-    pop_active_cells = {}
-
-    tmin = float('inf')
-    tmax = 0.
-    for pop_name in include:
- 
-        spkiter = read_cell_attributes(comm, input_file, pop_name, namespace=namespace_id)
-        this_num_cell_spks = 0
-        active_set = set([])
-
-        pop_spkindlst = []
-        pop_spktlst   = []
-        
-        # Time Range
-        if timeRange is None:
-            for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
-                    pop_spkindlst.append(spkind)
-                    pop_spktlst.append(spkt)
-                    if spkt < tmin:
-                        tmin = spkt
-                    if spkt > tmax:
-                        tmax = spkt
-                    this_num_cell_spks += 1
-                    active_set.add(spkind)
-        else:
-            for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
-                    if timeRange[0] <= spkt <= timeRange[1]:
-                        pop_spkindlst.append(spkind)
-                        pop_spktlst.append(spkt)
-                        if spkt < tmin:
-                            tmin = spkt
-                        if spkt > tmax:
-                            tmax = spkt
-                        this_num_cell_spks += 1
-                        active_set.add(spkind)
-
-        pop_active_cells[pop_name] = active_set
-        num_cell_spks[pop_name] = this_num_cell_spks
-
-        pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
-        del(pop_spktlst)
-        pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
-        del(pop_spkindlst)
-                        
-        # Limit to maxSpikes
-        if (len(pop_spkts)>maxSpikes):
-            if verbose:
-                print('  Showing only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
-            sample_inds = np.random.random_integers(0, len(pop_spkts)-1, size=int(maxSpikes))
-            pop_spkts   = pop_spkts[sample_inds]
-            pop_spkinds = pop_spkinds[sample_inds]
-            tmax = max(tmax, max(pop_spkts))
-
-        spkpoplst.append(pop_name)
-        spktlst.append(pop_spkts)
-        spkindlst.append(pop_spkinds)
-        
-        if verbose:
-            print 'Read %i spikes for population %s' % (this_num_cell_spks, pop_name)
+    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id,
+                                           timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
+    
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
 
     timeRange = [tmin, tmax]
 
@@ -732,8 +563,9 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
 
         plt.plot(freqs, signal, linewidth=lw, color=color)
 
-        plt.xlabel('Frequency (Hz)', fontsize=fontSize)
-        plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fontSize) # add yaxis in opposite side
+        if iplot == 0:
+            plt.xlabel('Frequency (Hz)', fontsize=fontSize)
+            plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fontSize) # add yaxis in opposite side
         plt.xlim([0, (Fs/2)-1])
 
     if len(include) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
@@ -765,3 +597,67 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
         show_figure()
 
     return fig, power
+
+def plot_stimulus_rate (input_file, namespace_id, include,
+                        figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
+                        verbose = False): 
+    ''' 
+
+        - input_file: file with stimulus data
+        - namespace_id: attribute namespace for stimulus
+        - include (['eachPop'|<population name>]): List of data series to include. 
+            (default: ['eachPop'] - expands to the name of each population)
+        - figSize ((width, height)): Size of figure (default: (8,8))
+        - fontSize (integer): Size of text font (default: 14)
+        - lw (integer): Line width for each spike (default: 3)
+        - saveFig (None|True|'fileName'): File name where to save the figure;
+            if set to True uses filename from simConfig (default: None)
+        - showFig (True|False): Whether to show the figure or not (default: True)
+
+    '''
+    comm = MPI.COMM_WORLD
+
+    fig, axes = plt.subplots(1, len(include), figsize=figSize)
+
+    M = 0
+    for iplot, population in enumerate(include):
+        rate_lst = []
+        if verbose:
+            print 'Reading vector stimulus data for population %s...' % population 
+        for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_file, namespace_id, population):
+            rate_lst.append(rate)
+
+        M = max(M, len(rate))
+        N = len(rate_lst)
+        rate_matrix = np.matrix(rate_lst)
+        del(rate_lst)
+
+        if verbose:
+            print 'Plotting stimulus data for population %s...' % population 
+
+        if len(include) > 1:
+            axes[iplot].set_title(population, fontsize=fontSize)
+            axes[iplot].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
+            axes[iplot].set_xlim([0, M])
+            axes[iplot].set_ylim(-1, N+1)    
+        else:
+            axes.set_title(population, fontsize=fontSize)
+            axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
+            axes.set_xlim([0, M])
+            axes.set_ylim(-1, N+1)    
+            
+
+    axes.set_xlabel('Time (ms)', fontsize=fontSize)
+    axes.set_ylabel('Firing Rate', fontsize=fontSize)
+    
+    # save figure
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+'_'+'ratemap.png'
+        plt.savefig(filename)
+
+    # show fig 
+    if showFig:
+        show_figure()

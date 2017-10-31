@@ -12,6 +12,7 @@ Cell Types:
     template: DGC
     synapses:
       spines: True
+      unique: True
       density:
         apical:
           excitatory: # Excitatory https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2538941/

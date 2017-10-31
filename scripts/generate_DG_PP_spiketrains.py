@@ -5,8 +5,7 @@ import mpi4py
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import click
-import stgen
-import utils
+import stimulus, stgen, utils
 
 try:
     import mkl
@@ -17,28 +16,7 @@ except:
 
 script_name = 'generate_DG_PP_spiketrains.py'
 
-#  custom data type for type of feature selectivity
-selectivity_grid = 0
-selectivity_place_field = 1
-selectivity_type_dict = {'MPP': selectivity_grid, 'LPP': selectivity_place_field}
-
-a = 0.55
-b = -1.5
-u = lambda ori: (np.cos(ori), np.sin(ori))
-ori_array = 2. * np.pi * np.array([-30., 30., 90.]) / 360.  # rads
-g = lambda x: np.exp(a * (x - b)) - 1.
-scale_factor = g(3.)
-grid_peak_rate = 40.  # Hz
-grid_rate = lambda grid_spacing, ori_offset, x_offset, y_offset: \
-    lambda x, y: grid_peak_rate / scale_factor * \
-                 g(np.sum([np.cos(4. * np.pi / np.sqrt(3.) /
-                                  grid_spacing * np.dot(u(theta - ori_offset), (x - x_offset, y - y_offset)))
-                           for theta in ori_array]))
-
-place_peak_rate = 40.  # Hz
-place_rate = lambda field_width, x_offset, y_offset: \
-    lambda x, y: place_peak_rate * np.exp(-((x - x_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.) * \
-                 np.exp(-((y - y_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.)
+selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selectivity_place_field}
 
 
 @click.command()
@@ -70,20 +48,8 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    arena_dimension = 100.  # minimum distance from origin to boundary (cm)
-
-    run_vel = 30.  # cm/s
-    spatial_resolution = 1.  # cm
-    x = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-    y = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-    distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
-    interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
-    t = interp_distance / run_vel * 1000.  # ms
-    t_stop = t[-1]
-    interp_x = np.interp(interp_distance, distance, x)
-    interp_y = np.interp(interp_distance, distance, y)
-    d = interp_distance
-
+    interp_x, interp_y = stimulus.generate_trajectory()
+    
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
     
     # with h5py.File(features_path, 'a', driver='mpio', comm=comm) as f:
@@ -105,6 +71,7 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
     populations = selectivity_type_dict.keys()
 
     population_ranges = read_population_ranges(comm, features_path)[0]
+    stg = stgen.StGen(seed=seed)
 
     for population in ['MPP', 'LPP']:
         (population_start, _) = population_ranges[population]
@@ -122,23 +89,11 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
         for gid, features_dict in attr_gen_wrapper:
             local_time = time.time()
             response_dict = {}
-            response = np.zeros_like(d, dtype='float32')
             if gid is not None:
-                if selectivity_type == selectivity_grid:
-                    ori_offset = features_dict['Grid Orientation'][0]
-                    grid_spacing = features_dict['Grid Spacing'][0]
-                    x_offset = features_dict['X Offset'][0]
-                    y_offset = features_dict['Y Offset'][0]
-                    rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
-                elif selectivity_type == selectivity_place_field:
-                    field_width = features_dict['Field Width'][0]
-                    x_offset = features_dict['X Offset'][0]
-                    y_offset = features_dict['Y Offset'][0]
-                    rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
-                response = rate(interp_x, interp_y).astype('float32', copy=False)
-                stg   = stgen.StGen(seed=seed)
+                response = stimulus.generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y)
                 spiketrain = stg.inh_poisson_generator(response, t, t_stop)
-                response_dict[gid-population_start] = {'rate': response,  'spiketrain': np.asarray(spiketrain, dtype='float32')}
+                response_dict[gid-population_start] = {'rate': response,
+                                                       'spiketrain': np.asarray(spiketrain, dtype='float32')}
                 baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
                 peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
                 modulation = 0. if peak <= 0.1 else (peak - baseline) / peak
