@@ -139,7 +139,12 @@ def connectcells(env):
         spines = synapse_config['spines']
       else:
         spines = False
-        
+
+      if synapse_config.has_key('unique'):
+        unique = synapse_config['unique']
+      else:
+        unique = False
+      
       if env.verbose:
           if env.pc.id() == 0:
             print '*** Reading synapse attributes of population %s' % (postsyn_name)
@@ -205,6 +210,7 @@ def connectcells(env):
                                               cell_syn_locs,
                                               cell_syn_sections,
                                               kinetics_dict, env,
+                                              add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse,
                                               spines=spines)
 
           if env.verbose:
