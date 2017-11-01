@@ -54,7 +54,7 @@ aprun -n 16384 \
     --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=250 \
+    --tstop=5250 \
     --v-init=-75 \
     --max-walltime-hours=3.5 \
     --verbose

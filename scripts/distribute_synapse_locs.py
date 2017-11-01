@@ -56,6 +56,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         count = 0
         (population_start, _) = pop_ranges[population]
         template_name = env.celltypes[population]['template']
+        template_class = eval('h.%s' % template_name)
         h.find_template(h.pc, h.templatePaths, template_name)
         density_dict = env.celltypes[population]['synapses']['density']
         for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
@@ -64,7 +65,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
             synapse_dict = {}
             if gid is not None:
                 print  'Rank %i gid: %i' % (rank, gid)
-                cell = cells.make_neurotree_cell(template_name, neurotree_dict=morph_dict, gid=gid)
+                cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
                 # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
                 # if this_mismatched_sections is not None:
                 #    mismatched_section_dict[gid] = this_mismatched_sections
