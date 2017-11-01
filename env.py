@@ -91,12 +91,13 @@ class Env:
         population_names  = read_population_names(self.comm, dataFilePath)
         self.cellAttributeInfo = read_cell_attribute_info (self.comm, population_names, dataFilePath)
             
-    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, nodeRankFile=None,
+    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
         :param resultsPath: the directory in which to write spike raster and voltage trace files
+        :param resultsId: identifier that is used to constructs the namespaces in which to spike raster data and voltage trace data are written
         :param nodeRankFile: the name of a file that specifies assignment of node gids to MPI ranks
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
@@ -136,6 +137,9 @@ class Env:
 
         # The path where results files should be written
         self.resultsPath = resultsPath
+
+        # Identifier used to construct results data namespaces
+        self.resultsId = resultsId
         
         # Number of MPI ranks to be used for I/O operations
         self.IOsize = IOsize
