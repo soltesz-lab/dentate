@@ -579,7 +579,7 @@ def run (env):
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-id", required=True, type=str)
+@click.option("--results-id", type=str, required=False, default='')
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
