@@ -91,7 +91,7 @@ def spikeout (env, output_path, t_vec, id_vec):
     inds     = np.digitize(id_vec, bins)
 
     if not str(env.resultsId):
-        namespace_id = "Spike Events" % str(env.resultsId)
+        namespace_id = "Spike Events" 
     else:
         namespace_id = "Spike Events %s" % str(env.resultsId)
     
