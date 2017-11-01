@@ -112,7 +112,7 @@ def spikeout (env, output_path, t_vec, id_vec):
             for j in spkdict.keys():
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
-        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=)
+        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
         
 
 def connectcells(env):

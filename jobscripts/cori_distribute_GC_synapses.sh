@@ -26,7 +26,7 @@ export PYTHONPATH=$HOME/bin/nrn/lib/python:$PYTHONPATH
 srun -n 1024 python ./scripts/distribute_synapse_locs.py \
  --config=./config/Full_Scale_Control.yaml  \
  --template-path=$HOME/model/dgc/Mateos-Aparicio2014 \
- --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20170925.h5 \
+ --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20171019_compressed.h5 \
  --populations=GC \
  --io-size=64 --cache-size=$((8 * 1024 * 1024)) \
  --chunk-size=10000 --value-chunk-size=50000
