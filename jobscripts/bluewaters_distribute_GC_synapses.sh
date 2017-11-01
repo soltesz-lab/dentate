@@ -24,6 +24,6 @@ cd $PBS_O_WORKDIR
 aprun -n 2048 python ./scripts/distribute_synapse_locs.py \
               --config=./config/Full_Scale_Control.yaml \
               --template-path=$HOME/model/dgc/Mateos-Aparicio2014 --populations=GC \
-              --forest-path=/projects/sciteam/baef/Full_Scale_Control/DGC_forest_syns_20171024.h5 \
+              --forest-path=/projects/sciteam/baef/Full_Scale_Control/DGC_forest_syns_20171031.h5 \
               --io-size=256 --cache-size=$((8 * 1024 * 1024)) \
               --chunk-size=10000 --value-chunk-size=50000
