@@ -90,7 +90,7 @@ def spikeout (env, output_path, t_vec, id_vec):
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
 
-    namespace_id = "Spike Events %s" % str(datetime.now())
+    namespace_id = "Spike Events %s" % str(env.results_id)
     
     for i in range(0,len(types)):
         if i > 0:
@@ -112,7 +112,7 @@ def spikeout (env, output_path, t_vec, id_vec):
             for j in spkdict.keys():
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
-        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
+        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=)
         
 
 def connectcells(env):
@@ -579,6 +579,7 @@ def run (env):
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--results-id", required=True, type=str)
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
@@ -591,10 +592,10 @@ def run (env):
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+def main(config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
     env = Env(MPI.COMM_WORLD, config_file, 
-              template_paths, dataset_prefix, results_path,
+              template_paths, dataset_prefix, results_path, results_id,
               node_rank_file, io_size,
               vrecord_fraction, coredat, tstop, v_init,
               max_walltime_hours, results_write_time,
