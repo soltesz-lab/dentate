@@ -706,7 +706,7 @@ Connection Properties:
   HC:
     GC:
       AMPA:
-        weight: 2.5
+        weight: 4.7
         velocity: 250.0
     HC:
       GABA_A:
