@@ -56,8 +56,8 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         count = 0
         (population_start, _) = pop_ranges[population]
         template_name = env.celltypes[population]['template']
-        template_class = eval('h.%s' % template_name)
         h.find_template(h.pc, h.templatePaths, template_name)
+        template_class = eval('h.%s' % template_name)
         density_dict = env.celltypes[population]['synapses']['density']
         for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
             local_time = time.time()
