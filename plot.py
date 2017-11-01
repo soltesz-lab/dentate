@@ -420,6 +420,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
     histData = []
     for iplot, spkts in enumerate(spkpoplst):
 
+        subset = include[iplot]
         spkts = spktlst[iplot]
 
         histo = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
