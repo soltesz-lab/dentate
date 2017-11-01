@@ -69,7 +69,7 @@ Cell Types:
         apical:
           excitatory: 
             default: # layer
-             mean: 0.5 
+             mean: 1.0
              variance: 0.2
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
@@ -78,7 +78,7 @@ Cell Types:
         basal:
           excitatory: # excitatory
             default: # layer
-              mean: 0.5
+              mean: 1.0
               variance: 0.2
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
@@ -122,10 +122,10 @@ Cell Types:
         apical:
           excitatory: 
             Hilus: # layer
-             mean: 0.5 
+             mean: 1.0 
              variance: 0.2
             GCL: # layer
-             mean: 0.5 
+             mean: 1.0 
              variance: 0.2
           inhibitory: 
             IML: # layer
@@ -137,7 +137,7 @@ Cell Types:
         basal:
           excitatory: # excitatory
             GCL: # layer
-              mean: 0.5
+              mean: 1.0
               variance: 0.2
   HCC:
     template: HICAPCell
@@ -177,7 +177,7 @@ Cell Types:
         apical:
           excitatory: 
             default: # layer
-             mean: 0.5 
+             mean: 1.0 
              variance: 0.2
           inhibitory: 
             default: # layer
@@ -186,7 +186,7 @@ Cell Types:
         basal:
           excitatory: # excitatory
             default: # layer
-              mean: 0.5
+              mean: 1.0
               variance: 0.2
   MOPP:
     template: MOPPCell
@@ -195,7 +195,7 @@ Cell Types:
         apical:
           excitatory: 
             default: # layer
-             mean: 0.5 
+             mean: 1.0
              variance: 0.2
           inhibitory: 
             default: # layer
@@ -204,7 +204,7 @@ Cell Types:
         basal:
           excitatory: # excitatory
             default: # layer
-              mean: 0.5
+              mean: 1.0
               variance: 0.2
           inhibitory: 
             default: # layer
@@ -226,7 +226,7 @@ Cell Types:
         basal:
           excitatory: # excitatory
             default: # layer
-              mean: 0.5
+              mean: 1.0
               variance: 0.2
   MPP:
     template: MPPCell
