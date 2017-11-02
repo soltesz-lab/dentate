@@ -2,10 +2,7 @@ from function_lib import *
 from itertools import izip
 from collections import defaultdict
 from mpi4py import MPI
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, population_ranges
 import click
 
 
@@ -81,11 +78,11 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    population_range_dict = population_ranges(MPI._addressof(comm), features_path)
+    population_range_dict = population_ranges(comm, features_path)
 
     features_dict = {}
     for population in ['MPP', 'LPP']:
-        features_dict[population] = bcast_cell_attributes(MPI._addressof(comm), 0, features_path, population,
+        features_dict[population] = bcast_cell_attributes(comm, 0, features_path, population,
                                                           namespace='Feature Selectivity')
 
     if weights_path is None:
@@ -122,10 +119,10 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
     source_population_list = ['MPP', 'LPP']
     count = 0
     start_time = time.time()
-    connectivity_gen = NeurotreeAttrGen(MPI._addressof(comm), connectivity_path, target_population, io_size=io_size,
-                                        cache_size=cache_size, namespace=connectivity_namespace)
-    weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, target_population, io_size=io_size,
-                                        cache_size=cache_size, namespace=weights_namespace)
+    connectivity_gen = NeuroH5CellAttrGen(comm, connectivity_path, target_population, io_size=io_size,
+                                          cache_size=cache_size, namespace=connectivity_namespace)
+    weights_gen = NeuroH5CellAttrGen(comm, weights_path, target_population, io_size=io_size,
+                                     cache_size=cache_size, namespace=weights_namespace)
     if debug:
         attr_gen = ((connectivity_gen.next(), weights_gen.next()) for i in xrange(2))
     else:
@@ -180,7 +177,7 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
         if not debug:
-            append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_dict,
+            append_cell_attributes(comm, features_path, target_population, response_dict,
                             namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
                             value_chunk_size=value_chunk_size)
         sys.stdout.flush()

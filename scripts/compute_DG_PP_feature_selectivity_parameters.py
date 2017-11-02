@@ -1,7 +1,6 @@
 from function_lib import *
 from mpi4py import MPI
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes
 import click
 
 
@@ -129,8 +128,10 @@ def main(coords_path, coords_namespace, io_size, chunk_size, value_chunk_size, c
         count = 0
         start_time = time.time()
         selectivity_type = selectivity_type_dict[population]
-        attr_gen = NeurotreeAttrGen(MPI._addressof(comm), coords_path, population, io_size=io_size,
-                                    cache_size=cache_size, namespace=coords_namespace)
+
+        
+        attr_gen = NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size,
+                                      cache_size=cache_size, namespace=coords_namespace):
         if debug:
             attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
         else:
@@ -173,7 +174,7 @@ def main(coords_path, coords_namespace, io_size, chunk_size, value_chunk_size, c
                       (rank, time.time() - local_time, population, gid)
                 count += 1
             if not debug:
-                append_cell_attributes(MPI._addressof(comm), coords_path, population, selectivity_dict,
+                append_cell_attributes(comm, coords_path, population, selectivity_dict,
                                        namespace='Feature Selectivity', io_size=io_size, chunk_size=chunk_size,
                                        value_chunk_size=value_chunk_size)
             sys.stdout.flush()

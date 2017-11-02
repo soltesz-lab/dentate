@@ -22,12 +22,12 @@ H = 200.0; %
 N = 38000;
 M = 10; % number of grid cell modules
 lambda_range = [40.0, 400.0];
-grid_unit = 25;
+grid_unit = 9;
 
 
 seed = 21;
 
-[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, lambda_range, 1, grid_unit, seed);
+[X,Y,lambda,theta,xoff,yoff] = init_network(W, H, M, N, lambda_range, 20, grid_unit, seed);
 ratemap  = grid_ratemap(X,Y,lambda,theta,xoff,yoff);
 
 grid_data.W = W;
@@ -41,7 +41,7 @@ grid_data.theta = theta;
 grid_data.xoff = xoff;
 grid_data.yoff = yoff;
 
-save('-v7','grid_ratemap.mat','ratemap');
-save('-v7','grid_data.mat','grid_data');
+save('-v7.3','ec2_grid_ratemap.mat','ratemap');
+save('-v7.3','ec2_grid_data.mat','grid_data');
 
 

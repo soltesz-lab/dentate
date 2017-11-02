@@ -1,9 +1,6 @@
 from function_lib import *
 from mpi4py import MPI
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, population_ranges
 import click
 
 
@@ -56,7 +53,7 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
     target_population = 'GC'
     count = 0
     start_time = time.time()
-    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), features_path, target_population, io_size=io_size,
+    attr_gen = NeuroH5CellAttrGen(comm, features_path, target_population, io_size=io_size,
                                 cache_size=cache_size, namespace=prediction_namespace)
     if debug:
         attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
@@ -79,7 +76,7 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
                   (rank, time.time() - local_time, target_population, gid)
             count += 1
         if not debug:
-            append_cell_attributes(MPI._addressof(comm), features_path, target_population, response_attr_dict,
+            append_cell_attributes(comm, features_path, target_population, response_attr_dict,
                                    namespace=prediction_namespace, io_size=io_size, chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
         sys.stdout.flush()

@@ -5,7 +5,7 @@
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=2:00:00
+#PBS -l walltime=12:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_16384_noderanks
 ### set the job stdout and stderr
@@ -56,9 +56,9 @@ aprun -n 16384 \
     --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=250 \
+    --tstop=1250 \
     --v-init=-75 \
-    --max-walltime-hours=2 \
+    --max-walltime-hours=12 \
     --ldbal \
     --node-rank-file=parts.16384 \
     --verbose

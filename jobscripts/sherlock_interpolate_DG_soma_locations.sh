@@ -11,6 +11,11 @@
 
 set -x
 
-mpirun -np 32 python ./scripts/interpolate_DG_soma_locations.py \
-       --coords-path=/scratch/users/iraikov/dentate/Full_Scale_Control/dentate_Sampled_Soma_Locations.h5
+module load mpich/3.1.4/gcc
+module load python/2.7.5
+module load hdf5
 
+export PYTHONPATH=$PI_HOME/anaconda2/lib/python2.7:$PYTHONPATH
+
+mpirun -np 32 python ./scripts/interpolate_DG_soma_locations.py \
+       --coords-path=/scratch/users/iraikov/dentate/Full_Scale_Control/dentate_Full_Scale_Control_coords_20170614.h5

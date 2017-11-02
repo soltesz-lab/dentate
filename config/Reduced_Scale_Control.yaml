@@ -19,14 +19,14 @@ celltypes:
   GC:
     templateName: DGC
     templateType: forest
-    forestFile: DG_forest_coords_reduced.h5
+    forestFile: DGC_forest_syns_reduced.h5
     synapses:
       0:
         t_rise: 1.5
         t_decay: 5.5
         e_rev: 0
   MC:
-    indexFile: DG_forest_coords_reduced.h5
+    indexFile: dentate_Reduced_Scale_Control_coords.h5
     templateName: MossyCell
     templateType: single
     synapses:
@@ -69,7 +69,7 @@ celltypes:
         t_decay: 4.7
         e_rev: -70
   HC:
-    indexFile: DG_forest_coords_reduced.h5
+    indexFile: dentate_Reduced_Scale_Control_coords.h5
     templateName: HIPPCell
     templateType: single
     synapses:
@@ -102,7 +102,7 @@ celltypes:
         t_decay: 2.88
         e_rev: -70
   BC:
-    indexFile: DG_forest_coords_reduced.h5
+    indexFile: dentate_Reduced_Scale_Control_coords.h5
     templateName: BasketCell
     templateType: single
     synapses:
@@ -156,7 +156,7 @@ celltypes:
         t_decay: 428.1
         e_rev: -70
   AAC:
-    indexFile: DG_forest_coords_reduced.h5
+    indexFile: dentate_Reduced_Scale_Control_coords.h5
     templateName: AxoAxonicCell
     templateType: single
     synapses:
@@ -243,7 +243,7 @@ celltypes:
     #     t_decay: 428.1
     #     e_rev: -70
   NGFC:
-    indexFile: DG_forest_coords_reduced.h5
+    indexFile: dentate_Reduced_Scale_Control_coords.h5
     templateName: NGFCell
     templateType: single
     synapses:
@@ -269,7 +269,7 @@ celltypes:
         t_decay: 428.1
         e_rev: -70
   MPP:
-    indexFile: DG_forest_coords_reduced.h5
+    indexFile: dentate_Reduced_Scale_Control_coords.h5
     templateName: MPPCell
     templateType: single
 #  LPP:
