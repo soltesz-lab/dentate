@@ -9,13 +9,16 @@ import numpy as np
 from scipy.interpolate import RectBivariateSpline, InterpolatedUnivariateSpline
 from scipy.spatial.distance import cdist
 
+
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
     a, b are row vectors of points.
     """
     return np.sqrt(np.sum((a-b)**2,axis=1))
 
+
 vdist = np.vectorize(euclidean_distance)
+
 
 def normcoords(su, sv):
     nu = np.linspace(0, 1, len(su))
@@ -24,6 +27,7 @@ def normcoords(su, sv):
     ip_v = InterpolatedUnivariateSpline(sv, nv)
 
     return nu, ip_u, nv, ip_v
+
 
 class BSplineSurface(object):
     def __init__(self, u, v, xyz, ku=3, kv=3, bbox=[0, 1, 0, 1], s=0,
