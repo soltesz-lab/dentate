@@ -87,3 +87,4 @@ def compute_activity_ratio(stimulus, response, binSize = 25.):
     result = numpy.power(numpy.sum(numpy.array(mean_rates),axis=0)/nstim,2) / (numpy.sum(numpy.power(mean_rates,2),axis=0)/nstim)
 
     return result
+

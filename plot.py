@@ -238,6 +238,7 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
         histoCount, bin_edges = np.histogram(all_spkts, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
         histoT = bin_edges[:-1]+spikeHistBin/2
 
+
     if popRates:
         avg_rates = {}
         tsecs = (timeRange[1]-timeRange[0])/1e3 
