@@ -13,7 +13,6 @@ proc init() { local status
 
 func is_art() {return 1}
 
-
 obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
     nc = new NetCon(pp, $o1)
     if (numarg() == 2) { $o2 = nc } // for backward compatibility

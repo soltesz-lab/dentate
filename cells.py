@@ -3,7 +3,6 @@ import itertools
 from neuron import h
 import numpy as np
 
-## TODO: use neurotree_dict['section_topology']['nodes'] to determine node att
 def get_node_attribute (name, content, sec, secnodes, x=None):
     if content.has_key(name):
         if x is None:
@@ -17,19 +16,22 @@ def get_node_attribute (name, content, sec, secnodes, x=None):
     else:
         return None
 
-def make_neurotree_cell (template_name, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
-    h('objref cell, vx, vy, vz, vradius, vlayer, vsection, secnodes, vsrc, vdst, swc_type')
-    h.vx       = neurotree_dict['x']
-    h.vy       = neurotree_dict['y']
-    h.vz       = neurotree_dict['z']
-    h.vradius  = neurotree_dict['radius']
-    h.vlayer   = neurotree_dict['layer']
-    h.vsection = neurotree_dict['section']
-    h.secnodes = neurotree_dict['section_topology']['nodes']
-    h.vsrc     = neurotree_dict['section_topology']['src']
-    h.vdst     = neurotree_dict['section_topology']['dst']
-    h.swc_type = neurotree_dict['swc_type']
-    hstmt      = 'cell = new %s(%d, %d, "%s", vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, swc_type)' % (template_name, local_id, gid, dataset_path)
-    h(hstmt)
-    return h.cell
+def make_neurotree_cell (template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
+    vx       = neurotree_dict['x']
+    vy       = neurotree_dict['y']
+    vz       = neurotree_dict['z']
+    vradius  = neurotree_dict['radius']
+    vlayer   = neurotree_dict['layer']
+    vsection = neurotree_dict['section']
+    secnodes = neurotree_dict['section_topology']['nodes']
+    vsrc     = neurotree_dict['section_topology']['src']
+    vdst     = neurotree_dict['section_topology']['dst']
+    swc_type = neurotree_dict['swc_type']
+    cell     = template_class (local_id, gid, dataset_path, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, swc_type)
+    return cell
+
+
+def make_cell (template_class, local_id=0, gid=0, dataset_path=""):
+    cell = template_class (local_id, gid, dataset_path)
+    return cell
 

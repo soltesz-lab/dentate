@@ -1,10 +1,10 @@
 #!/bin/bash
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1:ppn=1:xe
+#PBS -l nodes=1:ppn=8:xe
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=8:00:00
+#PBS -l walltime=12:00:00
 ### set the job name
 #PBS -N dentate_repack
 ### set the job stdout and stderr
@@ -23,10 +23,10 @@ set -x
 cd $PBS_O_WORKDIR
 
 export prefix=/projects/sciteam/baef/Full_Scale_Control
-export input=$prefix/DGC_forest_syns_20170925.h5
-export output=$prefix/DGC_forest_syns_20170925_compressed.h5
+export input=$prefix/DGC_forest_syns_20171024.h5
+export output=$prefix/DGC_forest_syns_20171024_compressed.h5
 
-aprun h5repack -v -f SHUF -f GZIP=9 -i $input -o $output
+aprun h5repack -v -f GZIP=9 -i $input -o $output
 
 
 

@@ -2,10 +2,10 @@
 #
 #SBATCH -J dentate_Full_Scale_Control
 #SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
-#SBATCH --nodes=64
+#SBATCH --nodes=70
 #SBATCH --ntasks-per-node=24
 #SBATCH -p compute
-#SBATCH -t 2:00:00
+#SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
@@ -28,20 +28,19 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
+export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
+export LD_PRELOAD=$MPIHOME/lib/libmpi.so
+ulimit -c unlimited
 
-nodefile=`generate_pbs_nodefile`
 
-echo python is `which python`
-
-mpirun_rsh -export-all -hostfile $nodefile -np 1536  \
-PATH=$PATH LD_LIBRARY_PATH=$LD_LIBRARY_PATH PYTHONPATH=$PYTHONPATH \
-python main.py \
+ibrun -np 1680 python main.py \
  --config-file=config/Full_Scale_Control.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \
  --results-path=$results_path \
  --io-size=256 \
- --tstop=5 \
+ --tstop=500 \
  --v-init=-75 \
  --max-walltime-hours=2 \
  --verbose

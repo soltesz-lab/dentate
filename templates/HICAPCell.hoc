@@ -1,7 +1,6 @@
 begintemplate HICAPCell
 
 public connect2target, subsets, is_art, is_connected
-public sections
 public all, soma, basal, apical, axon
 public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
@@ -217,7 +216,7 @@ proc biophys() {
 	cm = 0.95
     }
     
-    soma {
+    forsec soma {
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=g_na
 	gkfbar_ichan2=g_k
@@ -338,7 +337,7 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
 func is_art()  { return 0 }
 
 obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
-  soma nc = new NetCon(&v(1), $o1)
+  sections[0] nc = new NetCon(&v(1), $o1)
   nc.threshold = 10
   if (numarg() == 2) { $o2 = nc } // for backward compatibility
   return nc
