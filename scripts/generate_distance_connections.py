@@ -47,12 +47,12 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     for population in population_ranges:
         coords = bcast_cell_attributes(comm, 0, coords_path, population,
                                        namespace=coords_namespace)
-        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0]) for (k,v) in coords.iteritems() }
+        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0]) for (k,v) in coords }
         del coords
         gc.collect()
         distances = bcast_cell_attributes(comm, 0, coords_path, population,
                                           namespace=distances_namespace)
-        soma_distances[population] = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances.iteritems() }
+        soma_distances[population] = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
         gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],

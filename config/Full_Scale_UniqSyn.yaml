@@ -11,6 +11,7 @@ Cell Types:
   GC:
     template: DGC
     synapses:
+      unique: True
       spines: True
       density:
         apical:

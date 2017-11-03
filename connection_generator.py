@@ -32,6 +32,10 @@ def list_index (element, lst):
 def random_choice_w_replacement(ranstream,n,p):
     return ranstream.multinomial(n,p.ravel())
 
+def softmax(x):
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
+
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -105,7 +109,48 @@ class ConnectionProb(object):
 
         return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32)
 
-    def filter_by_distance(self, destination_gid, source_population):
+    def filter_by_distance1(self, destination_gid, source_population):
+        """
+        Given the id of a target neuron, returns the distances along u and v
+        and the gids of source neurons whose axons potentially contact the target neuron.
+        :param destination_gid: int
+        :param source_population: string
+        :return: tuple of array of int
+        """
+        destination_coords = self.soma_coords[self.destination_population][destination_gid]
+        destination_distances = self.soma_distances[self.destination_population][destination_gid]
+        
+        source_soma_coords = self.soma_coords[source_population]
+        source_soma_distances = self.soma_distances[source_population]
+
+        destination_u, destination_v  = destination_coords
+        destination_distance_u, destination_distance_v = destination_distances
+        
+        distance_u_lst = []
+        distance_v_lst = []
+        source_gid_lst = []
+
+        for (source_gid, coords) in source_soma_coords.iteritems():
+
+            source_u, source_v = coords
+
+            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
+
+            distance_u = abs(destination_distance_u - source_distance_u)
+            distance_v = abs(destination_distance_v - source_distance_v)
+            
+            source_width = self.width[source_population]
+            source_offset = self.offset[source_population]
+                #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
+            if ((distance_u <= source_width['u'] / 2. + source_offset['u']) &
+                (distance_v <= source_width['v'] / 2. + source_offset['v'])):
+                distance_u_lst.append(source_distance_u)
+                distance_v_lst.append(source_distance_v)
+                source_gid_lst.append(source_gid)
+
+        return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32), np.asarray(source_gid_lst, dtype=np.uint32)
+    
+    def filter_by_distance2(self, destination_gid, source_population):
         """
         Given the id of a target neuron, returns the distances along u and v
         and the gids of source neurons whose axons potentially contact the target neuron.
@@ -150,6 +195,7 @@ class ConnectionProb(object):
 
         return destination_u, destination_v, np.asarray(source_u_lst), np.asarray(source_v_lst), np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
 
+    
     def get_prob(self, destination_gid, source, plot=False):
         """
         Given the soma coordinates of a destination neuron and a population source, return an array of connection 
@@ -159,13 +205,15 @@ class ConnectionProb(object):
         :param plot: bool
         :return: array of float, array of int
         """
-        destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
-        if self.ip_surface is not None:
-           distance_u, distance_v = self.compute_srf_distances(destination_u, destination_v, source_u, source_v)
+        if self.ip_surface is None:
+            distance_u, distance_v, source_gid = self.filter_by_distance1(destination_gid, source)
+        else:
+            destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance2(destination_gid, source)
+            distance_u, distance_v = self.compute_srf_distances(destination_u, destination_v, source_u, source_v)
         p = self.p_dist[source](distance_u, distance_v)
         psum = np.sum(p)
         if psum > 0.:
-            p1 = p / psum
+            p1 = softmax(p)
         else:
             p1 = p
         assert((p1 >= 0.).all() and (p1 <= 1.).all())
@@ -257,13 +305,15 @@ def generate_synaptic_connections(ranstream_syn,
     for projection, syn_ids in synapse_prj_partition.iteritems():
         count += len(syn_ids)
         source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection]
-        source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
-        uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
-        distances = np.repeat(uv_distance_sums, source_gid_counts)
-        connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
+        if len(source_gids) > 0:
+            source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
+            uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
+            distances = np.repeat(uv_distance_sums, source_gid_counts)
+            connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
                                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
                                                               'Connections' : { 'distance': distances }
                                                             } ) }
+
         
     ## If any projection does not have connections associated with it, create empty entries
     ## This is necessary for the parallel graph append operation, which performs a separate append for each projection,
@@ -323,8 +373,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                 for source_population in source_populations}
 
     total_count = 0
-    for destination_gid, attributes_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
-                                                               cache_size=cache_size, namespace=synapse_namespace):
+    for destination_gid, synapse_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
+                                                            cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
         
         connection_dict = defaultdict(lambda: {})
@@ -335,7 +385,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             ranstream_con.seed(destination_gid + connectivity_seed)
             ranstream_syn.seed(destination_gid + synapse_seed)
 
-            synapse_dict = attributes_dict[synapse_namespace]
             projection_prob_dict = {}
             for source_population in source_populations:
                 probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)

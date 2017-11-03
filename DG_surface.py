@@ -2,6 +2,9 @@
 import numpy as np
 from bspline_surface import BSplineSurface
 
+max_u = 11690.
+max_v = 2956.
+
 
 def DG_surface(u, v, l):
     x = np.array(-500.* np.cos(u) * (5.3 - np.sin(u) + (1. + 0.138 * l) * np.cos(v)))
@@ -11,10 +14,7 @@ def DG_surface(u, v, l):
 
 
 def make_surface(l=-1., spatial_resolution=1.):  # default l is for the middle of the granule cell layer;
-    
-    max_u = 11690.
-    max_v = 2956.
-    
+
     du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
     dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
     su = np.arange(-0.016*np.pi, 1.01*np.pi, du)

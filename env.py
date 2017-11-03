@@ -1,7 +1,7 @@
 import sys, os.path, string
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_cell_attributes, read_population_ranges
+from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names, read_cell_attribute_info
 import numpy as np
 from collections import namedtuple
 import yaml
@@ -80,21 +80,24 @@ class Env:
         typenames.sort()
 
         datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
-        forestFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
+        dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
 
-        (population_ranges, _) = read_population_ranges(self.comm, forestFilePath)
-
+        (population_ranges, _) = read_population_ranges(self.comm, dataFilePath)
+        
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
 
+        population_names  = read_population_names(self.comm, dataFilePath)
+        self.cellAttributeInfo = read_cell_attribute_info (self.comm, population_names, dataFilePath)
             
-    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, nodeRankFile=None,
+    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
         :param resultsPath: the directory in which to write spike raster and voltage trace files
+        :param resultsId: identifier that is used to constructs the namespaces in which to spike raster data and voltage trace data are written
         :param nodeRankFile: the name of a file that specifies assignment of node gids to MPI ranks
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
@@ -134,6 +137,9 @@ class Env:
 
         # The path where results files should be written
         self.resultsPath = resultsPath
+
+        # Identifier used to construct results data namespaces
+        self.resultsId = resultsId
         
         # Number of MPI ranks to be used for I/O operations
         self.IOsize = IOsize
@@ -188,7 +194,8 @@ class Env:
         self.layers = defs['Layers']
 
         self.celltypes = self.modelConfig['Cell Types']
-
+        self.cellAttributeInfo = {}
+        
         # The name of this model
         self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network

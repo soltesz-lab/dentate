@@ -57,6 +57,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         (population_start, _) = pop_ranges[population]
         template_name = env.celltypes[population]['template']
         h.find_template(h.pc, h.templatePaths, template_name)
+        template_class = eval('h.%s' % template_name)
         density_dict = env.celltypes[population]['synapses']['density']
         for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
             local_time = time.time()
@@ -64,7 +65,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
             synapse_dict = {}
             if gid is not None:
                 print  'Rank %i gid: %i' % (rank, gid)
-                cell = cells.make_neurotree_cell(template_name, neurotree_dict=morph_dict, gid=gid)
+                cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
                 # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
                 # if this_mismatched_sections is not None:
                 #    mismatched_section_dict[gid] = this_mismatched_sections
@@ -72,11 +73,11 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
 
                 if distribution == 'uniform':
-                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_types, env.layers,
+                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 elif distribution == 'poisson':
-                    synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_types, env.layers,
+                    synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 else:
