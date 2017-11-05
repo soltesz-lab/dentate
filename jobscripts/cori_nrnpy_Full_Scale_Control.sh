@@ -6,7 +6,6 @@
 #SBATCH --ntasks-per-node=32
 #SBATCH -p regular
 #SBATCH -t 4:00:00
-#SBATCH --qos=premium
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes
 #SBATCH --mail-user=ivan.g.raikov@gmail.com

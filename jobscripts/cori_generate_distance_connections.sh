@@ -5,7 +5,6 @@
 #SBATCH -N 64
 #PBS -N generate_distance_connections
 #SBATCH -p regular
-#SBATCH --qos=premium
 #SBATCH -t 6:00:00
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes

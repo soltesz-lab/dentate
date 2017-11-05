@@ -76,9 +76,9 @@ class ConnectionProb(object):
             else:
                 self.offset[source_population] = {'u': extent_offset[0], 'v': extent_offset[1]}
             self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v:
-                                                np.exp(-(((abs(distance_u) - self.offset[source_population]['u']) /
+                                                np.exp(-(((abs(distance_u - self.offset[source_population]['u'])) /
                                                             self.sigma[source_population]['u'])**2. +
-                                                            ((abs(distance_v) - self.offset[source_population]['v']) /
+                                                            ((abs(distance_v - self.offset[source_population]['v'])) /
                                                             self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
 
     def compute_srf_distances(self, destination_u, destination_v, source_u_vect, source_v_vect, npts=250):
@@ -309,10 +309,12 @@ def generate_synaptic_connections(ranstream_syn,
             source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
             uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
             distances = np.repeat(uv_distance_sums, source_gid_counts)
-            connection_dict[projection] = { destination_gid : ( np.repeat(source_gids, source_gid_counts),
-                                                            { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
-                                                              'Connections' : { 'distance': distances }
-                                                            } ) }
+            gid_dict = connection_dict[projection]
+            gid_dict[destination_gid] = (np.repeat(source_gids, source_gid_counts),
+                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
+                                                   'Connections' : { 'distance': distances }
+                                             } )
+            connection_dict[projection] = gid_dict
 
         
     ## If any projection does not have connections associated with it, create empty entries
@@ -320,10 +322,12 @@ def generate_synaptic_connections(ranstream_syn,
     ## and therefore needs all ranks to participate in it.
     for projection in projection_synapse_dict.iterkeys():
         if not connection_dict.has_key(projection):
-            connection_dict[projection] = { destination_gid : ( np.asarray ([], dtype=np.uint32),
-                                                            { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) },
-                                                              'Connections' : { 'distance': np.asarray ([], dtype=np.float32) }
-                                                             } ) }
+            gid_dict = connection_dict[projection]
+            gid_dict[destination_gid] = ( np.asarray ([], dtype=np.uint32),
+                                              { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) },
+                                                    'Connections' : { 'distance': np.asarray ([], dtype=np.float32) }
+                                              } )
+            connection_dict[projection] = gid_dict
 
     return count
 
@@ -331,7 +335,7 @@ def generate_synaptic_connections(ranstream_syn,
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
                                      connectivity_seed, connectivity_namespace, connectivity_path,
-                                     io_size, chunk_size, value_chunk_size, cache_size):
+                                     io_size, chunk_size, value_chunk_size, cache_size, write_size=1):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicatory
     :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
@@ -345,6 +349,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     :param chunk_size: HDF5 chunk size for connectivity file (pointer and index datasets)
     :param value_chunk_size: HDF5 chunk size for connectivity file (value datasets)
     :param cache_size: how many cells to read ahead
+    :param write_size: how many cells to write out at the same time
     """
     rank = comm.rank
 
@@ -371,13 +376,12 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                    set(connection_config[destination_population][source_population].synapse_types),
                                                    connection_config[destination_population][source_population].synapse_proportions)
                                 for source_population in source_populations}
-
     total_count = 0
+    gid_count   = 0
+    connection_dict = defaultdict(lambda: {})
     for destination_gid, synapse_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
                                                             cache_size=cache_size, namespace=synapse_namespace):
         last_time = time.time()
-        
-        connection_dict = defaultdict(lambda: {})
         if destination_gid is None:
             print 'Rank %i destination gid is None' % rank
         else:
@@ -405,18 +409,23 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             print 'Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid)
             sys.stdout.flush()
 
-        last_time = time.time()
-        if destination_gid is None:
-            projection_dict = {}
-        else:
-            projection_dict = { destination_population: connection_dict }
-        append_graph(comm, connectivity_path, projection_dict, io_size)
-        if rank == 0:
-            if destination_gid is not None: 
-                print 'Appending connectivity for destination: %i took %i s' % (destination_gid, time.time() - last_time)
-        sys.stdout.flush()
-        del connection_dict
-        gc.collect()
+        if gid_count % write_size == 0:
+            last_time = time.time()
+            if not connection_dict:
+                projection_dict = {}
+            else:
+                projection_dict = { destination_population: connection_dict }
+            append_graph(comm, connectivity_path, projection_dict, io_size)
+            if rank == 0:
+                if connection_dict:
+                    for (prj, prj_dict) in  connection_dict.iteritems():
+                        print prj, ": ", prj_dict.keys()
+                    print 'Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time)
+            sys.stdout.flush()
+            connection_dict.clear()
+            gc.collect()
+            
+        gid_count += 1
 
     global_count = comm.gather(total_count, root=0)
     if rank == 0:

@@ -235,9 +235,9 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
     # Calculate spike histogram 
     if spikeHist:
         all_spkts = np.concatenate(spktlst, axis=0)
-        histo = np.histogram(all_spkts, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
-        histoT = histo[1][:-1]+spikeHistBin/2
-        histoCount = histo[0]
+        histoCount, bin_edges = np.histogram(all_spkts, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
+        histoT = bin_edges[:-1]+spikeHistBin/2
+
 
     if popRates:
         avg_rates = {}
@@ -417,17 +417,16 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         print('Plotting spike histogram...')
         
     # Plot separate line for each entry in include
-    histData = []
+    histoData = []
     for iplot, spkts in enumerate(spkpoplst):
 
         subset = include[iplot]
         spkts = spktlst[iplot]
 
-        histo = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
-        histoT = histo[1][:-1]+binSize/2
-        histoCount = histo[0] 
+        histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
+        histoT = bin_edges[:-1]+binSize/2
         
-        histData.append(histoCount)
+        histoData.append(histoCount)
 
         if yaxis=='rate':
             histoCount = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
@@ -474,6 +473,8 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         show_figure()
 
     return fig
+
+
 
 
 def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = None,
@@ -535,18 +536,17 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
         print('Plotting firing rate power spectral density (PSD) ...')
     
     # Plot separate line for each entry in include
-    histData = []
+    histoData = []
     for iplot, subset in enumerate(spkpoplst):
 
         spkts = spktlst[iplot]
 
-        histo = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
-        histoT = histo[1][:-1]+binSize/2
-        histoCount = histo[0] 
+        histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
+        histoData.append(histoCount)
+
+        hsignal = histoCount
         
-        histData.append(histoCount)
-        
-        power = mlab.psd(histoCount, Fs=Fs, NFFT=256, detrend=mlab.detrend_none, window=mlab.window_hanning, 
+        power = mlab.psd(hsignal, Fs=Fs, NFFT=256, detrend=mlab.detrend_none, window=mlab.window_hanning, 
                          noverlap=0, pad_to=None, sides='default', scale_by_freq=None)
 
         if smooth:
