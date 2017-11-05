@@ -9,22 +9,14 @@ from neuroh5.io import read_population_ranges, read_population_names, append_cel
 from DG_surface import make_surface
 import numpy as np
 import click
-
-
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
+import utils
 
 
 script_name = 'compute_arc_distance.py'
 
 
 @click.command()
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--distance-namespace", type=str, default='Arc Distance')
@@ -32,14 +24,22 @@ script_name = 'compute_arc_distance.py'
 @click.option("--origin-u", type=float, default=0.0)
 @click.option("--origin-v", type=float, default=0.0)
 @click.option("--spatial-resolution", type=float, default=1.0)
-@click.option("--layers", '-l', type=float, multiple=True, default=[-3.95, -1.95, 1.0, 2.0, 3.0])  ## Corresponds to Hilus,GCL,IML,MML,OML boundaries
 @click.option("--io-size", type=int, default=-1)
-def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, origin_v, spatial_resolution, layers, io_size):
+def main(config_path, coords_path, coords_namespace, distance_namespace, npoints, origin_u, origin_v, spatial_resolution, layers, io_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    env = Env(comm=comm, configFile=config)
 
+    layers = []
+    max_extents = env.layers['Parametric Surface']['Minimum Extent']
+    min_extents = env.layers['Parametric Surface']['Maximum Extent']
+
+    for (max_extent,min_extent) in itertools.izip(max_extents,min_extents):
+        mid = (max_extent[2] - min_extent) / 2.
+        layers.append(mid)
+    
     population_ranges = read_population_ranges(comm, coords_path)[0]
     
     ip_surfaces = []
@@ -80,5 +80,5 @@ def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, o
                 comm.Barrier()
             
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
 
