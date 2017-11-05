@@ -2,6 +2,19 @@
 
 Parametric Surface:
   Minimum Extent:
+    Hilus: -3.95
+    GCL:   -1.95
+    IML:   0.
+    MML:   1.
+    OML:   3.
+  Maximum Extent:
+    Hilus: -1.95
+    GCL:   0
+    IML:   1.
+    MML:   3.
+    OML:   3.95
+Cell Layers:
+  Minimum Extent:
     GC: [0.03142, -0.7225, -1.95]
     MPP: [-0.0502, -0.7225, 1.]
     LPP: [-0.0502, -0.7225, 2.]
