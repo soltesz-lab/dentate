@@ -9,16 +9,7 @@ from neuroh5.io import read_population_ranges, read_population_names, append_cel
 from DG_surface import make_surface
 import numpy as np
 import click
-
-
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
+import utils
 
 
 script_name = 'compute_arc_distance.py'
@@ -89,5 +80,5 @@ def main(config_path, coords_path, coords_namespace, distance_namespace, npoints
                 comm.Barrier()
             
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
 
