@@ -3,7 +3,7 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import click
 import DG_surface
-import utils
+from utils import *
 
 try:
     import mkl
@@ -25,11 +25,13 @@ field_width_params = [35.00056621,   0.32020713]  # slope, tau
 
 #  x varies from 0 to 1, corresponding either to module id or septo-temporal distance
 field_width = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
+max_field_width = field_width(1.)
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
 selectivity_place_field = 1
-selectivity_type_dict = { 'MPP': selectivity_grid, 'LPP': selectivity_place_field }
+selectivity_type_dict = {'MPP': selectivity_grid, 'LPP': selectivity_place_field }
+
 
 @click.command()
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -78,7 +80,8 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
         count = 0
         start_time = time.time()
         selectivity_type = selectivity_type_dict[population]
-        attr_gen = NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size, cache_size=cache_size, namespace=distances_namespace)
+        attr_gen = NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size, cache_size=cache_size,
+                                      namespace=distances_namespace)
         if debug:
             attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
         else:
@@ -99,9 +102,10 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                     this_module = local_random.choice(modules)
                     this_grid_spacing = field_width(float(this_module)/float(max(modules)))
                     selectivity_dict[gid-population_start]['Grid Spacing'] = np.array([this_grid_spacing],
-                                                                    dtype='float32')
+                                                                                      dtype='float32')
                     this_grid_orientation = grid_orientation[this_module]
-                    selectivity_dict[gid-population_start]['Grid Orientation'] = np.array([this_grid_orientation], dtype='float32')
+                    selectivity_dict[gid-population_start]['Grid Orientation'] = np.array([this_grid_orientation],
+                                                                                          dtype='float32')
                     
                     # aiming for close to uniform input density inside the square arena
                     r_offset = this_grid_spacing * np.sqrt(local_random.random())
@@ -113,10 +117,12 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                     
                 elif selectivity_type == selectivity_place_field:
                     this_field_width = field_width(arc_distance_u / DG_surface.max_u)
-                    selectivity_dict[gid-population_start]['Field Width'] = np.array([this_field_width], dtype='float32')
+                    selectivity_dict[gid-population_start]['Field Width'] = np.array([this_field_width],
+                                                                                     dtype='float32')
                     
                     # aiming for close to uniform input density inside the square arena
-                    r_offset = this_field_width * np.sqrt(local_random.random())
+                    # r_offset = this_field_width * np.sqrt(local_random.random())
+                    r_offset = max_field_width * np.sqrt(local_random.random())
                     phi_offset = local_random.uniform(-np.pi, np.pi)
                     x_offset = r_offset * np.cos(phi_offset)
                     y_offset = r_offset * np.sin(phi_offset)

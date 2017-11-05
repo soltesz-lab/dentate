@@ -6,16 +6,9 @@ from neuron import h
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 from env import Env
 import utils, cells, synapses
+from utils import *
 import click
 
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
