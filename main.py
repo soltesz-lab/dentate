@@ -90,7 +90,10 @@ def spikeout (env, output_path, t_vec, id_vec):
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
 
-    namespace_id = "Spike Events %s" % str(env.results_id)
+    if not str(env.resultsId):
+        namespace_id = "Spike Events" 
+    else:
+        namespace_id = "Spike Events %s" % str(env.resultsId)
     
     for i in range(0,len(types)):
         if i > 0:

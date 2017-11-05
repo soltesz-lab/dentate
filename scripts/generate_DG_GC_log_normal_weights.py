@@ -68,41 +68,40 @@ def main(config, weights_path, weights_namespace, connectivity_path, connectivit
     target_population = 'GC'
     count = 0
     start_time = time.time()
-    attr_gen = NeuroH5CellAttrGen(comm, connectivity_path, target_population, io_size=io_size,
-                                  cache_size=cache_size, namespace=connectivity_namespace)
-    if debug:
-        attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
-    else:
-        attr_gen_wrapper = attr_gen
-    for gid, connectivity_dict in attr_gen_wrapper:
-        local_time = time.time()
-        weights_dict = {}
-        syn_ids = np.array([], dtype='uint32')
-        weights = np.array([], dtype='float32')
-        if gid is not None:
-            for population in ['MPP', 'LPP']:
-                indexes = np.where((connectivity_dict[connectivity_namespace]['source_gid'] >=
-                                    population_range_dict[population][0]) &
-                                   (connectivity_dict[connectivity_namespace]['source_gid'] <
-                                    population_range_dict[population][0] + population_range_dict[population][1]))[0]
-                syn_ids = np.append(syn_ids,
-                                    connectivity_dict[connectivity_namespace]['syn_id'][indexes]).astype('uint32',
+
+    if env.nodeRanks is None:
+          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+                                          projections=[(presyn_name, postsyn_name)],
+                                          namespaces=['Synapses','Connections'])
+        else:
+          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+                                          node_rank_map=env.nodeRanks,
+                                          projections=[(presyn_name, postsyn_name)],
+                                          namespaces=['Synapses','Connections'])
+        
+    edge_iter = graph[postsyn_name][presyn_name]
+
+    connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
+    kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
+
+    syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
+    distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+
+    for (postsyn_gid, edges) in edge_iter:
+          
+      postsyn_cell   = env.pc.gid2cell(postsyn_gid)
+      cell_syn_dict  = cell_synapses_dict[postsyn_gid]
+      
+      presyn_gids    = edges[0]
+      edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
+
+      weights_dict = {}
+      syn_ids = np.array([], dtype='uint32')
+      weights = np.array([], dtype='float32')
                                                                                                          copy=False)
-            local_random.seed(gid + weights_seed_offset)
-            weights = np.append(weights, local_random.lognormal(mu, sigma, len(syn_ids))).astype('float32', copy=False)
-            weights_dict[gid] = {'syn_id': syn_ids, 'weight': weights}
-            print 'Rank %i: took %.2f s to compute synaptic weights for %s gid %i' % \
-                  (rank, time.time() - local_time, target_population, gid)
-            count += 1
-        if not debug:
-            append_cell_attributes(comm, weights_path, target_population, weights_dict,
-                                   namespace=weights_namespace, io_size=io_size, chunk_size=chunk_size,
-                                   value_chunk_size=value_chunk_size)
-        sys.stdout.flush()
-        del syn_ids
-        del weights
-        del weights_dict
-        gc.collect()
+      local_random.seed(gid + weights_seed_offset)
+      weights = np.append(weights, local_random.lognormal(mu, sigma, len(syn_ids))).astype('float32', copy=False)
+      weights_dict[gid] = {'syn_id': syn_ids, 'weight': weights}
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
