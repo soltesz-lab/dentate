@@ -7,6 +7,7 @@ from neuroh5.io import read_cell_attributes, read_population_ranges
 selectivity_grid = 0
 selectivity_place_field = 1
 
+
 def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1.):  # cm
 
     # arena_dimension - minimum distance from origin to boundary (cm)
@@ -21,15 +22,13 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
 
-    return (interp_x, interp_y)
+    return interp_x, interp_y, d, t
 
 
-
-def generate_spatial_ratemap (selectivity_type, features_dict, interp_x, interp_y,
-                              grid_peak_rate = 40., place_peak_rate = 40.): # Hz
+def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y, d,
+                             grid_peak_rate = 40., place_peak_rate = 40.): # Hz
 
     response = np.zeros_like(d, dtype='float32')
-
     a = 0.3
     b = -1.5
     u = lambda ori: (np.cos(ori), np.sin(ori))

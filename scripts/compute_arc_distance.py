@@ -10,6 +10,7 @@ from DG_surface import make_surface
 import numpy as np
 import click
 
+
 def list_find (f, lst):
     i=0
     for x in lst:
@@ -19,7 +20,9 @@ def list_find (f, lst):
             i=i+1
     return None
 
+
 script_name = 'compute_arc_distance.py'
+
 
 @click.command()
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))

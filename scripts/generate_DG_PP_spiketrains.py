@@ -48,7 +48,7 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    interp_x, interp_y = stimulus.generate_trajectory()
+    interp_x, interp_y, d, t = stimulus.generate_trajectory()
     
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
     
@@ -64,6 +64,8 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
     #     x = f['Trajectories'][str(trajectory_id)]['x'][:]
     #     y = f['Trajectories'][str(trajectory_id)]['y'][:]
     #     d = f['Trajectories'][str(trajectory_id)]['d'][:]
+
+    t_stop = t[-1]
 
     features_namespace = 'Feature Selectivity'
     spiketrain_namespace = 'Vector Stimulus %s' % str(trajectory_id)
@@ -90,7 +92,8 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
             local_time = time.time()
             response_dict = {}
             if gid is not None:
-                response = stimulus.generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y)
+                response = stimulus.generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y, d)
+                # TODO: replace with generator with refractory period, reset seed for each gid
                 spiketrain = stg.inh_poisson_generator(response, t, t_stop)
                 response_dict[gid-population_start] = {'rate': response,
                                                        'spiketrain': np.asarray(spiketrain, dtype='float32')}

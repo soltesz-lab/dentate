@@ -13,6 +13,7 @@ from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_populatio
 import click
 import utils
 
+
 try:
     import mkl
     mkl.set_num_threads(1)
@@ -26,6 +27,7 @@ def list_index (element, lst):
         return index_element
     except ValueError:
         return None
+
 
 def random_choice_w_replacement(ranstream,n,p):
     return ranstream.multinomial(n,p.ravel())
