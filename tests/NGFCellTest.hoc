@@ -2,8 +2,6 @@
 load_file("nrngui.hoc")
 load_file("./tests/cell_protocol.ses")
 
-nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
-
 // RandomStream template
 {load_file("./templates/ranstream.hoc")}
 
@@ -16,8 +14,6 @@ v_init = -60
 
 //**********************************************************************
 proc simulate() { local prelength, mainlength, preDT, mainDT
-    
-    printf("entering simulate\n")
     
     prelength = $1
     mainlength = $2
@@ -101,7 +97,7 @@ proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur l
     stim1.amp = -0.1
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&ngfc.soma.v(0.5))
+    Vlog_soma.record (&ngfc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -162,12 +158,12 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     stim1.amp = 0.3
     
     spikelog = new Vector()
-    ngfc.soma nc = new NetCon(&ngfc.soma.v(.5), nil)
+    ngfc.soma nc = new NetCon(&ngfc.sections[0].v(.5), nil)
     nc.threshold = -40.0
     nc.record(spikelog)
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&ngfc.soma.v(0.5))
+    Vlog_soma.record (&ngfc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -256,3 +252,5 @@ passive_test()
 ap_rate_test()
 
 
+objref ngfc
+ngfc = new NGFCell(1, 1)

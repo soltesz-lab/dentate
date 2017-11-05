@@ -1,67 +1,103 @@
 import sys, os.path, string
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neurotrees.io import read_cell_attributes
+from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names, read_cell_attribute_info
 import numpy as np
+from collections import namedtuple
 import yaml
+import utils
+
+ConnectionGenerator = namedtuple('ConnectionGenerator',
+                                 ['synapse_types',
+                                  'synapse_locations',
+                                  'synapse_layers',
+                                  'synapse_proportions',
+                                  'synapse_kinetics',
+                                  'connection_properties'])
+
 
 class Env:
     """Network model configuration."""
 
-    def load_prjtypes(self):
-        projections = self.projections
-        prjnames = projections.keys()
-        prjnames.sort()
-        for k in prjnames:
-            projection = projections[k]
-            if projection['type'] == 'syn':
-                if projection.has_key('weightsFile'):
-                    weights = np.fromfile(projection['weightsFile'],sep='\n')
-                    projection['weights'] = weights
+    def load_connection_generator(self):
+        
+        syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
+        swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
+        layers_dict      = self.modelConfig['Definitions']['Layers']
+        synapse_kinetics = self.modelConfig['Connection Generator']['Synapse Kinetics']
+        synapse_types    = self.modelConfig['Connection Generator']['Synapse Types']
+        synapse_locs     = self.modelConfig['Connection Generator']['Synapse Locations']
+        synapse_layers   = self.modelConfig['Connection Generator']['Synapse Layers']
+        synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
+        connection_properties = self.modelConfig['Connection Generator']['Connection Properties']
+
+        connection_generator_dict = {}
+        
+        for (key_postsyn, val_syntypes) in synapse_types.iteritems():
+            connection_generator_dict[key_postsyn]  = {}
+            
+            for (key_presyn, val_syntypes) in val_syntypes.iteritems():
+                val_synlocs     = synapse_locs[key_postsyn][key_presyn]
+                val_synlayers   = synapse_layers[key_postsyn][key_presyn]
+                val_proportions = synapse_proportions[key_postsyn][key_presyn]
+                val_synkins     = synapse_kinetics[key_postsyn][key_presyn]
+                val_connprops1  = {}
+                for (k_mech,v_mech) in connection_properties[key_postsyn][key_presyn].iteritems():
+                    v_mech1 = {}
+                    for (k,v) in v_mech.iteritems():
+                        v1 = v
+                        if type(v) is dict:
+                            if v.has_key('from file'):
+                                with open(v['from file']) as fp:
+                                    lst = []
+                                    lines = fp.readlines()
+                                    for l in lines:
+                                        lst.append(float(l))
+                            v1 = h.Vector(np.asarray(lst, dtype=np.float32))
+                        v_mech1[k] = v1
+                    val_connprops1[k_mech] = v_mech1
+                            
+
+                val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
+                val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
+                val_synlayers1 = [layers_dict[val_synlayer] for val_synlayer in val_synlayers]
+                
+                connection_generator_dict[key_postsyn][key_presyn] = ConnectionGenerator(val_syntypes1,
+                                                                                         val_synlocs1,
+                                                                                         val_synlayers1,
+                                                                                         val_proportions,
+                                                                                         val_synkins,
+                                                                                         val_connprops1)
+                
+            
+        self.connection_generator = connection_generator_dict
 
     def load_celltypes(self):
-        # use this communicator for small size I/O operations performed by rank 0
         rank = self.comm.Get_rank()
         size = self.comm.Get_size()
-        if rank == 0:
-            color = 1
-        else:
-            color = 2
-        iocomm = self.comm.Split(color, rank)
-        offset = 0
         celltypes = self.celltypes
         typenames = celltypes.keys()
         typenames.sort()
+
+        datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
+        dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
+
+        (population_ranges, _) = read_population_ranges(self.comm, dataFilePath)
+        
         for k in typenames:
-            if celltypes[k].has_key('cardinality'):
-                num = celltypes[k]['cardinality']
-                celltypes[k]['offset'] = offset
-                celltypes[k]['num'] = num
-                start  = offset
-                offset = offset+num
-                index  = range(start, offset)
-                celltypes[k]['index'] = index
-            elif celltypes[k].has_key('indexFile'):
-                fpath = os.path.join(self.datasetPrefix,self.datasetName,celltypes[k]['indexFile'])
-                if rank == 0:
-                    coords = read_cell_attributes(MPI._addressof(iocomm), fpath, k, namespace="Sorted Coordinates")
-                    index  = coords.keys()
-                    index.sort()
-                else:
-                    index = None
-                index = self.comm.bcast(index, root=0)
-                celltypes[k]['index'] = index
-                celltypes[k]['offset'] = offset
-                celltypes[k]['num'] = len(index)
-                offset=max(index)+1
-        iocomm.Free()
-    
-    def __init__(self, comm, configFile, templatePaths, datasetPrefix, resultsPath, nodeRankFile,
-                 IOsize, vrecordFraction, coredat, tstop, v_init, max_walltime_hrs, results_write_time, dt, ldbal, lptbal, verbose):
+            celltypes[k]['start'] = population_ranges[k][0]
+            celltypes[k]['num'] = population_ranges[k][1]
+
+        population_names  = read_population_names(self.comm, dataFilePath)
+        self.cellAttributeInfo = read_cell_attribute_info (self.comm, population_names, dataFilePath)
+            
+    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
+                 IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
         :param resultsPath: the directory in which to write spike raster and voltage trace files
+        :param resultsId: identifier that is used to constructs the namespaces in which to spike raster data and voltage trace data are written
         :param nodeRankFile: the name of a file that specifies assignment of node gids to MPI ranks
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
@@ -76,6 +112,9 @@ class Env:
         :param verbose: print verbose diagnostic messages while constructing the network
         """
 
+        self.SWC_Types = {}
+        self.Synapse_Types = {}
+
         self.gidlist = []
         self.cells  = []
 
@@ -89,7 +128,7 @@ class Env:
 
         # Directories for cell templates
         self.templatePaths=[]
-        if templatePaths:
+        if templatePaths is not None:
             self.templatePaths = string.split(templatePaths, ':')
 
         # The location of all datasets
@@ -98,6 +137,9 @@ class Env:
 
         # The path where results files should be written
         self.resultsPath = resultsPath
+
+        # Identifier used to construct results data namespaces
+        self.resultsId = resultsId
         
         # Number of MPI ranks to be used for I/O operations
         self.IOsize = IOsize
@@ -140,29 +182,31 @@ class Env:
                     dval[int(a[0])] = int(a[1])
                 self.nodeRanks = dval
 
-        with open(configFile) as fp:
-            self.modelConfig = yaml.load(fp)
-            
+        if configFile is not None:
+            with open(configFile) as fp:
+                self.modelConfig = yaml.load(fp, utils.IncludeLoader)
+        else:
+            raise RuntimeError("missing configuration file")
+
+        defs = self.modelConfig['Definitions']
+        self.SWC_Types = defs['SWC Types']
+        self.Synapse_Types = defs['Synapse Types']
+        self.layers = defs['Layers']
+
+        self.celltypes = self.modelConfig['Cell Types']
+        self.cellAttributeInfo = {}
+        
         # The name of this model
-        self.modelName = self.modelConfig['modelname']
+        self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network
-        self.datasetName = self.modelConfig['datasetName']
+        self.datasetName = self.modelConfig['Dataset Name']
 
-        self.celltypes     = self.modelConfig['celltypes']
-        self.synapseOrder  = self.modelConfig['synapses']['order']
-        self.connectivityFile = self.modelConfig['connectivity']['connectivityFile']
-        self.projections   = self.modelConfig['connectivity']['projections']
-        if self.modelConfig['connectivity'].has_key('gapjunctions'):
-            self.gapjunctions  = self.modelConfig['connectivity']['gapjunctions']
-        else:
-            self.gapjunctions  = None
-        if self.modelConfig['connectivity'].has_key('gapjunctionsFile'):
-            self.gapjunctionsFile = self.modelConfig['connectivity']['gapjunctionsFile']
-        else:
-            self.gapjunctionsFile = None
-        self.load_celltypes()
-        self.load_prjtypes()
-
+        if self.modelConfig.has_key('Connection Generator'):
+            self.load_connection_generator()
+        
+        if self.datasetPrefix is not None:
+            self.load_celltypes()
+            
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
 

@@ -2,96 +2,165 @@
 begintemplate ISCell
 
 public connect2target, subsets, is_art, is_connected
-public soma, dendrites
-public all, pdend, ddend
+public all, soma, basal, apical, axon, sections
+public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
-public syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC
+public syns, syntypes
 public syn_stim
 
-objref all, pdend, ddend
-objref syns, syns_GC, syns_MC, syns_HC, syns_BC, syns_AA, syns_HCC, syns_NGFC, syns_NGFCB
+objref all, soma, basal, apical, axon
+objref apicalidx, basalidx, somaidx, axonidx
+objref syns, syntypes
 objref syn_stim
 
-create soma, dendrites[1][1]
+create sections[1]
+
+id  = -1
+gid = -1
+
+ndends   = -1
+ndendsec = -1
+nDends   = -1
 
 
-proc init() {
+proc assert() { local test strdef errmsg
     
-    ndends=4
-    ndendsec=3
+    test = $1
+    errmsg = $s2
     
-    create dendrites[ndends][ndendsec]
-    
-    subsets(ndends,ndendsec)
-    topol(ndends,ndendsec)
-    geom()
-    biophys()
-
-    syns_GC = new List()
-    syns_MC = new List()
-    syns_HC = new List()
-    syns_BC = new List()
-    syns_AA = new List()
-    syns_HCC = new List()
-    syns_NGFC = new List()
-    syns_NGFCB = new List()
-    syns = new List()
-    syns.append(syns_GC)
-    syns.append(syns_MC)
-    syns.append(syns_HC)
-    syns.append(syns_BC)
-    syns.append(syns_AA)
-    syns.append(syns_HCC)
-    syns.append(syns_NGFC)
-    syns.append(syns_NGFCB)
-    
-    soma {
-        syn_stim = new ExpSyn(0.5)
-        syn_stim.tau = 1
+    if (!test) {
+        execerror ("Assertion failed: ", errmsg)
     }
-
 }
 
-proc subsets() { local i 
+
+proc init() { // arguments are id, gid
+    
+    apicalidx = new Vector()
+    basalidx = new Vector()
+    somaidx = new Vector()
+    axonidx = new Vector()
+    
+    cellid = $1
+    gid = $2
+    
+    if (numarg() > 2) {
+        topol_from_python($o4,$o5,$o6,$o7,$o12)
+        shape_from_python($o7,$o8,$o9,$o10,$o11)
+    } else {
+        ndends   = 4
+        ndendsec = 3
+        create sections[1+ndends*ndendsec]
+        
+        somaidx.append(0)
+        i=0
+        for j=0, ndendsec-1 { 
+            basalidx.append(1+i*ndendsec + j)
+        }
+        i=1
+        for j=0, ndendsec-1 { 
+            basalidx.append(1+i*ndendsec + j)
+        }
+        i=2
+        for j=0, ndendsec-1 { 
+            apicalidx.append(1+i*ndendsec + j)
+        }
+        i=3
+        for j=0, ndendsec-1 { 
+            apicalidx.append(1+i*ndendsec + j)
+        }
+        
+        topol(ndends,ndendsec)
+        geom()
+    }
+    subsets()
+    geom_nseg()
+    biophys()
+    
+    syns = new List()
+    syntypes = new List()
+    syntypes.append(new List()) // excitatory
+    syntypes.append(new List()) // inhibitory
+}
+
+
+proc subsets() { local i, ndends, ndendsec
     
     all = new SectionList()
-    soma all.append()
-    
-    for i=0, ndends-1 {
-        for j=0, ndendsec-1 {
-            dendrites[i][j] all.append()
-        }
+    sections[0] all.append()
+    for i=0, nDends-1 { 
+        sections[i+1] all.append() 
     }
     
-    pdend  = new SectionList()
-    for i=0, ndends-1 {
-        dendrites[i][0] pdend.append()
+    soma = new SectionList()
+    sections[0] soma.append()
+    
+    basal = new SectionList()
+    for i=0, basalidx.size()-1 { 
+        sections[basalidx.x[i]] basal.append() 
     }
     
-    ddend  = new SectionList()
-    for i=0, ndends-1 {
-        for j=1, ndendsec-1 {
-            dendrites [i][j] ddend.append()
-        }
+    apical = new SectionList()
+    for i=0, apicalidx.size()-1 { 
+        sections[apicalidx.x[i]] apical.append() 
     }
     
+    axon  = new SectionList()
 }
 
 proc geom() {
     
-    soma {nseg=1 L=20 diam=10} // changed L & diam
+    sections[0] {nseg=3 L=20 diam=10} // changed L & diam
+        
         
     for i = 0,1 {
-        dendrites[i][0] {nseg=1 L=75 diam=3}	// bcdend 1 and 2 are apical
-        dendrites[i][1] {nseg=1 L=75 diam=2}
-        dendrites[i][2] {nseg=1 L=75 diam=1}
+        sections[1+i*ndendsec+0] {nseg=3 L=100 diam=3}
+        sections[1+i*ndendsec+1] {nseg=3 L=100 diam=2}
+        sections[1+i*ndendsec+2] {nseg=3 L=100 diam=1}
     }
-        
+    
     for i = 2,3 {
-        dendrites[i][0] {nseg=1 L=50 diam=3} 	// bcdend 3 and 4 are basal
-        dendrites[i][1] {nseg=1 L=50 diam=2}
-        dendrites[i][2] {nseg=1 L=50 diam=1}
+        sections[1+i*ndendsec+0] {nseg=3 L=150 diam=3}
+        sections[1+i*ndendsec+1] {nseg=3 L=150 diam=2}
+        sections[1+i*ndendsec+2] {nseg=3 L=150 diam=1}
     }
+}
+
+func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
+    
+    /*
+    printf("lambda_f: n3d() = %d\n", n3d())
+    if (n3d() <= 3) {
+        for i=0, n3d()-1 {
+            x = x3d(i)
+            y = x3d(i)
+            z = x3d(i)
+            d = diam3d(i)
+            printf("lambda_f: i = %d x = %g y = %g z = %g\n", i, x3d(i), y3d(i), z3d(i))
+        }
+    }
+    */
+    
+    if (n3d() < 2) {
+        return 1e5*sqrt(diam/(4*PI*$1*Ra*cm))
+    }
+    x1 = arc3d(0)
+    d1 = diam3d(0)
+    lam = 0
+    for i=1, n3d()-1 {
+        x2 = arc3d(i)
+        d2 = diam3d(i)
+        lam += (x2 - x1)/sqrt(d1 + d2)
+        x1 = x2   d1 = d2
+    }
+    //  length of the section in units of lambda
+    lam *= sqrt(2) * 1e-5*sqrt(4*PI*$1*Ra*cm)
+    
+    return L/lam
+}
+
+proc geom_nseg() {
+  	forsec all { nseg = int((L/(0.1*lambda_f(100))+.9)/2)*2 + 1  }
 }
 
 proc topol() {
@@ -99,13 +168,17 @@ proc topol() {
     ndends = $1
     ndendsec = $2
     
-    connect dendrites[0][0](0), soma(1)
-    connect dendrites[1][0](0), soma(1)
-    connect dendrites[2][0](0), soma(0)
-    connect dendrites[3][0](0), soma(0)
+    nDends = ndends*ndendsec
     
-    for i =0,ndends-1 {
-        for j=1,ndendsec-1 {connect dendrites[i][j](0), dendrites[i][j-1](1)}
+    connect sections[1+0*ndendsec+0](0), sections[0](1)
+    connect sections[1+1*ndendsec+0](0), sections[0](1)
+    connect sections[1+2*ndendsec+0](0), sections[0](0)
+    connect sections[1+3*ndendsec+0](0), sections[0](0)
+    
+    for i=0,ndends-1 {
+        for j=1,ndendsec-1 {
+	    connect sections[1+i*ndendsec+j](0), sections[1+i*ndendsec+(j-1)](1)
+        }
     }
 }
 
@@ -114,6 +187,9 @@ proc biophys() {
     forsec all {
         Ra=100
     }
+    
+    forsec soma { distance() }
+
     forsec all {
 	insert ccanl
 	catau_ccanl = 1
@@ -133,7 +209,7 @@ proc biophys() {
 	ghysbar_hyperde3=0.000015
     }
     
-    soma {
+    forsec soma {
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=0.2  
 	gkfbar_ichan2=0.006  
@@ -141,20 +217,36 @@ proc biophys() {
         cm=0.5
     } 
     
-    forsec pdend {
-        insert ichan2
-	gnatbar_ichan2=0.2  
-	gkfbar_ichan2=0.006
-	gl_ichan2 = 0.000036
-        cm=1.1
+    forsec apical {
+        for (x,0) {
+            insert ichan2
+            cm=1.1
+            if (distance(x) <= 150) {
+	        gnatbar_ichan2=0.2  
+	        gkfbar_ichan2=0.006
+	        gl_ichan2 = 0.000036
+            } else {
+	        gnatbar_ichan2=0.0
+	        gkfbar_ichan2=0.00
+	        gl_ichan2 = 0.000036
+            }
+        }
     }
     
-    forsec ddend {
-        insert ichan2
-	gnatbar_ichan2=0.0
-	gkfbar_ichan2=0.00
-	gl_ichan2 = 0.000036
-        cm=1.1
+    forsec basal {
+        for (x,0) {
+            insert ichan2
+            cm=1.1
+            if (distance(x) <= 150) {
+	        gnatbar_ichan2=0.2  
+	        gkfbar_ichan2=0.006
+	        gl_ichan2 = 0.000036
+            } else {
+	        gnatbar_ichan2=0.0
+	        gkfbar_ichan2=0.00
+	        gl_ichan2 = 0.000036
+            }
+        }
     }
     
     
@@ -171,10 +263,92 @@ proc biophys() {
     
 }
 
+
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
+    
+    // vlayers, vsrc, vdst, secnodes
+    vlayers   = new Vector($o1)
+    vsrc      = new Vector($o2)
+    vdst      = new Vector($o3)
+    secnodes  = $o4
+    swc_types = new Vector($o5)
+    
+    nDends = secnodes.__len__()-1
+    
+    for s = 0, secnodes.__len__()-1 {
+        vidxs = new Vector(secnodes.__getitem__(s))
+        i = vidxs.x[vidxs.size()-1]
+        swc_type = swc_types.x[i]
+        if (swc_type == 4) {
+            apicalidx.append(s)
+        }
+        if (swc_type == 3) {
+            basalidx.append(s)
+        }
+        if (swc_type == 1) {
+            somaidx.append(s)
+        }
+    }
+    
+    create sections[nDends+1]
+    for p = 0, vsrc.size-1 {
+        i = vsrc.x[p]
+        j = vdst.x[p]
+        assert (i >= 0,  "compartment index in topology matrix is less than zero")
+        assert (j >= 0,  "compartment index in topology matrix is less than zero")
+        assert (i < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        assert (j < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        if (i == 0) {
+            if (j == 1 || j == 2) {
+                connect sections[j](0),sections[i](1)
+            } else {
+                connect sections[j](0),sections[i](0)
+            }
+        } else {
+            connect sections[j](0),sections[i](1)
+        }
+        
+    }
+    
+    vlayers.resize(0)
+    vsrc.resize(0)
+    vdst.resize(0)
+    swc_types.resize(0)
+}
+
+proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius, idxs, vidxs
+    
+    secnodes = $o1
+    vx = new Vector($o2)
+    vy = new Vector($o3)
+    vz = new Vector($o4)
+    vradius = new Vector($o5)
+    
+    for s=0, secnodes.__len__()-1 {
+        idxs = secnodes.__getitem__(s)
+        vidxs = new Vector(idxs)
+        sections[s] {
+            pt3dconst(1)
+            for i=0, vidxs.size()-1 {
+                k = vidxs.x[i]
+                pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
+            }
+        }
+    }
+    
+
+    vx.resize(0)
+    vy.resize(0)
+    vz.resize(0)
+    vradius.resize(0)
+    
+}
+
+
 func is_art()  { return 0 }
 
 obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
-  soma nc = new NetCon(&v(1), $o1)
+  sections[0] nc = new NetCon(&v(1), $o1)
   nc.threshold = 10
   if (numarg() == 2) { $o2 = nc } // for backward compatibility
   return nc

@@ -1,9 +1,6 @@
 from function_lib import *
 from mpi4py import MPI
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
+from neuroh5.io import append_cell_attribute, NeuroH5CelllAttrGen, bcast_cell_attributes, population_ranges
 import click
 
 
@@ -37,6 +34,7 @@ syn_type_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 
 script_name = 'compute_DG_random_connectivity.py'
 
+## Layer mappings, SWC types, and synapse type information is now encoded in YAML: Definitions
 
 layer_Hilus = 0
 layer_GCL   = 1
@@ -44,29 +42,31 @@ layer_IML   = 2
 layer_MML   = 3
 layer_OML   = 4 
 
-layers = {'GC': {'MPP':  [layer_MML], 'LPP': [layer_OML], 'MC': [layer_IML],
-                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_GCL], 'BC': [layer_GCL, layer_IML],
-                 'MOPP': [layer_MML, layer_OML], 'HCC': [layer_IML], 'HC': [layer_MML, layer_OML]}}
+## Synapse information is now encoded in YAML: Connection Generator / Synapse (Layers | Proportions | Locations | Types)
+
+##layers = {'GC': {'MPP':  [layer_MML], 'LPP': [layer_OML], 'MC': [layer_IML],
+##                 'NGFC': [layer_MML, layer_OML], 'AAC': [layer_GCL], 'BC': [layer_GCL, layer_IML],
+##                 'MOPP': [layer_MML, layer_OML], 'HCC': [layer_IML], 'HC': [layer_MML, layer_OML]}}
 
 syn_Exc = 0
 syn_Inh = 1
 
-syn_types = {'GC': {'MPP': [syn_Exc], 'LPP': [syn_Exc], 'MC': [syn_Exc],
-                    'NGFC': [syn_Inh, syn_Inh], 'AAC': [syn_Inh], 'BC': [syn_Inh, syn_Inh],
-                    'MOPP': [syn_Inh, syn_Inh], 'HCC': [syn_Inh], 'HC': [syn_Inh, syn_Inh]}}
+##syn_types = {'GC': {'MPP': [syn_Exc], 'LPP': [syn_Exc], 'MC': [syn_Exc],
+##                    'NGFC': [syn_Inh, syn_Inh], 'AAC': [syn_Inh], 'BC': [syn_Inh, syn_Inh],
+##                    'MOPP': [syn_Inh, syn_Inh], 'HCC': [syn_Inh], 'HC': [syn_Inh, syn_Inh]}}
 
 swc_Dend = 4
 swc_Axon = 2
 swc_Soma = 1
 
-swc_types = {'GC': {'MPP': [swc_Dend], 'LPP': [swc_Dend], 'MC': [swc_Dend],
-                    'NGFC': [swc_Dend, swc_Dend], 'AAC': [swc_Axon], 'BC': [swc_Soma, swc_Dend],
-                    'MOPP': [swc_Dend, swc_Dend], 'HCC': [swc_Dend], 'HC': [swc_Dend, swc_Dend]}}
+##swc_types = {'GC': {'MPP': [swc_Dend], 'LPP': [swc_Dend], 'MC': [swc_Dend],
+##                    'NGFC': [swc_Dend, swc_Dend], 'AAC': [swc_Axon], 'BC': [swc_Soma, swc_Dend],
+##                    'MOPP': [swc_Dend, swc_Dend], 'HCC': [swc_Dend], 'HC': [swc_Dend, swc_Dend]}}
 
-# fraction of synapses matching this layer, syn_type, sec_type, and source
-proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
-                      'NGFC': [0.15, 0.15], 'AAC': [1.], 'BC': [1., 0.4],
-                      'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
+## fraction of synapses matching this layer, syn_type, sec_type, and source
+##proportions = {'GC': {'MPP': [1.], 'LPP': [1.], 'MC': [1.],
+##                      'NGFC': [0.15, 0.15], 'AAC': [1.], 'BC': [1., 0.4],
+##                      'MOPP': [0.3, 0.3], 'HCC': [0.6], 'HC': [0.55, 0.55]}}
 
 
 local_np_random = np.random.RandomState()
@@ -91,7 +91,7 @@ def get_array_index_func(val_array, this_val):
 get_array_index = np.vectorize(get_array_index_func, excluded=[0])
 
 
-def filter_sources(target, layer, swc_type, syn_type):
+def filter_sources(target, layer, swc_type, syn_type, connection_config):
     """
     
     :param target: str 
@@ -100,6 +100,10 @@ def filter_sources(target, layer, swc_type, syn_type):
     :param syn_type: int
     :return: list
     """
+    proportions = connection_config.synapse_proportions
+    layers      = connection_config.synapse_layers
+    syn_types   = connection_config.synapse_types
+    swc_types   = connection_config.synapse_locations
     source_list = []
     proportion_list = []
     for source in layers[target]:
@@ -129,6 +133,7 @@ def filter_synapses(synapse_dict, layer, swc_type, syn_type):
 
 
 @click.command()
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-namespace", type=str, default='Random Connectivity')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -138,7 +143,7 @@ def filter_synapses(synapse_dict, layer, swc_type, syn_type):
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--debug", is_flag=True)
-def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_size, chunk_size, value_chunk_size,
+def main(config, forest_path, connectivity_namespace, coords_path, coords_namespace, io_size, chunk_size, value_chunk_size,
          cache_size, debug):
     """
 
@@ -164,6 +169,14 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
     comm = MPI.COMM_WORLD
     rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
 
+    env = Env(comm=comm, configFile=config)
+
+    connection_config = env.connection_generator    
+    proportions = connection_config.synapse_proportions
+    layers      = connection_config.synapse_layers
+    syn_types   = connection_config.synapse_types
+    swc_types   = connection_config.synapse_locations
+
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
@@ -173,9 +186,9 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
     start_time = time.time()
 
     soma_coords = {}
-    source_populations = population_ranges(MPI._addressof(comm), coords_path).keys()
+    source_populations = population_ranges(comm, coords_path).keys()
     for population in source_populations:
-        soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
+        soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                             namespace=coords_namespace)
 
     target = 'GC'
@@ -187,8 +200,8 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
         syn_type_set.update(syn_types[target][source])
 
     count = 0
-    attr_gen = NeurotreeAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size, cache_size=cache_size,
-                                namespace='Synapse_Attributes')
+    attr_gen = NeuroH5CellAttrGen(comm, forest_path, target, io_size=io_size, cache_size=cache_size,
+                                  namespace='Synapse Attributes')
     if debug:
         attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
     else:
@@ -211,7 +224,7 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
             for layer in layer_set:
                 for swc_type in swc_type_set:
                     for syn_type in syn_type_set:
-                        sources, this_proportions = filter_sources(target, layer, swc_type, syn_type)
+                        sources, this_proportions = filter_sources(target, layer, swc_type, syn_type, connection_config)
                         if sources:
                             if rank == 0 and count == 0:
                                 source_list_str = '[' + ', '.join(['%s' % xi for xi in sources]) + ']'
@@ -244,7 +257,7 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
                                                                                            target, target_gid)
             sys.stdout.flush()
         if not debug:
-            append_cell_attributes(MPI._addressof(comm), forest_path, target, connection_dict,
+            append_cell_attributes(comm, forest_path, target, connection_dict,
                                    namespace=connectivity_namespace, io_size=io_size, chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
         sys.stdout.flush()

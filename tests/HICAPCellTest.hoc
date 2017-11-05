@@ -2,8 +2,6 @@
 load_file("nrngui.hoc")
 load_file("./tests/cell_protocol.ses")
 
-nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
-
 // RandomStream template
 {load_file("./templates/ranstream.hoc")}
 
@@ -16,8 +14,6 @@ v_init = -70
 
 //**********************************************************************
 proc simulate() { local prelength, mainlength, preDT, mainDT
-    
-    printf("entering simulate\n")
     
     prelength = $1
     mainlength = $2
@@ -101,7 +97,7 @@ proc passive_test() { local varSoma, prelength, mainlength, vec_sizes, stimdur l
     stim1.amp = -0.1
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&hcc.soma.v(0.5))
+    Vlog_soma.record (&hcc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -156,18 +152,18 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
     
     hcc = new HICAPCell(1, 1)
     
-    hcc.soma stim1 = new IClamp(0.5)
+    hcc.sections[0] stim1 = new IClamp(0.5)
     stim1.del = prelength
     stim1.dur = stimdur
     stim1.amp = 0.3
     
     spikelog = new Vector()
-    hcc.soma nc = new NetCon(&hcc.soma.v(.5), nil)
+    hcc.soma nc = new NetCon(&hcc.sections[0].v(.5), nil)
     nc.threshold = -40.0
     nc.record(spikelog)
     
     Vlog_soma = new Vector(vec_sizes)
-    Vlog_soma.record (&hcc.soma.v(0.5))
+    Vlog_soma.record (&hcc.sections[0].v(0.5))
 
     tlog = new Vector(vec_sizes,0)
     tlog.record (&t)
@@ -254,5 +250,7 @@ proc ap_rate_test() { local prelength, mainlength, vec_sizes, stimdur, tspike, i
 
 passive_test()
 ap_rate_test()
+objref hcc
+hcc = new HICAPCell(1, 1)
 
 
