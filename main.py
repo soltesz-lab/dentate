@@ -454,7 +454,6 @@ def mkstim(env):
 
             
 def init(env):
-
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
     h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
@@ -597,7 +596,8 @@ def run (env):
 @click.option('--verbose', '-v', is_flag=True)
 def main(config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     np.seterr(all='raise')
-    env = Env(MPI.COMM_WORLD, config_file, 
+    comm = MPI.COMM_WORLD
+    env = Env(comm, config_file, 
               template_paths, dataset_prefix, results_path, results_id,
               node_rank_file, io_size,
               vrecord_fraction, coredat, tstop, v_init,
