@@ -74,9 +74,9 @@ class ConnectionProb(object):
             else:
                 self.offset[source_population] = {'u': extent_offset[0], 'v': extent_offset[1]}
             self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v:
-                                                np.exp(-(((abs(distance_u) - self.offset[source_population]['u']) /
+                                                np.exp(-(((abs(distance_u - self.offset[source_population]['u'])) /
                                                             self.sigma[source_population]['u'])**2. +
-                                                            ((abs(distance_v) - self.offset[source_population]['v']) /
+                                                            ((abs(distance_v - self.offset[source_population]['v'])) /
                                                             self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
 
     def compute_srf_distances(self, destination_u, destination_v, source_u_vect, source_v_vect, npts=250):
