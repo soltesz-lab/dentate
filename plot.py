@@ -350,7 +350,7 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
 
 
 ## Plot spike histogram
-def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeRange = None, maxSpikes=int(1e6), binSize = 5., 
+def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, maxSpikes=int(1e6), binSize = 5., 
                           overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8), fontSize = 14, lw = 3, 
                           saveFig = None, showFig = True, verbose = False): 
     ''' 
@@ -360,6 +360,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         - namespace_id: attribute namespace for spike events
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
+        - timeVariable: Name of variable containing spike times (default: 't')
         - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - binSize (int): Size in ms of each bin (default: 5)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
@@ -388,7 +389,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeR
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_file, include, namespace_id,
+    spkdata = spikedata.read_spike_events (comm, input_file, include, namespace_id, timeVariable=timeVariable,
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
