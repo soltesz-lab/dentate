@@ -589,7 +589,7 @@ def run (env):
 @click.option("--tstop", type=int, default=1)
 @click.option("--v-init", type=float, default=-75.0)
 @click.option("--max-walltime-hours", type=float, default=1.0)
-@click.option("--results-write-time", type=float, default=30.0)
+@click.option("--results-write-time", type=float, default=180.0)
 @click.option("--dt", type=float, default=0.025)
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)
