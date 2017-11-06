@@ -3,7 +3,7 @@ import sys, time, gc
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
-import h5py
+# import h5py
 import random
 import click
 import stimulus, stgen, utils
@@ -65,6 +65,9 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
     stimulus_namespace += ' ' + str(trajectory_id)
 
+    x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+                                              spatial_resolution=spatial_resolution)
+    """
     with h5py.File(selectivity_path, 'a') as f:
         if trajectory_namespace not in f:
             f.create_group(trajectory_namespace)
@@ -80,6 +83,7 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
             y = f[trajectory_namespace]['y'][:]
             d = f[trajectory_namespace]['d'][:]
             t = f[trajectory_namespace]['t'][:]
+    """
 
     population_ranges = read_population_ranges(comm, selectivity_path)[0]
 
