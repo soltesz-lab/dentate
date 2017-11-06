@@ -337,7 +337,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                      connectivity_seed, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size, write_size=1):
     """Generates connectivity based on U, V distance-weighted probabilities.
-    :param comm: mpi4py MPI communicatory
+    :param comm: mpi4py MPI communicator
     :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
     :param connection_prob: ConnectionProb instance
     :param forest_path: location of file with neuronal trees and synapse information

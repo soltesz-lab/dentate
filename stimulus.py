@@ -17,7 +17,6 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
     t = interp_distance / velocity * 1000.  # ms
-    t_stop = t[-1]
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
@@ -25,7 +24,7 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
     return interp_x, interp_y, d, t
 
 
-def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y, d, grid_peak_rate=40.,
+def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y, grid_peak_rate=40.,
                              place_peak_rate=40.):
     """
 
@@ -33,13 +32,10 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
     :param features_dict: dict
     :param interp_x: array
     :param interp_y: array
-    :param d: array
     :param grid_peak_rate: float (Hz)
     :param place_peak_rate: float (Hz)
     :return: array
     """
-
-    response = np.zeros_like(d, dtype='float32')
     a = 0.3
     b = -1.5
     u = lambda ori: (np.cos(ori), np.sin(ori))
