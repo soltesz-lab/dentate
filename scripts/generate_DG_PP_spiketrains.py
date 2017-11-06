@@ -2,8 +2,8 @@
 import sys, time, gc
 import numpy as np
 from mpi4py import MPI
-import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
+import h5py
 import random
 import click
 import stimulus, stgen, utils
