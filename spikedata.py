@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names
 
-def read_spike_events(comm, input_file, population_names, namespace_id, timeRange = None, maxSpikes = int(1e6), verbose = False):
+def read_spike_events(comm, input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = int(1e6), verbose = False):
 
     spkpoplst        = []
     spkindlst        = []
@@ -29,7 +29,7 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeRang
         # Time Range
         if timeRange is None:
             for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
+                for spkt in spkts[timeVariable]:
                     pop_spkindlst.append(spkind)
                     pop_spktlst.append(spkt)
                     if spkt < tmin:
@@ -40,7 +40,7 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeRang
                     active_set.add(spkind)
         else:
             for spkind,spkts in spkiter:
-                for spkt in spkts['t']:
+                for spkt in spkts[timeVariable]:
                     if timeRange[0] <= spkt <= timeRange[1]:
                         pop_spkindlst.append(spkind)
                         pop_spktlst.append(spkt)
