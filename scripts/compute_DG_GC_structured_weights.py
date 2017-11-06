@@ -2,15 +2,14 @@ from function_lib import *
 from itertools import izip
 from collections import defaultdict
 from mpi4py import MPI
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import click
+from utils import *
 
 """
-features_path: contains 'Feature Selectivity' namespace describing inputs
-weights_path: contains existing 'Weights' namespace; this script writes 'Structured Weights' namespace to this path
+selectivity_path: contains 'Feature Selectivity' namespace describing inputs
+weights_path: this script writes log-normal weights to 'Weights' namespace, and incremented weights after plasticity to
+ 'Structured Weights' namespace using this weights_path
 connectivity_path: contains existing mapping of syn_id to source_gid
 
 10% of GCs will have a subset of weights modified according to a slow timescale plasticity rule, the rest are inherited
@@ -18,7 +17,6 @@ connectivity_path: contains existing mapping of syn_id to source_gid
     
 TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the previous weight distribution.
 """
-
 
 try:
     import mkl
@@ -57,7 +55,7 @@ place_rate = lambda field_width, x_offset, y_offset: \
 
 
 @click.command()
-@click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default=None)
 @click.option("--weights-namespace", type=str, default='Weights')
 @click.option("--structured-weights-namespace", type=str, default='Structured Weights')
@@ -71,12 +69,12 @@ place_rate = lambda field_width, x_offset, y_offset: \
 @click.option("--seed", type=int, default=6)
 @click.option("--target-sparsity", type=float, default=0.05)
 @click.option("--debug", is_flag=True)
-def main(features_path, weights_path, weights_namespace, structured_weights_namespace, connectivity_path,
+def main(selectivity_path, weights_path, weights_namespace, structured_weights_namespace, connectivity_path,
          connectivity_namespace, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id, seed,
          target_sparsity, debug):
     """
 
-    :param features_path:
+    :param selectivity_path:
     :param weights_path:
     :param weights_namespace:
     :param structured_weights_namespace:
@@ -105,14 +103,14 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
 
     population_range_dict = population_ranges(MPI._addressof(comm), connectivity_path)
 
-    features_dict = {}
+    selectivity_dict = {}
     source_population_list = ['MPP', 'LPP']
     for population in source_population_list:
-        features_dict[population] = bcast_cell_attributes(MPI._addressof(comm), 0, features_path, population,
+        selectivity_dict[population] = bcast_cell_attributes(MPI._addressof(comm), 0, selectivity_path, population,
                                                           namespace='Feature Selectivity')
 
     if weights_path is None:
-        weights_path = features_path
+        weights_path = selectivity_path
 
     arena_dimension = 100.  # minimum distance from origin to boundary (cm)
 
@@ -126,7 +124,7 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
 
-    with h5py.File(features_path, 'a', driver='mpio', comm=comm) as f:
+    with h5py.File(selectivity_path, 'a', driver='mpio', comm=comm) as f:
         if 'Trajectories' not in f:
             f.create_group('Trajectories')
         if str(trajectory_id) not in f['Trajectories']:
@@ -191,20 +189,20 @@ def main(features_path, weights_path, weights_namespace, structured_weights_name
                 plasticity_kernel_area = np.sum(this_plasticity_kernel) * spatial_resolution
             for population in source_population_list:
                 for source_gid in source_syn_map[population]:
-                    this_feature_dict = features_dict[population][source_gid]
-                    selectivity_type = this_feature_dict['Selectivity Type'][0]
+                    this_selectivity_dict = selectivity_dict[population][source_gid]
+                    selectivity_type = this_selectivity_dict['Selectivity Type'][0]
                     if selectivity_type == selectivity_grid:
                         rate_threshold = grid_peak_rate / 10.
-                        ori_offset = this_feature_dict['Grid Orientation'][0]
-                        grid_spacing = this_feature_dict['Grid Spacing'][0]
-                        x_offset = this_feature_dict['X Offset'][0]
-                        y_offset = this_feature_dict['Y Offset'][0]
+                        ori_offset = this_selectivity_dict['Grid Orientation'][0]
+                        grid_spacing = this_selectivity_dict['Grid Spacing'][0]
+                        x_offset = this_selectivity_dict['X Offset'][0]
+                        y_offset = this_selectivity_dict['Y Offset'][0]
                         rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
                     elif selectivity_type == selectivity_place_field:
                         rate_threshold = place_peak_rate / 10.
-                        field_width = this_feature_dict['Field Width'][0]
-                        x_offset = this_feature_dict['X Offset'][0]
-                        y_offset = this_feature_dict['Y Offset'][0]
+                        field_width = this_selectivity_dict['Field Width'][0]
+                        x_offset = this_selectivity_dict['X Offset'][0]
+                        y_offset = this_selectivity_dict['Y Offset'][0]
                         rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
                     this_rate = rate(x, y)
                     source_peak_index_map[source_gid] = np.where(this_rate == np.max(this_rate))[0][0]
