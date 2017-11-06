@@ -103,6 +103,7 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
         for gid, selectivity_dict in attr_gen_wrapper:
             local_time = time.time()
             response_dict = {}
+            response = None
             if gid is not None:
                 response = stimulus.generate_spatial_ratemap(selectivity_type, selectivity_dict, x, y, d,
                                                              grid_peak_rate=20., place_peak_rate=20.)
