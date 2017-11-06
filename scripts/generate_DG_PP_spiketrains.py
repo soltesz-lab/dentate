@@ -16,6 +16,7 @@ except:
 
 script_name = 'generate_DG_PP_spiketrains.py'
 
+# look up table for type of feature selectivity
 selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selectivity_place_field}
 
 
@@ -28,7 +29,7 @@ selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selec
 @click.option("--trajectory-id", type=int, default=0)
 @click.option("--selectivity-namespace", type=str, default='Feature Selectivity')
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
-@click.option("--seed-offset", type=int, default=None)
+@click.option("--seed-offset", type=int, default=9)
 @click.option("--debug", is_flag=True)
 def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id, selectivity_namespace,
          stimulus_namespace, seed_offset, debug):
@@ -55,8 +56,7 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
     sys.stdout.flush()
 
     local_random = random.Random()
-    if seed_offset is None:
-        seed_offset = 9 * 2e6
+    seed_offset *= 2e6
 
     arena_dimension = 100.  # minimum distance from origin to boundary (cm)
     spatial_resolution = 1.  # cm
@@ -105,7 +105,7 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
             response_dict = {}
             response = None
             if gid is not None:
-                response = stimulus.generate_spatial_ratemap(selectivity_type, selectivity_dict, x, y, d,
+                response = stimulus.generate_spatial_ratemap(selectivity_type, selectivity_dict, x, y,
                                                              grid_peak_rate=20., place_peak_rate=20.)
                 local_random.seed(int(seed_offset + gid))
                 spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)
@@ -117,8 +117,8 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
                 peak_index = np.where(response == np.max(response))[0][0]
                 response_dict[gid-population_start]['modulation'] = np.array([modulation], dtype='float32')
                 response_dict[gid-population_start]['peak_index'] = np.array([peak_index], dtype='uint32')
-                print 'Rank %i: took %.2f s to compute spike trains for %s gid %i' % \
-                      (rank, time.time() - local_time, population, gid)
+                print 'Rank %i; source: %s; generated spike trains for gid %i in %.2f s' % \
+                      (rank, population, gid, time.time() - local_time)
                 count += 1
             if not debug:
                 append_cell_attributes(comm, selectivity_path, population, response_dict,
@@ -131,8 +131,8 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
 
         global_count = comm.gather(count, root=0)
         if rank == 0:
-            print '%i ranks took %.2f s to compute spike trains for %i %s cells' % \
-                  (comm.size, time.time() - start_time, np.sum(global_count), population)
+            print '%i ranks generated spike trains for %i cells in %.2f s' % (comm.size, np.sum(global_count),
+                                                                              time.time() - start_time)
 
 
 if __name__ == '__main__':
