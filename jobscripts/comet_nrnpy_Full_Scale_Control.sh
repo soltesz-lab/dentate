@@ -17,19 +17,19 @@ module load mpi4py
 
 set -x
 
-results_path=./results/Full_Scale_Control_$SLURM_JOB_ID
+export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
+export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
+export LD_PRELOAD=$MPIHOME/lib/libmpi.so
+ulimit -c unlimited
+
+results_path=$SCRATCH/dentate/results/Full_Scale_Control_$SLURM_JOB_ID
 export results_path
 
 mkdir -p $results_path
 
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
-
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
-export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-export LD_PRELOAD=$MPIHOME/lib/libmpi.so
-ulimit -c unlimited
 
 
 ibrun -np 1680 python main.py \
