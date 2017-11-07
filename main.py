@@ -546,10 +546,10 @@ def run (env):
 
     spikeoutPath = "%s/%s_spikeout.h5" % (env.resultsPath, env.modelName)
     if (rank == 0):
-        try:
-            mkspikeout (env, spikeoutPath)
-        except:
-            pass
+      mkspikeout (env, spikeoutPath)
+    env.pc.barrier()
+    if (rank == 0):
+        print "*** Writing results data"
     spikeout(env, spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
 
     # TODO:
