@@ -1,8 +1,8 @@
 
+import sys, time, gc
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
     NeuroH5ProjectionGen
-import time, gc
 import numpy as np
 from collections import defaultdict
 import click
@@ -82,11 +82,11 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
 
     connection_gen_dict = {}
     for source in source_population_list:
-        connection_gen_dict[source] = NeuroH5ProjectionGen(comm, connections_path, source, target,
-                                                           namespaces=['Synapses'])
+        connection_gen_dict[source] = NeuroH5ProjectionGen(comm, connections_path, source, target, io_size=io_size,
+                                                           cache_size=cache_size, namespaces=['Synapses'])
 
     if debug:
-        attr_gen_wrapper = [connection_gen_dict[source_population_list[0]].next() for i in xrange(2)]
+        attr_gen_wrapper = (connection_gen_dict[source_population_list[0]].next() for i in xrange(2))
     else:
         attr_gen_wrapper = connection_gen_dict[source_population_list[0]]
     for target_gid, (source_gid_array, this_conn_attr_dict) in attr_gen_wrapper:
