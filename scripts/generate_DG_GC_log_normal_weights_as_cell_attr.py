@@ -7,6 +7,7 @@ import numpy as np
 from collections import defaultdict
 import click
 from utils import *
+from itertools import izip
 
 """
 stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
@@ -80,35 +81,30 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
     count = 0
     start_time = time.time()
 
-    connection_gen_dict = {}
+    connection_gen_list = []
     for source in source_population_list:
-        connection_gen_dict[source] = NeuroH5ProjectionGen(comm, connections_path, source, target, io_size=io_size,
-                                                           cache_size=cache_size, namespaces=['Synapses'])
+        connection_gen_list.append(NeuroH5ProjectionGen(comm, connections_path, source, target, io_size=io_size,
+                                                           cache_size=cache_size, namespaces=['Synapses']))
 
-    if debug:
-        attr_gen_wrapper = (connection_gen_dict[source_population_list[0]].next() for k in xrange(1000))
-    else:
-        attr_gen_wrapper = connection_gen_dict[source_population_list[0]]
-    for target_gid, conn_attrs in attr_gen_wrapper:
+    maxiter = 100 if debug else None
+    for attr_gen_package in izip(*connection_gen_list):
         local_time = time.time()
         source_syn_map = defaultdict(list)
         source_weights = None
+        source_gid_array = None
+        conn_attr_dict = None
         syn_weight_map = {}
         weights_dict = {}
+        target_gid = attr_gen_package[0][0]
+        if not all(attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package):
+            raise Exception('target: %s; target_gid: %i not matched across multiple connection_gens' %
+                            (target, target_gid))
         if target_gid is not None:
             local_random.seed(int(target_gid + seed_offset))
-            for i, source in enumerate(source_population_list):
-                if i > 0:
-                    this_target_gid, conn_attrs = connection_gen_dict[source].next()
-                else:
-                    this_target_gid = target_gid
-                if target_gid != this_target_gid:
-                    raise Exception('target: %s; source: %s; target_gid not matched across multiple connection_gens:'
-                                    '%i, %i' % (target, source, target_gid, this_target_gid))
-                source_gid_array, this_conn_attr_dict = conn_attrs
+            for this_target_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
                 for j in xrange(len(source_gid_array)):
                     this_source_gid = source_gid_array[j]
-                    this_syn_id = this_conn_attr_dict['Synapses'][0][j]
+                    this_syn_id = conn_attr_dict['Synapses'][0][j]
                     source_syn_map[this_source_gid].append(this_syn_id)
             source_weights = local_random.lognormal(mu, sigma, len(source_syn_map))
             # weights are synchronized across all inputs from the same source_gid
@@ -122,13 +118,10 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
                   '%.2f s' % (rank, target, target_gid, len(syn_weight_map), len(source_weights),
                               time.time() - local_time)
             count += 1
-        else:
-            for source in source_population_list[1:]:
-                this_target_gid, conn_attrs = connection_gen_dict[source].next()
         if not debug:
             if target_gid is None:
                 print 'Rank: %i received target_gid as None' % comm.rank
-            print 'Just before append.'
+            # print 'Just before append.'
             sys.stdout.flush()
             append_cell_attributes(comm, weights_path, target, weights_dict, namespace=weights_namespace,
                                    io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
@@ -137,9 +130,12 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
         del source_weights
         del syn_weight_map
         del source_gid_array
-        del this_conn_attr_dict
+        del conn_attr_dict
         del weights_dict
         gc.collect()
+        if debug and maxiter is not None and count > maxiter:
+            comm.barrier()
+            break
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
