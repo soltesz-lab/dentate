@@ -185,7 +185,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
     
 ## Plot spike histogram
-def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
+def plot_spike_raster (input_file, namespace_id, timeRange = None, timeVariable='t', maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
                        spikeHist = None, spikeHistBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
                        showFig = True, verbose = False): 
     ''' 
@@ -194,6 +194,7 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
     input_file: file with spike data
     namespace_id: attribute namespace for spike events
     timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
     maxSpikes (int): maximum number of spikes that will be plotted  (default: 1e6)
     orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
@@ -217,9 +218,8 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
-    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(population_names) }
 
-    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id,
+    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id, timeVariable=timeVariable,
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -229,6 +229,8 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
     pop_active_cells = spkdata['pop_active_cells']
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
+
+    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
     
     timeRange = [tmin, tmax]
 
@@ -239,11 +241,15 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
         histoT = bin_edges[:-1]+spikeHistBin/2
 
 
+    maxN = 0
+    minN = N
     if popRates:
         avg_rates = {}
         tsecs = (timeRange[1]-timeRange[0])/1e3 
-        for i,pop_name in enumerate(population_names):
+        for i,pop_name in enumerate(spkpoplst):
             pop_num = len(pop_active_cells[pop_name])
+            maxN = max(maxN, max(pop_active_cells[pop_name]))
+            minN = min(minN, min(pop_active_cells[pop_name]))
             if pop_num > 0:
                 if num_cell_spks[pop_name] == 0:
                     avg_rates[pop_name] = 0
@@ -261,7 +267,7 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
     
     if spikeHist is None:
 
-        for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (population_names, spkindlst, spktlst):
+        for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (spkpoplst, spkindlst, spktlst):
             sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
         
         ax1.set_xlim(timeRange)
@@ -269,14 +275,14 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
         ax1.set_xlabel('Time (ms)', fontsize=fontSize)
         ax1.set_ylabel('Cell Index', fontsize=fontSize)
         ax1.set_xlim([tmin, tmax])
-        ax1.set_ylim(-1, N+1)    
+        ax1.set_ylim(minN-1, maxN+1)
         
     elif spikeHist == 'subplot':
 
         gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
         ax1=plt.subplot(gs[0])
         
-        for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (population_names, spkindlst, spktlst):
+        for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (spkpoplst, spkindlst, spktlst):
             sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
             
         ax1.set_xlim(timeRange)
@@ -284,7 +290,7 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, maxSpikes = i
         ax1.set_xlabel('Time (ms)', fontsize=fontSize)
         ax1.set_ylabel('Cell Index', fontsize=fontSize)
         ax1.set_xlim(timeRange)
-        ax1.set_ylim(-1, N+1)
+        ax1.set_ylim(minN-1, maxN+1)
 
         # Add legend
         if popRates:
@@ -419,9 +425,8 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeV
         
     # Plot separate line for each entry in include
     histoData = []
-    for iplot, spkts in enumerate(spkpoplst):
+    for iplot, subset in enumerate(spkpoplst):
 
-        subset = include[iplot]
         spkts = spktlst[iplot]
 
         histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
@@ -478,7 +483,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeV
 
 
 
-def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = None,
+def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', 
                    maxSpikes = int(1e6), binSize = 5, Fs = 200, smooth = 0, overlay=True, 
                    figSize = (8,8), fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
@@ -488,6 +493,7 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
         - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+        - timeVariable: Name of variable containing spike times (default: 't')
         - binSize (int): Size in ms of each bin (default: 5)
         - Fs (float): sampling frequency
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
@@ -517,7 +523,7 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id,
+    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id, timeVariable=timeVariable, 
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
     
     spkpoplst        = spkdata['spkpoplst']
@@ -641,7 +647,8 @@ def plot_stimulus_rate (input_file, namespace_id, include,
             axes[iplot].set_title(population, fontsize=fontSize)
             axes[iplot].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
             axes[iplot].set_xlim([0, M])
-            axes[iplot].set_ylim(-1, N+1)    
+            axes[iplot].set_ylim(-1, N+1)
+            
         else:
             axes.set_title(population, fontsize=fontSize)
             axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
