@@ -1,9 +1,10 @@
-from function_lib import *
-from itertools import izip
-from collections import defaultdict
+
+import sys, time, gc
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
     NeuroH5ProjectionGen
+import numpy as np
+from collections import defaultdict
 import click
 from utils import *
 import stimulus
@@ -96,6 +97,9 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     default_run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
 
+    x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+                                              spatial_resolution=spatial_resolution)
+    """
     with h5py.File(stimulus_path, 'a', driver='mpio', comm=comm) as f:
         if trajectory_namespace not in f:
             f.create_group(trajectory_namespace)
@@ -111,6 +115,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
             y = f[trajectory_namespace]['y'][:]
             d = f[trajectory_namespace]['d'][:]
             t = f[trajectory_namespace]['t'][:]
+    """
 
     plasticity_window_dur = 4.  # s
     plasticity_kernel_sigma = plasticity_window_dur * default_run_vel / 3. / np.sqrt(2.)  # cm
@@ -132,8 +137,8 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
 
     connection_gen_dict = {}
     for source in source_population_list:
-        connection_gen_dict[source] = NeuroH5ProjectionGen(comm, connections_path, source, target,
-                                                           namespaces=['Synapses'])
+        connection_gen_dict[source] = NeuroH5ProjectionGen(comm, connections_path, source, target, io_size=io_size,
+                                                           cache_size=cache_size, namespaces=['Synapses'])
 
     if debug:
         attr_gen_wrapper = (initial_weights_gen.next() for i in xrange(10))
@@ -146,18 +151,20 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
         syn_peak_index_map = {}
         structured_weights_dict = {}
         modulated_inputs = 0
+        conn_attrs = None
         source_gid_array = None
         this_conn_attr_dict = None
         if target_gid is not None:
-            syn_weight_map = dict(zip(initial_weights_dict[initial_weights_namespace]['syn_id'],
-                                      initial_weights_dict[initial_weights_namespace]['weight']))
+            syn_weight_map = dict(zip(initial_weights_dict['syn_id'],
+                                      initial_weights_dict['weight']))
             local_random.seed(int(target_gid + seed_offset))
             for source in source_population_list:
-                conn_target_gid, (source_gid_array, this_conn_attr_dict) = connection_gen_dict[source].next()
+                conn_target_gid, conn_attrs = connection_gen_dict[source].next()
                 if target_gid != conn_target_gid:
                     raise Exception('target: %s; source: %s; target_gid: %i from connection_gen does not match '
                                     'target_gid: %i from initial_weights_gen' % (target, source, conn_target_gid,
                                                                                  target_gid))
+                source_gid_array, this_conn_attr_dict = conn_attrs
                 for i in xrange(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
                     this_syn_id = this_conn_attr_dict['Synapses'][0][i]
@@ -185,10 +192,10 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
                             modulated_inputs += 1
                         syn_weight_map[this_syn_id] += delta_weight
             structured_weights_dict[target_gid - target_gid_offset] = \
-                {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
-                 'weight': np.array(syn_weight_map.values()).astype('float32', copy=False),
-                 'peak_index': np.array([syn_peak_index_map[syn_id]
-                                         for syn_id in syn_weight_map]).astype('uint32', copy=False),
+                {'syn_id': np.array(syn_peak_index_map.keys()).astype('uint32', copy=False),
+                 'weight': np.array([syn_weight_map[syn_id] for syn_id in syn_peak_index_map]).astype('float32',
+                                                                                                      copy=False),
+                 'peak_index': np.array(syn_peak_index_map.values()).astype('uint32', copy=False),
                  'structured': np.array([int(modify_weights)], dtype='uint32')}
             if modify_weights:
                 print 'Rank %i; target: %s; gid %i; generated structured weights for %i/%i inputs in %.2f s' % \
@@ -199,6 +206,9 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
                       'for structured weights)' % (rank, target, target_gid, len(syn_weight_map),
                                                    time.time() - local_time)
             count += 1
+        else:
+            for source in source_population_list:
+                conn_target_gid, conn_attrs = connection_gen_dict[source].next()
         if not debug:
             sys.stdout.flush()
             append_cell_attributes(comm, weights_path, target, structured_weights_dict,
@@ -210,6 +220,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
         del syn_peak_index_map
         del structured_weights_dict
         del modulated_inputs
+        del conn_attrs
         del source_gid_array
         del this_conn_attr_dict
         gc.collect()

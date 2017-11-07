@@ -86,10 +86,10 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
                                                            cache_size=cache_size, namespaces=['Synapses'])
 
     if debug:
-        attr_gen_wrapper = (connection_gen_dict[source_population_list[0]].next() for i in xrange(2))
+        attr_gen_wrapper = (connection_gen_dict[source_population_list[0]].next() for k in xrange(1000))
     else:
         attr_gen_wrapper = connection_gen_dict[source_population_list[0]]
-    for target_gid, (source_gid_array, this_conn_attr_dict) in attr_gen_wrapper:
+    for target_gid, conn_attrs in attr_gen_wrapper:
         local_time = time.time()
         source_syn_map = defaultdict(list)
         source_weights = None
@@ -99,12 +99,13 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
             local_random.seed(int(target_gid + seed_offset))
             for i, source in enumerate(source_population_list):
                 if i > 0:
-                    this_target_gid, (source_gid_array, this_conn_attr_dict) = connection_gen_dict[source].next()
+                    this_target_gid, conn_attrs = connection_gen_dict[source].next()
                 else:
                     this_target_gid = target_gid
                 if target_gid != this_target_gid:
                     raise Exception('target: %s; source: %s; target_gid not matched across multiple connection_gens:'
                                     '%i, %i' % (target, source, target_gid, this_target_gid))
+                source_gid_array, this_conn_attr_dict = conn_attrs
                 for j in xrange(len(source_gid_array)):
                     this_source_gid = source_gid_array[j]
                     this_syn_id = this_conn_attr_dict['Synapses'][0][j]
@@ -121,7 +122,13 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
                   '%.2f s' % (rank, target, target_gid, len(syn_weight_map), len(source_weights),
                               time.time() - local_time)
             count += 1
+        else:
+            for source in source_population_list[1:]:
+                this_target_gid, conn_attrs = connection_gen_dict[source].next()
         if not debug:
+            if target_gid is None:
+                print 'Rank: %i received target_gid as None' % comm.rank
+            print 'Just before append.'
             sys.stdout.flush()
             append_cell_attributes(comm, weights_path, target, weights_dict, namespace=weights_namespace,
                                    io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
