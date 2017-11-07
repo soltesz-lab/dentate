@@ -201,6 +201,12 @@ class Env:
         # The dataset to use for constructing the network
         self.datasetName = self.modelConfig['Dataset Name']
 
+        if resultsPath:
+            self.spikeoutPath = "%s/%s_spikeout.h5" % (resultsPath, modelName)
+        else:
+            self.spikeoutPath = "%s_spikeout.h5" % modelName
+            
+
         if self.modelConfig.has_key('Connection Generator'):
             self.load_connection_generator()
         
