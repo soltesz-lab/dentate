@@ -7,7 +7,7 @@ import numpy as np
 from collections import defaultdict
 import click
 from utils import *
-from itertools import izip
+from itertools import izip, izip_longest
 
 """
 stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
@@ -87,7 +87,7 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
                                                            cache_size=cache_size, namespaces=['Synapses']))
 
     maxiter = 100 if debug else None
-    for attr_gen_package in izip(*connection_gen_list):
+    for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
         source_syn_map = defaultdict(list)
         source_weights = None
@@ -97,8 +97,10 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
         weights_dict = {}
         target_gid = attr_gen_package[0][0]
         if not all(attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package):
-            raise Exception('target: %s; target_gid: %i not matched across multiple connection_gens' %
-                            (target, target_gid))
+            message = 'target: %s; target_gid: %i not matched across multiple connection_gens' % (target, target_gid)
+            print 'Rank: %i; %s' % (comm.rank, message)
+            sys.stdout.flush()
+            raise Exception(message)
         if target_gid is not None:
             local_random.seed(int(target_gid + seed_offset))
             for this_target_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
@@ -118,13 +120,13 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
                   '%.2f s' % (rank, target, target_gid, len(syn_weight_map), len(source_weights),
                               time.time() - local_time)
             count += 1
+        else:
+            print 'Rank: %i received target_gid as None' % comm.rank
         if not debug:
-            if target_gid is None:
-                print 'Rank: %i received target_gid as None' % comm.rank
-            # print 'Just before append.'
-            sys.stdout.flush()
+
             append_cell_attributes(comm, weights_path, target, weights_dict, namespace=weights_namespace,
                                    io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            print 'Rank: %i, just after append' % comm.rank
         sys.stdout.flush()
         del source_syn_map
         del source_weights
@@ -133,10 +135,9 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
         del conn_attr_dict
         del weights_dict
         gc.collect()
-        if debug and maxiter is not None and count > maxiter:
-            comm.barrier()
+        if debug and maxiter is not None and itercount > maxiter:
             break
-
+    print 'Rank: %i exited the loop' % comm.rank
     global_count = comm.gather(count, root=0)
     if rank == 0:
         print 'target: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
