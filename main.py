@@ -10,9 +10,9 @@ from collections import defaultdict
 from datetime import datetime
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
+import h5py
 from neuron import h
 from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
-import h5py
 from env import Env
 import lpt, utils, synapses, cells
 
@@ -71,8 +71,8 @@ def lpt_bal(env):
 def mkspikeout (env, spikeout_filename):
     datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
     forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    forestFile      = h5py.File(forestFilePath)
-    spikeoutFile    = h5py.File(spikeout_filename)
+    forestFile      = h5py.File(forestFilePath,'r')
+    spikeoutFile    = h5py.File(spikeout_filename,'w')
     forestFile.copy('/H5Types',spikeoutFile)
     forestFile.close()
     spikeoutFile.close()
@@ -472,6 +472,8 @@ def init(env):
     ##  new ParallelContext object
     h.pc   = h.ParallelContext()
     env.pc = h.pc
+    rank = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
     ## polymorphic value template
     h.load_file("./templates/Value.hoc")
     ## randomstream template
@@ -485,6 +487,10 @@ def init(env):
         lb = h.LoadBalance()
         if not os.path.isfile("mcomplex.dat"):
             lb.ExperimentalMechComplex()
+    spikeoutPath = "%s/%s_spikeout.h5" % (env.resultsPath, env.modelName)
+    if (env.pc.id() == 0):
+      mkspikeout (env, spikeoutPath)
+    env.pc.barrier()
     h.startsw()
     mkcells(env)
     env.mkcellstime = h.stopsw()
@@ -544,9 +550,6 @@ def run (env):
     if (rank == 0):
         print "*** Simulation completed"
 
-    spikeoutPath = "%s/%s_spikeout.h5" % (env.resultsPath, env.modelName)
-    if (rank == 0):
-      mkspikeout (env, spikeoutPath)
     env.pc.barrier()
     if (rank == 0):
         print "*** Writing results data"
