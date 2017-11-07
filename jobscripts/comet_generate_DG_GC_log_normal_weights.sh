@@ -2,9 +2,9 @@
 #
 #SBATCH -J generate_DG_GC_log_normal_weights
 #SBATCH -o ./results/generate_DG_GC_log_normal_weights.%j.o
-#SBATCH --nodes=36
+#SBATCH --nodes=12
 #SBATCH --ntasks-per-node=20
-#SBATCH -t 4:00:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -26,7 +26,7 @@ ulimit -c unlimited
 
 set -x
 
-ibrun -np 720 $HOME/dentate/scripts/generate_DG_GC_log_normal_weights_as_cell_attr.py \
+ibrun -np 240 $HOME/dentate/scripts/generate_DG_GC_log_normal_weights_as_cell_attr.py \
  --weights-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20171031_compressed.h5 \
  --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20171105.h5
 
