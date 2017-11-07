@@ -202,9 +202,9 @@ class Env:
         self.datasetName = self.modelConfig['Dataset Name']
 
         if resultsPath:
-            self.spikeoutPath = "%s/%s_spikeout.h5" % (resultsPath, modelName)
+            self.spikeoutPath = "%s/%s_spikeout.h5" % (self.resultsPath, self.modelName)
         else:
-            self.spikeoutPath = "%s_spikeout.h5" % modelName
+            self.spikeoutPath = "%s_spikeout.h5" % self.modelName
             
 
         if self.modelConfig.has_key('Connection Generator'):
