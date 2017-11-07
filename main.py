@@ -487,9 +487,9 @@ def init(env):
         lb = h.LoadBalance()
         if not os.path.isfile("mcomplex.dat"):
             lb.ExperimentalMechComplex()
-    spikeoutPath = "%s/%s_spikeout.h5" % (env.resultsPath, env.modelName)
+
     if (env.pc.id() == 0):
-      mkspikeout (env, spikeoutPath)
+      mkspikeout (env, env.spikeoutPath)
     env.pc.barrier()
     h.startsw()
     mkcells(env)
@@ -553,7 +553,7 @@ def run (env):
     env.pc.barrier()
     if (rank == 0):
         print "*** Writing results data"
-    spikeout(env, spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+    spikeout(env, env.spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
 
     # TODO:
     #if (env.vrecordFraction > 0):
