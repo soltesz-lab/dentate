@@ -51,6 +51,9 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
                         this_num_cell_spks += 1
                         active_set.add(spkind)
 
+        if not active_set:
+            continue
+                        
         pop_active_cells[pop_name] = active_set
         num_cell_spks[pop_name] = this_num_cell_spks
 

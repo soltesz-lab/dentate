@@ -11,11 +11,12 @@ script_name = 'plot_raster.py'
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--max-spikes", type=int, default=int(1e6))
 @click.option("--spike-hist-bin", type=float, default=5.0)
+@click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, max_spikes, spike_hist_bin, t_max, t_min, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, max_spikes, spike_hist_bin, t_variable, t_max, t_min, font_size, verbose):
     if t_max is None:
         timeRange = None
     else:
@@ -24,8 +25,9 @@ def main(spike_events_path, spike_events_namespace, max_spikes, spike_hist_bin, 
         else:
             timeRange = [t_min, t_max]
         
-    plot.plot_spike_raster (spike_events_path, spike_events_namespace, timeRange=timeRange, popRates=True, spikeHist='subplot',
-                            maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True, verbose=verbose)
+    plot.plot_spike_raster (spike_events_path, spike_events_namespace, timeRange=timeRange, timeVariable=t_variable, popRates=True,
+                            spikeHist='subplot', maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True,
+                            verbose=verbose)
     
 
 if __name__ == '__main__':
