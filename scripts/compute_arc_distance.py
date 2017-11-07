@@ -10,6 +10,7 @@ from DG_surface import make_surface
 import numpy as np
 import click
 
+
 def list_find (f, lst):
     i=0
     for x in lst:
@@ -19,7 +20,9 @@ def list_find (f, lst):
             i=i+1
     return None
 
+
 script_name = 'compute_arc_distance.py'
+
 
 @click.command()
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -29,7 +32,7 @@ script_name = 'compute_arc_distance.py'
 @click.option("--origin-u", type=float, default=0.0)
 @click.option("--origin-v", type=float, default=0.0)
 @click.option("--spatial-resolution", type=float, default=1.0)
-@click.option("--layers", '-l', type=float, multiple=True, default=[-1.0, 0.0, 1.0, 2.0, 3.0])  ## Corresponds to Hilus,GCL,IML,MML,OML boundaries
+@click.option("--layers", '-l', type=float, multiple=True, default=[-3.95, -1.95, 1.0, 2.0, 3.0])  ## Corresponds to Hilus,GCL,IML,MML,OML boundaries
 @click.option("--io-size", type=int, default=-1)
 def main(coords_path, coords_namespace, distance_namespace, npoints, origin_u, origin_v, spatial_resolution, layers, io_size):
 
