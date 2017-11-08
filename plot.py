@@ -9,6 +9,7 @@ from matplotlib import gridspec, mlab
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
+import h5py
 from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes
 import spikedata, stimulus
 
@@ -40,7 +41,8 @@ def ifilternone(iterable):
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
-def plot_in_degree(connectivity_path, coords_path, distances_namespace, destination_pop, source=None, showFig = True, saveFig = False, verbose = False):
+def plot_in_degree(connectivity_path, coords_path, indegree_namespace, distances_namespace, destination, source=None,
+                   fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -55,12 +57,12 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
 
     (population_ranges, _) = read_population_ranges(comm, coords_path)
 
-    destination_start = population_ranges[destination_pop][0]
-    destination_count = population_ranges[destination_pop][1]
+    destination_start = population_ranges[destination][0]
+    destination_count = population_ranges[destination][1]
 
     with h5py.File(connectivity_path, 'r') as f:
         if source is None:
-            in_degrees = f['Nodes']['Vertex Metrics']['Vertex indegree']['Attribute Value'][destination_start:destination_start+destination_count]
+            in_degrees = f['Nodes']['Vertex Metrics'][indegree_namespace]['Attribute Value'][destination_start:destination_start+destination_count]
 
     if verbose:
         print 'read in degrees (%i elements)' % len(in_degrees)
@@ -73,7 +75,7 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
     soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
     del distances
     
-    fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
     distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
@@ -82,41 +84,25 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
     if verbose:
         print 'Plotting in-degree distribution...'
 
-    distance_points = np.vstack((distance_U, distance_V))
     x_min = np.min(distance_U)
     x_max = np.max(distance_U)
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
-    grid_x, grid_y = np.meshgrid(np.arange(x_min, x_max, 1),
-                                np.arange(y_min, y_max, 1))
-    in_degree_grid = interpolate.griddata(distance_points.T,
-                                          in_degrees,
-                                          (grid_x, grid_y),
-                                          method='nearest')
 
-    ###pcm = plt.pcolormesh (distance_U, distance_V, in_degree_grid, cmap='RdBu')
+    ht = plt.hist2d(distance_U, distance_V, bins=[50, 250], cmin=0.001,  weights=in_degrees)
 
-    plt.imshow(in_degree_grid, origin='lower', cmap='coolwarm',
-               vmin=np.min(in_degrees), vmax=np.max(in_degrees),
-               extent=[x_min, x_max, y_min, y_max])
-    plt.axis([x_min, x_max, y_min, y_max])
-    plt.colorbar()
+    ax.axis([x_min, x_max, y_min, y_max])
     
-    ax.set_xlabel('Arc distance (septal - temporal) (um)')
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
-    #ax.set_title(destination+' <-- '+source+' (in degree)')
-    #ax.set_aspect('equal', 'box')
-    #clean_axes(ax)
-    #divider = make_axes_locatable(ax)
-    #cax = divider.append_axes("right", size="3%", pad=0.05)
-    #cbar = plt.colorbar(pcm, cax=cax)
-    #cbar.ax.set_ylabel('Counts')
-
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_aspect('equal')
+    fig.colorbar(ht[3], ax=ax)
+    
     if saveFig: 
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = destination_pop+' '+'in_degree.png'
+            filename = destination+' '+'in_degree.png'
             plt.savefig(filename)
 
     if showFig:
@@ -672,14 +658,6 @@ def plot_stimulus_rate (input_path, namespace_id, include,
     # show fig 
     if showFig:
         show_figure()
-
-def find_edge_bin(edge_ind, edge_vals, edge_array):
-    this_val = edge_vals[edge_ind]
-    indexes = np.where(edge_array >= this_val)[0]
-    if np.any(indexes):
-        return indexes[0]
-    else:
-        return len(edge_array) - 1
 
         
 def plot_stimulus_spatial_map (input_path, coords_path, stimulus_namespace, distances_namespace, include,
