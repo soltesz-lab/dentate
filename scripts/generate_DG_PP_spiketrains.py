@@ -2,8 +2,8 @@
 import sys, time, gc
 import numpy as np
 from mpi4py import MPI
+import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
-# import h5py
 import random
 import click
 import stimulus, stgen, utils
@@ -65,25 +65,31 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
     stimulus_namespace += ' ' + str(trajectory_id)
 
-    x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                              spatial_resolution=spatial_resolution)
-    """
-    with h5py.File(selectivity_path, 'a') as f:
+    with h5py.File(selectivity_path, 'a', driver='mpio', comm=comm) as f:
         if trajectory_namespace not in f:
-            f.create_group(trajectory_namespace)
+            print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
+            group = f.create_group(trajectory_namespace)
             x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
                                                       spatial_resolution=spatial_resolution)
-            f[trajectory_namespace].create_group(str(trajectory_id))
-            f[trajectory_namespace].create_dataset('x', dtype='float32', data=x)
-            f[trajectory_namespace].create_dataset('y', dtype='float32', data=y)
-            f[trajectory_namespace].create_dataset('d', dtype='float32', data=d)
-            f[trajectory_namespace].create_dataset('t', dtype='float32', data=t)
+            for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
+                dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
+                with dataset.collective:
+                    dataset[:] = value.astype('float32', copy=False)
         else:
-            x = f[trajectory_namespace]['x'][:]
-            y = f[trajectory_namespace]['y'][:]
-            d = f[trajectory_namespace]['d'][:]
-            t = f[trajectory_namespace]['t'][:]
-    """
+            print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
+            group = f[trajectory_namespace]
+            dataset = group['x']
+            with dataset.collective:
+                x = dataset[:]
+            dataset = group['y']
+            with dataset.collective:
+                y = dataset[:]
+            dataset = group['d']
+            with dataset.collective:
+                d = dataset[:]
+            dataset = group['t']
+            with dataset.collective:
+                t = dataset[:]
 
     population_ranges = read_population_ranges(comm, selectivity_path)[0]
 
