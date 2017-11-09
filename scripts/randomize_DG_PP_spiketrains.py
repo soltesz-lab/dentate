@@ -88,8 +88,8 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
                                                  'modulation': stimulus_dict['modulation'],
                                                  'peak_index': stimulus_dict['peak_index'] }
 
-                print 'Rank %i; source: %s; assigned spike trains for gid %i to gid %i' % \
-                      (rank, population, gid, random_gid+population_start)
+                print 'Rank %i; source: %s; assigned spike trains for gid %i to gid %i in %.2f s' % \
+                      (rank, population, gid, random_gid+population_start, time.time() - local_time)
                 count += 1
             if not debug:
                 append_cell_attributes(comm, stimulus_path, population, new_response_dict,

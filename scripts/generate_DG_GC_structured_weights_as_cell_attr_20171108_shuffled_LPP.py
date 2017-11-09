@@ -30,7 +30,7 @@ try:
 except:
     pass
 
-script_name = 'generate_DG_GC_structured_weights_as_cell_attr.py'
+script_name = 'generate_DG_GC_structured_weights_as_cell_attr_20171108_shuffled_LPP.py'
 
 local_random = np.random.RandomState()
 
@@ -168,8 +168,6 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
             raise Exception('Rank: %i; target: %s; target_gid not matched across multiple attribute generators: %s' %
                             (rank, target, [attr_gen_items[0] for attr_gen_items in attr_gen_package]))
             sys.stdout.flush()
-        # else:
-        #    print 'Rank: %i; received target: %s; target_gid: %s' % (rank, target, str(target_gid))
         initial_weights_dict = get_cell_attributes_by_gid(target_gid, comm, weights_path, gid_index_map, target,
                                                           initial_weights_namespace, target_gid_offset)
         if target_gid is not None:

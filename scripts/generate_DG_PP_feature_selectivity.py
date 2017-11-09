@@ -12,7 +12,7 @@ except:
     pass
 
 
-script_name = 'compute_DG_PP_feature_selectivity.py'
+script_name = 'generate_DG_PP_feature_selectivity.py'
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
 #  sample uniformly from 10 modules with spacing that increases exponentially from 40 cm to 8 m. While organized
@@ -116,7 +116,8 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                     selectivity_dict[gid-population_start]['Y Offset'] = np.array([y_offset], dtype='float32')
                     
                 elif selectivity_type == selectivity_place_field:
-                    this_field_width = field_width(arc_distance_u / DG_surface.max_u)
+                    # this_field_width = field_width(arc_distance_u / DG_surface.max_u)
+                    this_field_width = field_width(local_random.random())
                     selectivity_dict[gid-population_start]['Field Width'] = np.array([this_field_width],
                                                                                      dtype='float32')
                     
