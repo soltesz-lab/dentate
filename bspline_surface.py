@@ -71,6 +71,8 @@ class BSplineSurface(object):
         self.bbox = bbox
         self.u = nu
         self.v = nv
+        self.su = u
+        self.sv = v
         self.ku = ku
         self.kv = kv
 
