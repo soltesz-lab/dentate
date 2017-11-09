@@ -4,11 +4,13 @@ import numpy as np
 from scipy import interpolate
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.tri as tri
 from matplotlib import gridspec, mlab
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names
+import h5py
+from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes
 import spikedata, stimulus
 
 color_list = ["#000000", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
@@ -39,7 +41,8 @@ def ifilternone(iterable):
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
-def plot_in_degree(connectivity_path, coords_path, distances_namespace, destination_pop, source=None, showFig = True, saveFig = False, verbose = False):
+def plot_in_degree(connectivity_path, coords_path, indegree_namespace, distances_namespace, destination, source=None,
+                   fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -54,12 +57,12 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
 
     (population_ranges, _) = read_population_ranges(comm, coords_path)
 
-    destination_start = population_ranges[destination_pop][0]
-    destination_count = population_ranges[destination_pop][1]
+    destination_start = population_ranges[destination][0]
+    destination_count = population_ranges[destination][1]
 
     with h5py.File(connectivity_path, 'r') as f:
         if source is None:
-            in_degrees = f['Nodes']['Vertex Metrics']['Vertex indegree']['Attribute Value'][destination_start:destination_start+destination_count]
+            in_degrees = f['Nodes']['Vertex Metrics'][indegree_namespace]['Attribute Value'][destination_start:destination_start+destination_count]
 
     if verbose:
         print 'read in degrees (%i elements)' % len(in_degrees)
@@ -69,10 +72,10 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
     if verbose:
         print 'read distances (%i elements)' % len(distances.keys())
     
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances.iteritems() }
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
     del distances
     
-    fig1 = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
     distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
@@ -81,41 +84,25 @@ def plot_in_degree(connectivity_path, coords_path, distances_namespace, destinat
     if verbose:
         print 'Plotting in-degree distribution...'
 
-    distance_points = np.vstack((distance_U, distance_V))
     x_min = np.min(distance_U)
     x_max = np.max(distance_U)
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
-    grid_x, grid_y = np.meshgrid(np.arange(x_min, x_max, 1),
-                                np.arange(y_min, y_max, 1))
-    in_degree_grid = interpolate.griddata(distance_points.T,
-                                          in_degrees,
-                                          (grid_x, grid_y),
-                                          method='nearest')
 
-    ###pcm = plt.pcolormesh (distance_U, distance_V, in_degree_grid, cmap='RdBu')
+    ht = plt.hist2d(distance_U, distance_V, bins=[50, 250], cmin=0.001,  weights=in_degrees)
 
-    plt.imshow(in_degree_grid, origin='lower', cmap='RdBu',
-               vmin=np.min(in_degrees), vmax=np.max(in_degrees),
-               extent=[x_min, x_max, y_min, y_max])
-    plt.axis([x_min, x_max, y_min, y_max])
-    plt.colorbar()
+    ax.axis([x_min, x_max, y_min, y_max])
     
-    ax.set_xlabel('Arc distance (septal - temporal) (um)')
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)')
-    #ax.set_title(destination+' <-- '+source+' (in degree)')
-    #ax.set_aspect('equal', 'box')
-    #clean_axes(ax)
-    #divider = make_axes_locatable(ax)
-    #cax = divider.append_axes("right", size="3%", pad=0.05)
-    #cbar = plt.colorbar(pcm, cax=cax)
-    #cbar.ax.set_ylabel('Counts')
-
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_aspect('equal')
+    fig.colorbar(ht[3], ax=ax)
+    
     if saveFig: 
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = destination_pop+' '+'in_degree.png'
+            filename = destination+' '+'in_degree.png'
             plt.savefig(filename)
 
     if showFig:
@@ -185,13 +172,13 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
     
 ## Plot spike histogram
-def plot_spike_raster (input_file, namespace_id, timeRange = None, timeVariable='t', maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
+def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
                        spikeHist = None, spikeHistBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
                        showFig = True, verbose = False): 
     ''' 
     Raster plot of network spike times. Returns the figure handle.
 
-    input_file: file with spike data
+    input_path: file with spike data
     namespace_id: attribute namespace for spike events
     timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     timeVariable: Name of variable containing spike times (default: 't')
@@ -211,15 +198,20 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, timeVariable=
 
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_file)
-    population_names  = read_population_names(comm, input_file)
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
 
     pop_num_cells = {}
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id, timeVariable=timeVariable,
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -356,13 +348,13 @@ def plot_spike_raster (input_file, namespace_id, timeRange = None, timeVariable=
 
 
 ## Plot spike histogram
-def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, maxSpikes=int(1e6), binSize = 5., 
+def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, maxSpikes=int(1e6), binSize = 5., 
                           overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8), fontSize = 14, lw = 3, 
                           saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots spike histogram. Returns figure handle.
 
-        - input_file: file with spike data
+        - input_path: file with spike data
         - namespace_id: attribute namespace for spike events
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
@@ -381,8 +373,8 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeV
     '''
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_file)
-    population_names  = read_population_names(comm, input_file)
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -395,7 +387,7 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeV
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_file, include, namespace_id, timeVariable=timeVariable,
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -483,12 +475,12 @@ def plot_spike_histogram (input_file, namespace_id, include = ['eachPop'], timeV
 
 
 
-def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', 
+def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', 
                    maxSpikes = int(1e6), binSize = 5, Fs = 200, smooth = 0, overlay=True, 
                    figSize = (8,8), fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots firing rate power spectral density (PSD). Returns figure handle.
-        - input_file: file with spike data
+        - input_path: file with spike data
         - namespace_id: attribute namespace for spike events
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
@@ -509,8 +501,8 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
     '''
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_file)
-    population_names  = read_population_names(comm, input_file)
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -523,7 +515,7 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_file, population_names, namespace_id, timeVariable=timeVariable, 
+    spkdata = spikedata.read_spike_events (comm, input_path, population_names, namespace_id, timeVariable=timeVariable, 
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
     
     spkpoplst        = spkdata['spkpoplst']
@@ -606,12 +598,13 @@ def plot_rate_PSD (input_file, namespace_id, include = ['eachPop'], timeRange = 
 
     return fig, power
 
-def plot_stimulus_rate (input_file, namespace_id, include,
+
+def plot_stimulus_rate (input_path, namespace_id, include,
                         figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
                         verbose = False): 
     ''' 
 
-        - input_file: file with stimulus data
+        - input_path: file with stimulus data
         - namespace_id: attribute namespace for stimulus
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
@@ -632,7 +625,7 @@ def plot_stimulus_rate (input_file, namespace_id, include,
         rate_lst = []
         if verbose:
             print 'Reading vector stimulus data for population %s...' % population 
-        for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_file, namespace_id, population):
+        for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, namespace_id, population):
             rate_lst.append(rate)
 
         M = max(M, len(rate))
@@ -665,6 +658,88 @@ def plot_stimulus_rate (input_file, namespace_id, include,
             filename = saveFig
         else:
             filename = namespace_id+'_'+'ratemap.png'
+        plt.savefig(filename)
+
+    # show fig 
+    if showFig:
+        show_figure()
+
+        
+def plot_stimulus_spatial_map (input_path, coords_path, stimulus_namespace, distances_namespace, include,
+                               figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
+                               verbose = False): 
+    ''' 
+
+        - input_path: file with stimulus data
+        - stimulus_namespace: attribute namespace for stimulus
+        - distances_namespace: attribute namespace for longitudinal and transverse distances
+        - include (['eachPop'|<population name>]): List of data series to include. 
+            (default: ['eachPop'] - expands to the name of each population)
+        - figSize ((width, height)): Size of figure (default: (8,8))
+        - fontSize (integer): Size of text font (default: 14)
+        - lw (integer): Line width for each spike (default: 3)
+        - saveFig (None|True|'fileName'): File name where to save the figure;
+            if set to True uses filename from simConfig (default: None)
+        - showFig (True|False): Whether to show the figure or not (default: True)
+
+    '''
+    comm = MPI.COMM_WORLD
+
+    fig, axes = plt.subplots(1, len(include), figsize=figSize)
+
+    for iplot, population in enumerate(include):
+        rate_sum_dict = {}
+        if verbose:
+            print 'Reading vector stimulus data for population %s...' % population 
+        for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, stimulus_namespace, population):
+            rate_sum_dict[gid] = np.sum(rate)
+        
+        if verbose:
+            print 'read rates (%i elements)' % len(rate_sum_dict.keys())
+
+        distances = read_cell_attributes(comm, coords_path, population, namespace=distances_namespace)
+    
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+        
+        if verbose:
+            print 'read distances (%i elements)' % len(soma_distances.keys())
+
+        distance_U = np.asarray([ soma_distances[gid][0] for gid in rate_sum_dict.keys() ])
+        distance_V = np.asarray([ soma_distances[gid][1] for gid in rate_sum_dict.keys() ])
+        rate_sums  = np.asarray([ rate_sum_dict[gid] for gid in rate_sum_dict.keys() ])
+
+        x_min = np.min(distance_U)
+        x_max = np.max(distance_U)
+        y_min = np.min(distance_V)
+        y_max = np.max(distance_V)
+    
+        if verbose:
+            print 'Plotting stimulus spatial distribution...'
+
+        if (len(include) > 1):
+            ht = axes.hist2d(distance_U, distance_V, weights=rate_sums, bins=100, cmin=0.001)
+            axes[iplot].axis([x_min, x_max, y_min, y_max])
+            axes[iplot].set_aspect('equal')
+            
+            axes[iplot].set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+            axes[iplot].set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+            fig.colorbar(ht[3], ax=axes[iplot])
+        else:
+            ht = axes.hist2d(distance_U, distance_V, weights=rate_sums, bins=100, cmin=0.001)
+            axes.axis([x_min, x_max, y_min, y_max])
+            axes.set_aspect('equal')
+    
+            axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+            axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+            fig.colorbar(ht[3], ax=axes)
+
+    # save figure
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = stimulus_namespace+'_'+'spatial_ratemap.png'
         plt.savefig(filename)
 
     # show fig 
