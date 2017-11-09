@@ -2,6 +2,7 @@
 import itertools
 import numpy as np
 from scipy import interpolate
+from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
@@ -171,7 +172,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
 
     return ax
     
-## Plot spike histogram
+## Plot spike raster
 def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
                        spikeHist = None, spikeHistBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
                        showFig = True, verbose = False): 
@@ -338,6 +339,127 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
             else:
                 filename = namespace_id+' '+'raster.png'
                 plt.savefig(filename)
+                
+    # show fig 
+    if showFig:
+        show_figure()
+    
+    return fig
+
+
+## Plot spike rates
+def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', orderInverse = False, labels = 'legend', 
+                      spikeRateBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Raster plot of network spike times. Returns the figure handle.
+
+    input_path: file with spike data
+    namespace_id: attribute namespace for spike events
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    orderInverse (True|False): Invert the y-axis order (default: False)
+    labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
+    spikeRateBin (int): Size of bin in ms to use for rate computation (default: 5)
+    lw (integer): Line width for each spike (default: 3)
+    marker (char): Marker for each spike (default: '|')
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange, verbose=verbose)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+
+    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
+    
+    timeRange = [tmin, tmax]
+
+    # Calculate binned spike rates
+    
+    if verbose:
+        print('Calculating spike rates...')
+
+    spkrate_dict = {}
+    for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+        i = 0
+        spk_dict = defaultdict(list)
+        for spkind, spkt in itertools.izip(np.nditer(spkinds), np.nditer(spkts)):
+            spk_dict[int(spkind)].append(spkt)
+        rate_dict = {}
+        for ind, lst in spk_dict.iteritems():
+            spkv  = np.asarray(lst)
+            rate, bin_edges = np.histogram(spkv, bins = np.arange(timeRange[0], timeRange[1], spikeRateBin))
+            peak       = np.mean(rate[np.where(rate >= np.percentile(rate, 90.))[0]])
+            peak_index = np.where(rate == np.max(rate))[0][0]
+            rate_dict[i] = { 'rate': rate, 'peak': peak, 'peak_index': peak_index }
+            i = i+1
+        spkrate_dict[subset] = rate_dict
+        if verbose:
+            print('Calculated spike rates for %i cells in population %s' % (len(rate_dict), subset))
+
+                    
+    # Plot spikes
+    fig, ax1 = plt.subplots(figsize=figSize)
+
+    if verbose:
+        print('Creating rate plot...')
+
+    sctplots = []
+    
+    for (subset, pop_rates) in spkrate_dict.iteritems():
+
+        peak_lst = []
+        for ind, rate_dict in pop_rates.iteritems():
+            rate       = rate_dict['rate']
+            peak_index = rate_dict['peak_index']
+            print peak_index
+            peak_lst.append(peak_index)
+
+        ind_peak_lst = list(enumerate(peak_lst))
+        del(peak_lst)
+        ind_peak_lst.sort(key=lambda (i, x): x, reverse=orderInverse)
+
+        #print pop_rates
+        rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
+        del(ind_peak_lst)
+        
+        rate_matrix = np.matrix(rate_lst)
+        del(rate_lst)
+
+        im = ax1.imshow(rate_matrix, origin='lower', aspect='auto', interpolation='bicubic', cmap=cm.jet)
+        sctplots.append(im)
+
+        cbar = plt.colorbar(im)
+        cbar.ax.set_ylabel('Firing Rate')
+        
+    ##ax1.set_xlim(timeRange)
+
+    ax1.set_xlabel('Time Bin', fontsize=fontSize)
+    ax1.set_ylabel('Cell Index', fontsize=fontSize)
                 
     # show fig 
     if showFig:
@@ -597,6 +719,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
         show_figure()
 
     return fig, power
+
 
 
 def plot_stimulus_rate (input_path, namespace_id, include,
