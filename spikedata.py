@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names
 
-def read_spike_events(comm, input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = int(1e6), verbose = False):
+def read_spike_events(comm, input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None, verbose = False):
 
     spkpoplst        = []
     spkindlst        = []
@@ -63,7 +63,7 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
         del(pop_spkindlst)
                         
         # Limit to maxSpikes
-        if (len(pop_spkts)>maxSpikes):
+        if (maxSpikes is not None) and (len(pop_spkts)>maxSpikes):
             if verbose:
                 print('  Reading only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
             sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(maxSpikes))
