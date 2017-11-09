@@ -37,11 +37,16 @@ def get_cell_attributes_by_gid(gid, comm, file_path, index_map, population, name
     :param value_name: str
     :return: dict
     """
-    try:
-        index = index_map[gid - start_gid]
-    except KeyError:
+    if gid is None:
         index = 0
-    in_dataset = index is not None
+        in_dataset = False
+    else:
+        in_dataset = True
+        try:
+            index = index_map[gid - start_gid]
+        except KeyError:
+            index = 0
+            in_dataset = False
     attr_dict = {}
     with h5py.File(file_path, 'r', driver='mpio', comm=comm) as f:
         group = f['Populations'][population][namespace]

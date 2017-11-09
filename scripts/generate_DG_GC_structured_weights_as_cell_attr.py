@@ -4,6 +4,7 @@ from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
     NeuroH5ProjectionGen
+from neuroh5_io_utils import *
 import numpy as np
 from collections import defaultdict
 import click
@@ -140,8 +141,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     structured_count = 0
     start_time = time.time()
 
-    initial_weights_gen = NeuroH5CellAttrGen(comm, weights_path, target, io_size=io_size, cache_size=cache_size,
-                                             namespace=initial_weights_namespace)
+    gid_index_map = get_cell_attributes_gid_index_map(comm, weights_path, target, initial_weights_namespace)
 
     connection_gen_list = []
     for source in source_population_list:
@@ -149,37 +149,35 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
                                                         cache_size=cache_size, namespaces=['Synapses']))
 
     maxiter = 100 if debug else None
-    for itercount, attr_gen_package in enumerate(izip_longest(*([initial_weights_gen] + connection_gen_list))):
+    for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
         syn_weight_map = {}
         source_syn_map = defaultdict(list)
         syn_peak_index_map = {}
         structured_weights_dict = {}
         modulated_inputs = 0
-        attr_gen_contents = None
         source_gid_array = None
         conn_attr_dict = None
         target_gid = attr_gen_package[0][0]
         if not all(attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package):
-            for attr_gen_items in attr_gen_package:
-                print 'Rank: %i; target_gid: %i' % (rank, attr_gen_items[0])
-            #raise Exception('Rank: %i; target: %s; target_gid not matched across multiple attribute generators: %s' %
-            #                (rank, target, target_gid,
-            #                 str([str(attr_gen_items[0]) for attr_gen_items in attr_gen_package])))
+            raise Exception('Rank: %i; target: %s; target_gid not matched across multiple attribute generators: %s' %
+                            (rank, target, [attr_gen_items[0] for attr_gen_items in attr_gen_package]))
             sys.stdout.flush()
-            raise Exception()
+        # else:
+        #    print 'Rank: %i; received target: %s; target_gid: %s' % (rank, target, str(target_gid))
+        initial_weights_dict = get_cell_attributes_by_gid(target_gid, comm, weights_path, gid_index_map, target,
+                                                          initial_weights_namespace, target_gid_offset)
         if target_gid is not None:
+            if initial_weights_dict is None:
+                raise Exception('Rank: %i; target: %s; target_gid: %s; get_cell_attributes_by_gid didn\'t work' %
+                                (rank, target, str(target_gid)))
             local_random.seed(int(target_gid + seed_offset))
-            for i, (this_target_gid, attr_gen_contents) in enumerate(attr_gen_package):
-                if i == 0:
-                    initial_weights_dict = attr_gen_contents
-                    syn_weight_map = dict(zip(initial_weights_dict['syn_id'], initial_weights_dict['weight']))
-                else:
-                    source_gid_array, conn_attr_dict = attr_gen_contents
-                    for i in xrange(len(source_gid_array)):
-                        this_source_gid = source_gid_array[i]
-                        this_syn_id = conn_attr_dict['Synapses'][0][i]
-                        source_syn_map[this_source_gid].append(this_syn_id)
+            syn_weight_map = dict(zip(initial_weights_dict['syn_id'], initial_weights_dict['weight']))
+            for this_target_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
+                for i in xrange(len(source_gid_array)):
+                    this_source_gid = source_gid_array[i]
+                    this_syn_id = conn_attr_dict['Synapses'][0][i]
+                    source_syn_map[this_source_gid].append(this_syn_id)
             if local_random.uniform() <= target_sparsity:
                 modify_weights = True
                 peak_loc = local_random.choice(d)
@@ -229,7 +227,6 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
         del syn_peak_index_map
         del structured_weights_dict
         del modulated_inputs
-        del attr_gen_contents
         del source_gid_array
         del conn_attr_dict
         gc.collect()
