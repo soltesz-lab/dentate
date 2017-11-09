@@ -234,5 +234,5 @@ Cell Types:
     vectorStimulus: Vector Stimulus 0
   LPP:
     template: LPPCell
-    vectorStimulus: Vector Stimulus 0
+    vectorStimulus: Vector Stimulus Randomized 0
 

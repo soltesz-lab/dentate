@@ -10,7 +10,7 @@ from DG_surface import make_surface
 import numpy as np
 import click
 import utils
-
+from env import Env
 
 script_name = 'compute_arc_distance.py'
 
@@ -21,11 +21,9 @@ script_name = 'compute_arc_distance.py'
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--distance-namespace", type=str, default='Arc Distance')
 @click.option("--npoints", type=int, default=12000)
-@click.option("--origin-u", type=float, default=0.0)
-@click.option("--origin-v", type=float, default=0.0)
 @click.option("--spatial-resolution", type=float, default=1.0)
 @click.option("--io-size", type=int, default=-1)
-def main(config_path, coords_path, coords_namespace, distance_namespace, npoints, origin_u, origin_v, spatial_resolution, layers, io_size):
+def main(config, coords_path, coords_namespace, distance_namespace, npoints, spatial_resolution, io_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -33,11 +31,11 @@ def main(config_path, coords_path, coords_namespace, distance_namespace, npoints
     env = Env(comm=comm, configFile=config)
 
     layers = []
-    max_extents = env.layers['Parametric Surface']['Minimum Extent']
-    min_extents = env.layers['Parametric Surface']['Maximum Extent']
+    max_extents = env.geometry['Parametric Surface']['Minimum Extent']
+    min_extents = env.geometry['Parametric Surface']['Maximum Extent']
 
-    for (max_extent,min_extent) in itertools.izip(max_extents,min_extents):
-        mid = (max_extent[2] - min_extent) / 2.
+    for ((_,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+        mid = (max_extent[2] - min_extent[2]) / 2.
         layers.append(mid)
     
     population_ranges = read_population_ranges(comm, coords_path)[0]
@@ -50,6 +48,9 @@ def main(config_path, coords_path, coords_namespace, distance_namespace, npoints
         (population_start, _) = population_ranges[population]
 
         for (layer_index, (layer, ip_surface)) in enumerate(itertools.izip(layers, ip_surfaces)):
+
+            origin_u = np.min(ip_surface.su[0])
+            origin_v = np.min(ip_surface.sv[0])
             
             for cell_gid, attr_dict in NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size,
                                                         namespace=coords_namespace):
@@ -62,7 +63,7 @@ def main(config_path, coords_path, coords_namespace, distance_namespace, npoints
             
                     cell_u = cell_coords_dict['U Coordinate']
                     cell_v = cell_coords_dict['V Coordinate']
-                    
+
                     U = np.linspace(origin_u, cell_u, npoints)
                     V = np.linspace(origin_v, cell_v, npoints)
                     
