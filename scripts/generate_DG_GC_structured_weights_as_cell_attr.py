@@ -1,6 +1,7 @@
 
 import sys, time, gc
 from mpi4py import MPI
+import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
     NeuroH5ProjectionGen
 import numpy as np
@@ -8,6 +9,7 @@ from collections import defaultdict
 import click
 from utils import *
 import stimulus
+from itertools import izip_longest
 
 """
 stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
@@ -80,7 +82,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print '%s: %i ranks have been allocated' % (script_name, comm.size)
     sys.stdout.flush()
 
     stimulus_namespace += ' ' + str(trajectory_id)
@@ -97,25 +99,31 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     default_run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
 
-    x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                              spatial_resolution=spatial_resolution)
-    """
     with h5py.File(stimulus_path, 'a', driver='mpio', comm=comm) as f:
         if trajectory_namespace not in f:
-            f.create_group(trajectory_namespace)
+            print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
+            group = f.create_group(trajectory_namespace)
             x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
                                                       spatial_resolution=spatial_resolution)
-            f[trajectory_namespace].create_group(str(trajectory_id))
-            f[trajectory_namespace].create_dataset('x', dtype='float32', data=x)
-            f[trajectory_namespace].create_dataset('y', dtype='float32', data=y)
-            f[trajectory_namespace].create_dataset('d', dtype='float32', data=d)
-            f[trajectory_namespace].create_dataset('t', dtype='float32', data=t)
+            for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
+                dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
+                with dataset.collective:
+                    dataset[:] = value.astype('float32', copy=False)
         else:
-            x = f[trajectory_namespace]['x'][:]
-            y = f[trajectory_namespace]['y'][:]
-            d = f[trajectory_namespace]['d'][:]
-            t = f[trajectory_namespace]['t'][:]
-    """
+            print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
+            group = f[trajectory_namespace]
+            dataset = group['x']
+            with dataset.collective:
+                x = dataset[:]
+            dataset = group['y']
+            with dataset.collective:
+                y = dataset[:]
+            dataset = group['d']
+            with dataset.collective:
+                d = dataset[:]
+            dataset = group['t']
+            with dataset.collective:
+                t = dataset[:]
 
     plasticity_window_dur = 4.  # s
     plasticity_kernel_sigma = plasticity_window_dur * default_run_vel / 3. / np.sqrt(2.)  # cm
@@ -135,40 +143,43 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     initial_weights_gen = NeuroH5CellAttrGen(comm, weights_path, target, io_size=io_size, cache_size=cache_size,
                                              namespace=initial_weights_namespace)
 
-    connection_gen_dict = {}
+    connection_gen_list = []
     for source in source_population_list:
-        connection_gen_dict[source] = NeuroH5ProjectionGen(comm, connections_path, source, target, io_size=io_size,
-                                                           cache_size=cache_size, namespaces=['Synapses'])
+        connection_gen_list.append(NeuroH5ProjectionGen(comm, connections_path, source, target, io_size=io_size,
+                                                        cache_size=cache_size, namespaces=['Synapses']))
 
-    if debug:
-        attr_gen_wrapper = (initial_weights_gen.next() for i in xrange(10))
-    else:
-        attr_gen_wrapper = initial_weights_gen
-    for target_gid, initial_weights_dict in attr_gen_wrapper:
+    maxiter = 100 if debug else None
+    for itercount, attr_gen_package in enumerate(izip_longest(*([initial_weights_gen] + connection_gen_list))):
         local_time = time.time()
         syn_weight_map = {}
         source_syn_map = defaultdict(list)
         syn_peak_index_map = {}
         structured_weights_dict = {}
         modulated_inputs = 0
-        conn_attrs = None
+        attr_gen_contents = None
         source_gid_array = None
-        this_conn_attr_dict = None
+        conn_attr_dict = None
+        target_gid = attr_gen_package[0][0]
+        if not all(attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package):
+            for attr_gen_items in attr_gen_package:
+                print 'Rank: %i; target_gid: %i' % (rank, attr_gen_items[0])
+            #raise Exception('Rank: %i; target: %s; target_gid not matched across multiple attribute generators: %s' %
+            #                (rank, target, target_gid,
+            #                 str([str(attr_gen_items[0]) for attr_gen_items in attr_gen_package])))
+            sys.stdout.flush()
+            raise Exception()
         if target_gid is not None:
-            syn_weight_map = dict(zip(initial_weights_dict['syn_id'],
-                                      initial_weights_dict['weight']))
             local_random.seed(int(target_gid + seed_offset))
-            for source in source_population_list:
-                conn_target_gid, conn_attrs = connection_gen_dict[source].next()
-                if target_gid != conn_target_gid:
-                    raise Exception('target: %s; source: %s; target_gid: %i from connection_gen does not match '
-                                    'target_gid: %i from initial_weights_gen' % (target, source, conn_target_gid,
-                                                                                 target_gid))
-                source_gid_array, this_conn_attr_dict = conn_attrs
-                for i in xrange(len(source_gid_array)):
-                    this_source_gid = source_gid_array[i]
-                    this_syn_id = this_conn_attr_dict['Synapses'][0][i]
-                    source_syn_map[this_source_gid].append(this_syn_id)
+            for i, (this_target_gid, attr_gen_contents) in enumerate(attr_gen_package):
+                if i == 0:
+                    initial_weights_dict = attr_gen_contents
+                    syn_weight_map = dict(zip(initial_weights_dict['syn_id'], initial_weights_dict['weight']))
+                else:
+                    source_gid_array, conn_attr_dict = attr_gen_contents
+                    for i in xrange(len(source_gid_array)):
+                        this_source_gid = source_gid_array[i]
+                        this_syn_id = conn_attr_dict['Synapses'][0][i]
+                        source_syn_map[this_source_gid].append(this_syn_id)
             if local_random.uniform() <= target_sparsity:
                 modify_weights = True
                 peak_loc = local_random.choice(d)
@@ -207,10 +218,8 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
                                                    time.time() - local_time)
             count += 1
         else:
-            for source in source_population_list:
-                conn_target_gid, conn_attrs = connection_gen_dict[source].next()
+            print 'Rank: %i received target_gid as None' % rank
         if not debug:
-            sys.stdout.flush()
             append_cell_attributes(comm, weights_path, target, structured_weights_dict,
                                    namespace=structured_weights_namespace, io_size=io_size, chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
@@ -220,11 +229,16 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
         del syn_peak_index_map
         del structured_weights_dict
         del modulated_inputs
-        del conn_attrs
+        del attr_gen_contents
         del source_gid_array
-        del this_conn_attr_dict
+        del conn_attr_dict
         gc.collect()
-
+        if debug:
+            comm.barrier()
+            if maxiter is not None and itercount > maxiter:
+                break
+    if debug:
+        print 'Rank: %i exited the loop' % rank
     global_count = comm.gather(count, root=0)
     global_structured_count = comm.gather(structured_count, root=0)
     if rank == 0:
