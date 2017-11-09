@@ -23,7 +23,7 @@ script_name = 'randomize_DG_PP_spiketrains.py'
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--seed-offset", type=int, default=9)
+@click.option("--seed-offset", type=int, default=10)
 @click.option("--debug", is_flag=True)
 def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_size, chunk_size, value_chunk_size, cache_size, 
          seed_offset, debug):
@@ -48,7 +48,7 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
 
     seed_offset *= 2e6
     np.random.seed(int(seed_offset))
-                
+
 
     population_ranges = read_population_ranges(comm, stimulus_path)[0]
 
@@ -57,7 +57,8 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
         population_count = population_ranges[population][1]
 
         if rank == 0:
-            random_gids = np.random.randint(0, high=population_count-1, size=population_count)
+            random_gids = np.arange(0, population_count)
+            np.random.shuffle(random_gids)
         else:
             random_gids = None
         random_gids = comm.bcast(random_gids, root=0)
