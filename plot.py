@@ -172,7 +172,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
     
 ## Plot spike histogram
-def plot_spike_raster (input_path, namespace_id, timeRange = None, timeVariable='t', maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
+def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', maxSpikes = int(1e6), orderInverse = False, labels = 'legend', popRates = False,
                        spikeHist = None, spikeHistBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
                        showFig = True, verbose = False): 
     ''' 
@@ -205,8 +205,13 @@ def plot_spike_raster (input_path, namespace_id, timeRange = None, timeVariable=
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_path, population_names, namespace_id, timeVariable=timeVariable,
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
