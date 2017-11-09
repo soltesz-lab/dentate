@@ -18,16 +18,18 @@ script_name = 'randomize_DG_PP_spiketrains.py'
 @click.command()
 @click.option("--stimulus-path", '-p', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--input-stimulus-namespace", '-i', type=str, default='Vector Stimulus')
-@click.option("--output-stimulus-namespace", '-o', type=str, default='Randomized Vector Stimulus')
+@click.option("--output-stimulus-namespace", '-o', type=str, default='Vector Stimulus Randomized')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--seed-offset", type=int, default=10)
+@click.option("--trajectory-id", type=int, default=0)
 @click.option("--debug", is_flag=True)
-def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_size, chunk_size, value_chunk_size, cache_size, 
-         seed_offset, debug):
+def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_size, chunk_size, value_chunk_size,
+         cache_size, seed_offset, trajectory_id, debug):
     """
+    :param stimulus_path: str
     :param input_stimulus_namespace: str
     :param output_stimulus_namespace: str
     :param io_size: int
@@ -35,6 +37,7 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
     :param value_chunk_size: int
     :param cache_size: int
     :param seed_offset: int
+    :param trajectory_id: int
     :param debug: bool
     """
     comm = MPI.COMM_WORLD
@@ -49,8 +52,10 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
     seed_offset *= 2e6
     np.random.seed(int(seed_offset))
 
-
     population_ranges = read_population_ranges(comm, stimulus_path)[0]
+
+    input_stimulus_namespace += ' ' + str(trajectory_id)
+    output_stimulus_namespace += ' ' + str(trajectory_id)
 
     for population in ['LPP']:
         population_start = population_ranges[population][0]
@@ -65,7 +70,6 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
 
         count = 0
         start_time = time.time()
-
         attr_gen = NeuroH5CellAttrGen(comm, stimulus_path, population, io_size=io_size,
                                       cache_size=cache_size, namespace=input_stimulus_namespace)
         if debug:
@@ -79,7 +83,8 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
 
                 random_gid = random_gids[gid-population_start]
                 new_response_dict[random_gid] = {'rate': stimulus_dict['rate'],
-                                                 'spiketrain': np.asarray(stimulus_dict['spiketrain'], dtype=np.float32),
+                                                 'spiketrain': np.asarray(stimulus_dict['spiketrain'],
+                                                                          dtype=np.float32),
                                                  'modulation': stimulus_dict['modulation'],
                                                  'peak_index': stimulus_dict['peak_index'] }
 
