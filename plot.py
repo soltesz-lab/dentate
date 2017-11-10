@@ -349,7 +349,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 
 ## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', orderInverse = False, labels = 'legend', 
-                      spikeRateBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+                      spikeRateBin = 25, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Raster plot of network spike times. Returns the figure handle.
 
@@ -394,14 +394,15 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
 
-    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
-    
     timeRange = [tmin, tmax]
 
+    print 'time range is ', timeRange
     # Calculate binned spike rates
     
     if verbose:
         print('Calculating spike rates...')
+
+    rate_bins  = np.arange(timeRange[0], timeRange[1], spikeRateBin)
 
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
@@ -412,9 +413,10 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         rate_dict = {}
         for ind, lst in spk_dict.iteritems():
             spkv  = np.asarray(lst)
-            rate, bin_edges = np.histogram(spkv, bins = np.arange(timeRange[0], timeRange[1], spikeRateBin))
-            peak       = np.mean(rate[np.where(rate >= np.percentile(rate, 90.))[0]])
-            peak_index = np.where(rate == np.max(rate))[0][0]
+            count, bin_edges = np.histogram(spkv, bins = rate_bins)
+            rate = count * (1000.0 / spikeRateBin) ## convert to firing rate
+            peak        = np.mean(rate[np.where(rate >= np.percentile(rate, 90.))[0]])
+            peak_index  = np.where(rate == np.max(rate))[0][0]
             rate_dict[i] = { 'rate': rate, 'peak': peak, 'peak_index': peak_index }
             i = i+1
         spkrate_dict[subset] = rate_dict
@@ -428,38 +430,42 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     if verbose:
         print('Creating rate plot...')
 
-    sctplots = []
-    
-    for (subset, pop_rates) in spkrate_dict.iteritems():
+    for (iplot, (subset, pop_rates)) in enumerate(spkrate_dict.iteritems()):
 
         peak_lst = []
         for ind, rate_dict in pop_rates.iteritems():
             rate       = rate_dict['rate']
             peak_index = rate_dict['peak_index']
-            print peak_index
             peak_lst.append(peak_index)
 
         ind_peak_lst = list(enumerate(peak_lst))
         del(peak_lst)
         ind_peak_lst.sort(key=lambda (i, x): x, reverse=orderInverse)
 
-        #print pop_rates
         rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
         del(ind_peak_lst)
         
         rate_matrix = np.matrix(rate_lst)
         del(rate_lst)
 
-        im = ax1.imshow(rate_matrix, origin='lower', aspect='auto', interpolation='bicubic', cmap=cm.jet)
-        sctplots.append(im)
+        color = color_list[iplot%len(color_list)]
+
+        plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
+        plt.title (str(subset), fontsize=fontSize)
+
+        im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
+                        extent=[timeRange[0], timeRange[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
+
+        if iplot == 0: 
+            plt.ylabel('Relative Cell Index', fontsize=fontSize)
+        if iplot == len(spkpoplst)-1:
+            plt.xlabel('Time (ms)', fontsize=fontSize)
 
         cbar = plt.colorbar(im)
-        cbar.ax.set_ylabel('Firing Rate')
+        cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fontSize)
         
-    ##ax1.set_xlim(timeRange)
+    ##ax1.set_xlim(len(rate_bins))
 
-    ax1.set_xlabel('Time Bin', fontsize=fontSize)
-    ax1.set_ylabel('Cell Index', fontsize=fontSize)
                 
     # show fig 
     if showFig:
@@ -554,7 +560,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         color = color_list[iplot%len(color_list)]
 
         if not overlay: 
-            plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
+            plt.subplot(len(spkpoplst),1,iplot+1)
             plt.title (str(subset), fontsize=fontSize)
    
         if graphType == 'line':
@@ -563,8 +569,8 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             plt.bar(histoT, histoCount, width = binSize, color = color)
 
         if iplot == 0: 
+            plt.ylabel(yaxisLabel, fontsize=fontSize)
             plt.xlabel('Time (ms)', fontsize=fontSize)
-            plt.ylabel(yaxisLabel, fontsize=fontSize) # add yaxis in opposite side
         plt.xlim(timeRange)
 
     if len(include) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
@@ -664,8 +670,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
 
         histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
         histoData.append(histoCount)
-
-        hsignal = histoCount
+        hsignal = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
         
         power = mlab.psd(hsignal, Fs=Fs, NFFT=256, detrend=mlab.detrend_none, window=mlab.window_hanning, 
                          noverlap=0, pad_to=None, sides='default', scale_by_freq=None)
