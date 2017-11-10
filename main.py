@@ -216,7 +216,7 @@ def connectcells(env):
 
           if has_weights:
             cell_wgt_dict = cell_weights_dict[postsyn_gid]
-            syn_wgt_dict = { int(syn_id): weight for (syn_id, weight) in 
+            syn_wgt_dict = { int(syn_id): float(weight) for (syn_id, weight) in 
                                itertools.izip(np.nditer(cell_wgt_dict['syn_id']),
                                               np.nditer(cell_wgt_dict['weight'])) }
           else:
@@ -252,7 +252,7 @@ def connectcells(env):
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
               connection_syn_mech_config = connection_dict[syn_mech]
               if has_weights and syn_wgt_dict.has_key(edge_syn_id):
-                weight = syn_wgt_dict[edge_syn_id] * connection_syn_mech_config['weight']
+                weight = float(syn_wgt_dict[edge_syn_id]) * connection_syn_mech_config['weight']
               else:
                 weight = connection_syn_mech_config['weight']
               delay  = distance / connection_syn_mech_config['velocity']
