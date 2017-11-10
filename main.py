@@ -148,21 +148,39 @@ def connectcells(env):
       else:
         unique = False
       
+      if synapse_config.has_key('weights'):
+        has_weights = synapse_config['weights']
+      else:
+        has_weights = False
+      
       if env.verbose:
           if env.pc.id() == 0:
             print '*** Reading synapse attributes of population %s' % (postsyn_name)
 
+      if has_weights:
+        cell_attr_namespaces = ['Synapse Attributes', 'Weights']
+      else:
+        cell_attr_namespaces = ['Synapse Attributes']
+        
+            
       if env.nodeRanks is None:
         cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                            namespaces=['Synapse Attributes'],
+                                                            namespaces=cell_attr_namespaces,
                                                             io_size=env.IOsize)
       else:
         cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                            namespaces=['Synapse Attributes'],
+                                                            namespaces=cell_attr_namespaces,
                                                             node_rank_map=env.nodeRanks,
                                                             io_size=env.IOsize)
       cell_synapses_dict = { k : v for (k,v) in cell_attributes_dict['Synapse Attributes'] }
+      if cell_attributes_dict.has_key('Weights'):
+        has_weights = True
+        cell_weights_dict = { k : v for (k,v) in cell_attributes_dict['Weights'] }
+      else:
+        has_weights = False
+        cell_weights_dict = None
       del cell_attributes_dict
+
 
       for presyn_name in presyn_names:
 
@@ -196,6 +214,14 @@ def connectcells(env):
           postsyn_cell   = env.pc.gid2cell(postsyn_gid)
           cell_syn_dict  = cell_synapses_dict[postsyn_gid]
 
+          if has_weights:
+            cell_wgt_dict = cell_weights_dict[postsyn_gid]
+            syn_wgt_dict = { int(syn_id): weight for (syn_id, weight) in 
+                               itertools.izip(np.nditer(cell_wgt_dict['syn_id']),
+                                              np.nditer(cell_wgt_dict['weight'])) }
+          else:
+            syn_wgt_dict = None
+
           presyn_gids    = edges[0]
           edge_syn_ids   = edges[1]['Synapses'][syn_id_attr_index]
           edge_dists     = edges[1]['Connections'][distance_attr_index]
@@ -225,7 +251,10 @@ def connectcells(env):
             syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
               connection_syn_mech_config = connection_dict[syn_mech]
-              weight = connection_syn_mech_config['weight']
+              if has_weights and syn_wgt_dict.has_key(edge_syn_id):
+                weight = syn_wgt_dict[edge_syn_id] * connection_syn_mech_config['weight']
+              else:
+                weight = connection_syn_mech_config['weight']
               delay  = distance / connection_syn_mech_config['velocity']
               if type(weight) is float:
                 h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)

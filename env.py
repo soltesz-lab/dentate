@@ -192,7 +192,11 @@ class Env:
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
-        self.geometry = self.modelConfig['Geometry']
+        if self.modelConfig.has_key('Geometry'):
+            self.geometry = self.modelConfig['Geometry']
+        else:
+            self.geometry = None
+            
 
         self.celltypes = self.modelConfig['Cell Types']
         self.cellAttributeInfo = {}
