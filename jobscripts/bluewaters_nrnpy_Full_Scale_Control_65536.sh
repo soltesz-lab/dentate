@@ -54,6 +54,6 @@ aprun -n 65536 \
     --io-size=256 \
     --tstop=10000 \
     --v-init=-75 \
-    --max-walltime-hours=4.5 \
+    --max-walltime-hours=4.0 \
     --verbose
 

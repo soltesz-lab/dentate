@@ -9,8 +9,8 @@
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_32768
 ### set the job stdout and stderr
-#PBS -e ./results/$PBS_JOBID.err
-#PBS -o ./results/$PBS_JOBID.out
+#PBS -e ./results/dentate.$PBS_JOBID.err
+#PBS -o ./results/dentate.$PBS_JOBID.out
 ### set email notification
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
@@ -54,6 +54,6 @@ aprun -n 32768 \
     --io-size=256 \
     --tstop=10000 \
     --v-init=-75 \
-    --max-walltime-hours=4.5 \
+    --max-walltime-hours=4.33 \
     --verbose
 
