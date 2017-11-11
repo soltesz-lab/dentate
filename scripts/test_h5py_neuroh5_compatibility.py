@@ -107,7 +107,7 @@ def main(file_path, namespace, io_size, chunk_size, value_chunk_size, cache_size
 
     maxiter = 10
     for itercount, (target_gid, attr_dict) in enumerate(attr_gen):
-        print 'Rank: %i receieved target_gid: %i from the attribute generator.' % (rank, target_gid)
+        print 'Rank: %i receieved target_gid: %s from the attribute generator.' % (rank, str(target_gid))
         attr_dict2 = get_cell_attributes_by_gid(target_gid, comm, file_path, index_map, target, namespace)
         if np.all(attr_dict['syn_id'][:] == attr_dict2['syn_id'][:]):
             print 'Rank: %i; attributes match!' % rank
