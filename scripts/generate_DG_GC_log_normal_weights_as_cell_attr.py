@@ -96,7 +96,7 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
         syn_weight_map = {}
         weights_dict = {}
         target_gid = attr_gen_package[0][0]
-        if not all(attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package):
+        if not all([attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package]):
             raise Exception('Rank: %i; target: %s; target_gid not matched across multiple attribute generators: %s' %
                             (rank, target, target_gid,
                              str([attr_gen_items[0] for attr_gen_items in attr_gen_package])))

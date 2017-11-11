@@ -52,7 +52,7 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 @click.option("--cache-size", type=int, default=50)
 @click.option("--trajectory-id", type=int, default=0)
 @click.option("--seed-offset", type=int, default=6)
-@click.option("--target-sparsity", type=float, default=0.05)
+@click.option("--target-sparsity", type=float, default=0.1)
 @click.option("--debug", is_flag=True)
 def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namespace, structured_weights_namespace,
          connections_path, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id, seed_offset,
@@ -105,6 +105,26 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     default_run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
 
+    with h5py.File(stimulus_path, 'r', driver='mpio', comm=comm) as f:
+        if trajectory_namespace not in f:
+            x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+                                                      spatial_resolution=spatial_resolution)
+        else:
+            print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
+            group = f[trajectory_namespace]
+            dataset = group['x']
+            with dataset.collective:
+                x = dataset[:]
+            dataset = group['y']
+            with dataset.collective:
+                y = dataset[:]
+            dataset = group['d']
+            with dataset.collective:
+                d = dataset[:]
+            dataset = group['t']
+            with dataset.collective:
+                t = dataset[:]
+    """
     with h5py.File(stimulus_path, 'a', driver='mpio', comm=comm) as f:
         if trajectory_namespace not in f:
             print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
@@ -130,6 +150,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
             dataset = group['t']
             with dataset.collective:
                 t = dataset[:]
+    """
 
     plasticity_window_dur = 4.  # s
     plasticity_kernel_sigma = plasticity_window_dur * default_run_vel / 3. / np.sqrt(2.)  # cm
@@ -164,7 +185,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
         source_gid_array = None
         conn_attr_dict = None
         target_gid = attr_gen_package[0][0]
-        if not all(attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package):
+        if not all([attr_gen_items[0] == target_gid for attr_gen_items in attr_gen_package]):
             raise Exception('Rank: %i; target: %s; target_gid not matched across multiple attribute generators: %s' %
                             (rank, target, [attr_gen_items[0] for attr_gen_items in attr_gen_package]))
             sys.stdout.flush()
