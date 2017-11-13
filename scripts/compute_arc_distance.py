@@ -79,7 +79,6 @@ def main(config, coords_path, coords_namespace, distance_namespace, layers, npoi
                 append_cell_attributes(comm, coords_path, population, arc_distance_dict,
                                        namespace='%s Layer %s' % (distance_namespace, layer_name),
                                        io_size=io_size)
-                comm.Barrier()
             
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

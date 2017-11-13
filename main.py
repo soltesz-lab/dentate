@@ -152,13 +152,18 @@ def connectcells(env):
         has_weights = synapse_config['weights']
       else:
         has_weights = False
+
+      if synapse_config.has_key('weights namespace'):
+        weights_namespace = synapse_config['weights namespace']
+      else:
+        weights_namespace = 'Weights'
       
       if env.verbose:
           if env.pc.id() == 0:
             print '*** Reading synapse attributes of population %s' % (postsyn_name)
 
       if has_weights:
-        cell_attr_namespaces = ['Synapse Attributes', 'Weights']
+        cell_attr_namespaces = ['Synapse Attributes', weights_namespace]
       else:
         cell_attr_namespaces = ['Synapse Attributes']
         
@@ -173,9 +178,9 @@ def connectcells(env):
                                                             node_rank_map=env.nodeRanks,
                                                             io_size=env.IOsize)
       cell_synapses_dict = { k : v for (k,v) in cell_attributes_dict['Synapse Attributes'] }
-      if cell_attributes_dict.has_key('Weights'):
+      if cell_attributes_dict.has_key(weights_namespace):
         has_weights = True
-        cell_weights_dict = { k : v for (k,v) in cell_attributes_dict['Weights'] }
+        cell_weights_dict = { k : v for (k,v) in cell_attributes_dict[weights_namespace] }
       else:
         has_weights = False
         cell_weights_dict = None
