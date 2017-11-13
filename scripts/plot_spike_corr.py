@@ -4,23 +4,21 @@ from mpi4py import MPI
 import click
 import utils, plot
 
-script_name = 'plot_spike_hist.py'
+script_name = 'plot_spike_corr.py'
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--max-spikes", type=int, default=int(1e6))
 @click.option("--spike-hist-bin", type=float, default=5.0)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
-@click.option("--y-axis", type=str, default='rate')
+@click.option("--max-cells", type=int)
+@click.option("--graph-type", type=str)
 @click.option("--font-size", type=float, default=14)
-@click.option("--graph-type", type=str, default='bar')
-@click.option("--overlay", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, y_axis, font_size, graph_type, overlay, verbose):
+def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin, t_variable, t_max, t_min, max_cells, graph_type, font_size, verbose):
     if t_max is None:
         timeRange = None
     else:
@@ -31,11 +29,15 @@ def main(spike_events_path, spike_events_namespace, populations, max_spikes, spi
 
     if not populations:
         populations = ['eachPop']
+
+    if graph_type:
+        graphType = graph_type
+    else:
+        graphType = 'matrix'
         
-    plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, timeVariable=t_variable,
-                               timeRange=timeRange, maxSpikes=max_spikes, binSize=spike_hist_bin, yaxis=y_axis, fontSize=font_size,
-                               overlay=overlay, graphType=graph_type, saveFig=True, verbose=verbose)
-    
+    plot.plot_spike_histogram_corr (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, 
+                                    binSize=spike_hist_bin, maxCells=max_cells, graphType=graphType, fontSize=font_size, saveFig=True, verbose=verbose)
+        
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
