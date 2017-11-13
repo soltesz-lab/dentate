@@ -241,6 +241,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
             count += 1
         else:
             print 'Rank: %i received target_gid as None' % rank
+        sys.stdout.flush()
         if not debug:
             append_cell_attributes(comm, weights_path, target, structured_weights_dict,
                                    namespace=structured_weights_namespace, io_size=io_size, chunk_size=chunk_size,
