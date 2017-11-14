@@ -544,20 +544,27 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
     for (iplot, subset) in enumerate(spkpoplst):
 
         pop_corr = corr_dict[subset]
-        
-        axes[iplot].set_title (str(subset), fontsize=fontSize)
 
+        if len(spkpoplst) > 1:
+            axes[iplot].set_title (str(subset), fontsize=fontSize)
+        else:
+            axes.set_title (str(subset), fontsize=fontSize)
+            
         if graphType == 'matrix':
             im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
         elif graphType == 'histogram':
+            np.fill_diagonal(pop_corr, 0.)
             mean_corr = np.apply_along_axis(lambda y: np.mean(y), 1, pop_corr)
             histoCount, bin_edges = np.histogram(mean_corr, bins = 100)
             corrBinSize = bin_edges[1] - bin_edges[0]
             histoX = bin_edges[:-1]+corrBinSize/2
             color = color_list[iplot%len(color_list)]
-            b = axes[iplot].bar(histoX, histoCount, width = corrBinSize, color = color)
+            if len(spkpoplst) > 1:
+                b = axes[iplot].bar(histoX, histoCount, width = corrBinSize, color = color)
+            else:
+                b = axes.bar(histoX, histoCount, width = corrBinSize, color = color)
             if X_max is None:
                 X_max = bin_edges[-1]
             else:
@@ -567,7 +574,10 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
             else:
                 X_min = max(X_min, bin_edges[0])
                 
-            axes[iplot].set_xlim([X_min, X_max])
+            if len(spkpoplst) > 1:
+                axes[iplot].set_xlim([X_min, X_max])
+            else:
+                axes.set_xlim([X_min, X_max])
         else:
             im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
             cbar = plt.colorbar(im)
@@ -575,6 +585,118 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
 
         if graphType == 'matrix':
             if iplot == 0: 
+                axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
+            if iplot == len(spkpoplst)-1:
+                axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)
+
+                
+    # show fig 
+    if showFig:
+        show_figure()
+    
+    return fig
+
+
+## Plot spike auto-correlation
+def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', binSize = 25, graphType = 'matrix', lag=1,
+                                   maxCells = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Plot of spike histogram correlations. Returns the figure handle.
+
+    input_path: file with spike data
+    namespace_id: attribute namespace for spike events
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    binSize (int): Size of bin in ms to use for spike count and rate computations (default: 5)
+    lw (integer): Line width for each spike (default: 3)
+    marker (char): Marker for each spike (default: '|')
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange, verbose=verbose)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+    
+    if verbose:
+        print('Calculating spike correlations...')
+
+    corr_dict = spikedata.histogram_autocorrelation(spkdata, binSize=binSize, maxElems=maxCells, lag=lag)
+        
+    # Plot spikes
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+
+    if verbose:
+        print('Creating autocorrelation plots...')
+
+    X_max = None
+    X_min = None
+    for (iplot, subset) in enumerate(spkpoplst):
+
+        pop_corr = corr_dict[subset]
+        
+        if len(spkpoplst) > 1:
+            axes[iplot].set_title (str(subset), fontsize=fontSize)
+        else:
+            axes.set_title (str(subset), fontsize=fontSize)
+
+        if graphType == 'matrix':
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            cbar = plt.colorbar(im)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+        elif graphType == 'histogram':
+            histoCount, bin_edges = np.histogram(pop_corr, bins = 100)
+            corrBinSize = bin_edges[1] - bin_edges[0]
+            histoX = bin_edges[:-1]+corrBinSize/2
+            color = color_list[iplot%len(color_list)]
+            if len(spkpoplst) > 1:
+                b = axes[iplot].bar(histoX, histoCount, width = corrBinSize, color = color)
+            else:
+                b = axes.bar(histoX, histoCount, width = corrBinSize, color = color)
+            if X_max is None:
+                X_max = bin_edges[-1]
+            else:
+                X_max = max(X_max, bin_edges[-1])
+            if X_min is None:
+                X_min = bin_edges[0]
+            else:
+                X_min = max(X_min, bin_edges[0])
+                
+            if len(spkpoplst) > 1:
+                axes[iplot].set_xlim([X_min, X_max])
+            else:
+                axes.set_xlim([X_min, X_max])
+        else:
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            cbar = plt.colorbar(im)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+
+        if graphType == 'matrix':
+            if iplot == 0:
                 axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
             if iplot == len(spkpoplst)-1:
                 axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)

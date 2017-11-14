@@ -1,4 +1,4 @@
-
+import math
 import itertools
 from collections import defaultdict
 import numpy as np
@@ -201,6 +201,16 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None, 
     
     return corr_dict
 
+def autocorr (y, lag):
+    leny = y.shape[1]
+    a = y[0,0:leny-lag].reshape(-1)
+    b = y[0,lag:leny].reshape(-1)
+    m = np.vstack((a[0,:].reshape(-1), b[0,:].reshape(-1)))
+    r = np.corrcoef(m)[0,1]
+    if math.isnan(r):
+        return 0.
+    else:
+        return r
 
 def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxElems=None, verbose=False):
     """Compute autocorrelation coefficients of the spike count or firing rate histogram of each population. """
@@ -243,7 +253,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
             x_matrix = x_matrix[sample_inds,:]
 
 
-        corr_matrix = np.apply_along_axis(lambda y: numpy.corrcoef(np.array([y[0:len(y)-lag], y[lag:len(y)]])), 1, x_matrix)
+        corr_matrix = np.apply_along_axis(lambda y: autocorr(y, lag), 1, x_matrix)
 
         corr_dict[subset] = corr_matrix
 
