@@ -201,3 +201,52 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None, 
     
     return corr_dict
 
+
+def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxElems=None, verbose=False):
+    """Compute autocorrelation coefficients of the spike count or firing rate histogram of each population. """
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+
+    bins  = np.arange(tmin, tmax, binSize)
+    
+    corr_dict = {}
+    for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+        i = 0
+        spk_dict = defaultdict(list)
+        for spkind, spkt in itertools.izip(np.nditer(spkinds), np.nditer(spkts)):
+            spk_dict[int(spkind)].append(spkt)
+        x_lst = []
+        for ind, lst in spk_dict.iteritems():
+            spkv  = np.asarray(lst)
+            count, bin_edges = np.histogram(spkv, bins = bins)
+            if quantity == 'rate':
+                q = count * (1000.0 / binSize) # convert to firing rate
+            else:
+                q = count
+            x_lst.append(q)
+            i = i+1
+
+        x_matrix = np.matrix(x_lst)
+        del(x_lst)
+        
+        # Limit to maxElems
+        if (maxElems is not None) and (x_matrix.shape[0]>maxElems):
+            if verbose:
+                print('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], pop_name))
+            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(maxElems))
+            x_matrix = x_matrix[sample_inds,:]
+
+
+        corr_matrix = np.apply_along_axis(lambda y: numpy.corrcoef(np.array([y[0:len(y)-lag], y[lag:len(y)]])), 1, x_matrix)
+
+        corr_dict[subset] = corr_matrix
+
+    
+    return corr_dict
+
