@@ -45,7 +45,7 @@ def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
 def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                   fontSize=14, showFig = True, saveFig = False, verbose = False):
+                   normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -87,6 +87,8 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
     distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
     distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(in_degrees)) ])
 
+    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100], weights=in_degrees, normed=normed)
+    
     if verbose:
         print 'Plotting in-degree distribution...'
 
@@ -95,21 +97,22 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
 
-    ht = plt.hist2d(distance_U, distance_V, bins=[50, 150], cmin=0.001,  weights=in_degrees)
-
     ax.axis([x_min, x_max, y_min, y_max])
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T)
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('In-degree distribution for destination: %s sources: %s' % (destination, ', '.join(sources)), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(ht[3], ax=ax, shrink=0.5, aspect=20)
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = destination+' '+'in degree.png'
+            filename = destination+' in degree.png'
             plt.savefig(filename)
 
     if showFig:
@@ -294,7 +297,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 
         # Add legend
         if popRates:
-            pop_labels = [pop_name + ' (%i active; %.3g Hz)' % (len(pop_active_cells[pop_name]), avg_rates[pop_name]) for pop_name in population_names if pop_name in avg_rates]
+            pop_labels = [pop_name + ' (%i active; %.3g Hz)' % (len(pop_active_cells[pop_name]), avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
         else:
             pop_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))]
             
@@ -573,11 +576,12 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
                 X_min = bin_edges[0]
             else:
                 X_min = max(X_min, bin_edges[0])
+
                 
             if len(spkpoplst) > 1:
-                axes[iplot].set_xlim([X_min, X_max])
+                axes[iplot].set_xlim([-0.5, 0.5])
             else:
-                axes.set_xlim([X_min, X_max])
+                axes.set_xlim([-0.5, 0.5])
         else:
             im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
             cbar = plt.colorbar(im)
@@ -599,7 +603,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
 
 ## Plot spike auto-correlation
 def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', binSize = 25, graphType = 'matrix', lag=1,
-                                   maxCells = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+                                   maxCells = None, xlim = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plot of spike histogram correlations. Returns the figure handle.
 
@@ -711,9 +715,9 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
 
 
 ## Plot spike histogram
-def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, maxSpikes=int(1e6), binSize = 5., 
-                          overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8), fontSize = 14, lw = 3, 
-                          saveFig = None, showFig = True, verbose = False): 
+def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, maxSpikes=int(1e6),
+                          popRates = False, binSize = 5., overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8),
+                          fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots spike histogram. Returns figure handle.
 
@@ -762,6 +766,21 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
     tmax             = spkdata['tmax']
 
     timeRange = [tmin, tmax]
+
+    avg_rates = {}
+    maxN = 0
+    minN = N
+    if popRates:
+        tsecs = (timeRange[1]-timeRange[0])/1e3 
+        for i,pop_name in enumerate(spkpoplst):
+            pop_num = len(pop_active_cells[pop_name])
+            maxN = max(maxN, max(pop_active_cells[pop_name]))
+            minN = min(minN, min(pop_active_cells[pop_name]))
+            if pop_num > 0:
+                if num_cell_spks[pop_name] == 0:
+                    avg_rates[pop_name] = 0
+                else:
+                    avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
             
     # Y-axis label
     if yaxis == 'rate':
@@ -795,8 +814,12 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
+            if popRates:
+                label = str(subset)  + ' (%i active; %.3g Hz)' % (len(pop_active_cells[subset]), avg_rates[subset])
+            else:
+                label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title (str(subset), fontsize=fontSize)
+            plt.title (label, fontsize=fontSize)
    
         if graphType == 'line':
             plt.plot (histoT, histoCount, linewidth=lw, color = color)
@@ -884,7 +907,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_path, population_names, namespace_id, timeVariable=timeVariable, 
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable, 
                                            timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
     
     spkpoplst        = spkdata['spkpoplst']
@@ -1036,7 +1059,7 @@ def plot_stimulus_rate (input_path, namespace_id, include,
 
         
 def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace, distances_namespace, include,
-                                    figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
+                                    normed = False, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
                                     verbose = False): 
     ''' 
 
@@ -1083,27 +1106,32 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         x_max = np.max(distance_U)
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
+
+        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100], weights=rate_sums, normed=normed)
     
         if verbose:
             print 'Plotting stimulus spatial distribution...'
 
+        X, Y = np.meshgrid(xedges, yedges)
         if (len(include) > 1):
-            ht = axes.hist2d(distance_U, distance_V, weights=rate_sums, bins=100, cmin=0.001)
+            pcm = axes[iplot].pcolormesh(X, Y, H.T)
+
             axes[iplot].axis([x_min, x_max, y_min, y_max])
             axes[iplot].set_aspect('equal')
             
             axes[iplot].set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
             axes[iplot].set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-            fig.colorbar(ht[3], ax=axes[iplot], shrink=0.5, aspect=20)
+            fig.colorbar(pcm, ax=axes[iplot], shrink=0.5, aspect=20)
             
         else:
-            ht = axes.hist2d(distance_U, distance_V, weights=rate_sums, bins=100, cmin=0.001)
+            pcm = axes.pcolormesh(X, Y, H.T)
+
             axes.axis([x_min, x_max, y_min, y_max])
             axes.set_aspect('equal')
     
             axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
             axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-            fig.colorbar(ht[3], ax=axes, shrink=0.5, aspect=20)
+            fig.colorbar(pcm, ax=axes, shrink=0.5, aspect=20)
 
     # save figure
     if saveFig: 

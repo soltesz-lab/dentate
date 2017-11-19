@@ -13,11 +13,12 @@ script_name = 'plot_in_degrees.py'
 @click.option("--distances-namespace", '-t', type=str, default='Arc Distance')
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
+@click.option("--normed", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, font_size, verbose):
+def main(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, normed, font_size, verbose):
     plot.plot_in_degree (connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace,
-                         destination, sources, fontSize=font_size, saveFig=True, verbose=verbose)
+                         destination, sources, normed=normed, fontSize=font_size, saveFig=True, verbose=verbose)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

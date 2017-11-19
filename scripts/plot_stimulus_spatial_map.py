@@ -12,11 +12,12 @@ script_name = 'plot_stimulus_spatial_map.py'
 @click.option("--coords-path", '-c', required=True, type=click.Path())
 @click.option("--distances-namespace", '-d', type=str, default='Arc Distance')
 @click.option("--include", '-i', type=str, multiple=True)
+@click.option("--normed", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(features_path, coords_path, features_namespace, distances_namespace, include, font_size, verbose):
+def main(features_path, coords_path, features_namespace, distances_namespace, include, normed, font_size, verbose):
     plot.plot_stimulus_spatial_rate_map (features_path, coords_path, features_namespace, distances_namespace,
-                                         include, fontSize=font_size, saveFig=True, verbose=verbose)
+                                         include, normed=normed, fontSize=font_size, saveFig=True, verbose=verbose)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

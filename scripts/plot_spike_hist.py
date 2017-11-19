@@ -33,7 +33,7 @@ def main(spike_events_path, spike_events_namespace, populations, max_spikes, spi
         populations = ['eachPop']
         
     plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, timeVariable=t_variable,
-                               timeRange=timeRange, maxSpikes=max_spikes, binSize=spike_hist_bin, yaxis=y_axis, fontSize=font_size,
+                               timeRange=timeRange, popRates=True, maxSpikes=max_spikes, binSize=spike_hist_bin, yaxis=y_axis, fontSize=font_size,
                                overlay=overlay, graphType=graph_type, saveFig=True, verbose=verbose)
     
 
