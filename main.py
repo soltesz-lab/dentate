@@ -76,6 +76,15 @@ def mkspikeout (env, spikeout_filename):
     forestFile.copy('/H5Types',spikeoutFile)
     forestFile.close()
     spikeoutFile.close()
+        
+def mkvout (env, vout_filename):
+    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
+    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    forestFile      = h5py.File(forestFilePath,'r')
+    voutFile        = h5py.File(vout_filename,'w')
+    forestFile.copy('/H5Types', voutFile)
+    forestFile.close()
+    voutFile.close()
 
     
 def spikeout (env, output_path, t_vec, id_vec):
@@ -116,6 +125,49 @@ def spikeout (env, output_path, t_vec, id_vec):
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
         write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
+
+def vout (env, output_path, t_vec, id_vec, v_vec):
+    binlst  = []
+    typelst = env.celltypes.keys()
+    for k in typelst:
+        binlst.append(env.celltypes[k]['start'])
+        
+    binvect  = np.array(binlst)
+    sort_idx = np.argsort(binvect,axis=0)
+    bins     = binvect[sort_idx][1:]
+    types    = [ typelst[i] for i in sort_idx ]
+    inds     = np.digitize(id_vec, bins)
+
+    if not str(env.resultsId):
+        namespace_id = "Intracellular Voltage" 
+    else:
+        namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
+    
+    for i in range(0,len(types)):
+        if i > 0:
+            start = bins[i-1]
+        else:
+            start = 0
+        vdict  = {}
+        sinds  = np.where(inds == i)
+        if len(sinds) > 0:
+            ids      = id_vec[sinds]
+            ts       = t_vec[sinds]
+            vs       = v_vec[sinds]
+            for j in range(0,len(ids)):
+                id = ids[j] - start
+                t  = ts[j]
+                v  = vs[j]
+                if vdict.has_key(id):
+                    vdict[id]['t'].append(t)
+                    vdict[id]['v'].append(v)
+                else:
+                    vdict[id]= {'t': [t], 'v': [v]}
+            for j in vdict.keys():
+                vdict[j]['t'] = np.array(vdict[j]['t'])
+                vdict[j]['v'] = np.array(vdict[j]['v'])
+        pop_name = types[i]
+        write_cell_attributes(env.comm, output_path, pop_name, vdict, namespace=namespace_id)
         
 
 def connectcells(env):
@@ -400,6 +452,11 @@ def mkcells(env):
                 env.pc.cell(gid, nc, 1)
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
+                ## Record voltages from a subset of cells
+                if env.vrecordFraction > 0.:
+                  v_vec = h.Vector()
+                  v_vec.record(model_cell.soma(0.5)._ref_v)
+                  env.v_dict[gid] = v_vec 
                 i = i+1
                 h.numCells = h.numCells+1
             if env.verbose:
@@ -588,10 +645,8 @@ def run (env):
     if (rank == 0):
         print "*** Writing results data"
     spikeout(env, env.spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
-
-    # TODO:
-    #if (env.vrecordFraction > 0):
-    #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
+    if env.vrecordFraction > 0.:
+      vout(env, env.spikeoutPath, np.array(env.v_t_vec, dtype=np.float32), np.array(env.v_id_vec, dtype=np.uint32), np.array(env.v_vec, dtype=np.float32))
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
