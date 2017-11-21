@@ -1,6 +1,6 @@
 # full width in um [S-T, M-L]
 Axon Width:
-    GC:   [350., 350.]
+    GC:   [900., 900.]
     MPP:  [1500., 3000.]
     LPP:  [1500., 3000.]
     MC:   [4000., 4000.]
