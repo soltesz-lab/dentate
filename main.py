@@ -149,7 +149,7 @@ def vout (env, output_path, t_vec, v_dict):
         else:
             start = 0
         end = bins[i]
-        attr_dict  = { gid-start : { 'v': vs, 't' : env.v_t_vec } for (gid, vs) in v_dict.iteritems() if gid<end and gid>=start }
+        attr_dict  = { gid-start : { 'v': vs, 't' : t_vec } for (gid, vs) in v_dict.iteritems() if gid<end and gid>=start }
         
         pop_name = types[i]
         write_cell_attributes(env.comm, output_path, pop_name, attr_dict, namespace=namespace_id)
@@ -370,6 +370,10 @@ def mkcells(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    v_sample_seed = int(env.modelConfig['Random Seeds']['Intracellular Voltage Sample'])
+    ranstream_v_sample = np.random.RandomState()
+    ranstream_v_sample.seed(v_sample_seed)
+    
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
 
     h.templatePaths = h.List()
@@ -438,10 +442,10 @@ def mkcells(env):
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 ## Record voltages from a subset of cells
-                if env.vrecordFraction > 0.:
-                  v_vec = h.Vector()
-                  v_vec.record(model_cell.soma(0.5)._ref_v)
-                  env.v_dict[gid] = v_vec 
+                if ranstream_v_sample.uniform() <= env.vrecordFraction:
+                    v_vec = h.Vector()
+                    v_vec.record(model_cell.soma(0.5)._ref_v)
+                    env.v_dict[gid] = v_vec 
                 i = i+1
                 h.numCells = h.numCells+1
             if env.verbose:
