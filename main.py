@@ -76,6 +76,15 @@ def mkspikeout (env, spikeout_filename):
     forestFile.copy('/H5Types',spikeoutFile)
     forestFile.close()
     spikeoutFile.close()
+        
+def mkvout (env, vout_filename):
+    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
+    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    forestFile      = h5py.File(forestFilePath,'r')
+    voutFile        = h5py.File(vout_filename,'w')
+    forestFile.copy('/H5Types', voutFile)
+    forestFile.close()
+    voutFile.close()
 
     
 def spikeout (env, output_path, t_vec, id_vec):
@@ -116,6 +125,21 @@ def spikeout (env, output_path, t_vec, id_vec):
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
         write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
+
+def vout (env, output_path, t_vec, v_dict):
+
+    if not str(env.resultsId):
+        namespace_id = "Intracellular Voltage" 
+    else:
+        namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
+
+    for pop_name, gid_v_dict in v_dict.iteritems():
+        start = env.celltypes[pop_name]['start']
+
+        attr_dict  = { gid-start : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
+                           for (gid, vs) in gid_v_dict.iteritems() }
+
+        write_cell_attributes(env.comm, output_path, pop_name, attr_dict, namespace=namespace_id)
         
 
 def connectcells(env):
@@ -333,6 +357,10 @@ def mkcells(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    v_sample_seed = int(env.modelConfig['Random Seeds']['Intracellular Voltage Sample'])
+    ranstream_v_sample = np.random.RandomState()
+    ranstream_v_sample.seed(v_sample_seed)
+    
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
 
     h.templatePaths = h.List()
@@ -400,6 +428,12 @@ def mkcells(env):
                 env.pc.cell(gid, nc, 1)
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
+                ## Record voltages from a subset of cells
+                if ranstream_v_sample.uniform() <= env.vrecordFraction:
+                    v_vec = h.Vector()
+                    soma = list(model_cell.soma)[0]
+                    v_vec.record(soma(0.5)._ref_v)
+                    env.v_dict[popName][gid] = v_vec 
                 i = i+1
                 h.numCells = h.numCells+1
             if env.verbose:
@@ -588,10 +622,9 @@ def run (env):
     if (rank == 0):
         print "*** Writing results data"
     spikeout(env, env.spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
-
-    # TODO:
-    #if (env.vrecordFraction > 0):
-    #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
+    if env.vrecordFraction > 0.:
+      t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
+      vout(env, env.spikeoutPath, t_vec, env.v_dict)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()

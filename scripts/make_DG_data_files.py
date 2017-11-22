@@ -1,26 +1,34 @@
 import h5py
 import itertools
 
-populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP"]
-IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
-forest_files = ["AAC_forest_syns_20171013.h5",
-                "BC_forest_syns_20171013.h5",
-                "DGC_forest_syns_20171024_compressed.h5",
-                "HC_forest_syns_20171013.h5",
-                "HCC_forest_syns_20171013.h5",
-                "IS_forest_syns_20171013.h5",
-                "MC_forest_syns_20171013.h5",
-                "MOPP_forest_syns_20171013.h5",
-                "NGFC_forest_syns_20171013.h5",
-                None,
-                None]
+DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP"]
+DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 
-coords_file = "dentate_Full_Scale_Control_spiketrains_20171024.h5"
+DG_IN_forest_file = "DG_IN_forest_syns_20171102.h5"
+
+forest_files = {
+    'AAC': DG_IN_forest_file,
+    'BC': DG_IN_forest_file,
+    'GC': "DGC_forest_syns_20171024_compressed.h5",
+    'HC': DG_IN_forest_file,
+    'HCC': DG_IN_forest_file,
+    'IS': DG_IN_forest_file,
+    'MC': DG_IN_forest_file,
+    'MOPP': DG_IN_forest_file,
+    'NGFC': DG_IN_forest_file 
+}
+
+coords_file = "dentate_Full_Scale_Control_coords_PP_spiketrains_20171107.h5"
 
 vecstim_populations = ["MPP", "LPP"]
-spiketrains_file = "dentate_Full_Scale_Control_spiketrains_20171024.h5"
 
-f = h5py.File("DG_cells_20171024.h5")
+spiketrains_dict = {
+    'Vector Stimulus 0': "dentate_Full_Scale_Control_coords_PP_spiketrains_20171107.h5"
+}
+
+DG_cells_file = "DG_cells_20171116.h5"
+
+f = h5py.File(DG_cells_file)
 
 grp = f.create_group("Populations")
                 
@@ -31,13 +39,14 @@ for p in populations:
     grp[p]["Coordinates"] = h5py.ExternalLink(coords_file,"/Populations/%s/Coordinates" % p)
     grp[p]["Arc Distance"] = h5py.ExternalLink(coords_file,"/Populations/%s/Arc Distance" % p)
 
-for p in vecstim_populations:
-    grp[p]["Vector Stimulus 0"] = h5py.ExternalLink(spiketrains_file,"/Populations/%s/Vector Stimulus 0" % p)
-
 for (p,ff) in itertools.izip (populations,forest_files):
     if ff is not None:
         grp[p]["Trees"] = h5py.ExternalLink(ff,"/Populations/%s/Trees" % p)
         grp[p]["Synapse Attributes"] = h5py.ExternalLink(ff,"/Populations/%s/Synapse Attributes" % p)
+
+for p in vecstim_populations:
+    for (vecstim_ns, spiketrains_file) in spiketrains_dict.iteritems():
+        grp[p][vecstim_ns] = h5py.ExternalLink(spiketrains_file,"/Populations/%s/%s" % (p, vecstim_ns))
 
 f.close()
 
