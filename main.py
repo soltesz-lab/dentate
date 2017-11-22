@@ -126,7 +126,7 @@ def spikeout (env, output_path, t_vec, id_vec):
         pop_name = types[i]
         write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
 
-def vout (env, output_path, t_vec, id_vec, v_vec):
+def vout (env, output_path, t_vec, v_dict):
     binlst  = []
     typelst = env.celltypes.keys()
     for k in typelst:
@@ -136,7 +136,7 @@ def vout (env, output_path, t_vec, id_vec, v_vec):
     sort_idx = np.argsort(binvect,axis=0)
     bins     = binvect[sort_idx][1:]
     types    = [ typelst[i] for i in sort_idx ]
-    inds     = np.digitize(id_vec, bins)
+    inds     = np.digitize(np.asarray(v_dict.keys()), bins)
 
     if not str(env.resultsId):
         namespace_id = "Intracellular Voltage" 
@@ -148,26 +148,11 @@ def vout (env, output_path, t_vec, id_vec, v_vec):
             start = bins[i-1]
         else:
             start = 0
-        vdict  = {}
-        sinds  = np.where(inds == i)
-        if len(sinds) > 0:
-            ids      = id_vec[sinds]
-            ts       = t_vec[sinds]
-            vs       = v_vec[sinds]
-            for j in range(0,len(ids)):
-                id = ids[j] - start
-                t  = ts[j]
-                v  = vs[j]
-                if vdict.has_key(id):
-                    vdict[id]['t'].append(t)
-                    vdict[id]['v'].append(v)
-                else:
-                    vdict[id]= {'t': [t], 'v': [v]}
-            for j in vdict.keys():
-                vdict[j]['t'] = np.array(vdict[j]['t'])
-                vdict[j]['v'] = np.array(vdict[j]['v'])
+        end = bins[i]
+        attr_dict  = { gid-start : { 'v': vs, 't' : env.v_t_vec } for (gid, vs) in v_dict.iteritems() if gid<end and gid>=start }
+        
         pop_name = types[i]
-        write_cell_attributes(env.comm, output_path, pop_name, vdict, namespace=namespace_id)
+        write_cell_attributes(env.comm, output_path, pop_name, attr_dict, namespace=namespace_id)
         
 
 def connectcells(env):
@@ -635,6 +620,8 @@ def run (env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    env.v_t_vec.record(h.ref(h.t))
+    
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 
@@ -646,7 +633,7 @@ def run (env):
         print "*** Writing results data"
     spikeout(env, env.spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
     if env.vrecordFraction > 0.:
-      vout(env, env.spikeoutPath, np.array(env.v_t_vec, dtype=np.float32), np.array(env.v_id_vec, dtype=np.uint32), np.array(env.v_vec, dtype=np.float32))
+      vout(env, env.spikeoutPath, env.v_t_vec, env.v_dict)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
