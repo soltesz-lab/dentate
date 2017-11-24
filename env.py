@@ -3,7 +3,7 @@ from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names, read_cell_attribute_info
 import numpy as np
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import yaml
 import utils
 
@@ -221,8 +221,7 @@ class Env:
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
 
-        self.v_dict  = {}  # Voltage samples on this host
-        self.v_t_vec = h.Vector()  
+        self.v_dict  = defaultdict(lambda: {})  # Voltage samples on this host
             
         # used to calculate model construction times and run time
         self.mkcellstime = 0

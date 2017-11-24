@@ -29,5 +29,9 @@ aprun -n 1024 python ./scripts/generate_distance_connections.py \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/Full_Scale_Control/dentate_Full_Scale_Control_coords_20171005.h5 \
        --coords-namespace=Coordinates \
-       --io-size=256 --cache-size=1 --value-chunk-size=50000 --chunk-size=10000 --write-size=10 --quick
+       --io-size=256 --cache-size=1 --value-chunk-size=50000 --chunk-size=10000 --write-size=10 \
+       --quick
 
+aprun -n 1024 python $HOME/dentate/scripts/generate_DG_GC_log_normal_weights_as_cell_attr.py \
+--weights-path=$SCRATCH/Full_Scale_Control/DG_GC_forest_syns_weights_20171106.h5 \
+--connections-path=$SCRATCH/Full_Scale_Control/DG_GC_connections_20171022_compressed.h5

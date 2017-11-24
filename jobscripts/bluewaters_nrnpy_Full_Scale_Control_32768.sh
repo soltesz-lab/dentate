@@ -55,5 +55,6 @@ aprun -n 32768 \
     --tstop=10000 \
     --v-init=-75 \
     --max-walltime-hours=4.33 \
+    --vrecord-fraction=0.001 \
     --verbose
 
