@@ -292,13 +292,13 @@ Synapse Kinetics:
           e_rev: 0
       MPP:
         AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
+          t_rise: 3.0
+          t_decay: 30.0
           e_rev: 0
       LPP:
         AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
+          t_rise: 3.0
+          t_decay: 30.0
           e_rev: 0
       HC:
         GABA_A:
@@ -540,13 +540,13 @@ Synapse Kinetics:
   NGFC:
       MPP:
         AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
+          t_rise: 3.0
+          t_decay: 30.0
           e_rev: 0
       LPP:
         AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
+          t_rise: 3.0
+          t_decay: 30.0
           e_rev: 0
       BC:
         GABA_A:
@@ -670,11 +670,11 @@ Connection Properties:
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 0.0063967
+        weight: 0.15
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 0.0066967
+        weight: 0.1
         velocity: 250.0
   MC:
     AAC:
@@ -712,7 +712,7 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.2
+        weight: 2.2
         velocity: 250.0
     BC:
       GABA_A:
@@ -763,11 +763,11 @@ Connection Properties:
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 2.5
+        weight: 0.5
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 2.5
+        weight: 0.5
         velocity: 250.0
   AAC:
     GC:
@@ -862,7 +862,7 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.3
+        weight: 2.3
         velocity: 250.0
     BC:
       GABA_A:
@@ -893,7 +893,7 @@ Connection Properties:
   IS:
     GC:
       AMPA:
-        weight: 0.3
+        weight: 0.5
         velocity: 250.0
     IS:
       GABA_A:
