@@ -404,6 +404,12 @@ def mkcells(env):
         else:
             synapses = {}
 
+
+        v_sample_set = set([])
+        for gid in xrange(env.celltypes[popName]['start'], env.celltypes[popName]['start']+env.celltypes[popName]['num']):
+          if ranstream_v_sample.uniform() <= env.vrecordFraction:
+            v_sample_set.add(gid)
+
         if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
             if env.verbose:
                 if env.pc.id() == 0:
@@ -441,7 +447,7 @@ def mkcells(env):
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 ## Record voltages from a subset of cells
-                if ranstream_v_sample.uniform() <= env.vrecordFraction:
+                if gid in v_sample_set:
                     v_vec = h.Vector()
                     soma = list(model_cell.soma)[0]
                     v_vec.record(soma(0.5)._ref_v)

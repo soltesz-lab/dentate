@@ -87,8 +87,8 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
     distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
     distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(in_degrees)) ])
 
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100], weights=in_degrees, normed=normed)
-    
+    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[100, 100], weights=in_degrees, normed=normed)
+
     if verbose:
         print 'Plotting in-degree distribution...'
 
