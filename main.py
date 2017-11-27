@@ -406,6 +406,8 @@ def mkcells(env):
 
 
         v_sample_set = set([])
+        env.v_dict[popName] = {}
+        
         for gid in xrange(env.celltypes[popName]['start'], env.celltypes[popName]['start']+env.celltypes[popName]['num']):
           if ranstream_v_sample.uniform() <= env.vrecordFraction:
             v_sample_set.add(gid)
