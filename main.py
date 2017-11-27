@@ -134,6 +134,7 @@ def vout (env, output_path, t_vec, v_dict):
         namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
 
     for pop_name, gid_v_dict in v_dict.iteritems():
+        
         start = env.celltypes[pop_name]['start']
 
         attr_dict  = { gid-start : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
