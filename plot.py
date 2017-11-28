@@ -45,7 +45,7 @@ def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
 def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                   normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                   hnormed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -856,7 +856,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = namespace_id+'_'+'spike_histogram.png'
+            filename = namespace_id+' '+'histogram.png'
         plt.savefig(filename)
 
     if showFig:
@@ -1138,7 +1138,7 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = stimulus_namespace+'_'+'spatial_ratemap.png'
+            filename = stimulus_namespace+' '+'spatial ratemap.png'
         plt.savefig(filename)
 
     # show fig 
