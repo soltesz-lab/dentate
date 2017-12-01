@@ -1,9 +1,9 @@
 
 import sys, time, gc
 from mpi4py import MPI
-import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
     NeuroH5ProjectionGen
+import h5py
 from neuroh5_io_utils import *
 import numpy as np
 from collections import defaultdict
@@ -30,7 +30,7 @@ try:
 except:
     pass
 
-script_name = 'generate_DG_GC_structured_weights_as_cell_attr.py'
+script_name = 'generate_structured_weights_as_cell_attr.py'
 
 local_random = np.random.RandomState()
 
@@ -101,7 +101,8 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     default_run_vel = 30.  # cm/s
     spatial_resolution = 1.  # cm
 
-    with h5py.File(stimulus_path, 'a', driver='mpio', comm=comm) as f:
+    if rank == 0:
+      with h5py.File(stimulus_path, 'a') as f:
         if trajectory_namespace not in f:
             print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
             group = f.create_group(trajectory_namespace)
@@ -115,18 +116,23 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
             print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
             group = f[trajectory_namespace]
             dataset = group['x']
-            with dataset.collective:
-                x = dataset[:]
+            x = dataset[:]
             dataset = group['y']
-            with dataset.collective:
-                y = dataset[:]
+            y = dataset[:]
             dataset = group['d']
-            with dataset.collective:
-                d = dataset[:]
+            d = dataset[:]
             dataset = group['t']
-            with dataset.collective:
-                t = dataset[:]
-
+            t = dataset[:]
+    else:
+        x = None
+        y = None
+        d = None
+        t = None
+    x = comm.bcast(x, root=0)
+    y = comm.bcast(y, root=0)
+    d = comm.bcast(d, root=0)
+    t = comm.bcast(t, root=0)
+    
     plasticity_window_dur = 4.  # s
     plasticity_kernel_sigma = plasticity_window_dur * default_run_vel / 3. / np.sqrt(2.)  # cm
     plasticity_kernel = lambda d, d_offset: np.exp(-((d - d_offset) / plasticity_kernel_sigma) ** 2.)

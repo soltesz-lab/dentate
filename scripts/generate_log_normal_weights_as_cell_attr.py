@@ -27,7 +27,7 @@ try:
 except:
     pass
 
-script_name = 'generate_DG_GC_log_normal_weights_as_cell_attr.py'
+script_name = 'generate_log_normal_weights_as_cell_attr.py'
 
 local_random = np.random.RandomState()
 
