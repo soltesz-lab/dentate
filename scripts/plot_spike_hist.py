@@ -10,7 +10,6 @@ script_name = 'plot_spike_hist.py'
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--max-spikes", type=int, default=int(1e6))
 @click.option("--spike-hist-bin", type=float, default=5.0)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
@@ -20,7 +19,7 @@ script_name = 'plot_spike_hist.py'
 @click.option("--graph-type", type=str, default='bar')
 @click.option("--overlay", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, y_axis, font_size, graph_type, overlay, verbose):
+def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin, t_variable, t_max, t_min, y_axis, font_size, graph_type, overlay, verbose):
     if t_max is None:
         timeRange = None
     else:
@@ -33,7 +32,7 @@ def main(spike_events_path, spike_events_namespace, populations, max_spikes, spi
         populations = ['eachPop']
         
     plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, timeVariable=t_variable,
-                               timeRange=timeRange, popRates=True, maxSpikes=max_spikes, binSize=spike_hist_bin, yaxis=y_axis, fontSize=font_size,
+                               timeRange=timeRange, popRates=True, binSize=spike_hist_bin, yaxis=y_axis, fontSize=font_size,
                                overlay=overlay, graphType=graph_type, saveFig=True, verbose=verbose)
     
 

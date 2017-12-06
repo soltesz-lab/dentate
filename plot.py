@@ -715,7 +715,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
 
 
 ## Plot spike histogram
-def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, maxSpikes=int(1e6),
+def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
                           popRates = False, binSize = 5., overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8),
                           fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
@@ -755,7 +755,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
+                                           timeRange=timeRange, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']

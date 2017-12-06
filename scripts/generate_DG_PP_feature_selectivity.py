@@ -30,7 +30,18 @@ max_field_width = field_width(1.)
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
 selectivity_place_field = 1
-selectivity_type_dict = {'MPP': selectivity_grid, 'LPP': selectivity_place_field }
+
+## About 27% of mEC cells were reported to be grid or border cells; 68% non-grid spatial; 4% non-spatial;
+## Reference:
+## https://www.ncbi.nlm.nih.gov/pubmed/28343867
+## Diehl GW, Hon OJ, Leutgeb S, Leutgeb JK.
+## Grid and Nongrid Cells in Medial Entorhinal Cortex Represent
+## Spatial Location and Environmental Features with Complementary
+## Coding Schemes. 
+## Neuron Volume 94, Issue 1, 5 April 2017, pp 83-92.
+
+selectivity_type_dict = { 'MPP': { selectivity_grid: 0.3, selectivity_place_field: 0.7 },
+                          'LPP': { selectivity_place_field: 1.0 } }
 
 
 @click.command()
@@ -68,6 +79,9 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
 
     local_random = random.Random()
     local_random.seed(selectivity_seed_offset - 1)
+
+    selectivity_type_random = np.random.RandomState(selectivity_seed_offset - 1)
+    
     # every 60 degrees repeats in a hexagonal array
     grid_orientation = [local_random.uniform(0., np.pi / 3.) for i in range(len(modules))]
 
@@ -76,10 +90,21 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
     population_ranges = read_population_ranges(comm, coords_path)[0]
 
     for population in ['MPP', 'LPP']:
-        (population_start, _) = population_ranges[population]
+        (population_start, population_count) = population_ranges[population]
         count = 0
         start_time = time.time()
-        selectivity_type = selectivity_type_dict[population]
+        selectivity_type_value_lst = []
+        selectivity_type_prob_lst  = []
+        for t, p in selectivity_type_dict[population].iteritems():
+            selectivity_type_value_lst.append(t)
+            selectivity_type_prob_lst.append(p)
+
+        selectivity_type_values = np.asarray(selectivity_type_value_lst)
+        selectivity_type_probs  = np.asarray(selectivity_type_prob_lst)
+
+        selectivity_types = selectivity_type_random.choice(selectivity_type_values, p=selectivity_type_probs,
+                                                           size=(population_count,) )
+
         attr_gen = NeuroH5CellAttrGen(comm, coords_path, population, io_size=io_size, cache_size=cache_size,
                                       namespace=distances_namespace)
         if debug:
@@ -94,8 +119,10 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
 
                 arc_distance_u = distances_dict['U Distance'][0]
                 arc_distance_v = distances_dict['V Distance'][0]
-                    
+
                 local_random.seed(gid + selectivity_seed_offset)
+
+                selectivity_type = selectivity_types[gid-population_start]
                 selectivity_dict[gid-population_start]['Selectivity Type'] = np.array([selectivity_type], dtype='uint8')
                 
                 if selectivity_type == selectivity_grid:
@@ -129,8 +156,8 @@ def main(coords_path, distances_namespace, io_size, chunk_size, value_chunk_size
                     y_offset = r_offset * np.sin(phi_offset)
                     selectivity_dict[gid-population_start]['X Offset'] = np.array([x_offset], dtype='float32')
                     selectivity_dict[gid-population_start]['Y Offset'] = np.array([y_offset], dtype='float32')
-                print 'Rank %i: took %.2f s to compute selectivity parameters for %s gid %i' % \
-                      (rank, time.time() - local_time, population, gid)
+                print 'Rank %i: took %.2f s to compute selectivity parameters for %s gid %i (type %i)' % \
+                      (rank, time.time() - local_time, population, gid, selectivity_type)
                 count += 1
             if not debug:
                 append_cell_attributes(comm, coords_path, population, selectivity_dict,
