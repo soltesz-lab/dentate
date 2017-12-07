@@ -2,7 +2,7 @@
 #
 #SBATCH -J compute_arc_distance
 #SBATCH -o ./results/compute_arc_distance.%j.o
-#SBATCH --nodes=4
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -25,8 +25,10 @@ export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 
 set -x
 
-ibrun -np 96 python ./scripts/compute_arc_distance.py \
-       --coords-path=$SCRATCH/dentate/dentate_Full_Scale_Control_coords_20171005.h5 \
+ibrun -np 384  python ./scripts/compute_arc_distance.py \
+       --config=./config/Full_Scale_Control.yaml \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/dentate_Full_Scale_Control_coords_distances_20171109.h5 \
        --coords-namespace=Coordinates \
-       --io-size=24
+       -l OML \
+       --io-size=32
 

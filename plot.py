@@ -1,7 +1,7 @@
 
 import itertools
 import numpy as np
-from scipy import interpolate
+from scipy import signal
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -44,8 +44,9 @@ def ifilternone(iterable):
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
+
 def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                   normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                   hnormed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -180,7 +181,8 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
         show_figure()
 
     return ax
-    
+
+
 ## Plot spike raster
 def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', maxSpikes = int(1e6),
                        orderInverse = False, labels = 'legend', popRates = False,
@@ -223,7 +225,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
+                                           timeRange=timeRange, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -232,17 +234,14 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
     pop_active_cells = spkdata['pop_active_cells']
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
-
-    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
     
     timeRange = [tmin, tmax]
 
-    # Calculate spike histogram 
+    # Calculate spike histogram if requested
     if spikeHist:
         all_spkts = np.concatenate(spktlst, axis=0)
         histoCount, bin_edges = np.histogram(all_spkts, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
         histoT = bin_edges[:-1]+spikeHistBin/2
-
 
     maxN = 0
     minN = N
@@ -258,8 +257,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
                     avg_rates[pop_name] = 0
                 else:
                     avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
-
-                    
+        
+    
+    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
+    
     # Plot spikes
     fig, ax1 = plt.subplots(figsize=figSize)
 
@@ -271,6 +272,15 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
     if spikeHist is None:
 
         for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (spkpoplst, spkindlst, spktlst):
+
+            if maxSpikes is not None:
+                if int(maxSpikes) < len(pop_spkinds):
+                    if verbose:
+                        print('  Displaying only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
+                    sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(maxSpikes))
+                    pop_spkts   = pop_spkts[sample_inds]
+                    pop_spkinds = pop_spkinds[sample_inds]
+
             sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
         
         ax1.set_xlim(timeRange)
@@ -286,6 +296,15 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
         ax1=plt.subplot(gs[0])
         
         for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (spkpoplst, spkindlst, spktlst):
+
+            if maxSpikes is not None:
+                if int(maxSpikes) < len(pop_spkinds):
+                    if verbose:
+                        print('  Displaying only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
+                    sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(maxSpikes))
+                    pop_spkts   = pop_spkts[sample_inds]
+                    pop_spkinds = pop_spkinds[sample_inds]
+
             sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
             
         ax1.set_xlim(timeRange)
@@ -486,237 +505,12 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     return fig
 
 
-## Plot spike cross-correlation
-def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', binSize = 25, graphType = 'matrix',
-                               maxCells = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
-    ''' 
-    Plot of spike histogram correlations. Returns the figure handle.
-
-    input_path: file with spike data
-    namespace_id: attribute namespace for spike events
-    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-    timeVariable: Name of variable containing spike times (default: 't')
-    binSize (int): Size of bin in ms to use for spike count and rate computations (default: 5)
-    lw (integer): Line width for each spike (default: 3)
-    marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
-    '''
-
-    comm = MPI.COMM_WORLD
-
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
-
-    pop_num_cells = {}
-    for k in population_names:
-        pop_num_cells[k] = population_ranges[k][1]
-
-    # Replace 'eachPop' with list of populations
-    if 'eachPop' in include: 
-        include.remove('eachPop')
-        for pop in population_names:
-            include.append(pop)
-
-    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
-
-    spkpoplst        = spkdata['spkpoplst']
-    spkindlst        = spkdata['spkindlst']
-    spktlst          = spkdata['spktlst']
-    num_cell_spks    = spkdata['num_cell_spks']
-    pop_active_cells = spkdata['pop_active_cells']
-    tmin             = spkdata['tmin']
-    tmax             = spkdata['tmax']
-    
-    if verbose:
-        print('Calculating spike correlations...')
-
-    corr_dict = spikedata.histogram_correlation(spkdata, binSize=binSize, maxElems=maxCells)
-        
-    # Plot spikes
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
-
-    if verbose:
-        print('Creating correlation plots...')
-
-    X_max = None
-    X_min = None
-    for (iplot, subset) in enumerate(spkpoplst):
-
-        pop_corr = corr_dict[subset]
-
-        if len(spkpoplst) > 1:
-            axes[iplot].set_title (str(subset), fontsize=fontSize)
-        else:
-            axes.set_title (str(subset), fontsize=fontSize)
-            
-        if graphType == 'matrix':
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
-            cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
-        elif graphType == 'histogram':
-            np.fill_diagonal(pop_corr, 0.)
-            mean_corr = np.apply_along_axis(lambda y: np.mean(y), 1, pop_corr)
-            histoCount, bin_edges = np.histogram(mean_corr, bins = 100)
-            corrBinSize = bin_edges[1] - bin_edges[0]
-            histoX = bin_edges[:-1]+corrBinSize/2
-            color = color_list[iplot%len(color_list)]
-            if len(spkpoplst) > 1:
-                b = axes[iplot].bar(histoX, histoCount, width = corrBinSize, color = color)
-            else:
-                b = axes.bar(histoX, histoCount, width = corrBinSize, color = color)
-            if X_max is None:
-                X_max = bin_edges[-1]
-            else:
-                X_max = max(X_max, bin_edges[-1])
-            if X_min is None:
-                X_min = bin_edges[0]
-            else:
-                X_min = max(X_min, bin_edges[0])
-
-                
-            if len(spkpoplst) > 1:
-                axes[iplot].set_xlim([-0.5, 0.5])
-            else:
-                axes.set_xlim([-0.5, 0.5])
-        else:
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
-            cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
-
-        if graphType == 'matrix':
-            if iplot == 0: 
-                axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
-            if iplot == len(spkpoplst)-1:
-                axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)
-
-                
-    # show fig 
-    if showFig:
-        show_figure()
-    
-    return fig
-
-
-## Plot spike auto-correlation
-def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', binSize = 25, graphType = 'matrix', lag=1,
-                                   maxCells = None, xlim = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
-    ''' 
-    Plot of spike histogram correlations. Returns the figure handle.
-
-    input_path: file with spike data
-    namespace_id: attribute namespace for spike events
-    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-    timeVariable: Name of variable containing spike times (default: 't')
-    binSize (int): Size of bin in ms to use for spike count and rate computations (default: 5)
-    lw (integer): Line width for each spike (default: 3)
-    marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
-    '''
-
-    comm = MPI.COMM_WORLD
-
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
-
-    pop_num_cells = {}
-    for k in population_names:
-        pop_num_cells[k] = population_ranges[k][1]
-
-    # Replace 'eachPop' with list of populations
-    if 'eachPop' in include: 
-        include.remove('eachPop')
-        for pop in population_names:
-            include.append(pop)
-
-    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
-
-    spkpoplst        = spkdata['spkpoplst']
-    spkindlst        = spkdata['spkindlst']
-    spktlst          = spkdata['spktlst']
-    num_cell_spks    = spkdata['num_cell_spks']
-    pop_active_cells = spkdata['pop_active_cells']
-    tmin             = spkdata['tmin']
-    tmax             = spkdata['tmax']
-    
-    if verbose:
-        print('Calculating spike correlations...')
-
-    corr_dict = spikedata.histogram_autocorrelation(spkdata, binSize=binSize, maxElems=maxCells, lag=lag)
-        
-    # Plot spikes
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
-
-    if verbose:
-        print('Creating autocorrelation plots...')
-
-    X_max = None
-    X_min = None
-    for (iplot, subset) in enumerate(spkpoplst):
-
-        pop_corr = corr_dict[subset]
-        
-        if len(spkpoplst) > 1:
-            axes[iplot].set_title (str(subset), fontsize=fontSize)
-        else:
-            axes.set_title (str(subset), fontsize=fontSize)
-
-        if graphType == 'matrix':
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
-            cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
-        elif graphType == 'histogram':
-            histoCount, bin_edges = np.histogram(pop_corr, bins = 100)
-            corrBinSize = bin_edges[1] - bin_edges[0]
-            histoX = bin_edges[:-1]+corrBinSize/2
-            color = color_list[iplot%len(color_list)]
-            if len(spkpoplst) > 1:
-                b = axes[iplot].bar(histoX, histoCount, width = corrBinSize, color = color)
-            else:
-                b = axes.bar(histoX, histoCount, width = corrBinSize, color = color)
-            if X_max is None:
-                X_max = bin_edges[-1]
-            else:
-                X_max = max(X_max, bin_edges[-1])
-            if X_min is None:
-                X_min = bin_edges[0]
-            else:
-                X_min = max(X_min, bin_edges[0])
-                
-            if len(spkpoplst) > 1:
-                axes[iplot].set_xlim([X_min, X_max])
-            else:
-                axes.set_xlim([X_min, X_max])
-        else:
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
-            cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
-
-        if graphType == 'matrix':
-            if iplot == 0:
-                axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
-            if iplot == len(spkpoplst)-1:
-                axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)
-
-                
-    # show fig 
-    if showFig:
-        show_figure()
-    
-    return fig
 
 
 
 ## Plot spike histogram
-def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, maxSpikes=int(1e6),
-                          popRates = False, binSize = 5., overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8),
+def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
+                          popRates = False, binSize = 5., smooth = 0, overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8),
                           fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots spike histogram. Returns figure handle.
@@ -755,7 +549,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
+                                           timeRange=timeRange, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -798,7 +592,6 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         print('Plotting spike histogram...')
         
     # Plot separate line for each entry in include
-    histoData = []
     for iplot, subset in enumerate(spkpoplst):
 
         spkts = spktlst[iplot]
@@ -806,8 +599,6 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
         histoT = bin_edges[:-1]+binSize/2
         
-        histoData.append(histoCount)
-
         if yaxis=='rate':
             histoCount = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
 
@@ -820,11 +611,16 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
                 label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
             plt.subplot(len(spkpoplst),1,iplot+1)
             plt.title (label, fontsize=fontSize)
+            
+        if smooth:
+            hsignal = signal.savgol_filter(histoCount, window_length=2*(len(histoCount)/16) + 1, polyorder=smooth) 
+        else:
+            hsignal = histoCount
    
         if graphType == 'line':
-            plt.plot (histoT, histoCount, linewidth=lw, color = color)
+            plt.plot (histoT, hsignal, linewidth=lw, color = color)
         elif graphType == 'bar':
-            plt.bar(histoT, histoCount, width = binSize, color = color)
+            plt.bar(histoT, hsignal, width = binSize, color = color)
 
         if iplot == 0:
             plt.ylabel(yaxisLabel, fontsize=fontSize)
@@ -856,7 +652,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = namespace_id+'_'+'spike_histogram.png'
+            filename = namespace_id+' '+'histogram.png'
         plt.savefig(filename)
 
     if showFig:
@@ -868,7 +664,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
 
 def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', 
-                   maxSpikes = int(1e6), binSize = 5, Fs = 200, smooth = 0, overlay=True, 
+                   binSize = 5, Fs = 200, nperseg = 128, smooth = 0, overlay = True,
                    figSize = (8,8), fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots firing rate power spectral density (PSD). Returns figure handle.
@@ -880,8 +676,8 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
         - timeVariable: Name of variable containing spike times (default: 't')
         - binSize (int): Size in ms of each bin (default: 5)
         - Fs (float): sampling frequency
+        - nperseg (int): Length of each segment. 
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
-        - graphType ('line'|'bar'): Type of graph to use (line graph or bar plot) (default: 'line')
         - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
         - figSize ((width, height)): Size of figure (default: (8,8))
         - fontSize (integer): Size of text font (default: 14)
@@ -908,7 +704,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable, 
-                                           timeRange=timeRange, maxSpikes=maxSpikes, verbose=verbose)
+                                           timeRange=timeRange, verbose=verbose)
     
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -927,54 +723,46 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
         print('Plotting firing rate power spectral density (PSD) ...')
     
     # Plot separate line for each entry in include
-    histoData = []
     for iplot, subset in enumerate(spkpoplst):
 
         spkts = spktlst[iplot]
 
         histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
-        histoData.append(histoCount)
-        hsignal = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
-        
-        power = mlab.psd(hsignal, Fs=Fs, NFFT=256, detrend=mlab.detrend_none, window=mlab.window_hanning, 
-                         noverlap=0, pad_to=None, sides='default', scale_by_freq=None)
-
         if smooth:
-            signal = smooth1d(10*np.log10(power[0]), smooth)
+            hsignal = signal.savgol_filter(histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])),
+                                           window_length=nperseg/2 + 1, polyorder=smooth) # smoothen and convert to firing rate
         else:
-            signal = 10*np.log10(power[0])
+            hsignal = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
             
-        freqs = power[1]
-
+        win = signal.get_window('hanning',nperseg)
+        freqs, psd = signal.welch(hsignal, fs=Fs, nperseg=nperseg, noverlap=(nperseg // 2),
+                                  scaling='density', window=win)
+        
+        psd = 10*np.log10(psd)
+        peak_index  = np.where(psd == np.max(psd))[0]
+        
         color = color_list[iplot%len(color_list)]
 
-        if not overlay: 
-            plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
-            plt.title (str(subset), fontsize=fontSize)
+        if not overlay:
+            label = str(subset)
+            plt.subplot(len(spkpoplst),1,iplot+1)
+            plt.title ('%s (peak: %.3g Hz)' % (label, freqs[peak_index]), fontsize=fontSize)
 
-        plt.plot(freqs, signal, linewidth=lw, color=color)
-
+        plt.plot(freqs, psd, linewidth=lw, color=color)
+        
         if iplot == 0:
-            plt.xlabel('Frequency (Hz)', fontsize=fontSize)
             plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fontSize) # add yaxis in opposite side
+        if iplot == len(spkpoplst)-1:
+            plt.xlabel('Frequency (Hz)', fontsize=fontSize)
         plt.xlim([0, (Fs/2)-1])
 
+        
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
         try:
             plt.tight_layout()
         except:
             pass
 
-    # Add legend
-    if overlay:
-        for i,subset in enumerate(spkpoplst):
-            color = color_list[i%len(color_list)]
-            plt.plot(0,0,color=color,label=str(subset))
-        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
-        maxLabelLen = min(10,max([len(str(l)) for l in include]))
-        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
-
- 
     # save figure
     if saveFig: 
         if isinstance(saveFig, basestring):
@@ -987,7 +775,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
     if showFig:
         show_figure()
 
-    return fig, power
+    return fig, psd
 
 
 
@@ -1138,7 +926,7 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = stimulus_namespace+'_'+'spatial_ratemap.png'
+            filename = stimulus_namespace+' '+'spatial ratemap.png'
         plt.savefig(filename)
 
     # show fig 
@@ -1210,3 +998,230 @@ def plot_selectivity_rate_map (selectivity_path, selectivity_namespace, populati
     if showFig:
         show_figure()
         
+
+        
+## Plot spike auto-correlation
+def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', binSize = 25, graphType = 'matrix', lag=1,
+                                   maxCells = None, xlim = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Plot of spike histogram correlations. Returns the figure handle.
+
+    input_path: file with spike data
+    namespace_id: attribute namespace for spike events
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    binSize (int): Size of bin in ms to use for spike count and rate computations (default: 5)
+    lw (integer): Line width for each spike (default: 3)
+    marker (char): Marker for each spike (default: '|')
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange, verbose=verbose)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+    
+    if verbose:
+        print('Calculating spike correlations...')
+
+    corr_dict = spikedata.histogram_autocorrelation(spkdata, binSize=binSize, maxElems=maxCells, lag=lag)
+        
+    # Plot spikes
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+
+    if verbose:
+        print('Creating autocorrelation plots...')
+
+    X_max = None
+    X_min = None
+    for (iplot, subset) in enumerate(spkpoplst):
+
+        pop_corr = corr_dict[subset]
+        
+        if len(spkpoplst) > 1:
+            axes[iplot].set_title (str(subset), fontsize=fontSize)
+        else:
+            axes.set_title (str(subset), fontsize=fontSize)
+
+        if graphType == 'matrix':
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            cbar = plt.colorbar(im)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+        elif graphType == 'histogram':
+            histoCount, bin_edges = np.histogram(pop_corr, bins = 100)
+            corrBinSize = bin_edges[1] - bin_edges[0]
+            histoX = bin_edges[:-1]+corrBinSize/2
+            color = color_list[iplot%len(color_list)]
+            if len(spkpoplst) > 1:
+                b = axes[iplot].bar(histoX, histoCount, width = corrBinSize, color = color)
+            else:
+                b = axes.bar(histoX, histoCount, width = corrBinSize, color = color)
+            if X_max is None:
+                X_max = bin_edges[-1]
+            else:
+                X_max = max(X_max, bin_edges[-1])
+            if X_min is None:
+                X_min = bin_edges[0]
+            else:
+                X_min = max(X_min, bin_edges[0])
+                
+            if len(spkpoplst) > 1:
+                axes[iplot].set_xlim([X_min, X_max])
+            else:
+                axes.set_xlim([X_min, X_max])
+        else:
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            cbar = plt.colorbar(im)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+
+        if graphType == 'matrix':
+            if iplot == 0:
+                axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
+            if iplot == len(spkpoplst)-1:
+                axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)
+
+                
+    # show fig 
+    if showFig:
+        show_figure()
+    
+    return fig
+
+
+## Plot spike cross-correlation
+def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', binSize = 25, graphType = 'matrix',
+                               maxCells = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Plot of spike histogram correlations. Returns the figure handle.
+
+    input_path: file with spike data
+    namespace_id: attribute namespace for spike events
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    binSize (int): Size of bin in ms to use for spike count and rate computations (default: 5)
+    lw (integer): Line width for each spike (default: 3)
+    marker (char): Marker for each spike (default: '|')
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange, verbose=verbose)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+    
+    if verbose:
+        print('Calculating spike correlations...')
+
+    corr_dict = spikedata.histogram_correlation(spkdata, binSize=binSize, maxElems=maxCells)
+        
+    # Plot spikes
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+
+    if verbose:
+        print('Creating correlation plots...')
+
+    X_max = None
+    X_min = None
+    for (iplot, subset) in enumerate(spkpoplst):
+
+        pop_corr = corr_dict[subset]
+
+        if len(spkpoplst) > 1:
+            axes[iplot].set_title (str(subset), fontsize=fontSize)
+        else:
+            axes.set_title (str(subset), fontsize=fontSize)
+            
+        if graphType == 'matrix':
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            cbar = plt.colorbar(im)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+        elif graphType == 'histogram':
+            np.fill_diagonal(pop_corr, 0.)
+            mean_corr = np.apply_along_axis(lambda y: np.mean(y), 1, pop_corr)
+            histoCount, bin_edges = np.histogram(mean_corr, bins = 100)
+            corrBinSize = bin_edges[1] - bin_edges[0]
+            histoX = bin_edges[:-1]+corrBinSize/2
+            color = color_list[iplot%len(color_list)]
+            if len(spkpoplst) > 1:
+                b = axes[iplot].bar(histoX, histoCount, width = corrBinSize, color = color)
+            else:
+                b = axes.bar(histoX, histoCount, width = corrBinSize, color = color)
+            if X_max is None:
+                X_max = bin_edges[-1]
+            else:
+                X_max = max(X_max, bin_edges[-1])
+            if X_min is None:
+                X_min = bin_edges[0]
+            else:
+                X_min = max(X_min, bin_edges[0])
+
+                
+            if len(spkpoplst) > 1:
+                axes[iplot].set_xlim([-0.5, 0.5])
+            else:
+                axes.set_xlim([-0.5, 0.5])
+        else:
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            cbar = plt.colorbar(im)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+
+        if graphType == 'matrix':
+            if iplot == 0: 
+                axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
+            if iplot == len(spkpoplst)-1:
+                axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)
+
+                
+    # show fig 
+    if showFig:
+        show_figure()
+    
+    return fig

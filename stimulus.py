@@ -9,6 +9,8 @@ selectivity_grid = 0
 selectivity_place_field = 1
 
 
+
+
 def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1.):  # cm
 
     # arena_dimension - minimum distance from origin to boundary (cm)
@@ -25,8 +27,8 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
     return interp_x, interp_y, d, t
 
 
-def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y, grid_peak_rate=40.,
-                             place_peak_rate=40.):
+def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y,
+                             grid_peak_rate=40., place_peak_rate=40.):
     """
 
     :param selectivity_type: int
@@ -52,6 +54,7 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
     place_rate = lambda field_width, x_offset, y_offset: \
       lambda x, y: place_peak_rate * np.exp(-((x - x_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.) * \
       np.exp(-((y - y_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.)
+      
 
     if selectivity_type == selectivity_grid:
         ori_offset = features_dict['Grid Orientation'][0]
@@ -60,6 +63,7 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
         y_offset = features_dict['Y Offset'][0]
         rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
     elif selectivity_type == selectivity_place_field:
+        print 'features_dict: ', features_dict
         field_width = features_dict['Field Width'][0]
         x_offset = features_dict['X Offset'][0]
         y_offset = features_dict['Y Offset'][0]
