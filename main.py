@@ -638,7 +638,7 @@ def run (env):
 
     if (rank == 0):
         print "*** Simulation completed"
-
+    del(env.cells)
     env.pc.barrier()
     if (rank == 0):
         print "*** Writing spike data"
