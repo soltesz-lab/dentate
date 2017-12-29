@@ -203,3 +203,8 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
     
     return corr_dict
 
+def compute_activity_ratio(stimulus, response, binSize = 25.):
+    result = numpy.power(numpy.sum(numpy.array(mean_rates),axis=0)/nstim,2) / (numpy.sum(numpy.power(mean_rates,2),axis=0)/nstim)
+    return result
+
+
