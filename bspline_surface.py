@@ -644,5 +644,5 @@ def test_uv_isospline():
 if __name__ == '__main__':
     test_normal()
     test_point_distance()
-#    test_uv_isospline()
+    test_uv_isospline()
     

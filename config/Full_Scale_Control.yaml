@@ -29,10 +29,10 @@ Cell Types:
             IML: # layer
               mean: 1.0
               variance: 0.01
-            OML: # layer
+            MML: # layer
               mean: 3.5
               variance: 0.01
-            MML: # layer
+            OML: # layer
               mean: 3.5
               variance: 0.01
         soma:
@@ -56,7 +56,7 @@ Cell Types:
              variance: 0.2
           inhibitory: # Inhibitory
             default: # layer
-              mean: 1.25
+              mean: 2.25
               variance: 0.1
         soma:
           inhibitory: # Inhibitory

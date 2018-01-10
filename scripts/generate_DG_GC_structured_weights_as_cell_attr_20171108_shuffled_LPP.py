@@ -107,7 +107,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
 
     with h5py.File(stimulus_path, 'r', driver='mpio', comm=comm) as f:
         if trajectory_namespace not in f:
-            x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+            t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
                                                       spatial_resolution=spatial_resolution)
         else:
             print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)

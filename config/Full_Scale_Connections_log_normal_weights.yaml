@@ -548,11 +548,6 @@ Synapse Kinetics:
           t_rise: 3.0
           t_decay: 30.0
           e_rev: 0
-      BC:
-        GABA_A:
-          t_rise: 0.72
-          t_decay: 10.0
-          e_rev: -75
       HC:
         GABA_A:
           t_rise: 0.72

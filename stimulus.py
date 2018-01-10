@@ -24,7 +24,7 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
 
-    return interp_x, interp_y, d, t
+    return t, interp_x, interp_y, d
 
 
 def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y,
@@ -106,7 +106,20 @@ def read_stimulus (comm, stimulus_path, stimulus_namespace, population, verbose=
         ratemap_lst.sort(key=lambda item: item[3])
 
         return ratemap_lst
-        
-
-
             
+
+##
+## Linearize position
+##
+def linearize_trajectory (x, y):
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components=1)
+    
+    T   = np.concatenate((x,y))
+    T_transform  = pca.fit_transform(T)
+    T_linear     = pca.inverse_transform(T_transform)
+
+    return T_linear
+
+
+

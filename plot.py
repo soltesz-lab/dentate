@@ -46,7 +46,7 @@ def flatten(iterables):
 
 
 def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                   hnormed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                   normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -59,6 +59,9 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
 
     comm = MPI.COMM_WORLD
 
+    dx = 100
+    dy = 100
+    
     (population_ranges, _) = read_population_ranges(comm, coords_path)
 
     destination_start = population_ranges[destination][0]
@@ -88,8 +91,9 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
     distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
     distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(in_degrees)) ])
 
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[100, 100], weights=in_degrees, normed=normed)
-
+    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=in_degrees, normed=normed)
+     # size of each bin in x and y dimensions
+        
     if verbose:
         print 'Plotting in-degree distribution...'
 
@@ -506,8 +510,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
 
 
-
-
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
                           popRates = False, binSize = 5., smooth = 0, overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8),
@@ -581,6 +583,8 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         yaxisLabel = 'Average cell firing rate (Hz)'
     elif yaxis == 'count':
         yaxisLabel = 'Spike count'
+    elif yaxis == 'cell':
+        yaxisLabel = 'Active cell count'
     else:
         print 'Invalid yaxis value %s', (yaxis)
         return
@@ -596,12 +600,21 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
         spkts = spktlst[iplot]
 
-        histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
+        if yaxis=='cell':
+            spkinds    = spkindlst[iplot]
+            bins       = np.arange(timeRange[0], timeRange[1], binSize)
+            bin_inds   = np.digitize(spkts, bins = bins)
+            cell_sets  = [set(spkinds[bin_inds == ibin]) for ibin in range(1, len(bins))]
+            histoCount = np.array([len(cell_set) for cell_set in cell_sets])
+            bin_edges  = bins
+        else:
+            histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
+            
         histoT = bin_edges[:-1]+binSize/2
         
         if yaxis=='rate':
             histoCount = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
-
+            
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
@@ -662,6 +675,273 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
 
 
+## Plot spike distribution per cell
+def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
+                                      overlay=True, yaxis = 'rate', figSize = (15,8),
+                                      fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Plots distributions of spike rate/count. Returns figure handle.
+
+        - input_path: file with spike data
+        - namespace_id: attribute namespace for spike events
+        - include (['eachPop'|<population name>]): List of data series to include. 
+            (default: ['eachPop'] - expands to the name of each population)
+        - timeVariable: Name of variable containing spike times (default: 't')
+        - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+        - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
+        - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
+        - figSize ((width, height)): Size of figure (default: (10,8))
+        - fontSize (integer): Size of text font (default: 14)
+        - lw (integer): Line width for each spike (default: 3)
+        - saveFig (None|True|'fileName'): File name where to save the figure;
+            if set to True uses filename from simConfig (default: None)
+        - showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+    comm = MPI.COMM_WORLD
+
+
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange, verbose=verbose)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+
+    timeRange = [tmin, tmax]
+            
+    # Y-axis label
+    if yaxis == 'rate':
+        yaxisLabel = 'Cell firing rate (Hz)'
+    elif yaxis == 'count':
+        yaxisLabel = 'Spike count'
+    else:
+        print 'Invalid yaxis value %s', (yaxis)
+        return
+
+    # create fig
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+
+    if verbose:
+        print('Plotting spike distribution...')
+        
+    # Plot separate line for each entry in include
+    for iplot, subset in enumerate(spkpoplst):
+
+        spkts    = spktlst[iplot]
+        spkinds  = spkindlst[iplot]
+
+        u, counts = np.unique(spkinds, return_counts=True)
+        if yaxis == 'rate':
+            rates = counts * (1000.0 / (timeRange[1] - timeRange[0]))
+
+        color = color_list[iplot%len(color_list)]
+
+        if not overlay:
+            label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
+            plt.subplot(len(spkpoplst),1,iplot+1)
+            plt.title (label, fontsize=fontSize)
+            
+        if yaxis == 'rate':
+            y = rates
+        elif yaxis == 'count':
+            y = counts
+
+        plt.plot(u,y)
+        
+        if iplot == 0:
+            plt.ylabel(yaxisLabel, fontsize=fontSize)
+        if iplot == len(spkpoplst)-1:
+            plt.xlabel('Cell index', fontsize=fontSize)
+        else:
+            plt.tick_params(labelbottom='off')
+
+
+    if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
+        try:
+            plt.tight_layout()
+        except:
+            pass
+
+    # Add legend
+    if overlay:
+        for i,subset in enumerate(spkpoplst):
+            plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
+        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        maxLabelLen = min(10,max([len(str(l)) for l in include]))
+        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
+
+
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+' '+'distribution.png'
+        plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+
+    return fig
+
+#    if yaxis == 'cdf':
+#        import statsmodels.api as sm
+#        elif yaxis == 'cdf':
+#            ecdf = sm.distributions.ECDF(spkinds)
+
+## Plot spike distribution per time
+def plot_spike_distribution_per_time (input_path, namespace_id, include = ['eachPop'],
+                                      timeBinSize = 50.0, binCount = 20,
+                                      timeVariable='t', timeRange = None, distfun = None,
+                                      overlay=True, yaxis = 'rate', figSize = (15,8),
+                                      fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Plots distributions of spike rate/count. Returns figure handle.
+
+        - input_path: file with spike data
+        - namespace_id: attribute namespace for spike events
+        - include (['eachPop'|<population name>]): List of data series to include. 
+            (default: ['eachPop'] - expands to the name of each population)
+        - timeVariable: Name of variable containing spike times (default: 't')
+        - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+        - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
+        - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
+        - figSize ((width, height)): Size of figure (default: (10,8))
+        - fontSize (integer): Size of text font (default: 14)
+        - lw (integer): Line width for each spike (default: 3)
+        - saveFig (None|True|'fileName'): File name where to save the figure;
+            if set to True uses filename from simConfig (default: None)
+        - showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+    comm = MPI.COMM_WORLD
+
+
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange, verbose=verbose)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+
+    timeRange = [tmin, tmax]
+            
+    # Y-axis label
+    if yaxis == 'rate':
+        yaxisLabel = 'Cell firing rate (Hz)'
+    elif yaxis == 'count':
+        yaxisLabel = 'Spike count'
+    else:
+        print 'Invalid yaxis value %s', (yaxis)
+        return
+
+    # create fig
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+
+    if verbose:
+        print('Plotting spike distribution...')
+        
+    # Plot separate line for each entry in include
+    for iplot, subset in enumerate(spkpoplst):
+
+        spkts    = spktlst[iplot]
+
+        histlst  = []
+        
+        spkinds    = spkindlst[iplot]
+        bins       = np.arange(timeRange[0], timeRange[1], timeBinSize)
+        bin_inds   = np.digitize(spkts, bins = bins)
+        cell_sets  = [spkinds[bin_inds == ibin] for ibin in range(1, len(bins))]
+        for cell_set in cell_sets:
+            u, counts     = np.unique(np.array(cell_set), return_counts=True)
+            if yaxis == 'rate':
+                rates = counts * (1000.0 / timeBinSize)
+                histoCount, bin_edges = np.histogram(rates, bins = binCount)
+            else:
+                histoCount, bin_edges = np.histogram(counts, bins = binCount)
+            histlst.append(histoCount)
+            
+        histoT = bin_edges[:-1]+binCount/2
+        
+        if not overlay:
+            label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
+            plt.subplot(len(spkpoplst),1,iplot+1)
+            plt.title (label, fontsize=fontSize)
+            
+        for hist in histlst:
+            plt.bar(histoT, hist, fill=False)
+        
+        if iplot == 0:
+            plt.ylabel(yaxisLabel, fontsize=fontSize)
+        if iplot == len(spkpoplst)-1:
+            plt.xlabel('Time', fontsize=fontSize)
+        else:
+            plt.tick_params(labelbottom='off')
+
+
+    if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
+        try:
+            plt.tight_layout()
+        except:
+            pass
+
+    # Add legend
+    if overlay:
+        for i,subset in enumerate(spkpoplst):
+            plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
+        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        maxLabelLen = min(10,max([len(str(l)) for l in include]))
+        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
+
+
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+' '+'distribution.png'
+        plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+
+    return fig
+
+
+
 
 def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', 
                    binSize = 5, Fs = 200, nperseg = 128, smooth = 0, overlay = True,
@@ -705,7 +985,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
 
     spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable, 
                                            timeRange=timeRange, verbose=verbose)
-    
+
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
     spktlst          = spkdata['spktlst']
@@ -721,7 +1001,8 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
 
     if verbose:
         print('Plotting firing rate power spectral density (PSD) ...')
-    
+
+    psds = []
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
@@ -756,6 +1037,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
             plt.xlabel('Frequency (Hz)', fontsize=fontSize)
         plt.xlim([0, (Fs/2)-1])
 
+        psds.append(psd)
         
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
         try:
@@ -775,7 +1057,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
     if showFig:
         show_figure()
 
-    return fig, psd
+    return fig, psds
 
 
 

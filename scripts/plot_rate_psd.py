@@ -26,7 +26,10 @@ def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin,
             timeRange = [0.0, t_max]
         else:
             timeRange = [t_min, t_max]
-        
+            
+    if not populations:
+        populations = ['eachPop']
+
     plot.plot_rate_PSD (spike_events_path, spike_events_namespace, populations, timeRange=timeRange, 
                         binSize=spike_hist_bin, nperseg=nperseg, smooth=smooth, fontSize=font_size, overlay=overlay,
                         saveFig=True, verbose=verbose)
