@@ -1,7 +1,7 @@
 
 import itertools
 import numpy as np
-from scipy import signal
+from scipy import signal, interpolate
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -435,7 +435,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     if verbose:
         print('Calculating spike rates...')
 
-    rate_bins  = np.arange(timeRange[0], timeRange[1], spikeRateBin)
+    time_bins  = np.arange(timeRange[0], timeRange[1], spikeRateBin)
 
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
@@ -445,12 +445,11 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
             spk_dict[int(spkind)].append(spkt)
         rate_dict = {}
         for ind, lst in spk_dict.iteritems():
-            spkv  = np.asarray(lst)
-            count, bin_edges = np.histogram(spkv, bins = rate_bins)
-            rate = count * (1000.0 / spikeRateBin) ## convert to firing rate
-            peak        = np.mean(rate[np.where(rate >= np.percentile(rate, 90.))[0]])
-            peak_index  = np.where(rate == np.max(rate))[0][0]
-            rate_dict[i] = { 'rate': rate, 'peak': peak, 'peak_index': peak_index }
+            counts, bin_edges = np.histogram(np.asarray(lst), bins = time_bins)
+            rates       = compute_bin_rates(time_bins, ind, lst) ## convert to firing rate
+            peak        = np.mean(rate[np.where(rates >= np.percentile(rates, 90.))[0]])
+            peak_index  = np.where(rate == np.max(rates))[0][0]
+            rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak_index': peak_index }
             i = i+1
         spkrate_dict[subset] = rate_dict
         if verbose:
@@ -499,7 +498,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         cbar = plt.colorbar(im)
         cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fontSize)
         
-    ##ax1.set_xlim(len(rate_bins))
 
                 
     # show fig 
@@ -512,7 +510,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
-                          popRates = False, binSize = 5., smooth = 0, overlay=True, graphType='bar', yaxis = 'rate', figSize = (15,8),
+                          popRates = False, binSize = 5., smooth = 0, quantity = 'rate',
+                          figSize = (15,8), overlay=True, graphType='bar',
                           fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots spike histogram. Returns figure handle.
@@ -526,7 +525,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         - binSize (int): Size in ms of each bin (default: 5)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
         - graphType ('line'|'bar'): Type of graph to use (line graph or bar plot) (default: 'line')
-        - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
+        - quantity ('rate'|'count'): Quantity of y axis (firing rate in Hz, or spike count) (default: 'rate')
         - figSize ((width, height)): Size of figure (default: (10,8))
         - fontSize (integer): Size of text font (default: 14)
         - lw (integer): Line width for each spike (default: 3)
@@ -579,14 +578,14 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
                     avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
             
     # Y-axis label
-    if yaxis == 'rate':
+    if quantity == 'rate':
         yaxisLabel = 'Average cell firing rate (Hz)'
-    elif yaxis == 'count':
+    elif quantity == 'count':
         yaxisLabel = 'Spike count'
-    elif yaxis == 'cell':
+    elif quantity == 'active':
         yaxisLabel = 'Active cell count'
     else:
-        print 'Invalid yaxis value %s', (yaxis)
+        print 'Invalid quantity value %s', (quantity)
         return
 
     # create fig
@@ -600,7 +599,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
         spkts = spktlst[iplot]
 
-        if yaxis=='cell':
+        if quantity=='active':
             spkinds    = spkindlst[iplot]
             bins       = np.arange(timeRange[0], timeRange[1], binSize)
             bin_inds   = np.digitize(spkts, bins = bins)
@@ -612,7 +611,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             
         histoT = bin_edges[:-1]+binSize/2
         
-        if yaxis=='rate':
+        if quantity=='rate':
             histoCount = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
             
         color = color_list[iplot%len(color_list)]
@@ -677,7 +676,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
 ## Plot spike distribution per cell
 def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
-                                      overlay=True, yaxis = 'rate', figSize = (15,8),
+                                      overlay=True, quantity = 'rate', figSize = (15,8),
                                       fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
@@ -689,7 +688,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         - timeVariable: Name of variable containing spike times (default: 't')
         - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
-        - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
+        - quantity ('rate'|'count'): Quantity of y axis (firing rate in Hz, or spike count) (default: 'rate')
         - figSize ((width, height)): Size of figure (default: (10,8))
         - fontSize (integer): Size of text font (default: 14)
         - lw (integer): Line width for each spike (default: 3)
@@ -728,12 +727,12 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
     timeRange = [tmin, tmax]
             
     # Y-axis label
-    if yaxis == 'rate':
+    if quantity == 'rate':
         yaxisLabel = 'Cell firing rate (Hz)'
-    elif yaxis == 'count':
+    elif quantity == 'count':
         yaxisLabel = 'Spike count'
     else:
-        print 'Invalid yaxis value %s', (yaxis)
+        print 'Invalid quantity value %s', (quantity)
         return
 
     # create fig
@@ -749,8 +748,8 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         spkinds  = spkindlst[iplot]
 
         u, counts = np.unique(spkinds, return_counts=True)
-        if yaxis == 'rate':
-            rates = counts * (1000.0 / (timeRange[1] - timeRange[0]))
+        if quantity == 'rate':
+            rates = compute_rates(spkinds, spkts)
 
         color = color_list[iplot%len(color_list)]
 
@@ -759,9 +758,9 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
             plt.subplot(len(spkpoplst),1,iplot+1)
             plt.title (label, fontsize=fontSize)
             
-        if yaxis == 'rate':
+        if quantity == 'rate':
             y = rates
-        elif yaxis == 'count':
+        elif quantity == 'count':
             y = counts
 
         plt.plot(u,y)
@@ -801,16 +800,11 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 
     return fig
 
-#    if yaxis == 'cdf':
-#        import statsmodels.api as sm
-#        elif yaxis == 'cdf':
-#            ecdf = sm.distributions.ECDF(spkinds)
-
 ## Plot spike distribution per time
 def plot_spike_distribution_per_time (input_path, namespace_id, include = ['eachPop'],
-                                      timeBinSize = 50.0, binCount = 20,
+                                      timeBinSize = 50.0, binCount = 10,
                                       timeVariable='t', timeRange = None, distfun = None,
-                                      overlay=True, yaxis = 'rate', figSize = (15,8),
+                                      overlay=True, quantity = 'rate', alpha_fill = 0.2, figSize = (15,8),
                                       fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
@@ -822,7 +816,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         - timeVariable: Name of variable containing spike times (default: 't')
         - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
-        - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
+        - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
         - figSize ((width, height)): Size of figure (default: (10,8))
         - fontSize (integer): Size of text font (default: 14)
         - lw (integer): Line width for each spike (default: 3)
@@ -861,12 +855,12 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
     timeRange = [tmin, tmax]
             
     # Y-axis label
-    if yaxis == 'rate':
-        yaxisLabel = 'Cell firing rate (Hz)'
-    elif yaxis == 'count':
-        yaxisLabel = 'Spike count'
+    if quantity == 'rate':
+        xaxisLabel = 'Cell firing rate (Hz)'
+    elif quantity == 'count':
+        xaxisLabel = 'Spike count'
     else:
-        print 'Invalid yaxis value %s', (yaxis)
+        print 'Invalid quantity value %s', (quantity)
         return
 
     # create fig
@@ -878,40 +872,64 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        spkts    = spktlst[iplot]
-
-        histlst  = []
-        
+        spkts      = spktlst[iplot]
         spkinds    = spkindlst[iplot]
         bins       = np.arange(timeRange[0], timeRange[1], timeBinSize)
         bin_inds   = np.digitize(spkts, bins = bins)
         cell_sets  = [spkinds[bin_inds == ibin] for ibin in range(1, len(bins))]
+        cell_stats = []
+        max_count  = 0
+        max_rate   = 0
+        rates      = compute_bin_rates(bins, spkinds, spkts)
         for cell_set in cell_sets:
-            u, counts     = np.unique(np.array(cell_set), return_counts=True)
-            if yaxis == 'rate':
-                rates = counts * (1000.0 / timeBinSize)
-                histoCount, bin_edges = np.histogram(rates, bins = binCount)
+            u, counts  = np.unique(np.array(cell_set), return_counts=True)
+            max_count  = max(max_count, np.max(counts))
+            max_rate   = max(max_rate, np.max(rates))
+            cell_stats.append((u, counts, rates))
+
+        histlst  = []
+        for cell_stat in cell_stats:
+            (u, counts, rates) = cell_stat
+            if quantity == 'rate':
+                histoCount, bin_edges = np.histogram(rates, bins = binCount, range=(0.0, float(max_rate)))
             else:
-                histoCount, bin_edges = np.histogram(counts, bins = binCount)
+                histoCount, bin_edges = np.histogram(counts, bins = binCount, range=(0.0, float(max_count)))
             histlst.append(histoCount)
-            
-        histoT = bin_edges[:-1]+binCount/2
+
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
         
         if not overlay:
             label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
             plt.subplot(len(spkpoplst),1,iplot+1)
             plt.title (label, fontsize=fontSize)
+
+        hist_mean = []
+        hist_std  = []
+        for i in xrange(0, binCount):
+            binvect = np.asarray([hist[i] for hist in histlst])
+            hist_mean.append(np.mean(binvect))
+            hist_std.append(np.std(binvect))
             
-        for hist in histlst:
-            plt.bar(histoT, hist, fill=False)
+        color = color_list[iplot%len(color_list)]
+
+        ymin = np.asarray(hist_mean) - hist_std
+        ymax = np.asarray(hist_mean) + hist_std
+
+        x = np.linspace(bin_centers.min(),bin_centers.max(),100)
+        y_smooth    = np.clip(interpolate.spline(bin_centers, hist_mean, x), 0, None)
+        ymax_smooth = np.clip(interpolate.spline(bin_centers, ymax, x), 0, None)
+        ymin_smooth = np.clip(interpolate.spline(bin_centers, ymin, x), 0, None)
+        plt.plot(x, y_smooth, color=color)
+        plt.fill_between(x, ymax_smooth, ymin_smooth, color=color, alpha=alpha_fill)
         
         if iplot == 0:
-            plt.ylabel(yaxisLabel, fontsize=fontSize)
+            plt.xlabel(xaxisLabel, fontsize=fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('Time', fontsize=fontSize)
+            plt.ylabel('Cell Count', fontsize=fontSize)
         else:
             plt.tick_params(labelbottom='off')
-
+        plt.autoscale(enable=True, axis='both', tight=True)
+        plt.xticks(np.linspace(bin_centers.min(),bin_centers.max(),binCount))
 
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
         try:
@@ -958,7 +976,6 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
         - Fs (float): sampling frequency
         - nperseg (int): Length of each segment. 
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
-        - yaxis ('rate'|'count'): Units of y axis (firing rate in Hz, or spike count) (default: 'rate')
         - figSize ((width, height)): Size of figure (default: (8,8))
         - fontSize (integer): Size of text font (default: 14)
         - lw (integer): Line width for each spike (default: 3)
