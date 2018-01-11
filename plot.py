@@ -1026,6 +1026,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
         spkts = spktlst[iplot]
 
         histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
+
         if smooth:
             hsignal = signal.savgol_filter(histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])),
                                            window_length=nperseg/2 + 1, polyorder=smooth) # smoothen and convert to firing rate
