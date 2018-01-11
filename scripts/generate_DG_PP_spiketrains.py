@@ -1,6 +1,7 @@
 
 import sys, time, gc
 import numpy as np
+import mpi4py
 from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
@@ -21,13 +22,13 @@ selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selec
 
 
 @click.command()
-@click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--selectivity-path", "-p", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--trajectory-id", type=int, default=0)
-@click.option("--selectivity-namespace", type=str, default='Feature Selectivity')
+@click.option("--selectivity-namespace", "-n", type=str, default='Feature Selectivity')
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--seed-offset", type=int, default=9)
 @click.option("--debug", is_flag=True)
@@ -65,31 +66,36 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
     stimulus_namespace += ' ' + str(trajectory_id)
 
-    with h5py.File(selectivity_path, 'a', driver='mpio', comm=comm) as f:
-        if trajectory_namespace not in f:
-            print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
-            group = f.create_group(trajectory_namespace)
-            x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                                      spatial_resolution=spatial_resolution)
-            for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
-                dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
-                with dataset.collective:
+    if rank == 0:
+        with h5py.File(selectivity_path, 'a') as f:
+            if trajectory_namespace not in f:
+                print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
+                group = f.create_group(trajectory_namespace)
+                x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+                                                          spatial_resolution=spatial_resolution)
+                for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
+                    dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
                     dataset[:] = value.astype('float32', copy=False)
-        else:
-            print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
-            group = f[trajectory_namespace]
-            dataset = group['x']
-            with dataset.collective:
+            else:
+                print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
+                group = f[trajectory_namespace]
+                dataset = group['x']
                 x = dataset[:]
-            dataset = group['y']
-            with dataset.collective:
+                dataset = group['y']
                 y = dataset[:]
-            dataset = group['d']
-            with dataset.collective:
+                dataset = group['d']
                 d = dataset[:]
-            dataset = group['t']
-            with dataset.collective:
+                dataset = group['t']
                 t = dataset[:]
+    else:
+        x = None
+        y = None
+        d = None
+        t = None
+    x = comm.bcast(x, root=0)
+    y = comm.bcast(y, root=0)
+    d = comm.bcast(d, root=0)
+    t = comm.bcast(t, root=0)
 
     population_ranges = read_population_ranges(comm, selectivity_path)[0]
 

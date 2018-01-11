@@ -1,6 +1,7 @@
 
 import sys, time, gc
 import numpy as np
+import h5py
 from neuroh5.io import read_cell_attributes, read_population_ranges
 
 #  custom data type for type of feature selectivity
@@ -68,6 +69,23 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
 
     return response
 
+
+def read_trajectory (comm, selectivity_path, trajectory_id, verbose=False):
+
+    trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
+
+    with h5py.File(selectivity_path, 'a') as f:
+        group = f[trajectory_namespace]
+        dataset = group['x']
+        x = dataset[:]
+        dataset = group['y']
+        y = dataset[:]
+        dataset = group['d']
+        d = dataset[:]
+        dataset = group['t']
+        t = dataset[:]
+
+    return (x,y,d,t)
 
 
 def read_stimulus (comm, stimulus_path, stimulus_namespace, population, verbose=False):
