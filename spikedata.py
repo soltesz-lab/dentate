@@ -83,6 +83,70 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
             'pop_active_cells': pop_active_cells, 'num_cell_spks': num_cell_spks }
 
 
+def make_spike_dict (spkinds, spkts):
+    spk_dict = defaultdict(list)
+    for spkind, spkt in itertools.izip(np.nditer(spkinds), np.nditer(spkts)):
+        spk_dict[int(spkind)].append(spkt)
+    return spk_dict
+
+    
+def interspike_intervals (spkdict):
+    isi_dict = {}
+    for ind, lst in spkdict.iteritems():
+        isi_dict[ind] = np.diff(np.asarray(lst))
+    return isi_dict
+
+
+def spike_rates (spkdict, t_dflt):
+    rate_dict = {}
+    isidict = interspike_intervals(spkdict)
+    for ind, isiv in isidict.iteritems():
+        if isiv.size > 0:
+            t = np.sum(isiv)
+            rate = isiv.size / t / 1000.0
+        elif len(spks) > 0:
+            rate = 1.0 / t_dflt / 1000.0
+        else:
+            rate = 0.0
+        rate_dict[ind] = rate
+    return rate_dict
+
+
+def spike_bin_inds (bins, spkts):
+    bin_inds   = np.digitize(spkts, bins = bins)
+    return bin_inds
+
+
+def spike_bin_rates (bins, spkdict):
+    t_dflt = bins[1] - bins[0]
+    spkt_bin_dict = {}
+    for ind, lst in spkdict.iteritems():
+        spkts     = np.asarray(lst)
+        bin_inds  = np.digitize(spkts, bins = bins)
+        spkt_bins = [spkts[bin_inds == ibin] for ibin in range(0, len(bins))]
+        spkt_bin_dict[ind] = spkt_bins
+    spk_bin_dict = {}
+    for ind, spk_bins in spkt_bin_dict.iteritems():
+        rate_bins = []
+        count_bins = []
+        for spks in spk_bins:
+            count = spks.size
+            isiv = np.diff(spks)
+            if isiv.size > 0:
+                t = np.sum(isiv)
+                rate = isiv.size / t * 1000.0
+            elif len(spks) > 0:
+                rate = 1.0 / t_dflt * 1000.0
+            else:
+                rate = 0.0
+            rate_bins.append(rate)
+            count_bins.append(count)
+        spk_bin_dict[ind] = (count_bins, rate_bins)
+    return spk_bin_dict
+            
+    
+    
+
 
 def mvcorrcoef(X,y):
     Xm = np.reshape(np.mean(X,axis=1),(X.shape[0],1))
@@ -203,7 +267,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
     
     return corr_dict
 
-def compute_activity_ratio(stimulus, response, binSize = 25.):
+def activity_ratio(stimulus, response, binSize = 25.):
     result = numpy.power(numpy.sum(numpy.array(mean_rates),axis=0)/nstim,2) / (numpy.sum(numpy.power(mean_rates,2),axis=0)/nstim)
     return result
 

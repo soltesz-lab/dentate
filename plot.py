@@ -1,8 +1,8 @@
 
 import itertools
+from collections import defaultdict
 import numpy as np
 from scipy import signal, interpolate
-from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
@@ -382,7 +382,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 
 ## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', orderInverse = False, labels = 'legend', 
-                      spikeRateBin = 25, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+                      spikeRateBin = 25.0, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Raster plot of network spike times. Returns the figure handle.
 
@@ -439,16 +439,14 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+        spkdict = spikedata.make_spike_dict(spkinds, spkts)
+        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict)
         i = 0
-        spk_dict = defaultdict(list)
-        for spkind, spkt in itertools.izip(np.nditer(spkinds), np.nditer(spkts)):
-            spk_dict[int(spkind)].append(spkt)
         rate_dict = {}
-        for ind, lst in spk_dict.iteritems():
-            counts, bin_edges = np.histogram(np.asarray(lst), bins = time_bins)
-            rates       = compute_bin_rates(time_bins, ind, lst) ## convert to firing rate
-            peak        = np.mean(rate[np.where(rates >= np.percentile(rates, 90.))[0]])
-            peak_index  = np.where(rate == np.max(rates))[0][0]
+        for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
+            rates       = np.asarray(rate_bins)
+            peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
+            peak_index  = np.where(rates == np.max(rates))[0][0]
             rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak_index': peak_index }
             i = i+1
         spkrate_dict[subset] = rate_dict
@@ -749,7 +747,8 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 
         u, counts = np.unique(spkinds, return_counts=True)
         if quantity == 'rate':
-            rates = compute_rates(spkinds, spkts)
+            rate_dict = spike_rates(spkinds, spkts)
+            rates = [rate_dict[ind] for ind in u]
 
         color = color_list[iplot%len(color_list)]
 
@@ -866,36 +865,38 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
 
-    if verbose:
-        print('Plotting spike distribution...')
-        
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        spkts      = spktlst[iplot]
-        spkinds    = spkindlst[iplot]
-        bins       = np.arange(timeRange[0], timeRange[1], timeBinSize)
-        bin_inds   = np.digitize(spkts, bins = bins)
-        cell_sets  = [spkinds[bin_inds == ibin] for ibin in range(1, len(bins))]
-        cell_stats = []
-        max_count  = 0
-        max_rate   = 0
-        rates      = compute_bin_rates(bins, spkinds, spkts)
-        for cell_set in cell_sets:
-            u, counts  = np.unique(np.array(cell_set), return_counts=True)
-            max_count  = max(max_count, np.max(counts))
-            max_rate   = max(max_rate, np.max(rates))
-            cell_stats.append((u, counts, rates))
+        spkts         = spktlst[iplot]
+        spkinds       = spkindlst[iplot]
+        bins          = np.arange(timeRange[0], timeRange[1], timeBinSize)
+        spkdict       = spikedata.make_spike_dict(spkinds, spkts)
+        rate_bin_dict = spikedata.spike_bin_rates(bins, spkdict)
+        max_count     = np.zeros(bins.size)
+        max_rate      = np.zeros(bins.size)
+        bin_dict      = defaultdict(lambda: ([], []))
+        for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
+            counts     = count_bins
+            rates      = rate_bins
+            for ibin in xrange(0, bins.size):
+                if counts[ibin] > 0:
+                    d = bin_dict[ibin]
+                    d[0].append(counts[ibin])
+                    d[1].append(rates[ibin])
+            max_count  = np.maximum(max_count, np.asarray(count_bins))
+            max_rate   = np.maximum(max_rate, np.asarray(rate_bins))
 
         histlst  = []
-        for cell_stat in cell_stats:
-            (u, counts, rates) = cell_stat
+        for ibin in sorted(bin_dict.keys()):
+            (counts, rates) = bin_dict[ibin]
             if quantity == 'rate':
-                histoCount, bin_edges = np.histogram(rates, bins = binCount, range=(0.0, float(max_rate)))
+                histoCount, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin])))
             else:
-                histoCount, bin_edges = np.histogram(counts, bins = binCount, range=(0.0, float(max_count)))
+                histoCount, bin_edges = np.histogram(np.asarray(counts), bins = binCount, range=(0.0, float(max_count[ibin])))
             histlst.append(histoCount)
 
+            
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
         
         if not overlay:
@@ -923,9 +924,9 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         plt.fill_between(x, ymax_smooth, ymin_smooth, color=color, alpha=alpha_fill)
         
         if iplot == 0:
-            plt.xlabel(xaxisLabel, fontsize=fontSize)
-        if iplot == len(spkpoplst)-1:
             plt.ylabel('Cell Count', fontsize=fontSize)
+        if iplot == len(spkpoplst)-1:
+            plt.xlabel(xaxisLabel, fontsize=fontSize)
         else:
             plt.tick_params(labelbottom='off')
         plt.autoscale(enable=True, axis='both', tight=True)

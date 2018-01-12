@@ -282,23 +282,23 @@ Synapse Kinetics:
   GC:
       GC:
         AMPA:
-          t_rise: 1.5
+          t_rise: 0.5
           t_decay: 5.5
           e_rev: 0
       MC:
         AMPA:
-          t_rise: 1.5
+          t_rise: 0.5
           t_decay: 5.5
           e_rev: 0
       MPP:
         AMPA:
           t_rise: 0.5
-          t_decay: 3.0
+          t_decay: 5.5
           e_rev: 0
       LPP:
         AMPA:
           t_rise: 0.5
-          t_decay: 3.0
+          t_decay: 5.5
           e_rev: 0
       HC:
         GABA_A:
