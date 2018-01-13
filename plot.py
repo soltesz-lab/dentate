@@ -600,7 +600,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         del(spkdict)
         bin_dict      = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
         for (ind, (counts, rates)) in rate_bin_dict.iteritems():
-             for ibin in xrange(0, time_bins.size):
+             for ibin in xrange(0, time_bins.size-1):
                 if counts[ibin] > 0:
                     d = bin_dict[ibin]
                     d['rates']  += rates[ibin]
@@ -618,15 +618,15 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        histoT = time_bins
+        histoT = time_bins[:-1]+binSize/2
         bin_dict = hist_dict[subset]
 
         if quantity=='rate':
-            histoCount = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size)])
+            histoCount = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size-1)])
         elif quantity=='active':
-            histoCount = np.asarray([bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size)])
+            histoCount = np.asarray([bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size-1)])
         else:
-            histoCount = np.asarray([bin_dict[ibin]['counts'] for ibin in xrange(0, time_bins.size)])
+            histoCount = np.asarray([bin_dict[ibin]['counts'] for ibin in xrange(0, time_bins.size-1)])
 
         del bin_dict
         del hist_dict[subset]
@@ -892,13 +892,13 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         bins          = np.arange(timeRange[0], timeRange[1], timeBinSize)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
         rate_bin_dict = spikedata.spike_bin_rates(bins, spkdict)
-        max_count     = np.zeros(bins.size)
-        max_rate      = np.zeros(bins.size)
+        max_count     = np.zeros(bins.size-1)
+        max_rate      = np.zeros(bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
         for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
             counts     = count_bins
             rates      = rate_bins
-            for ibin in xrange(0, bins.size):
+            for ibin in xrange(1, bins.size-1):
                 if counts[ibin] > 0:
                     d = bin_dict[ibin]
                     d['counts'].append(counts[ibin])
@@ -908,7 +908,9 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
 
         histlst  = []
         for ibin in sorted(bin_dict.keys()):
-            (counts, rates) = bin_dict[ibin]
+            d = bin_dict[ibin]
+            counts = d['counts']
+            rates = d['rates']
             if quantity == 'rate':
                 histoCount, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin])))
             else:
