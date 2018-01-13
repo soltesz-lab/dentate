@@ -72,9 +72,12 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
             pop_spkinds = pop_spkinds[sample_inds]
             tmax = max(tmax, max(pop_spkts))
 
+        sort_idxs = np.argsort(pop_spkts)
         spkpoplst.append(pop_name)
-        spktlst.append(pop_spkts)
-        spkindlst.append(pop_spkinds)
+        spktlst.append(np.take(pop_spkts, sort_idxs))
+        del pop_spkts
+        spkindlst.append(np.take(pop_spkinds, sort_idxs))
+        del pop_spkinds
         
         if verbose:
             print 'Read %i spikes for population %s' % (this_num_cell_spks, pop_name)
@@ -118,30 +121,34 @@ def spike_bin_inds (bins, spkts):
 
 
 def spike_bin_rates (bins, spkdict):
-    t_dflt = bins[1] - bins[0]
-    spkt_bin_dict = {}
-    for ind, lst in spkdict.iteritems():
-        spkts     = np.asarray(lst)
-        bin_inds  = np.digitize(spkts, bins = bins)
-        spkt_bins = [spkts[bin_inds == ibin] for ibin in range(0, len(bins))]
-        spkt_bin_dict[ind] = spkt_bins
     spk_bin_dict = {}
-    for ind, spk_bins in spkt_bin_dict.iteritems():
-        rate_bins = []
+    for (ind, lst) in spkdict.iteritems():
+        print 'ind: ', ind
+        spkts     = np.asarray(lst, dtype=np.float32)
+        bin_inds  = np.digitize(spkts, bins = bins)
+        rate_bins  = []
         count_bins = []
-        for spks in spk_bins:
+        t_prev = 0.0
+        for ibin in xrange(1, len(bins)+1):
+            spks = spkts[bin_inds == ibin]
             count = spks.size
-            isiv = np.diff(spks)
-            if isiv.size > 0:
-                t = np.sum(isiv)
-                rate = isiv.size / t * 1000.0
+            bin_isi = np.diff(spks)
+            if bin_isi.size > 0:
+                t = np.sum(bin_isi)
+                rate = bin_isi.size / t * 1000.0
+                t_prev = spks[-1]
             elif len(spks) > 0:
-                rate = 1.0 / t_dflt * 1000.0
+                t = spks[0] - t_prev
+                if t > 0.:
+                    rate = 1.0 / t * 1000.0
+                else:
+                    rate = 0.0
+                t_prev = spks[-1]
             else:
                 rate = 0.0
             rate_bins.append(rate)
             count_bins.append(count)
-        spk_bin_dict[ind] = (count_bins, rate_bins)
+        spk_bin_dict[ind] = (np.asarray(count_bins, dtype=np.uint32), np.asarray(rate_bins, dtype=np.float32))
     return spk_bin_dict
             
     

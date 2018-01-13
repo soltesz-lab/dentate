@@ -45,10 +45,10 @@ def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
 
-def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                   normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
+                       metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
-    Plot connectivity in-degree with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
+    Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
     :param connectivity_path:
     :param coords_path:
@@ -70,7 +70,7 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
     with h5py.File(connectivity_path, 'r') as f:
         in_degrees = np.zeros((destination_count,))
         for source in sources:
-            in_degrees = np.add(in_degrees, f['Nodes'][vertex_metrics_namespace]['Indegree %s -> %s' % (source, destination)]['Attribute Value'][destination_start:destination_start+destination_count])
+            in_degrees = np.add(in_degrees, f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][destination_start:destination_start+destination_count])
             
             
     if verbose:
@@ -109,7 +109,7 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('In-degree distribution for destination: %s sources: %s' % (destination, ', '.join(sources)), fontsize=fontSize)
+    ax.set_title('%s distribution for destination: %s sources: %s' % (metric, destination, ', '.join(sources)), fontsize=fontSize)
     ax.set_aspect('equal')
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
@@ -117,7 +117,7 @@ def plot_in_degree(connectivity_path, coords_path, vertex_metrics_namespace, dis
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = destination+' in degree.png'
+            filename = destination+' %s.png' % metric
             plt.savefig(filename)
 
     if showFig:
@@ -429,7 +429,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
     timeRange = [tmin, tmax]
 
-    print 'time range is ', timeRange
     # Calculate binned spike rates
     
     if verbose:
@@ -503,8 +502,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         show_figure()
     
     return fig
-
-
 
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
@@ -588,30 +585,52 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+        
+            
+    if verbose:
+        print('Calculating spike rates...')
+        
+
+    time_bins  = np.arange(timeRange[0], timeRange[1], binSize)
+
+    hist_dict = {}
+    for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+        spkdict = spikedata.make_spike_dict(spkinds, spkts)
+        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict)
+        del(spkdict)
+        bin_dict      = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
+        for (ind, (counts, rates)) in rate_bin_dict.iteritems():
+             for ibin in xrange(0, time_bins.size):
+                if counts[ibin] > 0:
+                    d = bin_dict[ibin]
+                    d['rates']  += rates[ibin]
+                    d['counts'] += counts[ibin]
+                    d['active'] += 1
+        hist_dict[subset] = bin_dict
+        if verbose:
+            print('Calculated spike rates for %i cells in population %s' % (len(rate_bin_dict), subset))
+            
+    del spkindlst, spktlst
 
     if verbose:
         print('Plotting spike histogram...')
-        
+
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        spkts = spktlst[iplot]
+        histoT = time_bins
+        bin_dict = hist_dict[subset]
 
-        if quantity=='active':
-            spkinds    = spkindlst[iplot]
-            bins       = np.arange(timeRange[0], timeRange[1], binSize)
-            bin_inds   = np.digitize(spkts, bins = bins)
-            cell_sets  = [set(spkinds[bin_inds == ibin]) for ibin in range(1, len(bins))]
-            histoCount = np.array([len(cell_set) for cell_set in cell_sets])
-            bin_edges  = bins
-        else:
-            histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
-            
-        histoT = bin_edges[:-1]+binSize/2
-        
         if quantity=='rate':
-            histoCount = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
-            
+            histoCount = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size)])
+        elif quantity=='active':
+            histoCount = np.asarray([bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size)])
+        else:
+            histoCount = np.asarray([bin_dict[ibin]['counts'] for ibin in xrange(0, time_bins.size)])
+
+        del bin_dict
+        del hist_dict[subset]
+        
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
@@ -626,7 +645,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             hsignal = signal.savgol_filter(histoCount, window_length=2*(len(histoCount)/16) + 1, polyorder=smooth) 
         else:
             hsignal = histoCount
-   
+        
         if graphType == 'line':
             plt.plot (histoT, hsignal, linewidth=lw, color = color)
         elif graphType == 'bar':
@@ -875,15 +894,15 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         rate_bin_dict = spikedata.spike_bin_rates(bins, spkdict)
         max_count     = np.zeros(bins.size)
         max_rate      = np.zeros(bins.size)
-        bin_dict      = defaultdict(lambda: ([], []))
+        bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
         for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
             counts     = count_bins
             rates      = rate_bins
             for ibin in xrange(0, bins.size):
                 if counts[ibin] > 0:
                     d = bin_dict[ibin]
-                    d[0].append(counts[ibin])
-                    d[1].append(rates[ibin])
+                    d['counts'].append(counts[ibin])
+                    d['rates'].append(rates[ibin])
             max_count  = np.maximum(max_count, np.asarray(count_bins))
             max_rate   = np.maximum(max_rate, np.asarray(rate_bins))
 
