@@ -123,12 +123,12 @@ def spike_bin_inds (bins, spkts):
 def spike_bin_rates (bins, spkdict):
     spk_bin_dict = {}
     for (ind, lst) in spkdict.iteritems():
-        spkts      = np.asarray(lst, dtype=np.float32)
-        spkints    = np.diff(spkts)
-        bin_inds   = np.digitize(spkts, bins = bins)
+        spkts         = np.asarray(lst, dtype=np.float32)
+        spkints       = np.diff(spkts)
+        bin_inds      = np.digitize(spkts, bins = bins)
         isi_bin_inds  = bin_inds[1:]
-        rate_bins  = []
-        count_bins = []
+        rate_bins     = []
+        count_bins    = []
         if spkts.size > 0:
             t_prev     = spkts[0]
         else:
@@ -137,7 +137,7 @@ def spike_bin_rates (bins, spkdict):
         for ibin in xrange(1, len(bins)):
             bin_spks = spkts[bin_inds == ibin]
             bin_isi  = spkints[isi_bin_inds == ibin]
-            count = bin_spks.size
+            count    = bin_spks.size
             if count > 1:
                 t        = np.sum(bin_isi)
                 rate     = bin_isi.size / t * 1000.0
@@ -153,7 +153,9 @@ def spike_bin_rates (bins, spkdict):
                 rate = 0.0
             rate_bins.append(rate)
             count_bins.append(count)
+            
         spk_bin_dict[ind] = (np.asarray(count_bins, dtype=np.uint32), np.asarray(rate_bins, dtype=np.float32))
+        
     return spk_bin_dict
             
     

@@ -12,7 +12,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
 import h5py
 from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen
-import spikedata, stimulus
+import spikedata, statedata, stimulus
 
 color_list = ["#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -185,6 +185,122 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
         show_figure()
 
     return ax
+
+
+## Plot intracellular voltage trace
+def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', variable='v', maxUnits = 1, unitNo = None,
+                              orderInverse = False, labels = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
+                              showFig = True, verbose = False): 
+    ''' 
+    Line plot of intracellular state variable (default: v). Returns the figure handle.
+
+    input_path: file with spike data
+    namespace_id: attribute namespace for spike events
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    variable: Name of state variable (default: 'v')
+    maxUnits (int): maximum number of units from each population that will be plotted  (default: 1)
+    orderInverse (True|False): Invert the y-axis order (default: False)
+    labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
+    lw (integer): Line width for each spike (default: 3)
+    marker (char): Marker for each spike (default: '|')
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
+    comm = MPI.COMM_WORLD
+
+    (population_ranges, N) = read_population_ranges(comm, input_path)
+    population_names  = read_population_names(comm, input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    data = statedata.read_state (comm, input_path, include, namespace_id, timeVariable=timeVariable,
+                                 variable=variable, timeRange=timeRange, verbose=verbose,
+                                 maxUnits = maxUnits, unitNo = unitNo)
+
+    states     = data['states']
+    
+    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(states.keys()) }
+    
+    # Plot spikes
+    fig, ax1 = plt.subplots(figsize=figSize)
+
+    if verbose:
+        print('Creating state plot...')
+
+    stplots = []
+    
+    # Plot spikes
+    fig, ax1 = plt.subplots(figsize=figSize)
+        
+    for (pop_name, pop_states) in states.iteritems():
+        
+        for (gid, cell_states) in pop_states.iteritems():
+
+            gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+            ax1=plt.subplot(gs[0])
+
+            stplots.append(ax1.plot(cell_states[0], cell_states[1], linewidth=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+            
+    ax1.set_xlim(timeRange)
+
+    ax1.set_xlabel('Time (ms)', fontsize=fontSize)
+    ax1.set_ylabel(variable, fontsize=fontSize)
+    ax1.set_xlim(timeRange)
+    
+    # Add legend
+    pop_labels = pop_name
+    
+    if labels == 'legend':
+        legend_labels = pop_labels
+        lgd = plt.legend(stplots, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.,
+                         loc='upper right', bbox_to_anchor=(1.2, 1.0))
+        ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
+        ## draw the legend on the canvas to assign it real pixel coordinates:
+        plt.gcf().canvas.draw()
+        ## transformation from pixel coordinates to Figure coordinates:
+        transfig = plt.gcf().transFigure.inverted()
+        ## Get the legend extents in pixels and convert to Figure coordinates.
+        ## Pull out the farthest extent in the x direction since that is the canvas direction we need to adjust:
+        lgd_pos = lgd.get_window_extent()
+        lgd_coord = transfig.transform(lgd_pos)
+        lgd_xmax = lgd_coord[1, 0]
+        ## Do the same for the Axes:
+        ax_pos = plt.gca().get_window_extent()
+        ax_coord = transfig.transform(ax_pos)
+        ax_xmax = ax_coord[1, 0]
+        ## Adjust the Figure canvas using tight_layout for
+        ## Axes that must move over to allow room for the legend to fit within the canvas:
+        shift = 1 - (lgd_xmax - ax_xmax)
+        plt.gcf().tight_layout(rect=(0, 0, shift, 1))
+        
+        if orderInverse:
+            plt.gca().invert_yaxis()
+
+        # save figure
+        if saveFig: 
+            if isinstance(saveFig, basestring):
+                filename = saveFig
+            else:
+                filename = namespace_id+' '+'state.png'
+                plt.savefig(filename)
+                
+    # show fig 
+    if showFig:
+        show_figure()
+    
+    return fig
 
 
 ## Plot spike raster
@@ -384,7 +500,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', orderInverse = False, labels = 'legend', 
                       spikeRateBin = 25.0, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
     ''' 
-    Raster plot of network spike times. Returns the figure handle.
+    Plot of network firing rates. Returns the figure handle.
 
     input_path: file with spike data
     namespace_id: attribute namespace for spike events
@@ -574,7 +690,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             
     # Y-axis label
     if quantity == 'rate':
-        yaxisLabel = 'Average cell firing rate (Hz)'
+        yaxisLabel = 'Mean cell firing rate (Hz)'
     elif quantity == 'count':
         yaxisLabel = 'Spike count'
     elif quantity == 'active':
