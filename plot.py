@@ -716,11 +716,11 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
         del(spkdict)
         bin_dict      = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
         for (ind, (counts, rates)) in rate_bin_dict.iteritems():
-             for ibin in xrange(0, time_bins.size-1):
+             for ibin in xrange(0, time_bins.size):
                 if counts[ibin] > 0:
                     d = bin_dict[ibin]
-                    d['rates']  += rates[ibin]
-                    d['counts'] += counts[ibin]
+                    d['rates']  += rates[ibin-1]
+                    d['counts'] += counts[ibin-1]
                     d['active'] += 1
         hist_dict[subset] = bin_dict
         if verbose:
@@ -734,15 +734,15 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        histoT = time_bins[:-1]+binSize/2
+        histoT = time_bins+binSize/2
         bin_dict = hist_dict[subset]
 
         if quantity=='rate':
-            histoCount = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size-1)])
+            histoCount = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size)])
         elif quantity=='active':
-            histoCount = np.asarray([bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size-1)])
+            histoCount = np.asarray([bin_dict[ibin]['active'] for ibin in xrange(0, time_bins.size)])
         else:
-            histoCount = np.asarray([bin_dict[ibin]['counts'] for ibin in xrange(0, time_bins.size-1)])
+            histoCount = np.asarray([bin_dict[ibin]['counts'] for ibin in xrange(0, time_bins.size)])
 
         del bin_dict
         del hist_dict[subset]
@@ -934,10 +934,11 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 
     return fig
 
+
 ## Plot spike distribution per time
 def plot_spike_distribution_per_time (input_path, namespace_id, include = ['eachPop'],
                                       timeBinSize = 50.0, binCount = 10,
-                                      timeVariable='t', timeRange = None, distfun = None,
+                                      timeVariable='t', timeRange = None, 
                                       overlay=True, quantity = 'rate', alpha_fill = 0.2, figSize = (15,8),
                                       fontSize = 14, lw = 3, saveFig = None, showFig = True, verbose = False): 
     ''' 
@@ -1008,17 +1009,17 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         bins          = np.arange(timeRange[0], timeRange[1], timeBinSize)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
         rate_bin_dict = spikedata.spike_bin_rates(bins, spkdict)
-        max_count     = np.zeros(bins.size-1)
-        max_rate      = np.zeros(bins.size-1)
+        max_count     = np.zeros(bins.size)
+        max_rate      = np.zeros(bins.size)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
         for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
             counts     = count_bins
             rates      = rate_bins
-            for ibin in xrange(1, bins.size-1):
-                if counts[ibin] > 0:
+            for ibin in xrange(1, bins.size+1):
+                if counts[ibin-1] > 0:
                     d = bin_dict[ibin]
-                    d['counts'].append(counts[ibin])
-                    d['rates'].append(rates[ibin])
+                    d['counts'].append(counts[ibin-1])
+                    d['rates'].append(rates[ibin-1])
             max_count  = np.maximum(max_count, np.asarray(count_bins))
             max_rate   = np.maximum(max_rate, np.asarray(rate_bins))
 
@@ -1028,9 +1029,9 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
             counts = d['counts']
             rates = d['rates']
             if quantity == 'rate':
-                histoCount, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin])))
+                histoCount, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin-1])))
             else:
-                histoCount, bin_edges = np.histogram(np.asarray(counts), bins = binCount, range=(0.0, float(max_count[ibin])))
+                histoCount, bin_edges = np.histogram(np.asarray(counts), bins = binCount, range=(0.0, float(max_count[ibin-1])))
             histlst.append(histoCount)
 
             
@@ -1089,6 +1090,135 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
             filename = saveFig
         else:
             filename = namespace_id+' '+'distribution.png'
+        plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+
+    return fig
+
+
+## Plot spatial information distribution
+def plot_spatial_information (spike_input_path, spike_namespace_id, 
+                              trajectory_path, trajectory_id, include = ['eachPop'],
+                              positionBinSize = 5.0, binCount = 1000,
+                              timeVariable='t', timeRange = None, 
+                              alpha_fill = 0.2, figSize = (15,8), overlay = False,
+                              fontSize = 14, lw = 3, saveFig = None,
+                              showFig = True, verbose = False): 
+    ''' 
+    Plots distributions of spatial information per cell. Returns figure handle.
+
+        - input_path: file with spike data
+        - namespace_id: attribute namespace for spike events
+        - include (['eachPop'|<population name>]): List of data series to include. 
+            (default: ['eachPop'] - expands to the name of each population)
+        - timeVariable: Name of variable containing spike times (default: 't')
+        - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+        - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
+        - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
+        - figSize ((width, height)): Size of figure (default: (10,8))
+        - fontSize (integer): Size of text font (default: 14)
+        - lw (integer): Line width for each spike (default: 3)
+        - saveFig (None|True|'fileName'): File name where to save the figure;
+            if set to True uses filename from simConfig (default: None)
+        - showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+    comm = MPI.COMM_WORLD
+
+    trajectory = stimulus.read_trajectory (comm, trajectory_path, trajectory_id, verbose=False)
+
+    (population_ranges, N) = read_population_ranges(comm, spike_input_path)
+    population_names  = read_population_names(comm, spike_input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    spkdata = spikedata.read_spike_events (comm, spike_input_path, include, spike_namespace_id,
+                                           timeVariable=timeVariable, timeRange=timeRange,
+                                           verbose=verbose)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+
+    timeRange = [tmin, tmax]
+            
+    # create fig
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+
+    histlst = []
+    # Plot separate line for each entry in include
+    for iplot, subset in enumerate(spkpoplst):
+
+        spkts         = spktlst[iplot]
+        spkinds       = spkindlst[iplot]
+        spkdict       = spikedata.make_spike_dict(spkinds, spkts)
+        MI_dict       = spikedata.spatial_information(trajectory, spkdict, timeRange, positionBinSize)
+
+        MI_lst  = []
+        for ind in sorted(MI_dict.keys()):
+            MI = MI_dict[ind]
+            MI_lst.append(MI)
+        del(MI_dict)
+
+        MI_array = np.asarray(MI_lst, dtype=np.float32)
+        del(MI_lst)
+        
+        if not overlay:
+            label = str(subset)  + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]),np.mean(MI_array))
+            plt.subplot(len(spkpoplst),1,iplot+1)
+            plt.title (label, fontsize=fontSize)
+            
+        color = color_list[iplot%len(color_list)]
+
+        MI_hist, bin_edges = np.histogram(MI_array, bins = binCount)
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+
+        #x = np.linspace(0,MI_array.size,num=binCount)
+        #y_smooth = interpolate.spline(xrange(0,MI_array.size), MI_array, x)
+        plt.bar(bin_centers, MI_hist, color=color, width=0.5)
+        
+        if iplot == 0:
+            plt.ylabel('Cell Index', fontsize=fontSize)
+        if iplot == len(spkpoplst)-1:
+            plt.xlabel('Mutual Information [bits]', fontsize=fontSize)
+        else:
+            plt.tick_params(labelbottom='off')
+        plt.autoscale(enable=True, axis='both', tight=True)
+
+    if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
+        try:
+            plt.tight_layout()
+        except:
+            pass
+
+    # Add legend
+    if overlay:
+        for i,subset in enumerate(spkpoplst):
+            plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
+        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        maxLabelLen = min(10,max([len(str(l)) for l in include]))
+        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
+
+
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+' '+'information.png'
         plt.savefig(filename)
 
     if showFig:
@@ -1391,7 +1521,6 @@ def plot_selectivity_rate_map (selectivity_path, selectivity_namespace, populati
     '''
     comm = MPI.COMM_WORLD
 
-    rcParams.update({ 'font.size': fontSize } )
     if trajectory_id is not None:
         trajectory = stimulus.read_trajectory (comm, selectivity_path, trajectory_id, verbose=False)
     else:
