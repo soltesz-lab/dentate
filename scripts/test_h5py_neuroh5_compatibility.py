@@ -35,17 +35,21 @@ script_name = 'test_h5py_neuroh5_compatibility.py'
 
 @click.command()
 @click.option("--file-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--namespace", type=str, default='Weights')
+@click.option("--namespace", type=str, default='Synapse Attributes')
+@click.option("--attribute", type=str, default='syn_locs')
+@click.option("--population", type=str, default='GC')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--trajectory-id", type=int, default=0)
-def main(file_path, namespace, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id):
+def main(file_path, namespace, attribute, population, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id):
     """
 
     :param file_path: str
     :param namespace: str
+    :param attribute: str
+    :param population: str
     :param io_size: int
     :param chunk_size: int
     :param value_chunk_size: int
@@ -93,7 +97,7 @@ def main(file_path, namespace, io_size, chunk_size, value_chunk_size, cache_size
             with dataset.collective:
                 t = dataset[:]
 
-    target = 'GC'
+    target = population
 
     pop_ranges, pop_size = read_population_ranges(comm, file_path)
     target_gid_offset = pop_ranges[target][0]
@@ -109,7 +113,7 @@ def main(file_path, namespace, io_size, chunk_size, value_chunk_size, cache_size
     for itercount, (target_gid, attr_dict) in enumerate(attr_gen):
         print 'Rank: %i receieved target_gid: %s from the attribute generator.' % (rank, str(target_gid))
         attr_dict2 = get_cell_attributes_by_gid(target_gid, comm, file_path, index_map, target, namespace)
-        if np.all(attr_dict['syn_id'][:] == attr_dict2['syn_id'][:]):
+        if np.all(attr_dict[attribute][:] == attr_dict2[attribute][:]):
             print 'Rank: %i; attributes match!' % rank
         else:
             print 'Rank: %i; attributes do not match.' % rank
