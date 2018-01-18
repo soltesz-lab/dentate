@@ -76,6 +76,15 @@ def mkspikeout (env, spikeout_filename):
     forestFile.copy('/H5Types',spikeoutFile)
     forestFile.close()
     spikeoutFile.close()
+        
+def mkvout (env, vout_filename):
+    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
+    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    forestFile      = h5py.File(forestFilePath,'r')
+    voutFile        = h5py.File(vout_filename,'w')
+    forestFile.copy('/H5Types', voutFile)
+    forestFile.close()
+    voutFile.close()
 
     
 def spikeout (env, output_path, t_vec, id_vec):
@@ -116,6 +125,22 @@ def spikeout (env, output_path, t_vec, id_vec):
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
         write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
+
+def vout (env, output_path, t_vec, v_dict):
+
+    if not str(env.resultsId):
+        namespace_id = "Intracellular Voltage" 
+    else:
+        namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
+
+    for pop_name, gid_v_dict in v_dict.iteritems():
+        
+        start = env.celltypes[pop_name]['start']
+
+        attr_dict  = { gid-start : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
+                           for (gid, vs) in gid_v_dict.iteritems() }
+
+        write_cell_attributes(env.comm, output_path, pop_name, attr_dict, namespace=namespace_id)
         
 
 def connectcells(env):
@@ -159,7 +184,7 @@ def connectcells(env):
         weights_namespace = 'Weights'
       
       if env.verbose:
-          if env.pc.id() == 0:
+          if int(env.pc.id()) == 0:
             print '*** Reading synapse attributes of population %s' % (postsyn_name)
 
       if has_weights:
@@ -181,6 +206,9 @@ def connectcells(env):
       if cell_attributes_dict.has_key(weights_namespace):
         has_weights = True
         cell_weights_dict = { k : v for (k,v) in cell_attributes_dict[weights_namespace] }
+        if env.verbose:
+          if env.pc.id() == 0:
+            print '*** Found synaptic weights for population %s' % (postsyn_name)
       else:
         has_weights = False
         cell_weights_dict = None
@@ -248,15 +276,18 @@ def connectcells(env):
                                               spines=spines)
 
           if env.verbose:
-            if edge_count == 0:
-              for sec in list(postsyn_cell.all):
+            if int(env.pc.id()) == 0:
+              if edge_count == 0:
+                for sec in list(postsyn_cell.all):
                   h.psection(sec=sec)
-          
+
+          wgt_count = 0
           for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
             syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
               connection_syn_mech_config = connection_dict[syn_mech]
               if has_weights and syn_wgt_dict.has_key(edge_syn_id):
+                wgt_count += 1
                 weight = float(syn_wgt_dict[edge_syn_id]) * connection_syn_mech_config['weight']
               else:
                 weight = connection_syn_mech_config['weight']
@@ -265,8 +296,14 @@ def connectcells(env):
                 h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
               else:
                 h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+          if env.verbose:
+            if int(env.pc.id()) == 0:
+              if edge_count == 0:
+                print '*** Found %i synaptic weights for gid %i' % (wgt_count, postsyn_gid)
 
-            edge_count += len(presyn_gids)
+          edge_count += len(presyn_gids)
+          
+
 
 def connectgjs(env):
     rank = int(env.pc.id())
@@ -333,6 +370,10 @@ def mkcells(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    v_sample_seed = int(env.modelConfig['Random Seeds']['Intracellular Voltage Sample'])
+    ranstream_v_sample = np.random.RandomState()
+    ranstream_v_sample.seed(v_sample_seed)
+    
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
 
     h.templatePaths = h.List()
@@ -363,6 +404,14 @@ def mkcells(env):
             synapses = env.celltypes[popName]['synapses']
         else:
             synapses = {}
+
+
+        v_sample_set = set([])
+        env.v_dict[popName] = {}
+        
+        for gid in xrange(env.celltypes[popName]['start'], env.celltypes[popName]['start']+env.celltypes[popName]['num']):
+          if ranstream_v_sample.uniform() <= env.vrecordFraction:
+            v_sample_set.add(gid)
 
         if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
             if env.verbose:
@@ -400,6 +449,12 @@ def mkcells(env):
                 env.pc.cell(gid, nc, 1)
                 ## Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
+                ## Record voltages from a subset of cells
+                if gid in v_sample_set:
+                    v_vec = h.Vector()
+                    soma = list(model_cell.soma)[0]
+                    v_vec.record(soma(0.5)._ref_v)
+                    env.v_dict[popName][gid] = v_vec 
                 i = i+1
                 h.numCells = h.numCells+1
             if env.verbose:
@@ -583,15 +638,16 @@ def run (env):
 
     if (rank == 0):
         print "*** Simulation completed"
-
+    del(env.cells)
     env.pc.barrier()
     if (rank == 0):
-        print "*** Writing results data"
+        print "*** Writing spike data"
     spikeout(env, env.spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
-
-    # TODO:
-    #if (env.vrecordFraction > 0):
-    #    h.vrecordout("%s/%s_vrecord_%d.dat" % (env.resultsPath, env.modelName, env.pc.id(), env.indicesVrecord))
+    if env.vrecordFraction > 0.:
+      if (rank == 0):
+        print "*** Writing intracellular trace data"
+      t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
+      vout(env, env.spikeoutPath, t_vec, env.v_dict)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
@@ -622,11 +678,11 @@ def run (env):
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
 @click.option("--coredat", is_flag=True)
-@click.option("--vrecord-fraction", type=float, default=0.0)
+@click.option("--vrecord-fraction", type=float, default=0.001)
 @click.option("--tstop", type=int, default=1)
 @click.option("--v-init", type=float, default=-75.0)
 @click.option("--max-walltime-hours", type=float, default=1.0)
-@click.option("--results-write-time", type=float, default=180.0)
+@click.option("--results-write-time", type=float, default=360.0)
 @click.option("--dt", type=float, default=0.025)
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)

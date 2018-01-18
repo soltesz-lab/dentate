@@ -17,9 +17,6 @@ except:
 
 script_name = 'generate_DG_PP_spiketrains.py'
 
-# look up table for type of feature selectivity
-selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selectivity_place_field}
-
 
 @click.command()
 @click.option("--selectivity-path", "-p", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -71,7 +68,7 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
             if trajectory_namespace not in f:
                 print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
                 group = f.create_group(trajectory_namespace)
-                x, y, d, t = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+                t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
                                                           spatial_resolution=spatial_resolution)
                 for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
                     dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
@@ -105,7 +102,6 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
         count = 0
         start_time = time.time()
 
-        selectivity_type = selectivity_type_dict[population]
         attr_gen = NeuroH5CellAttrGen(comm, selectivity_path, population, io_size=io_size,
                                       cache_size=cache_size, namespace=selectivity_namespace)
         if debug:
@@ -117,6 +113,8 @@ def main(selectivity_path, io_size, chunk_size, value_chunk_size, cache_size, tr
             response_dict = {}
             response = None
             if gid is not None:
+                print 'gid: ', gid
+                selectivity_type = selectivity_dict['Selectivity Type'][0]
                 response = stimulus.generate_spatial_ratemap(selectivity_type, selectivity_dict, x, y,
                                                              grid_peak_rate=20., place_peak_rate=20.)
                 local_random.seed(int(seed_offset + gid))

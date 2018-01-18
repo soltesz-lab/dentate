@@ -12,6 +12,7 @@ Cell Types:
     template: DGC
     synapses:
       spines: True
+##      weights: True
 ##      unique: True
       density:
         apical:

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J generate_DG_GC_log_normal_weights
-#SBATCH -o ./results/generate_DG_GC_log_normal_weights.%j.o
+#SBATCH -J generate_DG_GC_structured_weights
+#SBATCH -o ./results/generate_DG_GC_structured_weights.%j.o
 #SBATCH --nodes=70
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 5:00:00
@@ -26,10 +26,13 @@ ulimit -c unlimited
 
 set -x
 
-ibrun -np 1680 python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
+ibrun -np 1680 python $HOME/model/dentate/scripts/generate_structured_weights_as_cell_attr.py \
  -d GC -s LPP -s MPP \
+ --stimulus-path=$SCRATCH/dentate/Full_Scale_Control/dentate_Full_Scale_Control_coords_PP_spiketrains_20171105.h5 --stimulus-namespace='Vector Stimulus' \
+ --initial-weights-namespace='Weights' --structured-weights-namespace='Structured Weights' \
  --weights-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_weights_20171121_compressed.h5 \
  --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20171105.h5 \
+ --trajectory-id=0 \
  --io-size=256
 
 

@@ -72,9 +72,12 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
             pop_spkinds = pop_spkinds[sample_inds]
             tmax = max(tmax, max(pop_spkts))
 
+        sort_idxs = np.argsort(pop_spkts)
         spkpoplst.append(pop_name)
-        spktlst.append(pop_spkts)
-        spkindlst.append(pop_spkinds)
+        spktlst.append(np.take(pop_spkts, sort_idxs))
+        del pop_spkts
+        spkindlst.append(np.take(pop_spkinds, sort_idxs))
+        del pop_spkinds
         
         if verbose:
             print 'Read %i spikes for population %s' % (this_num_cell_spks, pop_name)
@@ -83,62 +86,133 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
             'pop_active_cells': pop_active_cells, 'num_cell_spks': num_cell_spks }
 
 
-def smooth(x, window_len=11, window='hanning'):
-    """Smooth the given data using a window with requested size.
-    
-    This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal 
-    (with the window size) in both ends so that transient parts are minimized
-    in the begining and end part of the output signal.
-    
-    input:
-        x: the input signal 
-        window_len: the dimension of the smoothing window; should be an odd integer
-        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-            flat window will produce a moving average smoothing.
+def make_spike_dict (spkinds, spkts):
+    spk_dict = defaultdict(list)
+    for spkind, spkt in itertools.izip(np.nditer(spkinds), np.nditer(spkts)):
+        spk_dict[int(spkind)].append(spkt)
+    return spk_dict
 
-    output:
-        the smoothed signal
+    
+def interspike_intervals (spkdict):
+    isi_dict = {}
+    for ind, lst in spkdict.iteritems():
+        isi_dict[ind] = np.diff(np.asarray(lst))
+    return isi_dict
+
+
+def spike_rates (spkdict, t_dflt):
+    rate_dict = {}
+    isidict = interspike_intervals(spkdict)
+    for ind, isiv in isidict.iteritems():
+        if isiv.size > 0:
+            t = np.sum(isiv)
+            rate = isiv.size / t / 1000.0
+        elif len(spks) > 0:
+            rate = 1.0 / t_dflt / 1000.0
+        else:
+            rate = 0.0
+        rate_dict[ind] = rate
+    return rate_dict
+
+
+def spike_bin_inds (bins, spkts):
+    bin_inds   = np.digitize(spkts, bins = bins)
+    return bin_inds
+
+
+def spike_bin_rates (bins, spkdict):
+    spk_bin_dict = {}
+    for (ind, lst) in spkdict.iteritems():
+        spkts         = np.asarray(lst, dtype=np.float32)
+        spkints       = np.diff(spkts)
+        bin_inds      = np.digitize(spkts, bins = bins)
+        isi_bin_inds  = bin_inds[1:]
+        rate_bins     = []
+        count_bins    = []
+        if spkts.size > 0:
+            t_prev     = spkts[0]
+        else:
+            t_prev = 0.0
         
-    example:
+        for ibin in xrange(1, len(bins)+1):
+            bin_spks = spkts[bin_inds == ibin]
+            bin_isi  = spkints[isi_bin_inds == ibin]
+            count    = bin_spks.size
+            if count > 1:
+                t        = np.sum(bin_isi)
+                rate     = bin_isi.size / t * 1000.0
+                t_prev   = bin_spks[-1]
+            elif count > 0:
+                t = bin_spks[0] - t_prev
+                if t > 0.:
+                    rate = 1.0 / t * 1000.0
+                else:
+                    rate = 0.0
+                t_prev = bin_spks[-1]
+            else:
+                rate = 0.0
+            rate_bins.append(rate)
+            count_bins.append(count)
+            
+        spk_bin_dict[ind] = (np.asarray(count_bins, dtype=np.uint32), np.asarray(rate_bins, dtype=np.float32))
+        
+    return spk_bin_dict
+            
 
-    t=linspace(-2,2,0.1)
-    x=sin(t)+randn(len(t))*0.1
-    y=smooth(x)
+def spatial_information (trajectory, spkdict, timeRange, positionBinSize):
+
+    tmin = timeRange[0]
+    tmax = timeRange[1]
     
-    see also: 
+    (x, y, d, t)  = trajectory
+
+    t_inds = np.where((t >= tmin) & (t <= tmax))
+    t = t[t_inds]
+    d = d[t_inds]
+        
+    d_extent       = np.max(d) - np.min(d)
+    position_bins  = np.arange(np.min(d), np.max(d), positionBinSize)
+    d_bin_inds     = np.digitize(d, bins = position_bins)
+    t_bin_ind_lst  = [0]
+    for ibin in xrange(1, len(position_bins)+1):
+        bin_inds = np.where(d_bin_inds == ibin)
+        t_bin_ind_lst.append(np.max(bin_inds))
+    t_bin_inds = np.asarray(t_bin_ind_lst)
+    time_bins  = t[t_bin_inds]
+
+    d_bin_probs = {}
+    prev_bin = np.min(d)
+    for ibin in xrange(1, len(position_bins)+1):
+        d_bin  = d[d_bin_inds == ibin]
+        if d_bin.size > 0:
+            bin_max = np.max(d_bin)
+            d_prob = (bin_max - prev_bin) / d_extent
+            d_bin_probs[ibin] = d_prob
+            prev_bin = bin_max
+        else:
+            d_bin_probs[ibin] = 0.
+            
+    rate_bin_dict = spike_bin_rates(time_bins, spkdict)
+    MI_dict = {}
+    for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
+        MI = 0.
+        rates = np.asarray(rate_bins)
+        R     = np.mean(rates)
+
+        if R > 0.:
+            for ibin in xrange(1, len(position_bins)+1):
+                p_i  = d_bin_probs[ibin]
+                R_i  = rates[ibin-1]
+                if R_i > 0.:
+                    MI   += p_i * (R_i / R) * math.log(R_i / R, 2)
+            
+        MI_dict[ind] = MI
+        
+    return MI_dict
+            
+            
+
     
-    numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
-    scipy.signal.lfilter
- 
-    NOTE: length(output) != length(input), to correct this: 
-    return y[(window_len/2-1):-(window_len/2)] instead of just y.
-    """
-
-    if x.ndim != 1:
-        raise ValueError, "smooth only accepts 1 dimension arrays."
-
-    if x.size < window_len:
-        raise ValueError, "Input vector needs to be bigger than window size."
-
-    if window_len<3:
-        return x
-
-
-    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
-
-
-    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-
-    if window == 'flat': #moving average
-        w=np.ones(window_len,'d')
-    else:
-        w=eval('np.'+window+'(window_len)')
-
-    y=np.convolve(w/w.sum(),s,mode='valid')
-
-    return y[(window_len/2-1):-(window_len/2)]
 
 
 def mvcorrcoef(X,y):
@@ -259,4 +333,9 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
 
     
     return corr_dict
+
+def activity_ratio(stimulus, response, binSize = 25.):
+    result = np.power(np.sum(np.array(mean_rates),axis=0)/nstim,2) / (np.sum(np.power(mean_rates,2.0),axis=0)/nstim)
+    return result
+
 

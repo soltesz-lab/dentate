@@ -227,6 +227,7 @@ class ConnectionProb(object):
         return p1, source_gid, distance_u, distance_v
 
     
+    
 def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict):
     """Given a synapse projection, SWC synapse location, and synapse
     type, chooses a projection from the given projection dictionary
