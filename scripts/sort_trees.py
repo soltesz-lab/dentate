@@ -3,6 +3,7 @@ from mpi4py import MPI
 import numpy as np
 from neuroh5.io import append_cell_trees, bcast_cell_attributes, NeuroH5TreeGen
 from utils import *
+import pprint
 import click
 
 
@@ -14,7 +15,8 @@ import click
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(population, forest_path, output_path, index_path, io_size, chunk_size, value_chunk_size):
+@click.option("--debug", is_flag=True)
+def main(population, forest_path, output_path, index_path, io_size, chunk_size, value_chunk_size, debug):
     """
 
     :param population: str
@@ -24,6 +26,7 @@ def main(population, forest_path, output_path, index_path, io_size, chunk_size, 
     :param io_size: int
     :param chunk_size: int
     :param value_chunk_size: int
+    :param debug: bool
     """
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -38,16 +41,26 @@ def main(population, forest_path, output_path, index_path, io_size, chunk_size, 
     reindex_map_gen = bcast_cell_attributes(comm, 0, index_path, population, namespace='Tree Reindex Map')
     for gid, attr_dict in reindex_map_gen:
         reindex_map[gid] = attr_dict['New Cell Index'][0]
-
+    new_trees_dict = {}
+    count = 0
     for gid, old_trees_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
-        new_trees_dict = {}
         if gid is not None and gid in reindex_map:
             new_gid = reindex_map[gid]
             new_trees_dict[new_gid] = old_trees_dict
             print 'Rank: %i mapping old_gid: %i to new_gid: %i' % (comm.rank, gid, new_gid)
             sys.stdout.flush()
-        append_cell_trees(comm, output_path, population, new_trees_dict, io_size=io_size, chunk_size=chunk_size,
-                          value_chunk_size=value_chunk_size)
+        comm.barrier()
+        if count > 2:
+            break
+        count += 1
+    append_cell_trees(comm, output_path, population, new_trees_dict, io_size=io_size)
+    """
+    print 'old_trees: old gid: %i; new_gid: %i' % (gid, new_gid)
+    pprint.pprint(old_trees_dict.keys())
+    sys.stdout.flush()
+    break
+    """
+
     if comm.rank == 0:
         print 'Appended sorted trees to %s' % output_path
         sys.stdout.flush()
