@@ -639,10 +639,62 @@ def test_uv_isospline():
         mlab.show()
     except:
         pass
+
+def test_uv_mplot():
+
+    spatial_resolution = 50.  # um
+    max_u = 11690.
+    max_v = 2956.
+    
+    du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
+    dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
+    su = np.arange(-0.016*np.pi, 1.01*np.pi, du)
+    sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
+
+    u, v = np.meshgrid(su, sv, indexing='ij')
+    # for the middle of the granule cell layer:
+    l1 = -1.
+    l2 = 0.
+
+    xyz1 = test_surface (u, v, l1)
+    xyz2 = test_surface (u, v, l2)
+
+    s = 1e6
+    srf1 = BSplineSurface(np.linspace(0, 1, len(u)),
+                            np.linspace(0, 1, xyz1.shape[2]),
+                            xyz1, s=s)
+    srf2 = BSplineSurface(np.linspace(0, 1, len(u)),
+                            np.linspace(0, 1, xyz2.shape[2]),
+                            xyz2, s=s)
+
+    print 'surface created'
+    try:
+        from mayavi import mlab
+
+        npts = 400
+        
+        U = np.linspace(0, 1, npts)
+        V = np.linspace(0, 1, npts)
+
+        # Plot u,v-isosplines on the surface
+        upts = srf1(U, V[int(npts/2)]).reshape(3, npts)
+        vpts = srf1(U[int(npts/2)], V).reshape(3, npts)
+
+        srf1.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
+        srf2.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
+        
+        mlab.points3d(*upts,  scale_factor=100.0, color=(1, 1, 0))
+        mlab.points3d(*vpts,  scale_factor=100.0, color=(1, 1, 0))
+        
+        mlab.show()
+    except:
+        pass
     
     
 if __name__ == '__main__':
-    test_normal()
-    test_point_distance()
-    test_uv_isospline()
+#    test_normal()
+#    test_point_distance()
+#    test_uv_isospline()
+    test_uv_mplot()
+    
     

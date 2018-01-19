@@ -144,7 +144,60 @@ def spike_bin_rates (spkdict, bins, t_start, t_stop, sampling_rate=40*Hz, sigma 
         
     return spk_bin_dict
             
+
+def spatial_information (trajectory, spkdict, timeRange, positionBinSize):
+
+    tmin = timeRange[0]
+    tmax = timeRange[1]
     
+    (x, y, d, t)  = trajectory
+
+    t_inds = np.where((t >= tmin) & (t <= tmax))
+    t = t[t_inds]
+    d = d[t_inds]
+        
+    d_extent       = np.max(d) - np.min(d)
+    position_bins  = np.arange(np.min(d), np.max(d), positionBinSize)
+    d_bin_inds     = np.digitize(d, bins = position_bins)
+    t_bin_ind_lst  = [0]
+    for ibin in xrange(1, len(position_bins)+1):
+        bin_inds = np.where(d_bin_inds == ibin)
+        t_bin_ind_lst.append(np.max(bin_inds))
+    t_bin_inds = np.asarray(t_bin_ind_lst)
+    time_bins  = t[t_bin_inds]
+
+    d_bin_probs = {}
+    prev_bin = np.min(d)
+    for ibin in xrange(1, len(position_bins)+1):
+        d_bin  = d[d_bin_inds == ibin]
+        if d_bin.size > 0:
+            bin_max = np.max(d_bin)
+            d_prob = (bin_max - prev_bin) / d_extent
+            d_bin_probs[ibin] = d_prob
+            prev_bin = bin_max
+        else:
+            d_bin_probs[ibin] = 0.
+            
+    rate_bin_dict = spike_bin_rates(time_bins, spkdict)
+    MI_dict = {}
+    for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
+        MI = 0.
+        rates = np.asarray(rate_bins)
+        R     = np.mean(rates)
+
+        if R > 0.:
+            for ibin in xrange(1, len(position_bins)+1):
+                p_i  = d_bin_probs[ibin]
+                R_i  = rates[ibin-1]
+                if R_i > 0.:
+                    MI   += p_i * (R_i / R) * math.log(R_i / R, 2)
+            
+        MI_dict[ind] = MI
+        
+    return MI_dict
+            
+            
+
     
 
 
@@ -268,7 +321,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
     return corr_dict
 
 def activity_ratio(stimulus, response, binSize = 25.):
-    result = numpy.power(numpy.sum(numpy.array(mean_rates),axis=0)/nstim,2) / (numpy.sum(numpy.power(mean_rates,2),axis=0)/nstim)
+    result = np.power(np.sum(np.array(mean_rates),axis=0)/nstim,2) / (np.sum(np.power(mean_rates,2.0),axis=0)/nstim)
     return result
 
 
