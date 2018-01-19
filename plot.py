@@ -555,7 +555,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict)
+        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict, t_start=timeRange[0], t_stop=timeRange[1])
         i = 0
         rate_dict = {}
         for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
@@ -712,7 +712,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
     hist_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict)
+        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict, t_start=timeRange[0], t_stop=timeRange[1])
         del(spkdict)
         bin_dict      = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
         for (ind, (counts, rates)) in rate_bin_dict.iteritems():
@@ -1007,7 +1007,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         spkinds       = spkindlst[iplot]
         bins          = np.arange(timeRange[0], timeRange[1], timeBinSize)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(bins, spkdict)
+        rate_bin_dict = spikedata.spike_bin_rates(bins, spkdict, t_start=timeRange[0], t_stop=timeRange[1])
         max_count     = np.zeros(bins.size-1)
         max_rate      = np.zeros(bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
