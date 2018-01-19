@@ -2,6 +2,8 @@ import math
 import itertools
 from collections import defaultdict
 import numpy as np
+import elephant, neo
+from quantities import s, ms, Hz
 from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names
 
 def read_spike_events(comm, input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None, verbose = False):
@@ -115,40 +117,24 @@ def spike_rates (spkdict, t_dflt):
     return rate_dict
 
 
-def spike_bin_inds (bins, spkts):
-    bin_inds   = np.digitize(spkts, bins = bins)
-    return bin_inds
 
-
-def spike_bin_rates (bins, spkdict):
+def spike_bin_rates (spkdict, bins, t_start, t_stop, sampling_rate=40*Hz, sigma = 0.05*s):
+    kernel = elephant.kernels.AlphaKernel(sigma = sigma, invert = True)
     spk_bin_dict = {}
     for (ind, lst) in spkdict.iteritems():
-        spkts         = np.asarray(lst, dtype=np.float32)
-        spkints       = np.diff(spkts)
+        spkts         = neo.core.SpikeTrain(np.asarray(lst, dtype=np.float32)*ms, t_start=t_start*ms, t_stop=t_stop*ms, sampling_rate=sampling_rate)
+        spkrates_r    = elephant.instantaneous_rate(spiketrain, sampling_period = 0.025*ms, kernel)
+        spkrates      = np.interp(spkts, np.linspace(t_start, t_stop, spkrates_r.size), spkrates_r)
         bin_inds      = np.digitize(spkts, bins = bins)
-        isi_bin_inds  = bin_inds[1:]
         rate_bins     = []
         count_bins    = []
-        if spkts.size > 0:
-            t_prev     = spkts[0]
-        else:
-            t_prev = 0.0
         
         for ibin in xrange(1, len(bins)):
-            bin_spks = spkts[bin_inds == ibin]
-            bin_isi  = spkints[isi_bin_inds == ibin]
+            bin_spks  = spkts[bin_inds == ibin]
+            bin_rates = spkrates[bin_inds == ibin]
             count    = bin_spks.size
-            if count > 1:
-                t        = np.sum(bin_isi)
-                rate     = bin_isi.size / t * 1000.0
-                t_prev   = bin_spks[-1]
-            elif count > 0:
-                t = bin_spks[0] - t_prev
-                if t > 0.:
-                    rate = 1.0 / t * 1000.0
-                else:
-                    rate = 0.0
-                t_prev = bin_spks[-1]
+            if count > 0:
+                rate     = np.mean(bin_rates)
             else:
                 rate = 0.0
             rate_bins.append(rate)
