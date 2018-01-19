@@ -14,11 +14,12 @@ def get_cell_attributes_gid_index_map(comm, file_path, population, namespace, in
     :param index_name: str
     :return: dict
     """
+    index_map = {}
     with h5py.File(file_path, 'r', driver='mpio', comm=comm) as f:
-        group = f['Populations'][population][namespace].itervalues().next()
-        dataset = group[index_name]
-        with dataset.collective:
-            index_map = dict(zip(dataset[:], xrange(dataset.shape[0])))
+        for attribute, group in f['Populations'][population][namespace].iteritems():
+            dataset = group[index_name]
+            with dataset.collective:
+                index_map[attribute] = dict(zip(dataset[:], xrange(dataset.shape[0])))
     return index_map
 
 
@@ -37,20 +38,21 @@ def get_cell_attributes_by_gid(gid, comm, file_path, index_map, population, name
     :param value_name: str
     :return: dict
     """
-    if gid is None:
-        index = 0
-        in_dataset = False
-    else:
-        in_dataset = True
-        try:
-            index = index_map[gid - start_gid]
-        except KeyError:
-            index = 0
-            in_dataset = False
+    in_dataset = True
     attr_dict = {}
     with h5py.File(file_path, 'r', driver='mpio', comm=comm) as f:
         group = f['Populations'][population][namespace]
         for attribute in group:
+            if not in_dataset or gid is None:
+                index = 0
+                in_dataset = False
+            else:
+                in_dataset = True
+                try:
+                    index = index_map[attribute][gid - start_gid]
+                except KeyError:
+                    index = 0
+                    in_dataset = False
             pointer_dataset = group[attribute][pointer_name]
             with pointer_dataset.collective:
                 start = pointer_dataset[index]
@@ -83,11 +85,11 @@ def create_new_neuroh5_file(template_path, output_path):
 if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
-    file_path = '../datasets/Full_Scale_Control/DGC_forest_test_syns_weights_20171107.h5'
+    file_path = '../datasets/Full_Scale_Control/neuroh5_example_file.h5'
     population = 'GC'
-    namespace = 'Weights'
+    namespace = 'Synapse Attributes'
     index_map = get_cell_attributes_gid_index_map(comm, file_path, population, namespace)
-    gid = index_map.keys()[rank]
+    gid = index_map.itervalues().next().keys()[rank]
     attr_dict = get_cell_attributes_by_gid(gid, comm, file_path, index_map, population, namespace)
-    print 'Rank: %i, gid: %i, num_syns: %i' % (rank, gid, len(attr_dict['syn_id']))
+    print 'Rank: %i, gid: %i, num_syns: %i' % (rank, gid, len(attr_dict['syn_ids']))
     sys.stdout.flush()
