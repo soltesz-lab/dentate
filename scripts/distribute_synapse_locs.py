@@ -1,12 +1,11 @@
 
-import sys, time, gc
+from utils import *
 import numpy as np
 from mpi4py import MPI
 from neuron import h
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 from env import Env
-import utils, cells, synapses
-from utils import *
+import cells, synapses
 import click
 
 
@@ -20,7 +19,20 @@ import click
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
-def main(config, template_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size, cache_size):
+def main(config, template_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
+         cache_size):
+    """
+
+    :param config:
+    :param template_path:
+    :param forest_path:
+    :param populations:
+    :param distribution:
+    :param io_size:
+    :param chunk_size:
+    :param value_chunk_size:
+    :param cache_size:
+    """
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
