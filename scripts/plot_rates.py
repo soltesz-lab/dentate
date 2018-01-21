@@ -14,9 +14,10 @@ script_name = 'plot_rates.py'
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
+@click.option("--sigma", type=float, default=0.05)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, spike_rate_bin, t_variable, t_max, t_min, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, populations, spike_rate_bin, t_variable, t_max, t_min, sigma, font_size, verbose):
     if t_max is None:
         timeRange = None
     else:
@@ -29,8 +30,7 @@ def main(spike_events_path, spike_events_namespace, populations, spike_rate_bin,
         populations = ['eachPop']
         
     plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, 
-                           spikeRateBin=spike_rate_bin, fontSize=font_size, saveFig=True,
-                           verbose=verbose)
+                           spikeRateBin=spike_rate_bin, sigma=sigma, fontSize=font_size, saveFig=True, verbose=verbose)
     
 
 if __name__ == '__main__':
