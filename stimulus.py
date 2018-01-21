@@ -28,7 +28,7 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
 
 
 def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y,
-                             grid_peak_rate=40., place_peak_rate=40.):
+                             grid_peak_rate, place_peak_rate):
     """
 
     :param selectivity_type: int

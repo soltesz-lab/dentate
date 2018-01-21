@@ -13,12 +13,13 @@ script_name = 'plot_spatial_information.py'
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
+@click.option("--load-file", type=click.Path())
 @click.option("--trajectory-path", '-t', required=True, type=click.Path())
 @click.option("--trajectory-id", '-d', type=int, default=0)
 @click.option("--position-bin-size", '-b', type=float, default=5.0)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, t_min, trajectory_path, trajectory_id, position_bin_size, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, t_min, trajectory_path, trajectory_id, load_file, position_bin_size, font_size, verbose):
     if t_max is None:
         timeRange = None
     else:
@@ -32,8 +33,8 @@ def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, 
 
     plot.plot_spatial_information (spike_events_path, spike_events_namespace, 
                                     trajectory_path, trajectory_id, include = include,
-                                    positionBinSize = position_bin_size, binCount = 10,
-                                    timeVariable=t_variable, timeRange = timeRange, 
+                                    loadFile = load_file, positionBinSize = position_bin_size,
+                                    binCount = 10, timeVariable=t_variable, timeRange = timeRange, 
                                     fontSize = font_size, verbose = verbose)
 
 if __name__ == '__main__':

@@ -1101,7 +1101,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
 ## Plot spatial information distribution
 def plot_spatial_information (spike_input_path, spike_namespace_id, 
                               trajectory_path, trajectory_id, include = ['eachPop'],
-                              positionBinSize = 5.0, binCount = 1000,
+                              loadFile = None, positionBinSize = 5.0, binCount = 1000,
                               timeVariable='t', timeRange = None, 
                               alpha_fill = 0.2, figSize = (15,8), overlay = False,
                               fontSize = 14, lw = 3, saveFig = None,
@@ -1165,8 +1165,11 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
 
         spkts         = spktlst[iplot]
         spkinds       = spkindlst[iplot]
-        spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        MI_dict       = spikedata.spatial_information(trajectory, spkdict, timeRange, positionBinSize)
+        if loadFile:
+            MI_dict = pickle.load(open(loadFile,'rb'))
+        else:
+            spkdict = spikedata.make_spike_dict(spkinds, spkts)
+            MI_dict = spikedata.spatial_information(trajectory, spkdict, timeRange, positionBinSize)
 
         MI_lst  = []
         for ind in sorted(MI_dict.keys()):

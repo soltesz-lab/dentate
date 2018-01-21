@@ -28,6 +28,21 @@ def normcoords(su, sv):
 
     return nu, ip_u, nv, ip_v
 
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis/math.sqrt(np.dot(axis, axis))
+    print axis
+    a = math.cos(theta/2.0)
+    b, c, d = -axis*math.sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
 
 class BSplineSurface(object):
     def __init__(self, u, v, xyz, ku=3, kv=3, bbox=[0, 1, 0, 1], s=0,
@@ -640,7 +655,7 @@ def test_uv_isospline():
     except:
         pass
 
-def test_uv_mplot():
+def pts_mplot():
 
     spatial_resolution = 50.  # um
     max_u = 11690.
@@ -652,39 +667,40 @@ def test_uv_mplot():
     sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
 
     u, v = np.meshgrid(su, sv, indexing='ij')
-    # for the middle of the granule cell layer:
-    l1 = -1.
-    l2 = 0.
 
-    xyz1 = test_surface (u, v, l1)
-    xyz2 = test_surface (u, v, l2)
+    ls = [-3.95, -1.95, 0., 1., 2., 3.]
+
+    xyzs = [test_surface (u, v, l) for l in ls]
 
     s = 1e6
-    srf1 = BSplineSurface(np.linspace(0, 1, len(u)),
-                            np.linspace(0, 1, xyz1.shape[2]),
-                            xyz1, s=s)
-    srf2 = BSplineSurface(np.linspace(0, 1, len(u)),
-                            np.linspace(0, 1, xyz2.shape[2]),
-                            xyz2, s=s)
+    srfs = [BSplineSurface(np.linspace(0, 1, len(u)),
+                           np.linspace(0, 1, xyz.shape[2]),
+                           xyz, s=s) for xyz in xyzs]
+    print 'surfaces created'
 
-    print 'surface created'
+    import h5py
+    f = h5py.File("datasets/dentate_Full_Scale_Control_coords_distances_20171109.h5")
+    x_coords = f['Populations']['GC']['Coordinates']['X Coordinate']['Attribute Value'][:]
+    y_coords = f['Populations']['GC']['Coordinates']['Y Coordinate']['Attribute Value'][:]
+    z_coords = f['Populations']['GC']['Coordinates']['Z Coordinate']['Attribute Value'][:]
+    sample_inds = np.random.randint(0, x_coords.size-1, size=int(10000))
+    pts = np.stack([x_coords[sample_inds], y_coords[sample_inds], z_coords[sample_inds]],axis=0)
+    f.close()
+    a = float(np.deg2rad(35.))
+    r = rotation_matrix([1,0,0], a)
+    pts = np.dot(r, pts)
     try:
+
         from mayavi import mlab
 
-        npts = 400
-        
-        U = np.linspace(0, 1, npts)
-        V = np.linspace(0, 1, npts)
+        mlab.figure(bgcolor=(1.,1.,1.), size=(1000, 1000))
 
-        # Plot u,v-isosplines on the surface
-        upts = srf1(U, V[int(npts/2)]).reshape(3, npts)
-        vpts = srf1(U[int(npts/2)], V).reshape(3, npts)
+         
+        for srf in srfs:
+            srf.mplot(color=(0.2, 0.7, 0.9), opacity=0.33, scale_factor=10.0, ures=1, vres=1)
 
-        srf1.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
-        srf2.mplot(color=(0, 1, 0), opacity=1.0, ures=1, vres=1)
-        
-        mlab.points3d(*upts,  scale_factor=100.0, color=(1, 1, 0))
-        mlab.points3d(*vpts,  scale_factor=100.0, color=(1, 1, 0))
+        mlab.points3d(*pts, scale_factor=50.0, color=(1, 1, 0))
+
         
         mlab.show()
     except:
@@ -695,6 +711,6 @@ if __name__ == '__main__':
 #    test_normal()
 #    test_point_distance()
 #    test_uv_isospline()
-    test_uv_mplot()
+    pts_mplot()
     
     
