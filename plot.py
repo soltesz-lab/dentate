@@ -498,7 +498,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 
 ## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', orderInverse = False, labels = 'legend', 
-                      spikeRateBin = 25.0, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
+                      spikeRateBin = 25.0, sigma = 0.05, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True, verbose = False): 
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -555,7 +555,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict, t_start=timeRange[0], t_stop=timeRange[1])
+        rate_bin_dict = spikedata.spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], sigma=sigma)
         i = 0
         rate_dict = {}
         for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
@@ -661,7 +661,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
+                                           timeRange=timeRange, verbose=verbose, maxSpikes = 1e6)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -709,22 +709,40 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
     time_bins  = np.arange(timeRange[0], timeRange[1], binSize)
 
+    
     hist_dict = {}
-    for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
-        spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(time_bins, spkdict, t_start=timeRange[0], t_stop=timeRange[1])
-        del(spkdict)
-        bin_dict      = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
-        for (ind, (counts, rates)) in rate_bin_dict.iteritems():
-             for ibin in xrange(0, time_bins.size):
-                if counts[ibin] > 0:
-                    d = bin_dict[ibin]
-                    d['rates']  += rates[ibin-1]
-                    d['counts'] += counts[ibin-1]
+    if quantity == 'rate':
+        for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+            spkdict = spikedata.make_spike_dict(spkinds, spkts)
+            rate_bin_dict = spikedata.spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1])
+            del(spkdict)
+            bin_dict      = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
+            for (ind, (counts, rates)) in rate_bin_dict.iteritems():
+                for ibin in xrange(0, time_bins.size):
+                    if counts[ibin-1] > 0:
+                        d = bin_dict[ibin]
+                        d['rates']  += rates[ibin-1]
+                        d['counts'] += counts[ibin-1]
                     d['active'] += 1
-        hist_dict[subset] = bin_dict
-        if verbose:
-            print('Calculated spike rates for %i cells in population %s' % (len(rate_bin_dict), subset))
+            hist_dict[subset] = bin_dict
+            if verbose:
+                print('Calculated spike rates for %i cells in population %s' % (len(rate_bin_dict), subset))
+    else:
+        for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+            spkdict = spikedata.make_spike_dict(spkinds, spkts)
+            count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
+            del(spkdict)
+            bin_dict      = defaultdict(lambda: {'counts':0, 'active': 0})
+            for (ind, counts) in count_bin_dict.iteritems():
+                for ibin in xrange(0, time_bins.size):
+                    if counts[ibin-1] > 0:
+                        d = bin_dict[ibin]
+                        d['counts'] += counts[ibin-1]
+                        d['active'] += 1
+            hist_dict[subset] = bin_dict
+            if verbose:
+                print('Calculated spike counts for %i cells in population %s' % (len(count_bin_dict), subset))
+        
             
     del spkindlst, spktlst
 
@@ -1008,7 +1026,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         spkinds       = spkindlst[iplot]
         bins          = np.arange(timeRange[0], timeRange[1], timeBinSize)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(bins, spkdict, t_start=timeRange[0], t_stop=timeRange[1])
+        rate_bin_dict = spikedata.spike_bin_rates(spkdict, bins, t_start=timeRange[0], t_stop=timeRange[1])
         max_count     = np.zeros(bins.size-1)
         max_rate      = np.zeros(bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
@@ -1104,7 +1122,7 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
                               positionBinSize = 5.0, binCount = 1000,
                               timeVariable='t', timeRange = None, 
                               alpha_fill = 0.2, figSize = (15,8), overlay = False,
-                              fontSize = 14, lw = 3, saveFig = None,
+                              fontSize = 14, lw = 3, saveFig = None, saveData = None,
                               showFig = True, verbose = False): 
     ''' 
     Plots distributions of spatial information per cell. Returns figure handle.
@@ -1166,7 +1184,14 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
         spkts         = spktlst[iplot]
         spkinds       = spkindlst[iplot]
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        MI_dict       = spikedata.spatial_information(trajectory, spkdict, timeRange, positionBinSize)
+        if saveData:
+            if isinstance(saveData, basestring):
+                filename = saveData
+            else:
+                filename = spike_namespace_id+' '+subset
+        else:
+            filename = False
+        MI_dict       = spikedata.spatial_information(trajectory, spkdict, timeRange, positionBinSize, saveData=filename)
 
         MI_lst  = []
         for ind in sorted(MI_dict.keys()):
@@ -1189,7 +1214,7 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
 
         #x = np.linspace(0,MI_array.size,num=binCount)
         #y_smooth = interpolate.spline(xrange(0,MI_array.size), MI_array, x)
-        plt.bar(bin_centers, MI_hist, color=color, width=0.5)
+        plt.bar(bin_centers, MI_hist, color=color, width=0.3)
         
         if iplot == 0:
             plt.ylabel('Cell Index', fontsize=fontSize)

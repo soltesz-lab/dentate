@@ -1,8 +1,9 @@
 import math
 import itertools
 from collections import defaultdict
+from pathos.multiprocessing import ProcessPool
 import numpy as np
-import elephant, neo
+import neo, elephant
 from quantities import s, ms, Hz
 from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names
 
@@ -116,36 +117,61 @@ def spike_rates (spkdict, t_dflt):
         rate_dict[ind] = rate
     return rate_dict
 
-
-
-def spike_bin_rates (spkdict, bins, t_start, t_stop, sampling_rate=40*Hz, sigma = 0.05*s):
-    kernel = elephant.kernels.AlphaKernel(sigma = sigma, invert = True)
-    spk_bin_dict = {}
-    for (ind, lst) in spkdict.iteritems():
-        spkts         = neo.core.SpikeTrain(np.asarray(lst, dtype=np.float32)*ms, t_start=t_start*ms, t_stop=t_stop*ms, sampling_rate=sampling_rate)
-        spkrates_r    = elephant.instantaneous_rate(spiketrain, sampling_period = 0.025*ms, kernel)
-        spkrates      = np.interp(spkts, np.linspace(t_start, t_stop, spkrates_r.size), spkrates_r)
-        bin_inds      = np.digitize(spkts, bins = bins)
-        rate_bins     = []
-        count_bins    = []
+def spike_bin_rates_func (item,bins,t_start,t_stop,sampling_period,sigma,kernel):
+    (ind, lst) = item
+    print ind
+    spkts         = neo.core.SpikeTrain(np.asarray(lst, dtype=np.float32)*ms, t_start=t_start*ms, t_stop=t_stop*ms)
+    spkrates_r    = elephant.statistics.instantaneous_rate(spkts, sampling_period, kernel=kernel)
+    spkrates      = np.interp(spkts, np.linspace(t_start, t_stop, spkrates_r.size), spkrates_r.ravel())
+    del(spkrates_r)
+    bin_inds      = np.digitize(spkts, bins = bins)
+    rate_bins     = []
+    count_bins    = []
+    
+    for ibin in xrange(1, len(bins)+1):
+        bin_spks  = spkts[bin_inds == ibin]
+        bin_rates = spkrates[bin_inds == ibin]
+        count    = bin_spks.size
+        if count > 0:
+            rate     = np.mean(bin_rates)
+        else:
+            rate = 0.0
+        rate_bins.append(rate)
+        count_bins.append(count)
         
-        for ibin in xrange(1, len(bins)):
-            bin_spks  = spkts[bin_inds == ibin]
-            bin_rates = spkrates[bin_inds == ibin]
-            count    = bin_spks.size
-            if count > 0:
-                rate     = np.mean(bin_rates)
-            else:
-                rate = 0.0
-            rate_bins.append(rate)
-            count_bins.append(count)
-            
-        spk_bin_dict[ind] = (np.asarray(count_bins, dtype=np.uint32), np.asarray(rate_bins, dtype=np.float32))
-        
+    return (ind, (np.asarray(count_bins, dtype=np.uint32), np.asarray(rate_bins, dtype=np.float32)))
+
+def spike_bin_rates (spkdict, bins, t_start, t_stop, sampling_period=0.025*ms, sigma = 0.05, nprocs=16, saveData=False):
+    kernel = elephant.kernels.GaussianKernel(sigma = sigma*s, invert = True)
+
+    pool = ProcessPool(nprocs)
+    spk_bin_dict = dict(pool.map(lambda (item): spike_bin_rates_func(item,bins,t_start,t_stop,sampling_period,sigma,kernel), spkdict.iteritems()))
+
+    if saveData:
+        import pickle
+        pickle.dump(spk_bin_dict, open(saveData+' ratebins.p','wb'))
+
     return spk_bin_dict
             
 
-def spatial_information (trajectory, spkdict, timeRange, positionBinSize):
+def spike_bin_counts(spkdict, bins):
+    count_bin_dict = {}
+    for (ind, lst) in spkdict.iteritems():
+
+        spkts = np.asarray(lst, dtype=np.float32)
+        bin_inds      = np.digitize(spkts, bins = bins)
+        count_bins    = []
+    
+        for ibin in xrange(1, len(bins)+1):
+            bin_spks  = spkts[bin_inds == ibin]
+            count    = bin_spks.size
+            count_bins.append(count)
+        
+        count_bin_dict[ind] = np.asarray(count_bins, dtype=np.uint32)
+
+    return count_bin_dict
+
+def spatial_information (trajectory, spkdict, timeRange, positionBinSize, saveData = False):
 
     tmin = timeRange[0]
     tmax = timeRange[1]
@@ -178,7 +204,7 @@ def spatial_information (trajectory, spkdict, timeRange, positionBinSize):
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_bin_rates(time_bins, spkdict)
+    rate_bin_dict = spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], saveData=saveData)
     MI_dict = {}
     for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
         MI = 0.
@@ -193,7 +219,10 @@ def spatial_information (trajectory, spkdict, timeRange, positionBinSize):
                     MI   += p_i * (R_i / R) * math.log(R_i / R, 2)
             
         MI_dict[ind] = MI
-        
+
+    if saveData:
+        import pickle
+        pickle.dump(MI_dict, open(saveData+' information.p','wb'))
     return MI_dict
             
             

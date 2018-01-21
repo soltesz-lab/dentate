@@ -34,7 +34,7 @@ def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, 
                                     trajectory_path, trajectory_id, include = include,
                                     positionBinSize = position_bin_size, binCount = 10,
                                     timeVariable=t_variable, timeRange = timeRange, 
-                                    fontSize = font_size, verbose = verbose)
+                                    fontSize = font_size, verbose = verbose, saveData = True)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
