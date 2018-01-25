@@ -228,3 +228,6 @@ class Env:
         self.mkstimtime  = 0
         self.connectcellstime = 0
         self.connectgjstime = 0
+
+        self.simtime = None
+        

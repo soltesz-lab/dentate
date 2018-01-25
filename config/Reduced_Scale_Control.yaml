@@ -1,6 +1,7 @@
 ## Model configuration of dentate gyrus network
 modelname: dentatenet
 datasetName: Reduced_Scale_Control
+Definitions: !include Definitions.yaml
 # Synapse indexing used for cells in dentate gyrus model
 synapses:
   order:

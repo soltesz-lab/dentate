@@ -14,7 +14,8 @@ import h5py
 from neuron import h
 from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
 from env import Env
-import lpt, utils, synapses, cells
+import lpt, synapses, cells, simtime
+from neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
@@ -293,9 +294,9 @@ def connectcells(env):
                 weight = connection_syn_mech_config['weight']
               delay  = distance / connection_syn_mech_config['velocity']
               if type(weight) is float:
-                h.nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
               else:
-                h.nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                nc_appendsyn_wgtvector (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
           if env.verbose:
             if int(env.pc.id()) == 0:
               if edge_count == 0:
@@ -355,9 +356,9 @@ def connectgjs(env):
                     dstsec    = dstsecs[i]
                     weight    = weights[i]
                     if env.pc.gid_exists(source):
-                        h.mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
+                        mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
                     if env.pc.gid_exists(destination):
-                        h.mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
+                        mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
                     ggid = ggid+2
 
             del graph[name]
@@ -613,11 +614,7 @@ def init(env):
     h.connectcellstime   = env.connectcellstime
     h.connectgjstime     = env.connectgjstime
     h.results_write_time = env.results_write_time
-    h.fi_checksimtime    = h.FInitializeHandler("checksimtime(pc)")
-    if (env.pc.id() == 0):
-        print "dt = %g" % h.dt
-        print "tstop = %g" % h.tstop
-        h.fi_status = h.FInitializeHandler("simstatus()")
+    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
