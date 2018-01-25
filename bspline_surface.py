@@ -28,7 +28,7 @@ def normcoords(su, sv):
 
     return nu, ip_u, nv, ip_v
 
-def rotation_matrix(axis, theta):
+def rotate3d(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about
     the given axis by theta radians.
@@ -149,7 +149,7 @@ class BSplineSurface(object):
         hrv = np.interp(newvndxs, *nvs)
         return hru, hrv
 
-    def ev(self, su, sv, mesh=True, normalize_uv=False):
+    def ev(self, su, sv, mesh=True, normalize_uv=False, return_uv=False):
         """Get point(s) on surface at (u, v).
 
         Parameters
@@ -157,6 +157,7 @@ class BSplineSurface(object):
         u, v : scalar or array-like
             u and v may be scalar or vector
         normalize_uv: 
+        return_uv: 
 
         mesh : boolean
             If True, will expand the u and v values into a mesh.
@@ -200,13 +201,16 @@ class BSplineSurface(object):
 
         if u.shape == (1,) and v.shape == (1,):
             # Scalar u and v values; return 1-D 3-element array.
-            return np.array([x, y, z]).ravel()
+            arr = np.array([x, y, z]).ravel()
         else:
             # u and/or v passed as lists; return 3 x m x n array,
             # where m is len(u) and n is len(v). This format
             # is compatible with mayavi's mlab.mesh()
             # function.
             arr = np.array([x, y, z]).reshape(3, len(u), -1)
+        if return_uv:
+            return (arr, U, V)
+        else:
             return arr
 
 
@@ -308,7 +312,8 @@ class BSplineSurface(object):
         else:
             arr = normals.transpose(2, 0, 1)
             return arr
- 
+
+        
     def point_distance(self, su, sv, normalize_uv=False):
         """Cumulative distance between pairs of (u, v) coordinates.
 
@@ -343,7 +348,36 @@ class BSplineSurface(object):
                 
         return distance
 
+    def point_cloud(self, res = 5):
+        """Creates a point cloud using `scipy.spatial.cKDTree`
 
+        Parameters
+        ----------
+        res : int
+            Specifies the oversampling of the original
+            surface in u and v directions. For example:
+            if `res` = 2, and `self.u` = [0, 1, 2, 3],
+            then the surface will be resampled at
+            [0, 0.5, 1, 1.5, 2, 2.5, 3] prior to
+            plotting.
+
+        kwargs : dict
+            See scipy docs for `scipy.spatial.cKDTree`
+
+        Returns
+        -------
+            Tuple (cKDTree, U coordinates, V coordinates, normalized U coordinates, normalized V coordinates)
+        """
+        from scipy.spatial import cKDTree
+        # Make new u and v values of (possibly) higher resolution
+        # the original ones.
+        hru, hrv = self._resample_uv(res, res)
+        # Sample the surface at the new u, v values
+        meshpts, U, V = self.ev(hru, hrv, mesh=True, return_uv=True)
+        # Create kdTree
+        tree = cKDTree(meshpts.reshape(3, hru.shape[0] * hrv.shape[0]).T)
+        return (tree, U, V)
+        
 
     def mplot(self, ures=8, vres=8, **kwargs):
         """Plot the surface using Mayavi's `mesh()` function
@@ -687,7 +721,7 @@ def pts_mplot():
     pts = np.stack([x_coords[sample_inds], y_coords[sample_inds], z_coords[sample_inds]],axis=0)
     f.close()
     a = float(np.deg2rad(35.))
-    r = rotation_matrix([1,0,0], a)
+    r = rotate3d([1,0,0], a)
     pts = np.dot(r, pts)
     try:
 
@@ -705,12 +739,32 @@ def pts_mplot():
         mlab.show()
     except:
         pass
+
+    
+def test_point_cloud():
+
+    spatial_resolution = 50.  # um
+    max_u = 11690.
+    max_v = 2956.
+    
+    du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
+    dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
+    su = np.arange(-0.016*np.pi, 1.01*np.pi, du)
+    sv = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
+
+    u, v = np.meshgrid(su, sv, indexing='ij')
+
+    xyz = test_surface (u, v, -1.)
+    srf = BSplineSurface(su, sv, xyz1)
+
+    return srf.point_cloud()
     
     
 if __name__ == '__main__':
 #    test_normal()
 #    test_point_distance()
 #    test_uv_isospline()
-    pts_mplot()
+#    pts_mplot()
+     test_point_cloud()
     
     
