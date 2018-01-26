@@ -15,23 +15,23 @@ class SimTimeEvent:
         self.results_write_time = results_write_time
         self.dt_checksimtime = dt_checksimtime
         self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
-        if (int(env.pc.id()) == 0):
+        if (int(pc.id()) == 0):
             print "dt = %g" % h.dt
             print "tstop = %g" % h.tstop
-            h.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
+            self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
 
     def simstatus(self):
         wt = h.startsw()
         if (self.walltime_status > 0):
             if (int(self.pc.id()) == 0):
-                print "*** rank 0 computation time at t=%g ms was %g s\n" % (t, wt-self.walltime_status)
+                print "*** rank 0 computation time at t=%g ms was %g s" % (h.t, wt-self.walltime_status)
         self.walltime_status = wt
         if ((h.t + self.dt_status) < h.tstop):
             h.cvode.event(h.t + self.dt_status, self.simstatus)
 
     def checksimtime(self):
-        wt = startsw()
-        if (t > 0):
+        wt = h.startsw()
+        if (h.t > 0):
             tt = wt - self.walltime_checksimtime
             ## cumulative moving average simulation time per dt_checksimtime
             self.tcma = self.tcma + (tt - self.tcma) / (self.nsimsteps + 1)
@@ -52,14 +52,14 @@ class SimTimeEvent:
                 tstop1 = int((tsimrem - self.results_write_time)/(self.tcma/self.dt_checksimtime)) + h.t
                 min_tstop = self.pc.allreduce(tstop1, 3) ## minimum value
                 if (int(self.pc.id()) == 0):
-                        print "*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms" % (tstop, min_tstop)
+                        print "*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms" % (h.tstop, min_tstop)
                 if (min_tstop <= h.t):
                     h.tstop = h.t + h.dt
             else:
                 h.tstop = min_tstop
-                cvode.event(h.tstop)
+                h.cvode.event(h.tstop)
         self.nsimsteps = self.nsimsteps + 1
         self.walltime_checksimtime = wt
         if (h.t + self.dt_checksimtime < h.tstop):
-            cvode.event(h.t + self.dt_checksimtime, self.checksimtime)
+            h.cvode.event(h.t + self.dt_checksimtime, self.checksimtime)
 
