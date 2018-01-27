@@ -106,17 +106,13 @@ def spikeout (env, output_path, t_vec, id_vec):
         namespace_id = "Spike Events %s" % str(env.resultsId)
     
     for i in range(0,len(types)):
-        if i > 0:
-            start = bins[i-1]
-        else:
-            start = 0
         spkdict  = {}
         sinds    = np.where(inds == i)
         if len(sinds) > 0:
             ids      = id_vec[sinds]
             ts       = t_vec[sinds]
             for j in range(0,len(ids)):
-                id = ids[j] - start
+                id = ids[j]
                 t  = ts[j]
                 if spkdict.has_key(id):
                     spkdict[id]['t'].append(t)
@@ -136,9 +132,7 @@ def vout (env, output_path, t_vec, v_dict):
 
     for pop_name, gid_v_dict in v_dict.iteritems():
         
-        start = env.celltypes[pop_name]['start']
-
-        attr_dict  = { gid-start : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
+        attr_dict  = { gid : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
                            for (gid, vs) in gid_v_dict.iteritems() }
 
         write_cell_attributes(env.comm, output_path, pop_name, attr_dict, namespace=namespace_id)
