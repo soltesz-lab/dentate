@@ -38,3 +38,110 @@ Cell Layers:
     HCC: [3.0787, 4.4767, 0.]
     HC: [3.0787, 4.4767, -1.95]
     IS: [3.0787, 4.4767, -1.95]
+Cell Layer Counts:
+  GC:
+    Hilus: 0
+    GCL: 1000000
+    IML: 0
+    MML: 0
+    OML: 0
+  MC:
+    Hilus: 30000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  HC:
+    Hilus: 9000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  HC:
+    Hilus: 9000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  BC:
+    Hilus: 1700
+    GCL: 1700
+    IML: 400
+    MML: 0
+    OML: 0
+  AAC:
+    Hilus: 200
+    GCL: 200
+    IML: 50
+    MML: 0
+    OML: 0
+  HCC:
+    Hilus: 1150
+    GCL: 250
+    IML: 0
+    MML: 0
+    OML: 0
+  NGFC:
+    Hilus: 0
+    GCL: 0
+    IML: 0
+    MML: 2500
+    OML: 2500
+  MOPP:
+    Hilus: 0
+    GCL: 0
+    IML: 2000
+    MML: 1000
+    OML: 1000
+  IS:
+    Hilus: 3000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  MEC:
+    Hilus: 0
+    GCL: 0
+    IML: 0
+    MML: 38000
+    OML: 0
+  LEC:
+    Hilus: 0
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 34000
+Cell Grid Spacing:
+  GC:
+    H: 20.
+    V: 10.
+  MC:
+    H: 20.
+    V: 20.
+  HC:
+    H: 50.
+    V: 50.
+  BC:
+    H: 100.
+    V: 100.
+  AAC:
+    H: 100.
+    V: 100.
+  HCC:
+    H: 100.
+    V: 100.
+  NGFC:
+    H: 50.
+    V: 50.
+  IS:
+    H: 50.
+    V: 50.
+  MOPP:
+    H: 80.
+    V: 80.
+  MEC:
+    H: 20.
+    V: 20.
+  LEC:
+    H: 20.
+    V: 20.

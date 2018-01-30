@@ -121,7 +121,7 @@ def spikeout (env, output_path, t_vec, id_vec):
             for j in spkdict.keys():
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
-        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
+        write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
 
 def vout (env, output_path, t_vec, v_dict):
 
@@ -135,7 +135,7 @@ def vout (env, output_path, t_vec, v_dict):
         attr_dict  = { gid : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
                            for (gid, vs) in gid_v_dict.iteritems() }
 
-        write_cell_attributes(env.comm, output_path, pop_name, attr_dict, namespace=namespace_id)
+        write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
         
 
 def connectcells(env):
@@ -148,7 +148,7 @@ def connectcells(env):
         print '*** Connectivity file path is %s' % connectivityFilePath
 
     prj_dict = defaultdict(list)
-    for (src,dst) in read_projection_names(env.comm,connectivityFilePath):
+    for (src,dst) in read_projection_names(connectivityFilePath,comm=env.comm):
       prj_dict[dst].append(src)
 
     if env.verbose:
@@ -189,12 +189,12 @@ def connectcells(env):
         
             
       if env.nodeRanks is None:
-        cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                            namespaces=cell_attr_namespaces,
+        cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name, 
+                                                            namespaces=cell_attr_namespaces, comm=env.comm, 
                                                             io_size=env.IOsize)
       else:
-        cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                            namespaces=cell_attr_namespaces,
+        cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name, 
+                                                            namespaces=cell_attr_namespaces, comm=env.comm, 
                                                             node_rank_map=env.nodeRanks,
                                                             io_size=env.IOsize)
       cell_synapses_dict = { k : v for (k,v) in cell_attributes_dict['Synapse Attributes'] }
@@ -219,11 +219,11 @@ def connectcells(env):
             print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
 
         if env.nodeRanks is None:
-          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+          (graph, a) = scatter_read_graph(connectivityFilePath,comm=env.comm,io_size=env.IOsize,
                                           projections=[(presyn_name, postsyn_name)],
                                           namespaces=['Synapses','Connections'])
         else:
-          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+          (graph, a) = scatter_read_graph(connectivityFilePath,comm=env.comm,io_size=env.IOsize,
                                           node_rank_map=env.nodeRanks,
                                           projections=[(presyn_name, postsyn_name)],
                                           namespaces=['Synapses','Connections'])
@@ -320,7 +320,7 @@ def connectgjs(env):
             if env.pc.id() == 0:
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-        (graph, a) = bcast_graph(env.comm,gapjunctionsFilePath,attributes=True)
+        (graph, a) = bcast_graph(gapjunctionsFilePath,attributes=True,comm=env.comm)
 
         ggid = 2e6
         for name in gapjunctions.keys():
@@ -414,10 +414,10 @@ def mkcells(env):
                     print "*** Reading trees for population %s" % popName
 
             if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(env.comm, dataFilePath, popName, io_size=env.IOsize)
+                (trees, forestSize) = scatter_read_trees(dataFilePath, popName, comm=env.comm, io_size=env.IOsize)
             else:
-                (trees, forestSize) = scatter_read_trees(env.comm, dataFilePath, popName, io_size=env.IOsize,
-                                                            node_rank_map=env.nodeRanks)
+                (trees, forestSize) = scatter_read_trees(dataFilePath, popName, comm=env.comm, io_size=env.IOsize,
+                                                         node_rank_map=env.nodeRanks)
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Done reading trees for population %s" % popName
@@ -462,14 +462,14 @@ def mkcells(env):
                     print "*** Reading coordinates for population %s" % popName
             
             if env.nodeRanks is None:
-                cell_attributes_dict = scatter_read_cell_attributes(env.comm, dataFilePath, popName, 
+                cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, popName, 
                                                                     namespaces=['Coordinates'],
-                                                                    io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.IOsize)
             else:
-                cell_attributes_dict = scatter_read_cell_attributes(env.comm, dataFilePath, popName, 
+                cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, popName, 
                                                                     namespaces=['Coordinates'],
                                                                     node_rank_map=env.nodeRanks,
-                                                                    io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.IOsize)
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Done reading coordinates for population %s" % popName
@@ -514,14 +514,14 @@ def mkstim(env):
             vecstim_namespace = env.celltypes[popName]['vectorStimulus']
 
             if env.nodeRanks is None:
-              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+              cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, popName, 
                                                                   namespaces=[vecstim_namespace],
-                                                                  io_size=env.IOsize)
+                                                                  comm=env.comm, io_size=env.IOsize)
             else:
-              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+              cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, popName, 
                                                                   namespaces=[vecstim_namespace],
                                                                   node_rank_map=env.nodeRanks,
-                                                                  io_size=env.IOsize)
+                                                                  comm=env.comm, io_size=env.IOsize)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, vecstim_dict) in cell_vecstim:
               if env.verbose:
