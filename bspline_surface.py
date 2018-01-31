@@ -10,7 +10,7 @@ from scipy.interpolate import RectBivariateSpline, InterpolatedUnivariateSpline
 from scipy.spatial.distance import cdist
 from collections import namedtuple
 
-PointCloud = namedtuple('PointCloud', ['tree', 'U', 'V'], verbose=False)
+PointCloud = namedtuple('PointCloud', ['tree', 'U', 'V', 'sU', 'sV'], verbose=False)
 
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
@@ -211,7 +211,7 @@ class BSplineSurface(object):
             # function.
             arr = np.array([x, y, z]).reshape(3, len(u), -1)
         if return_uv:
-            return (arr, U, V)
+            return (arr, U, V, su, sv)
         else:
             return arr
 
@@ -376,10 +376,10 @@ class BSplineSurface(object):
         # the original ones.
         hru, hrv = self._resample_uv(nres, nres)
         # Sample the surface at the new u, v values
-        meshpts, U, V = self.ev(hru, hrv, mesh=True, return_uv=True)
+        meshpts, U, V, sU, sV = self.ev(hru, hrv, mesh=True, return_uv=True)
         # Create kdTree
         tree = cKDTree(meshpts.reshape(3, hru.shape[0] * hrv.shape[0]).T)
-        return PointCloud(tree, U, V)
+        return PointCloud(tree, U, V, sU, sV)
         
 
     def mplot(self, ures=8, vres=8, **kwargs):

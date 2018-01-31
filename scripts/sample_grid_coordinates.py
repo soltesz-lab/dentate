@@ -11,7 +11,7 @@ import math
 from neuroh5.io import read_population_ranges, append_cell_attributes
 import click
 from env import Env
-from DG_surface import make_surface
+from DG_surface import DG_surface, make_surface
 
 def list_find (f, lst):
     i=0
@@ -104,8 +104,8 @@ def main(config, types_path, output_path, populations, spatial_resolution, io_si
         min_srf = make_surface(l=min_extent[2], spatial_resolution=spatial_resolution)
         if rank == 0:
             print 'creating point clouds for layer %s' % layer_name
-        max_pcloud = max_srf.point_cloud()
-        min_pcloud = min_srf.point_cloud()
+        max_pcloud = max_srf.point_cloud(res=1.0)
+        min_pcloud = min_srf.point_cloud(res=1.0)
         pclouds.append((layer_name,min_pcloud,max_pcloud))
 
     population_ranges = read_population_ranges(output_path, comm)[0]
@@ -135,10 +135,12 @@ def main(config, types_path, output_path, populations, spatial_resolution, io_si
             l_min = min_extents[2]
             l_max = max_extents[2]
 
+            npts = min_pcloud.tree.data.shape[0]
             if layer_count > 0:
                 
                 min_dd, min_ii = min_pcloud.tree.query(points,k=1,n_jobs=-1)
                 max_dd, max_ii = max_pcloud.tree.query(points,k=1,n_jobs=-1)
+
 
                 layer_point_sqdiff = (max_pcloud.tree.data[max_ii,:] - min_pcloud.tree.data[min_ii,:])**2
                 layer_point_dist   = np.sqrt(layer_point_sqdiff.sum(axis=-1))
@@ -154,22 +156,22 @@ def main(config, types_path, output_path, populations, spatial_resolution, io_si
                 for i in sampled_idxs:
 
                     pt_index = in_points_idxs[i]
-                    pt       = points[pt_index,:]
-
-                    x_coord = pt[0]
-                    y_coord = pt[1]
-                    z_coord = pt[2]
 
                     if min_dd[pt_index] < max_dd[pt_index]:
-                        u_coord = min_pcloud.U[min_ii[pt_index]]
-                        v_coord = min_pcloud.V[min_ii[pt_index]]
+                        u_coord = min_pcloud.sU[min_ii[pt_index]]
+                        v_coord = min_pcloud.sV[min_ii[pt_index]]
                     else:
-                        u_coord = max_pcloud.U[max_ii[pt_index]]
-                        v_coord = max_pcloud.V[max_ii[pt_index]]
+                        u_coord = max_pcloud.sU[max_ii[pt_index]]
+                        v_coord = max_pcloud.sV[max_ii[pt_index]]
                     l_frac = min_dd[pt_index] / (min_dd[pt_index] + max_dd[pt_index])
                     l_coord = l_min + ((l_max - l_min) * l_frac)
 
+                    xyz_coords = DG_surface(u_coord,v_coord,l_coord)
 
+                    x_coord = xyz_coords[0]
+                    y_coord = xyz_coords[1]
+                    z_coord = xyz_coords[2]
+                    
                     coords.append((x_coord,y_coord,z_coord,u_coord,v_coord,l_coord))
                 count += layer_count
         assert(count == population_count)
