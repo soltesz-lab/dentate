@@ -10,7 +10,7 @@ from scipy.interpolate import RectBivariateSpline, InterpolatedUnivariateSpline
 from scipy.spatial.distance import cdist
 from collections import namedtuple
 
-PointCloud = namedtuple('PointCloud', ['tree', 'U', 'V'], verbose=True)
+PointCloud = namedtuple('PointCloud', ['tree', 'U', 'V'], verbose=False)
 
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
@@ -350,7 +350,7 @@ class BSplineSurface(object):
                 
         return distance
 
-    def point_cloud(self, res = 5):
+    def point_cloud(self, res = 1.0):
         """Creates a point cloud using `scipy.spatial.cKDTree`
 
         Parameters
@@ -371,9 +371,10 @@ class BSplineSurface(object):
             Tuple (cKDTree, U coordinates, V coordinates, normalized U coordinates, normalized V coordinates)
         """
         from scipy.spatial import cKDTree
+        nres = int(1.0 / res)
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
-        hru, hrv = self._resample_uv(res, res)
+        hru, hrv = self._resample_uv(nres, nres)
         # Sample the surface at the new u, v values
         meshpts, U, V = self.ev(hru, hrv, mesh=True, return_uv=True)
         # Create kdTree
