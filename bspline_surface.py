@@ -19,9 +19,6 @@ def euclidean_distance(a, b):
     return np.sqrt(np.sum((a-b)**2,axis=1))
 
 
-vdist = np.vectorize(euclidean_distance)
-
-
 def normcoords(su, sv):
     nu = np.linspace(0, 1, len(su))
     nv = np.linspace(0, 1, len(sv))
@@ -341,7 +338,8 @@ class BSplineSurface(object):
 
         del u, v
         distance = 0
-        
+
+        print 'pts = ', pts
         if npts > 1:
             a = pts[1:,:]
             b = pts[0:npts-1,:]
@@ -624,7 +622,7 @@ def test_point_distance():
     source_u = 0.091337
     source_v = 1.932854
 
-    npts=100
+    npts=1000
     
     U = np.linspace(destination_u, source_u, npts)
     V = np.linspace(destination_v, source_v, npts)
@@ -715,17 +713,17 @@ def pts_mplot():
                            xyz, s=s) for xyz in xyzs]
     print 'surfaces created'
 
-    import h5py
-    f = h5py.File("datasets/dentate_Full_Scale_Control_coords_distances_20171109.h5")
-    x_coords = f['Populations']['GC']['Coordinates']['X Coordinate']['Attribute Value'][:]
-    y_coords = f['Populations']['GC']['Coordinates']['Y Coordinate']['Attribute Value'][:]
-    z_coords = f['Populations']['GC']['Coordinates']['Z Coordinate']['Attribute Value'][:]
-    sample_inds = np.random.randint(0, x_coords.size-1, size=int(10000))
-    pts = np.stack([x_coords[sample_inds], y_coords[sample_inds], z_coords[sample_inds]],axis=0)
-    f.close()
-    a = float(np.deg2rad(35.))
-    r = rotate3d([1,0,0], a)
-    pts = np.dot(r, pts)
+    #import h5py
+    #f = h5py.File("datasets/dentate_Full_Scale_Control_coords_distances_20171109.h5")
+    #x_coords = f['Populations']['GC']['Coordinates']['X Coordinate']['Attribute Value'][:]
+    #y_coords = f['Populations']['GC']['Coordinates']['Y Coordinate']['Attribute Value'][:]
+    #z_coords = f['Populations']['GC']['Coordinates']['Z Coordinate']['Attribute Value'][:]
+    #sample_inds = np.random.randint(0, x_coords.size-1, size=int(10000))
+    #pts = np.stack([x_coords[sample_inds], y_coords[sample_inds], z_coords[sample_inds]],axis=0)
+    #f.close()
+    #a = float(np.deg2rad(35.))
+    #r = rotate3d([1,0,0], a)
+    #pts = np.dot(r, pts)
     try:
 
         from mayavi import mlab
@@ -736,7 +734,7 @@ def pts_mplot():
         for srf in srfs:
             srf.mplot(color=(0.2, 0.7, 0.9), opacity=0.33, scale_factor=10.0, ures=1, vres=1)
 
-        mlab.points3d(*pts, scale_factor=50.0, color=(1, 1, 0))
+        #mlab.points3d(*pts, scale_factor=50.0, color=(1, 1, 0))
 
         
         mlab.show()
@@ -746,7 +744,7 @@ def pts_mplot():
     
 def test_point_cloud():
 
-    spatial_resolution = 50.  # um
+    spatial_resolution = 10.  # um
     max_u = 11690.
     max_v = 2956.
     
@@ -765,9 +763,9 @@ def test_point_cloud():
     
 if __name__ == '__main__':
 #    test_normal()
-#    test_point_distance()
+    test_point_distance()
 #    test_uv_isospline()
 #    pts_mplot()
-     test_point_cloud()
+#     test_point_cloud()
     
     

@@ -9,17 +9,6 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 
-def add_edge(edges, edge_points, coords, i, j):
-    """
-    Add a line between the i-th and j-th points,
-    if not in the list already
-    """
-    if (i, j) in edges or (j, i) in edges:
-        # already added
-        return
-    edges.add( (i, j) )
-    edge_points.append(coords[ [i, j] ])
-
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
     a, b are row vectors of points.
@@ -64,6 +53,10 @@ class RBFVolume(object):
         self.l  = l
         self.order = order
 
+        self.tri = None
+        self.facets = None
+        self.facet_counts = None
+        
     def __call__(self, *args, **kwargs):
         """Convenience to allow evaluation of a RBFVolume
         instance via `foo(0, 0, 0)` instead of `foo.ev(0, 0, 0)`.
@@ -331,7 +324,7 @@ class RBFVolume(object):
         return fig
 
 
-    def compute_delaunay(self, ures=8, vres=8, **kwargs):
+    def create_triangulation(self, ures=8, vres=8, **kwargs):
         """Compute the triangulation of the volume using scipy's
         `delaunay` function
 
@@ -354,14 +347,18 @@ class RBFVolume(object):
         """
         from scipy.spatial import Delaunay
 
+        if self.tri is not None:
+            return self.tri
+        
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
         hru, hrv = self._resample_uv(ures, vres)
         volpts = self.ev(hru, hrv, self.l).reshape(3, -1).T
 
         tri = Delaunay(volpts)
+        self.tri = tri
+        
         return tri
-
 
 
     
@@ -390,10 +387,10 @@ def test_surface(u, v, l):
 
 
 def test_nodes():
-    from scipy.spatial import Delaunay
     from rbf.nodes import snap_to_boundary,disperse,menodes
     from rbf.geometry import contains
-
+    from alphavol import alpha_shape
+    
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 10)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 10)
     obs_l = np.linspace(-1.0, 1., num=3)
@@ -401,30 +398,28 @@ def test_nodes():
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l).reshape(3, u.size)
 
-    srf = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
 
-    tri = srf.compute_delaunay()
+    tri = vol.create_triangulation()
+    alpha = alpha_shape([], 120., tri=tri)
     
-    # Define the problem domain with line segments.
-    vert = np.asarray(tri.points, dtype=np.float64)
-    smp  = srf.compute_boundary()
-    print 'vert shape: ', vert.shape
-    print 'smp shape: ', smp.shape
+    # Define the problem domain
+    vert = alpha.points
+    smp  = np.asarray(alpha.bounds, dtype=np.int64)
 
-    N = 500 # total number of nodes
+    N = 2500 # total number of nodes
     
-    # create N quasi-uniformly distributed nodes over the unit square
-    nodes, smpid = menodes(N,vert,smp,itr=1)
-    print 'nodes: ', nodes
+    # create N quasi-uniformly distributed nodes
+    nodes, smpid = menodes(N,vert,smp,itr=10)
     
-    print 'nodes shape: ', nodes.shape
     # remove nodes outside of the domain
-    ##in_nodes = nodes[contains(nodes,vert,smp)]
-        
-    from mayavi import mlab
-    srf.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
+    in_nodes = nodes[contains(nodes,vert,smp)]
 
-    mlab.points3d(*nodes.T, color=(1, 1, 0), scale_factor=100.0)
+    print 'in_nodes size: ', len(in_nodes)
+    from mayavi import mlab
+    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
+
+    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=50.0)
     
     mlab.show()
 
@@ -443,16 +438,16 @@ def test_uv_isospline():
 
     order = [1]
     for ii in xrange(len(order)):
-        srf = RBFVolume(obs_u, obs_v, obs_l, xyz, order=order[ii])
+        vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=order[ii])
 
-        U, V = srf._resample_uv(5, 5)
+        U, V = vol._resample_uv(5, 5)
         L = np.asarray([-1.0])
 
         nupts = U.shape[0]
         nvpts = V.shape[0]
             
-        print srf.point_distance(U, V[0], L)
-        print srf.point_distance(U[int(nupts/2)], V, L)
+        print vol.point_distance(U, V[0], L)
+        print vol.point_distance(U[int(nupts/2)], V, L)
 
 
     from mayavi import mlab
@@ -464,16 +459,16 @@ def test_uv_isospline():
     V = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
     L = 1.0
     
-    U, V = srf._resample_uv(10, 10)
+    U, V = vol._resample_uv(10, 10)
     L = np.asarray([1.0])
         
     nupts = U.shape[0]
     nvpts = V.shape[0]
     # Plot u,v-isosplines on the surface
-    upts = srf(U, V[0], L)
-    vpts = srf(U[int(nupts/2)], V, L)
+    upts = vol(U, V[0], L)
+    vpts = vol(U[int(nupts/2)], V, L)
     
-    srf.mplot_scatter(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
+    vol.mplot_scatter(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
     
     mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
     mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
@@ -492,16 +487,20 @@ def test_tri():
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l).reshape(3, u.size)
 
-    srf = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
+
+    tri = vol.create_triangulation()
+    
+    return vol, tri
+    
+
 
     
-    
-
-
-    
-if __name__ == '__main__':
+#if __name__ == '__main__':
     #test_uv_isospline()
-    test_nodes()
+    #test_nodes()
+    #test_tri()
+    
 
     
     
