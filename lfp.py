@@ -153,8 +153,14 @@ class LFP:
                     continue
 
                 cell = pc.gid2cell(gid)
+
+                somasec = list(cell.soma)
+                x = somasec[0].x3d(0)
+                y = somasec[0].y3d(0)
+                z = somasec[0].z3d(0)
+                
                 ## Relative to the recording electrode position
-                if (math.sqrt((cell.x-ex)*(cell.x-ex) + (cell.y-ey)*(cell.y-ey) + (cell.z-ez)*(cell.z-ez)) < self.MaxEDist):
+                if (math.sqrt((x-ex)**2 + (y-ey)**2 + (z-ez)**2) < self.MaxEDist):
                     lfptype = 1 ## proximal cell; compute extracellular potential
                 else:
                     if (ransample < fdst):
