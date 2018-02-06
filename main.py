@@ -478,13 +478,19 @@ def mkcells(env):
 
             h.numCells = 0
             i=0
-            for (gid, _) in coords:
+            for (gid, cell_coords_dict) in coords:
                 if env.verbose:
                     if env.pc.id() == 0:
                         print "*** Creating gid %i" % gid
             
                 verboseflag = 0
                 model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+
+                cell_x = cell_coords_dict['X Coordinate']
+                cell_y = cell_coords_dict['Y Coordinate']
+                cell_z = cell_coords_dict['Z Coordinate']
+                model_cell.position(cell_x, cell_y, cell_z)
+                
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -496,6 +502,7 @@ def mkcells(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 i = i+1
                 h.numCells = h.numCells+1
+        h.define_shape()
             
              
 def mkstim(env):
