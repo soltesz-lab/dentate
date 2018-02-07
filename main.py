@@ -69,23 +69,15 @@ def lpt_bal(env):
         part_rank = part_rank+1
 
         
-def mkspikeout (env, spikeout_filename):
-    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
-    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    forestFile      = h5py.File(forestFilePath,'r')
-    spikeoutFile    = h5py.File(spikeout_filename,'w')
-    forestFile.copy('/H5Types',spikeoutFile)
-    forestFile.close()
-    spikeoutFile.close()
+def mkout (env, results_filename):
+    datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
+    dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    dataFile      = h5py.File(forestFilePath,'r')
+    resultsFile   = h5py.File(results_filename,'w')
+    dataFile.copy('/H5Types',resultsFile)
+    dataFile.close()
+    resultsFile.close()
         
-def mkvout (env, vout_filename):
-    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
-    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    forestFile      = h5py.File(forestFilePath,'r')
-    voutFile        = h5py.File(vout_filename,'w')
-    forestFile.copy('/H5Types', voutFile)
-    forestFile.close()
-    voutFile.close()
 
     
 def spikeout (env, output_path, t_vec, id_vec):
@@ -136,6 +128,21 @@ def vout (env, output_path, t_vec, v_dict):
                            for (gid, vs) in gid_v_dict.iteritems() }
 
         write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
+        
+
+def lfpout (env, output_path, lfp):
+
+    if not str(env.resultsId):
+        namespace_id = "Local Field Potential" 
+    else:
+        namespace_id = "Local Field Potential %s" % str(env.resultsId)
+
+
+    output = h5py.File(output_path,'w')
+
+    output[namespace_id] = { 't': lfp.t, 'v': lfp.meanlfp }
+
+    output.close()
         
 
 def connectcells(env):
@@ -580,7 +587,7 @@ def init(env):
             lb.ExperimentalMechComplex()
 
     if (env.pc.id() == 0):
-      mkspikeout (env, env.spikeoutPath)
+      mkout (env, env.resultsFilePath)
     env.pc.barrier()
     h.startsw()
     mkcells(env)
@@ -644,12 +651,15 @@ def run (env):
     env.pc.barrier()
     if (rank == 0):
         print "*** Writing spike data"
-    spikeout(env, env.spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+    spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
     if env.vrecordFraction > 0.:
       if (rank == 0):
         print "*** Writing intracellular trace data"
       t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
-      vout(env, env.spikeoutPath, t_vec, env.v_dict)
+      vout(env, env.resultsFilePath, t_vec, env.v_dict)
+    if (rank == 0):
+        print "*** Writing local field potential data"
+        lfpout(env, env.resultsFilePath, env.lfp)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()

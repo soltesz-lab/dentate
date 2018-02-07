@@ -54,7 +54,8 @@ class LFP:
         self.maxEDist   = maxEDist
         self.rho        = rho ## extracellular resistivity, [ohm cm]
         self.fdst       = fdst ## percent of distant cells to include in the computation
-        self.lfplist    = h.List()
+        self.meanlfp    = []
+        self.t          = []
         self.lfp_ids    = {}
         self.lfp_types  = {}
         self.lfpkmatrix = {}
@@ -229,11 +230,9 @@ class LFP:
         meanlfp = self.pos_lfp()
     
         if (int(self.pc.id()) == 0):
-            vec = h.Vector()
-            ## For this time step, create a vector with entries of time and average LFP
-            vec.append(h.t, meanlfp)			
-            ## Append the vector for this time step to the list
-            self.lfplist.append(vec.c)			
+            ## For this time step, append to lists with entries of time and average LFP
+            self.meanlfp.append(meanlfp)
+            self.t.append(h.t)
     
         ## Add another event to the event queue, to 
         ## execute sample_lfp again, lfp_dt ms from now
