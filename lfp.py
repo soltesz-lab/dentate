@@ -46,12 +46,12 @@ def interpxyz(nn, nsegs, xx, yy, zz, ll, xint, yint, zint):
 
 class LFP:
 
-    def __init__(self, pc, celltypes, pos, rho = 333.0, fdst = 0.1, MaxEDist=100., dt_lfp=0.5, seed=1):
+    def __init__(self, pc, celltypes, pos, rho = 333.0, fdst = 0.1, maxEDist=100., dt_lfp=0.5, seed=1):
         self.pc         = pc
         self.dt_lfp     = dt_lfp
         self.seed       = seed
         self.epoint     = pos
-        self.MaxEDist   = MaxEDist
+        self.maxEDist   = maxEDist
         self.rho        = rho ## extracellular resistivity, [ohm cm]
         self.fdst       = fdst ## percent of distant cells to include in the computation
         self.lfplist    = h.List()
@@ -160,7 +160,7 @@ class LFP:
                 z = somasec[0].z3d(0)
                 
                 ## Relative to the recording electrode position
-                if (math.sqrt((x-ex)**2 + (y-ey)**2 + (z-ez)**2) < self.MaxEDist):
+                if (math.sqrt((x-ex)**2 + (y-ey)**2 + (z-ez)**2) < self.maxEDist):
                     lfptype = 1 ## proximal cell; compute extracellular potential
                 else:
                     if (ransample < fdst):
@@ -187,7 +187,7 @@ class LFP:
             
     def pos_lfp(self):
         ## Calculate the average LFP of select cells in the network,
-        ##  only including cells whose somata are within MaxEDist
+        ##  only including cells whose somata are within maxEDist
         ##  microns of the (x,y,z) recording electrode location
 	
         sumcell = 0

@@ -14,7 +14,7 @@ import h5py
 from neuron import h
 from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
 from env import Env
-import lpt, synapses, cells, simtime
+import lpt, synapses, cells, lfp, simtime
 from neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
@@ -616,6 +616,10 @@ def init(env):
     h.connectgjstime     = env.connectgjstime
     h.results_write_time = env.results_write_time
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
+    env.lfp              = lfp.LFP(env.pc, env.celltypes, env.lfpConfig['position'], \
+                                   rho=env.lfpConfig['rho'], dt_lfp=env.lfpConfig['dt'], \
+                                   fdst=env.lfpConfig['fraction'], maxEDist=env.lfpConfig['maxEDist'], \
+                                   seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)

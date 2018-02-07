@@ -73,9 +73,16 @@ class RBFVolume(object):
         yvol = RBFInterpolant(uvl_obs,xyz[1],penalty=0.1,basis=basis,order=order)
         zvol = RBFInterpolant(uvl_obs,xyz[2],penalty=0.1,basis=basis,order=order)
 
+        uvol = RBFInterpolant(xyz.T,uvl_obs[:,0],penalty=0.1,basis=basis,order=order)
+        vvol = RBFInterpolant(xyz.T,uvl_obs[:,1],penalty=0.1,basis=basis,order=order)
+        lvol = RBFInterpolant(xyz.T,uvl_obs[:,2],penalty=0.1,basis=basis,order=order)
+
         self._xvol = xvol
         self._yvol = yvol
         self._zvol = zvol
+        self._uvol = uvol
+        self._vvol = vvol
+        self._lvol = lvol
 
     def _resample_uv(self, ures, vres):
         """Helper function to re-sample to u and v parameters
@@ -97,7 +104,6 @@ class RBFVolume(object):
         Parameters
         ----------
         u, v, l : scalar or array-like
-            u, v, l may be scalar or vector
 
         Returns
         -------
@@ -112,6 +118,26 @@ class RBFVolume(object):
         Z = self._zvol(uvl_s)
 
         arr = np.array([X,Y,Z]).reshape(3, len(U), -1)
+        return arr
+
+    def inverse(self, xyz):
+        """Get parametric coordinates (u, v, l) that correspond to the given x, y, z.
+        May return None if x, y, z are outside the interpolation domain.
+
+        Parameters
+        ----------
+        xyz : array of coordinates
+
+        Returns
+        -------
+        Returns an array of shape 3 x len(xyz)
+        """
+
+        U = self._uvol(xyz)
+        V = self._vvol(xyz)
+        L = self._lvol(xyz)
+
+        arr = np.array([U,V,L]).reshape(3, len(U), -1)
         return arr
 
     
@@ -387,6 +413,9 @@ def test_surface(u, v, l):
 
 
 def test_nodes():
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    
     from rbf.nodes import snap_to_boundary,disperse,menodes
     from rbf.geometry import contains
     from alphavol import alpha_shape
@@ -407,22 +436,23 @@ def test_nodes():
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)
 
-    N = 2500 # total number of nodes
+    N = 40000 # total number of nodes
     
     # create N quasi-uniformly distributed nodes
-    nodes, smpid = menodes(N,vert,smp,itr=10)
+    nodes, smpid = menodes(N,vert,smp,itr=20)
     
     # remove nodes outside of the domain
     in_nodes = nodes[contains(nodes,vert,smp)]
 
-    print 'in_nodes size: ', len(in_nodes)
+    print 'in_nodes shape: ', in_nodes.shape
     from mayavi import mlab
     vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
 
-    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=50.0)
+    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=10.0)
     
     mlab.show()
 
+    return in_nodes, vol.inverse(in_nodes)
 
 def test_uv_isospline():
 

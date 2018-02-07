@@ -217,6 +217,15 @@ class Env:
         
         if self.datasetPrefix is not None:
             self.load_celltypes()
+
+        if self.modelConfig.has_key('LFP'):
+            self.lfpConfig = { 'position': tuple(self.modelConfig['LFP']['position']),
+                               'maxEDist': self.modelConfig['LFP']['maxEDist'],
+                               'fraction': self.modelConfig['LFP']['fraction'],
+                               'rho': self.modelConfig['LFP']['rho'],
+                               'dt': self.modelConfig['LFP']['dt'] }
+        else:
+            self.lfpConfig = None
             
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
@@ -230,4 +239,4 @@ class Env:
         self.connectgjstime = 0
 
         self.simtime = None
-        
+        self.lfp = None
