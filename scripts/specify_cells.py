@@ -1,7 +1,8 @@
 __author__ = 'Aaron D. Milstein'
 import btmorph  # must be found in system $PYTHONPATH
-from function_lib import *
 from neuron import h  # must be found in system $PYTHONPATH
+from dentate.neuron_utils import *
+
 # Includes modification of an early version of SWC_neuron.py by Daniele Linaro.
 # Includes an extension of BtMorph, created by Ben Torben-Nielsen and modified by Daniele Linaro.
 

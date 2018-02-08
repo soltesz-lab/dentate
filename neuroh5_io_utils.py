@@ -198,6 +198,21 @@ def create_new_neuroh5_file(template_path, output_path):
             print 'Created new neuroH5 file: %s' % output_path
 
 
+def gid_in_population_list(gid, population_list, population_range_dict):
+    """
+    If the gid is in the gid range of a population, the name of the population is returned. Otherwise, None.
+    :param gid: int
+    :param population_list: list of str
+    :param population_range_dict: dict of tuple of int
+    :return: str or None
+    """
+    for population in population_list:
+        if population_range_dict[population][0] <= gid < population_range_dict[population][0] + \
+                population_range_dict[population][1]:
+            return population
+    return None
+
+
 if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank

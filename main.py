@@ -12,10 +12,12 @@ import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 import h5py
 from neuron import h
-from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, write_cell_attributes
+from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, \
+    scatter_read_cell_attributes, write_cell_attributes
 from env import Env
 import lpt, synapses, cells, simtime
 from neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
+
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
@@ -30,6 +32,7 @@ def cx(env):
   env.cxvec = cxvec
   return cxvec
 
+
 # for given cxvec on each rank what is the fractional load balance.
 def ld_bal(env):
   rank   = int(env.pc.id())
@@ -40,6 +43,7 @@ def ld_bal(env):
   sum_cx = env.pc.allreduce(sum_cx, 1)
   if rank == 0:
     print ("*** expected load balance %.2f" % (sum_cx / nhosts / max_sum_cx))
+
 
 # Each rank has gidvec, cxvec: gather everything to rank 0, do lpt
 # algorithm and write to a balance file.
@@ -68,7 +72,7 @@ def lpt_bal(env):
           fp.write('%d %d\n' % (x[1],part_rank))
         part_rank = part_rank+1
 
-        
+
 def mkspikeout (env, spikeout_filename):
     datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
     forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
@@ -77,7 +81,8 @@ def mkspikeout (env, spikeout_filename):
     forestFile.copy('/H5Types',spikeoutFile)
     forestFile.close()
     spikeoutFile.close()
-        
+
+
 def mkvout (env, vout_filename):
     datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
     forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
@@ -122,6 +127,7 @@ def spikeout (env, output_path, t_vec, id_vec):
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
         write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
+
 
 def vout (env, output_path, t_vec, v_dict):
 
@@ -534,9 +540,7 @@ def mkstim(env):
               cell = env.pc.gid2cell(gid)
               cell.play(h.Vector(vecstim_dict['spiketrain']))
 
-            
 
-            
 def init(env):
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
@@ -678,7 +682,28 @@ def run (env):
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size, coredat, vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+def main(config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size, coredat,
+         vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+    """
+
+    :param config_file:
+    :param template_paths:
+    :param dataset_prefix:
+    :param results_path:
+    :param results_id:
+    :param node_rank_file:
+    :param io_size:
+    :param coredat:
+    :param vrecord_fraction:
+    :param tstop:
+    :param v_init:
+    :param max_walltime_hours:
+    :param results_write_time:
+    :param dt:
+    :param ldbal:
+    :param lptbal:
+    :param verbose:
+    """
     np.seterr(all='raise')
     comm = MPI.COMM_WORLD
     env = Env(comm, config_file, 
@@ -689,6 +714,7 @@ def main(config_file, template_paths, dataset_prefix, results_path, results_id, 
               dt, ldbal, lptbal, verbose)
     init(env)
     run(env)
+
 
 if __name__ == '__main__':
     main(args=sys.argv[(sys.argv.index("main.py")+1):])

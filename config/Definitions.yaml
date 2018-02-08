@@ -2,11 +2,12 @@
 SWC Types:
   soma:   1
   axon:   2
-  ais:    2
   basal:  3
   apical: 4
   trunk:  5 
   tuft:   6
+  ais:    7
+  hillock: 8
 Synapse Types:
   excitatory:    0
   inhibitory:    1
