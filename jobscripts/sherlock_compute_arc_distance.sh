@@ -2,9 +2,9 @@
 #
 #SBATCH -J compute_arc_distance
 #SBATCH -o ./results/compute_arc_distance.%j.o
-#SBATCH -n 256
+#SBATCH -n 96
 #SBATCH -t 4:00:00
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem-per-cpu=12G
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -21,8 +21,10 @@ export LD_LIBRARY_PATH=$HOME/bin/hdf5/lib:$LD_LIBRARY_PATH
 
 set -x
 
-mpirun -np 256 python ./scripts/compute_arc_distance.py \
-       --coords-path=$SCRATCH/dentate/dentate_Full_Scale_Control_coords_20171010.h5 \
+mpirun -np 96 python ./scripts/compute_arc_distance.py \
+       --config=./config/Full_Scale_Control.yaml \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/dentate_Full_Scale_Control_coords_distances_20171109.h5 \
        --coords-namespace=Coordinates \
-       --io-size=4
+       -l OML \
+       --io-size=24 -v
 
