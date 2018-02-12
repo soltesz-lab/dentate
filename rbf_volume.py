@@ -409,9 +409,6 @@ def test_surface(u, v, l):
     z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi-u)))
     return np.array([x, y, z])
 
-    import numpy as np
-
-
 def test_nodes():
     import logging
     logging.basicConfig(level=logging.DEBUG)
@@ -436,7 +433,7 @@ def test_nodes():
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)
 
-    N = 40000 # total number of nodes
+    N = 10000 # total number of nodes
     
     # create N quasi-uniformly distributed nodes
     nodes, smpid = menodes(N,vert,smp,itr=20)
@@ -448,7 +445,7 @@ def test_nodes():
     from mayavi import mlab
     vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
 
-    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=10.0)
+    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=15.0)
     
     mlab.show()
 
@@ -498,10 +495,10 @@ def test_uv_isospline():
     upts = vol(U, V[0], L)
     vpts = vol(U[int(nupts/2)], V, L)
     
-    vol.mplot_scatter(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
+    vol.mplot_surface(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
     
-    mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
-    mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
+    #mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
+    #mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
     
     mlab.show()
 
@@ -526,10 +523,10 @@ def test_tri():
 
 
     
-#if __name__ == '__main__':
-    #test_uv_isospline()
-    #test_nodes()
-    #test_tri()
+if __name__ == '__main__':
+    test_uv_isospline()
+    test_nodes()
+    test_tri()
     
 
     
