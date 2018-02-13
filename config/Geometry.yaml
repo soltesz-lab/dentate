@@ -99,13 +99,13 @@ Cell Layer Counts:
     IML: 0
     MML: 0
     OML: 0
-  MEC:
+  MPP:
     Hilus: 0
     GCL: 0
     IML: 0
     MML: 38000
     OML: 0
-  LEC:
+  LPP:
     Hilus: 0
     GCL: 0
     IML: 0
@@ -139,9 +139,9 @@ Cell Grid Spacing:
   MOPP:
     H: 80.
     V: 80.
-  MEC:
+  MPP:
     H: 20.
     V: 20.
-  LEC:
+  LPP:
     H: 20.
     V: 20.
