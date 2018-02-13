@@ -71,28 +71,6 @@ def lpt_bal(env):
         for x in part[1]:
           fp.write('%d %d\n' % (x[1],part_rank))
         part_rank = part_rank+1
-
-<<<<<<< HEAD
-
-def mkspikeout (env, spikeout_filename):
-    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
-    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    forestFile      = h5py.File(forestFilePath,'r')
-    spikeoutFile    = h5py.File(spikeout_filename,'w')
-    forestFile.copy('/H5Types',spikeoutFile)
-    forestFile.close()
-    spikeoutFile.close()
-
-
-def mkvout (env, vout_filename):
-    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
-    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    forestFile      = h5py.File(forestFilePath,'r')
-    voutFile        = h5py.File(vout_filename,'w')
-    forestFile.copy('/H5Types', voutFile)
-    forestFile.close()
-    voutFile.close()
-=======
         
 def mkout (env, results_filename):
     datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
@@ -103,8 +81,6 @@ def mkout (env, results_filename):
     dataFile.close()
     resultsFile.close()
         
->>>>>>> e9b234253f4fd49ba25e34fe2c1280a9cf10a8da
-
     
 def spikeout (env, output_path, t_vec, id_vec):
     binlst  = []
