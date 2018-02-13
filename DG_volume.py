@@ -1,6 +1,7 @@
 
 import logging
 import numpy as np
+import rbf
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
 from alphavol import alpha_shape
@@ -17,7 +18,7 @@ def DG_volume(u, v, l):
     return np.array([x, y, z])
 
 
-def make_volume(lmin, lmax):  
+def make_volume(lmin, lmax, basis=rbf.basis.phs3):  
     logging.basicConfig(level=logging.DEBUG)
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 10)
@@ -27,6 +28,6 @@ def make_volume(lmin, lmax):
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = DG_volume (u, v, l).reshape(3, u.size)
 
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, basis=basis, order=1)
 
     return vol

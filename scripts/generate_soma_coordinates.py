@@ -12,6 +12,7 @@ from neuroh5.io import read_population_ranges, append_cell_attributes
 import click
 from env import Env
 from DG_volume import make_volume
+import rbf
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
 from alphavol import alpha_shape
@@ -35,7 +36,8 @@ def list_find (f, lst):
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(config, types_path, output_path, output_namespace, populations, io_size, chunk_size, value_chunk_size):
+@click.option("--verbose", '-v', type=bool, default=False, is_flag=True)
+def main(config, types_path, output_path, output_namespace, populations, io_size, chunk_size, value_chunk_size, verbose):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -63,7 +65,7 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
 
     for population in populations:
 
-        if rank == 0:
+        if verbose and (rank == 0):
             print 'population: ',population
 
         (population_start, population_count) = population_ranges[population]
@@ -114,10 +116,16 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
         xyz_coords = (in_nodes[sampled_idxs]).reshape(-1,3)
         uvl_coords = vol.inverse(xyz_coords)
             
+        xyz_error = np.asarray([0.0, 0.0, 0.0])
         for i in xrange(0,population_count):
             xyz_coords1 = vol(uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]).ravel()
+            xyz_error   = np.add(xyz_error, np.abs(np.subtract(xyz_coords[i,:], xyz_coords1)))
             coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
                            uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]))
+                           
+        xyz_error = np.divide(xyz_error, np.asarray([population_count, population_count, population_count], dtype=np.float))
+        if verbose:
+            print "mean XYZ error: ", xyz_error
                                
 
         coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
