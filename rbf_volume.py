@@ -137,8 +137,9 @@ class RBFVolume(object):
         V = self._vvol(xyz)
         L = self._lvol(xyz)
 
-        arr = np.array([U,V,L]).reshape(3, len(U), -1)
-        return arr
+        
+        arr = np.array([U,V,L])
+        return arr.T
 
     
     def utan(self, su, sv, sl, normalize=True):

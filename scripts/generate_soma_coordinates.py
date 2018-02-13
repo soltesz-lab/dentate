@@ -32,11 +32,10 @@ def list_find (f, lst):
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--spatial-resolution", type=float, default=1.0)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(config, types_path, output_path, output_namespace, populations, spatial_resolution, io_size, chunk_size, value_chunk_size):
+def main(config, types_path, output_path, output_namespace, populations, io_size, chunk_size, value_chunk_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -77,14 +76,15 @@ def main(config, types_path, output_path, output_namespace, populations, spatial
 
         (population_start, population_count) = population_ranges[population]
 
-        count = 0
+        coords_count = 0
         coords = []
         coords_dict = {}
-        for (layer_name,layer_vol) in layers_vols:
+        for (layer_name,layer_vol) in layer_vols:
 
             layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
 
-            layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
+            if layer_count <= 0:
+                continue
             
             tri = layer_vol.create_triangulation()
             alpha = alpha_shape([], 120., tri=tri)
@@ -93,29 +93,31 @@ def main(config, types_path, output_path, output_namespace, populations, spatial
             smp  = np.asarray(alpha.bounds, dtype=np.int64)
 
             N = layer_count*2 # total number of nodes
-
             node_count = 0
+            itr = 10
+
             while node_count < layer_count:
                 # create N quasi-uniformly distributed nodes
-                nodes, smpid = menodes(N,vert,smp,itr=20)
+                nodes, smpid = menodes(N,vert,smp,itr=itr)
     
                 # remove nodes outside of the domain
                 in_nodes = nodes[contains(nodes,vert,smp)]
-
+                              
                 node_count = len(in_nodes)
                 itr = int(itr / 2)
 
             sampled_idxs  = np.random.randint(0, node_count-1, size=int(layer_count))
 
-            for i in sampled_idxs:
-
-                xyz_coords = in_nodes[sampled_idxs[i]]
-                uvl_coords = layer_vol.inverse(xyz_coords)
-
-                coords.append((xyz_coords[0],xyz_coords[1],xyz_coords[2],\
-                               uvl_coords[0],uvl_coords[1],uvl_coords[2]))
-                count += layer_count
-        assert(count == population_count)
+            xyz_coords = (in_nodes[sampled_idxs]).reshape(-1,3)
+            uvl_coords = layer_vol.inverse(xyz_coords)
+            
+            for i in xrange(0,layer_count):
+                xyz_coords1 = layer_vol(uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]).ravel()
+                coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
+                               uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]))
+                               
+            coords_count += layer_count
+        assert(coords_count == population_count)
 
         coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
         coords_dict = { population_start+i :  { 'X Coordinate': np.asarray([x_coord],dtype=np.float32),
