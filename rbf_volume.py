@@ -46,7 +46,7 @@ class RBFVolume(object):
         basis: RBF basis function
         """
 
-        self._create_vol(u, v, l, xyz, order, basis)
+        self._create_vol(u, v, l, xyz, order=order, basis=basis)
 
         self.u  = u
         self.v  = v
@@ -63,19 +63,19 @@ class RBFVolume(object):
         """
         return self.ev(*args, **kwargs)
 
-    def _create_vol(self, obs_u, obs_v, obs_l, xyz, order, basis):
+    def _create_vol(self, obs_u, obs_v, obs_l, xyz, **kwargs):
 
         # Create volume definitions
         u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
         uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
 
-        xvol = RBFInterpolant(uvl_obs,xyz[0],penalty=0.1,basis=basis,order=order)
-        yvol = RBFInterpolant(uvl_obs,xyz[1],penalty=0.1,basis=basis,order=order)
-        zvol = RBFInterpolant(uvl_obs,xyz[2],penalty=0.1,basis=basis,order=order)
+        xvol = RBFInterpolant(uvl_obs,xyz[0],**kwargs)
+        yvol = RBFInterpolant(uvl_obs,xyz[1],**kwargs)
+        zvol = RBFInterpolant(uvl_obs,xyz[2],**kwargs)
 
-        uvol = RBFInterpolant(xyz.T,uvl_obs[:,0],penalty=0.1,basis=basis,order=order)
-        vvol = RBFInterpolant(xyz.T,uvl_obs[:,1],penalty=0.1,basis=basis,order=order)
-        lvol = RBFInterpolant(xyz.T,uvl_obs[:,2],penalty=0.1,basis=basis,order=order)
+        uvol = RBFInterpolant(xyz.T,uvl_obs[:,0],**kwargs)
+        vvol = RBFInterpolant(xyz.T,uvl_obs[:,1],**kwargs)
+        lvol = RBFInterpolant(xyz.T,uvl_obs[:,2],**kwargs)
 
         self._xvol = xvol
         self._yvol = yvol
