@@ -1,5 +1,5 @@
 ##
-## Generate soma X Y Z coordinates within layer-specific volume.
+## Generate soma coordinates within layer-specific volume.
 ##
 
 
@@ -30,12 +30,13 @@ def list_find (f, lst):
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
+@click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--spatial-resolution", type=float, default=1.0)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-def main(config, types_path, output_path, populations, spatial_resolution, io_size, chunk_size, value_chunk_size):
+def main(config, types_path, output_path, output_namespace, populations, spatial_resolution, io_size, chunk_size, value_chunk_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -126,7 +127,7 @@ def main(config, types_path, output_path, populations, spatial_resolution, io_si
                         for i,(x_coord,y_coord,z_coord,u_coord,v_coord,l_coord) in enumerate(coords) }
 
         append_cell_attributes(output_path, population, coords_dict,
-                                namespace='Generated Coordinates',
+                                namespace=output_namespace,
                                 io_size=io_size, chunk_size=chunk_size,
                                 value_chunk_size=value_chunk_size,comm=comm)
 
