@@ -5,7 +5,7 @@ from pathos.multiprocessing import ProcessPool
 import numpy as np
 import neo, elephant
 from quantities import s, ms, Hz
-from neuroh5.io import read_cell_attributes, read_population_ranges, read_population_names
+from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
 def read_spike_events(comm, input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None, verbose = False):
 
@@ -141,16 +141,16 @@ def spike_bin_rates_func (item,bins,t_start,t_stop,sampling_period,sigma,kernel)
         
     return (ind, (np.asarray(count_bins, dtype=np.uint32), np.asarray(rate_bins, dtype=np.float32)))
 
-def spike_bin_rates (spkdict, bins, t_start, t_stop, sampling_period=0.025*ms, sigma = 0.05, nprocs=16, saveData=False):
+
+def spike_bin_rates (comm, population, spkdict, bins, t_start, t_stop, sampling_period=0.025*ms, sigma = 0.05, nprocs=16, saveData=False):
     kernel = elephant.kernels.GaussianKernel(sigma = sigma*s, invert = True)
 
     pool = ProcessPool(nprocs)
     spk_bin_dict = dict(pool.map(lambda (item): spike_bin_rates_func(item,bins,t_start,t_stop,sampling_period,sigma,kernel), spkdict.iteritems()))
 
     if saveData:
-        import pickle
-        pickle.dump(spk_bin_dict, open(saveData+' ratebins.p','wb'))
-
+        write_cell_attributes(comm, saveData, population, spk_bin_dict, namespace='Spike Analysis')
+        
     return spk_bin_dict
             
 
@@ -171,7 +171,8 @@ def spike_bin_counts(spkdict, bins):
 
     return count_bin_dict
 
-def spatial_information (trajectory, spkdict, timeRange, positionBinSize, saveData = False):
+
+def spatial_information (comm, population, trajectory, spkdict, timeRange, positionBinSize, saveData = False):
 
     tmin = timeRange[0]
     tmax = timeRange[1]
@@ -204,7 +205,7 @@ def spatial_information (trajectory, spkdict, timeRange, positionBinSize, saveDa
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], saveData=saveData)
+    rate_bin_dict = spike_bin_rates(comm, population, spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], saveData=saveData)
     MI_dict = {}
     for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
         MI = 0.
@@ -221,9 +222,33 @@ def spatial_information (trajectory, spkdict, timeRange, positionBinSize, saveDa
         MI_dict[ind] = MI
 
     if saveData:
-        import pickle
-        pickle.dump(MI_dict, open(saveData+' information.p','wb'))
+        write_cell_attributes(comm, saveData, population, MI_dict, namespace='Spike Analysis')
+
     return MI_dict
+
+
+def place_fields (rate_bin_dict, timeRange, saveData = False):
+
+    pf_dict = {}
+    for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
+        rates  = np.asarray(rate_bins)
+        m      = np.mean(rates)
+        rates1 = np.subtract(rates, m)
+        s      = np.std(rates1)
+
+        pf_count = 0
+        if m > 0.:
+            for ibin in xrange(0, len(rate_bins)):
+                r_n  = rates1[ibin]
+                if r_n > 1.5*s:
+                    pf_count += 1
+            
+        pf_dict[ind] = pf_count
+
+    if saveData:
+        import pickle
+        pickle.dump(pf_dict, open(saveData+' placefields.p','wb'))
+    return pf_dict
             
             
 

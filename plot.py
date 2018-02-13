@@ -1262,6 +1262,147 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
     return fig
 
 
+def plot_place_fields (spike_input_path, spike_namespace_id, 
+                       trajectory_path, trajectory_id, include = ['eachPop'],
+                       positionBinSize = 5.0, binCount = 50,
+                       timeVariable='t', timeRange = None, 
+                       alpha_fill = 0.2, figSize = (15,8), overlay = False,
+                       fontSize = 14, lw = 3, loadData = None, saveData = None,
+                       saveFig = None, showFig = True, verbose = False): 
+    ''' 
+    Plots distributions of place fields per cell. Returns figure handle.
+
+        - input_path: file with spike data
+        - namespace_id: attribute namespace for spike events
+        - include (['eachPop'|<population name>]): List of data series to include. 
+            (default: ['eachPop'] - expands to the name of each population)
+        - timeVariable: Name of variable containing spike times (default: 't')
+        - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+        - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
+        - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
+        - figSize ((width, height)): Size of figure (default: (10,8))
+        - fontSize (integer): Size of text font (default: 14)
+        - lw (integer): Line width for each spike (default: 3)
+        - saveFig (None|True|'fileName'): File name where to save the figure;
+            if set to True uses filename from simConfig (default: None)
+        - showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+    comm = MPI.COMM_WORLD
+
+    trajectory = stimulus.read_trajectory (comm, trajectory_path, trajectory_id, verbose=False)
+
+    (population_ranges, N) = read_population_ranges(comm, spike_input_path)
+    population_names  = read_population_names(comm, spike_input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    if loadData is None:
+        spkdata = spikedata.read_spike_events (comm, spike_input_path, include, spike_namespace_id,
+                                               timeVariable=timeVariable, timeRange=timeRange,
+                                               verbose=verbose)
+
+        spkpoplst        = spkdata['spkpoplst']
+        spkindlst        = spkdata['spkindlst']
+        spktlst          = spkdata['spktlst']
+        num_cell_spks    = spkdata['num_cell_spks']
+        pop_active_cells = spkdata['pop_active_cells']
+        tmin             = spkdata['tmin']
+        tmax             = spkdata['tmax']
+
+        timeRange = [tmin, tmax]
+    else:
+        spkpoplst = include
+            
+    # create fig
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+
+    histlst = []
+    # Plot separate line for each entry in include
+    for iplot, subset in enumerate(spkpoplst):
+
+        if loadData:
+            import pickle
+            rate_bin_dict = pickle.load(open(loadData[iplot],'rb'))
+        else:
+            spkts         = spktlst[iplot]
+            spkinds       = spkindlst[iplot]
+            spkdict       = spikedata.make_spike_dict(spkinds, spkts)
+            if saveData:
+                if isinstance(saveData, basestring):
+                    filename = saveData
+                else:
+                    filename = spike_namespace_id+' '+subset
+            else:
+                filename = False
+        PF_dict  = spikedata.place_fields(rate_bin_dict, timeRange)
+
+        PF_lst  = []
+        for ind in sorted(PF_dict.keys()):
+            PF = PF_dict[ind]
+            PF_lst.append(PF)
+        del(PF_dict)
+
+        PF_array = np.asarray(PF_lst, dtype=np.float32)
+        del(PF_lst)
+        
+        if not overlay:
+            if loadData:
+                label = str(subset)  + ' (mean %i place fields)' % (np.mean(PF_array))
+            else:
+                label = str(subset)  + ' (%i active; mean %i place fields)' % (len(pop_active_cells[subset]),np.mean(PF_array))
+            plt.subplot(len(spkpoplst),1,iplot+1)
+            plt.title (label, fontsize=fontSize)
+            
+        color = color_list[iplot%len(color_list)]
+
+        n, bins, patches = plt.hist(PF_array, bins=binCount, alpha=0.75, rwidth=1, color=color)
+        plt.xticks(fontsize=fontSize)
+                   
+        if iplot == 0:
+            plt.ylabel('Cell Index', fontsize=fontSize)
+        if iplot == len(spkpoplst)-1:
+            plt.xlabel('# Place fields', fontsize=fontSize)
+        else:
+            plt.tick_params(labelbottom='off')
+        plt.autoscale(enable=True, axis='both', tight=True)
+
+    if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
+        try:
+            plt.tight_layout()
+        except:
+            pass
+
+    # Add legend
+    if overlay:
+        for i,subset in enumerate(spkpoplst):
+            plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
+        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        maxLabelLen = min(10,max([len(str(l)) for l in include]))
+        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
+
+
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+' '+'information.png'
+        plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+
+    return fig
+
+
 
 
 def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', 
