@@ -7,7 +7,10 @@ SWC Types:
   trunk:  5 
   tuft:   6
   ais:    7
+<<<<<<< HEAD
   hillock: 8
+=======
+>>>>>>> e9b234253f4fd49ba25e34fe2c1280a9cf10a8da
 Synapse Types:
   excitatory:    0
   inhibitory:    1

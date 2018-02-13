@@ -311,7 +311,7 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
         vidxs = new Vector()
         vidxs.from_python(idxs)
         sections[s] {
-            pt3dconst(0)
+            pt3dconst(1)
             for i=0, vidxs.size()-1 {
                 k = vidxs.x[i]
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
