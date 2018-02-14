@@ -3,7 +3,7 @@
 ##
 
 
-import sys, itertools
+import sys, itertools, os.path
 from mpi4py import MPI
 import h5py
 import numpy as np
@@ -49,20 +49,22 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
     sys.stdout.flush()
 
     if rank==0:
-        input_file  = h5py.File(types_path,'r')
-        output_file = h5py.File(output_path,'w')
-        input_file.copy('/H5Types',output_file)
-        input_file.close()
-        output_file.close()
+        if not os.path.isfile(output_path):
+            input_file  = h5py.File(types_path,'r')
+            output_file = h5py.File(output_path,'w')
+            input_file.copy('/H5Types',output_file)
+            input_file.close()
+            output_file.close()
     comm.barrier()
 
     env = Env(comm=comm, configFile=config)
 
-    max_extents = env.geometry['Parametric Surface']['Minimum Extent']
-    min_extents = env.geometry['Parametric Surface']['Maximum Extent']
+    min_extents = env.geometry['Parametric Surface']['Minimum Extent']
+    max_extents = env.geometry['Parametric Surface']['Maximum Extent']
 
     population_ranges = read_population_ranges(output_path, comm)[0]
 
+    print 'population_ranges: ', population_ranges
     for population in populations:
 
         if verbose and (rank == 0):
@@ -78,7 +80,6 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
         for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
 
             layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-
             if layer_count > 0:
                 if pop_max_extent is None:
                     pop_max_extent = np.asarray(max_extent)
@@ -88,6 +89,10 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
                     pop_min_extent = np.asarray(min_extent)
                 else:
                     pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+
+        if verbose and (rank == 0):
+            print 'min extent: ',pop_min_extent
+            print 'max extent: ',pop_max_extent
 
         vol = make_volume(pop_min_extent[2], pop_max_extent[2])
             
