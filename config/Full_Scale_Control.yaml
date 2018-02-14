@@ -12,6 +12,7 @@ LFP: !include LFP.yaml
 Cell Types: 
   GC:
     template: DGC
+    templateFile: DGC_template_passive.hoc
     synapses:
       spines: True
       density:

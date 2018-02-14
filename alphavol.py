@@ -1,8 +1,30 @@
 import numpy as np
+from numpy.core.umath_tests import inner1d
 from scipy.spatial import Delaunay
 from collections import namedtuple
-
 AlphaShape = namedtuple('AlphaShape', ['points', 'simplices', 'bounds'], verbose=False)
+
+
+## Volumes/areas of tetrahedra/triangles
+
+def volumes(simplices, points):
+    
+    A = points[simplices[:,0],:]
+    B = np.subtract(points[simplices[:,1],:], A)
+    C = np.subtract(points[simplices[:,2],:], A)
+
+    if points.shape[1] == 3:
+        ## 3D Volume
+        D = np.subtract(points[simplices[:,3],:], A)
+        BxC = np.cross(B,C,axis=1)
+        vol = inner1d(BxC, D)
+        vol = np.abs(vol) / 6.
+    else:
+        ## 2D Area
+        vol = np.subtract(np.multiply(B[:,0], C[:,1]) - np.multiply(B[:,1], C[:,0]))
+        vol = np.abs(vol)/2.
+
+    return vol
 
 ## Determine circumcenters of polyhedra as described in the following page:
 ## http://mathworld.wolfram.com/Circumsphere.html
@@ -87,14 +109,16 @@ def alpha_shape(pts,radius,tri=None):
     if tri is None:
         tri = Delaunay(pts)
 
-    ## Remove zero volume tetrahedra since
+    ## Check for zero volume tetrahedra since
     ## these can be of arbitrary large circumradius
-    #if dim == 3:
-    #    n = tri.simplices.shape[0]
-    #    vol = volumes(tri)
-    #    epsvol = 1e-12*np.sum(vol)/n
-    #    T = T(vol > epsvol,:)
-    #    holes = size(T,1) < n
+    holes = False
+    if dim == 3:
+        n = tri.simplices.shape[0]
+        vol = volumes(tri.simplices, tri.points)
+        epsvol = 1e-12*np.sum(vol)/float(n)
+        nz_simplices = tri.simplices[np.where(vol > epsvol),:][0]
+        holes = nz_simplices.shape[0] < n
+    assert(holes is False)
 
     ## Limit circumradius of simplices
     _,rcc   = circumcenters(tri.simplices, tri.points)
