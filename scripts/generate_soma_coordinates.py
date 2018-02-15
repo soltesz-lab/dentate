@@ -10,21 +10,13 @@ import numpy as np
 import math
 from neuroh5.io import read_population_ranges, append_cell_attributes
 import click
-from env import Env
-from DG_volume import make_volume
+from dentate.utils import list_find
+from dentate.env import Env
+from dentate.DG_volume import make_volume
 import rbf
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
 from alphavol import alpha_shape
-
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
 
 
 @click.command()

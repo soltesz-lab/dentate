@@ -2,10 +2,7 @@
 ##  Dentate Gyrus model initialization script
 ##
 
-import sys, os
-import os.path
-import click
-import itertools
+import sys, os, os.path, click, itertools
 from collections import defaultdict
 from datetime import datetime
 import numpy as np
@@ -14,9 +11,14 @@ import h5py
 from neuron import h
 from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, \
     scatter_read_cell_attributes, write_cell_attributes
-from env import Env
-import lpt, synapses, cells, lfp, simtime
-from neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
+import dentate    
+from dentate.env import Env
+import dentate.lpt as lpt
+import dentate.synapses as synapses
+import dentate.cells as cells
+import dentate.lfp as lfp
+import dentate.simtime as simtime
+from dentate.neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
 
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread

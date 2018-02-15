@@ -4,8 +4,9 @@ import numpy as np
 import rbf
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
-from alphavol import alpha_shape
-from rbf_volume import RBFVolume
+import dentate
+from dentate.alphavol import alpha_shape
+from dentate.rbf_volume import RBFVolume
 
 max_u = 11690.
 max_v = 2956.

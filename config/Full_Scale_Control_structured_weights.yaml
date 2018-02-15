@@ -42,7 +42,7 @@ Cell Types:
             default: # layer
               mean: 4.0
               variance: 0.2
-        axon:
+        ais:
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
               mean: 4.0

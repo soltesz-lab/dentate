@@ -229,7 +229,6 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
             L_total += sec.L
         segdensity_dict, layers_dict = synapse_seg_density(syn_type_dict, layer_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed, neurotree_dict=neurotree_dict)
 
-        sample_size = total
         cumcount  = 0
         for (syn_type_label, _) in layer_density_dict.iteritems():
             syn_type   = syn_type_dict[syn_type_label]
@@ -243,21 +242,24 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
                 L = seg.sec.L
                 layer = layers[i]
                 density = segdensity[i]
-                beta = 1./density
-                interval = seg_start*L + r.exponential(beta)
-                while interval < seg_range*L:
-                    syn_loc = interval/L
-                    assert((syn_loc <= 1) & (syn_loc >= 0))
-                    if syn_loc < 1.0:
-                        syn_locs.append(syn_loc)
-                        syn_ids.append(syn_index)
-                        syn_secs.append(sec_obj_index_dict[seg.sec])
-                        syn_layers.append(layer)
-                        syn_types.append(syn_type)
-                        swc_types.append(swc_type)
-                        syn_index += 1
-                        syn_count += 1
-                    interval += r.exponential(beta)
+                syn_count = 0
+                if density > 0.:
+                    beta = 1./density
+                    interval = seg_start*L + r.exponential(beta)
+                    while interval < seg_range*L:
+                        syn_loc = interval/L
+                        assert((syn_loc <= 1) & (syn_loc >= 0))
+                        if syn_loc < 1.0:
+                            syn_locs.append(syn_loc)
+                            syn_ids.append(syn_index)
+                            syn_secs.append(sec_obj_index_dict[seg.sec])
+                            syn_layers.append(layer)
+                            syn_types.append(syn_type)
+                            swc_types.append(swc_type)
+                            syn_index += 1
+                            syn_count += 1
+                        interval += r.exponential(beta)
+                cumcount += syn_count
 
     assert(len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),

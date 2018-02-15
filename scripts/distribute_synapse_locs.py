@@ -1,11 +1,13 @@
 
-from utils import *
+from dentate.utils import *
 import numpy as np
 from mpi4py import MPI
 from neuron import h
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
-from env import Env
-import cells, synapses
+import dentate
+from dentate.env import Env
+import dentate.cells as cells
+import dentate.synapses as synapses
 import click
 
 
@@ -13,7 +15,7 @@ import click
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", type=str)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--populations", required=True, multiple=True, type=str)
+@click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--distribution", type=str, default='uniform')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -54,7 +56,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     for path in env.templatePaths:
         h.templatePaths.append(h.Value(1,path))
     
-    (pop_ranges, _) = read_population_ranges(comm, forest_path)
+    (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
     for population in populations:
         print  'Rank %i population: %s' % (rank, population)
@@ -64,18 +66,14 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         h.find_template(h.pc, h.templatePaths, template_name)
         template_class = eval('h.%s' % template_name)
         density_dict = env.celltypes[population]['synapses']['density']
-        for gid, morph_dict in NeuroH5TreeGen(comm, forest_path, population, io_size=io_size):
+        for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             local_time = time.time()
-            # mismatched_section_dict = {}
             synapse_dict = {}
             if gid is not None:
                 print  'Rank %i gid: %i' % (rank, gid)
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
-                # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
-                # if this_mismatched_sections is not None:
-                #    mismatched_section_dict[gid] = this_mismatched_sections
-                cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'axon': (cell.axon, 50.0)}
-                cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'axon': cell.axonidx}
+                cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None)}
+                cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
                 if distribution == 'uniform':
                     synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
@@ -95,21 +93,18 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
             else:
                 print  'Rank %i gid is None' % rank
             # print 'Rank %i before append_cell_attributes' % rank
-            append_cell_attributes(comm, forest_path, population, synapse_dict,
-                                    namespace='Synapse Attributes', io_size=io_size, chunk_size=chunk_size,
+            append_cell_attributes(forest_path, population, synapse_dict,
+                                    namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                     value_chunk_size=value_chunk_size, cache_size=cache_size)
             sys.stdout.flush()
             del synapse_dict
             gc.collect()
-    # print 'Rank %i completed iterator' % rank
 
-    # len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
         global_count = comm.gather(count, root=0)
         if rank == 0:
             print 'target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,
                                                                                         time.time() - start_time,
                                                                                         np.sum(global_count))
-        # print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)
 
 
 if __name__ == '__main__':
