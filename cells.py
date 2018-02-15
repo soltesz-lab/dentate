@@ -15,198 +15,39 @@ swc_type_dict = {'soma': soma_swc_type, 'axon': axon_swc_type, 'basal': basal_sw
                  'trunk': trunk_swc_type, 'tuft': tuft_swc_type, 'ais': ais_swc_type, 'hillock': hillock_swc_type}
 
 
-def append_section(cell, sec_type, sec=None):
-    """
-    Places the specified hoc section within the tree structure of the Python HocCell wrapper. If sec is None, creates
-    a new hoc section.
-    :param cell: :class:'HocCell'
-    :param sec_type: str
-    :param sec: :class:'h.Section'
-    :return node: :class:'SHocNode'
-    """
-    node = SHocNode(cell.count)
-    if cell.count == 0:
-        cell.tree.root = node
-    cell.count += 1
-    node.type = sec_type
-    cell.nodes[sec_type].append(node)
-    if sec is None:
-        node.sec = h.Section(name=node.name, cell=cell)
-    else:
-        node.sec = sec
-    return node
-
-
-def connect_nodes(parent, child, parent_loc, child_loc, connect_hoc_sections=True):
-    """
-    Connects this SHocNode node to a parent node, and if specified, establishes a connection between their associated
-    hoc sections.
-    :param parent: :class:'SHocNode'
-    :param child: :class:'SHocNode'
-    :param parent_loc: float in [0,1] : connect to this end of the parent hoc section
-    :param child_loc: float in [0,1] : connect this end of the child hoc section
-    :param connect_hoc_sections: bool
-    """
-    child.parent = parent
-    parent.add_child(child)
-    if connect_hoc_sections:
-        child.sec.connect(parent.sec, parent_loc, child_loc)
-
-
-def append_child_sections(cell, parent_node, child_list, sec_type_map):
-    """
-    Traverses the subtree of a parent section, and places each child hoc section within the tree structure of the
-    Python HocCell wrapper
-    :param cell: :class:'HocCell'
-    :param parent_node: :class:'SHocNode'
-    :param child_list: list of :class:'h.Section'
-    :param sec_type_map: dict {str: str}
-    """
-    for child in child_list:
-        sec_type = sec_type_map[child.hname()]
-        node = append_section(cell, sec_type, child)
-        connect_nodes(parent_node, node, connect_hoc_sections=False)
-        append_child_sections(cell, node, node.children(), sec_type_map)
-
-
-def import_morphology_from_hoc(cell, hoc_cell):
-    """
-    Append sections from an existing instance of a NEURON cell template to a Python cell wrapper.
-    :param cell: :class:'HocCell'
-    :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
-    """
-    sec_types = cell.nodes.keys()
-    sec_type_map = {}
-    for sec_type in sec_types:
-        if hasattr(hoc_cell, sec_type):
-            this_sec_list = list(getattr(hoc_cell, sec_type))
-            if sec_type == 'soma':
-                root = this_sec_list[0]
-            for sec in this_sec_list:
-                sec_type_map[sec.hname()] = sec_type
-    try:
-        root_node = append_section(cell, 'soma', root)
-    except Exception:
-        raise KeyError('import_morphology_from_hoc: problem locating soma section to act as root')
-    append_child_sections(cell, root_node, root.children(), sec_type_map)
-
-
-def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, threshold=None, target=None):
-    """
-    Converts analog voltage in the specified section to digital spike output. Initializes and returns an h.NetCon
-    object with voltage as a reference parameter connected to the specified target.
-    :param cell: :class:'HocCell'
-    :param sec: :class:'h.Section'
-    :param loc: float
-    :param param: str
-    :param delay: float
-    :param weight: float
-    :param threshold: float
-    :param target: object that can receive spikes
-    :return: :class:'h.NetCon'
-    """
-    if cell.spike_detector is not None:
-        if delay is None:
-            delay = cell.spike_detector.delay
-        if weight is None:
-            weight = cell.spike_detector.weight[0]
-        if threshold is None:
-            threshold = cell.spike_detector.threshold
-    else:
-        if delay is None:
-            delay = 0.
-        if weight is None:
-            weight = 1.
-        if threshold is None:
-            threshold = -30.
-    this_netcon = h.NetCon(getattr(sec(loc), param), target, sec=sec)
-    this_netcon.delay = delay
-    this_netcon.weight[0] = weight
-    this_netcon.threshold = threshold
-    return this_netcon
-
-
-def import_mechanisms_from_yaml(cell, mech_file_path=None):
-    """
-    Imports from a .yaml file a dictionary specifying parameters of NEURON density mechanisms and point processes for
-    each section in a HocCell.
-    :param cell: :class:'HocCell'
-    :param mech_file_path: str (path)
-    """
-    if mech_file_path is None or not os.path.isfile(mech_file_path):
-        raise ValueError('import_mechanisms_from_yaml: invalid mech_file_path: %s' % mech_file_path)
-    cell.mech_file_path = mech_file_path
-    cell.mech_dict = read_from_yaml(mech_file_path)
-
-
 class HocCell(object):
     """
     A Python wrapper for neuronal cell objects specified in the NEURON language hoc.
     Extends btmorph.STree to provide an tree interface to facilitate:
-    1) iteration through connected neuronal compartments, and
-    2) specification of complex compartment attributes like ion channel gradients and properties of synapses.
+    1) Iteration through connected neuronal compartments, and
+    2) Specification of complex compartment attributes like gradients of ion channel density or synaptic properties.
     """
-    def __init__(self, gid=0, population=None, hoc_cell=None):
+    def __init__(self, gid=0, population=None, hoc_cell=None, mech_file_path=None):
         """
 
         :param gid: int
         :param population: str
         :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
+        :param mech_file_path: str (path)
         """
-        self.gid = gid
-        self.population = population
+        self._gid = gid
+        self._population = population
         self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.count = 0  # Keep track of number of nodes
         self.nodes = {key: [] for key in swc_type_dict.keys() + ['spine_head', 'spine_neck']}
-        self.mech_file_path = None
+        self.mech_file_path = mech_file_path
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
+        self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
             if self.axon:
                 self.spike_detector = connect2target(self, self.axon[-1].sec)
             elif self.soma:
                 self.spike_detector = connect2target(self, self.soma[0].sec)
-
-    def _init_cable(self, node):
-        """
-        If the mechanism dictionary specifies the cable properties 'Ra' or 'cm', then _modify_mechanism() properly sets
-        those parameters, and reinitializes the number of segments per section. To avoid redundancy, this
-        method passes _modify_mechanism() a copy of the dictionary with the spatial_res parameter removed, since this is
-        consulted in setting nseg. However, if spatial_res is the only parameter being specified, it is passed to
-        _modify_mechanism()
-        :param node: :class:'SHocNode'
-        """
-        sec_type = node.type
-        if sec_type in self.mech_dict and 'cable' in self.mech_dict[sec_type]:
-            mech_content = copy.deepcopy(self.mech_dict[sec_type]['cable'])
-            if ('Ra' in mech_content) or ('cm' in mech_content):
-                if 'spatial_res' in mech_content:
-                    del mech_content['spatial_res']
-                self._modify_mechanism(node, 'cable', mech_content)
-            elif 'spatial_res' in mech_content:
-                self._modify_mechanism(node, 'cable', mech_content)
-        else:
-            node.init_nseg()
-            node.reinit_diam()
-
-    def reinit_mechanisms(self, reset_cable=False, from_file=False):
-        """
-        Once a mechanism dictionary has been loaded, and a morphology has been specified, this method traverses through
-        the tree of SHocNode nodes following order of inheritance and properly sets membrane mechanism parameters,
-        including gradients and inheritance of parameters from nodes along the path from root. Since cable parameters
-        are set during specification of morphology, it is not necessary to immediately reinitialize these parameters
-        again. However, they can be manually reinitialized with the reset_cable flag.
-        :param reset_cable: bool
-        :param from_file: bool
-        """
-        if from_file:
-            self.mech_dict = self.load_mech_dict(self.mech_file_path)
-        for sec_type in self.nodes:
-            if sec_type in self.mech_dict:
-                nodes = self.get_nodes_of_subtype(sec_type)
-                self._reinit_mech(nodes, reset_cable)
+            if self.mech_file_path is not None:
+                init_mechanisms(self, init_cable=True, from_file=True, mech_file_path=self.mech_file_path)
 
     def init_synaptic_mechanisms(self):
         """
@@ -256,31 +97,6 @@ class HocCell(object):
                 return True
         return False
 
-    def _reinit_mech(self, nodes, reset_cable=False):
-        """
-        Given a list of nodes, this method loops through all the mechanisms specified in the mechanism dictionary for
-        the hoc section type of each node and updates their associated parameters. If the reset_cable flag is True,
-        cable parameters are modified first, then the parameters for all other mechanisms are reinitialized.
-        Synapse attributes are also specified in the mechanism dictionary, but one must use the method
-        init_synaptic_mechanisms() after inserting synapses to synchronize the parameters of inserted synaptic point
-        processes.
-        :param nodes: list of :class:'SHocNode'
-        :param reset_cable: bool
-        """
-        for node in nodes:
-            sec_type = node.type
-            if sec_type in self.mech_dict:
-                # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
-                # mechanism gradients
-                if ('cable' in self.mech_dict[sec_type]) and reset_cable:
-                    self._init_cable(node)
-                for mech_name in (mech_name for mech_name in self.mech_dict[sec_type]
-                                  if not mech_name in ['cable', 'ions']):
-                    self._modify_mechanism(node, mech_name, self.mech_dict[sec_type][mech_name])
-                # ion-related parameters do not exist until after membrane mechanisms have been inserted
-                if 'ions' in self.mech_dict[sec_type]:
-                    self._modify_mechanism(node, 'ions', self.mech_dict[sec_type]['ions'])
-
     def reinitialize_subset_mechanisms(self, sec_type, mech_name):
         """
         During parameter optimization, it is often convenient to reinitialize all the parameters for a single mechanism
@@ -293,42 +109,6 @@ class HocCell(object):
         if sec_type in self.mech_dict and mech_name in self.mech_dict[sec_type]:
             for node in self.get_nodes_of_subtype(sec_type):
                 self._modify_mechanism(node, mech_name, self.mech_dict[sec_type][mech_name])
-
-    def _modify_mechanism(self, node, mech_name, mech_content):
-        """
-        This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
-        calls self._parse_mech_content to interpret the rules and set the values for the given node.
-        :param node: :class:'SHocNode'
-        :param mech_name: str
-        :param mech_content: dict
-        """
-        if mech_content is not None:
-            if 'synapse' in mech_name:
-                syn_category = mech_name.split(' ')[0]
-                # Only specify synapse attributes if this category of synapses has been specified in this node
-                if node.get_filtered_synapse_attributes(syn_category=syn_category)['syn_locs']:
-                    for syn_type in mech_content:
-                        if mech_content[syn_type] is not None:
-                            for param_name in mech_content[syn_type]:
-                                # accommodate multiple dict entries with different location constraints for a single
-                                # parameter
-                                if type(mech_content[syn_type][param_name]) == dict:
-                                    self._parse_mech_content(node, mech_name, param_name,
-                                                             mech_content[syn_type][param_name], syn_type)
-                                else:
-                                    for mech_content_entry in mech_content[syn_type][param_name]:
-                                        self._parse_mech_content(node, mech_name, param_name, mech_content_entry,
-                                                                 syn_type)
-            else:
-                for param_name in mech_content:
-                    # accommodate multiple dict entries with different location constraints for a single parameter
-                    if type(mech_content[param_name]) == dict:
-                        self._parse_mech_content(node, mech_name, param_name, mech_content[param_name])
-                    else:
-                        for mech_content_entry in mech_content[param_name]:
-                            self._parse_mech_content(node, mech_name, param_name, mech_content_entry)
-        else:
-            node.sec.insert(mech_name)
 
     def _parse_mech_content(self, node, mech_name, param_name, rules, syn_type=None):
         """
@@ -571,7 +351,7 @@ class HocCell(object):
         elif sec_type in ['basal', 'trunk', 'axon_hill', 'ais', 'axon']:
             return self._get_node_along_path_to_root(node, 'soma')
         elif sec_type in ['apical', 'tuft']:
-            if self._node_dict['trunk']:
+            if self.nodes['trunk']:
                 return self._get_node_along_path_to_root(node, 'trunk')
             else:
                 return self._get_node_along_path_to_root(node, 'soma')
@@ -1005,7 +785,7 @@ class HocCell(object):
         :param sec_type: str
         :return: :class:'SHocNode'
         """
-        nodes = self._node_dict[sec_type]
+        nodes = self.nodes[sec_type]
         for node in nodes:
             if self.get_distance_to_node(self.tree.root, node) >= distance:
                 return node
@@ -1132,7 +912,7 @@ class HocCell(object):
         This method turns stochastic filtering of presynaptic release on or off for all synapses contained in this cell.
         :param value: int in [0, 1]
         """
-        for nodelist in self._node_dict.itervalues():
+        for nodelist in self.nodes.itervalues():
             for node in nodelist:
                 for syn in node.synapses:
                     syn.stochastic = value
@@ -1298,48 +1078,52 @@ class HocCell(object):
         return self._gid
 
     @property
+    def population(self):
+        return self._population
+
+    @property
     def soma(self):
-        return self._node_dict['soma']
+        return self.nodes['soma']
 
     @property
     def axon(self):
-        return self._node_dict['axon']
+        return self.nodes['axon']
 
     @property
     def basal(self):
-        return self._node_dict['basal']
+        return self.nodes['basal']
 
     @property
     def apical(self):
-        return self._node_dict['apical']
+        return self.nodes['apical']
 
     @property
     def trunk(self):
-        return self._node_dict['trunk']
+        return self.nodes['trunk']
 
     @property
     def tuft(self):
-        return self._node_dict['tuft']
+        return self.nodes['tuft']
 
     @property
     def spine(self):
-        return self._node_dict['spine_head']
+        return self.nodes['spine_head']
 
     @property
     def spine_head(self):
-        return self._node_dict['spine_head']
+        return self.nodes['spine_head']
 
     @property
     def spine_neck(self):
-        return self._node_dict['spine_neck']
+        return self.nodes['spine_neck']
 
     @property
     def ais(self):
-        return self._node_dict['ais']
+        return self.nodes['ais']
 
     @property
     def hillock(self):
-        return self._node_dict['hillock']
+        return self.nodes['hillock']
 
 
 # ------------------------------Extend SNode2 to interact with NEURON hoc sections------------------------
@@ -1381,21 +1165,6 @@ class SHocNode(btmorph.btstructs2.SNode2):
         self.content['sec'] = sec
 
     sec = property(get_sec, set_sec)
-
-    def init_nseg(self, spatial_res=0):
-        """
-        Initializes the number of hoc segments in this node's hoc section (nseg) based on the AC length constant.
-        Must be re-initialized whenever basic cable properties Ra or cm are changed. If the node is a tapered cylinder,
-        it should contain at least 3 segments. The spatial resolution parameter increases the number of segments per
-        section by a factor of an exponent of 3.
-        :param spatial_res: int
-        """
-        sugg_nseg = d_lambda_nseg(self.sec)
-        # print self.name, self.sec.nseg, sugg_nseg
-        if not self.get_diam_bounds() is None:
-            sugg_nseg = max(sugg_nseg, 3)
-        sugg_nseg *= 3 ** spatial_res
-        self.sec.nseg = int(sugg_nseg)
 
     def reinit_diam(self):
         """
@@ -1630,6 +1399,260 @@ class SHocNode(btmorph.btstructs2.SNode2):
         loc = h.parent_connection()
         h.pop_section()
         return loc
+
+
+# --------------------------------------------------------------------------------------------------------- #
+
+
+def append_section(cell, sec_type, sec=None):
+    """
+    Places the specified hoc section within the tree structure of the Python HocCell wrapper. If sec is None, creates
+    a new hoc section.
+    :param cell: :class:'HocCell'
+    :param sec_type: str
+    :param sec: :class:'h.Section'
+    :return node: :class:'SHocNode'
+    """
+    node = SHocNode(cell.count)
+    if cell.count == 0:
+        cell.tree.root = node
+    cell.count += 1
+    node.type = sec_type
+    cell.nodes[sec_type].append(node)
+    if sec is None:
+        node.sec = h.Section(name=node.name, cell=cell)
+    else:
+        node.sec = sec
+    return node
+
+
+def connect_nodes(parent, child, parent_loc=1., child_loc=0., connect_hoc_sections=True):
+    """
+    Connects this SHocNode node to a parent node, and if specified, establishes a connection between their associated
+    hoc sections.
+    :param parent: :class:'SHocNode'
+    :param child: :class:'SHocNode'
+    :param parent_loc: float in [0,1] : connect to this end of the parent hoc section
+    :param child_loc: float in [0,1] : connect this end of the child hoc section
+    :param connect_hoc_sections: bool
+    """
+    child.parent = parent
+    parent.add_child(child)
+    if connect_hoc_sections:
+        child.sec.connect(parent.sec, parent_loc, child_loc)
+
+
+def append_child_sections(cell, parent_node, child_sec_list, sec_type_map):
+    """
+    Traverses the subtree of a parent section, and places each child hoc section within the tree structure of the
+    Python HocCell wrapper
+    :param cell: :class:'HocCell'
+    :param parent_node: :class:'SHocNode'
+    :param child_sec_list: list of :class:'h.Section'
+    :param sec_type_map: dict {str: str}
+    """
+    for child in child_sec_list:
+        sec_type = sec_type_map[child.hname()]
+        node = append_section(cell, sec_type, child)
+        connect_nodes(parent_node, node, connect_hoc_sections=False)
+        append_child_sections(cell, node, child.children(), sec_type_map)
+
+
+def import_morphology_from_hoc(cell, hoc_cell):
+    """
+    Append sections from an existing instance of a NEURON cell template to a Python cell wrapper.
+    :param cell: :class:'HocCell'
+    :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
+    """
+    sec_types = ['soma', 'axon', 'basal', 'apical', 'trunk', 'tuft', 'ais', 'hillock']
+    sec_type_map = {}
+    for sec_type in sec_types:
+        if hasattr(hoc_cell, sec_type):
+            this_sec_list = list(getattr(hoc_cell, sec_type))
+            if sec_type == 'soma':
+                root_sec = this_sec_list[0]
+            for sec in this_sec_list:
+                sec_type_map[sec.hname()] = sec_type
+    try:
+        root_node = append_section(cell, 'soma', root_sec)
+    except Exception:
+        raise KeyError('import_morphology_from_hoc: problem locating soma section to act as root')
+    append_child_sections(cell, root_node, root_sec.children(), sec_type_map)
+
+
+def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, threshold=None, target=None):
+    """
+    Converts analog voltage in the specified section to digital spike output. Initializes and returns an h.NetCon
+    object with voltage as a reference parameter connected to the specified target.
+    :param cell: :class:'HocCell'
+    :param sec: :class:'h.Section'
+    :param loc: float
+    :param param: str
+    :param delay: float
+    :param weight: float
+    :param threshold: float
+    :param target: object that can receive spikes
+    :return: :class:'h.NetCon'
+    """
+    if cell.spike_detector is not None:
+        if delay is None:
+            delay = cell.spike_detector.delay
+        if weight is None:
+            weight = cell.spike_detector.weight[0]
+        if threshold is None:
+            threshold = cell.spike_detector.threshold
+    else:
+        if delay is None:
+            delay = 0.
+        if weight is None:
+            weight = 1.
+        if threshold is None:
+            threshold = -30.
+    this_netcon = h.NetCon(getattr(sec(loc), param), target, sec=sec)
+    this_netcon.delay = delay
+    this_netcon.weight[0] = weight
+    this_netcon.threshold = threshold
+    return this_netcon
+
+
+def import_mech_dict_from_yaml(cell, mech_file_path=None):
+    """
+    Imports from a .yaml file a dictionary specifying parameters of NEURON cable properties, density mechanisms, and
+    point processes for each type of section in a HocCell.
+    :param cell: :class:'HocCell'
+    :param mech_file_path: str (path)
+    """
+    if mech_file_path is None:
+        if cell.mech_file_path is None:
+            raise ValueError('import_mechanisms_from_yaml: missing mech_file_path')
+        elif not os.path.isfile(cell.mech_file_path):
+            raise ValueError('import_mechanisms_from_yaml: invalid mech_file_path: %s' % cell.mech_file_path)
+    elif not os.path.isfile(mech_file_path):
+        raise ValueError('import_mechanisms_from_yaml: invalid mech_file_path: %s' % mech_file_path)
+    else:
+        cell.mech_file_path = mech_file_path
+    cell.mech_dict = read_from_yaml(cell.mech_file_path)
+
+
+def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None):
+    """
+    Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and
+    point processes for each type of section in a HocCell.
+    :param cell: :class:'HocCell'
+    :param reset_cable: bool
+    :param from_file: bool
+    :param mech_file_path: str (path)
+    """
+    if from_file:
+        import_mech_dict_from_yaml(cell, mech_file_path)
+    for sec_type in cell.nodes:
+        if sec_type in cell.mech_dict:
+            update_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
+
+
+def update_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
+    """
+    This method loops through all sections of the specified type, and consults the mechanism dictionary to update
+    mechanism properties. If the reset_cable flag is True, cable parameters are re-initialize first, then the
+    ion channel mechanisms are updated.
+    :param cell: :class:'HocCell'
+    :param sec_type: str
+    :param reset_cable: bool
+    """
+    if sec_type in cell.nodes and sec_type in cell.mech_dict:
+        for node in cell.nodes[sec_type]:
+            # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
+            # mechanism gradients
+            if reset_cable and 'cable' in cell.mech_dict[sec_type]:
+                reset_cable_by_node(cell, node)
+            for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
+                              if not mech_name in ['cable', 'ions']):
+                update_mechanism_by_node(node, mech_name, cell.mech_dict[sec_type][mech_name])
+            # ion-related parameters do not exist until after membrane mechanisms have been inserted
+            if 'ions' in cell.mech_dict[sec_type]:
+                update_mechanism_by_node(node, 'ions', cell.mech_dict[sec_type]['ions'])
+
+
+def reset_cable_by_node(cell, node):
+    """
+    Consults a dictionary specifying parameters of NEURON cable properties such as axial resistance ('Ra'),
+    membrane specific capacitance ('cm'), and a spatial resolution parameter to specify the number of separate
+    segments per section in a HocCell
+    :param cell: :class:'HocCell'
+    :param node: :class:'SHocNode'
+    """
+    sec_type = node.type
+    if sec_type in cell.mech_dict and 'cable' in cell.mech_dict[sec_type]:
+        mech_content = cell.mech_dict[sec_type]['cable']
+        if mech_content is not None:
+            update_mechanism_by_node(node, 'cable', mech_content)
+    else:
+        init_nseg(node.sec)
+
+
+def update_mechanism_by_node(node, mech_name, mech_content):
+    """
+    This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
+    calls parse_mech_content to interpret the rules and set the values for the given node.
+    :param node: :class:'SHocNode'
+    :param mech_name: str
+    :param mech_content: dict
+    """
+    if mech_content is not None:
+        if 'synapse' in mech_name:
+            update_synapse_attributes_by_node(node, mech_name, mech_content)
+        else:
+            for param_name in mech_content:
+                # accommodate either a dict, or a list of dicts specifying multiple location constraints for
+                # a single parameter
+                if isinstance(mech_content[param_name], dict):
+                    parse_mech_content(node, mech_name, param_name, mech_content[param_name])
+                elif isinstance(mech_content[param_name], Iterable):
+                    for mech_content_entry in mech_content[param_name]:
+                        parse_mech_content(node, mech_name, param_name, mech_content_entry)
+    else:
+        node.sec.insert(mech_name)
+
+
+def update_synapse_attributes_by_node(node, mech_name, mech_content):
+    """
+    Consults a dictionary to specify properties of synapses of the specified category. Only sets values in a nodes
+    dictionary of synapse attributes. Must then call 'update_synapses' to modify properties of underlying hoc
+    point process and netcon objects.
+    :param node: :class:'SHocNode'
+    :param mech_name: str
+    :param mech_content: dict
+    """
+    syn_category = mech_name.split(' ')[0]
+    # Only specify synapse attributes if this category of synapses has been specified in this node
+    if get_synapse_attributes(node, syn_category=syn_category)['syn_locs']:
+        for syn_type in mech_content:
+            if mech_content[syn_type] is not None:
+                for param_name in mech_content[syn_type]:
+                    # accommodate either a dict, or a list of dicts specifying multiple location constraints for
+                    # a single parameter
+                    if isinstance(mech_content[syn_type][param_name], dict):
+                        parse_mech_content(node, mech_name, param_name, mech_content[syn_type][param_name], syn_type)
+                    elif isinstance(mech_content[syn_type][param_name], Iterable):
+                        for mech_content_entry in mech_content[syn_type][param_name]:
+                            parse_mech_content(node, mech_name, param_name, mech_content_entry, syn_type)
+
+
+def init_nseg(sec, spatial_res=0):
+    """
+    Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
+    whenever basic cable properties Ra or cm are changed. The spatial resolution parameter increases the number of
+    segments per section by a factor of an exponent of 3.
+    :param sec: :class:'h.Section'
+    :param spatial_res: int
+    """
+    sugg_nseg = d_lambda_nseg(sec)
+    print sec.hname(), sec.nseg, sugg_nseg
+    sugg_nseg *= 3 ** spatial_res
+    sec.nseg = int(sugg_nseg)
+
+
+# -------------------------------------------------------------------------------------------------------------------- #
 
 
 def get_node_attribute (name, content, sec, secnodes, x=None):

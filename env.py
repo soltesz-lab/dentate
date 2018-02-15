@@ -82,14 +82,14 @@ class Env:
         datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
         dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
 
-        (population_ranges, _) = read_population_ranges(self.comm, dataFilePath)
+        (population_ranges, _) = read_population_ranges(dataFilePath, comm=self.comm)
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
 
-        population_names  = read_population_names(self.comm, dataFilePath)
-        self.cellAttributeInfo = read_cell_attribute_info (self.comm, population_names, dataFilePath)
+        population_names  = read_population_names(dataFilePath, comm=self.comm)
+        self.cellAttributeInfo = read_cell_attribute_info (population_names, dataFilePath, comm=self.comm)
             
     def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
@@ -207,9 +207,9 @@ class Env:
         self.datasetName = self.modelConfig['Dataset Name']
 
         if resultsPath:
-            self.spikeoutPath = "%s/%s_spikeout.h5" % (self.resultsPath, self.modelName)
+            self.resultsFilePath = "%s/%s_results.h5" % (self.resultsPath, self.modelName)
         else:
-            self.spikeoutPath = "%s_spikeout.h5" % self.modelName
+            self.resultsFilePath = "%s_results.h5" % self.modelName
             
 
         if self.modelConfig.has_key('Connection Generator'):
@@ -217,6 +217,15 @@ class Env:
         
         if self.datasetPrefix is not None:
             self.load_celltypes()
+
+        if self.modelConfig.has_key('LFP'):
+            self.lfpConfig = { 'position': tuple(self.modelConfig['LFP']['position']),
+                               'maxEDist': self.modelConfig['LFP']['maxEDist'],
+                               'fraction': self.modelConfig['LFP']['fraction'],
+                               'rho': self.modelConfig['LFP']['rho'],
+                               'dt': self.modelConfig['LFP']['dt'] }
+        else:
+            self.lfpConfig = None
             
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
@@ -230,4 +239,4 @@ class Env:
         self.connectgjstime = 0
 
         self.simtime = None
-        
+        self.lfp = None

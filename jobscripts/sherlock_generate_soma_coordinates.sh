@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-#SBATCH -J compute_arc_distance
-#SBATCH -o ./results/compute_arc_distance.%j.o
-#SBATCH -n 96
-#SBATCH -t 4:00:00
+#SBATCH -J generate_soma_coordinates
+#SBATCH -o ./results/generate_soma_coordinates.%j.o
+#SBATCH -n 1
+#SBATCH -t 6:00:00
 #SBATCH --mem-per-cpu=12G
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -21,10 +21,11 @@ export LD_LIBRARY_PATH=$HOME/bin/hdf5/lib:$LD_LIBRARY_PATH
 
 set -x
 
-mpirun -np 96 python ./scripts/compute_arc_distance.py \
+
+mpirun -np 1 python ./scripts/generate_soma_coordinates.py -v \
        --config=./config/Full_Scale_Control.yaml \
-       --coords-path=$SCRATCH/dentate/Full_Scale_Control/dentate_Full_Scale_Control_coords_distances_20171109.h5 \
-       --coords-namespace=Coordinates \
-       -l OML \
-       --io-size=24 -v
+       --types-path=./datasets/dentate_h5types.h5 \
+       --output-path=$SCRATCH/dentate/Full_Scale_Control/dentate_Full_Scale_Control_coords_20180214.h5 \
+       -i HCC -i MOPP -i NGFC -i IS -i MPP -i LPP \
+       --output-namespace='Generated Coordinates' 
 

@@ -174,7 +174,7 @@ def select_tree_attributes(gid, comm, file_path, population):
     :return: dict
     """
     try:
-        tree_attr_iter, num_cells = read_tree_selection(comm, file_path, population, [gid])
+        tree_attr_iter, num_cells = read_tree_selection(file_path, population, [gid], comm=comm)
     except Exception:
         raise Exception('Something went wrong with read_tree_selection for population: %s; gid: %s, file_path: %s' %
                         (population, gid, file_path))
@@ -216,7 +216,7 @@ def gid_in_population_list(gid, population_list, population_range_dict):
 if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
-    file_path = '../datasets/Full_Scale_Control/neuroh5_example_file.h5'
+    file_path = 'datasets/Full_Scale_Control/neuroh5_example_file.h5'
     population = 'GC'
     namespace = 'Synapse Attributes'
     index_map = get_cell_attributes_index_map(comm, file_path, population, namespace)

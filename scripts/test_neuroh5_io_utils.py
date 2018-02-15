@@ -49,7 +49,7 @@ def main(forest_path, cell_attr_path, connections_path, cell_attr_namespace, cel
         print '%s: %i ranks have been allocated' % (os.path.basename(__file__), comm.size)
     sys.stdout.flush()
 
-    pop_ranges, pop_size = read_population_ranges(comm, cell_attr_path)
+    pop_ranges, pop_size = read_population_ranges(cell_attr_path, comm=comm)
     destination_gid_offset = pop_ranges[destination][0]
     source_gid_offset = pop_ranges[source][0]
     maxiter = 10
@@ -60,7 +60,7 @@ def main(forest_path, cell_attr_path, connections_path, cell_attr_namespace, cel
     tree_attr_matched = 0
     tree_attr_processed = 0
 
-    cell_attr_gen = NeuroH5CellAttrGen(comm, cell_attr_path, destination, io_size=io_size, cache_size=cache_size,
+    cell_attr_gen = NeuroH5CellAttrGen(cell_attr_path, destination, comm=comm, io_size=io_size, cache_size=cache_size,
                                              namespace=cell_attr_namespace)
     index_map = get_cell_attributes_index_map(comm, cell_attr_path, destination, cell_attr_namespace)
     for itercount, (target_gid, attr_dict) in enumerate(cell_attr_gen):
@@ -80,7 +80,7 @@ def main(forest_path, cell_attr_path, connections_path, cell_attr_namespace, cel
     cell_attr_processed = comm.gather(cell_attr_processed, root=0)
 
     if connections_path is not None:
-        edge_attr_gen = NeuroH5ProjectionGen(comm, connections_path, source, destination, io_size=io_size,
+        edge_attr_gen = NeuroH5ProjectionGen(connections_path, source, destination, comm=comm, io_size=io_size,
                                                                cache_size=cache_size, namespaces=['Synapses'])
         index_map = get_edge_attributes_index_map(comm, connections_path, source, destination)
         processed = 0
@@ -106,7 +106,7 @@ def main(forest_path, cell_attr_path, connections_path, cell_attr_namespace, cel
         edge_attr_processed = comm.gather(edge_attr_processed, root=0)
 
     if forest_path is not None:
-        tree_attr_gen = NeuroH5TreeGen(comm, forest_path, destination, io_size=io_size)
+        tree_attr_gen = NeuroH5TreeGen(forest_path, destination, comm=comm, io_size=io_size)
         for itercount, (target_gid, attr_dict) in enumerate(tree_attr_gen):
             print 'Rank: %i receieved target_gid: %s from the tree attribute generator.' % (rank, str(target_gid))
             attr_dict2 = select_tree_attributes(target_gid, comm, forest_path, destination)

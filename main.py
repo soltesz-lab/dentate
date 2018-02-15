@@ -2,10 +2,7 @@
 ##  Dentate Gyrus model initialization script
 ##
 
-import sys, os
-import os.path
-import click
-import itertools
+import sys, os, os.path, click, itertools
 from collections import defaultdict
 from datetime import datetime
 import numpy as np
@@ -14,9 +11,14 @@ import h5py
 from neuron import h
 from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, \
     scatter_read_cell_attributes, write_cell_attributes
-from env import Env
-import lpt, synapses, cells, simtime
-from neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
+import dentate    
+from dentate.env import Env
+import dentate.lpt as lpt
+import dentate.synapses as synapses
+import dentate.cells as cells
+import dentate.lfp as lfp
+import dentate.simtime as simtime
+from dentate.neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
 
 
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
@@ -71,27 +73,16 @@ def lpt_bal(env):
         for x in part[1]:
           fp.write('%d %d\n' % (x[1],part_rank))
         part_rank = part_rank+1
-
-
-def mkspikeout (env, spikeout_filename):
-    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
-    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    forestFile      = h5py.File(forestFilePath,'r')
-    spikeoutFile    = h5py.File(spikeout_filename,'w')
-    forestFile.copy('/H5Types',spikeoutFile)
-    forestFile.close()
-    spikeoutFile.close()
-
-
-def mkvout (env, vout_filename):
-    datasetPath     = os.path.join(env.datasetPrefix,env.datasetName)
-    forestFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    forestFile      = h5py.File(forestFilePath,'r')
-    voutFile        = h5py.File(vout_filename,'w')
-    forestFile.copy('/H5Types', voutFile)
-    forestFile.close()
-    voutFile.close()
-
+        
+def mkout (env, results_filename):
+    datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
+    dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    dataFile      = h5py.File(forestFilePath,'r')
+    resultsFile   = h5py.File(results_filename,'w')
+    dataFile.copy('/H5Types',resultsFile)
+    dataFile.close()
+    resultsFile.close()
+        
     
 def spikeout (env, output_path, t_vec, id_vec):
     binlst  = []
@@ -126,7 +117,7 @@ def spikeout (env, output_path, t_vec, id_vec):
             for j in spkdict.keys():
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
-        write_cell_attributes(env.comm, output_path, pop_name, spkdict, namespace=namespace_id)
+        write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
 
 
 def vout (env, output_path, t_vec, v_dict):
@@ -141,7 +132,22 @@ def vout (env, output_path, t_vec, v_dict):
         attr_dict  = { gid : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
                            for (gid, vs) in gid_v_dict.iteritems() }
 
-        write_cell_attributes(env.comm, output_path, pop_name, attr_dict, namespace=namespace_id)
+        write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
+        
+
+def lfpout (env, output_path, lfp):
+
+    if not str(env.resultsId):
+        namespace_id = "Local Field Potential" 
+    else:
+        namespace_id = "Local Field Potential %s" % str(env.resultsId)
+
+
+    output = h5py.File(output_path,'w')
+
+    output[namespace_id] = { 't': lfp.t, 'v': lfp.meanlfp }
+
+    output.close()
         
 
 def connectcells(env):
@@ -154,7 +160,7 @@ def connectcells(env):
         print '*** Connectivity file path is %s' % connectivityFilePath
 
     prj_dict = defaultdict(list)
-    for (src,dst) in read_projection_names(env.comm,connectivityFilePath):
+    for (src,dst) in read_projection_names(connectivityFilePath,comm=env.comm):
       prj_dict[dst].append(src)
 
     if env.verbose:
@@ -195,12 +201,12 @@ def connectcells(env):
         
             
       if env.nodeRanks is None:
-        cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                            namespaces=cell_attr_namespaces,
+        cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name, 
+                                                            namespaces=cell_attr_namespaces, comm=env.comm, 
                                                             io_size=env.IOsize)
       else:
-        cell_attributes_dict = scatter_read_cell_attributes(env.comm, forestFilePath, postsyn_name, 
-                                                            namespaces=cell_attr_namespaces,
+        cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name, 
+                                                            namespaces=cell_attr_namespaces, comm=env.comm, 
                                                             node_rank_map=env.nodeRanks,
                                                             io_size=env.IOsize)
       cell_synapses_dict = { k : v for (k,v) in cell_attributes_dict['Synapse Attributes'] }
@@ -225,11 +231,11 @@ def connectcells(env):
             print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
 
         if env.nodeRanks is None:
-          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+          (graph, a) = scatter_read_graph(connectivityFilePath,comm=env.comm,io_size=env.IOsize,
                                           projections=[(presyn_name, postsyn_name)],
                                           namespaces=['Synapses','Connections'])
         else:
-          (graph, a) = scatter_read_graph(env.comm,connectivityFilePath,io_size=env.IOsize,
+          (graph, a) = scatter_read_graph(connectivityFilePath,comm=env.comm,io_size=env.IOsize,
                                           node_rank_map=env.nodeRanks,
                                           projections=[(presyn_name, postsyn_name)],
                                           namespaces=['Synapses','Connections'])
@@ -326,7 +332,7 @@ def connectgjs(env):
             if env.pc.id() == 0:
                 print gapjunctions
         datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
-        (graph, a) = bcast_graph(env.comm,gapjunctionsFilePath,attributes=True)
+        (graph, a) = bcast_graph(gapjunctionsFilePath,attributes=True,comm=env.comm)
 
         ggid = 2e6
         for name in gapjunctions.keys():
@@ -420,10 +426,10 @@ def mkcells(env):
                     print "*** Reading trees for population %s" % popName
 
             if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(env.comm, dataFilePath, popName, io_size=env.IOsize)
+                (trees, forestSize) = scatter_read_trees(dataFilePath, popName, comm=env.comm, io_size=env.IOsize)
             else:
-                (trees, forestSize) = scatter_read_trees(env.comm, dataFilePath, popName, io_size=env.IOsize,
-                                                            node_rank_map=env.nodeRanks)
+                (trees, forestSize) = scatter_read_trees(dataFilePath, popName, comm=env.comm, io_size=env.IOsize,
+                                                         node_rank_map=env.nodeRanks)
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Done reading trees for population %s" % popName
@@ -468,14 +474,14 @@ def mkcells(env):
                     print "*** Reading coordinates for population %s" % popName
             
             if env.nodeRanks is None:
-                cell_attributes_dict = scatter_read_cell_attributes(env.comm, dataFilePath, popName, 
+                cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, popName, 
                                                                     namespaces=['Coordinates'],
-                                                                    io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.IOsize)
             else:
-                cell_attributes_dict = scatter_read_cell_attributes(env.comm, dataFilePath, popName, 
+                cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, popName, 
                                                                     namespaces=['Coordinates'],
                                                                     node_rank_map=env.nodeRanks,
-                                                                    io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.IOsize)
             if env.verbose:
                 if env.pc.id() == 0:
                     print "*** Done reading coordinates for population %s" % popName
@@ -484,13 +490,19 @@ def mkcells(env):
 
             h.numCells = 0
             i=0
-            for (gid, _) in coords:
+            for (gid, cell_coords_dict) in coords:
                 if env.verbose:
                     if env.pc.id() == 0:
                         print "*** Creating gid %i" % gid
             
                 verboseflag = 0
                 model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+
+                cell_x = cell_coords_dict['X Coordinate']
+                cell_y = cell_coords_dict['Y Coordinate']
+                cell_z = cell_coords_dict['Z Coordinate']
+                model_cell.position(cell_x, cell_y, cell_z)
+                
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -502,6 +514,7 @@ def mkcells(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 i = i+1
                 h.numCells = h.numCells+1
+        h.define_shape()
             
              
 def mkstim(env):
@@ -520,14 +533,14 @@ def mkstim(env):
             vecstim_namespace = env.celltypes[popName]['vectorStimulus']
 
             if env.nodeRanks is None:
-              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+              cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, popName, 
                                                                   namespaces=[vecstim_namespace],
-                                                                  io_size=env.IOsize)
+                                                                  comm=env.comm, io_size=env.IOsize)
             else:
-              cell_attributes_dict = scatter_read_cell_attributes(env.comm, inputFilePath, popName, 
+              cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, popName, 
                                                                   namespaces=[vecstim_namespace],
                                                                   node_rank_map=env.nodeRanks,
-                                                                  io_size=env.IOsize)
+                                                                  comm=env.comm, io_size=env.IOsize)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, vecstim_dict) in cell_vecstim:
               if env.verbose:
@@ -577,7 +590,7 @@ def init(env):
             lb.ExperimentalMechComplex()
 
     if (env.pc.id() == 0):
-      mkspikeout (env, env.spikeoutPath)
+      mkout (env, env.resultsFilePath)
     env.pc.barrier()
     h.startsw()
     mkcells(env)
@@ -613,6 +626,10 @@ def init(env):
     h.connectgjstime     = env.connectgjstime
     h.results_write_time = env.results_write_time
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
+    env.lfp              = lfp.LFP(env.pc, env.celltypes, env.lfpConfig['position'], \
+                                   rho=env.lfpConfig['rho'], dt_lfp=env.lfpConfig['dt'], \
+                                   fdst=env.lfpConfig['fraction'], maxEDist=env.lfpConfig['maxEDist'], \
+                                   seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
@@ -637,12 +654,15 @@ def run (env):
     env.pc.barrier()
     if (rank == 0):
         print "*** Writing spike data"
-    spikeout(env, env.spikeoutPath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+    spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
     if env.vrecordFraction > 0.:
       if (rank == 0):
         print "*** Writing intracellular trace data"
       t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
-      vout(env, env.spikeoutPath, t_vec, env.v_dict)
+      vout(env, env.resultsFilePath, t_vec, env.v_dict)
+    if (rank == 0):
+        print "*** Writing local field potential data"
+        lfpout(env, env.resultsFilePath, env.lfp)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
