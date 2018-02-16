@@ -4,7 +4,7 @@ from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
     NeuroH5ProjectionGen
-from h5py_io_utils import *
+from neuroh5.h5py_io_utils import *
 import numpy as np
 from collections import defaultdict
 import click
