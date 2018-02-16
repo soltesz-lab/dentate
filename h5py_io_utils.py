@@ -5,6 +5,13 @@ import numpy as np
 from neuroh5.io import read_tree_selection
 
 
+def list_find(criterion, items):
+    for i, item in enumerate(items):
+        if criterion(item):
+            return i
+    return None
+
+
 def get_cell_attributes_index_map(comm, file_path, population, namespace):
     """
 
