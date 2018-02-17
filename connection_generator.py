@@ -44,25 +44,33 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5., ip_surface=None):
+    def __init__(self, destination_population, soma_coords, ip_vol, extent, nstdev = 5., res=10):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
         :param destination_population: post-synaptic population name
-        :param soma_coords: a dictionary that contains per-population dicts of u, v coordinates of cell somas
-        :param soma_distances: a dictionary that contains per-population dicts of distances along u, v to a reference position
+        :param soma_coords: a dictionary that contains per-population dicts of u, v, l coordinates of cell somas
+        :param ip_vol: an instance of rbf_volume; it will be used for distance calculations
         :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
-        :param ip_surface: an instance of bspline_surface; if this argument is provided, the supplied surface will be used for precise distance calculations
         """
         self.destination_population = destination_population
         self.soma_coords = soma_coords
-        self.soma_distances = soma_distances
         self.p_dist = {}
         self.width  = {}
         self.offset = {}
         self.sigma  = {}
-        self.ip_surface = ip_surface
+        self.ip_vol = ip_vol
+
+
+        U, V, L = self.ip_vol._resample_uvl(res, res, res)
+
+        nupts = U.shape[0]
+        nvpts = V.shape[0]
             
+        print vol.point_distance(U, V[0], L)
+        print vol.point_distance(U[int(nupts/2)], V, L)
+
+        
         for source_population in extent:
             extent_width  = extent[source_population]['width']
             if extent[source_population].has_key('offset'):
@@ -81,9 +89,9 @@ class ConnectionProb(object):
                                                             ((abs(distance_v - self.offset[source_population]['v'])) /
                                                             self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
 
-    def compute_srf_distances(self, destination_u, destination_v, source_u_vect, source_v_vect, npts=250):
+    def compute_vol_distances(self, destination_u, destination_v, source_u_vect, source_v_vect, res=10):
         """
-        Computes arc distances using interpolated surface. 
+        Computes arc distances using interpolated volume. 
         :param destination_u: float
         :param destination_v: float
         :param source_u_vect: vector
@@ -94,6 +102,7 @@ class ConnectionProb(object):
         distance_u_lst = []
         distance_v_lst = []
 
+        
         for (source_u, source_v) in itertools.izip(source_u_vect, source_v_vect):
             
             U = np.linspace(destination_u, source_u, npts)

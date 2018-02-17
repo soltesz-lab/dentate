@@ -80,9 +80,13 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 elif distribution == 'poisson':
+                    if rank == 0:
+                        verbose_flag = True
+                    else:
+                        verbose_flag = False
                     synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                                               density_dict, morph_dict,
-                                                                                              cell_sec_dict, cell_secidx_dict)
+                                                                                              cell_sec_dict, cell_secidx_dict, verbose=verbose_flag)
                 else:
                     raise Exception('Unknown distribution type: %s' % distribution)
                     
