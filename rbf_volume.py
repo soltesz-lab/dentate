@@ -236,7 +236,7 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl):
+    def point_distance(self, su, sv, sl, axis=0):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
@@ -251,17 +251,28 @@ class RBFVolume(object):
         u = np.array([su]).reshape(-1,)
         v = np.array([sv]).reshape(-1,)
         l = np.array([sl]).reshape(-1,)
+        ## TODO: create pts based on axis (i.e.
+        ## if axis=0:
+        pts  = self.ev(u, v[i], l[j]).reshape(3, -1).T
+        ## if axis=1:
+        pts  = self.ev(u[i:, v, l[j]).reshape(3, -1).T
+        ## etc.
+        uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T        
 
         npts   = u.shape[0]
-        distances = np.zeros((v.shape[0], l.shape[0]))
+
+        np.column_stack((np.arange(4), x[:,2], x[:,0]))
         
         if npts > 1:
+            distances = np.apply_along_axis(lambda v: np.sum(euclidean_distance(v[1:,:], v[0:npts-1,:])), \
+                                            axis, pts)
+            
             for i in xrange(0, v.shape[0]):
                 for j in xrange(0, l.shape[0]):
-                    pts  = self.ev(u, v[i], l[j]).reshape(3, -1).T
+                    lambda v: np.sum(euclidean_distance(v[1:,:], v[0:npts-1,:]))
                     a = pts[1:,:]
                     b = pts[0:npts-1,:]
-                    distances[i,j] = np.sum(euclidean_distance(a, b))
+                    distances[i,j] = 
                 
         return distances
 
@@ -537,8 +548,14 @@ def test_point_distance():
 
     U, V = vol._resample_uv(5, 5)
     L = np.asarray([1.0, 0.0, -1.0])
-             
-    print vol.point_distance(U, V, L)
+
+    UVL = np.array([U.ravel(),V.ravel(),L.ravel()]).T
+    print 'UVL shape: ', UVL.shape
+    print UVL
+    
+    dist = vol.point_distance(U, V, L)
+    print dist.shape
+    print dist.ravel()
     print vol.point_distance(U, V[0], L)
 
 

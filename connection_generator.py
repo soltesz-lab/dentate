@@ -5,9 +5,11 @@
 
 import sys, time, gc
 import itertools
-import numpy as np
-import itertools
 from collections import defaultdict
+import numpy as np
+import rbf
+from rbf.interpolate import RBFInterpolant
+import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 import click
@@ -64,12 +66,9 @@ class ConnectionProb(object):
 
         U, V, L = self.ip_vol._resample_uvl(res, res, res)
 
-        nupts = U.shape[0]
-        nvpts = V.shape[0]
-            
-        print vol.point_distance(U, V[0], L)
-        print vol.point_distance(U[int(nupts/2)], V, L)
+        distances = ip_vol.point_distance(U, V, L)
 
+        self.ip_dist = RBFInterpolant(uvl_obs,distances.ravel(),order=1,basis=rbf.basis.phs3)
         
         for source_population in extent:
             extent_width  = extent[source_population]['width']
