@@ -124,7 +124,7 @@ class RBFVolume(object):
 
         Returns
         -------
-        Returns an array of shape 3 x len(u) x len(v) x len(l)
+        Returns an array of shape len(u) x len(v) x len(l) x 3
         """
 
         U, V, L = np.meshgrid(su, sv, sl)
@@ -135,7 +135,8 @@ class RBFVolume(object):
         Z = self._zvol(uvl_s)
 
         arr = np.array([X,Y,Z])
-        return arr
+        
+        return arr.reshape(3, len(U), -1)
 
     def inverse(self, xyz):
         """Get parametric coordinates (u, v, l) that correspond to the given x, y, z.
@@ -251,22 +252,15 @@ class RBFVolume(object):
         v = np.array([sv]).reshape(-1,)
         l = np.array([sl]).reshape(-1,)
 
-        print 'u.shape = ', u.shape
-        print 'v.shape = ', v.shape
-        print 'l.shape = ', l.shape
         npts   = u.shape[0]
-        pts    = self.ev(u, v, l).T
-        print 'pts.shape = ', pts.shape
-        print 'pts = ', pts
         distances = np.zeros((v.shape[0], l.shape[0]))
         
         if npts > 1:
             for i in xrange(0, v.shape[0]):
                 for j in xrange(0, l.shape[0]):
-                    a = pts[1:,i,j]
-                    b = pts[0:npts-1,i,j]
-                    print 'a = ', a
-                    print 'b = ', b
+                    pts  = self.ev(u, v[i], l[j]).reshape(3, -1).T
+                    a = pts[1:,:]
+                    b = pts[0:npts-1,:]
                     distances[i,j] = np.sum(euclidean_distance(a, b))
                 
         return distances
@@ -365,7 +359,7 @@ class RBFVolume(object):
         hru, hrv = self._resample_uv(ures, vres)
         volpts = self.ev(hru, hrv, self.l)
 
-        src =  mlab.pipeline.scalar_scatter(*volpts, **kwargs)
+        src =  mlab.pipeline.scalar_scatter(*volpts.T, **kwargs)
         mlab.pipeline.volume(src, **kwargs)
         
         # Turn off perspective
@@ -465,7 +459,6 @@ def test_nodes():
     # remove nodes outside of the domain
     in_nodes = nodes[contains(nodes,vert,smp)]
 
-    print 'in_nodes shape: ', in_nodes.shape
     from mayavi import mlab
     vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
 
@@ -496,13 +489,6 @@ def test_uv_isospline():
 
     from mayavi import mlab
         
-    spatial_resolution = 5.  # um
-    du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
-    dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
-    U = np.arange(-0.016*np.pi, 1.01*np.pi, du)
-    V = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
-    L = 1.0
-    
     U, V = vol._resample_uv(10, 10)
     L = np.asarray([1.0])
         
@@ -550,10 +536,10 @@ def test_point_distance():
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
     U, V = vol._resample_uv(5, 5)
-    L = np.asarray([-1.0])
+    L = np.asarray([1.0, 0.0, -1.0])
              
-    print vol.point_distance(U, V[0], L)
     print vol.point_distance(U, V, L)
+    print vol.point_distance(U, V[0], L)
 
 
     
