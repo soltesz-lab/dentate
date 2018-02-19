@@ -31,6 +31,58 @@ def rotate3d(axis, theta):
                      [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
                      [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
 
+
+def cartesian_product(arrays, out=None):
+    """
+    Generate a cartesian product of input arrays.
+
+    Parameters
+    ----------
+    arrays : list of array-like
+        1-D arrays to form the cartesian product of.
+    out : ndarray
+        Array to place the cartesian product in.
+
+    Returns
+    -------
+    out : ndarray
+        2-D array of shape (M, len(arrays)) containing cartesian products
+        formed of input arrays.
+
+    Examples
+    --------
+    >>> cartesian(([1, 2, 3], [4, 5], [6, 7]))
+    array([[1, 4, 6],
+           [1, 4, 7],
+           [1, 5, 6],
+           [1, 5, 7],
+           [2, 4, 6],
+           [2, 4, 7],
+           [2, 5, 6],
+           [2, 5, 7],
+           [3, 4, 6],
+           [3, 4, 7],
+           [3, 5, 6],
+           [3, 5, 7]])
+
+    """
+
+    arrays = [np.asarray(x) for x in arrays]
+    dtype = arrays[0].dtype
+
+    n = np.prod([x.size for x in arrays])
+    if out is None:
+        out = np.zeros([n, len(arrays)], dtype=dtype)
+
+    m = n / arrays[0].size
+    out[:,0] = np.repeat(arrays[0], m)
+    if arrays[1:]:
+        cartesian_product(arrays[1:], out=out[0:m,1:])
+        for j in xrange(1, arrays[0].size):
+            out[j*m:(j+1)*m,1:] = out[0:m,1:]
+    return out
+
+
 class RBFVolume(object):
     def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs2):
         """Parametric (u,v,l) 3D volume approximation.
@@ -236,7 +288,7 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl, axis=0):
+    def point_distance(self, su, sv, sl, axis=0, return_coords=True):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
@@ -251,30 +303,36 @@ class RBFVolume(object):
         u = np.array([su]).reshape(-1,)
         v = np.array([sv]).reshape(-1,)
         l = np.array([sl]).reshape(-1,)
-        ## TODO: create pts based on axis (i.e.
-        ## if axis=0:
-        pts  = self.ev(u, v[i], l[j]).reshape(3, -1).T
-        ## if axis=1:
-        pts  = self.ev(u[i:, v, l[j]).reshape(3, -1).T
-        ## etc.
-        uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T        
 
-        npts   = u.shape[0]
+        axes = [u, v, l]
 
-        np.column_stack((np.arange(4), x[:,2], x[:,0]))
+        aidx = [0,1,2]
+        aidx.remove(axis)
+
+        npts = axes[axis].shape[0]
         
+        distances = []
+        coords = [ [] for i in xrange(0,3) ]
         if npts > 1:
-            distances = np.apply_along_axis(lambda v: np.sum(euclidean_distance(v[1:,:], v[0:npts-1,:])), \
-                                            axis, pts)
-            
-            for i in xrange(0, v.shape[0]):
-                for j in xrange(0, l.shape[0]):
-                    lambda v: np.sum(euclidean_distance(v[1:,:], v[0:npts-1,:]))
-                    a = pts[1:,:]
-                    b = pts[0:npts-1,:]
-                    distances[i,j] = 
-                
-        return distances
+            paxes = [ axes[i] for i in aidx ]
+            prod = cartesian_product(paxes)
+            for p in prod:
+                ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
+                pts  = self.ev(*ecoords).reshape(3, -1).T                
+                a = pts[1:,:]
+                b = pts[0:npts-1,:]
+                distances.append(np.cumsum(euclidean_distance(a, b)))
+                if return_coords:
+                    pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
+                    for i, col in enumerate(pcoords):
+                        coords[i].append(col)
+        else:
+            prod = None
+
+        if return_coords:
+            return distances, coords
+        else:
+            return distances
 
     def mplot_surface(self, ures=8, vres=8, **kwargs):
         """Plot the enclosing surfaces of the volume using Mayavi's `mesh()` function
@@ -548,16 +606,12 @@ def test_point_distance():
 
     U, V = vol._resample_uv(5, 5)
     L = np.asarray([1.0, 0.0, -1.0])
-
-    UVL = np.array([U.ravel(),V.ravel(),L.ravel()]).T
-    print 'UVL shape: ', UVL.shape
-    print UVL
     
     dist = vol.point_distance(U, V, L)
-    print dist.shape
-    print dist.ravel()
-    print vol.point_distance(U, V[0], L)
-
+    print dist
+    dist = vol.point_distance(U, V[0], L)
+    print dist
+    
 
     
 if __name__ == '__main__':
