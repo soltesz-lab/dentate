@@ -316,7 +316,7 @@ class RBFVolume(object):
         if npts > 1:
             paxes = [ axes[i] for i in aidx ]
             prod = cartesian_product(paxes)
-            for p in prod:
+            for ip, p in enumerate(prod):
                 ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
                 pts  = self.ev(*ecoords).reshape(3, -1).T                
                 a = pts[1:,:]
