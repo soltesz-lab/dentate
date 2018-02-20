@@ -76,7 +76,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
                 if distribution == 'uniform':
-                    synapse_dict[gid-population_start] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                    synapse_dict[gid] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 elif distribution == 'poisson':
@@ -84,14 +84,14 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                         verbose_flag = True
                     else:
                         verbose_flag = False
-                    synapse_dict[gid-population_start] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                    synapse_dict[gid] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                                               density_dict, morph_dict,
                                                                                               cell_sec_dict, cell_secidx_dict, verbose=verbose_flag)
                 else:
                     raise Exception('Unknown distribution type: %s' % distribution)
                     
                 del cell
-                num_syns = len(synapse_dict[gid-population_start]['syn_ids'])
+                num_syns = len(synapse_dict[gid]['syn_ids'])
                 print 'Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid)
                 count += 1
             else:
