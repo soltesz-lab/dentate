@@ -14,6 +14,8 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 import click
 import utils
+import logging
+logger = logging.getLogger(__name__)
 
 
 try:
@@ -39,7 +41,7 @@ def softmax(x):
     return e_x / e_x.sum()
 
 class VolumeDistance (object):
-    def __init__(self, ip_vol, res=5):
+    def __init__(self, ip_vol, res=5, step=10):
         U, V, L = ip_vol._resample_uvl(res, res, res)
 
         ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
@@ -49,15 +51,13 @@ class VolumeDistance (object):
         obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
                             np.concatenate(obs_dist_u[1]), \
                             np.concatenate(obs_dist_u[2])]).T
-        ##sample_inds = np.random.randint(0, obs_uvl.shape[0]-1, size=int(20000))
-        sample_inds = np.arange(0, obs_uvl.shape[0]-1, 10)
+        sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
         self.dist_u = RBFInterpolant(obs_uvl[sample_inds,:],distances_u[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
 
         distances_v = np.concatenate(ldist_v)
         obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
                             np.concatenate(obs_dist_v[1]), \
                             np.concatenate(obs_dist_v[2])]).T
-        ##sample_inds = np.random.randint(0, obs_uvl.shape[0]-1, size=int(20000))
         self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
     
     
@@ -295,7 +295,8 @@ def generate_synaptic_connections(ranstream_syn,
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
                                      connectivity_seed, connectivity_namespace, connectivity_path,
-                                     io_size, chunk_size, value_chunk_size, cache_size, write_size=1):
+                                     io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
+                                     verbose=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
     :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
@@ -311,12 +312,15 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     :param cache_size: how many cells to read ahead
     :param write_size: how many cells to write out at the same time
     """
+    if verbose:
+        logger.setLevel(logging.INFO)
+        
     rank = comm.rank
 
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        logger.info('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     start_time = time.time()
@@ -329,7 +333,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     source_populations = connection_config[destination_population].keys()
 
     for source_population in source_populations:
-        print('%s -> %s:' % (source_population, destination_population), connection_config[destination_population][source_population])
+        logger.info('%s -> %s:' % (source_population, destination_population))
+        logger.info(str(connection_config[destination_population][source_population]))
                            
     projection_synapse_dict = {source_population: (connection_config[destination_population][source_population].synapse_layers,
                                                    set(connection_config[destination_population][source_population].synapse_locations),
@@ -343,9 +348,9 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                             cache_size=cache_size, namespace=synapse_namespace, comm=comm):
         last_time = time.time()
         if destination_gid is None:
-            print 'Rank %i destination gid is None' % rank
+            logger.info('Rank %i destination gid is None' % rank)
         else:
-            print 'Rank %i received attributes for destination: %s, gid: %i' % (rank, destination_population, destination_gid)
+            logger.info('Rank %i received attributes for destination: %s, gid: %i' % (rank, destination_population, destination_gid))
             ranstream_con.seed(destination_gid + connectivity_seed)
             ranstream_syn.seed(destination_gid + synapse_seed)
 
@@ -353,7 +358,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             for source_population in source_populations:
                 probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)
                 projection_prob_dict[source_population] = (probs, source_gids, distances_u, distances_v)
-                print 'Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
+                logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
 
             
             count = generate_synaptic_connections(ranstream_syn,
@@ -366,21 +371,21 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                    connection_dict)
             total_count += count
             
-            print 'Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid)
+            logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))
             sys.stdout.flush()
 
         if gid_count % write_size == 0:
             last_time = time.time()
-            if not connection_dict:
-                projection_dict = {}
-            else:
+            if len(connection_dict) > 0:
                 projection_dict = { destination_population: connection_dict }
+            else:
+                projection_dict = {}
             append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
                     for (prj, prj_dict) in  connection_dict.iteritems():
-                        print prj, ": ", prj_dict.keys()
-                    print 'Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time)
+                        logger.info("%s: %s" % (prj, str(prj_dict.keys())))
+                    logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
             sys.stdout.flush()
             connection_dict.clear()
             gc.collect()
@@ -389,6 +394,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
     global_count = comm.gather(total_count, root=0)
     if rank == 0:
-        print '%i ranks took %i s to generate %i edges' % (comm.size, time.time() - start_time, np.sum(global_count))
+        logger.info('%i ranks took %i s to generate %i edges' % (comm.size, time.time() - start_time, np.sum(global_count)))
 
 

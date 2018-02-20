@@ -9,6 +9,10 @@ from dentate.env import Env
 import dentate.cells as cells
 import dentate.synapses as synapses
 import click
+import logging
+
+script_name="distribute_synapse_locs.py"
+logger = logging.getLogger(script_name)
 
 
 @click.command()
@@ -21,8 +25,9 @@ import click
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
+@click.option("--verbose", "-v", is_flag=True)
 def main(config, template_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
-         cache_size):
+         cache_size, verbose):
     """
 
     :param config:
@@ -36,6 +41,9 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     :param cache_size:
     """
 
+    if verbose:
+        logger.setLevel(logging.INFO)
+        
     comm = MPI.COMM_WORLD
     rank = comm.rank
     
@@ -49,7 +57,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        logger.info('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     h.templatePaths = h.List()
@@ -59,7 +67,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
     for population in populations:
-        print  'Rank %i population: %s' % (rank, population)
+        logger.info('Rank %i population: %s' % (rank, population))
         count = 0
         (population_start, _) = pop_ranges[population]
         template_name = env.celltypes[population]['template']
@@ -70,7 +78,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
             local_time = time.time()
             synapse_dict = {}
             if gid is not None:
-                print  'Rank %i gid: %i' % (rank, gid)
+                logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
@@ -81,7 +89,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                                                                                               cell_sec_dict, cell_secidx_dict)
                 elif distribution == 'poisson':
                     if rank == 0:
-                        verbose_flag = True
+                        verbose_flag = verbose
                     else:
                         verbose_flag = False
                     synapse_dict[gid] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
@@ -92,11 +100,10 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                     
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])
-                print 'Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid)
+                logger.info('Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid))
                 count += 1
             else:
-                print  'Rank %i gid is None' % rank
-            # print 'Rank %i before append_cell_attributes' % rank
+                logger.info('Rank %i gid is None' % rank)
             append_cell_attributes(forest_path, population, synapse_dict,
                                     namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                     value_chunk_size=value_chunk_size, cache_size=cache_size)
@@ -106,10 +113,8 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
 
         global_count = comm.gather(count, root=0)
         if rank == 0:
-            print 'target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,
-                                                                                        time.time() - start_time,
-                                                                                        np.sum(global_count))
+            logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("distribute_synapse_locs.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
