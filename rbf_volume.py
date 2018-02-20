@@ -321,7 +321,9 @@ class RBFVolume(object):
                 pts  = self.ev(*ecoords).reshape(3, -1).T                
                 a = pts[1:,:]
                 b = pts[0:npts-1,:]
-                distances.append(np.cumsum(euclidean_distance(a, b)))
+                d = np.zeros(npts,)
+                d[1:npts] = np.cumsum(euclidean_distance(a, b))
+                distances.append(d)
                 if return_coords:
                     pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
                     for i, col in enumerate(pcoords):
@@ -607,10 +609,13 @@ def test_point_distance():
     U, V = vol._resample_uv(5, 5)
     L = np.asarray([1.0, 0.0, -1.0])
     
-    dist = vol.point_distance(U, V, L)
+    dist, coords = vol.point_distance(U, V, L)
     print dist
-    dist = vol.point_distance(U, V[0], L)
+    print coords
+    dist, coords = vol.point_distance(U, V[0], L)
     print dist
+    print coords
+
     
 
     
