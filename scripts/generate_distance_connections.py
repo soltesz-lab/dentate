@@ -5,9 +5,10 @@
 import sys, gc
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
-from connection_generator import ConnectionProb, generate_uv_distance_connections
-from DG_surface import make_surface
-from env import Env
+import dentate
+from dentate.connection_generator import VolumeDistance, ConnectionProb, generate_uv_distance_connections
+from dentate.DG_volume import make_volume
+from dentate.env import Env
 import utils
 import click
 
@@ -20,16 +21,14 @@ script_name = 'generate_distance_connections.py'
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
-@click.option("--distances-namespace", type=str, default='Arc Distance')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
-@click.option("--quick", type=bool, default=False, is_flag=True)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--write-size", type=int, default=1)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         distances_namespace, synapses_namespace, quick, io_size, chunk_size, value_chunk_size, cache_size, write_size):
+         synapses_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size):
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -38,36 +37,30 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     extent      = {}
     soma_coords = {}
-    soma_distances = {}
 
-    ip_surface = None
-    if not quick:
-        ip_surface = make_surface(l=3.) ## corresponds to outer molecular layer
     
-    population_ranges = read_population_ranges(comm, coords_path)[0].keys()
-    for population in population_ranges:
-        coords = bcast_cell_attributes(comm, 0, coords_path, population,
+    population_ranges = read_population_ranges(coords_path)[0]
+    for population in population_ranges.keys():
+        coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace)
-        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0]) for (k,v) in coords }
+
+        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0], v['L Coordinate'][0]) for (k,v) in coords }
         del coords
-        gc.collect()
-        distances = bcast_cell_attributes(comm, 0, coords_path, population,
-                                          namespace=distances_namespace)
-        soma_distances[population] = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
-        del distances
         gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
+    ip_volume = make_volume(-3.95, 3.2)
+
+    ip_dist = VolumeDistance(ip_volume)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
-    populations = read_population_names(comm, forest_path)
+    populations = read_population_names(forest_path)
     
     for destination_population in populations:
 
         connection_prob = ConnectionProb(destination_population,
-                                         soma_coords, soma_distances,
-                                         extent, ip_surface=ip_surface)
+                                         soma_coords, ip_dist, extent)
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         

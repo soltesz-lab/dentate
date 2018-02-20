@@ -38,6 +38,28 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
+class VolumeDistance (object):
+    def __init__(self, ip_vol, res=5):
+        U, V, L = ip_vol._resample_uvl(res, res, res)
+
+        ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
+        ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
+
+        distances_u = np.concatenate(ldist_u)
+        obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
+                            np.concatenate(obs_dist_u[1]), \
+                            np.concatenate(obs_dist_u[2])]).T
+        ##sample_inds = np.random.randint(0, obs_uvl.shape[0]-1, size=int(20000))
+        sample_inds = np.arange(0, obs_uvl.shape[0]-1, 10)
+        self.dist_u = RBFInterpolant(obs_uvl[sample_inds,:],distances_u[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
+
+        distances_v = np.concatenate(ldist_v)
+        obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
+                            np.concatenate(obs_dist_v[1]), \
+                            np.concatenate(obs_dist_v[2])]).T
+        ##sample_inds = np.random.randint(0, obs_uvl.shape[0]-1, size=int(20000))
+        self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
+    
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -46,13 +68,13 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, ip_vol, extent, nstdev = 5., res=10):
+    def __init__(self, destination_population, soma_coords, ip_dist, extent, nstdev = 5., res=5):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
         :param destination_population: post-synaptic population name
         :param soma_coords: a dictionary that contains per-population dicts of u, v, l coordinates of cell somas
-        :param ip_vol: an instance of rbf_volume; it will be used for distance calculations
+        :param ip_dist: an instance of VolumeDist; it will be used for distance calculations
         :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
         """
         self.destination_population = destination_population
@@ -63,29 +85,13 @@ class ConnectionProb(object):
         self.offset = {}
         self.sigma  = {}
 
-        U, V, L = self.ip_vol._resample_uvl(res, res, res)
-
-        ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
-        ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
-
-        distances_u = np.concatenate(ldist_u)
-        obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
-                            np.concatenate(obs_dist_u[1]), \
-                            np.concatenate(obs_dist_u[2])])
-        ip_dist_u = RBFInterpolant(obs_uvl,distances_u,order=1,basis=rbf.basis.phs3)
-
-        distances_v = np.concatenate(ldist_v)
-        obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
-                            np.concatenate(obs_dist_v[1]), \
-                            np.concatenate(obs_dist_v[2])])
-        ip_dist_v = RBFInterpolant(obs_uvl,distances_v,order=1,basis=rbf.basis.phs3)
-
         for pop, coords_dict in soma_coords.iteritems():
             dist_dict = {}
             for gid, coords in coords_dict.iteritems():
                 soma_u, soma_v, soma_l = coords
-                distance_u = self.ip_dist_u(soma_u, soma_v, soma_l)
-                distance_v = self.ip_dist_v(soma_u, soma_v, soma_l)
+                uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
+                distance_u = ip_dist.dist_u(uvl_obs)
+                distance_v = ip_dist.dist_v(uvl_obs)
                 dist_dict[gid] = (distance_u, distance_v)
             self.soma_distances[pop] = dist_dict
         
@@ -121,7 +127,7 @@ class ConnectionProb(object):
         source_soma_coords = self.soma_coords[source_population]
         source_soma_distances = self.soma_distances[source_population]
 
-        destination_u, destination_v  = destination_coords
+        destination_u, destination_v, destination_l  = destination_coords
         destination_distance_u, destination_distance_v = destination_distances
         
         distance_u_lst = []
@@ -132,7 +138,7 @@ class ConnectionProb(object):
 
         for (source_gid, coords) in source_soma_coords.iteritems():
 
-            source_u, source_v = coords
+            source_u, source_v, source_l = coords
 
             source_distance_u, source_distance_v  = source_soma_distances[source_gid]
 
@@ -333,8 +339,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     total_count = 0
     gid_count   = 0
     connection_dict = defaultdict(lambda: {})
-    for destination_gid, synapse_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
-                                                            cache_size=cache_size, namespace=synapse_namespace):
+    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, io_size=io_size,
+                                                            cache_size=cache_size, namespace=synapse_namespace, comm=comm):
         last_time = time.time()
         if destination_gid is None:
             print 'Rank %i destination gid is None' % rank
@@ -369,7 +375,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 projection_dict = {}
             else:
                 projection_dict = { destination_population: connection_dict }
-            append_graph(comm, connectivity_path, projection_dict, io_size)
+            append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
                     for (prj, prj_dict) in  connection_dict.iteritems():

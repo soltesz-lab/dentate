@@ -1,7 +1,7 @@
 begintemplate BasketCell
 
 public connect2target, subsets, is_art, is_connected
-public all, soma, basal, apical, axon
+public all, soma, basal, apical, ais, hillock, axon, allaxon
 public apicalidx, basalidx, somaidx, axonidx
 public xx, yy, zz, position
 public syns, syntypes
@@ -9,8 +9,8 @@ public syn_stim, syntest_exc, syntest_inh
 
 create sections[1]
 
-objref all, soma, basal, apical, axon
-objref apicalidx, basalidx, somaidx, axonidx
+objref all, soma, basal, apical, ais, hillock, axon, allaxon
+objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
 objref syns, syntypes
 
 id  = -1
@@ -36,6 +36,8 @@ proc init() {
     basalidx = new Vector()
     somaidx = new Vector()
     axonidx = new Vector()
+    aisidx = new Vector()
+    hilidx = new Vector()
     
     id  = $1
     gid = $2
@@ -101,7 +103,10 @@ proc subsets() { local i, ndends, ndendsec
         sections[apicalidx.x[i]] apical.append() 
     }
     
-    axon  = new SectionList()
+    axon     = new SectionList()
+    allaxon  = new SectionList()
+    ais      = new SectionList()
+    hillock  = new SectionList()
 
 }
 

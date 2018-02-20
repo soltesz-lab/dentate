@@ -288,7 +288,7 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl, axis=0, return_coords=True):
+    def point_distance(self, su, sv, sl, axis=0, return_coords=True, return_zeros=False):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
@@ -321,11 +321,17 @@ class RBFVolume(object):
                 pts  = self.ev(*ecoords).reshape(3, -1).T                
                 a = pts[1:,:]
                 b = pts[0:npts-1,:]
-                d = np.zeros(npts,)
-                d[1:npts] = np.cumsum(euclidean_distance(a, b))
+                if return_zeros:
+                    d = np.zeros(npts,)
+                    d[1:npts] = np.cumsum(euclidean_distance(a, b))
+                else:
+                    d = np.cumsum(euclidean_distance(a, b))
                 distances.append(d)
                 if return_coords:
-                    pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
+                    if return_zeros:
+                        pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
+                    else:
+                        pcoords = [ x[1:] if i == axis else np.repeat(p[aidx.index(i)],npts-1) for (i, x) in enumerate(axes) ]       
                     for i, col in enumerate(pcoords):
                         coords[i].append(col)
         else:
