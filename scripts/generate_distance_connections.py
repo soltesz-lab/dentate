@@ -45,6 +45,15 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
 
+    if rank==0:
+        if not os.path.isfile(connectivity_path):
+            input_file  = h5py.File(coords_path,'r')
+            output_file = h5py.File(output_path,'w')
+            input_file.copy('/H5Types',output_file)
+            input_file.close()
+            output_file.close()
+    comm.barrier()
+
     if rank == 0:
         logger.info('Reading population coordinates...')
     

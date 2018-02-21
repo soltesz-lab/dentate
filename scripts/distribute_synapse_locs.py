@@ -58,7 +58,6 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
         io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
-    sys.stdout.flush()
 
     h.templatePaths = h.List()
     for path in env.templatePaths:
@@ -107,7 +106,6 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
             append_cell_attributes(forest_path, population, synapse_dict,
                                     namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                     value_chunk_size=value_chunk_size, cache_size=cache_size)
-            sys.stdout.flush()
             del synapse_dict
             gc.collect()
 
