@@ -4,7 +4,7 @@ import pandas as pd
 from mpi4py import MPI
 import h5py
 from neuroh5.io import append_cell_attributes, bcast_cell_attributes
-from neuroh5_io_utils import *
+from neuroh5.h5py_io_utils import *
 import time
 
 

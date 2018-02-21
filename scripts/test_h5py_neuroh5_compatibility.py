@@ -10,7 +10,7 @@ from neuroh5.io import read_population_ranges, NeuroH5CellAttrGen
 import numpy as np
 import click
 import dentate.stimulus as stimulus
-from dentate.neuroh5_io_utils import *
+from neuroh5.h5py_io_utils import *
 
 
 @click.command()
