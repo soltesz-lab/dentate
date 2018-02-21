@@ -14,6 +14,8 @@ hillock_swc_type = 1, 2, 3, 4, 5, 6, 7, 8
 swc_type_dict = {'soma': soma_swc_type, 'axon': axon_swc_type, 'basal': basal_swc_type, 'apical': apical_swc_type,
                  'trunk': trunk_swc_type, 'tuft': tuft_swc_type, 'ais': ais_swc_type, 'hillock': hillock_swc_type}
 
+ordered_sec_types = ['soma', 'hillock', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']
+
 
 class HocCell(object):
     """
@@ -1458,6 +1460,120 @@ def append_child_sections(cell, parent_node, child_sec_list, sec_type_map):
         append_child_sections(cell, node, child.children(), sec_type_map)
 
 
+def get_dendrite_origin(cell, node, parent_type=None):
+    """
+    This method determines the section type of the given node, and returns the node representing the primary branch
+    point for the given section type. Basal and trunk sections originate at the soma, and apical and tuft dendrites
+    originate at the trunk. For spines, recursively calls with parent node to identify the parent branch first.
+    :param node: :class:'SHocNode'
+    :return: :class:'SHocNode'
+    """
+    sec_type = node.type
+    if sec_type in ['spine_head', 'spine_neck']:
+        return get_dendrite_origin(node.parent, parent_type)
+    elif parent_type is not None:
+        return get_node_along_path_to_root(node.parent, parent_type)
+    elif sec_type in ['basal', 'trunk', 'hillock', 'ais', 'axon']:
+        return get_node_along_path_to_root(node, 'soma')
+    elif sec_type in ['apical', 'tuft']:
+        if 'trunk' in cell.nodes and 'trunk' in cell.mech_dict:
+            return get_node_along_path_to_root(node, 'trunk')
+        else:
+            return get_node_along_path_to_root(node, 'soma')
+    elif sec_type == 'soma':
+        return node
+
+
+def get_node_along_path_to_root(node, sec_type):
+    """
+    This method follows the path from the given node to the root node, and returns the first node with section type
+    sec_type.
+    :param node: :class:'SHocNode'
+    :param sec_type: str
+    :return: :class:'SHocNode'
+    """
+    parent = node
+    while not parent is None:
+        if parent.type == 'soma' and not sec_type == 'soma':
+            parent = None
+        elif parent.type == sec_type:
+            return parent
+        else:
+            parent = parent.parent
+    raise Exception('The path from node: {} to root does not contain sections of type: {}'.format(node.name,
+                                                                                                  sec_type))
+
+
+def inherit_mech_param(cell, donor, mech_name, param_name, syn_type=None):
+    """
+    When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
+    returns the value of that parameter found in the section or final segment of the donor node. For synaptic
+    mechanism parameters, searches for the closest synapse_attribute in the donor node. If the donor node does not
+    contain synapse_mechanism_attributes due to location constraints, this method searches first child nodes, then
+    nodes along the path to root.
+    :param donor: :class:'SHocNode'
+    :param mech_name: str
+    :param param_name: str
+    :param syn_type: str
+    :return: float
+    """
+    # accesses the last segment of the section
+    loc = donor.sec.nseg / (donor.sec.nseg + 1.)
+    try:
+        if mech_name in ['cable', 'ions']:
+            if mech_name == 'cable' and param_name == 'Ra':
+                return getattr(donor.sec, param_name)
+            else:
+                return getattr(donor.sec(loc), param_name)
+        elif 'synapse' in mech_name:
+            # first look downstream for a nearby synapse, then upstream.
+            syn_category = mech_name.split(' ')[0]
+            target_node, target_index = get_closest_synapse_attribute(donor, 1., syn_category, syn_type,
+                                                                            downstream=True)
+            if target_index is None and donor.parent is not None:
+                target_node, target_index = get_closest_synapse_attribute(donor.parent, 1., syn_category,
+                                                                                syn_type, downstream=False)
+            if target_index is not None \
+                    and param_name in target_node.synapse_mechanism_attributes[target_index][syn_type]:
+                return target_node.synapse_mechanism_attributes[target_index][syn_type][param_name]
+            else:
+                return None
+        else:
+            return getattr(getattr(donor.sec(loc), mech_name), param_name)
+    except (AttributeError, NameError, KeyError):
+        if syn_type is None:
+            print 'Exception: Problem inheriting mechanism: {} parameter: {} from sec_type: {}'.format(
+                mech_name, param_name, donor.type)
+        else:
+            print 'Exception: Problem inheriting %s mechanism: %s parameter: %s from sec_type: %s' % \
+                  (mech_name, syn_type, param_name, donor.type)
+        raise KeyError
+
+
+def get_spatial_res(cell, node):
+    """
+    Checks the mechanism dictionary if the section type of this node has a specified spatial resolution factor.
+    Used to scale the number of segments per section in the hoc model by a factor of an exponent of 3.
+    :param node: :class:'SHocNode
+    :return: int
+    """
+    try:  # if spatial_res has not been specified for the origin type of section, it defaults to 0
+        rules = cell.mech_dict[node.type]['cable']['spatial_res']
+    except KeyError:
+        return 0
+    if 'value' in rules:
+        return rules['value']
+    elif 'origin' in rules:
+        if rules['origin'] in cell.nodes:  # if this sec_type also inherits the value, continue following the path
+            return get_spatial_res(cell, get_node_along_path_to_root(node, rules['origin']))
+        else:
+            print 'Exception: Spatial resolution cannot be inherited from sec_type: {}'.format(rules['origin'])
+            raise KeyError
+    else:
+        print 'Exception: Cannot set spatial resolution without a specified origin or value'
+        raise KeyError
+
+
 def import_morphology_from_hoc(cell, hoc_cell):
     """
     Append sections from an existing instance of a NEURON cell template to a Python cell wrapper.
@@ -1545,8 +1661,8 @@ def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None
     """
     if from_file:
         import_mech_dict_from_yaml(cell, mech_file_path)
-    for sec_type in cell.nodes:
-        if sec_type in cell.mech_dict:
+    for sec_type in ordered_sec_types:
+        if sec_type in cell.mech_dict and sec_type in cell.nodes:
             update_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
 
 
@@ -1567,10 +1683,10 @@ def update_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
                 reset_cable_by_node(cell, node)
             for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
                               if not mech_name in ['cable', 'ions']):
-                update_mechanism_by_node(node, mech_name, cell.mech_dict[sec_type][mech_name])
+                update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
             # ion-related parameters do not exist until after membrane mechanisms have been inserted
             if 'ions' in cell.mech_dict[sec_type]:
-                update_mechanism_by_node(node, 'ions', cell.mech_dict[sec_type]['ions'])
+                update_mechanism_by_node(cell, node, 'ions', cell.mech_dict[sec_type]['ions'])
 
 
 def reset_cable_by_node(cell, node):
@@ -1585,12 +1701,12 @@ def reset_cable_by_node(cell, node):
     if sec_type in cell.mech_dict and 'cable' in cell.mech_dict[sec_type]:
         mech_content = cell.mech_dict[sec_type]['cable']
         if mech_content is not None:
-            update_mechanism_by_node(node, 'cable', mech_content)
+            update_mechanism_by_node(cell, node, 'cable', mech_content)
     else:
         init_nseg(node.sec)
 
 
-def update_mechanism_by_node(node, mech_name, mech_content):
+def update_mechanism_by_node(cell, node, mech_name, mech_content):
     """
     This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
     calls parse_mech_content to interpret the rules and set the values for the given node.
@@ -1600,21 +1716,184 @@ def update_mechanism_by_node(node, mech_name, mech_content):
     """
     if mech_content is not None:
         if 'synapse' in mech_name:
-            update_synapse_attributes_by_node(node, mech_name, mech_content)
+            update_synapse_attributes_by_node(cell, node, mech_name, mech_content)
         else:
             for param_name in mech_content:
                 # accommodate either a dict, or a list of dicts specifying multiple location constraints for
                 # a single parameter
                 if isinstance(mech_content[param_name], dict):
-                    parse_mech_content(node, mech_name, param_name, mech_content[param_name])
+                    parse_mech_content(cell, node, mech_name, param_name, mech_content[param_name])
                 elif isinstance(mech_content[param_name], Iterable):
                     for mech_content_entry in mech_content[param_name]:
-                        parse_mech_content(node, mech_name, param_name, mech_content_entry)
+                        parse_mech_content(cell, node, mech_name, param_name, mech_content_entry)
     else:
         node.sec.insert(mech_name)
 
 
-def update_synapse_attributes_by_node(node, mech_name, mech_content):
+def parse_mech_content(cell, node, mech_name, param_name, rules, syn_type=None):
+    """
+        This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
+        interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
+        inheritance of values from the closest segment of a specified type of section along the path from root. Also
+        handles rules with distance boundaries, and rules to set synapse attributes. Gradients can be specified as
+        linear, exponential, or sigmoidal. Custom functions can also be provided to specify arbitrary distributions.
+        :param node: :class:'SHocNode'
+        :param mech_name: str
+        :param param_name: str
+        :param rules: dict
+        :param syn_type: str
+    """
+    if 'synapse' in mech_name:
+        if syn_type is None:
+            raise Exception('Cannot set %s mechanism parameter: %s without a specified point process' %
+                            (mech_name, param_name))
+    # an 'origin' with no 'value' inherits a starting parameter from the origin sec_type
+    # a 'value' with no 'origin' is independent of other sec_types
+    # an 'origin' with a 'value' uses the origin sec_type only as a reference point for applying a
+    # distance-dependent gradient
+    if 'origin' in rules:
+        if rules['origin'] == 'parent':
+            if node.type == 'spine_head':
+                donor = node.parent.parent.parent
+            elif node.type == 'spine_neck':
+                donor = node.parent.parent
+            else:
+                donor = node.parent
+        elif rules['origin'] == 'branch_origin':
+            donor = get_dendrite_origin(cell, node)
+        elif rules['origin'] in cell.nodes:
+            donor = get_node_along_path_to_root(node, rules['origin'])
+        else:
+            if 'synapse' in mech_name:
+                raise Exception('%s mechanism: %s parameter: %s cannot inherit from unknown origin: %s' %
+                                (mech_name, syn_type, param_name, rules['origin']))
+            else:
+                raise Exception('Mechanism: {} parameter: {} cannot inherit from unknown origin: {}'.format(
+                    mech_name, param_name, rules['origin']))
+    else:
+        donor = None
+    if 'value' in rules:
+        baseline = rules['value']
+    elif donor is None:
+        if 'synapse' in mech_name:
+            raise Exception('Cannot set %s mechanism: %s parameter: %s without a specified origin or value' %
+                            (mech_name, syn_type, param_name))
+        else:
+            raise Exception('Cannot set mechanism: {} parameter: {} without a specified origin or value'.format(
+                mech_name, param_name))
+    else:
+        if (mech_name == 'cable') and (param_name == 'spatial_res'):
+            baseline = get_spatial_res(cell, donor)
+        elif 'synapse' in mech_name:
+            baseline = inherit_mech_param(cell, donor, mech_name, param_name, syn_type)
+            if baseline is None:
+                raise Exception('Cannot inherit %s mechanism: %s parameter: %s from sec_type: %s' %
+                                (mech_name, syn_type, param_name, donor.type))
+        else:
+            baseline = inherit_mech_param(cell, donor, mech_name, param_name)
+    if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
+        if param_name == 'spatial_res':
+            init_nseg(node.sec, baseline)
+        else:
+            setattr(node.sec, param_name, baseline)
+            init_nseg(node.sec, get_spatial_res(cell, node))
+        node.reinit_diam()
+    else:
+        if 'custom' in rules:
+            if rules['custom']['method'] in globals() and callable(globals()[rules['custom']['method']]):
+                method_to_call = globals()[rules['custom']['method']]
+                method_to_call(cell, node, mech_name, param_name, baseline, rules, syn_type, donor)
+            else:
+                raise Exception('The custom method %s is not defined for this cell type.' %
+                                rules['custom']['method'])
+        elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
+            if 'synapse' in mech_name:
+                if donor is None:
+                    raise Exception('Cannot specify %s mechanism: %s parameter: %s without a provided origin' %
+                                    (mech_name, syn_type, param_name))
+                else:
+                    _specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
+            else:
+                if donor is None:
+                    raise Exception('Cannot specify mechanism: %s parameter: %s without a provided origin' %
+                                    (mech_name, param_name))
+                specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, donor)
+        elif mech_name == 'ions':
+            setattr(node.sec, param_name, baseline)
+        elif 'synapse' in mech_name:
+            _specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type)
+        else:
+            node.sec.insert(mech_name)
+            setattr(node.sec, param_name + "_" + mech_name, baseline)
+
+
+def specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, donor=None):
+    """
+
+    :param node: :class:'SHocNode'
+    :param mech_name: str
+    :param param_name: str
+    :param baseline: float
+    :param rules: dict
+    :param donor: :class:'SHocNode' or None
+    """
+    if donor is None:
+        raise Exception('Cannot specify mechanism: {} parameter: {} without a provided origin'.format(
+            mech_name, param_name))
+    if 'min_loc' in rules:
+        min_distance = rules['min_loc']
+    else:
+        min_distance = None
+    if 'max_loc' in rules:
+        max_distance = rules['max_loc']
+    else:
+        max_distance = None
+    min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)
+    max_seg_distance = get_distance_to_node(cell, donor, node, (0.5 + node.sec.nseg - 1) / node.sec.nseg)
+    # if any part of the section is within the location constraints, insert the mechanism, and specify
+    # the parameter at the segment level
+    if (min_distance is None or max_seg_distance >= min_distance) and \
+            (max_distance is None or min_seg_distance <= max_distance):
+        if not mech_name == 'ions':
+            node.sec.insert(mech_name)
+        if min_distance is None:
+            min_distance = 0.
+        for seg in node.sec:
+            seg_loc = get_distance_to_node(cell, donor, node, seg.x)
+            if seg_loc >= min_distance and (max_distance is None or seg_loc <= max_distance):
+                if 'slope' in rules:
+                    seg_loc -= min_distance
+                    if 'tau' in rules:
+                        if 'xhalf' in rules:  # sigmoidal gradient
+                            offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
+                            value = offset + rules['slope'] /\
+                                             (1. + np.exp((rules['xhalf'] - seg_loc) / rules['tau']))
+                        else:  # exponential gradient
+                            offset = baseline - rules['slope']
+                            value = offset + rules['slope'] * np.exp(seg_loc / rules['tau'])
+                    else:  # linear gradient
+                        value = baseline + rules['slope'] * seg_loc
+                    if 'min' in rules and value < rules['min']:
+                        value = rules['min']
+                    elif 'max' in rules and value > rules['max']:
+                        value = rules['max']
+                else:
+                    value = baseline
+            # by default, if only some segments in a section meet the location constraints, the parameter inherits
+            # the mechanism's default value. if another value is desired, it can be specified via an 'outside' key
+            # in the mechanism dictionary entry
+            elif 'outside' in rules:
+                value = rules['outside']
+            else:
+                value = None
+            if value is not None:
+                if mech_name == 'ions':
+                    setattr(seg, param_name, value)
+                else:
+                    setattr(getattr(seg, mech_name), param_name, value)
+
+
+def update_synapse_attributes_by_node(cell, node, mech_name, mech_content):
     """
     Consults a dictionary to specify properties of synapses of the specified category. Only sets values in a nodes
     dictionary of synapse attributes. Must then call 'update_synapses' to modify properties of underlying hoc
@@ -1632,10 +1911,10 @@ def update_synapse_attributes_by_node(node, mech_name, mech_content):
                     # accommodate either a dict, or a list of dicts specifying multiple location constraints for
                     # a single parameter
                     if isinstance(mech_content[syn_type][param_name], dict):
-                        parse_mech_content(node, mech_name, param_name, mech_content[syn_type][param_name], syn_type)
+                        parse_mech_content(cell, node, mech_name, param_name, mech_content[syn_type][param_name], syn_type)
                     elif isinstance(mech_content[syn_type][param_name], Iterable):
                         for mech_content_entry in mech_content[syn_type][param_name]:
-                            parse_mech_content(node, mech_name, param_name, mech_content_entry, syn_type)
+                            parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, syn_type)
 
 
 def init_nseg(sec, spatial_res=0):
@@ -1650,6 +1929,163 @@ def init_nseg(sec, spatial_res=0):
     print sec.hname(), sec.nseg, sugg_nseg
     sugg_nseg *= 3 ** spatial_res
     sec.nseg = int(sugg_nseg)
+
+
+def get_distance_to_node(cell, root, node, loc=None):
+    """
+    Returns the distance from the given location on the given node to its connection with a root node.
+    :param root: :class:'SHocNode'
+    :param node: :class:'SHocNode'
+    :param loc: float
+    :return: int or float
+    """
+    length = 0.
+    if node in cell.soma:
+        return length
+    if not loc is None:
+        length += loc * node.sec.L
+    if root in cell.soma:
+        while not node.parent in cell.soma:
+            node.sec.push()
+            loc = h.parent_connection()
+            h.pop_section()
+            node = node.parent
+            length += loc * node.sec.L
+    elif node_in_subtree(cell, root, node):
+        while not node.parent is root:
+            node.sec.push()
+            loc = h.parent_connection()
+            h.pop_section()
+            node = node.parent
+            length += loc * node.sec.L
+    else:
+        return None  # node is not connected to root
+    return length
+
+
+def node_in_subtree(cell, root, node):
+    """
+    Checks if a node is contained within a subtree of root.
+    :param root: 'class':SNode2 or SHocNode
+    :param node: 'class':SNode2 or SHocNode
+    :return: boolean
+    """
+    nodelist = []
+    cell.tree._gather_nodes(root, nodelist)
+    if node in nodelist:
+        return True
+    else:
+        return False
+
+
+def get_branch_order(cell, node):
+    """
+    Calculates the branch order of a SHocNode node. The order is defined as 0 for all soma, axon, and apical trunk
+    dendrite nodes, but defined as 1 for basal dendrites that branch from the soma, and apical and tuft dendrites
+    that branch from the trunk. Increases by 1 after each additional branch point. Makes sure not to count spines.
+    :param node: :class:'SHocNode'
+    :return: int
+    """
+    if node.type in ['soma', 'hillock', 'ais', 'axon']:
+        return 0
+    elif node.type == 'trunk':
+        children = [child for child in node.parent.children if not child.type == 'spine_neck']
+        if len(children) > 1 and children[0].type == 'trunk' and children[1].type == 'trunk':
+            return 1
+        else:
+            return 0
+    else:
+        order = 0
+        path = [branch for branch in cell.tree.path_between_nodes(node, get_dendrite_origin(cell, node)) if
+                not branch.type in ['soma', 'trunk']]
+        for node in path:
+            if is_terminal(node):
+                order += 1
+            elif len([child for child in node.parent.children if not child.type == 'spine_neck']) > 1:
+                order += 1
+            elif node.parent.type == 'trunk':
+                order += 1
+        return order
+
+
+def is_terminal(node):
+    """
+    Calculates if a node is a terminal dendritic branch.
+    :param node: :class:'SHocNode'
+    :return: bool
+    """
+    if node.type in ['soma', 'hillock', 'ais', 'axon']:
+        return False
+    else:
+        return not bool([child for child in node.children if not child.type == 'spine_neck'])
+
+
+def zero_na(cell):
+    """
+    Set na channel conductances to zero in all compartments. Used during parameter optimization.
+    """
+    for sec_type in ['soma', 'hillock', 'ais', 'axon', 'apical']:
+        for na_type in (na_type for na_type in ['nas_kin', 'nat_kin', 'nas', 'nax'] if na_type in
+                cell.mech_dict[sec_type]):
+            cell.modify_mech_param(sec_type, na_type, 'gbar', 0.)
+
+
+def custom_gradient_by_branch_order(cell, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+    """
+
+    :param node: :class:'SHocNode'
+    :param mech_name: str
+    :param param_name: str
+    :param baseline: float
+    :param rules: dict
+    :param syn_type: str
+    :param donor: :class:'SHocNode' or None
+    """
+    branch_order = int(rules['custom']['branch_order'])
+    if get_branch_order(cell, node) >= branch_order:
+        if 'synapse' in mech_name:
+            _specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
+        else:
+            specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, donor)
+
+
+def custom_gradient_by_terminal(cell, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+    """
+
+    :param node: :class:'SHocNode'
+    :param mech_name: str
+    :param param_name: str
+    :param baseline: float
+    :param rules: dict
+    :param syn_type: str
+    :param donor: :class:'SHocNode' or None
+    """
+    if is_terminal(node):
+        start_val = baseline
+        if 'min' in rules:
+            end_val = rules['min']
+            direction = -1
+        elif 'max' in rules:
+            end_val = rules['max']
+            direction = 1
+        else:
+            raise Exception('custom_gradient_by_terminal: no min or max target value specified for mechanism: %s '
+                            'parameter: %s' % (mech_name, param_name))
+        slope = (end_val - start_val)/node.sec.L
+        if 'slope' in rules:
+            if direction < 0.:
+                slope = min(rules['slope'], slope)
+            else:
+                slope = max(rules['slope'], slope)
+        for seg in node.sec:
+            value = start_val + slope * seg.x * node.sec.L
+            if direction < 0:
+                if value < end_val:
+                    value = end_val
+            else:
+                if value < end_val:
+                    value = end_val
+            setattr(getattr(seg, mech_name), param_name, value)
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
