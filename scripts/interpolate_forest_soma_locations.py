@@ -24,9 +24,10 @@ concatOp = MPI.Op.Create(list_concat, commute=True)
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--rotate", type=float)
+@click.option("--reltol", type=float, default=15.)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, forest_path, coords_path, populations, rotate, io_size, verbose):
+def main(config, forest_path, coords_path, populations, rotate, reltol, io_size, verbose):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -103,7 +104,8 @@ def main(config, forest_path, coords_path, populations, rotate, io_size, verbose
                                  'Interpolation Error': np.asarray(xyz_error[0], dtype='float32') }
 
             if (uvl_coords[0,0] <= max_extent[0]) and (uvl_coords[0,0] >= min_extent[0]) and \
-                (uvl_coords[0,1] <= max_extent[1]) and (uvl_coords[0,1] >= min_extent[1]):
+                (uvl_coords[0,1] <= max_extent[1]) and (uvl_coords[0,1] >= min_extent[1]) and \
+                (xyz_error[0,0] <= reltol) and (xyz_error[0,1] <= reltol) and  (xyz_error[0,2] <= reltol):
                     coords.append((gid, uvl_coords[0,0], uvl_coords[0,1], uvl_coords[0,2]))
 
             count += 1
@@ -128,7 +130,7 @@ def main(config, forest_path, coords_path, populations, rotate, io_size, verbose
                 reindex_dict = { coords[0]: { 'New Cell Index' : np.array([(i+population_start)], dtype='uint32') }
                                      for (i, coords) in itertools.izip (coords_sort_idxs, all_coords) }
                 append_cell_attributes(coords_path, population, reindex_dict,
-                                    namespace='Tree Reindex', io_size=1, comm=comm0)
+                                           namespace='Tree Reindex', io_size=1, comm=comm0)
             
         comm0.Barrier()
             
