@@ -6,6 +6,7 @@ from dentate.utils import *
 import pprint
 import click
 import logging
+logging.basicConfig()
 
 script_name = 'reindex_trees.py'
 logger = logging.getLogger(script_name)

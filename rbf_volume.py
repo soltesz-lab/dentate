@@ -121,13 +121,14 @@ class RBFVolume(object):
         u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
         uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
 
-        xvol = RBFInterpolant(uvl_obs,xyz[0],**kwargs)
-        yvol = RBFInterpolant(uvl_obs,xyz[1],**kwargs)
-        zvol = RBFInterpolant(uvl_obs,xyz[2],**kwargs)
+        xvol = RBFInterpolant(uvl_obs,xyz[:,0],**kwargs)
+        yvol = RBFInterpolant(uvl_obs,xyz[:,1],**kwargs)
+        zvol = RBFInterpolant(uvl_obs,xyz[:,2],**kwargs)
 
-        uvol = RBFInterpolant(xyz.T,uvl_obs[:,0],**kwargs)
-        vvol = RBFInterpolant(xyz.T,uvl_obs[:,1],**kwargs)
-        lvol = RBFInterpolant(xyz.T,uvl_obs[:,2],**kwargs)
+
+        uvol = RBFInterpolant(xyz,uvl_obs[:,0],**kwargs)
+        vvol = RBFInterpolant(xyz,uvl_obs[:,1],**kwargs)
+        lvol = RBFInterpolant(xyz,uvl_obs[:,2],**kwargs)
 
         self._xvol = xvol
         self._yvol = yvol

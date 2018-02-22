@@ -12,6 +12,7 @@ from dentate.env import Env
 import utils
 import click
 import logging
+logging.basicConfig()
 
 script_name = 'generate_distance_connections.py'
 logger = logging.getLogger(script_name)

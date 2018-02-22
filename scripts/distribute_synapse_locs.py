@@ -10,6 +10,7 @@ import dentate.cells as cells
 import dentate.synapses as synapses
 import click
 import logging
+logging.basicConfig()
 
 script_name="distribute_synapse_locs.py"
 logger = logging.getLogger(script_name)
