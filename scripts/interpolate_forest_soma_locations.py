@@ -2,7 +2,6 @@ import sys, time, gc, itertools
 from mpi4py import MPI
 import numpy as np
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
-from rbf_volume import rotate3d
 from dentate.DG_volume import make_volume
 from dentate.env import Env
 from dentate.utils import list_find, list_argsort
@@ -38,10 +37,6 @@ def main(config, forest_path, coords_path, populations, rotate, io_size, verbose
 
     swc_type_soma   = env.SWC_Types['soma']
 
-    if rotate is not None:
-        a = float(np.deg2rad(rotate))
-        rot = rotate3d([1,0,0], a)
-
     if io_size==-1:
         io_size = comm.size
 
@@ -74,7 +69,7 @@ def main(config, forest_path, coords_path, populations, rotate, io_size, verbose
 
         if rank == 0:
             logger.info('Constructing volume...')
-        ip_volume = make_volume(min_extent[2], max_extent[2])
+        ip_volume = make_volume(min_extent[2], max_extent[2], rotate=rotate)
 
         if rank == 0:
             logger.info('Interpolating forest coordinates...')
@@ -93,12 +88,7 @@ def main(config, forest_path, coords_path, populations, rotate, io_size, verbose
             px       = xs[0]
             py       = ys[0]
             pz       = zs[0]
-            pts      = np.array([px,py,pz]).reshape(3,1)
-
-            if rotate:
-                xyz_coords = np.dot(rot, pts).T
-            else:
-                xyz_coords = pts.T
+            xyz_coords = np.array([px,py,pz]).reshape(3,1).T
             
             uvl_coords  = ip_volume.inverse(xyz_coords)
             xyz_coords1 = ip_volume(uvl_coords[0,0],uvl_coords[0,1],uvl_coords[0,2]).ravel()

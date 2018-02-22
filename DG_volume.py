@@ -6,6 +6,7 @@ from rbf.geometry import contains
 import dentate
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume
+from rbf_volume import rotate3d
 
 max_u = 11690.
 max_v = 2956.
@@ -18,14 +19,25 @@ def DG_volume(u, v, l):
     return np.array([x, y, z])
 
 
-def make_volume(lmin, lmax, basis=rbf.basis.phs3):  
+def make_volume(lmin, lmax, basis=rbf.basis.phs3, rotate=None):  
+
+    if rotate is not None:
+        a = float(np.deg2rad(rotate))
+        rot = rotate3d([1,0,0], a)
+    else:
+        rot = None
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 25)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 25)
     obs_l = np.linspace(lmin, lmax, num=10)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = DG_volume (u, v, l).reshape(3, u.size).T
+    pts = DG_volume (u, v, l).reshape(3, u.size)
+
+    if rot is not None:
+        xyz = np.dot(rot, pts).T
+    else:
+        xyz = pts.T
 
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, basis=basis, order=2)
 
