@@ -1,8 +1,9 @@
 import sys, time, gc, itertools
 from mpi4py import MPI
 import numpy as np
+import dlib
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
-from dentate.DG_volume import make_volume
+from dentate.DG_volume import DG_volume, make_volume
 from dentate.env import Env
 from dentate.utils import list_find, list_argsort
 import random
@@ -18,16 +19,29 @@ def list_concat(a, b, datatype):
 
 concatOp = MPI.Op.Create(list_concat, commute=True)
 
+def euclidean_distance(a, b):
+    """Row-wise euclidean distance.
+    a, b are row vectors of points.
+    """
+    return np.sqrt(np.sum((a-b)**2,axis=1))
+
+def make_min_coords(xyz_coords,rotate=None):
+      f = lambda u, v, l: euclidean_distance(DG_volume(u,v,l,rotate=rotate), xyz_coords)
+      return f
+
+    
+
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--rotate", type=float)
-@click.option("--reltol", type=float, default=15.)
+@click.option("--reltol", type=float, default=10.)
+@click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, forest_path, coords_path, populations, rotate, reltol, io_size, verbose):
+def main(config, forest_path, coords_path, populations, rotate, reltol, optiter, io_size, verbose):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -90,23 +104,40 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, io_size,
             py       = ys[0]
             pz       = zs[0]
             xyz_coords = np.array([px,py,pz]).reshape(3,1).T
-            
-            uvl_coords  = ip_volume.inverse(xyz_coords)
-            xyz_coords1 = ip_volume(uvl_coords[0,0],uvl_coords[0,1],uvl_coords[0,2]).ravel()
-            xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))
 
+            uvl_coords_interp = ip_volume.inverse(xyz_coords)[0]
+            xyz_coords_interp = ip_volume(uvl_coords_interp[0],uvl_coords_interp[1],uvl_coords_interp[2]).ravel()
+            xyz_error_interp  = np.abs(np.subtract(xyz_coords, xyz_coords_interp))[0]
+
+            f_min_coords = make_min_coords(xyz_coords,rotate=rotate)
+            uvl_coords,dist = \
+              dlib.find_min_global(f_min_coords, min_extent, max_extent, optiter)
+
+            xyz_coords1 = DG_volume(uvl_coords[0], uvl_coords[1], uvl_coords[2], rotate=rotate)[0]
+            xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
+
+            if np.all (np.less (xyz_error_interp, xyz_error)):
+                uvl_coords = uvl_coords_interp
+                xyz_coords1 = xyz_coords_interp
+                xyz_error = xyz_error_interp
+            
+            if rank == 0:
+                logger.info('xyz_coords: %s' % str(xyz_coords))
+                logger.info('xyz_coords1: %s' % str(xyz_coords1))
+                logger.info('xyz_error: %s' % str(xyz_error))
+            
             coords_dict[gid] = { 'X Coordinate': np.array([xyz_coords1[0]], dtype='float32'),
                                  'Y Coordinate': np.array([xyz_coords1[1]], dtype='float32'),
                                  'Z Coordinate': np.array([xyz_coords1[2]], dtype='float32'),
-                                 'U Coordinate': np.array([uvl_coords[0,0]], dtype='float32'),
-                                 'V Coordinate': np.array([uvl_coords[0,1]], dtype='float32'),
-                                 'L Coordinate': np.array([uvl_coords[0,2]], dtype='float32'),
+                                 'U Coordinate': np.array([uvl_coords[0]], dtype='float32'),
+                                 'V Coordinate': np.array([uvl_coords[1]], dtype='float32'),
+                                 'L Coordinate': np.array([uvl_coords[2]], dtype='float32'),
                                  'Interpolation Error': np.asarray(xyz_error[0], dtype='float32') }
 
-            if (uvl_coords[0,0] <= max_extent[0]) and (uvl_coords[0,0] >= min_extent[0]) and \
-                (uvl_coords[0,1] <= max_extent[1]) and (uvl_coords[0,1] >= min_extent[1]) and \
-                (xyz_error[0,0] <= reltol) and (xyz_error[0,1] <= reltol) and  (xyz_error[0,2] <= reltol):
-                    coords.append((gid, uvl_coords[0,0], uvl_coords[0,1], uvl_coords[0,2]))
+            if (uvl_coords[0] <= max_extent[0]) and (uvl_coords[0] >= min_extent[0]) and \
+                (uvl_coords[1] <= max_extent[1]) and (uvl_coords[1] >= min_extent[1]) and \
+                (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
+                    coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
 
             count += 1
             

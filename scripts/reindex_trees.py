@@ -1,7 +1,7 @@
-import sys
+import sys, random
 from mpi4py import MPI
 import numpy as np
-from neuroh5.io import append_cell_trees, bcast_cell_attributes, NeuroH5TreeGen
+from neuroh5.io import read_population_ranges, append_cell_trees, bcast_cell_attributes, NeuroH5TreeGen
 from dentate.utils import *
 import pprint
 import click
@@ -46,10 +46,18 @@ def main(population, forest_path, output_path, index_path, index_namespace, io_s
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    reindex_map = {}
+    (pop_ranges, _)  = read_population_ranges(forest_path)
+
+    (population_start, population_count) = pop_ranges[population]
+     
+    reindex_map1 = {}
     reindex_map_gen = bcast_cell_attributes(index_path, population, 0, namespace=index_namespace)
     for gid, attr_dict in reindex_map_gen:
-        reindex_map[gid] = attr_dict['New Cell Index'][0]
+        reindex_map1[gid] = attr_dict['New Cell Index'][0]
+
+    reindex_keys = random.sample(list(reindex_map), population_count)
+    reindex_map = { k : reindex_map1[k] for k in reindex_keys }
+    
     new_trees_dict = {}
     count = 0
     for gid, old_trees_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm):
