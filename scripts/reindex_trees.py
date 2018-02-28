@@ -66,6 +66,8 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     reindex_keys = comm.bcast(reindex_keys, root=0)
         
     reindex_map = { k : reindex_map1[k] for k in reindex_keys }
+
+    gid_map = { k: i+population_start for i,k in enumerate(reindex_keys) }
     
     new_coords_dict = {}
     new_trees_dict = {}
@@ -73,7 +75,7 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     for gid, old_trees_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=False):
         if gid is not None and gid in reindex_map:
             reindex_gid = reindex_map[gid]
-            new_gid = count + population_start
+            new_gid = gid_map[gid]
             new_trees_dict[new_gid] = old_trees_dict
             new_coords_dict[new_gid] = old_coords_dict[gid]
             logger.info('Rank: %i mapping old gid: %i to new gid: %i' % (comm.rank, gid, new_gid))
