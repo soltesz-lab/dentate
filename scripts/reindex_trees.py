@@ -1,7 +1,7 @@
 import sys, random
 from mpi4py import MPI
 import numpy as np
-from neuroh5.io import read_population_ranges, append_cell_trees, bcast_cell_attributes, NeuroH5TreeGen
+from neuroh5.io import read_population_ranges, append_cell_trees, append_cell_attributes, bcast_cell_attributes, NeuroH5TreeGen
 from dentate.utils import *
 import pprint
 import click
@@ -66,7 +66,7 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     new_coords_dict = {}
     new_trees_dict = {}
     count = 0
-    for gid, old_trees_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm):
+    for gid, old_trees_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=False):
         if gid is not None and gid in reindex_map:
             reindex_gid = reindex_map[gid]
             new_gid = count + population_start
@@ -76,7 +76,7 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
         comm.barrier()
         count += 1
     append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
-    append_cell_attributes(output_path, population, coords_dict, \
+    append_cell_attributes(output_path, population, new_coords_dict, \
                            namespace=coords_namespace, io_size=io_size, comm=comm)
 
     if comm.rank == 0:
