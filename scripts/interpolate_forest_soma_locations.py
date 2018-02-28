@@ -3,7 +3,7 @@ from mpi4py import MPI
 import numpy as np
 import dlib
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
-from dentate.DG_volume import DG_volume, make_volume
+from dentate.DG_volume import DG_volume, make_volume, make_uvl_distance
 from dentate.env import Env
 from dentate.utils import list_find, list_argsort
 import random
@@ -18,16 +18,6 @@ def list_concat(a, b, datatype):
     return a+b
 
 concatOp = MPI.Op.Create(list_concat, commute=True)
-
-def euclidean_distance(a, b):
-    """Row-wise euclidean distance.
-    a, b are row vectors of points.
-    """
-    return np.sqrt(np.sum((a-b)**2,axis=1))
-
-def make_min_coords(xyz_coords,rotate=None):
-      f = lambda u, v, l: euclidean_distance(DG_volume(u,v,l,rotate=rotate), xyz_coords)
-      return f
 
     
 
@@ -109,9 +99,9 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
             xyz_coords_interp = ip_volume(uvl_coords_interp[0],uvl_coords_interp[1],uvl_coords_interp[2]).ravel()
             xyz_error_interp  = np.abs(np.subtract(xyz_coords, xyz_coords_interp))[0]
 
-            f_min_coords = make_min_coords(xyz_coords,rotate=rotate)
+            f_uvl_distance = make_uvl_distance(xyz_coords,rotate=rotate)
             uvl_coords,dist = \
-              dlib.find_min_global(f_min_coords, min_extent, max_extent, optiter)
+              dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
 
             xyz_coords1 = DG_volume(uvl_coords[0], uvl_coords[1], uvl_coords[2], rotate=rotate)[0]
             xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
@@ -123,6 +113,7 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
             
             if rank == 0:
                 logger.info('xyz_coords: %s' % str(xyz_coords))
+                logger.info('uvl_coords: %s' % str(uvl_coords))
                 logger.info('xyz_coords1: %s' % str(xyz_coords1))
                 logger.info('xyz_error: %s' % str(xyz_error))
             
