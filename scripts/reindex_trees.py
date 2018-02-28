@@ -62,7 +62,8 @@ def main(population, forest_path, output_path, index_path, index_namespace, io_s
     count = 0
     for gid, old_trees_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm):
         if gid is not None and gid in reindex_map:
-            new_gid = reindex_map[gid]
+            reindex_gid = reindex_map[gid]
+            new_gid = count + population_start
             new_trees_dict[new_gid] = old_trees_dict
             logger.info('Rank: %i mapping old gid: %i to new gid: %i' % (comm.rank, gid, new_gid))
         comm.barrier()
