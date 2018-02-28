@@ -48,3 +48,15 @@ def make_volume(lmin, lmax, basis=rbf.basis.phs3, rotate=None, ures=33, vres=30,
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, basis=basis, order=2)
 
     return vol
+
+
+def euclidean_distance(a, b):
+    """Row-wise euclidean distance.
+    a, b are row vectors of points.
+    """
+    return np.sqrt(np.sum((a-b)**2,axis=1))
+
+
+def make_uvl_distance(xyz_coords,rotate=None):
+      f = lambda u, v, l: euclidean_distance(DG_volume(u,v,l,rotate=rotate), xyz_coords)
+      return f
