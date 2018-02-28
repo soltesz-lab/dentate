@@ -17,13 +17,13 @@ logger = logging.getLogger(script_name)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--index-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--index-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--index-namespace", type=str, default='Tree Reindex')
+@click.option("--coords-namespace", type=str, default='Interpolated Coordinates')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', is_flag=True)
-def main(population, forest_path, output_path, index_path, index_namespace, io_size, chunk_size, value_chunk_size, verbose):
+def main(population, forest_path, output_path, index_path, index_namespace, coords_namespace, io_size, chunk_size, value_chunk_size, verbose):
     """
 
     :param population: str
@@ -46,7 +46,7 @@ def main(population, forest_path, output_path, index_path, index_namespace, io_s
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    (pop_ranges, _)  = read_population_ranges(forest_path)
+    (pop_ranges, _)  = read_population_ranges(output_path)
 
     (population_start, population_count) = pop_ranges[population]
      
@@ -55,19 +55,28 @@ def main(population, forest_path, output_path, index_path, index_namespace, io_s
     for gid, attr_dict in reindex_map_gen:
         reindex_map1[gid] = attr_dict['New Cell Index'][0]
 
-    reindex_keys = random.sample(list(reindex_map), population_count)
+    old_coords_dict = {}
+    coords_map_gen = bcast_cell_attributes(index_path, population, 0, namespace=coords_namespace)
+    for gid, attr_dict in coords_map_gen:
+        old_coords_dict[gid] = attr_dict
+
+    reindex_keys = random.sample(list(reindex_map1), population_count)
     reindex_map = { k : reindex_map1[k] for k in reindex_keys }
     
+    new_coords_dict = {}
     new_trees_dict = {}
     count = 0
     for gid, old_trees_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm):
         if gid is not None and gid in reindex_map:
             new_gid = reindex_map[gid]
             new_trees_dict[new_gid] = old_trees_dict
+            new_coords_dict[new_gid] = old_coords_dict[gid]
             logger.info('Rank: %i mapping old gid: %i to new gid: %i' % (comm.rank, gid, new_gid))
         comm.barrier()
         count += 1
     append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
+    append_cell_attributes(output_path, population, coords_dict, \
+                           namespace=coords_namespace, io_size=io_size, comm=comm)
 
     if comm.rank == 0:
         logger.info('Appended reindexed trees to %s' % output_path)

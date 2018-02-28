@@ -132,7 +132,7 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
                                  'U Coordinate': np.array([uvl_coords[0]], dtype='float32'),
                                  'V Coordinate': np.array([uvl_coords[1]], dtype='float32'),
                                  'L Coordinate': np.array([uvl_coords[2]], dtype='float32'),
-                                 'Interpolation Error': np.asarray(xyz_error[0], dtype='float32') }
+                                 'Interpolation Error': np.asarray(xyz_error, dtype='float32') }
 
             if (uvl_coords[0] <= max_extent[0]) and (uvl_coords[0] >= min_extent[0]) and \
                 (uvl_coords[1] <= max_extent[1]) and (uvl_coords[1] >= min_extent[1]) and \

@@ -28,7 +28,7 @@ set -x
 
 ibrun -np 768 python ./scripts/interpolate_forest_soma_locations.py \
     --config=./config/Full_Scale_Control.yaml \
-    --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_extended_compressed_20180215.h5 \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/dentate_GC_coords_20180222.h5 \
-    -i GC --rotate=-35 \
+    --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_extended_compressed_20180224.h5 \
+    --coords-path=$SCRATCH/dentate/Full_Scale_Control/dentate_GC_coords_20180224.h5 \
+    -i GC --rotate=-35 --reltol=4 \
     --io-size=24 -v
