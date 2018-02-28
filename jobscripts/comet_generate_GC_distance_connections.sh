@@ -18,7 +18,6 @@ module load mpi4py
 
 export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so

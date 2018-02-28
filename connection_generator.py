@@ -5,13 +5,17 @@
 
 import sys, time, gc
 import itertools
-import numpy as np
-import itertools
 from collections import defaultdict
+import numpy as np
+import rbf
+from rbf.interpolate import RBFInterpolant
+import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 import click
 import utils
+import logging
+logger = logging.getLogger(__name__)
 
 
 try:
@@ -36,6 +40,26 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
+class VolumeDistance (object):
+    def __init__(self, ip_vol, res=5, step=10):
+        U, V, L = ip_vol._resample_uvl(res, res, res)
+
+        ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
+        ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
+
+        distances_u = np.concatenate(ldist_u)
+        obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
+                            np.concatenate(obs_dist_u[1]), \
+                            np.concatenate(obs_dist_u[2])]).T
+        sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
+        self.dist_u = RBFInterpolant(obs_uvl[sample_inds,:],distances_u[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
+
+        distances_v = np.concatenate(ldist_v)
+        obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
+                            np.concatenate(obs_dist_v[1]), \
+                            np.concatenate(obs_dist_v[2])]).T
+        self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
+    
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -44,25 +68,33 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5., ip_surface=None):
+    def __init__(self, destination_population, soma_coords, ip_dist, extent, nstdev = 5., res=5):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
         :param destination_population: post-synaptic population name
-        :param soma_coords: a dictionary that contains per-population dicts of u, v coordinates of cell somas
-        :param soma_distances: a dictionary that contains per-population dicts of distances along u, v to a reference position
+        :param soma_coords: a dictionary that contains per-population dicts of u, v, l coordinates of cell somas
+        :param ip_dist: an instance of VolumeDist; it will be used for distance calculations
         :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
-        :param ip_surface: an instance of bspline_surface; if this argument is provided, the supplied surface will be used for precise distance calculations
         """
         self.destination_population = destination_population
         self.soma_coords = soma_coords
-        self.soma_distances = soma_distances
+        self.soma_distances = {}
         self.p_dist = {}
         self.width  = {}
         self.offset = {}
         self.sigma  = {}
-        self.ip_surface = ip_surface
-            
+
+        for pop, coords_dict in soma_coords.iteritems():
+            dist_dict = {}
+            for gid, coords in coords_dict.iteritems():
+                soma_u, soma_v, soma_l = coords
+                uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
+                distance_u = ip_dist.dist_u(uvl_obs)
+                distance_v = ip_dist.dist_v(uvl_obs)
+                dist_dict[gid] = (distance_u, distance_v)
+            self.soma_distances[pop] = dist_dict
+        
         for source_population in extent:
             extent_width  = extent[source_population]['width']
             if extent[source_population].has_key('offset'):
@@ -80,77 +112,8 @@ class ConnectionProb(object):
                                                             self.sigma[source_population]['u'])**2. +
                                                             ((abs(distance_v - self.offset[source_population]['v'])) /
                                                             self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
-
-    def compute_srf_distances(self, destination_u, destination_v, source_u_vect, source_v_vect, npts=250):
-        """
-        Computes arc distances using interpolated surface. 
-        :param destination_u: float
-        :param destination_v: float
-        :param source_u_vect: vector
-        :param source_v_vect: vector
-        :param npts: int
-        """
-
-        distance_u_lst = []
-        distance_v_lst = []
-
-        for (source_u, source_v) in itertools.izip(source_u_vect, source_v_vect):
-            
-            U = np.linspace(destination_u, source_u, npts)
-            V = np.linspace(destination_v, source_v, npts)
-            distance_u1 = self.ip_surface.point_distance(U, destination_v, normalize_uv=True)
-            distance_u2 = self.ip_surface.point_distance(U, source_v, normalize_uv=True)
-            distance_u  = (distance_u1 + distance_u2) / 2.
-            distance_v1 = self.ip_surface.point_distance(destination_u, V, normalize_uv=True)
-            distance_v2 = self.ip_surface.point_distance(source_u, V, normalize_uv=True)
-            distance_v  = (distance_v1 + distance_v2) / 2.
-            distance_u_lst.append(distance_u)
-            distance_v_lst.append(distance_v)
-
-        return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32)
-
-    def filter_by_distance1(self, destination_gid, source_population):
-        """
-        Given the id of a target neuron, returns the distances along u and v
-        and the gids of source neurons whose axons potentially contact the target neuron.
-        :param destination_gid: int
-        :param source_population: string
-        :return: tuple of array of int
-        """
-        destination_coords = self.soma_coords[self.destination_population][destination_gid]
-        destination_distances = self.soma_distances[self.destination_population][destination_gid]
-        
-        source_soma_coords = self.soma_coords[source_population]
-        source_soma_distances = self.soma_distances[source_population]
-
-        destination_u, destination_v  = destination_coords
-        destination_distance_u, destination_distance_v = destination_distances
-        
-        distance_u_lst = []
-        distance_v_lst = []
-        source_gid_lst = []
-
-        for (source_gid, coords) in source_soma_coords.iteritems():
-
-            source_u, source_v = coords
-
-            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
-
-            distance_u = abs(destination_distance_u - source_distance_u)
-            distance_v = abs(destination_distance_v - source_distance_v)
-            
-            source_width = self.width[source_population]
-            source_offset = self.offset[source_population]
-                #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
-            if ((distance_u <= source_width['u'] / 2. + source_offset['u']) &
-                (distance_v <= source_width['v'] / 2. + source_offset['v'])):
-                distance_u_lst.append(source_distance_u)
-                distance_v_lst.append(source_distance_v)
-                source_gid_lst.append(source_gid)
-
-        return np.asarray(distance_u_lst, dtype=np.float32), np.asarray(distance_v_lst, dtype=np.float32), np.asarray(source_gid_lst, dtype=np.uint32)
     
-    def filter_by_distance2(self, destination_gid, source_population):
+    def filter_by_distance(self, destination_gid, source_population):
         """
         Given the id of a target neuron, returns the distances along u and v
         and the gids of source neurons whose axons potentially contact the target neuron.
@@ -164,7 +127,7 @@ class ConnectionProb(object):
         source_soma_coords = self.soma_coords[source_population]
         source_soma_distances = self.soma_distances[source_population]
 
-        destination_u, destination_v  = destination_coords
+        destination_u, destination_v, destination_l  = destination_coords
         destination_distance_u, destination_distance_v = destination_distances
         
         distance_u_lst = []
@@ -175,7 +138,7 @@ class ConnectionProb(object):
 
         for (source_gid, coords) in source_soma_coords.iteritems():
 
-            source_u, source_v = coords
+            source_u, source_v, source_l = coords
 
             source_distance_u, source_distance_v  = source_soma_distances[source_gid]
 
@@ -205,11 +168,7 @@ class ConnectionProb(object):
         :param plot: bool
         :return: array of float, array of int
         """
-        if self.ip_surface is None:
-            distance_u, distance_v, source_gid = self.filter_by_distance1(destination_gid, source)
-        else:
-            destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance2(destination_gid, source)
-            distance_u, distance_v = self.compute_srf_distances(destination_u, destination_v, source_u, source_v)
+        destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
         p = self.p_dist[source](distance_u, distance_v)
         psum = np.sum(p)
         if psum > 0.:
@@ -336,7 +295,8 @@ def generate_synaptic_connections(ranstream_syn,
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
                                      connectivity_seed, connectivity_namespace, connectivity_path,
-                                     io_size, chunk_size, value_chunk_size, cache_size, write_size=1):
+                                     io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
+                                     verbose=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
     :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
@@ -352,12 +312,15 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     :param cache_size: how many cells to read ahead
     :param write_size: how many cells to write out at the same time
     """
+    if verbose:
+        logger.setLevel(logging.INFO)
+        
     rank = comm.rank
 
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        logger.info('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     start_time = time.time()
@@ -370,7 +333,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     source_populations = connection_config[destination_population].keys()
 
     for source_population in source_populations:
-        print('%s -> %s:' % (source_population, destination_population), connection_config[destination_population][source_population])
+        logger.info('%s -> %s:' % (source_population, destination_population))
+        logger.info(str(connection_config[destination_population][source_population]))
                            
     projection_synapse_dict = {source_population: (connection_config[destination_population][source_population].synapse_layers,
                                                    set(connection_config[destination_population][source_population].synapse_locations),
@@ -380,13 +344,13 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     total_count = 0
     gid_count   = 0
     connection_dict = defaultdict(lambda: {})
-    for destination_gid, synapse_dict in NeuroH5CellAttrGen(comm, forest_path, destination_population, io_size=io_size,
-                                                            cache_size=cache_size, namespace=synapse_namespace):
+    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, io_size=io_size,
+                                                            cache_size=cache_size, namespace=synapse_namespace, comm=comm):
         last_time = time.time()
         if destination_gid is None:
-            print 'Rank %i destination gid is None' % rank
+            logger.info('Rank %i destination gid is None' % rank)
         else:
-            print 'Rank %i received attributes for destination: %s, gid: %i' % (rank, destination_population, destination_gid)
+            logger.info('Rank %i received attributes for destination: %s, gid: %i' % (rank, destination_population, destination_gid))
             ranstream_con.seed(destination_gid + connectivity_seed)
             ranstream_syn.seed(destination_gid + synapse_seed)
 
@@ -394,7 +358,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             for source_population in source_populations:
                 probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)
                 projection_prob_dict[source_population] = (probs, source_gids, distances_u, distances_v)
-                print 'Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid)
+                logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
 
             
             count = generate_synaptic_connections(ranstream_syn,
@@ -407,21 +371,21 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                    connection_dict)
             total_count += count
             
-            print 'Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid)
+            logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))
             sys.stdout.flush()
 
         if gid_count % write_size == 0:
             last_time = time.time()
-            if not connection_dict:
-                projection_dict = {}
-            else:
+            if len(connection_dict) > 0:
                 projection_dict = { destination_population: connection_dict }
-            append_graph(comm, connectivity_path, projection_dict, io_size)
+            else:
+                projection_dict = {}
+            append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
                     for (prj, prj_dict) in  connection_dict.iteritems():
-                        print prj, ": ", prj_dict.keys()
-                    print 'Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time)
+                        logger.info("%s: %s" % (prj, str(prj_dict.keys())))
+                    logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
             sys.stdout.flush()
             connection_dict.clear()
             gc.collect()
@@ -430,6 +394,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
     global_count = comm.gather(total_count, root=0)
     if rank == 0:
-        print '%i ranks took %i s to generate %i edges' % (comm.size, time.time() - start_time, np.sum(global_count))
+        logger.info('%i ranks took %i s to generate %i edges' % (comm.size, time.time() - start_time, np.sum(global_count)))
 
 

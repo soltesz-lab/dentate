@@ -31,6 +31,58 @@ def rotate3d(axis, theta):
                      [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
                      [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
 
+
+def cartesian_product(arrays, out=None):
+    """
+    Generate a cartesian product of input arrays.
+
+    Parameters
+    ----------
+    arrays : list of array-like
+        1-D arrays to form the cartesian product of.
+    out : ndarray
+        Array to place the cartesian product in.
+
+    Returns
+    -------
+    out : ndarray
+        2-D array of shape (M, len(arrays)) containing cartesian products
+        formed of input arrays.
+
+    Examples
+    --------
+    >>> cartesian(([1, 2, 3], [4, 5], [6, 7]))
+    array([[1, 4, 6],
+           [1, 4, 7],
+           [1, 5, 6],
+           [1, 5, 7],
+           [2, 4, 6],
+           [2, 4, 7],
+           [2, 5, 6],
+           [2, 5, 7],
+           [3, 4, 6],
+           [3, 4, 7],
+           [3, 5, 6],
+           [3, 5, 7]])
+
+    """
+
+    arrays = [np.asarray(x) for x in arrays]
+    dtype = arrays[0].dtype
+
+    n = np.prod([x.size for x in arrays])
+    if out is None:
+        out = np.zeros([n, len(arrays)], dtype=dtype)
+
+    m = n / arrays[0].size
+    out[:,0] = np.repeat(arrays[0], m)
+    if arrays[1:]:
+        cartesian_product(arrays[1:], out=out[0:m,1:])
+        for j in xrange(1, arrays[0].size):
+            out[j*m:(j+1)*m,1:] = out[0:m,1:]
+    return out
+
+
 class RBFVolume(object):
     def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs2):
         """Parametric (u,v,l) 3D volume approximation.
@@ -69,13 +121,14 @@ class RBFVolume(object):
         u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
         uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
 
-        xvol = RBFInterpolant(uvl_obs,xyz[0],**kwargs)
-        yvol = RBFInterpolant(uvl_obs,xyz[1],**kwargs)
-        zvol = RBFInterpolant(uvl_obs,xyz[2],**kwargs)
+        xvol = RBFInterpolant(uvl_obs,xyz[:,0],**kwargs)
+        yvol = RBFInterpolant(uvl_obs,xyz[:,1],**kwargs)
+        zvol = RBFInterpolant(uvl_obs,xyz[:,2],**kwargs)
 
-        uvol = RBFInterpolant(xyz.T,uvl_obs[:,0],**kwargs)
-        vvol = RBFInterpolant(xyz.T,uvl_obs[:,1],**kwargs)
-        lvol = RBFInterpolant(xyz.T,uvl_obs[:,2],**kwargs)
+
+        uvol = RBFInterpolant(xyz,uvl_obs[:,0],**kwargs)
+        vvol = RBFInterpolant(xyz,uvl_obs[:,1],**kwargs)
+        lvol = RBFInterpolant(xyz,uvl_obs[:,2],**kwargs)
 
         self._xvol = xvol
         self._yvol = yvol
@@ -98,6 +151,23 @@ class RBFVolume(object):
         hrv = np.interp(newvndxs, *nvs)
         return hru, hrv
 
+    def _resample_uvl(self, ures, vres, lres):
+        """Helper function to re-sample u, v and l parameters
+        at the specified resolution
+        """
+        u, v, l = self.u, self.v, self.l
+        lu, lv, ll = len(u), len(v), len(l)
+        nus = np.array(list(enumerate(u))).T
+        nvs = np.array(list(enumerate(v))).T
+        nls = np.array(list(enumerate(l))).T
+        newundxs = np.linspace(0, lu - 1, ures * lu - (ures - 1))
+        newvndxs = np.linspace(0, lv - 1, vres * lv - (vres - 1))
+        newlndxs = np.linspace(0, ll - 1, lres * ll - (lres - 1))
+        hru = np.interp(newundxs, *nus)
+        hrv = np.interp(newvndxs, *nvs)
+        hrl = np.interp(newlndxs, *nls)
+        return hru, hrv, hrl
+
     def ev(self, su, sv, sl):
         """Get point(s) in volume at (su, sv, sl).
 
@@ -107,18 +177,19 @@ class RBFVolume(object):
 
         Returns
         -------
-        Returns an array of shape 3 x len(u) x len(v) x len(l)
+        Returns an array of shape len(u) x len(v) x len(l) x 3
         """
 
         U, V, L = np.meshgrid(su, sv, sl)
         uvl_s = np.array([U.ravel(),V.ravel(),L.ravel()]).T
-
+        
         X = self._xvol(uvl_s)
         Y = self._yvol(uvl_s)
         Z = self._zvol(uvl_s)
 
-        arr = np.array([X,Y,Z]).reshape(3, len(U), -1)
-        return arr
+        arr = np.array([X,Y,Z])
+        
+        return arr.reshape(3, len(U), -1)
 
     def inverse(self, xyz):
         """Get parametric coordinates (u, v, l) that correspond to the given x, y, z.
@@ -218,7 +289,7 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl):
+    def point_distance(self, su, sv, sl, axis=0, return_coords=True, return_zeros=False):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
@@ -234,19 +305,43 @@ class RBFVolume(object):
         v = np.array([sv]).reshape(-1,)
         l = np.array([sl]).reshape(-1,)
 
-        npts   = max(u.shape[0], v.shape[0])
-        pts    = self.ev(u, v, l).reshape(3, -1).T
+        axes = [u, v, l]
 
-        del u, v, l
-        distance = 0
+        aidx = [0,1,2]
+        aidx.remove(axis)
+
+        npts = axes[axis].shape[0]
         
+        distances = []
+        coords = [ [] for i in xrange(0,3) ]
         if npts > 1:
-            a = pts[1:,:]
-            b = pts[0:npts-1,:]
-            distance = np.sum(euclidean_distance(a, b))
+            paxes = [ axes[i] for i in aidx ]
+            prod = cartesian_product(paxes)
+            for ip, p in enumerate(prod):
+                ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
+                pts  = self.ev(*ecoords).reshape(3, -1).T                
+                a = pts[1:,:]
+                b = pts[0:npts-1,:]
+                if return_zeros:
+                    d = np.zeros(npts,)
+                    d[1:npts] = np.cumsum(euclidean_distance(a, b))
+                else:
+                    d = np.cumsum(euclidean_distance(a, b))
+                distances.append(d)
+                if return_coords:
+                    if return_zeros:
+                        pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
+                    else:
+                        pcoords = [ x[1:] if i == axis else np.repeat(p[aidx.index(i)],npts-1) for (i, x) in enumerate(axes) ]       
+                    for i, col in enumerate(pcoords):
+                        coords[i].append(col)
+        else:
+            prod = None
 
-                
-        return distance
+        if return_coords:
+            return distances, coords
+        else:
+            return distances
 
     def mplot_surface(self, ures=8, vres=8, **kwargs):
         """Plot the enclosing surfaces of the volume using Mayavi's `mesh()` function
@@ -342,7 +437,7 @@ class RBFVolume(object):
         hru, hrv = self._resample_uv(ures, vres)
         volpts = self.ev(hru, hrv, self.l)
 
-        src =  mlab.pipeline.scalar_scatter(*volpts, **kwargs)
+        src =  mlab.pipeline.scalar_scatter(*volpts.T, **kwargs)
         mlab.pipeline.volume(src, **kwargs)
         
         # Turn off perspective
@@ -442,7 +537,6 @@ def test_nodes():
     # remove nodes outside of the domain
     in_nodes = nodes[contains(nodes,vert,smp)]
 
-    print 'in_nodes shape: ', in_nodes.shape
     from mayavi import mlab
     vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
 
@@ -453,9 +547,6 @@ def test_nodes():
     return in_nodes, vol.inverse(in_nodes)
 
 def test_uv_isospline():
-
-    max_u = 11690.
-    max_v = 2956.
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
@@ -473,20 +564,9 @@ def test_uv_isospline():
 
         nupts = U.shape[0]
         nvpts = V.shape[0]
-            
-        print vol.point_distance(U, V[0], L)
-        print vol.point_distance(U[int(nupts/2)], V, L)
-
 
     from mayavi import mlab
         
-    spatial_resolution = 5.  # um
-    du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
-    dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
-    U = np.arange(-0.016*np.pi, 1.01*np.pi, du)
-    V = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
-    L = 1.0
-    
     U, V = vol._resample_uv(10, 10)
     L = np.asarray([1.0])
         
@@ -522,13 +602,36 @@ def test_tri():
     return vol, tri
     
 
+def test_point_distance():
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-1.0, 1., num=3)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size)
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    U, V = vol._resample_uv(5, 5)
+    L = np.asarray([1.0, 0.0, -1.0])
+    
+    dist, coords = vol.point_distance(U, V, L)
+    print dist
+    print coords
+    dist, coords = vol.point_distance(U, V[0], L)
+    print dist
+    print coords
+
+    
 
     
 if __name__ == '__main__':
-    test_uv_isospline()
-    test_nodes()
-    test_tri()
-    
+#    test_uv_isospline()
+#    test_nodes()
+#    test_tri()
+     test_point_distance()
+     
 
     
     

@@ -18,7 +18,6 @@ module load mpi4py
 
 export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
@@ -30,8 +29,8 @@ set -x
 
 ibrun -np 384 python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
-       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20171102.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20171110.h5 \
+       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20171206.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20171206.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Full_Scale_Control/dentate_Full_Scale_Control_coords_distances_20171109.h5 \
        --coords-namespace=Coordinates \
