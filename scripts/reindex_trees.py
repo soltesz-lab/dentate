@@ -60,7 +60,11 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     for gid, attr_dict in coords_map_gen:
         old_coords_dict[gid] = attr_dict
 
-    reindex_keys = random.sample(list(reindex_map1), population_count)
+    reindex_keys = None
+    if rank == 0:
+        reindex_keys = random.sample(list(reindex_map1), population_count)
+    reindex_keys = comm.bcast(reindex_keys, root=0)
+        
     reindex_map = { k : reindex_map1[k] for k in reindex_keys }
     
     new_coords_dict = {}
