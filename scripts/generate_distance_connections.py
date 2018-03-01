@@ -2,7 +2,7 @@
 ## Generates distance-weighted random connectivity between the specified populations.
 ##
 
-import sys, gc
+import sys, os, gc
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
 import dentate
