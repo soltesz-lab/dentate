@@ -41,24 +41,35 @@ def softmax(x):
     return e_x / e_x.sum()
 
 class VolumeDistance (object):
-    def __init__(self, ip_vol, res=2, step=1):
+    def __init__(self, ip_vol, res=2, step=1, verbose=False):
         U, V, L = ip_vol._resample_uvl(res, res, res)
 
+        if verbose:
+            logger.info('Computing U distances...')
         ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
-        ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
 
+        if verbose:
+            logger.info('Creating U interpolant...')
         distances_u = np.concatenate(ldist_u)
         obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
                             np.concatenate(obs_dist_u[1]), \
                             np.concatenate(obs_dist_u[2])]).T
         sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
         self.dist_u = RBFInterpolant(obs_uvl[sample_inds,:],distances_u[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
-
+        del ldist_u, obs_dist_u
+        
+        if verbose:
+            print 'Computing V distances...'
+        ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
+        if verbose:
+            print 'Creating V interpolant...'
         distances_v = np.concatenate(ldist_v)
         obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
                             np.concatenate(obs_dist_v[1]), \
                             np.concatenate(obs_dist_v[2])]).T
+        sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
         self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
+        del ldist_v, obs_dist_v
     
     
 class ConnectionProb(object):

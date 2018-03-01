@@ -74,7 +74,10 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     if rank == 0:
         logger.info('Computing volume distances...')
-    ip_dist = VolumeDistance(ip_volume, res=resample_volume)
+        ip_dist = VolumeDistance(ip_volume, res=resample_volume, verbose=True)
+    else:
+        ip_dist = VolumeDistance(ip_volume, res=resample_volume)
+        
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
