@@ -19,14 +19,15 @@ module load python
 
 set -x
 
-export PYTHONPATH=$HOME/model/dentate:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrn/lib/python:$PYTHONPATH
 
 
 srun -n 1024 python ./scripts/distribute_synapse_locs.py \
+ --distribution=poisson \
  --config=./config/Full_Scale_Control.yaml  \
  --template-path=$HOME/model/dgc/Mateos-Aparicio2014 \
- --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20171019_compressed.h5 \
+ --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20180228.h5 \
  --populations=GC \
  --io-size=64 --cache-size=$((8 * 1024 * 1024)) \
  --chunk-size=10000 --value-chunk-size=50000

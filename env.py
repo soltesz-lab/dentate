@@ -89,7 +89,7 @@ class Env:
             celltypes[k]['num'] = population_ranges[k][1]
 
         population_names  = read_population_names(dataFilePath, comm=self.comm)
-        self.cellAttributeInfo = read_cell_attribute_info (population_names, dataFilePath, comm=self.comm)
+        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, self.comm)
             
     def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):

@@ -4,8 +4,8 @@
 #SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
 #SBATCH -N 64
 #SBATCH --ntasks-per-node=32
-#SBATCH -p regular
-#SBATCH -t 4:00:00
+#SBATCH -p debug
+#SBATCH -t 0:30:00
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -28,6 +28,7 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 export PYTHONPATH=$HOME/model/dentate:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrn/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/.local/cori/2.7-anaconda/lib/python2.7/site-packages:$PYTHONPATH
+export LD_PRELOAD=/lib64/libreadline.so.6
 
 echo python is `which python`
 
