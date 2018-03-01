@@ -9,7 +9,7 @@ import dentate
 from dentate.connection_generator import VolumeDistance, ConnectionProb, generate_uv_distance_connections
 from dentate.DG_volume import make_volume
 from dentate.env import Env
-import utils
+import dentate.utils as utils
 import click
 import logging
 logging.basicConfig()

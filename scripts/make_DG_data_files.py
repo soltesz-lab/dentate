@@ -46,12 +46,12 @@ f = h5py.File(DG_cells_file)
 
 grp = f.create_group("Populations")
                 
-for p in populations:
+for p in DG_populations:
     grp.create_group(p)
 
 for p in DG_populations:
     coords_file = coordinate_files[p]
-    coords_ns   = coordsinate_namespaces[p]
+    coords_ns   = coordinate_namespaces[p]
     grp[p]["Coordinates"] = h5py.ExternalLink(coords_file,"/Populations/%s/%s" % (p, coords_ns))
 
 f.close()

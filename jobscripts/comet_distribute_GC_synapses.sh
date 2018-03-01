@@ -19,7 +19,7 @@ module load mpi4py
 export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
@@ -27,8 +27,9 @@ ulimit -c unlimited
 set -x
 
 ibrun -np 1536 python ./scripts/distribute_synapse_locs.py \
+              --distribution=poisson \
               --config=./config/Full_Scale_Control.yaml \
               --template-path=$HOME/model/dgc/Mateos-Aparicio2014 --populations=GC \
-              --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20171031.h5 \
+              --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20180228.h5 \
               --io-size=128 --cache-size=$((8 * 1024 * 1024)) \
-              --chunk-size=10000 --value-chunk-size=50000
+              --chunk-size=10000 --value-chunk-size=50000 -v
