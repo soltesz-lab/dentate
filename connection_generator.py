@@ -41,7 +41,7 @@ def softmax(x):
     return e_x / e_x.sum()
 
 class VolumeDistance (object):
-    def __init__(self, ip_vol, res=5, step=10):
+    def __init__(self, ip_vol, res=2, step=1):
         U, V, L = ip_vol._resample_uvl(res, res, res)
 
         ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
