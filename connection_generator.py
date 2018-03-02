@@ -18,13 +18,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except:
-    pass
-
-
 def list_index (element, lst):
     try:
         index_element = lst.index(element)
@@ -42,6 +35,11 @@ def softmax(x):
 
 class VolumeDistance (object):
     def __init__(self, ip_vol, res=2, step=1, verbose=False):
+        if verbose:
+            logger.setLevel(logging.INFO)
+
+        if verbose:
+            logger.info('Resampling volume...')
         U, V, L = ip_vol._resample_uvl(res, res, res)
 
         if verbose:
