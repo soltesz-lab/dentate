@@ -57,10 +57,10 @@ class VolumeDistance (object):
         del ldist_u, obs_dist_u
         
         if verbose:
-            print 'Computing V distances...'
+            logger.info('Computing V distances...')
         ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
         if verbose:
-            print 'Creating V interpolant...'
+            logger.info('Creating V interpolant...')
         distances_v = np.concatenate(ldist_v)
         obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
                             np.concatenate(obs_dist_v[1]), \
