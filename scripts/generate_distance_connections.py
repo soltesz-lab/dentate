@@ -5,6 +5,7 @@
 import sys, os, gc
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
+import h5py
 import dentate
 from dentate.connection_generator import VolumeDistance, ConnectionProb, generate_uv_distance_connections
 from dentate.DG_volume import make_volume
@@ -49,7 +50,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     if rank==0:
         if not os.path.isfile(connectivity_path):
             input_file  = h5py.File(coords_path,'r')
-            output_file = h5py.File(output_path,'w')
+            output_file = h5py.File(connectivity_path,'w')
             input_file.copy('/H5Types',output_file)
             input_file.close()
             output_file.close()
@@ -70,14 +71,15 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
     if rank == 0:
         logger.info('Creating volume...')
-    ip_volume = make_volume(-3.95, 3.2)
+    ip_volume = make_volume(-3.95, 3.2, ures=20, vres=15, lres=10)
 
     if rank == 0:
         logger.info('Computing volume distances...')
         ip_dist = VolumeDistance(ip_volume, res=resample_volume, verbose=True)
     else:
         ip_dist = VolumeDistance(ip_volume, res=resample_volume)
-        
+
+    soma_distances = get_soma_distances(ip_dist, soma_coords)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
@@ -86,15 +88,17 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     for destination_population in populations:
 
         if rank == 0:
-            logger.info('Generating connections for population %s...' % destination_population)
+            logger.info('Generating connection probabilities for population %s...' % destination_population)
 
-        connection_prob = ConnectionProb(destination_population,
-                                         soma_coords, ip_dist, extent)
+        connection_prob = ConnectionProb(destination_population, soma_distances, extent)
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         
         connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
         connectivity_namespace = 'Connections'
+
+        if rank == 0:
+            logger.info('Generating connections for population %s...' % destination_population)
 
         populations_dict = env.modelConfig['Definitions']['Populations']
         generate_uv_distance_connections(comm, populations_dict,

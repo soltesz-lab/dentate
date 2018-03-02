@@ -32,6 +32,7 @@ def random_choice_w_replacement(ranstream,n,p):
 def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
+    
 
 class VolumeDistance (object):
     def __init__(self, ip_vol, res=2, step=1, verbose=False):
@@ -68,7 +69,7 @@ class VolumeDistance (object):
         sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
         self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
         del ldist_v, obs_dist_v
-    
+
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -77,32 +78,22 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, ip_dist, extent, nstdev = 5., res=5):
+    def __init__(self, destination_population, soma_distances, extent, nstdev = 5., res=5):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
         :param destination_population: post-synaptic population name
-        :param soma_coords: a dictionary that contains per-population dicts of u, v, l coordinates of cell somas
-        :param ip_dist: an instance of VolumeDist; it will be used for distance calculations
+        :param soma_distances: a dictionary that contains per-population dicts of u, v distances of cell somas
         :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
         """
         self.destination_population = destination_population
         self.soma_coords = soma_coords
-        self.soma_distances = {}
+        self.soma_distances = soma_distances
         self.p_dist = {}
         self.width  = {}
         self.offset = {}
         self.sigma  = {}
 
-        for pop, coords_dict in soma_coords.iteritems():
-            dist_dict = {}
-            for gid, coords in coords_dict.iteritems():
-                soma_u, soma_v, soma_l = coords
-                uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
-                distance_u = ip_dist.dist_u(uvl_obs)
-                distance_v = ip_dist.dist_v(uvl_obs)
-                dist_dict[gid] = (distance_u, distance_v)
-            self.soma_distances[pop] = dist_dict
         
         for source_population in extent:
             extent_width  = extent[source_population]['width']
@@ -195,6 +186,18 @@ class ConnectionProb(object):
         return p1, source_gid, distance_u, distance_v
 
     
+def get_soma_distances(ip_dist, soma_coords):
+    soma_distances = {}
+    for pop, coords_dict in soma_coords.iteritems():
+        dist_dict = {}
+        for gid, coords in coords_dict.iteritems():
+            soma_u, soma_v, soma_l = coords
+            uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
+            distance_u = ip_dist.dist_u(uvl_obs)
+            distance_v = ip_dist.dist_v(uvl_obs)
+            dist_dict[gid] = (distance_u, distance_v)
+        soma_distances[pop] = dist_dict
+    return soma_distances
     
 def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict):
     """Given a synapse projection, SWC synapse location, and synapse
@@ -366,8 +369,10 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             projection_prob_dict = {}
             for source_population in source_populations:
                 probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)
+                max_u_distance = np.max(distances_u)
+                min_u_distance = np.min(distances_u)
                 projection_prob_dict[source_population] = (probs, source_gids, distances_u, distances_v)
-                logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
+                logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
 
             
             count = generate_synaptic_connections(ranstream_syn,
@@ -395,7 +400,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                     for (prj, prj_dict) in  connection_dict.iteritems():
                         logger.info("%s: %s" % (prj, str(prj_dict.keys())))
                     logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
-            sys.stdout.flush()
             connection_dict.clear()
             gc.collect()
             
