@@ -17,7 +17,6 @@ import utils
 import logging
 logger = logging.getLogger(__name__)
 
-
 def list_index (element, lst):
     try:
         index_element = lst.index(element)
@@ -34,42 +33,6 @@ def softmax(x):
     return e_x / e_x.sum()
     
 
-class VolumeDistance (object):
-    def __init__(self, ip_vol, res=2, step=1, verbose=False):
-        if verbose:
-            logger.setLevel(logging.INFO)
-
-        if verbose:
-            logger.info('Resampling volume...')
-        U, V, L = ip_vol._resample_uvl(res, res, res)
-
-        if verbose:
-            logger.info('Computing U distances...')
-        ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
-
-        if verbose:
-            logger.info('Creating U interpolant...')
-        distances_u = np.concatenate(ldist_u)
-        obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
-                            np.concatenate(obs_dist_u[1]), \
-                            np.concatenate(obs_dist_u[2])]).T
-        sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
-        self.dist_u = RBFInterpolant(obs_uvl[sample_inds,:],distances_u[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
-        del ldist_u, obs_dist_u
-        
-        if verbose:
-            logger.info('Computing V distances...')
-        ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
-        if verbose:
-            logger.info('Creating V interpolant...')
-        distances_v = np.concatenate(ldist_v)
-        obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
-                            np.concatenate(obs_dist_v[1]), \
-                            np.concatenate(obs_dist_v[2])]).T
-        sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
-        self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
-        del ldist_v, obs_dist_v
-
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -78,7 +41,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_distances, extent, nstdev = 5., res=5):
+    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5., res=5):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -185,20 +148,69 @@ class ConnectionProb(object):
             plt.close()
         return p1, source_gid, distance_u, distance_v
 
-    
-def get_soma_distances(ip_dist, soma_coords):
+
+def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
+    if verbose:
+        logger.setLevel(logging.INFO)
+
+    if verbose:
+        logger.info('Resampling volume...')
+    U, V, L = ip_vol._resample_uvl(res, res, res)
+
+    if verbose:
+        logger.info('Computing U distances...')
+    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
+
+    obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
+                        np.concatenate(obs_dist_u[1]), \
+                        np.concatenate(obs_dist_u[2])]).T
+    sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
+    obs_u = obs_uvl[sample_inds,:]
+    distances_u = np.concatenate(ldist_u)[sample_inds]
+    #self.dist_u = RBFInterpolant(,distances_u[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
+    #del ldist_u, obs_dist_u
+        
+    if verbose:
+        logger.info('Computing V distances...')
+    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
+    obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
+                        np.concatenate(obs_dist_v[1]), \
+                        np.concatenate(obs_dist_v[2])]).T
+    sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
+    obs_v = obs_uvl[sample_inds,:]    
+    distances_v = np.concatenate(ldist_v)[sample_inds]
+    #self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
+    #del ldist_v, obs_dist_v
+
+    return (distances_u, obs_u, distances_v, obs_v)
+
+
+
+        
+def get_soma_distances(comm, dist_u, dist_v, soma_coords):
+    rank = comm.rank
+    size = comm.size
+
     soma_distances = {}
     for pop, coords_dict in soma_coords.iteritems():
-        dist_dict = {}
+        local_dist_dict = {}
         for gid, coords in coords_dict.iteritems():
-            soma_u, soma_v, soma_l = coords
-            uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
-            distance_u = ip_dist.dist_u(uvl_obs)
-            distance_v = ip_dist.dist_v(uvl_obs)
-            dist_dict[gid] = (distance_u, distance_v)
-        soma_distances[pop] = dist_dict
+            if gid % size == rank:
+                soma_u, soma_v, soma_l = coords
+                uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
+                distance_u = dist_u(uvl_obs)
+                distance_v = dist_v(uvl_obs)
+                local_dist_dict[gid] = (distance_u, distance_v)
+        dist_dicts = comm.allgather(local_dist_dict)
+        combined_dist_dict = {}
+        for dist_dict in dist_dicts:
+            for k, v in dist_dict.iteritems():
+                combined_dist_dict[k] = v
+        soma_distances[pop] = combined_dist_dict
     return soma_distances
-    
+
+
+
 def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict):
     """Given a synapse projection, SWC synapse location, and synapse
     type, chooses a projection from the given projection dictionary
@@ -369,10 +381,14 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             projection_prob_dict = {}
             for source_population in source_populations:
                 probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)
-                max_u_distance = np.max(distances_u)
-                min_u_distance = np.min(distances_u)
                 projection_prob_dict[source_population] = (probs, source_gids, distances_u, distances_v)
-                logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
+                if len(distances_u) > 0:
+                    max_u_distance = np.max(distances_u)
+                    min_u_distance = np.min(distances_u)
+                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
+                else:
+                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
+                    
 
             
             count = generate_synaptic_connections(ranstream_syn,

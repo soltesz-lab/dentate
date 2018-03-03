@@ -3,11 +3,16 @@
 ##
 
 import sys, os, gc
+import dill
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
 import h5py
+import numpy as np
+import rbf
+from rbf.interpolate import RBFInterpolant
+import rbf.basis
 import dentate
-from dentate.connection_generator import VolumeDistance, ConnectionProb, generate_uv_distance_connections
+from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections, get_volume_distances, get_soma_distances
 from dentate.DG_volume import make_volume
 from dentate.env import Env
 import dentate.utils as utils
@@ -69,17 +74,31 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
+
+    vol_dist = None
     if rank == 0:
         logger.info('Creating volume...')
-    ip_volume = make_volume(-3.95, 3.2, ures=20, vres=15, lres=10)
+        ip_volume = make_volume(-3.95, 3.2, ures=20, vres=15, lres=10)
+        logger.info('Computing volume distances...')
+        vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
+        logger.info('Broadcasting volume distances...')
+        
+    vol_dist = comm.bcast(vol_dist, root=0)
+    if rank == 0:
+        logger.info('Computing volume distance interpolants...')
+
+    step=1
+    (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
+    ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
+    del dist_u, obs_dist_u
+
+    sample_inds = np.arange(0, obs_dist_v.shape[0]-1, step)
+    ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
+    del dist_v, obs_dist_v
 
     if rank == 0:
-        logger.info('Computing volume distances...')
-        ip_dist = VolumeDistance(ip_volume, res=resample_volume, verbose=True)
-    else:
-        ip_dist = VolumeDistance(ip_volume, res=resample_volume)
-
-    soma_distances = get_soma_distances(ip_dist, soma_coords)
+        logger.info('Computing soma distances...')
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
@@ -90,7 +109,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         if rank == 0:
             logger.info('Generating connection probabilities for population %s...' % destination_population)
 
-        connection_prob = ConnectionProb(destination_population, soma_distances, extent)
+        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         

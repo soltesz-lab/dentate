@@ -289,7 +289,7 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl, axis=0, return_coords=True, return_zeros=False):
+    def point_distance(self, su, sv, sl, axis=0, return_coords=True, return_zeros=False, verbose=False):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
@@ -318,6 +318,8 @@ class RBFVolume(object):
             paxes = [ axes[i] for i in aidx ]
             prod = cartesian_product(paxes)
             for ip, p in enumerate(prod):
+                if verbose:
+                    print 'RBF point distance: ', p
                 ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
                 pts  = self.ev(*ecoords).reshape(3, -1).T                
                 a = pts[1:,:]
