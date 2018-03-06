@@ -19,6 +19,7 @@ logger = logging.getLogger(script_name)
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", type=str)
+@click.option("--output-path", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--distribution", type=str, default='uniform')
@@ -27,7 +28,7 @@ logger = logging.getLogger(script_name)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, template_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
+def main(config, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
          cache_size, verbose):
     """
 
@@ -63,7 +64,10 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
     h.templatePaths = h.List()
     for path in env.templatePaths:
         h.templatePaths.append(h.Value(1,path))
-    
+
+    if output_path is None:
+        output_path = forest_path
+        
     (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
     for population in populations:
@@ -104,7 +108,7 @@ def main(config, template_path, forest_path, populations, distribution, io_size,
                 count += 1
             else:
                 logger.info('Rank %i gid is None' % rank)
-            append_cell_attributes(forest_path, population, synapse_dict,
+            append_cell_attributes(output_path, population, synapse_dict,
                                     namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                     value_chunk_size=value_chunk_size, cache_size=cache_size)
             del synapse_dict
