@@ -1,4 +1,4 @@
-
+import os
 from dentate.utils import *
 import numpy as np
 from mpi4py import MPI
@@ -67,6 +67,15 @@ def main(config, template_path, output_path, forest_path, populations, distribut
 
     if output_path is None:
         output_path = forest_path
+
+    if rank==0:
+        if not os.path.isfile(output_path):
+            input_file  = h5py.File(forest_path,'r')
+            output_file = h5py.File(output_path,'w')
+            input_file.copy('/H5Types',output_file)
+            input_file.close()
+            output_file.close()
+    comm.barrier()
         
     (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
