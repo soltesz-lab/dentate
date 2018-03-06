@@ -6,8 +6,8 @@ DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP"]
 
 DG_GC_coordinate_file  = "DGC_forest_reindex_compressed_20180224.h5"
-DG_IN_coordinate_file  = "dentate_generated_coords_20180214.h5"
-DG_EXT_coordinate_file = "dentate_generated_coords_20180214.h5"
+DG_IN_coordinate_file  = "dentate_generated_coords_20180305.h5"
+DG_EXT_coordinate_file = "dentate_generated_coords_20180305.h5"
 
 coordinate_files = {
      'AAC':  DG_IN_coordinate_file,

@@ -7,6 +7,7 @@ Random Seeds: !include Random.yaml
 Cell Data: DG_Cells_Full_Scale_log_normal_weights_20171206.h5
 Connection Data: DG_Connections_Full_Scale_20171206.h5
 Connection Generator: !include Full_Scale_Connections_log_normal_weights.yaml
+LFP: !include LFP.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:
@@ -27,6 +28,9 @@ Cell Types:
              mean: 2.02
              variance: 0.28
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            GCL: # layer
+              mean: 1.0
+              variance: 0.01
             IML: # layer
               mean: 1.0
               variance: 0.01

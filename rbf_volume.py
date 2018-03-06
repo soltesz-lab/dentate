@@ -448,7 +448,7 @@ class RBFVolume(object):
         return fig
 
 
-    def create_triangulation(self, ures=8, vres=8, **kwargs):
+    def create_triangulation(self, ures=2, vres=2, **kwargs):
         """Compute the triangulation of the volume using scipy's
         `delaunay` function
 

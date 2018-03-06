@@ -160,7 +160,7 @@ Synapse Layers:
       NGFC: [MML, OML]
       AAC:  [GCL]
       BC:   [GCL, IML]
-      MOPP: [IML, MML]
+      MOPP: [MML, OML]
       HCC:  [IML]
       HC:   [MML, OML]
     MC:
@@ -169,7 +169,7 @@ Synapse Layers:
       HC:  [IML]
       BC:  [Hilus]
       AAC: [Hilus]
-      HCC: [IML]
+      HCC: [Hilus]
     HC:
       GC:  [Hilus]
       MC:  [GCL]
@@ -183,7 +183,7 @@ Synapse Layers:
       BC:   [GCL, IML]
       HCC:  [Hilus]
       NGFC: [MML, OML]
-      MOPP: [IML]
+      MOPP: [MML, OML]
       IS:   [Hilus]
       MPP:  [MML]
       LPP:  [OML]
@@ -192,7 +192,7 @@ Synapse Layers:
       MC:   [GCL]
       HC:   [MML]
       NGFC: [MML]
-      MOPP: [IML, MML]
+      MOPP: [MML]
     HCC:
       GC:   [Hilus, GCL]
       MC:   [GCL]
@@ -894,3 +894,32 @@ Connection Properties:
       GABA_A:
         weight: 1.0
         velocity: 250.0
+Gap Junctions:
+  Connection Probabilities:
+    AAC, BC, HC, IS, HCC, NGFC, MOPP:
+      - [0.286, 0.0,   0.0,  0.0,  0.0,   0.0,   0.0]
+      - [0.286, 0.286, 0.0,  0.0,  0.0,   0.0,   0.0]
+      - [0.0,   0.0,   0.19, 0.0,  0.0,   0.0,   0.0]
+      - [0.0,   0.0,   0.19, 0.19, 0.0,   0.0,   0.0]
+      - [0.0,   0.0,   0.0,  0.0,  0.085, 0.0,   0.0]
+      - [0.786, 0.786, 0.0,  0.0,  0.786, 0.786, 0.0]
+      - [0.786, 0.786, 0.0,  0.0,  0.786, 0.786, 0.786]
+  ## Distance-dependent connection weights,
+  ## based on Fig. 1C from Otsuka 2013
+  Connection Weights: { 0: 1.0, 25: 0.429, 75: 0.405, 125: 0.345, 175: 0.08 }
+  Coupling Coefficients:
+    AAC:
+      AAC: 0.017
+    BC:
+      BC: 0.017
+    HC:
+      HC: 0.13
+    HCC:
+      HCC: 0.04
+    NGFC:
+      NGFC: 0.0385
+    MOPP:
+      MOPP: 0.0385
+  ## Distance-dependent coupling coefficient weights,
+  ## Based on Fig. 6B from Amitai 2002
+  Coupling Weights: { 0: 1.0, 25: 0.5, 75: 0.375, 125: 0.1875, 175: 0.1875 }

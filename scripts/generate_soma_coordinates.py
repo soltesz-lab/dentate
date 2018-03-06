@@ -17,7 +17,12 @@ import rbf
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
 from alphavol import alpha_shape
+import logging
 
+logging.basicConfig()
+
+script_name = "generate_soma_coordinates.py"
+logger = logging.getLogger(script_name)
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -25,11 +30,15 @@ from alphavol import alpha_shape
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
+@click.option("--alpha-radius", type=float, default=120.)
+@click.option("--rotate", type=float)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', type=bool, default=False, is_flag=True)
-def main(config, types_path, output_path, output_namespace, populations, io_size, chunk_size, value_chunk_size, verbose):
+def main(config, types_path, output_path, output_namespace, populations, alpha_radius, rotate, io_size, chunk_size, value_chunk_size, verbose):
+    if verbose:
+        logger.setLevel(logging.INFO)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -37,7 +46,7 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        logger.info('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     if rank==0:
@@ -56,11 +65,10 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
 
     population_ranges = read_population_ranges(output_path, comm)[0]
 
-    print 'population_ranges: ', population_ranges
     for population in populations:
 
         if verbose and (rank == 0):
-            print 'population: ',population
+            logger.info( 'population: %s' % population )
 
         (population_start, population_count) = population_ranges[population]
 
@@ -83,13 +91,21 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
                     pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
 
         if verbose and (rank == 0):
-            print 'min extent: ',pop_min_extent
-            print 'max extent: ',pop_max_extent
+            logger.info('min extent: %f %f %f' % (pop_min_extent[0],pop_min_extent[1],pop_min_extent[2]))
+            logger.info('max extent: %f %f %f' % (pop_max_extent[0],pop_max_extent[1],pop_max_extent[2]))
 
-        vol = make_volume(pop_min_extent[2], pop_max_extent[2])
+        if verbose:
+            logger.info("Constructing volume...")
+        vol = make_volume(pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+        if verbose:
+            logger.info("Volume constructed")
             
+        if verbose:
+            logger.info("Constructing alpha shape...")
         tri = vol.create_triangulation()
-        alpha = alpha_shape([], 120., tri=tri)
+        alpha = alpha_shape([], alpha_radius, tri=tri)
+        if verbose:
+            logger.info("Alpha shape constructed")
     
         vert = alpha.points
         smp  = np.asarray(alpha.bounds, dtype=np.int64)
@@ -98,6 +114,8 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
         node_count = 0
         itr = 10
 
+        if verbose:
+            logger.info("Generating %i nodes..." % N)
         while node_count < population_count:
             # create N quasi-uniformly distributed nodes
             nodes, smpid = menodes(N,vert,smp,itr=itr)
@@ -107,6 +125,8 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
                               
             node_count = len(in_nodes)
             itr = int(itr / 2)
+        if verbose:
+            logger.info("%i nodes generated" % node_count)
 
         sampled_idxs  = np.random.randint(0, node_count-1, size=int(population_count))
 
@@ -115,6 +135,8 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
             
         xyz_error = np.asarray([0.0, 0.0, 0.0])
         for i in xrange(0,population_count):
+            if verbose:
+                logger.info('cell %i' % i)
             xyz_coords1 = vol(uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]).ravel()
             xyz_error   = np.add(xyz_error, np.abs(np.subtract(xyz_coords[i,:], xyz_coords1)))
             coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
@@ -122,7 +144,7 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
                            
         xyz_error = np.divide(xyz_error, np.asarray([population_count, population_count, population_count], dtype=np.float))
         if verbose:
-            print "mean XYZ error: ", xyz_error
+            logger.info("mean XYZ error: %f %f %f " % (xyz_error[0], xyz_error[1], xyz_error[2]))
                                
 
         coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
@@ -142,4 +164,4 @@ def main(config, types_path, output_path, output_namespace, populations, io_size
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("generate_soma_coordinates.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
