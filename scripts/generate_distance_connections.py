@@ -3,7 +3,6 @@
 ##
 
 import sys, os, gc
-import dill
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
 import h5py
@@ -78,7 +77,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     vol_dist = None
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(-3.95, 3.2, ures=10, vres=10, lres=10)
+        ip_volume = make_volume(-3.95, 3.2, ures=16, vres=15, lres=10)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
         logger.info('Broadcasting volume distances...')
