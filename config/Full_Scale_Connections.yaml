@@ -190,7 +190,7 @@ Synapse Layers:
     AAC:
       GC:   [Hilus, GCL]
       MC:   [GCL]
-      HC:   [MML]
+      HC:   [IML, MML]
       NGFC: [MML, OML]
       MOPP: [MML, OML]
     HCC:
