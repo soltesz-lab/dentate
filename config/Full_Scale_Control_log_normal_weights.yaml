@@ -143,6 +143,9 @@ Cell Types:
               variance: 0.1
         basal:
           excitatory: # excitatory
+            Hilus: # layer
+             mean: 1.0 
+             variance: 0.2
             GCL: # layer
               mean: 1.0
               variance: 0.2
