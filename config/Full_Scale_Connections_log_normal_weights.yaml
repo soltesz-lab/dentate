@@ -190,7 +190,7 @@ Synapse Layers:
     AAC:
       GC:   [Hilus, GCL]
       MC:   [GCL]
-      HC:   [MML]
+      HC:   [IML, MML]
       NGFC: [MML, OML]
       MOPP: [MML, OML]
     HCC:
@@ -253,7 +253,7 @@ Synapse Proportions:
   AAC:
     GC:   [0.5, 0.5]
     MC:   [0.5]
-    HC:   [0.9]
+    HC:   [1.0, 0.9]
     NGFC: [0.05, 1.0]
     MOPP: [1.0, 0.05]
   HCC:
@@ -334,10 +334,6 @@ Synapse Kinetics:
           t_rise:  0.1
           t_decay: 10.0
           e_rev:   -75
-        GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev:   -90
   MC:
       GC:
         AMPA:
@@ -445,10 +441,6 @@ Synapse Kinetics:
           t_rise:   4.2
           t_decay: 14.0
           e_rev:    -75
-        GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev:   -90
       IS:
         GABA_A:
           t_rise: 0.46
@@ -484,10 +476,6 @@ Synapse Kinetics:
           t_rise:  4.2
           t_decay: 14.0
           e_rev: -75
-        GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev: -90
       IS:
         GABA_A:
           t_rise: 0.46
@@ -524,10 +512,6 @@ Synapse Kinetics:
           t_rise:  4.2
           t_decay: 16.2
           e_rev: -75
-        GABA_B:
-          t_rise: 86.8
-          t_decay: 428.1
-          e_rev: -90
       NGFC:
         GABA_A:
           t_rise:  4.2
@@ -612,10 +596,6 @@ Synapse Kinetics:
           t_rise:  4.5
           t_decay: 13.8
           e_rev: -75
-        GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev: -90
   IS:
       GC:
         AMPA:
@@ -659,9 +639,6 @@ Connection Properties:
     MOPP:
       GABA_A:
         weight: 1.2
-        velocity: 250.0
-      GABA_B:
-        weight: 1.1
         velocity: 250.0
     MPP:
       AMPA:
@@ -753,9 +730,6 @@ Connection Properties:
       GABA_A:
         weight: 0.2
         velocity: 250.0
-      GABA_B:
-        weight: 0.1
-        velocity: 250.0
     LPP:
       AMPA:
         weight: 0.5
@@ -792,9 +766,6 @@ Connection Properties:
       GABA_A:
         weight: 0.2
         velocity: 250.0
-      GABA_B:
-        weight: 0.1
-        velocity: 250.0
   NGFC:
     HC:
       GABA_A:
@@ -810,9 +781,6 @@ Connection Properties:
     MOPP:
       GABA_A:
         weight: 0.113
-        velocity: 250.0
-      GABA_B:
-        weight: 0.169
         velocity: 250.0
     GC:
       AMPA:
@@ -834,9 +802,6 @@ Connection Properties:
     MOPP:
       GABA_A:
         weight: 0.113
-        velocity: 250.0
-      GABA_B:
-        weight: 0.169
         velocity: 250.0
     HC:
       GABA_A:
@@ -877,9 +842,6 @@ Connection Properties:
     MOPP:
       GABA_A:
         weight: 0.168
-        velocity: 250.0
-      GABA_B:
-        weight: 0.215
         velocity: 250.0
     IS:
       GABA_A:

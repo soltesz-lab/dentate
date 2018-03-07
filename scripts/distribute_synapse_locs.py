@@ -4,6 +4,7 @@ import numpy as np
 from mpi4py import MPI
 from neuron import h
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
+import h5py
 import dentate
 from dentate.env import Env
 import dentate.cells as cells
