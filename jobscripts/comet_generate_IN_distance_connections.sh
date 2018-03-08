@@ -2,9 +2,9 @@
 #
 #SBATCH -J generate_IN_distance_connections
 #SBATCH -o ./results/generate_IN_distance_connections.%j.o
-#SBATCH --nodes=64
+#SBATCH --nodes=36
 #SBATCH --ntasks-per-node=12
-#SBATCH -t 5:00:00
+#SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -27,12 +27,13 @@ ulimit -c unlimited
 set -x
 
 
-ibrun -np 768 python ./scripts/generate_distance_connections.py \
+ibrun -np 432 python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
-       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20180115.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180228.h5 \
+       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20180304.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180307.h5 \
        --connectivity-namespace=Connections \
-       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_cells_20180228.h5 \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_cells_20180305.h5 \
        --coords-namespace=Coordinates \
-       --io-size=128 --cache-size=1
+       --resample-volume=2 \
+       --io-size=48 --cache-size=1 -v
 

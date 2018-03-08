@@ -115,8 +115,8 @@ class ConnectionProb(object):
                 (distance_v <= source_width['v'] / 2. + source_offset['v'])):
                 source_u_lst.append(source_u)
                 source_v_lst.append(source_v)
-                distance_u_lst.append(source_distance_u)
-                distance_v_lst.append(source_distance_v)
+                distance_u_lst.append(distance_u)
+                distance_v_lst.append(distance_v)
                 source_gid_lst.append(source_gid)
 
         return destination_u, destination_v, np.asarray(source_u_lst), np.asarray(source_v_lst), np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
@@ -357,8 +357,9 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     source_populations = connection_config[destination_population].keys()
 
     for source_population in source_populations:
-        logger.info('%s -> %s:' % (source_population, destination_population))
-        logger.info(str(connection_config[destination_population][source_population]))
+        if rank == 0:
+            logger.info('%s -> %s:' % (source_population, destination_population))
+            logger.info(str(connection_config[destination_population][source_population]))
                            
     projection_synapse_dict = {source_population: (connection_config[destination_population][source_population].synapse_layers,
                                                    set(connection_config[destination_population][source_population].synapse_locations),
