@@ -12,7 +12,9 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
 import h5py
 from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen
-import spikedata, statedata, stimulus
+import dentate
+from dentate import spikedata, statedata, stimulus
+from dentate.env import Env
 
 color_list = ["#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -124,6 +126,67 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
         show_figure()
     
     return ax
+
+def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=50., rotate=None, verbose=False):
+    
+    env = Env(configFile=config)
+
+    min_extents = env.geometry['Parametric Surface']['Minimum Extent']
+    max_extents = env.geometry['Parametric Surface']['Maximum Extent']
+
+    pop_max_extent = None
+    pop_min_extent = None
+    for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+
+        layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
+        if layer_count > 0:
+            if pop_max_extent is None:
+                pop_max_extent = np.asarray(max_extent)
+            else:
+                pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
+            if pop_min_extent is None:
+                pop_min_extent = np.asarray(min_extent)
+            else:
+                pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+    
+    if verbose:
+        print('Reading coordinates...')
+
+    coords = read_cell_attributes(coords_path, population, namespace=coords_namespace)
+
+    
+    xcoords = []
+    ycoords = []
+    zcoords = []
+    for (k,v) in coords:
+        xcoords.append(v['X Coordinate'][0])
+        ycoords.append(v['Y Coordinate'][0])
+        zcoords.append(v['Z Coordinate'][0])
+        
+    pts = np.concatenate((np.asarray(xcoords).reshape(-1,1), \
+                          np.asarray(ycoords).reshape(-1,1), \
+                          np.asarray(zcoords).reshape(-1,1)),axis=1)
+
+    if verbose:
+        print('Creating volume...')
+
+    import DG_volume
+
+    vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
+
+    
+    if verbose:
+        print('Plotting volume...')
+
+    from mayavi import mlab
+    vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
+    
+    if verbose:
+        print('Plotting coordinates in volume...')
+
+    mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=15.0)
+    
+    mlab.show()
 
 
 
