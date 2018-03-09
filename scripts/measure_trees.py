@@ -105,10 +105,9 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
                 count += 1
             else:
                 logger.info('Rank %i gid is None' % rank)
-            append_cell_attributes(output_path, population, measures_dict,
-                                    namespace='Tree Measurements', comm=comm, io_size=io_size, chunk_size=chunk_size,
-                                    value_chunk_size=value_chunk_size, cache_size=cache_size)
-            gc.collect()
+        append_cell_attributes(output_path, population, measures_dict,
+                               namespace='Tree Measurements', comm=comm, io_size=io_size, chunk_size=chunk_size,
+                               value_chunk_size=value_chunk_size, cache_size=cache_size)
 
 
 
