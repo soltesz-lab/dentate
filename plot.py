@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
 import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen
+from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, read_trees
 import dentate
 from dentate import spikedata, statedata, stimulus
 from dentate.env import Env
@@ -45,6 +45,75 @@ def ifilternone(iterable):
             
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
+
+def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, **kwargs):
+    """ Shows graph edges using Mayavi
+
+        Parameters
+        -----------
+        x: ndarray
+            x coordinates of the points
+        y: ndarray
+            y coordinates of the points
+        z: ndarray
+            z coordinates of the points
+        edge_scalars: ndarray, optional
+            optional data to give the color of the edges.
+        kwargs:
+            extra keyword arguments are passed to quiver3d.
+    """
+    from mayavi import mlab
+    vec = mlab.quiver3d(x[start_idx],
+                        y[start_idx],
+                        z[start_idx],
+                        x[end_idx] - x[start_idx],
+                        y[end_idx] - y[start_idx],
+                        z[end_idx] - z[start_idx],
+                        scalars=edge_scalars,
+                        mode='2ddash',
+                        scale_factor=1,
+                        **kwargs)
+    if edge_scalars is not None:
+        vec.glyph.color_mode = 'color_by_scalar'
+    return vec
+
+
+def make_geometric_graph(x, y, z, edges):
+    """ Builds a NetworkX graph with xyz node coordinates and the node indices
+        of the end nodes.
+
+        Parameters
+        -----------
+        x: ndarray
+            x coordinates of the points
+        y: ndarray
+            y coordinates of the points
+        z: ndarray
+            z coordinates of the points
+        edges: the (2, N) array returned by compute_delaunay_edges()
+            containing node indices of the end nodes. Weights are applied to
+            the edges based on their euclidean length for use by the MST
+            algorithm.
+
+        Returns
+        ---------
+        g: A NetworkX undirected graph
+
+        Notes
+        ------
+        We don't bother putting the coordinates into the NX graph.
+        Instead the graph node is an index to the column.
+    """
+    import networkx as nx
+    xyz = np.array((x, y, z))
+    def euclidean_dist(i, j):
+        d = xyz[:,i] - xyz[:,j]
+        return np.sqrt(np.dot(d, d))
+
+    g = nx.Graph()
+    for i, j in edges:
+        g.add_edge(i, j, weight=euclidean_dist(i, j))
+    return g
 
 
 def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
@@ -127,7 +196,8 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
     
     return ax
 
-def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=50., rotate=None, verbose=False):
+
+def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, rotate=None, verbose=False):
     
     env = Env(configFile=config)
 
@@ -172,20 +242,131 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
 
     import DG_volume
 
-    vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
-
+    if subvol:
+        subvol = DG_volume.make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+    else:
+        vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
     
     if verbose:
         print('Plotting volume...')
 
     from mayavi import mlab
-    vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
+    if subvol:
+        subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
+    else:
+        vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
     
     if verbose:
         print('Plotting coordinates in volume...')
 
-    mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=15.0)
+    mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=scale)
     
+    mlab.show()
+
+
+    
+def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05, subvol=True, rotate=None, verbose=False):
+    
+    env = Env(configFile=config)
+
+    min_extents = env.geometry['Parametric Surface']['Minimum Extent']
+    max_extents = env.geometry['Parametric Surface']['Maximum Extent']
+
+    pop_max_extent = None
+    pop_min_extent = None
+    for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+
+        layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
+        if layer_count > 0:
+            if pop_max_extent is None:
+                pop_max_extent = np.asarray(max_extent)
+            else:
+                pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
+            if pop_min_extent is None:
+                pop_min_extent = np.asarray(min_extent)
+            else:
+                pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+    
+
+    if verbose:
+        print('Creating volume...')
+
+    import DG_volume
+
+    if subvol:
+        subvol = DG_volume.make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+    else:
+        vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
+    
+
+    import networkx as nx
+    from mayavi import mlab
+    
+    if verbose:
+        print('Plotting trees in volume...')
+
+    (trees, _) = read_trees(forest_path, population)
+    print trees
+    for (_,tree_dict) in trees:
+
+        s = np.random.random_sample()
+        if s <= sample:
+            xcoords = tree_dict['x']
+            ycoords = tree_dict['y']
+            zcoords = tree_dict['z']
+            swc_type = tree_dict['swc_type']
+
+            secnodes = tree_dict['section_topology']['nodes']
+            src      = tree_dict['section_topology']['src']
+            dst      = tree_dict['section_topology']['dst']
+
+            dend_idxs = np.where(swc_type == 4)[0]
+            dend_idx_set = set(dend_idxs.flat)
+
+            edges = []
+            for sec, nodes in secnodes.iteritems():
+                for i in xrange(1, len(nodes)):
+                    srcnode = nodes[i-1]
+                    dstnode = nodes[i]
+                    if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                        edges.append((srcnode, dstnode))
+            for (s,d) in itertools.izip(src,dst):
+                srcnode = secnodes[s][-1]
+                dstnode = secnodes[d][0]
+                if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                    edges.append((srcnode, dstnode))
+
+
+            x = xcoords[dend_idxs].reshape(-1,)
+            y = ycoords[dend_idxs].reshape(-1,)
+            z = zcoords[dend_idxs].reshape(-1,)
+
+            # Make a NetworkX graph out of our point and edge data
+            g = make_geometric_graph(x, y, z, edges)
+
+            # Compute minimum spanning tree using networkx
+            # nx.mst returns an edge generator
+            edges = nx.minimum_spanning_tree(g).edges(data=True)
+            start_idx, end_idx, _ = np.array(list(edges)).T
+            start_idx = start_idx.astype(np.int)
+            end_idx   = end_idx.astype(np.int)
+
+            # Plot this with Mayavi
+            plot_graph(x, y, z, start_idx, end_idx,
+                        edge_scalars=z[start_idx],
+                        opacity=0.8,
+                        colormap='summer',
+                        line_width=width)
+        else:
+            g = None
+            edges = []
+            
+    if verbose:
+        print('Plotting volume...')
+    if subvol:
+        subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
+    else:
+        vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
     mlab.show()
 
 

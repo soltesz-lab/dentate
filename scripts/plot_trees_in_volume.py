@@ -15,18 +15,19 @@ def list_find (f, lst):
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--coords-namespace", '-n', type=str, default='Generated Coordinates')
+@click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--population", '-i', type=str, required=True)
 @click.option("--rotate", type=float)
-@click.option("--scale", type=float, default=15.0)
+@click.option("--width", type=float, default=3.0)
+@click.option("--sample", type=float, default=0.05)
 @click.option("--subvol", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config, coords_path, coords_namespace, population, rotate, scale, subvol, verbose):
+def main(config, forest_path, population, rotate, width, sample, subvol, verbose):
         
-    plot.plot_coords_in_volume (population, coords_path, coords_namespace, config, \
-                                subvol=subvol, scale=scale, rotate=rotate, verbose=verbose)
+    plot.plot_trees_in_volume (population, forest_path, config, \
+                               sample=sample, subvol=subvol, width=width, rotate=rotate, \
+                                verbose=verbose)
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("plot_coords_in_volume.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find("plot_trees_in_volume.py") != -1,sys.argv)+1):])
