@@ -128,12 +128,10 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
 
     """
 
-    comm = MPI.COMM_WORLD
-
     dx = 100
     dy = 100
     
-    (population_ranges, _) = read_population_ranges(comm, coords_path)
+    (population_ranges, _) = read_population_ranges(coords_path)
 
     destination_start = population_ranges[destination][0]
     destination_count = population_ranges[destination][1]
@@ -148,7 +146,7 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
         print 'read in degrees (%i elements)' % len(in_degrees)
         print 'max: %i min: %i' % (np.max(in_degrees), np.min(in_degrees))
         
-    distances = read_cell_attributes(comm, coords_path, destination, namespace=distances_namespace)
+    distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
 
     
     soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
