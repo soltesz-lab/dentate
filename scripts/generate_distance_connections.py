@@ -97,7 +97,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     if rank == 0:
         logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords)
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, combined=True)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 

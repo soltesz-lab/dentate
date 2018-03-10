@@ -68,25 +68,29 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
         logger.info('Computing volume distance interpolants...')
 
     (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
-    del vol_dist
         
     ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
     del dist_u, obs_dist_u
 
     ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
     del dist_v, obs_dist_v
+    del vol_dist
 
     if rank == 0:
         logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords)
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, combined=False)
     
     output_path = coords_path
     for population in soma_distances.keys():
 
+        if rank == 0:
+            logger.info('Writing distances for population %s...' % population)
+
         dist_dict = soma_distances[population]
         attr_dict = {}
         for k, v in dist_dict.iteritems():
-            attr_dict[k] = { 'U Distance': v[0],  'V Distance': v[1] }
+            attr_dict[k] = { 'U Distance': np.asarray(v[0],dtype=np.float32), \
+                             'V Distance': np.asarray(v[1],dtype=np.float32) }
         append_cell_attributes(output_path, population, attr_dict,
                                namespace='Arc Distances', comm=comm,
                                io_size=io_size, chunk_size=chunk_size,

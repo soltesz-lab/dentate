@@ -187,7 +187,7 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
 
 
         
-def get_soma_distances(comm, dist_u, dist_v, soma_coords):
+def get_soma_distances(comm, dist_u, dist_v, soma_coords, combined=False):
     rank = comm.rank
     size = comm.size
 
@@ -201,12 +201,16 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords):
                 distance_u = dist_u(uvl_obs)
                 distance_v = dist_v(uvl_obs)
                 local_dist_dict[gid] = (distance_u, distance_v)
-        dist_dicts = comm.allgather(local_dist_dict)
-        combined_dist_dict = {}
-        for dist_dict in dist_dicts:
-            for k, v in dist_dict.iteritems():
-                combined_dist_dict[k] = v
-        soma_distances[pop] = combined_dist_dict
+        if combined:
+            dist_dicts = comm.allgather(local_dist_dict)
+            combined_dist_dict = {}
+            for dist_dict in dist_dicts:
+                for k, v in dist_dict.iteritems():
+                    combined_dist_dict[k] = v
+            soma_distances[pop] = combined_dist_dict
+        else:
+            soma_distances[pop] = local_dist_dict
+
     return soma_distances
 
 

@@ -20,4 +20,4 @@ set -x
 
 
 ibrun -np 768 $HOME/src/neuroh5/build/neurograph_vertex_metrics --indegree --outdegree \
-       $SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180305.h5 \
+       $SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180307.h5 
