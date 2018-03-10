@@ -195,6 +195,74 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
     return ax
 
 
+def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
+                       metric='dendrite_length', fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
+
+    :param forest_path:
+    :param coords_path:
+    :param distances_namespace: 
+    :param measures_namespace: 
+    :param population: 
+
+    """
+
+    dx = 50
+    dy = 50
+    
+        
+    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    
+    tree_metrics = { k: v[metric][0] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    distance_U = {}
+    distance_V = {}
+    for k,v in soma_distances:
+        distance_U[k] = v['U Distance'][0]
+        distance_V[k] = v['V Distance'][0]
+    
+    sorted_keys = sorted(tree_metrics.keys())
+    tree_metrics_array = np.array([tree_metrics[k] for k in sorted_keys])
+    distance_U_array = np.array([distance_U[k] for k in sorted_keys])
+    distance_V_array = np.array([distance_V[k] for k in sorted_keys])
+
+    x_min = np.min(distance_U_array)
+    x_max = np.max(distance_U_array)
+    y_min = np.min(distance_V_array)
+    y_max = np.max(distance_V_array)
+
+    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, \
+                                         bins=[dx, dy], weights=tree_metrics_array, normed=True)
+
+
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('%s distribution for population: %s' % (metric, population), fontsize=fontSize)
+    ax.set_aspect('equal')
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' %s.png' % metric
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
 def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, rotate=None, verbose=False):
     
     env = Env(configFile=config)
