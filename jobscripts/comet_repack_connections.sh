@@ -12,13 +12,14 @@
 
 module load hdf5
 
-set -x
 export prefix=/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control
-export copy=$prefix/DG_GC_connections_20171105.h5
-export output=$prefix/DG_GC_connections_20171105_compressed.h5
+export copy=$prefix/DG_GC_connections_20180307.h5
+export output=$prefix/DG_GC_connections_compressed_20180307.h5
+
+set -x
 
 ##h5copy -s /Projections -d /Projections -i $input -o $copy
-h5repack -v -f GZIP=9 -i $copy -o $output
+h5repack -v -f SHUF -f GZIP=9 -i $copy -o $output
 
 
 
