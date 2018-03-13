@@ -857,6 +857,23 @@ Connection Properties:
         weight: 1.0
         velocity: 250.0
 Gap Junctions:
+  Locations:
+    BC:
+      AAC: [apical, basal]
+      BC: [apical, basal]
+    AAC:
+      AAC: [apical, basal]
+    HCC:
+      HCC: [apical, basal]
+    HC: 
+      HC: [apical, basal]
+    IS: 
+      HC: [apical, basal]
+      IS: [apical, basal]
+    NGFC:
+      NGFC: [apical]
+    MOPP:
+      MOPP: [apical, basal]
   Connection Probabilities:
     AAC, BC, HC, IS, HCC, NGFC, MOPP:
       - [0.286, 0.0,   0.0,  0.0,  0.0,   0.0,   0.0]
@@ -869,6 +886,7 @@ Gap Junctions:
   ## Distance-dependent connection weights,
   ## based on Fig. 1C from Otsuka 2013
   Connection Weights: { 0: 1.0, 25: 0.429, 75: 0.405, 125: 0.345, 175: 0.08 }
+  Connection Parameters: [0.4201,-0.0019,150.7465,0.0255]
   Coupling Coefficients:
     AAC:
       AAC: 0.017
@@ -885,3 +903,5 @@ Gap Junctions:
   ## Distance-dependent coupling coefficient weights,
   ## Based on Fig. 6B from Amitai 2002
   Coupling Weights: { 0: 1.0, 25: 0.5, 75: 0.375, 125: 0.1875, 175: 0.1875 }
+  Coupling Parameters: [0.0002,-0.0658,7.3211]
+  
