@@ -137,14 +137,15 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
     destination_count = population_ranges[destination][1]
 
     with h5py.File(connectivity_path, 'r') as f:
-        in_degrees = np.zeros((destination_count,))
+        degrees_lst = []
         for source in sources:
-            in_degrees = np.add(in_degrees, f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][destination_start:destination_start+destination_count])
+            degrees_lst.append(f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][destination_start:destination_start+destination_count])
+        degrees = np.sum(degrees_lst, axis=0)
             
             
     if verbose:
-        print 'read in degrees (%i elements)' % len(in_degrees)
-        print 'max: %i min: %i' % (np.max(in_degrees), np.min(in_degrees))
+        print 'read degrees (%i elements)' % len(degrees)
+        print 'max: %i min: %i mean: %i stdev: %i' % (np.max(degrees), np.min(degrees), np.mean(degrees), np.std(degrees))
         
     distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
 
@@ -157,10 +158,10 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
-    distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
-    distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(in_degrees)) ])
+    distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(degrees)) ])
+    distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(degrees)) ])
 
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=in_degrees, normed=normed)
+    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
      # size of each bin in x and y dimensions
         
     if verbose:

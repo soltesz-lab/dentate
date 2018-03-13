@@ -150,6 +150,8 @@ class ConnectionProb(object):
     """
     def __init__(self, destination_population, soma_coords, soma_distances, extent, sigma = 0.4, res=5):
         """
+        Warning: This method does not produce an absolute probability. It must be normalized so that the total area
+        (volume) under the distribution is 1 before sampling.
         :param destination_population: post-synaptic population name
         :param soma_distances: a dictionary that contains per-population dicts of u, v distances of cell somas
         :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
@@ -176,8 +178,9 @@ class ConnectionProb(object):
             else:
                 self.offset[source_population] = {'u': extent_offset[0], 'v': extent_offset[1]}
             self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v: \
-                                                       (norm.pdf(np.abs(distance_u - self.offset[source_population]['u']) / self.scale_factor[source_population]['u']) * \
-                                                        norm.pdf(np.abs(distance_v - self.offset[source_population]['v']) / self.scale_factor[source_population]['v'])),otypes=[float]))(source_population)
+                                                       (norm.pdf(np.abs(distance_u - self.offset[source_population]['u']) / self.scale_factor[source_population]['u'], scale=sigma) * \
+                                                        norm.pdf(np.abs(distance_v - self.offset[source_population]['v']) / self.scale_factor[source_population]['v'], scale=sigma)), \
+                                                        otypes=[float]))(source_population)
 
     
     def filter_by_distance(self, destination_gid, source_population):
