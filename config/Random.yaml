@@ -1,5 +1,6 @@
 ## Random seeds used in model configuration of dentate gyrus network
 Synapse Locations: 0 ## Distributing synapse locations
+Connectivity Clustering:           1.5e+6 ## Clustering of connections from same source
 Distance-Dependent Connectivity:   2.0e+6 ## Generating distance-dependent connectivity
 PP Feature Selectivity:            4.0e+6 ## Computing MPP and LPP feature selectivity
 Random Connectivity:               6.0e+6 ## Computing random connectivity (not distance-dependent)

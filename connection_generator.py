@@ -3,18 +3,17 @@
 ## Classes and procedures related to neuronal connectivity generation.
 ##
 
-import sys, time, gc
-import itertools
+import sys, time, gc, numbers, itertools
 from collections import defaultdict
 import numpy as np
+from scipy.stats import norm
 import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-import click
-import utils
-import logging
+import click, logging
+import dentate.utils
 logger = logging.getLogger(__name__)
 
 def list_index (element, lst):
@@ -34,7 +33,7 @@ def softmax(x):
 
 
 def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_std=1.0,
-                         center_ids=None, center_box=(-10.0, 10.0), random_state=None):
+                         center_ids=None, center_box=(-10.0, 10.0), random_seed=None):
     """Generate isotropic Gaussian blobs for clustering.
 
     Parameters
@@ -51,9 +50,8 @@ def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_st
     center_box : pair of floats (min, max), optional (default=(-10.0, 10.0))
         The bounding box for each cluster center when centers are
         generated at random.
-    random_state : int, RandomState instance or None, optional (default=None)
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
+    random_seed : int or None, optional (default=None)
+        If int, random_seed is the seed used by the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
     Returns
@@ -64,20 +62,21 @@ def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_st
         The integer labels for cluster membership of each sample.
     Examples
     --------
-    >>> X, y = make_blobs(n_samples={0: 3, 1: 3, 2: 3}, centers=3, n_features=2,
-    ...                   random_state=0)
+    >>> X, y = make_random_clusters (centers=6, n_samples_per_center=np.array([1,3,10,15,7,9]), n_features=1, \
+                                     center_ids=np.array([10,13,21,25,27,29]).reshape(-1,1), cluster_std=1.0, \
+                                     center_box=(-10.0, 10.0))
     >>> print(X.shape)
-    (10, 2)
+    (45, 1)
     >>> y
-    array([0, 0, 1, 0, 2, 2, 2, 1, 1, 0])
+    array([10, 13, 13, 13, ..., 29, 29, 29])
     """
-    rng = np.random.RandomState(seed)
+    rng = np.random.RandomState(random_seed)
 
     if isinstance(centers, numbers.Integral):
         centers = np.sort(rng.uniform(center_box[0], center_box[1], \
                                       size=(centers, n_features)), axis=0)
     else:
-        assert(isinstance(centers, numpy.ndarray))
+        assert(isinstance(centers, np.ndarray))
         n_features = centers.shape[1]
 
     if center_ids is None:
@@ -92,8 +91,9 @@ def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_st
     n_centers = centers.shape[0]
 
     for i, (cid, n, std) in enumerate(itertools.izip(center_ids, n_samples_per_center, cluster_std)):
-        X.append(centers[i] + rng.normal(scale=std, size=(n, n_features)))
-        y += [cid] * n
+        if n > 0:
+            X.append(centers[i] + rng.normal(scale=std, size=(n, n_features)))
+            y += [cid] * n
 
     X = np.concatenate(X)
     y = np.array(y)
@@ -101,9 +101,41 @@ def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_st
     return X, y
 
 
-def random_clustered_shuffle(centers, n_samples_per_center, cluster_std=1.0, center_box=(-10.0, 10.0)):
+def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, cluster_std=1.0, center_box=(-1.0, 1.0), random_seed=None):
+    """Generates a Gaussian random clustering given a number of cluster
+    centers, samples per each center, optional integer center ids, and
+    cluster standard deviation.
+
+    Parameters
+    ----------
+    centers : int or array of shape [n_centers]
+        The number of centers to generate, or the fixed center locations.
+    n_samples_per_center : int array
+        Number of points for each cluster.
+    cluster_std : float or sequence of floats, optional (default=1.0)
+        The standard deviation of the clusters.
+    center_ids : array of integer center ids, if None then centers will be numbered 0 .. n_centers-1
+    random_seed : int or None, optional (default=None)
+        If int, random_seed is the seed used by the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+
+    >>> x = random_clustered_shuffle(centers=6,center_ids=np.array([10,13,21,25,27,29]).reshape(-1,1), \
+                                     n_samples_per_center=np.array([1,3,10,15,7,9]))
+    >>> array([10, 13, 13, 25, 13, 29, 21, 25, 27, 21, 27, 29, 25, 25, 25, 21, 29,
+               27, 25, 21, 29, 25, 25, 25, 25, 29, 21, 25, 21, 29, 29, 29, 21, 25,
+               29, 21, 27, 27, 21, 27, 25, 21, 25, 27, 25])
+    """
+
+    if isinstance(centers, numbers.Integral):
+        n_centers = centers
+    else:
+        assert(isinstance(centers, np.ndarray))
+        n_centers = len(centers)
+    
     X, y = make_random_clusters (centers, n_samples_per_center, n_features=1, \
-                                 cluster_std=cluster_std, center_box=center_box)
+                                 center_ids=center_ids, cluster_std=cluster_std, center_box=center_box, \
+                                 random_seed=random_seed)
     s = np.argsort(X,axis=0).ravel()
     return y[s].ravel()
 
@@ -116,10 +148,8 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, extent, nstdev = 5., res=5):
+    def __init__(self, destination_population, soma_coords, soma_distances, extent, sigma = 0.4, res=5):
         """
-        Warning: This method does not produce an absolute probability. It must be normalized so that the total area
-        (volume) under the distribution is 1 before sampling.
         :param destination_population: post-synaptic population name
         :param soma_distances: a dictionary that contains per-population dicts of u, v distances of cell somas
         :param extent: dict: {source: 'width': (tuple of float), 'offset': (tuple of float)}
@@ -130,7 +160,7 @@ class ConnectionProb(object):
         self.p_dist = {}
         self.width  = {}
         self.offset = {}
-        self.sigma  = {}
+        self.scale_factor  = {}
 
         
         for source_population in extent:
@@ -140,16 +170,15 @@ class ConnectionProb(object):
             else:
                 extent_offset = None
             self.width[source_population] = {'u': extent_width[0], 'v': extent_width[1]}
-            self.sigma[source_population] = {axis: self.width[source_population][axis] / nstdev / np.sqrt(2.) for axis in self.width[source_population]}
+            self.scale_factor[source_population] = { axis: self.width[source_population][axis] for axis in self.width[source_population] }
             if extent_offset is None:
                 self.offset[source_population] = {'u': 0., 'v': 0.}
             else:
                 self.offset[source_population] = {'u': extent_offset[0], 'v': extent_offset[1]}
-            self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v:
-                                                np.exp(-(((abs(distance_u - self.offset[source_population]['u'])) /
-                                                            self.sigma[source_population]['u'])**2. +
-                                                            ((abs(distance_v - self.offset[source_population]['v'])) /
-                                                            self.sigma[source_population]['v'])**2.)), otypes=[float]))(source_population)
+            self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v: \
+                                                       (norm.pdf(np.abs(distance_u - self.offset[source_population]['u']) / self.scale_factor[source_population]['u']) * \
+                                                        norm.pdf(np.abs(distance_v - self.offset[source_population]['v']) / self.scale_factor[source_population]['v'])),otypes=[float]))(source_population)
+
     
     def filter_by_distance(self, destination_gid, source_population):
         """
@@ -197,7 +226,7 @@ class ConnectionProb(object):
         return destination_u, destination_v, np.asarray(source_u_lst), np.asarray(source_v_lst), np.asarray(distance_u_lst), np.asarray(distance_v_lst), np.asarray(source_gid_lst, dtype=np.uint32)
 
     
-    def get_prob(self, destination_gid, source, plot=False):
+    def get_prob(self, destination_gid, source):
         """
         Given the soma coordinates of a destination neuron and a population source, return an array of connection 
         probabilities and an array of corresponding source gids.
@@ -209,19 +238,12 @@ class ConnectionProb(object):
         destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
         p = self.p_dist[source](distance_u, distance_v)
         psum = np.sum(p)
+        assert((p >= 0.).all() and (p <= 1.).all())
         if psum > 0.:
-            p1 = softmax(p)
+            pn = softmax(p)
         else:
-            p1 = p
-        assert((p1 >= 0.).all() and (p1 <= 1.).all())
-        if plot:
-            plt.scatter(distance_u, distance_v, c=p1)
-            plt.title(source+' -> '+target)
-            plt.xlabel('Septotemporal distance (um)')
-            plt.ylabel('Transverse distance (um)')
-            plt.show()
-            plt.close()
-        return p1, source_gid, distance_u, distance_v
+            pn = p
+        return pn.ravel(), source_gid.ravel(), distance_u.ravel(), distance_v.ravel()
 
 
 def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
@@ -328,6 +350,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
  
 def generate_synaptic_connections(ranstream_syn,
                                   ranstream_con,
+                                  cluster_seed,
                                   destination_gid,
                                   synapse_dict,
                                   population_dict,
@@ -368,15 +391,21 @@ def generate_synaptic_connections(ranstream_syn,
     for projection, syn_ids in synapse_prj_partition.iteritems():
         count += len(syn_ids)
         source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection]
+        distance_dict = { source_gid: distance_u+distance_v \
+                          for (source_gid,distance_u,distance_v) in itertools.izip(source_gids, \
+                                                                                   distances_u, \
+                                                                                   distances_v) }
         if len(source_gids) > 0:
             source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
             uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
-            distances = np.repeat(uv_distance_sums, source_gid_counts)
             gid_dict = connection_dict[projection]
-            gid_dict[destination_gid] = (np.repeat(source_gids, source_gid_counts),
-                                             { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
-                                                   'Connections' : { 'distance': distances }
-                                             } )
+            source_vertices = np.asarray(random_clustered_shuffle(len(source_gids), source_gid_counts, center_ids=source_gids, \
+                                                                    cluster_std=2.0, random_seed=cluster_seed),dtype=np.uint32)
+            distances = np.asarray([ distance_dict[gid] for gid in source_vertices ], dtype=np.float32).reshape(-1,)
+            gid_dict[destination_gid] = ( source_vertices,
+                                              { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
+                                                'Connections' : { 'distance': distances }
+                                              } )
             connection_dict[projection] = gid_dict
 
         
@@ -388,7 +417,7 @@ def generate_synaptic_connections(ranstream_syn,
             gid_dict = connection_dict[projection]
             gid_dict[destination_gid] = ( np.asarray ([], dtype=np.uint32),
                                               { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) },
-                                                    'Connections' : { 'distance': np.asarray ([], dtype=np.float32) }
+                                                'Connections' : { 'distance': np.asarray ([], dtype=np.float32) }
                                               } )
             connection_dict[projection] = gid_dict
 
@@ -397,7 +426,7 @@ def generate_synaptic_connections(ranstream_syn,
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
                                      synapse_seed, synapse_namespace, 
-                                     connectivity_seed, connectivity_namespace, connectivity_path,
+                                     connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
                                      verbose=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
@@ -408,6 +437,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     :param synapse_seed: random seed for synapse partitioning
     :param synapse_namespace: namespace of synapse properties
     :param connectivity_seed: random seed for connectivity generation
+    :param cluster_seed: random seed for determining connectivity clustering for repeated connections from the same source
     :param connectivity_namespace: namespace of connectivity attributes
     :param io_size: number of I/O ranks to use for parallel connectivity append
     :param chunk_size: HDF5 chunk size for connectivity file (pointer and index datasets)
@@ -472,13 +502,14 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
             
             count = generate_synaptic_connections(ranstream_syn,
-                                                   ranstream_con,
-                                                   destination_gid,
-                                                   synapse_dict,
-                                                   population_dict,
-                                                   projection_synapse_dict,
-                                                   projection_prob_dict,
-                                                   connection_dict)
+                                                  ranstream_con,
+                                                  cluster_seed+destination_gid,
+                                                  destination_gid,
+                                                  synapse_dict,
+                                                  population_dict,
+                                                  projection_synapse_dict,
+                                                  projection_prob_dict,
+                                                  connection_dict)
             total_count += count
             
             logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))

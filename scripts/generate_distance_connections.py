@@ -113,6 +113,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         
         connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
+        cluster_seed = int(env.modelConfig['Random Seeds']['Connectivity Clustering'])
         connectivity_namespace = 'Connections'
 
         if rank == 0:
@@ -123,7 +124,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          env.connection_generator,
                                          connection_prob, forest_path,
                                          synapse_seed, synapses_namespace, 
-                                         connectivity_seed, connectivity_namespace, connectivity_path,
+                                         connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
                                          verbose=verbose)
 
