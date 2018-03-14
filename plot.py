@@ -116,8 +116,8 @@ def make_geometric_graph(x, y, z, edges):
     return g
 
 
-def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                       metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
+                        metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -256,6 +256,68 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
             filename = saveFig
         else:
             filename = population+' %s.png' % metric
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
+def plot_positions(coords_path, population, distances_namespace='Arc Distances', 
+                    fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot septo-temporal position (longitudinal and transverse arc distances).
+
+    :param coords_path:
+    :param distances_namespace: 
+    :param population: 
+
+    """
+
+    dx = 50
+    dy = 50
+    
+        
+    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    distance_U = {}
+    distance_V = {}
+    for k,v in soma_distances:
+        distance_U[k] = v['U Distance'][0]
+        distance_V[k] = v['V Distance'][0]
+    
+    distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
+    distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
+
+    x_min = np.min(distance_U_array)
+    x_max = np.max(distance_U_array)
+    y_min = np.min(distance_V_array)
+    y_max = np.max(distance_V_array)
+
+    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+
+
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('Position distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_aspect('equal')
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Positions.png' 
             plt.savefig(filename)
 
     if showFig:

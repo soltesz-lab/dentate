@@ -19,9 +19,9 @@ script_name = 'plot_vertex_metrics.py'
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, normed, metric, font_size, verbose):
-    plot.plot_vertex_metric (connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace,
-                             destination, sources, metric=metric, normed=normed, fontSize=font_size,
-                             saveFig=True, verbose=verbose)
+    plot.plot_vertex_metrics (connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace,
+                                destination, sources, metric=metric, normed=normed, fontSize=font_size,
+                                saveFig=True, verbose=verbose)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
