@@ -2,14 +2,14 @@
 begintemplate ISCell
 
 public connect2target, subsets, is_art, is_connected
-public all, soma, basal, apical, axon, sections
+public all, soma, basal, apical, ais, hillock, axon, allaxon 
 public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
 public syns, syntypes
 public syn_stim
 
-objref all, soma, basal, apical, axon
-objref apicalidx, basalidx, somaidx, axonidx
+objref all, soma, basal, apical, ais, hillock, axon, allaxon
+objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
 objref syns, syntypes
 objref syn_stim
 
@@ -40,6 +40,8 @@ proc init() { // arguments are id, gid
     basalidx = new Vector()
     somaidx = new Vector()
     axonidx = new Vector()
+    aisidx = new Vector()
+    hilidx = new Vector()
     
     cellid = $1
     gid = $2
@@ -106,6 +108,10 @@ proc subsets() { local i, ndends, ndendsec
     }
     
     axon  = new SectionList()
+    allaxon  = new SectionList()
+    ais      = new SectionList()
+    hillock  = new SectionList()
+    
 }
 
 proc geom() {

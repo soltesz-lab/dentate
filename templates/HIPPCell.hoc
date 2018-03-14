@@ -2,15 +2,15 @@
 begintemplate HIPPCell
 
 public connect2target, subsets, is_art, is_connected
-public all, soma, basal, apical, axon
+public all, soma, basal, apical, ais, hillock, axon, allaxon
 public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
 public syns
 
 create sections[1]
 
-objref all, soma, basal, apical, axon
-objref apicalidx, basalidx, somaidx, axonidx
+objref all, soma, basal, apical, ais, hillock, axon, allaxon
+objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
 objref syns, syntypes
 
 id  = -1
@@ -40,6 +40,8 @@ proc init() { // arguments are id, gid
     basalidx = new Vector()
     somaidx = new Vector()
     axonidx = new Vector()
+    aisidx = new Vector()
+    hilidx = new Vector()
     
     if (numarg() > 2) {
         topol_from_python($o4,$o5,$o6,$o7,$o12)
@@ -109,6 +111,10 @@ proc subsets() { local i, ndends, ndendsec
     }
     
     axon  = new SectionList()
+    allaxon  = new SectionList()
+    ais      = new SectionList()
+    hillock  = new SectionList()
+    
 }
 
 proc geom() {

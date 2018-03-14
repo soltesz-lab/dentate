@@ -194,7 +194,7 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
     return syn_dict
 
 
-def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict, sec_dict, secidx_dict):
+def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict, sec_dict, secidx_dict, verbose):
     """Computes synapse locations according to a Poisson distribution. """
 
     syn_ids    = []
@@ -245,9 +245,9 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
                 syn_count = 0
                 if density > 0.:
                     beta = 1./density
-                    interval = seg_start*L + r.exponential(beta)
+                    interval = r.exponential(beta)
                     while interval < seg_range*L:
-                        syn_loc = interval/L
+                        syn_loc = seg_start + interval/L
                         assert((syn_loc <= 1) & (syn_loc >= 0))
                         if syn_loc < 1.0:
                             syn_locs.append(syn_loc)

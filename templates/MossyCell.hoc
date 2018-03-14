@@ -1,7 +1,7 @@
 begintemplate MossyCell
 
 public connect2target, subsets, is_art, is_connected
-public all, soma, basal, apical, axon
+public all, soma, basal, apical, ais, hillock, axon, allaxon
 public somaidx, basalidx, apicalidx, axonidx
 public syns, syntypes
 public syn_stim
@@ -11,8 +11,8 @@ public xx, yy, zz, position
 create sections[1]
 
 objref fl//, rs
-objref all, soma, basal, apical, axon
-objref somaidx, basalidx, apicalidx, axonidx
+objref all, soma, basal, apical, ais, hillock, axon, allaxon
+objref somaidx, basalidx, apicalidx, axonidx, aisidx, hilidx
 objref syns, syntypes
 objref syn_stim
 
@@ -39,6 +39,8 @@ proc init() { // arguments are id, gid
     basalidx = new Vector()
     somaidx = new Vector()
     axonidx = new Vector()
+    aisidx = new Vector()
+    hilidx = new Vector()
     
     cellid = $1
     gid = $2
@@ -90,6 +92,9 @@ proc subsets() { local i, ndends, ndendsec
     
     basal = new SectionList()
     axon  = new SectionList()
+    allaxon  = new SectionList()
+    ais      = new SectionList()
+    hillock  = new SectionList()
 
 }
 

@@ -1,8 +1,9 @@
 import os
-from dentate.utils import *
+import itertools
 import numpy as np
 from mpi4py import MPI
 from neuron import h
+from dentate.utils import *
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 import h5py
 import dentate
@@ -13,7 +14,7 @@ import click
 import logging
 logging.basicConfig()
 
-script_name="distribute_synapse_locs.py"
+script_name="measure_trees.py"
 logger = logging.getLogger(script_name)
 
 
@@ -23,21 +24,18 @@ logger = logging.getLogger(script_name)
 @click.option("--output-path", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
-@click.option("--distribution", type=str, default='uniform')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
-         cache_size, verbose):
+def main(config, template_path, output_path, forest_path, populations, io_size, chunk_size, value_chunk_size, cache_size, verbose):
     """
 
     :param config:
     :param template_path:
     :param forest_path:
     :param populations:
-    :param distribution:
     :param io_size:
     :param chunk_size:
     :param value_chunk_size:
@@ -87,46 +85,30 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         template_name = env.celltypes[population]['template']
         h.find_template(h.pc, h.templatePaths, template_name)
         template_class = eval('h.%s' % template_name)
-        density_dict = env.celltypes[population]['synapses']['density']
+        measures_dict = {}
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
-            local_time = time.time()
-            synapse_dict = {}
             if gid is not None:
                 logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
-                cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None)}
-                cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
-                if distribution == 'uniform':
-                    synapse_dict[gid] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                                              density_dict, morph_dict,
-                                                                                              cell_sec_dict, cell_secidx_dict)
-                elif distribution == 'poisson':
-                    if rank == 0:
-                        verbose_flag = verbose
-                    else:
-                        verbose_flag = False
-                    synapse_dict[gid] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                                              density_dict, morph_dict,
-                                                                                              cell_sec_dict, cell_secidx_dict, verbose=verbose_flag)
-                else:
-                    raise Exception('Unknown distribution type: %s' % distribution)
+                dendrite_area = 0.
+                dendrite_length = 0.
+                for sec in itertools.chain(cell.apical, cell.basal):
+                    dendrite_length = dendrite_length + sec.L
+                    for seg in sec.allseg():
+                        dendrite_area = dendrite_area + h.area(seg.x)
+
+                measures_dict[gid] = { 'dendrite_area': np.asarray([dendrite_area], dtype=np.float32), \
+                                       'dendrite_length': np.asarray([dendrite_length], dtype=np.float32) }
                     
                 del cell
-                num_syns = len(synapse_dict[gid]['syn_ids'])
-                logger.info('Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid))
                 count += 1
             else:
                 logger.info('Rank %i gid is None' % rank)
-            append_cell_attributes(output_path, population, synapse_dict,
-                                    namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
-                                    value_chunk_size=value_chunk_size, cache_size=cache_size)
-            del synapse_dict
-            gc.collect()
+        append_cell_attributes(output_path, population, measures_dict,
+                               namespace='Tree Measurements', comm=comm, io_size=io_size, chunk_size=chunk_size,
+                               value_chunk_size=value_chunk_size, cache_size=cache_size)
 
-        global_count = comm.gather(count, root=0)
-        if rank == 0:
-            logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
 
 
 if __name__ == '__main__':

@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-#SBATCH -J distribute_GC_synapses
-#SBATCH -o ./results/distribute_GC_synapses.%j.o
-#SBATCH --nodes=64
+#SBATCH -J measure_GC_trees
+#SBATCH -o ./results/measure_GC_trees.%j.o
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=24
-#SBATCH -t 8:00:00
+#SBATCH -t 1:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -26,11 +26,9 @@ ulimit -c unlimited
 
 set -x
 
-ibrun -np 1536 python ./scripts/distribute_synapse_locs.py \
-              --distribution=poisson \
+ibrun -np 384 python ./scripts/measure_trees.py \
               --config=./config/Full_Scale_Control.yaml \
               --template-path=$HOME/model/dgc/Mateos-Aparicio2014 --populations=GC \
               --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_20180306.h5 \
-              --output-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20180306.h5 \
-              --io-size=128 --cache-size=$((8 * 1024 * 1024)) \
+              --io-size=24 --cache-size=$((8 * 1024 * 1024)) \
               --chunk-size=10000 --value-chunk-size=50000 -v
