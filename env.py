@@ -82,13 +82,13 @@ class Env:
         datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
         dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
 
-        (population_ranges, _) = read_population_ranges(dataFilePath, comm=self.comm)
+        (population_ranges, _) = read_population_ranges(dataFilePath, self.comm)
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
 
-        population_names  = read_population_names(dataFilePath, comm=self.comm)
+        population_names  = read_population_names(dataFilePath, self.comm)
         self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, self.comm)
             
     def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,

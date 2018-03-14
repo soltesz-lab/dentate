@@ -1574,6 +1574,136 @@ def get_spatial_res(cell, node):
         raise KeyError
 
 
+def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
+                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, syn_type=None,
+                      variance=None, replace=True, custom=None):
+    """
+    Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
+    dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
+    initial model specification, or during parameter optimization. For modifications to persist across simulations,
+    the mechanism dictionary must be saved to a file using self.export_mech_dict() and re-imported during HocCell
+    initialization.
+    :param sec_type: str
+    :param mech_name: str
+    :param param_name: str
+    :param value: float
+    :param origin: str
+    :param slope: float
+    :param tau: float
+    :param xhalf: float
+    :param min: float
+    :param max: float
+    :param min_loc: float
+    :param max_loc: float
+    :param outside: float
+    :param syn_type: str
+    :param variance: str
+    :param replace: bool
+    :param custom: dict
+    """
+    global verbose
+    if 'synapse' in mech_name:
+        update_synaptic_mech_param(sec_type, mech_name, param_name, value, origin, slope, tau, xhalf, min,
+                                         max, min_loc, max_loc, outside, syn_type, variance, replace, custom)
+        return
+    backup_content = None
+    mech_content = None
+    if not sec_type in cell.nodes.keys():
+        raise Exception('Cannot specify mechanism: {} parameter: {} for unknown sec_type: {}'.format(mech_name,
+                                                                                                     param_name,
+                                                                                                     sec_type))
+    if param_name is None:
+        if mech_name in ['cable', 'ions']:
+            raise Exception('No parameter specified for mechanism: {}'.format(mech_name))
+    if not param_name is None:
+        if value is None and origin is None:
+            raise Exception('Cannot set mechanism: {} parameter: {} without a specified origin or value'.format(
+                mech_name, param_name))
+        rules = {}
+        if not origin is None:
+            if not origin in cell.nodes.keys() + ['parent', 'branch_origin']:
+                raise Exception('Cannot inherit mechanism: {} parameter: {} from unknown origin: {}'.format(
+                    mech_name, param_name, origin))
+            else:
+                rules['origin'] = origin
+        if not custom is None:
+            rules['custom'] = custom
+        if not value is None:
+            rules['value'] = value
+        if not slope is None:
+            rules['slope'] = slope
+        if not tau is None:
+            rules['tau'] = tau
+        if not xhalf is None:
+            rules['xhalf'] = xhalf
+        if not min is None:
+            rules['min'] = min
+        if not max is None:
+            rules['max'] = max
+        if not min_loc is None:
+            rules['min_loc'] = min_loc
+        if not max_loc is None:
+            rules['max_loc'] = max_loc
+        if not outside is None:
+            rules['outside'] = outside
+        # currently only implemented for synaptic parameters
+        if not variance is None:
+            rules['variance'] = variance
+        mech_content = {param_name: rules}
+    # No mechanisms have been inserted into this type of section yet
+    if not sec_type in cell.mech_dict:
+        cell.mech_dict[sec_type] = {mech_name: mech_content}
+    # This mechanism has not yet been inserted into this type of section
+    elif not mech_name in cell.mech_dict[sec_type]:
+        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
+        cell.mech_dict[sec_type][mech_name] = mech_content
+    # This mechanism has been inserted, but no parameters have been specified
+    elif cell.mech_dict[sec_type][mech_name] is None:
+        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
+        cell.mech_dict[sec_type][mech_name] = mech_content
+    # This parameter has already been specified
+    elif param_name is not None and param_name in cell.mech_dict[sec_type][mech_name]:
+        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
+        # Determine whether to replace or extend the current dictionary entry.
+        if replace:
+            cell.mech_dict[sec_type][mech_name][param_name] = rules
+        elif type(cell.mech_dict[sec_type][mech_name][param_name]) == dict:
+            cell.mech_dict[sec_type][mech_name][param_name] = [cell.mech_dict[sec_type][mech_name][param_name],
+                                                               rules]
+        elif type(cell.mech_dict[sec_type][mech_name][param_name]) == list:
+            cell.mech_dict[sec_type][mech_name][param_name].append(rules)
+    # This mechanism has been inserted, but this parameter has not yet been specified
+    elif param_name is not None:
+        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
+        cell.mech_dict[sec_type][mech_name][param_name] = rules
+
+    try:
+        # all membrane mechanisms in sections of type sec_type must be reinitialized after changing cable properties
+        if mech_name == 'cable':
+            if param_name in ['Ra', 'cm', 'spatial_res']:
+                update_mechanisms_by_sec_type(cell, sec_type, reset_cable=True)
+            else:
+                print 'Exception: Unknown cable property: {}'.format(param_name)
+                raise KeyError
+        else:
+            for node in cell.nodes[sec_type]:
+                try:
+                    update_mechanism_by_node(cell, node, mech_name, mech_content)
+                except (AttributeError, NameError, ValueError, KeyError):
+                    raise KeyError
+    except KeyError:
+        if backup_content is None:
+            del cell.mech_dict[sec_type]
+        else:
+            cell.mech_dict[sec_type] = copy.deepcopy(backup_content)
+        if not param_name is None:
+            raise Exception('Problem specifying mechanism: %s parameter: %s in node: %s' %
+                            (mech_name, param_name, node.name))
+        else:
+            raise Exception('Problem specifying mechanism: %s in node: %s' %
+                            (mech_name, node.name))
+
+
 def import_morphology_from_hoc(cell, hoc_cell):
     """
     Append sections from an existing instance of a NEURON cell template to a Python cell wrapper.
@@ -1650,6 +1780,23 @@ def import_mech_dict_from_yaml(cell, mech_file_path=None):
     cell.mech_dict = read_from_yaml(cell.mech_file_path)
 
 
+def reinit_mechanisms(cell, reset_cable=False, from_file=False):
+    """
+    Once a mechanism dictionary has been loaded, and a morphology has been specified, this method traverses through
+    the tree of SHocNode nodes following order of inheritance and properly sets membrane mechanism parameters,
+    including gradients and inheritance of parameters from nodes along the path from root. Since cable parameters
+    are set during specification of morphology, it is not necessary to immediately reinitialize these parameters
+    again. However, they can be manually reinitialized with the reset_cable flag.
+    :param reset_cable: bool
+    :param from_file: bool
+    """
+    if from_file:
+        import_mech_dict_from_yaml(cell, mech_file_path=cell.mech_file_path)
+    for sec_type in cell.nodes.keys():
+        if sec_type in cell.mech_dict:
+            update_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
+
+
 def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and
@@ -1660,10 +1807,16 @@ def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None
     :param mech_file_path: str (path)
     """
     if from_file:
-        import_mech_dict_from_yaml(cell, mech_file_path)
+        if mech_file_path is None:
+            mech_file_path = cell.mech_file_path
+        if os.path.isfile(mech_file_path):
+            import_mech_dict_from_yaml(cell, mech_file_path)
+        else:
+            raise Exception('mech_file_path is not a valid path.')
     for sec_type in ordered_sec_types:
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
-            update_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
+            if cell.nodes[sec_type]:
+                update_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
 
 
 def update_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
@@ -1671,22 +1824,24 @@ def update_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
     This method loops through all sections of the specified type, and consults the mechanism dictionary to update
     mechanism properties. If the reset_cable flag is True, cable parameters are re-initialize first, then the
     ion channel mechanisms are updated.
+    TODO: Make sure changing cable properties interacts properly with the 'spatial_res' parameter.
     :param cell: :class:'HocCell'
     :param sec_type: str
     :param reset_cable: bool
     """
     if sec_type in cell.nodes and sec_type in cell.mech_dict:
-        for node in cell.nodes[sec_type]:
-            # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
-            # mechanism gradients
-            if reset_cable and 'cable' in cell.mech_dict[sec_type]:
-                reset_cable_by_node(cell, node)
-            for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
-                              if not mech_name in ['cable', 'ions']):
-                update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
-            # ion-related parameters do not exist until after membrane mechanisms have been inserted
-            if 'ions' in cell.mech_dict[sec_type]:
-                update_mechanism_by_node(cell, node, 'ions', cell.mech_dict[sec_type]['ions'])
+        if cell.nodes[sec_type]:
+            for node in cell.nodes[sec_type]:
+                # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
+                # mechanism gradients
+                if reset_cable and 'cable' in cell.mech_dict[sec_type]:
+                    reset_cable_by_node(cell, node)
+                for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
+                                  if not mech_name in ['cable', 'ions']):
+                    update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
+                # ion-related parameters do not exist until after membrane mechanisms have been inserted
+                if 'ions' in cell.mech_dict[sec_type]:
+                    update_mechanism_by_node(cell, node, 'ions', cell.mech_dict[sec_type]['ions'])
 
 
 def reset_cable_by_node(cell, node):
@@ -1704,6 +1859,20 @@ def reset_cable_by_node(cell, node):
             update_mechanism_by_node(cell, node, 'cable', mech_content)
     else:
         init_nseg(node.sec)
+
+
+def reinitialize_subset_mechanisms(cell, sec_type, mech_name):
+    """
+    During parameter optimization, it is often convenient to reinitialize all the parameters for a single mechanism
+    in a subset of compartments. For example, g_pas in basal dendrites that inherit the value from the soma after
+    modifying the value in the soma compartment.
+    :param sec_type: str
+    :param mech_name: str
+    :return:
+    """
+    if sec_type in cell.mech_dict and mech_name in cell.mech_dict[sec_type]:
+        for node in cell.nodes[sec_type]:
+            update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
 
 
 def update_mechanism_by_node(cell, node, mech_name, mech_content):
@@ -1926,7 +2095,7 @@ def init_nseg(sec, spatial_res=0):
     :param spatial_res: int
     """
     sugg_nseg = d_lambda_nseg(sec)
-    print sec.hname(), sec.nseg, sugg_nseg
+    #print sec.hname(), sec.nseg, sugg_nseg
     sugg_nseg *= 3 ** spatial_res
     sec.nseg = int(sugg_nseg)
 
