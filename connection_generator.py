@@ -351,7 +351,8 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
         return None
 
  
-def generate_synaptic_connections(ranstream_syn,
+def generate_synaptic_connections(rank,
+                                  ranstream_syn,
                                   ranstream_con,
                                   cluster_seed,
                                   destination_gid,
@@ -384,7 +385,7 @@ def generate_synaptic_connections(ranstream_syn,
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
                                                population_dict, projection_synapse_dict)
         if projection is None:
-            print 'Projection is none for syn_type = ', syn_type, 'swc_type = ', swc_type, ' syn_layer = ', syn_layer
+            logger.error('Projection is none for syn_type = %s swc_type = %s syn_layer = %s' % (str(syn_type), str(swc_type), str(syn_layer)))
             print projection_synapse_dict
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
@@ -410,6 +411,8 @@ def generate_synaptic_connections(ranstream_syn,
                                                 'Connections' : { 'distance': distances }
                                               } )
             connection_dict[projection] = gid_dict
+        else:
+            logger.warning('Rank %i: source gid list is empty for gid: %i projection: %s len(syn_ids): %i' % (rank, destination_gid, projection, len(syn_ids)))
 
         
     ## If any projection does not have connections associated with it, create empty entries
@@ -481,6 +484,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     total_count = 0
     gid_count   = 0
     connection_dict = defaultdict(lambda: {})
+    projection_dict = {}
     for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, io_size=io_size,
                                                             cache_size=cache_size, namespace=synapse_namespace, comm=comm):
         last_time = time.time()
@@ -504,7 +508,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                     
 
             
-            count = generate_synaptic_connections(ranstream_syn,
+            count = generate_synaptic_connections(rank,
+                                                  ranstream_syn,
                                                   ranstream_con,
                                                   cluster_seed+destination_gid,
                                                   destination_gid,
@@ -530,10 +535,23 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                     for (prj, prj_dict) in  connection_dict.iteritems():
                         logger.info("%s: %s" % (prj, str(prj_dict.keys())))
                     logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
+            projection_dict.clear()
             connection_dict.clear()
             gc.collect()
             
         gid_count += 1
+
+    last_time = time.time()
+    if len(connection_dict) > 0:
+        projection_dict = { destination_population: connection_dict }
+    else:
+        projection_dict = {}
+    append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
+    if rank == 0:
+        if connection_dict:
+            for (prj, prj_dict) in  connection_dict.iteritems():
+                logger.info("%s: %s" % (prj, str(prj_dict.keys())))
+                logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
 
     global_count = comm.gather(total_count, root=0)
     if rank == 0:
