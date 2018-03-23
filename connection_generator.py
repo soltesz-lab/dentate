@@ -434,7 +434,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                      synapse_seed, synapse_namespace, 
                                      connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
-                                     verbose=False):
+                                     verbose=False, dry_run=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
     :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
@@ -529,7 +529,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 projection_dict = { destination_population: connection_dict }
             else:
                 projection_dict = {}
-            append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
+            if not dry_run:
+                append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
                     for (prj, prj_dict) in  connection_dict.iteritems():
@@ -546,7 +547,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         projection_dict = { destination_population: connection_dict }
     else:
         projection_dict = {}
-    append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
+    if not dry_run:
+        append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
     if rank == 0:
         if connection_dict:
             for (prj, prj_dict) in  connection_dict.iteritems():

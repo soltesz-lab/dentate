@@ -37,8 +37,9 @@ logger = logging.getLogger(script_name)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
+@click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resample_volume, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose):
+         synapses_namespace, resample_volume, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -51,7 +52,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
 
-    if rank==0:
+    if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
             input_file  = h5py.File(coords_path,'r')
             output_file = h5py.File(connectivity_path,'w')
@@ -126,7 +127,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          synapse_seed, synapses_namespace, 
                                          connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
-                                         verbose=verbose)
+                                         verbose=verbose, dry_run=dry_run)
 
 
 if __name__ == '__main__':
