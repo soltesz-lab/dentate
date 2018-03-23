@@ -74,26 +74,33 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
-    vol_dist = None
+    obs_dist_u = None
+    coeff_dist_u = None
+    obs_dist_v = None
+    coeff_dist_v = None
+    
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(-3.95, 3.2, ures=16, vres=15, lres=10)
+        ip_volume = make_volume(-3.95, 3.2, ures=20, vres=15, lres=10)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
-        logger.info('Broadcasting volume distances...')
-        
-    vol_dist = comm.bcast(vol_dist, root=0)
-    if rank == 0:
         logger.info('Computing volume distance interpolants...')
+        step=1
+        (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
+        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
+        coeff_dist_u = ip_dist_u._coeff
+        sample_inds = np.arange(0, obs_dist_v.shape[0]-1, step)
+        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
+        coeff_dist_v = ip_dist_v._coeff
+        logger.info('Broadcasting volume distance interpolants...')
+        
+    obs_dist_u = comm.bcast(obs_dist_u, root=0)
+    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
+    obs_dist_v = comm.bcast(obs_dist_v, root=0)
+    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
 
-    step=1
-    (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
-    ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
-    del dist_u, obs_dist_u
-
-    sample_inds = np.arange(0, obs_dist_v.shape[0]-1, step)
-    ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
-    del dist_v, obs_dist_v
+    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
+    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
 
     if rank == 0:
         logger.info('Computing soma distances...')
