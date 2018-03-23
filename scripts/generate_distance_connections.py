@@ -84,12 +84,11 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         ip_volume = make_volume(-3.95, 3.2, ures=20, vres=15, lres=10)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
-        logger.info('Computing volume distance interpolants...')
-        step=1
+        logger.info('Computing U volume distance interpolants...')
         (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
         coeff_dist_u = ip_dist_u._coeff
-        sample_inds = np.arange(0, obs_dist_v.shape[0]-1, step)
+        logger.info('Computing V volume distance interpolants...')
         ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
         coeff_dist_v = ip_dist_v._coeff
         logger.info('Broadcasting volume distance interpolants...')
