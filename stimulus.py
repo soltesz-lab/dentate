@@ -73,11 +73,11 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
     return response
 
 
-def read_trajectory (comm, selectivity_path, trajectory_id, verbose=False):
+def read_trajectory (comm, input_path, trajectory_id, verbose=False):
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
 
-    with h5py.File(selectivity_path, 'a') as f:
+    with h5py.File(input_path, 'a') as f:
         group = f[trajectory_namespace]
         dataset = group['x']
         x = dataset[:]
@@ -87,7 +87,6 @@ def read_trajectory (comm, selectivity_path, trajectory_id, verbose=False):
         d = dataset[:]
         dataset = group['t']
         t = dataset[:]
-
     return (x,y,d,t)
 
 

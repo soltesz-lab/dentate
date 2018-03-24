@@ -1894,7 +1894,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
 
 
 
-def plot_stimulus_rate (input_path, namespace_id, include,
+def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
                         figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
                         verbose = False): 
     ''' 
@@ -1915,13 +1915,20 @@ def plot_stimulus_rate (input_path, namespace_id, include,
 
     fig, axes = plt.subplots(1, len(include), figsize=figSize)
 
+    if trajectory_id is not None:
+        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id, verbose=verbose)
+        (_, _, _, t)  = trajectory
+    else:
+        t = None
+        
     M = 0
     for iplot, population in enumerate(include):
         rate_lst = []
         if verbose:
             print 'Reading vector stimulus data for population %s...' % population 
         for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, namespace_id, population):
-            rate_lst.append(rate)
+            if np.max(rate) > 0.:
+                rate_lst.append(rate)
 
         M = max(M, len(rate))
         N = len(rate_lst)
@@ -1931,21 +1938,26 @@ def plot_stimulus_rate (input_path, namespace_id, include,
         if verbose:
             print 'Plotting stimulus data for population %s...' % population 
 
+        if t is None:
+            extent=[0, len(rate), 0, N]
+        else:
+            extent=[t[0], t[-1], 0, N]
+            
         if len(include) > 1:
             axes[iplot].set_title(population, fontsize=fontSize)
-            axes[iplot].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
-            axes[iplot].set_xlim([0, M])
+            axes[iplot].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
+            axes[iplot].set_xlim([extent[0], extent[1]])
             axes[iplot].set_ylim(-1, N+1)
             
         else:
             axes.set_title(population, fontsize=fontSize)
-            axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
-            axes.set_xlim([0, M])
+            axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
+            axes.set_xlim([extent[0], extent[1]])
             axes.set_ylim(-1, N+1)    
             
 
     axes.set_xlabel('Time (ms)', fontsize=fontSize)
-    axes.set_ylabel('Firing Rate', fontsize=fontSize)
+    axes.set_ylabel('Input #', fontsize=fontSize)
     
     # save figure
     if saveFig: 
