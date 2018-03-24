@@ -2,9 +2,10 @@
 import sys, gc
 from mpi4py import MPI
 import click
-import utils, plot
+import dentate
+from dentate import utils, plot
 
-script_name = 'plot_selectivity_rate.py'
+script_name = 'plot_stimulus_rate.py'
 
 @click.command()
 @click.option("--features-path", '-p', required=True, type=click.Path())

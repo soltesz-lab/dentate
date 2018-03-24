@@ -1,3 +1,4 @@
+from mpi4py import MPI
 import math
 import numpy as np
 import rbf

@@ -2,7 +2,8 @@
 import sys, gc
 from mpi4py import MPI
 import click
-import utils, plot
+import dentate
+from dentate import utils, plot
 
 script_name = 'plot_stimulus_spatial_map.py'
 
@@ -10,7 +11,7 @@ script_name = 'plot_stimulus_spatial_map.py'
 @click.option("--features-path", '-p', required=True, type=click.Path())
 @click.option("--features-namespace", '-n', type=str, default='Vector Stimulus')
 @click.option("--coords-path", '-c', required=True, type=click.Path())
-@click.option("--distances-namespace", '-d', type=str, default='Arc Distance')
+@click.option("--distances-namespace", '-d', type=str, default='Arc Distances')
 @click.option("--include", '-i', type=str, multiple=True)
 @click.option("--normed", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
