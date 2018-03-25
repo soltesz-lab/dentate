@@ -13,11 +13,7 @@ from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, s
     scatter_read_cell_attributes, write_cell_attributes
 import dentate    
 from dentate.env import Env
-import dentate.lpt as lpt
-import dentate.synapses as synapses
-import dentate.cells as cells
-import dentate.lfp as lfp
-import dentate.simtime as simtime
+from dentate import lpt, synapses, cells, lfp, simtime
 from dentate.neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
 
 
@@ -529,8 +525,8 @@ def mkstim(env):
     popNames = env.celltypes.keys()
     popNames.sort()
     for popName in popNames:
-        if env.celltypes[popName].has_key('vectorStimulus'):
-            vecstim_namespace = env.celltypes[popName]['vectorStimulus']
+        if env.celltypes[popName].has_key('Vector Stimulus'):
+            vecstim_namespace = env.celltypes[popName]['Vector Stimulus']
 
             if env.nodeRanks is None:
               cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, popName, 

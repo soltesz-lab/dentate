@@ -6,8 +6,10 @@ from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_populati
 import numpy as np
 from collections import defaultdict
 import click
-from utils import *
 from itertools import izip, izip_longest
+import logging
+logging.basicConfig()
+
 
 """
 stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
@@ -21,13 +23,8 @@ connections_path: contains existing mapping of syn_id to source_gid
 TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the previous weight distribution.
 """
 
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except:
-    pass
-
 script_name = 'generate_log_normal_weights_as_cell_attr.py'
+logger = logging.getLogger(script_name)
 
 local_random = np.random.RandomState()
 
@@ -47,9 +44,10 @@ sigma = 0.35
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--seed-offset", type=int, default=4)
+@click.option("--verbose", "-v", is_flag=True)
 @click.option("--debug", is_flag=True)
 def main(weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, cache_size,
-         seed_offset, debug):
+         seed_offset, verbose, debug):
     """
 
     :param weights_path: str
@@ -65,16 +63,18 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
     # make sure random seeds are not being reused for various types of stochastic sampling
     seed_offset *= 2e6
 
+    if verbose:
+        logger.setLevel(logging.INFO)
+
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%s: %i ranks have been allocated' % (script_name, comm.size)
-    sys.stdout.flush()
+        logger.info('%s: %i ranks have been allocated' % (script_name, comm.size))
 
-    pop_ranges, pop_size = read_population_ranges(comm, connections_path)
+    pop_ranges, pop_size = read_population_ranges(connections_path, comm=comm)
     destination_gid_offset = pop_ranges[destination][0]
 
     count = 0
@@ -82,8 +82,8 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
 
     connection_gen_list = []
     for source in sources:
-        connection_gen_list.append(NeuroH5ProjectionGen(comm, connections_path, source, destination, io_size=io_size,
-                                                           cache_size=cache_size, namespaces=['Synapses']))
+        connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
+                                                        comm=comm, io_size=io_size, cache_size=cache_size))
 
     maxiter = 100 if debug else None
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
@@ -99,7 +99,6 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
             raise Exception('Rank: %i; destination: %s; destination_gid not matched across multiple attribute generators: %s' %
                             (rank, destination, destination_gid,
                              str([attr_gen_items[0] for attr_gen_items in attr_gen_package])))
-            sys.stdout.flush()
         if destination_gid is not None:
             local_random.seed(int(destination_gid + seed_offset))
             for this_destination_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
@@ -115,17 +114,16 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
             weights_dict[destination_gid - destination_gid_offset] = \
                 {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
                  'weight': np.array(syn_weight_map.values()).astype('float32', copy=False)}
-            print 'Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
-                  '%.2f s' % (rank, destination, destination_gid, len(syn_weight_map), len(source_weights),
-                              time.time() - local_time)
+            logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
+                        '%.2f s' % (rank, destination, destination_gid, len(syn_weight_map), len(source_weights),
+                                    time.time() - local_time))
             count += 1
         else:
-            print 'Rank: %i received destination_gid as None' % rank
+            logger.info('Rank: %i received destination_gid as None' % rank)
         if not debug:
-            append_cell_attributes(comm, weights_path, destination, weights_dict, namespace=weights_namespace,
-                                   io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
+                                    comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
             # print 'Rank: %i, just after append' % rank
-        sys.stdout.flush()
         del source_syn_map
         del source_weights
         del syn_weight_map
@@ -138,11 +136,11 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
             if maxiter is not None and itercount > maxiter:
                 break
     if debug:
-        print 'Rank: %i exited the loop' % rank
+        logger.info('Rank: %i exited the loop' % rank)
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print 'destination: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
-              (destination, comm.size, np.sum(global_count), time.time() - start_time)
+        logger.info('destination: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
+                    (destination, comm.size, np.sum(global_count), time.time() - start_time))
 
 
 if __name__ == '__main__':
