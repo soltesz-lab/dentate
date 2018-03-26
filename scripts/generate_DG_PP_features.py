@@ -114,7 +114,7 @@ def main(config, coords_path, output_path, distances_namespace, io_size, chunk_s
         for t, p in feature_type_dict[population].iteritems():
             feature_type_value_lst.append(t)
             feature_type_prob_lst.append(p)
-
+            
         feature_type_values = np.asarray(feature_type_value_lst)
         feature_type_probs  = np.asarray(feature_type_prob_lst)
 
