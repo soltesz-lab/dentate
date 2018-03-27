@@ -17,9 +17,10 @@ module load mpi4py
 
 set -x
 
-export PYTHONPATH=/share/apps/compute/python/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
+export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
