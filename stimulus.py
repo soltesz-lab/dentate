@@ -12,20 +12,20 @@ selectivity_grid = 0
 selectivity_place_field = 1
 
 
-def generate_spatial_offsets(N, arena_dimension = 100., maxit=100): 
+def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10): 
     # Define the problem domain with line segments.
-    vert = np.array([[0.0,0.0],[arena_dimension,0.0],
-                    [arena_dimension,arena_dimension],
-                    [0.0,arena_dimension]])
+    vert = np.array([[-arena_dimension,-arena_dimension],[-arena_dimension,arena_dimension],
+                    [arena_dimension,arena_dimension],[arena_dimension,-arena_dimension]])
     smp = np.array([[0,1],[1,2],[2,3],[3,0]])
 
     # create N quasi-uniformly distributed nodes over the unit square
     nodes = halton(N,2)
 
-    # scale the nodes to encompass the domain
-    nodes *= arena_dimension
+    # scale/translate the nodes to encompass the arena
+    nodes -= 0.5
+    nodes *= scale_factor * arena_dimension
     
-    # evenly disperse the nodes over the domain using 100 iterative steps
+    # evenly disperse the nodes over the domain using maxit iterative steps
     for i in range(maxit):
         nodes = disperse(nodes,vert,smp)
 

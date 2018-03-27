@@ -7,6 +7,7 @@ import dentate
 from dentate.env import Env
 from dentate.DG_volume import DG_volume, make_volume, make_uvl_distance
 from dentate.utils import list_find, list_argsort
+from dentate.stimulus import generate_spatial_offsets
 import random, click, logging
 logging.basicConfig()
 
@@ -89,6 +90,8 @@ def main(config, coords_path, output_path, distances_namespace, io_size, chunk_s
             output_file.close()
     comm.barrier()
 
+    arena_dimension = int(env.modelConfig['Trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+
     # make sure random seeds are not being reused for various types of stochastic sampling
     feature_seed_offset = int(env.modelConfig['Random Seeds']['Input Features'])
 
@@ -121,6 +124,10 @@ def main(config, coords_path, output_path, distances_namespace, io_size, chunk_s
         feature_types = feature_type_random.choice(feature_type_values, p=feature_type_probs,
                                                    size=(population_count,) )
 
+        ## Generate X-Y offsets that correspond approximately to 8x8 m space
+        xy_offsets,_,_ = generate_spatial_offsets(population_count,arena_dimension=arena_dimension,\
+                                                  scale_factor=6.0,maxit=40)
+        
         grid_feature_dict = {}
         place_feature_dict = {}
         attr_gen = NeuroH5CellAttrGen(coords_path, population, namespace=distances_namespace,
@@ -147,11 +154,8 @@ def main(config, coords_path, output_path, distances_namespace, io_size, chunk_s
                     this_grid_orientation = grid_orientation[this_module]
                     feature_dict['Grid Orientation'] = np.array([this_grid_orientation], dtype='float32')
                     
-                    # aiming for close to uniform input density inside the square arena
-                    r_offset = this_grid_spacing * np.sqrt(local_random.random())
-                    phi_offset = local_random.uniform(-np.pi, np.pi)
-                    x_offset = r_offset * np.cos(phi_offset)
-                    y_offset = r_offset * np.sin(phi_offset)
+                    x_offset = xy_offsets[gid_count,0]
+                    y_offset = xy_offsets[gid_count,1]
                     feature_dict['X Offset'] = np.array([x_offset], dtype='float32')
                     feature_dict['Y Offset'] = np.array([y_offset], dtype='float32')
                     grid_feature_dict[gid] = feature_dict
@@ -162,12 +166,8 @@ def main(config, coords_path, output_path, distances_namespace, io_size, chunk_s
                     this_field_width = field_width(local_random.random())
                     feature_dict['Field Width'] = np.array([this_field_width], dtype='float32')
                     
-                    # aiming for close to uniform input density inside the square arena
-                    # r_offset = this_field_width * np.sqrt(local_random.random())
-                    r_offset = max_field_width * np.sqrt(local_random.random())
-                    phi_offset = local_random.uniform(-np.pi, np.pi)
-                    x_offset = r_offset * np.cos(phi_offset)
-                    y_offset = r_offset * np.sin(phi_offset)
+                    x_offset = xy_offsets[gid_count,0]
+                    y_offset = xy_offsets[gid_count,1]
                     feature_dict['X Offset'] = np.array([x_offset], dtype='float32')
                     feature_dict['Y Offset'] = np.array([y_offset], dtype='float32')
                     place_feature_dict[gid] = feature_dict

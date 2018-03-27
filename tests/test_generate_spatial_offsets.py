@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import dentate
 from dentate import stimulus
 
-nodes,vert,smp = stimulus.generate_spatial_offsets(1000)
+nodes,vert,smp = stimulus.generate_spatial_offsets(1000,scale_factor=6.0,maxit=40)
 fig,ax = plt.subplots(figsize=(6,6))
 # plot the domain
 for s in smp:
