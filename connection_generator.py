@@ -267,8 +267,6 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
     sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
     obs_u = obs_uvl[sample_inds,:]
     distances_u = np.concatenate(ldist_u)[sample_inds]
-    #self.dist_u = RBFInterpolant(,distances_u[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
-    #del ldist_u, obs_dist_u
         
     if verbose:
         logger.info('Computing V distances...')
@@ -279,8 +277,6 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
     sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
     obs_v = obs_uvl[sample_inds,:]    
     distances_v = np.concatenate(ldist_v)[sample_inds]
-    #self.dist_v = RBFInterpolant(obs_uvl[sample_inds,:],distances_v[sample_inds],order=1,basis=rbf.basis.phs3,extrapolate=True)
-    #del ldist_v, obs_dist_v
 
     return (distances_u, obs_u, distances_v, obs_v)
 

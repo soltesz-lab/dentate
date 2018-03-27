@@ -87,10 +87,10 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
         logger.info('Computing U volume distance interpolants...')
         (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
-        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
+        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis='phs3',extrapolate=True)
         coeff_dist_u = ip_dist_u._coeff
         logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
+        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis='phs3',extrapolate=True)
         coeff_dist_v = ip_dist_v._coeff
         logger.info('Broadcasting volume distance interpolants...')
         
@@ -99,8 +99,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     obs_dist_v = comm.bcast(obs_dist_v, root=0)
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
 
-    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
-    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
+    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis='phs3',extrapolate=True)
+    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis='phs3',extrapolate=True)
 
     if rank == 0:
         logger.info('Computing soma distances...')
