@@ -143,9 +143,12 @@ def lfpout (env, output_path, lfp):
         namespace_id = "Local Field Potential %s" % str(env.resultsId)
 
 
-    output = h5py.File(output_path,'w')
+    output = h5py.File(output_path)
 
-    output[namespace_id] = { 't': lfp.t, 'v': lfp.meanlfp }
+    grp = output.create_group(namespace_id)
+
+    grp['t'] = np.asarray(lfp.t, dtype=np.float32)
+    grp['v'] = np.asarray(lfp.meanlfp, dtype=np.float32)
 
     output.close()
         
@@ -492,9 +495,9 @@ def mkcells(env):
                 verboseflag = 0
                 model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
 
-                cell_x = cell_coords_dict['X Coordinate']
-                cell_y = cell_coords_dict['Y Coordinate']
-                cell_z = cell_coords_dict['Z Coordinate']
+                cell_x = cell_coords_dict['X Coordinate'][0]
+                cell_y = cell_coords_dict['Y Coordinate'][0]
+                cell_z = cell_coords_dict['Z Coordinate'][0]
                 model_cell.position(cell_x, cell_y, cell_z)
                 
                 env.gidlist.append(gid)
@@ -638,6 +641,9 @@ def init(env):
 def run (env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
+
+    if (rank == 0):
+        logger.info("*** Running simulation")
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)

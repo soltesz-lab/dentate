@@ -48,7 +48,6 @@ obfunc connect2target() { // $o1 target point process, optional $o2 returned Net
 proc position(){
     x = $1  y = $2  z = $3	
     xpos = $1  ypos = $2  zpos = $3	
-    pp.position(xpos, ypos, zpos)
 }
 
 endtemplate StimCell
