@@ -25,7 +25,7 @@ cd $PBS_O_WORKDIR
 
 
 
-aprun -n 1024 -b -- bwpy-environ -- python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
+aprun -n 1024 -b -- bwpy-environ -- python2.7 $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
     -d GC -s LPP -s MPP -s MC \
     --config=./config/Full_Scale_Control.yaml \
     --weights-path=$SCRATCH/Full_Scale_Control/DG_GC_forest_syns_weights_20180329.h5 \
