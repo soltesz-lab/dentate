@@ -309,6 +309,8 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
 
     syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_ais  = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_hill = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_soma = defaultdict(lambda: defaultdict(lambda: {}))
     py_sections = [sec for sec in cell.sections]
 
@@ -319,6 +321,8 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
     swc_type_basal  = env.SWC_Types['basal']
     swc_type_soma   = env.SWC_Types['soma']
     swc_type_axon   = env.SWC_Types['axon']
+    swc_type_ais   = env.SWC_Types['ais']
+    swc_type_hill  = env.SWC_Types['hillock']
     
     syn_obj_dict = {}
 
@@ -348,6 +352,10 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
                 sec(syn_loc).count_spines += 1
       elif swc_type == swc_type_axon:
         syns_dict = syns_dict_axon
+      elif swc_type == swc_type_ais:
+        syns_dict = syns_dict_ais
+      elif swc_type == swc_type_hill:
+        syns_dict = syns_dict_hill
       elif swc_type == swc_type_soma:
         syns_dict = syns_dict_soma
       else: 

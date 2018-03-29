@@ -7,10 +7,10 @@ from collections import defaultdict
 from datetime import datetime
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
-import h5py
 from neuron import h
 from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, \
     scatter_read_cell_attributes, write_cell_attributes
+import h5py
 import dentate    
 from dentate.env import Env
 from dentate import lpt, synapses, cells, lfp, simtime
@@ -129,8 +129,7 @@ def vout (env, output_path, t_vec, v_dict):
 
     for pop_name, gid_v_dict in v_dict.iteritems():
         
-        attr_dict  = { gid : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }
-                           for (gid, vs) in gid_v_dict.iteritems() }
+        attr_dict  = { gid : { 'v': np.array(vs, dtype=np.float32), 't' : t_vec }  for (gid, vs) in gid_v_dict.iteritems() }
 
         write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
         
@@ -168,7 +167,7 @@ def connectcells(env):
 
     if env.verbose:
       if env.pc.id() == 0:
-        logger.info('*** Reading projections: ', prj_dict.items())
+        logger.info('*** Reading projections: ')
       
     for (postsyn_name, presyn_names) in prj_dict.iteritems():
 
@@ -588,6 +587,8 @@ def init(env):
 
     if (env.pc.id() == 0):
       mkout (env, env.resultsFilePath)
+    if (env.pc.id() == 0):
+        logger.info("*** Creating cells...")
     env.pc.barrier()
     h.startsw()
     mkcells(env)
@@ -726,15 +727,25 @@ def main(config_file, template_paths, dataset_prefix, results_path, results_id, 
     """
     if verbose:
         logger.setLevel(logging.INFO)
+    comm = MPI.COMM_WORLD
+
+    rank = comm.Get_rank()
+    if rank == 0:
+      logger.info('before Env')
+    comm.Barrier()
 
     np.seterr(all='raise')
-    comm = MPI.COMM_WORLD
     env = Env(comm, config_file, 
               template_paths, dataset_prefix, results_path, results_id,
               node_rank_file, io_size,
               vrecord_fraction, coredat, tstop, v_init,
               max_walltime_hours, results_write_time,
               dt, ldbal, lptbal, verbose)
+
+    if rank == 0:
+      logger.info('before init')
+    comm.Barrier()
+
     init(env)
     run(env)
 

@@ -12,8 +12,11 @@ DG_GC_coordinate_file  = "DGC_forest_reindex_compressed_20180224.h5"
 DG_IN_coordinate_file  = "dentate_generated_coords_20180305.h5"
 DG_EXT_coordinate_file = "dentate_generated_coords_20180305.h5"
 
-DG_GC_forest_file = "DGC_forest_syns_compressed_20180306.h5"
+DG_GC_forest_file = "DGC_forest_20180306.h5"
 DG_IN_forest_file = "DG_IN_forest_syns_20180304.h5"
+
+DG_GC_forest_syns_file = "DGC_forest_syns_compressed_20180306.h5"
+DG_IN_forest_syns_file = "DG_IN_forest_syns_20180304.h5"
 
 DG_IN_connectivity_file = "DG_IN_connections_20180323.h5"
 DG_GC_connectivity_file = "DG_GC_connections_compressed_20180319.h5"
@@ -68,6 +71,18 @@ forest_files = {
      'NGFC': DG_IN_forest_file 
 }
 
+forest_syns_files = {
+     'AAC': DG_IN_forest_syns_file,
+     'BC': DG_IN_forest_syns_file,
+     'GC': DG_GC_forest_syns_file,
+     'HC': DG_IN_forest_syns_file,
+     'HCC': DG_IN_forest_syns_file,
+     'IS': DG_IN_forest_syns_file,
+     'MC': DG_IN_forest_syns_file,
+     'MOPP': DG_IN_forest_syns_file,
+     'NGFC': DG_IN_forest_syns_file 
+}
+
 ## Creates coordinates entries
 with h5py.File(DG_cells_file) as f:
 
@@ -89,8 +104,9 @@ with h5py.File(DG_cells_file) as f:
     for p in DG_populations:
         if forest_files.has_key(p):
             forest_file = forest_files[p]
+            forest_syns_file = forest_syns_files[p]
             grp[p]["Trees"] = h5py.ExternalLink(forest_file,"/Populations/%s/Trees" % p)
-            grp[p]["Synapse Attributes"] = h5py.ExternalLink(forest_file,"/Populations/%s/Synapse Attributes" % p)
+            grp[p]["Synapse Attributes"] = h5py.ExternalLink(forest_syns_file,"/Populations/%s/Synapse Attributes" % p)
 
 ## Creates connectivity entries
 with h5py.File(DG_connections_file) as f:
