@@ -6,6 +6,7 @@ import dentate
 from dentate.env import Env
 from dentate.utils import list_find
 import numpy as np
+import h5py
 from collections import defaultdict
 import click
 from itertools import izip, izip_longest
