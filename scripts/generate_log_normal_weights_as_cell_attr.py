@@ -85,7 +85,7 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
             output_file.close()
     comm.barrier()
 
-    seed_offset = int(env.modelConfig['Random Seeds']['PP Log-Normal Weigths 1'])
+    seed_offset = int(env.modelConfig['Random Seeds']['PP Log-Normal Weights 1'])
 
     pop_ranges, pop_size = read_population_ranges(connections_path, comm=comm)
     destination_gid_offset = pop_ranges[destination][0]
