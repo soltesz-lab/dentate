@@ -115,7 +115,7 @@ def spikeout (env, output_path, t_vec, id_vec):
                 else:
                     spkdict[id]= {'t': [t]}
             for j in spkdict.keys():
-                spkdict[j]['t'] = np.array(spkdict[j]['t'])
+                spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
         pop_name = types[i]
         write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
 
@@ -300,7 +300,7 @@ def connectcells(env):
                 weight = float(syn_wgt_dict[edge_syn_id]) * connection_syn_mech_config['weight']
               else:
                 weight = connection_syn_mech_config['weight']
-              delay  = distance / connection_syn_mech_config['velocity']
+              delay  = (distance / connection_syn_mech_config['velocity']) + 0.1
               if type(weight) is float:
                 nc_appendsyn (env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
               else:
@@ -661,6 +661,7 @@ def run (env):
         logger.info("*** Writing intracellular trace data")
       t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
       vout(env, env.resultsFilePath, t_vec, env.v_dict)
+    env.pc.barrier()
     if (rank == 0):
         logger.info("*** Writing local field potential data")
         lfpout(env, env.resultsFilePath, env.lfp)
