@@ -2,11 +2,11 @@
 import sys, time, gc
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
+import dentate
+from dentate.env import Env
 import numpy as np
 from collections import defaultdict
 import click
-import dentate
-from dentate.env import Env
 from itertools import izip, izip_longest
 import logging
 logging.basicConfig()

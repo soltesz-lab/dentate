@@ -18,18 +18,16 @@ module load mpi4py
 
 export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
-ulimit -c unlimited
 
 set -x
 
 ibrun -np 1680 python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
- -d GC -s LPP -s MPP \
- --weights-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_weights_20171121_compressed.h5 \
- --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20171105.h5 \
- --io-size=256
+ -d GC -s MPP -s LPP -s MC \
+ --weights-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_weights_20180329.h5 \
+ --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_compressed_20180319.h5 \
+ --io-size=256 -v 
 
 

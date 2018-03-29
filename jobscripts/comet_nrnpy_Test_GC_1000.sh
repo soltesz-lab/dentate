@@ -40,7 +40,7 @@ ibrun -np 12 python main.py \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \
  --results-path=$results_path \
  --io-size=4 \
- --tstop=10 \
+ --tstop=6 \
  --v-init=-75 \
  --max-walltime-hours=1 \
  --verbose
