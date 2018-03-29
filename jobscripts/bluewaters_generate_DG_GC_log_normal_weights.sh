@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -l nodes=64:ppn=16:xe
-#PBS -q debug
-#PBS -l walltime=0:30:00
+#PBS -q normal
+#PBS -l walltime=1:30:00
 #PBS -e ./results/generate_DG_GC_log_normal_weights_as_cell_attr.$PBS_JOBID.err
 #PBS -o ./results/generate_DG_GC_log_normal_weights_as_cell_attr.$PBS_JOBID.out
 #PBS -N generate_DG_GC_log_normal_weights
@@ -25,8 +25,9 @@ cd $PBS_O_WORKDIR
 
 
 
-aprun -n 1024 -b -- bwpy-environ -- python $HOME/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
+aprun -n 1024 -b -- bwpy-environ -- python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
     -d GC -s LPP -s MPP -s MC \
+    --config=./config/Full_Scale_Control.yaml \
     --weights-path=$SCRATCH/Full_Scale_Control/DG_GC_forest_syns_weights_20180329.h5 \
     --connections-path=$SCRATCH/Full_Scale_Control/DG_GC_connections_compressed_20180319.h5 \
-    --io-size=256 --cache-size=1 --value-chunk-size=100000 --chunk-size=20000 -v --dry-run 
+    --io-size=256 --cache-size=1 --value-chunk-size=100000 --chunk-size=20000 -v

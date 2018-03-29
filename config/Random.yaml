@@ -4,8 +4,8 @@ Connectivity Clustering:           1.5e+6 ## Clustering of connections from same
 Distance-Dependent Connectivity:   2.0e+6 ## Generating distance-dependent connectivity
 PP Feature Selectivity:            4.0e+6 ## Computing MPP and LPP feature selectivity
 Random Connectivity:               6.0e+6 ## Computing random connectivity (not distance-dependent)
-PP Log-Normal Weigths 1:           8.0e+6 ## Computing log-normal weights for PP-GC
-PP Log-Normal Weigths 2:           10.0e+6 ## Computing log-normal weights for PP-GC
+PP Log-Normal Weights 1:           8.0e+6 ## Computing log-normal weights for PP-GC
+PP Log-Normal Weights 2:           10.0e+6 ## Computing log-normal weights for PP-GC
 PP Structured Weights:             12.0e+6 ## Computing structured weights for PP-GC
 Synaptic Integration Optimization: 14.0e+6 ## Choosing synapses and branches for optimization of synaptic integration in GCs.
 EPSC Attenuation Optimization:     16.0e+6 ## Choosing branches for optimization of EPSC attenuation in GCs.

@@ -4,6 +4,7 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 import dentate
 from dentate.env import Env
+from dentate.utils import list_find
 import numpy as np
 from collections import defaultdict
 import click
@@ -36,7 +37,7 @@ sigma = 0.35
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--weights-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--weights-namespace", type=str, default='Weights')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
@@ -45,10 +46,9 @@ sigma = 0.35
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--seed-offset", type=int, default=4)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, cache_size,
+def main(config, weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, cache_size,
          verbose, dry_run):
     """
 
@@ -93,13 +93,15 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
     count = 0
     start_time = time.time()
 
+    print 'before projection gen'
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
-                                                        comm=comm, io_size=io_size, cache_size=cache_size))
+                                                        comm=comm))
 
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
+        print 'local_time: ',local_time
         source_syn_map = defaultdict(list)
         source_weights = None
         source_gid_array = None
@@ -107,6 +109,7 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
         syn_weight_map = {}
         weights_dict = {}
         destination_gid = attr_gen_package[0][0]
+        print 'destination_gid: ',destination_gid
         if not all([attr_gen_items[0] == destination_gid for attr_gen_items in attr_gen_package]):
             raise Exception('Rank: %i; destination: %s; destination_gid not matched across multiple attribute generators: %s' %
                             (rank, destination, destination_gid,
