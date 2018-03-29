@@ -1,5 +1,5 @@
 
-import sys, time, gc
+import sys, os, time, gc
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 import dentate
