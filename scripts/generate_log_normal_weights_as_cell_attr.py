@@ -94,7 +94,6 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
     count = 0
     start_time = time.time()
 
-    print 'before projection gen'
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
@@ -102,7 +101,6 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
 
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
-        print 'local_time: ',local_time
         source_syn_map = defaultdict(list)
         source_weights = None
         source_gid_array = None
@@ -110,7 +108,6 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
         syn_weight_map = {}
         weights_dict = {}
         destination_gid = attr_gen_package[0][0]
-        print 'destination_gid: ',destination_gid
         if not all([attr_gen_items[0] == destination_gid for attr_gen_items in attr_gen_package]):
             raise Exception('Rank: %i; destination: %s; destination_gid not matched across multiple attribute generators: %s' %
                             (rank, destination, destination_gid,
