@@ -241,8 +241,8 @@ Cell Types:
               variance: 0.2
   MPP:
     template: MPPCell
-    vectorStimulus: Vector Stimulus 0
+    Vector Stimulus: Vector Stimulus 0
   LPP:
     template: LPPCell
-    vectorStimulus: Vector Stimulus 0
+    Vector Stimulus: Vector Stimulus 0
 
