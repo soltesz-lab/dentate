@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l nodes=64:ppn=16:xe
+#PBS -l nodes=128:ppn=16:xe
 #PBS -q normal
-#PBS -l walltime=2:30:00
+#PBS -l walltime=3:00:00
 #PBS -e ./results/generate_IN_distance_connections.$PBS_JOBID.err
 #PBS -o ./results/generate_IN_distance_connections.$PBS_JOBID.out
 #PBS -N generate_IN_distance_connections
@@ -27,10 +27,10 @@ set -x
 cd $PBS_O_WORKDIR
 
 
-aprun -n 1024 -b -- bwpy-environ -- python ./scripts/generate_distance_connections.py \
+aprun -n 2048 -b -- bwpy-environ -- python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
        --forest-path=$SCRATCH/Full_Scale_Control/DG_IN_forest_syns_20180304.h5 \
-       --connectivity-path=$SCRATCH/Full_Scale_Control/DG_IN_connections_20180323.h5 \
+       --connectivity-path=$SCRATCH/Full_Scale_Control/DG_IN_connections_20180328.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/Full_Scale_Control/DG_cells_20180305.h5 \
        --coords-namespace=Coordinates \

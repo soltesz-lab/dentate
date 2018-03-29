@@ -82,7 +82,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(-3.95, 3.2, ures=20, vres=15, lres=10)
+        ip_volume = make_volume(-3.95, 3.2, ures=20, vres=20, lres=10)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
         logger.info('Computing U volume distance interpolants...')

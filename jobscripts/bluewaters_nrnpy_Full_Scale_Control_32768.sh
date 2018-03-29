@@ -3,9 +3,9 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=2048:ppn=16:xe
 ### which queue to use
-#PBS -q high
+#PBS -q normal
 ### set the wallclock time
-#PBS -l walltime=4:30:00
+#PBS -l walltime=6:30:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_32768
 ### set the job stdout and stderr
@@ -15,6 +15,7 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
+#PBS -A baqc
 
 
 module swap PrgEnv-cray PrgEnv-gnu
@@ -24,10 +25,10 @@ module load bwpy-mpi
 
 set -x
 
-export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
-export PYTHONPATH=$HOME/bin/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
+export ATP_ENABLED=1 
+export PYTHONPATH=$HOME/model:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
-export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
+export SCRATCH=/projects/sciteam/baqc
 
 echo python is `which python`
 results_path=./results/Full_Scale_Control_$PBS_JOBID
@@ -43,18 +44,17 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ## Necessary for correct loading of Darshan with LD_PRELOAD mechanism
 export PMI_NO_FORK=1
 export PMI_NO_PREINITIALIZE=1
-export LD_PRELOAD=/opt/cray/hdf5-parallel/1.8.16/GNU/4.9/lib/libhdf5_parallel_gnu_49.so.10
 
-aprun -n 32768 \
+aprun -n 32768 -b -- bwpy-environ -- \
     python main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
-    --dataset-prefix="/projects/sciteam/baef" \
+    --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
     --tstop=10000 \
     --v-init=-75 \
-    --max-walltime-hours=4.33 \
+    --max-walltime-hours=6.4 \
     --vrecord-fraction=0.001 \
     --verbose
 
