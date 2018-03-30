@@ -46,17 +46,18 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
+@click.option("--trajectory-id", type=int, default=0)
+@click.option("--target-sparsity", type=float, default=0.1)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--trajectory-id", type=int, default=0)
-@click.option("--target-sparsity", type=float, default=0.1)
+@click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weights_namespace, structured_weights_namespace,
-         connections_path, destination, sources, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id, 
-         target_sparsity, verbose, dry_run):
+         connections_path, destination, sources, trajectory_id, target_sparsity, io_size, chunk_size, value_chunk_size, cache_size, write_size,
+         verbose, dry_run):
     """
 
     :param stimulus_path: str
@@ -132,9 +133,9 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     max_plasticity_kernel_area = np.sum(plasticity_kernel(d, np.max(d) / 2.)) * spatial_resolution
 
     pop_ranges, pop_size = read_population_ranges(stimulus_path, comm=comm)
-    target_gid_offset = pop_ranges[destination][0]
 
     count = 0
+    gid_count = 0
     structured_count = 0
     start_time = time.time()
 
@@ -145,6 +146,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
                                                         comm=comm, io_size=io_size, cache_size=cache_size))
 
+    structured_weights_dict = {}
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
         syn_weight_map = {}
@@ -213,12 +215,14 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
             count += 1
         else:
             logger.info('Rank: %i received destination_gid as None' % rank)
-        if not dry_run:
-            append_cell_attributes(weights_path, destination, structured_weights_dict, \
-                                   namespace=structured_weights_namespace, \
-                                   comm=comm, io_size=io_size, chunk_size=chunk_size, \
-                                   value_chunk_size=value_chunk_size)
-        sys.stdout.flush()
+        gid_count += 1
+        if gid_count % write_size == 0:
+            if not dry_run:
+                append_cell_attributes(weights_path, destination, structured_weights_dict, \
+                                           namespace=structured_weights_namespace, \
+                                           comm=comm, io_size=io_size, chunk_size=chunk_size, \
+                                           value_chunk_size=value_chunk_size)
+        structured_weights_dict.clear()
         del syn_weight_map
         del source_syn_map
         del syn_peak_index_map
@@ -227,6 +231,11 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
         del source_gid_array
         del conn_attr_dict
         gc.collect()
+    if not dry_run:
+        append_cell_attributes(weights_path, destination, structured_weights_dict, \
+                                   namespace=structured_weights_namespace, \
+                                   comm=comm, io_size=io_size, chunk_size=chunk_size, \
+                                   value_chunk_size=value_chunk_size)
     global_count = comm.gather(count, root=0)
     global_structured_count = comm.gather(structured_count, root=0)
     if rank == 0:

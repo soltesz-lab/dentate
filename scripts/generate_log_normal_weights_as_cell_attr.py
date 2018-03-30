@@ -47,10 +47,10 @@ sigma = 0.35
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
+@click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, cache_size,
-         verbose, dry_run):
+def main(config, weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
     """
 
     :param weights_path: str
@@ -89,9 +89,9 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
     seed_offset = int(env.modelConfig['Random Seeds']['PP Log-Normal Weights 1'])
 
     pop_ranges, pop_size = read_population_ranges(connections_path, comm=comm)
-    destination_gid_offset = pop_ranges[destination][0]
 
     count = 0
+    gid_count = 0
     start_time = time.time()
 
     connection_gen_list = []
@@ -99,6 +99,7 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
                                                         comm=comm))
 
+    weights_dict = {}
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
         source_syn_map = defaultdict(list)
@@ -124,7 +125,7 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
             for this_source_gid, this_weight in zip(source_syn_map, source_weights):
                 for this_syn_id in source_syn_map[this_source_gid]:
                     syn_weight_map[this_syn_id] = this_weight
-            weights_dict[destination_gid - destination_gid_offset] = \
+            weights_dict[destination_gid] = \
                 {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
                  'weight': np.array(syn_weight_map.values()).astype('float32', copy=False)}
             logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
@@ -133,18 +134,23 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
             count += 1
         else:
             logger.info('Rank: %i received destination_gid as None' % rank)
-        if not dry_run:
-            append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
-                                    comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        gid_count += 1
+        if gid_count % write_size == 0:
+            if not dry_run:
+                append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
+                                        comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
             # print 'Rank: %i, just after append' % rank
-        del source_syn_map
-        del source_weights
-        del syn_weight_map
-        del source_gid_array
-        del conn_attr_dict
-        del weights_dict
-        gc.collect()
+            del source_syn_map
+            del source_weights
+            del syn_weight_map
+            del source_gid_array
+            del conn_attr_dict
+            weights_dict.clear()
+            gc.collect()
 
+    if not dry_run:
+        append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
+                                comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
     global_count = comm.gather(count, root=0)
     if rank == 0:
         logger.info('destination: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
