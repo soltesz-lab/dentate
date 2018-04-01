@@ -118,7 +118,7 @@ def spikeout (env, output_path, t_vec, id_vec):
                 spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
         pop_name = types[i]
         write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
-
+        del(spkdict)
 
 def vout (env, output_path, t_vec, v_dict):
 
@@ -540,11 +540,10 @@ def mkstim(env):
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, vecstim_dict) in cell_vecstim:
               if env.verbose:
-                    if env.pc.id() == 0:
-                        if len(vecstim_dict['spiketrain']) > 0:
-                            logger.info( "*** Spike train for gid %i is of length %i (first spike at %g ms)" % (gid, len(vecstim_dict['spiketrain']),vecstim_dict['spiketrain'][0]))
-                        else:
-                            logger.info("*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain'])))
+                if len(vecstim_dict['spiketrain']) > 0:
+                  logger.info( "*** Spike train for gid %i is of length %i (first spike at %g ms)" % (gid, len(vecstim_dict['spiketrain']),vecstim_dict['spiketrain'][0]))
+                else:
+                  logger.info("*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain'])))
                         
               cell = env.pc.gid2cell(gid)
               cell.play(h.Vector(vecstim_dict['spiketrain']))

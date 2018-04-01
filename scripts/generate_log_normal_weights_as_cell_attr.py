@@ -107,7 +107,6 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
         source_gid_array = None
         conn_attr_dict = None
         syn_weight_map = {}
-        weights_dict = {}
         destination_gid = attr_gen_package[0][0]
         if not all([attr_gen_items[0] == destination_gid for attr_gen_items in attr_gen_package]):
             raise Exception('Rank: %i; destination: %s; destination_gid not matched across multiple attribute generators: %s' %
