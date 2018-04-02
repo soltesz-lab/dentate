@@ -44,7 +44,7 @@ mpirun_rsh -export-all -hostfile $nodefile -np 1680  \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \
  --io-size=256 \
- --tstop=250 \
+ --tstop=10000 \
  --v-init=-75 \
- --max-walltime-hours=3.9 \
+ --max-walltime-hours=3.5 \
  --verbose

@@ -2,9 +2,9 @@
 #
 #SBATCH -J generate_DG_GC_log_normal_weights
 #SBATCH -o ./results/generate_DG_GC_log_normal_weights.%j.o
-#SBATCH --nodes=70
+#SBATCH --nodes=32
 #SBATCH --ntasks-per-node=24
-#SBATCH -t 5:00:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -24,10 +24,14 @@ export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 
 set -x
 
-ibrun -np 1680 python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
+nodefile=`generate_pbs_nodefile`
+
+mpirun_rsh -export-all -hostfile $nodefile -np 768  \
+ python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
  -d GC -s MPP -s LPP -s MC \
- --weights-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_weights_20180329.h5 \
+ --config=./config/Full_Scale_Control.yaml \
+ --weights-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_weights_20180401.h5 \
  --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_compressed_20180319.h5 \
- --io-size=256 -v 
+ --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
 
 
