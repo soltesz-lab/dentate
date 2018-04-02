@@ -39,7 +39,7 @@ sigma = 0.35
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
-@click.option("--weights-namespace", type=str, default='Weights')
+@click.option("--weights-namespace", type=str, default='Log-Normal Weights')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
