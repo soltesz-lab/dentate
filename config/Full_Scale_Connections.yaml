@@ -631,14 +631,14 @@ Connection Properties:
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 1.2
+        weight: 0.15
         velocity: 250.0
       GABA_B:
-        weight: 1.1
+        weight: 0.1
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 1.2
+        weight: 0.15
         velocity: 250.0
     MPP:
       AMPA:
@@ -788,11 +788,11 @@ Connection Properties:
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 2.0
+        weight: 1.0
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 2.0
+        weight: 1.0
         velocity: 250.0
   MOPP:
     MC:

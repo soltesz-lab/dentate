@@ -1,6 +1,8 @@
 
 import sys, os, time, gc
+import mpi4py
 from mpi4py import MPI
+import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, NeuroH5ProjectionGen
 from neuroh5.h5py_io_utils import *
 import dentate
@@ -92,7 +94,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
 
     stimulus_attrs = {}
     for source in sources:
-        stimulus_attr_gen = bcast_cell_attributes(0, stimulus_path, source, namespace=stimulus_namespace, comm=comm)
+        stimulus_attr_gen = bcast_cell_attributes(stimulus_path, source, namespace=stimulus_namespace, root=0, comm=comm)
         stimulus_attrs[source] = {gid: attr_dict for gid, attr_dict in stimulus_attr_gen}
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
@@ -139,12 +141,12 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     structured_count = 0
     start_time = time.time()
 
-    gid_index_map = get_cell_attributes_gid_index_map(comm, weights_path, destination, initial_weights_namespace)
+    gid_index_map = get_cell_attributes_index_map(comm, weights_path, destination, initial_weights_namespace)
 
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
-                                                        comm=comm, io_size=io_size, cache_size=cache_size))
+                                                        comm=comm, io_size=io_size))
 
     structured_weights_dict = {}
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
@@ -152,7 +154,6 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
         syn_weight_map = {}
         source_syn_map = defaultdict(list)
         syn_peak_index_map = {}
-        structured_weights_dict = {}
         modulated_inputs = 0
         source_gid_array = None
         conn_attr_dict = None
@@ -205,7 +206,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                  'peak_index': np.array(syn_peak_index_map.values()).astype('uint32', copy=False),
                  'structured': np.array([int(modify_weights)], dtype='uint32')}
             if modify_weights:
-                logger,.info('Rank %i; destination: %s; gid %i; generated structured weights for %i/%i inputs in %.2f s' % \
+                logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i/%i inputs in %.2f s' % \
                              (rank, destination, destination_gid, modulated_inputs, len(syn_weight_map), time.time() - local_time))
                 structured_count += 1
             else:
