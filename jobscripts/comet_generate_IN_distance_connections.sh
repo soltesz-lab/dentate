@@ -3,7 +3,7 @@
 #SBATCH -J generate_IN_distance_connections
 #SBATCH -o ./results/generate_IN_distance_connections.%j.o
 #SBATCH --nodes=36
-#SBATCH --ntasks-per-node=12
+#SBATCH --ntasks-per-node=24
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -27,10 +27,10 @@ ulimit -c unlimited
 set -x
 
 
-ibrun -np 432 python ./scripts/generate_distance_connections.py \
+ibrun -np 864 python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
        --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20180304.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180313.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180327.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_cells_20180305.h5 \
        --coords-namespace=Coordinates \

@@ -1,9 +1,12 @@
 
-import sys, time, gc
+import sys, os, time, gc
 from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
-    NeuroH5ProjectionGen
+from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
+import dentate
+from dentate.env import Env
+from dentate.utils import list_find
 import numpy as np
+import h5py
 from collections import defaultdict
 import click
 from itertools import izip, izip_longest
@@ -34,8 +37,9 @@ sigma = 0.35
 
 
 @click.command()
-@click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--weights-namespace", type=str, default='Weights')
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--weights-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
+@click.option("--weights-namespace", type=str, default='Log-Normal Weights')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
@@ -43,11 +47,10 @@ sigma = 0.35
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--seed-offset", type=int, default=4)
+@click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
-@click.option("--debug", is_flag=True)
-def main(weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, cache_size,
-         seed_offset, verbose, debug):
+@click.option("--dry-run", is_flag=True)
+def main(config, weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
     """
 
     :param weights_path: str
@@ -57,11 +60,9 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
     :param chunk_size: int
     :param value_chunk_size: int
     :param cache_size: int
-    :param seed_offset: int
-    :param debug:  bool
+    :param verbose:  bool
+    :param dry_run:  bool
     """
-    # make sure random seeds are not being reused for various types of stochastic sampling
-    seed_offset *= 2e6
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -69,23 +70,36 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    env = Env(comm=comm, configFile=config)
+
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
         logger.info('%s: %i ranks have been allocated' % (script_name, comm.size))
 
+    if (not dry_run) and (rank==0):
+        if not os.path.isfile(weights_path):
+            input_file  = h5py.File(connections_path,'r')
+            output_file = h5py.File(weights_path,'w')
+            input_file.copy('/H5Types',output_file)
+            input_file.close()
+            output_file.close()
+    comm.barrier()
+
+    seed_offset = int(env.modelConfig['Random Seeds']['PP Log-Normal Weights 1'])
+
     pop_ranges, pop_size = read_population_ranges(connections_path, comm=comm)
-    destination_gid_offset = pop_ranges[destination][0]
 
     count = 0
+    gid_count = 0
     start_time = time.time()
 
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
-                                                        comm=comm, io_size=io_size, cache_size=cache_size))
+                                                        comm=comm))
 
-    maxiter = 100 if debug else None
+    weights_dict = {}
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
         source_syn_map = defaultdict(list)
@@ -93,7 +107,6 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
         source_gid_array = None
         conn_attr_dict = None
         syn_weight_map = {}
-        weights_dict = {}
         destination_gid = attr_gen_package[0][0]
         if not all([attr_gen_items[0] == destination_gid for attr_gen_items in attr_gen_package]):
             raise Exception('Rank: %i; destination: %s; destination_gid not matched across multiple attribute generators: %s' %
@@ -111,7 +124,7 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
             for this_source_gid, this_weight in zip(source_syn_map, source_weights):
                 for this_syn_id in source_syn_map[this_source_gid]:
                     syn_weight_map[this_syn_id] = this_weight
-            weights_dict[destination_gid - destination_gid_offset] = \
+            weights_dict[destination_gid] = \
                 {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
                  'weight': np.array(syn_weight_map.values()).astype('float32', copy=False)}
             logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
@@ -120,23 +133,23 @@ def main(weights_path, weights_namespace, connections_path, destination, sources
             count += 1
         else:
             logger.info('Rank: %i received destination_gid as None' % rank)
-        if not debug:
-            append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
-                                    comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        gid_count += 1
+        if gid_count % write_size == 0:
+            if not dry_run:
+                append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
+                                        comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
             # print 'Rank: %i, just after append' % rank
-        del source_syn_map
-        del source_weights
-        del syn_weight_map
-        del source_gid_array
-        del conn_attr_dict
-        del weights_dict
-        gc.collect()
-        if debug:
-            comm.barrier()
-            if maxiter is not None and itercount > maxiter:
-                break
-    if debug:
-        logger.info('Rank: %i exited the loop' % rank)
+            del source_syn_map
+            del source_weights
+            del syn_weight_map
+            del source_gid_array
+            del conn_attr_dict
+            weights_dict.clear()
+            gc.collect()
+
+    if not dry_run:
+        append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
+                                comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
     global_count = comm.gather(count, root=0)
     if rank == 0:
         logger.info('destination: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \

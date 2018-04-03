@@ -79,17 +79,27 @@ class Env:
         typenames = celltypes.keys()
         typenames.sort()
 
+        self.comm.Barrier()
+
         datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
         dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
 
         (population_ranges, _) = read_population_ranges(dataFilePath, self.comm)
+        if rank == 0:
+            print 'population_ranges = ', population_ranges
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
 
         population_names  = read_population_names(dataFilePath, self.comm)
+        if rank == 0:
+            print 'population_names = ', population_names
         self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, self.comm)
+
+        if rank == 0:
+            print 'attribute info: ', self.cellAttributeInfo
+
             
     def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
                  IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):

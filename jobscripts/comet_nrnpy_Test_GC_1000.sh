@@ -3,8 +3,8 @@
 #SBATCH -J dentate_Test_GC_1000
 #SBATCH -o ./results/dentate_Test_GC_1000.%j.o
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=24
-#SBATCH -p compute
+#SBATCH --ntasks-per-node=12
+#SBATCH -p shared
 #SBATCH -t 1:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -17,9 +17,10 @@ module load mpi4py
 
 set -x
 
-export PYTHONPATH=/share/apps/compute/python/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model/dentate:$PYTHONPATH
+export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
@@ -33,13 +34,13 @@ git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 
-ibrun -np 24 python main.py \
+ibrun -np 12 python main.py \
  --config-file=config/Test_GC_1000.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \
  --results-path=$results_path \
  --io-size=4 \
- --tstop=30 \
+ --tstop=6 \
  --v-init=-75 \
  --max-walltime-hours=1 \
  --verbose
