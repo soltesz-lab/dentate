@@ -12,7 +12,7 @@ script_name = 'plot_state.py'
 @click.option("--state-namespace", '-n', type=str, default='Intracellular Voltage')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--max-units", type=int, default=None)
-@click.option("--unit-no", type=int, default=None)
+@click.option("--unit-no", type=int, default=None, multiple=True)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--variable", type=str, default='v')
 @click.option("--t-max", type=float)

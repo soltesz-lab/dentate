@@ -558,7 +558,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-## Plot intracellular voltage trace
+## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', variable='v', maxUnits = 1, unitNo = None,
                               orderInverse = False, labels = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
                               showFig = True, verbose = False): 
