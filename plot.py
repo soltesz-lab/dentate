@@ -607,24 +607,16 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(states.keys()) }
     
-    # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
-
-    if verbose:
-        print('Creating state plot...')
-
     stplots = []
     
-    # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
+    fig, ax1 = plt.subplots(figsize=figSize,sharex='all',sharey='all')
         
     for (pop_name, pop_states) in states.iteritems():
         
         for (gid, cell_states) in pop_states.iteritems():
 
-            gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
-            ax1=plt.subplot(gs[0])
-
+            if verbose:
+                print('Creating state plot for gid %i...' % gid)
             stplots.append(ax1.plot(cell_states[0], cell_states[1], linewidth=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
             
     ax1.set_xlim(timeRange)
@@ -659,16 +651,16 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
         shift = 1 - (lgd_xmax - ax_xmax)
         plt.gcf().tight_layout(rect=(0, 0, shift, 1))
         
-        if orderInverse:
-            plt.gca().invert_yaxis()
+    if orderInverse:
+        plt.gca().invert_yaxis()
 
-        # save figure
-        if saveFig: 
-            if isinstance(saveFig, basestring):
-                filename = saveFig
-            else:
-                filename = namespace_id+' '+'state.png'
-                plt.savefig(filename)
+    # save figure
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+' '+'state.png'
+            plt.savefig(filename)
                 
     # show fig 
     if showFig:
