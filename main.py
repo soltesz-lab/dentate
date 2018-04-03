@@ -10,7 +10,6 @@ from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, \
     scatter_read_cell_attributes, write_cell_attributes
-import h5py
 import dentate    
 from dentate.env import Env
 from dentate import lpt, synapses, cells, lfp, simtime
@@ -75,13 +74,14 @@ def lpt_bal(env):
         part_rank = part_rank+1
         
 def mkout (env, results_filename):
-    datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
-    dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    dataFile      = h5py.File(dataFilePath,'r')
-    resultsFile   = h5py.File(results_filename,'w')
-    dataFile.copy('/H5Types',resultsFile)
-    dataFile.close()
-    resultsFile.close()
+  import h5py
+  datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
+  dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+  dataFile      = h5py.File(dataFilePath,'r')
+  resultsFile   = h5py.File(results_filename,'w')
+  dataFile.copy('/H5Types',resultsFile)
+  dataFile.close()
+  resultsFile.close()
         
     
 def spikeout (env, output_path, t_vec, id_vec):
@@ -141,7 +141,7 @@ def lfpout (env, output_path, lfp):
     else:
         namespace_id = "Local Field Potential %s" % str(env.resultsId)
 
-
+    import h5py
     output = h5py.File(output_path)
 
     grp = output.create_group(namespace_id)
