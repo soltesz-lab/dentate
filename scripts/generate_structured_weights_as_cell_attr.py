@@ -6,8 +6,8 @@ import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
-from dentate import stimulus, utils
-from utils import list_find
+from dentate import stimulus
+from dentate.utils import list_find
 import numpy as np
 from collections import defaultdict
 import click
@@ -144,7 +144,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
-                                                        comm=comm, io_size=io_size))
+                                                        comm=comm))
 
     structured_weights_dict = {}
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
@@ -162,7 +162,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
             sys.stdout.flush()
         # else:
         #    print 'Rank: %i; received destination: %s; destination_gid: %s' % (rank, destination, str(destination_gid))
-        initial_weights_dict = read_cell_attribute_selection (weights_path, pop_name, \
+        initial_weights_dict = read_cell_attribute_selection (weights_path, destination, \
                                                               selection=[destination_gid], namespace=initial_weights_namespace, \
                                                               comm=comm)
         

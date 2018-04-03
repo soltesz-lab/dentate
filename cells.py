@@ -3,6 +3,7 @@ from neuron import h
 import numpy as np
 import copy
 import datetime
+import dentate
 from dentate.neuron_utils import *
 from dentate.utils import *
 import btmorph
