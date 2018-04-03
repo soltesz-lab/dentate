@@ -14,7 +14,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
     for pop_name in population_names:
 
         state_dict = {}
-        valiter    = read_cell_attributes(comm, input_file, pop_name, namespace=namespace_id)
+        valiter    = read_cell_attributes(input_file, pop_name, namespace=namespace_id, comm=comm)
         
         if timeRange is None:
             if unitNo is None:
