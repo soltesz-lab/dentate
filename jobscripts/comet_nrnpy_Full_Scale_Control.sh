@@ -46,5 +46,5 @@ mpirun_rsh -export-all -hostfile $nodefile -np 1680  \
  --io-size=256 \
  --tstop=10000 \
  --v-init=-75 \
- --max-walltime-hours=3.5 \
+ --max-walltime-hours=3.9 \
  --verbose

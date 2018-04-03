@@ -25,7 +25,7 @@ export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
 
-results_path=$SCRATCH/dentate/results/Full_Scale_Control_$SLURM_JOB_ID
+results_path=$SCRATCH/dentate/results/Full_Scale_Control_log_normal_weights_$SLURM_JOB_ID
 export results_path
 
 mkdir -p $results_path
