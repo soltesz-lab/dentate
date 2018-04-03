@@ -6,7 +6,8 @@ import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
-from dentate import stimulus
+from dentate import stimulus, utils
+from utils import list_find
 import numpy as np
 from collections import defaultdict
 import click
