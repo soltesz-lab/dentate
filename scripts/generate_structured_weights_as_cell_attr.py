@@ -105,7 +105,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     spatial_resolution = env.modelConfig['Trajectory']['Spatial resolution']  # cm
 
     if rank == 0:
-      with h5py.File(stimulus_path, 'a') as f:
+      with h5py.File(stimulus_path) as f:
           logger.info('Rank: %i; Reading %s datasets' % (rank, trajectory_namespace))
           group = f[trajectory_namespace]
           dataset = group['x']
