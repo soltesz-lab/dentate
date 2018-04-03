@@ -3,8 +3,7 @@ import sys, os, time, gc
 import mpi4py
 from mpi4py import MPI
 import neuroh5
-from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, NeuroH5ProjectionGen
-from neuroh5.h5py_io_utils import *
+from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
 from dentate import stimulus
@@ -141,8 +140,6 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     structured_count = 0
     start_time = time.time()
 
-    gid_index_map = get_cell_attributes_index_map(comm, weights_path, destination, initial_weights_namespace)
-
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
@@ -164,8 +161,10 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
             sys.stdout.flush()
         # else:
         #    print 'Rank: %i; received destination: %s; destination_gid: %s' % (rank, destination, str(destination_gid))
-        initial_weights_dict = get_cell_attributes_by_gid(destination_gid, comm, weights_path, gid_index_map, destination,
-                                                          initial_weights_namespace, 0)
+        initial_weights_dict = read_cell_attribute_selection (weights_path, pop_name, \
+                                                              selection=[destination_gid], namespace=initial_weights_namespace, \
+                                                              comm=comm)
+        
         if destination_gid is not None:
             if initial_weights_dict is None:
                 raise Exception('Rank: %i; destination: %s; destination_gid: %s; get_cell_attributes_by_gid didn\'t work' %
