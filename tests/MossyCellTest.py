@@ -96,7 +96,7 @@ def ap_rate_test (tree, v_init):
 
 
     it = 1
-    ## Increase the injected current until at least 30 spikes occur
+    ## Increase the injected current until at least 40 spikes occur
     ## or up to 5 steps
     while (h.spikelog.size() < 40):
 
