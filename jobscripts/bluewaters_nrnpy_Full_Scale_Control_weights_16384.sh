@@ -3,9 +3,9 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=1024:ppn=16:xe
 ### which queue to use
-#PBS -q debug
+#PBS -q high
 ### set the wallclock time
-#PBS -l walltime=0:30:00
+#PBS -l walltime=4:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_16384
 ### set the job stdout and stderr
@@ -15,20 +15,21 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
-#PBS -A baqc
 
 
 module swap PrgEnv-cray PrgEnv-gnu
 module load cray-hdf5-parallel
 module load bwpy 
 module load bwpy-mpi
+module load atp
 
 set -x
 
 export ATP_ENABLED=1 
-export PYTHONPATH=$HOME/model:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
+export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=$HOME/bin/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
-export SCRATCH=/projects/sciteam/baqc
+export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
 
 echo python is `which python`
 results_path=./results/Full_Scale_Control_$PBS_JOBID
@@ -44,17 +45,17 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ## Necessary for correct loading of Darshan with LD_PRELOAD mechanism
 export PMI_NO_FORK=1
 export PMI_NO_PREINITIALIZE=1
+export LD_PRELOAD=/opt/cray/hdf5-parallel/1.8.16/GNU/4.9/lib/libhdf5_parallel_gnu_49.so.10
 
-aprun -n 16384 -b -- bwpy-environ -- \
-    python2.7 main.py  \
-    --config-file=config/Full_Scale_Control.yaml  \
+aprun -n 16384 \
+    python main.py  \
+    --config-file=config/Full_Scale_Control_weights.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
-    --dataset-prefix="$SCRATCH" \
+    --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=10000 \
+    --tstop=5250 \
     --v-init=-75 \
-    --max-walltime-hours=0.5 \
-    --vrecord-fraction=0.001 \
+    --max-walltime-hours=3.9 \
     --verbose
 

@@ -8,7 +8,7 @@ Cell Data: DG_Cells_Full_Scale_20180326.h5
 Connection Data: DG_Connections_Full_Scale_20180326.h5
 Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
-Trajectory: !include Trajectory.yaml
+Stimulus: !include Stimulus.yaml
 EC: !include EC.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 

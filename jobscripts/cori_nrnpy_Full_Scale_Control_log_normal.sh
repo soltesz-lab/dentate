@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J dentate_Full_Scale_Control
-#SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
+#SBATCH -J dentate_Full_Scale_Control_log_normal
+#SBATCH -o ./results/dentate_Full_Scale_Control_log_normal.%j.o
 #SBATCH -N 64
 #SBATCH --ntasks-per-node=32
 #SBATCH -p regular
@@ -35,7 +35,7 @@ echo python is `which python`
 set -x
 
 srun -n 2048 python main.py \
- --config-file=config/Full_Scale_Control.yaml  \
+ --config-file=config/Full_Scale_Control_log_normal_weights.yaml \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \

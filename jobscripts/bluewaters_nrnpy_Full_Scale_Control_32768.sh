@@ -3,9 +3,9 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=2048:ppn=16:xe
 ### which queue to use
-#PBS -q normal
+#PBS -q high
 ### set the wallclock time
-#PBS -l walltime=6:30:00
+#PBS -l walltime=3:30:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control_32768
 ### set the job stdout and stderr
@@ -26,7 +26,7 @@ module load bwpy-mpi
 set -x
 
 export ATP_ENABLED=1 
-export PYTHONPATH=$HOME/model:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export SCRATCH=/projects/sciteam/baqc
 
@@ -46,15 +46,15 @@ export PMI_NO_FORK=1
 export PMI_NO_PREINITIALIZE=1
 
 aprun -n 32768 -b -- bwpy-environ -- \
-    python main.py  \
+    python2.7 main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
     --tstop=10000 \
-    --v-init=-75 \
-    --max-walltime-hours=6.4 \
+    --v-init=-65 \
+    --max-walltime-hours=3.4 \
     --vrecord-fraction=0.001 \
     --verbose
 

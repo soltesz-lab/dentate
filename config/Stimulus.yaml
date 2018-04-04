@@ -1,0 +1,26 @@
+100:
+## About 27% of mEC cells were reported to be grid or border cells; 68% non-grid spatial; 4% non-spatial;
+## Reference:
+## https://www.ncbi.nlm.nih.gov/pubmed/28343867
+## Diehl GW, Hon OJ, Leutgeb S, Leutgeb JK.
+## Grid and Nongrid Cells in Medial Entorhinal Cortex Represent
+## Spatial Location and Environmental Features with Complementary
+## Coding Schemes. 
+## Neuron Volume 94, Issue 1, 5 April 2017, pp 83-92.
+
+  trajectory: !include Trajectory.yaml
+  feature type:
+    MPP:
+      grid: 0.3
+      place: 0.7
+    LPP:
+      place: 1.0
+110:
+## Configuration with 60% grid cells in MPP
+  trajectory: !include Trajectory.yaml
+  feature type:
+    MPP:
+      grid: 0.6
+      place: 0.4
+    LPP:
+      place: 1.0
