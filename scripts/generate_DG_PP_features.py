@@ -30,21 +30,10 @@ max_field_width = field_width(1.)
 feature_grid = 0
 feature_place_field = 1
 
-## About 27% of mEC cells were reported to be grid or border cells; 68% non-grid spatial; 4% non-spatial;
-## Reference:
-## https://www.ncbi.nlm.nih.gov/pubmed/28343867
-## Diehl GW, Hon OJ, Leutgeb S, Leutgeb JK.
-## Grid and Nongrid Cells in Medial Entorhinal Cortex Represent
-## Spatial Location and Environmental Features with Complementary
-## Coding Schemes. 
-## Neuron Volume 94, Issue 1, 5 April 2017, pp 83-92.
-
-feature_type_dict = { 'MPP': { feature_grid: 0.3, feature_place_field: 0.7 },
-                        'LPP': { feature_place_field: 1.0 } }
-
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--stimulus-id", type=int, default=0)
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", type=str, default='Arc Distances')
@@ -55,7 +44,7 @@ feature_type_dict = { 'MPP': { feature_grid: 0.3, feature_place_field: 0.7 },
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
+def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
     """
 
     :param config:
@@ -90,7 +79,10 @@ def main(config, coords_path, output_path, distances_namespace, io_size, chunk_s
             output_file.close()
     comm.barrier()
 
-    arena_dimension = int(env.modelConfig['Trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    feature_config = env.stimulusConfig[stimulus_id]
+    feature_type_dict = feature_config['feature type']
+    
+    arena_dimension = int(feature_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
 
     # make sure random seeds are not being reused for various types of stochastic sampling
     feature_seed_offset = int(env.modelConfig['Random Seeds']['Input Features'])
