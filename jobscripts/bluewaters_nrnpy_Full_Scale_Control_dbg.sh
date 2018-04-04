@@ -1,13 +1,13 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1024:ppn=16:xe
+#PBS -l nodes=24:ppn=16:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
 #PBS -l walltime=0:30:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control_16384
+#PBS -N dentate_Full_Scale_Control_dbg
 ### set the job stdout and stderr
 #PBS -e ./results/dentate.$PBS_JOBID.err
 #PBS -o ./results/dentate.$PBS_JOBID.out
@@ -45,7 +45,7 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 export PMI_NO_FORK=1
 export PMI_NO_PREINITIALIZE=1
 
-aprun -n 16384 -b -- bwpy-environ -- \
+aprun -n 384 -b -- bwpy-environ -- \
     python2.7 main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \

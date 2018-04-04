@@ -1,16 +1,16 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1024:ppn=16:xe
+#PBS -l nodes=4096:ppn=16:xe
 ### which queue to use
-#PBS -q debug
+#PBS -q high
 ### set the wallclock time
-#PBS -l walltime=0:30:00
+#PBS -l walltime=3:30:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control_16384
+#PBS -N dentate_Full_Scale_Control_log_normal_weights_65536
 ### set the job stdout and stderr
-#PBS -e ./results/dentate.$PBS_JOBID.err
-#PBS -o ./results/dentate.$PBS_JOBID.out
+#PBS -e ./results/dentate.log_normal_weights.$PBS_JOBID.err
+#PBS -o ./results/dentate.log_normal_weights.$PBS_JOBID.out
 ### set email notification
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
@@ -26,7 +26,7 @@ module load bwpy-mpi
 set -x
 
 export ATP_ENABLED=1 
-export PYTHONPATH=$HOME/model:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export SCRATCH=/projects/sciteam/baqc
 
@@ -45,16 +45,16 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 export PMI_NO_FORK=1
 export PMI_NO_PREINITIALIZE=1
 
-aprun -n 16384 -b -- bwpy-environ -- \
+aprun -n 65536 -b -- bwpy-environ -- \
     python2.7 main.py  \
-    --config-file=config/Full_Scale_Control.yaml  \
+    --config-file=config/Full_Scale_Control_log_normal_weights.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
     --tstop=10000 \
     --v-init=-75 \
-    --max-walltime-hours=0.5 \
+    --max-walltime-hours=3.4 \
     --vrecord-fraction=0.001 \
     --verbose
 
