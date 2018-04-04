@@ -79,10 +79,10 @@ def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_
             output_file.close()
     comm.barrier()
 
-    feature_config = env.stimulusConfig[stimulus_id]
-    feature_type_dict = feature_config['feature type']
-    
-    arena_dimension = int(feature_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    input_config = env.inputConfig[stimulus_id]
+    feature_type_dict = input_config['feature type']
+
+    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
 
     # make sure random seeds are not being reused for various types of stochastic sampling
     feature_seed_offset = int(env.modelConfig['Random Seeds']['Input Features'])

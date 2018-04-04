@@ -7,7 +7,6 @@
 ## Spatial Location and Environmental Features with Complementary
 ## Coding Schemes. 
 ## Neuron Volume 94, Issue 1, 5 April 2017, pp 83-92.
-
   trajectory: !include Trajectory.yaml
   feature type:
     MPP:

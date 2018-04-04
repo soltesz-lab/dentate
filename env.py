@@ -5,7 +5,8 @@ from neuroh5.io import read_cell_attributes, read_population_ranges, read_popula
 import numpy as np
 from collections import namedtuple, defaultdict
 import yaml
-import utils
+import dentate
+from dentate import utils
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',
                                  ['synapse_types',
@@ -18,6 +19,25 @@ ConnectionGenerator = namedtuple('ConnectionGenerator',
 
 class Env:
     """Network model configuration."""
+
+    def load_input_config(self):
+        features_type_dict = self.modelConfig['Definitions']['Input Features']
+        input_dict = self.modelConfig['Input']
+        input_config = {}
+        
+        for (id,dvals) in input_dict.iteritems():
+            config_dict = {}
+            config_dict['trajectory'] = dvals['trajectory']
+            feature_type_dict = {}
+            for (pop,pdvals) in dvals['feature type'].iteritems():
+                pop_feature_type_dict = {}
+                for (feature_type_name,feature_type_fraction) in pdvals.iteritems():
+                    pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)
+                feature_type_dict[pop] = pop_feature_type_dict
+            config_dict['feature type'] = feature_type_dict
+            input_config[int(id)] = config_dict
+
+        self.inputConfig = input_config
 
     def load_connection_generator(self):
         
@@ -202,6 +222,7 @@ class Env:
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
+        self.feature_types = defs['Input Features']
         if self.modelConfig.has_key('Geometry'):
             self.geometry = self.modelConfig['Geometry']
         else:
@@ -228,6 +249,9 @@ class Env:
         if self.datasetPrefix is not None:
             self.load_celltypes()
 
+        if self.modelConfig.has_key('Input'):
+            self.load_input_config()
+            
         if self.modelConfig.has_key('LFP'):
             self.lfpConfig = { 'position': tuple(self.modelConfig['LFP']['position']),
                                'maxEDist': self.modelConfig['LFP']['maxEDist'],
