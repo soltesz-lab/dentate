@@ -16,6 +16,7 @@ swc_type_dict = {'soma': soma_swc_type, 'axon': axon_swc_type, 'basal': basal_sw
                  'trunk': trunk_swc_type, 'tuft': tuft_swc_type, 'ais': ais_swc_type, 'hillock': hillock_swc_type}
 
 ordered_sec_types = ['soma', 'hillock', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck', 'spine_head']
+syn_category_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 
 
 class HocCell(object):
@@ -2062,7 +2063,8 @@ def specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, d
                 else:
                     setattr(getattr(seg, mech_name), param_name, value)
 
-
+#Need to write get_synapse_attributes -- was this supposed to be similar to node.get_filtered_synapse_attributes?
+#Was update synapse supposed to be an updated version of specify_synaptic_parameter?
 def update_synapse_attributes_by_node(cell, node, mech_name, mech_content):
     """
     Consults a dictionary to specify properties of synapses of the specified category. Only sets values in a nodes
@@ -2085,6 +2087,95 @@ def update_synapse_attributes_by_node(cell, node, mech_name, mech_content):
                     elif isinstance(mech_content[syn_type][param_name], Iterable):
                         for mech_content_entry in mech_content[syn_type][param_name]:
                             parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, syn_type)
+
+
+
+
+def specify_synaptic_parameter(cell, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+    """
+    This method interprets an entry from the mechanism dictionary to set parameters for synapse_mechanism_attributes
+    contained in this node. Appropriately implements slopes and inheritances.
+    :param node: :class:'SHocNode'
+    :param mech_name: str
+    :param param_name: str
+    :param baseline: float
+    :param rules: dict
+    :param syn_type: str
+    :param donor: :class:'SHocNode' or None
+    """
+    syn_category = mech_name.split(' ')[0]
+    if 'min_loc' in rules:
+        min_distance = rules['min_loc']
+    else:
+        min_distance = 0.
+    if 'max_loc' in rules:
+        max_distance = rules['max_loc']
+    else:
+        max_distance = None
+    if 'variance' in rules and rules['variance'] == 'normal':
+        normal = True
+    else:
+        normal = False
+    this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category)
+    for i in xrange(len(this_synapse_attributes['syn_locs'])):
+        loc = this_synapse_attributes['syn_locs'][i]
+        this_syn_id = this_synapse_attributes['syn_id'][i]
+        if this_syn_id not in node.synapse_mechanism_attributes:
+            node.synapse_mechanism_attributes[this_syn_id] = {}
+        if syn_type not in node.synapse_mechanism_attributes[this_syn_id]:
+            node.synapse_mechanism_attributes[this_syn_id][syn_type] = {}
+        if donor is None:
+            value = baseline
+        else:
+            distance = get_distance_to_node(cell, donor, node, loc)
+            # If only some synapses in a section meet the location constraints, the synaptic parameter will
+            # maintain its default value in all other locations. values for other locations must be specified
+            # with an additional entry in the mechanism dictionary.
+            if distance >= min_distance and (max_distance is None or distance <= max_distance):
+                if 'slope' in rules:
+                    distance -= min_distance
+                    if 'tau' in rules:
+                        if 'xhalf' in rules:  # sigmoidal gradient
+                            offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
+                            value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
+                                                                           rules['tau']))
+                        else:  # exponential gradient
+                            offset = baseline - rules['slope']
+                            value = offset + rules['slope'] * np.exp(distance / rules['tau'])
+                    else:  # linear gradient
+                        value = baseline + rules['slope'] * distance
+                    if 'min' in rules and value < rules['min']:
+                        value = rules['min']
+                    elif 'max' in rules and value > rules['max']:
+                        value = rules['max']
+                else:
+                    value = baseline
+        if normal:
+            value = cell.random.normal(value, value / 6.)
+        node.synapse_mechanism_attributes[this_syn_id][syn_type][param_name] = value
+
+
+def get_nodes_of_subtype(cell, sec_type):
+    """
+    This method searches the node dictionary for nodes of a given sec_type and returns them in a list. Used during
+    specification of membrane mechanisms.
+    :param sec_type: str
+    :return: list of :class:'SHocNode'
+    """
+    if sec_type in ['spine_head', 'spine_neck']:
+        return [node for node in cell.spine if node.type == sec_type]
+    else:
+        return cell.nodes[sec_type]
+
+
+def correct_g_pas_for_spines(cell):
+    """
+    If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
+    dendritic sections proportional to the number of excitatory synapses contained in each section.
+    """
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        for node in get_nodes_of_subtype(cell, sec_type):
+            node.correct_g_pas_for_spines()
 
 
 def init_nseg(sec, spatial_res=0):
@@ -2197,7 +2288,7 @@ def zero_na(cell):
     for sec_type in ['soma', 'hillock', 'ais', 'axon', 'apical']:
         for na_type in (na_type for na_type in ['nas_kin', 'nat_kin', 'nas', 'nax'] if na_type in
                 cell.mech_dict[sec_type]):
-            cell.modify_mech_param(sec_type, na_type, 'gbar', 0.)
+            modify_mech_param(cell, sec_type, na_type, 'gbar', 0.)
 
 
 def custom_gradient_by_branch_order(cell, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
