@@ -1076,7 +1076,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         # all membrane mechanisms in sections of type sec_type must be reinitialized after changing cable properties
         if mech_name == 'cable':
             if param_name in ['Ra', 'cm', 'spatial_res']:
-                update_mechanisms_by_sec_type(cell, sec_type, reset_cable=True)
+                update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=True)
             else:
                 print 'Exception: Unknown cable property: {}'.format(param_name)
                 raise KeyError
@@ -1197,10 +1197,10 @@ def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None
     for sec_type in ordered_sec_types:
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
             if cell.nodes[sec_type]:
-                update_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
+                update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
 
 
-def update_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
+def update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
     """
     This method loops through all sections of the specified type, and consults the mechanism dictionary to update
     mechanism properties. If the reset_cable flag is True, cable parameters are re-initialize first, then the
