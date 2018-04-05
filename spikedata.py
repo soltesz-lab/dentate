@@ -23,7 +23,7 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
 
     for pop_name in population_names:
  
-        spkiter = read_cell_attributes(comm, input_file, pop_name, namespace=namespace_id)
+        spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, comm=comm)
         this_num_cell_spks = 0
         active_set = set([])
 

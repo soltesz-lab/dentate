@@ -2,6 +2,6 @@ rho: 333.0
 position: [-1205.5, 2700.3, -211.7]
 maxEDist: 100.
 fraction: .1
-dt: 0.05
+dt: 0.1
 
   

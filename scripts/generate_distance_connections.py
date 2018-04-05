@@ -37,8 +37,9 @@ logger = logging.getLogger(script_name)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
+@click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resample_volume, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose):
+         synapses_namespace, resample_volume, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -51,7 +52,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
 
-    if rank==0:
+    if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
             input_file  = h5py.File(coords_path,'r')
             output_file = h5py.File(connectivity_path,'w')
@@ -74,26 +75,32 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
-    vol_dist = None
+    obs_dist_u = None
+    coeff_dist_u = None
+    obs_dist_v = None
+    coeff_dist_v = None
+    
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(-3.95, 3.2, ures=16, vres=15, lres=10)
+        ip_volume = make_volume(-3.95, 3.2, ures=20, vres=20, lres=10)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
-        logger.info('Broadcasting volume distances...')
+        logger.info('Computing U volume distance interpolants...')
+        (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
+        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis='phs3',extrapolate=True)
+        coeff_dist_u = ip_dist_u._coeff
+        logger.info('Computing V volume distance interpolants...')
+        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis='phs3',extrapolate=True)
+        coeff_dist_v = ip_dist_v._coeff
+        logger.info('Broadcasting volume distance interpolants...')
         
-    vol_dist = comm.bcast(vol_dist, root=0)
-    if rank == 0:
-        logger.info('Computing volume distance interpolants...')
+    obs_dist_u = comm.bcast(obs_dist_u, root=0)
+    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
+    obs_dist_v = comm.bcast(obs_dist_v, root=0)
+    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
 
-    step=1
-    (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
-    ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
-    del dist_u, obs_dist_u
-
-    sample_inds = np.arange(0, obs_dist_v.shape[0]-1, step)
-    ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
-    del dist_v, obs_dist_v
+    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis='phs3',extrapolate=True)
+    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis='phs3',extrapolate=True)
 
     if rank == 0:
         logger.info('Computing soma distances...')
@@ -113,6 +120,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         
         connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
+        cluster_seed = int(env.modelConfig['Random Seeds']['Connectivity Clustering'])
         connectivity_namespace = 'Connections'
 
         if rank == 0:
@@ -123,9 +131,9 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          env.connection_generator,
                                          connection_prob, forest_path,
                                          synapse_seed, synapses_namespace, 
-                                         connectivity_seed, connectivity_namespace, connectivity_path,
+                                         connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
-                                         verbose=verbose)
+                                         verbose=verbose, dry_run=dry_run)
 
 
 if __name__ == '__main__':

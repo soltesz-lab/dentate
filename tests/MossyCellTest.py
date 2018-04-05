@@ -8,13 +8,14 @@ import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection
-from env import Env
-import utils, cells
+import dentate
+from dentate.env import Env
+from dentate import neuron_utils, utils, cells
 
     
 def passive_test (tree, v_init):
 
-    cell = cells.make_neurotree_cell ("MossyCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (h.MossyCell, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -23,8 +24,10 @@ def passive_test (tree, v_init):
     tstop = prelength+mainlength
     
     stimdur = 500.0
-    
-    stim1 = h.IClamp(cell.sections[0](0.5))
+
+    soma = list(cell.soma)[0]
+
+    stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
     stim1.amp   = -0.1
@@ -33,11 +36,11 @@ def passive_test (tree, v_init):
     h.tlog.record (h._ref_t)
 
     h.Vlog = h.Vector()
-    h.Vlog.record (cell.sections[0](0.5)._ref_v)
+    h.Vlog.record (soma(0.5)._ref_v)
     
     h.tstop = tstop
 
-    utils.simulate(h, v_init, prelength,mainlength)
+    neuron_utils.simulate(h, v_init, prelength,mainlength)
 
     ## compute membrane time constant
     vrest  = h.Vlog.x[int(h.tlog.indwhere(">=",prelength-1))]
@@ -61,7 +64,7 @@ def passive_test (tree, v_init):
 
 def ap_rate_test (tree, v_init):
 
-    cell = cells.make_neurotree_cell ("MossyCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (h.MossyCell, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
@@ -70,20 +73,22 @@ def ap_rate_test (tree, v_init):
     tstop = prelength+mainlength
     
     stimdur = 1000.0
+
+    soma = list(cell.soma)[0]
     
-    stim1 = h.IClamp(cell.sections[0](0.5))
+    stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
-    stim1.amp   = 0.2
+    stim1.amp   = 0.1
 
     h.tlog = h.Vector()
     h.tlog.record (h._ref_t)
 
     h.Vlog = h.Vector()
-    h.Vlog.record (cell.sections[0](0.5)._ref_v)
+    h.Vlog.record (soma(0.5)._ref_v)
 
     h.spikelog = h.Vector()
-    nc = h.NetCon(cell.sections[0](0.5)._ref_v, h.nil)
+    nc = h.NetCon(soma(0.5)._ref_v, h.nil)
     nc.threshold = -40.0
     nc.record(h.spikelog)
     
@@ -91,13 +96,13 @@ def ap_rate_test (tree, v_init):
 
 
     it = 1
-    ## Increase the injected current until at least 30 spikes occur
+    ## Increase the injected current until at least 40 spikes occur
     ## or up to 5 steps
-    while (h.spikelog.size() < 30):
+    while (h.spikelog.size() < 40):
 
-        utils.simulate(h, v_init, prelength,mainlength)
+        neuron_utils.simulate(h, v_init, prelength,mainlength)
         
-        if ((h.spikelog.size() < 30) & (it < 5)):
+        if ((h.spikelog.size() < 40) & (it < 5)):
             print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
             stim1.amp = stim1.amp + 0.1
             h.spikelog.clear()
@@ -173,10 +178,10 @@ def main(template_path,forest_path):
     h.pc = h.ParallelContext()
     
     popName = "MC"
-    (trees,_) = read_tree_selection (comm, forest_path, popName, [1000000])
+    (trees,_) = read_tree_selection (forest_path, popName, [1000000], comm=comm)
     
-    tree = trees.itervalues().next()
-    
+    gid, tree = trees.next()
+
     passive_test(tree,-60)
     ap_rate_test(tree,-60)
 

@@ -92,7 +92,7 @@ Synapse Locations:
       LPP:  [apical]
       MC:   [apical]
       NGFC: [apical]
-      AAC:  [axon]
+      AAC:  [ais]
       BC:   [soma, apical]
       MOPP: [apical]
       HCC:  [apical]
@@ -157,12 +157,12 @@ Synapse Layers:
       MPP:  [MML]
       LPP:  [OML]
       MC:   [IML]
-      NGFC: [MML, OML]
       AAC:  [GCL]
       BC:   [GCL, IML]
+      NGFC: [MML, OML]
       MOPP: [MML, OML]
-      HCC:  [IML]
       HC:   [MML, OML]
+      HCC:  [IML]
     MC:
       GC:  [Hilus]
       MC:  [Hilus]
@@ -220,12 +220,12 @@ Synapse Proportions:
     MPP:  [1.]
     LPP:  [1.]
     MC:   [1.]
-    NGFC: [0.15, 0.45]
     AAC:  [1.]
     BC:   [1., 0.1]
+    NGFC: [0.15, 0.4]
     MOPP: [0.3, 0.3]
-    HCC:  [0.6]
-    HC:   [0.55, 0.55]
+    HC:   [0.55, 0.3]
+    HCC:  [0.9]
   MC:
     GC:  [0.05]
     MC:  [0.95]
@@ -631,22 +631,22 @@ Connection Properties:
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 1.2
+        weight: 0.15
         velocity: 250.0
       GABA_B:
-        weight: 1.1
+        weight: 0.1
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 1.2
+        weight: 0.15
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 0.25
+        weight: 0.5
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 0.31
+        weight: 0.6
         velocity: 250.0
   MC:
     AAC:
@@ -659,7 +659,7 @@ Connection Properties:
         velocity: 250.0
     GC:
       AMPA:
-        weight: 0.7
+        weight: 0.9
         velocity: 250.0
     HC:
       GABA_A:
@@ -788,11 +788,11 @@ Connection Properties:
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 2.0
+        weight: 0.33
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 2.0
+        weight: 0.25
         velocity: 250.0
   MOPP:
     MC:
@@ -813,7 +813,7 @@ Connection Properties:
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 2.0
+        weight: 0.5
         velocity: 250.0
   HCC:
     GC:
@@ -857,6 +857,23 @@ Connection Properties:
         weight: 1.0
         velocity: 250.0
 Gap Junctions:
+  Locations:
+    BC:
+      AAC: [apical, basal]
+      BC: [apical, basal]
+    AAC:
+      AAC: [apical, basal]
+    HCC:
+      HCC: [apical, basal]
+    HC: 
+      HC: [apical, basal]
+    IS: 
+      HC: [apical, basal]
+      IS: [apical, basal]
+    NGFC:
+      NGFC: [apical]
+    MOPP:
+      MOPP: [apical, basal]
   Connection Probabilities:
     AAC, BC, HC, IS, HCC, NGFC, MOPP:
       - [0.286, 0.0,   0.0,  0.0,  0.0,   0.0,   0.0]
@@ -869,6 +886,7 @@ Gap Junctions:
   ## Distance-dependent connection weights,
   ## based on Fig. 1C from Otsuka 2013
   Connection Weights: { 0: 1.0, 25: 0.429, 75: 0.405, 125: 0.345, 175: 0.08 }
+  Connection Parameters: [0.4201,-0.0019,150.7465,0.0255]
   Coupling Coefficients:
     AAC:
       AAC: 0.017
@@ -885,3 +903,5 @@ Gap Junctions:
   ## Distance-dependent coupling coefficient weights,
   ## Based on Fig. 6B from Amitai 2002
   Coupling Weights: { 0: 1.0, 25: 0.5, 75: 0.375, 125: 0.1875, 175: 0.1875 }
+  Coupling Parameters: [0.0002,-0.0658,7.3211]
+  

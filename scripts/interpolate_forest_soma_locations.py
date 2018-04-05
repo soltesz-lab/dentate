@@ -39,7 +39,6 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
     rank = comm.rank  
 
     env = Env(comm=comm, configFile=config)
-
     swc_type_soma   = env.SWC_Types['soma']
 
     if io_size==-1:

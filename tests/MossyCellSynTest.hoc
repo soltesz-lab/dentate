@@ -2,7 +2,7 @@
 load_file("nrngui.hoc")
 load_file("./tests/cell_protocol.ses")
 
-nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
+//nrn_load_dll("./mechanisms/x86_64/.libs/libnrnmech.so")
 
 // RandomStream template
 {load_file("./templates/ranstream.hoc")}
@@ -73,6 +73,7 @@ proc synapse_test() { local gid localobj mc, syn, logfile strdef log_fn, results
     */
     
     mc = new MossyCell(gid)
+    print "mc = ", mc
     for i = 1, 1 {
         mc.dendrites[1][2] {
             

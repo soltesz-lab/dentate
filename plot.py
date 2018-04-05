@@ -116,8 +116,8 @@ def make_geometric_graph(x, y, z, edges):
     return g
 
 
-def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                       metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
+                        metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -137,17 +137,16 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
     destination_count = population_ranges[destination][1]
 
     with h5py.File(connectivity_path, 'r') as f:
-        in_degrees = np.zeros((destination_count,))
+        degrees_lst = []
         for source in sources:
-            in_degrees = np.add(in_degrees, f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][destination_start:destination_start+destination_count])
-            
+            degrees_lst.append(f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][0:destination_count])
+        degrees = np.sum(degrees_lst, axis=0)
             
     if verbose:
-        print 'read in degrees (%i elements)' % len(in_degrees)
-        print 'max: %i min: %i' % (np.max(in_degrees), np.min(in_degrees))
+        print 'read degrees (%i elements)' % len(degrees)
+        print 'max: %i min: %i mean: %i stdev: %i' % (np.max(degrees), np.min(degrees), np.mean(degrees), np.std(degrees))
         
     distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
-
     
     soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
     del distances
@@ -157,10 +156,10 @@ def plot_vertex_metric(connectivity_path, coords_path, vertex_metrics_namespace,
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
-    distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(in_degrees)) ])
-    distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(in_degrees)) ])
+    distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(degrees)) ])
+    distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(degrees)) ])
 
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=in_degrees, normed=normed)
+    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
      # size of each bin in x and y dimensions
         
     if verbose:
@@ -255,6 +254,68 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
             filename = saveFig
         else:
             filename = population+' %s.png' % metric
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
+def plot_positions(coords_path, population, distances_namespace='Arc Distances', 
+                    fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot septo-temporal position (longitudinal and transverse arc distances).
+
+    :param coords_path:
+    :param distances_namespace: 
+    :param population: 
+
+    """
+
+    dx = 50
+    dy = 50
+    
+        
+    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    distance_U = {}
+    distance_V = {}
+    for k,v in soma_distances:
+        distance_U[k] = v['U Distance'][0]
+        distance_V[k] = v['V Distance'][0]
+    
+    distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
+    distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
+
+    x_min = np.min(distance_U_array)
+    x_max = np.max(distance_U_array)
+    y_min = np.min(distance_V_array)
+    y_max = np.max(distance_V_array)
+
+    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+
+
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('Position distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_aspect('equal')
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Positions.png' 
             plt.savefig(filename)
 
     if showFig:
@@ -497,10 +558,10 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-## Plot intracellular voltage trace
+## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', variable='v', maxUnits = 1, unitNo = None,
                               orderInverse = False, labels = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
-                              showFig = True, verbose = False): 
+                              showFig = True, query = False, verbose = False): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -522,8 +583,8 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
 
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -537,30 +598,25 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
 
     data = statedata.read_state (comm, input_path, include, namespace_id, timeVariable=timeVariable,
                                  variable=variable, timeRange=timeRange, verbose=verbose,
-                                 maxUnits = maxUnits, unitNo = unitNo)
+                                 maxUnits = maxUnits, unitNo = unitNo, query = query)
+
+    if query:
+        return
 
     states     = data['states']
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(states.keys()) }
     
-    # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
-
-    if verbose:
-        print('Creating state plot...')
-
     stplots = []
     
-    # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
+    fig, ax1 = plt.subplots(figsize=figSize,sharex='all',sharey='all')
         
     for (pop_name, pop_states) in states.iteritems():
         
         for (gid, cell_states) in pop_states.iteritems():
 
-            gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
-            ax1=plt.subplot(gs[0])
-
+            if verbose:
+                print('Creating state plot for gid %i...' % gid)
             stplots.append(ax1.plot(cell_states[0], cell_states[1], linewidth=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
             
     ax1.set_xlim(timeRange)
@@ -595,16 +651,16 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
         shift = 1 - (lgd_xmax - ax_xmax)
         plt.gcf().tight_layout(rect=(0, 0, shift, 1))
         
-        if orderInverse:
-            plt.gca().invert_yaxis()
+    if orderInverse:
+        plt.gca().invert_yaxis()
 
-        # save figure
-        if saveFig: 
-            if isinstance(saveFig, basestring):
-                filename = saveFig
-            else:
-                filename = namespace_id+' '+'state.png'
-                plt.savefig(filename)
+    # save figure
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = namespace_id+' '+'state.png'
+            plt.savefig(filename)
                 
     # show fig 
     if showFig:
@@ -641,8 +697,8 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -872,7 +928,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
             rates       = np.asarray(rate_bins)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
-            rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak_index': peak_index }
+            rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak index': peak_index }
             i = i+1
         spkrate_dict[subset] = rate_dict
         if verbose:
@@ -892,7 +948,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         peak_lst = []
         for ind, rate_dict in pop_rates.iteritems():
             rate       = rate_dict['rate']
-            peak_index = rate_dict['peak_index']
+            peak_index = rate_dict['peak index']
             peak_lst.append(peak_index)
 
         ind_peak_lst = list(enumerate(peak_lst))
@@ -1833,7 +1889,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
 
 
 
-def plot_stimulus_rate (input_path, namespace_id, include,
+def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
                         figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
                         verbose = False): 
     ''' 
@@ -1854,13 +1910,20 @@ def plot_stimulus_rate (input_path, namespace_id, include,
 
     fig, axes = plt.subplots(1, len(include), figsize=figSize)
 
+    if trajectory_id is not None:
+        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id, verbose=verbose)
+        (_, _, _, t)  = trajectory
+    else:
+        t = None
+        
     M = 0
     for iplot, population in enumerate(include):
         rate_lst = []
         if verbose:
             print 'Reading vector stimulus data for population %s...' % population 
         for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, namespace_id, population):
-            rate_lst.append(rate)
+            if np.max(rate) > 0.:
+                rate_lst.append(rate)
 
         M = max(M, len(rate))
         N = len(rate_lst)
@@ -1870,21 +1933,26 @@ def plot_stimulus_rate (input_path, namespace_id, include,
         if verbose:
             print 'Plotting stimulus data for population %s...' % population 
 
+        if t is None:
+            extent=[0, len(rate), 0, N]
+        else:
+            extent=[t[0], t[-1], 0, N]
+            
         if len(include) > 1:
             axes[iplot].set_title(population, fontsize=fontSize)
-            axes[iplot].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
-            axes[iplot].set_xlim([0, M])
+            axes[iplot].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
+            axes[iplot].set_xlim([extent[0], extent[1]])
             axes[iplot].set_ylim(-1, N+1)
             
         else:
             axes.set_title(population, fontsize=fontSize)
-            axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm)
-            axes.set_xlim([0, M])
+            axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
+            axes.set_xlim([extent[0], extent[1]])
             axes.set_ylim(-1, N+1)    
             
 
     axes.set_xlabel('Time (ms)', fontsize=fontSize)
-    axes.set_ylabel('Firing Rate', fontsize=fontSize)
+    axes.set_ylabel('Input #', fontsize=fontSize)
     
     # save figure
     if saveFig: 
@@ -1932,7 +2000,7 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         if verbose:
             print 'read rates (%i elements)' % len(rate_sum_dict.keys())
 
-        distances = read_cell_attributes(comm, coords_path, population, namespace=distances_namespace)
+        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace, comm=comm)
     
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
@@ -1988,68 +2056,6 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         show_figure()
 
         
-def plot_selectivity_rate_map (selectivity_path, selectivity_namespace, population, trajectory_id = None, cell_id = None,
-                               lw = 5, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True,
-                               verbose = False): 
-    ''' 
-
-        - input_path: file with stimulus data
-        - namespace_id: attribute namespace for stimulus
-        - include (['eachPop'|<population name>]): List of data series to include. 
-            (default: ['eachPop'] - expands to the name of each population)
-        - figSize ((width, height)): Size of figure (default: (8,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
-
-    '''
-    comm = MPI.COMM_WORLD
-
-    if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory (comm, selectivity_path, trajectory_id, verbose=False)
-    else:
-        trajectory = None
-
-    selectivity_type = selectivity_type_dict[population]
-    attr_gen = NeuroH5CellAttrGen(comm, selectivity_path, population, namespace=selectivity_namespace)
-    (gid, selectivity_dict) = [attr_gen.next() for i in xrange(cell_id+1)][cell_id]
-
-    arena_dimension = 100.  # minimum distance from origin to boundary (cm)
-    spatial_resolution = 1.  # cm
-
-    x = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-    y = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-
-    X, Y = np.meshgrid(x, y, indexing='ij')
-
-    selectivity_dict['X Offset'] = np.asarray([0.])
-    selectivity_dict['Y Offset'] = np.asarray([0.])
-    response = stimulus.generate_spatial_ratemap(selectivity_type, selectivity_dict, X, Y,
-                                                 grid_peak_rate=20., place_peak_rate=20.)
-    fig = plt.figure(1, figsize=figSize)
-    ax  = plt.gca()
-    
-    ax.set_title(population, fontsize=fontSize)
-    ax.set_xlabel('Spatial position (cm)', fontsize=fontSize)
-    ax.set_ylabel('Spatial position (cm)', fontsize=fontSize)
-
-    pcm = ax.pcolormesh(X, Y, response)
-
-    if trajectory:
-        ax.plot(trajectory[0], trajectory[1], linewidth=lw)
-    # save figure
-    if saveFig: 
-        if isinstance(saveFig, basestring):
-            filename = saveFig
-        else:
-            filename = '%s %s rate map.png' % (population, selectivity_namespace)
-        plt.savefig(filename)
-
-    # show fig 
-    if showFig:
-        show_figure()
         
 
         

@@ -1,13 +1,16 @@
 
 import sys, time, gc
 from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
-    NeuroH5ProjectionGen
+from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
+import dentate
+from dentate.env import Env
 import numpy as np
 from collections import defaultdict
 import click
-from utils import *
 from itertools import izip, izip_longest
+import logging
+logging.basicConfig()
+
 
 """
 stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
@@ -21,13 +24,8 @@ connections_path: contains existing mapping of syn_id to source_gid
 TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the previous weight distribution.
 """
 
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except:
-    pass
-
 script_name = 'generate_DG_GC_log_normal_weights_as_cell_attr.py'
+logger = logging.getLogger(script_name)
 
 local_random = np.random.RandomState()
 
@@ -37,6 +35,7 @@ sigma = 0.35
 
 
 @click.command()
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-namespace", type=str, default='Weights')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -44,10 +43,10 @@ sigma = 0.35
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--seed-offset", type=int, default=4)
-@click.option("--debug", is_flag=True)
-def main(weights_path, weights_namespace, connections_path, io_size, chunk_size, value_chunk_size, cache_size,
-         seed_offset, debug):
+@click.option("--dry-run", is_flag=True)
+@click.option("--verbose", '-v', is_flag=True)
+def main(config, weights_path, weights_namespace, connections_path, io_size, chunk_size, value_chunk_size, cache_size,
+         dry_run, verbose):
     """
 
     :param weights_path: str
@@ -57,25 +56,38 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
     :param chunk_size: int
     :param value_chunk_size: int
     :param cache_size: int
-    :param seed_offset: int
-    :param debug:  bool
+    :param dry_run:  bool
+    :param verbose:  bool
     """
-    # make sure random seeds are not being reused for various types of stochastic sampling
-    seed_offset *= 2e6
+
+    if verbose:
+        logger.setLevel(logging.INFO)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    env = Env(comm=comm, configFile=config)
+
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%s: %i ranks have been allocated' % (script_name, comm.size)
-    sys.stdout.flush()
+        logger.info('%s: %i ranks have been allocated' % (script_name, comm.size))
 
     source_population_list = ['MC', 'MPP', 'LPP']
     target = 'GC'
 
-    pop_ranges, pop_size = read_population_ranges(comm, connections_path)
+    if (not dry_run) and (rank==0):
+        if not os.path.isfile(weights_path):
+            input_file  = h5py.File(connections_path,'r')
+            output_file = h5py.File(weights_path,'w')
+            input_file.copy('/H5Types',output_file)
+            input_file.close()
+            output_file.close()
+    comm.barrier()
+
+    seed_offset = int(env.modelConfig['Random Seeds']['PP Log-Normal Weigths 1'])
+
+    pop_ranges, pop_size = read_population_ranges(connections_path, comm=comm)
     target_gid_offset = pop_ranges[target][0]
 
     count = 0
@@ -83,10 +95,9 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
 
     connection_gen_list = []
     for source in source_population_list:
-        connection_gen_list.append(NeuroH5ProjectionGen(comm, connections_path, source, target, io_size=io_size,
-                                                           cache_size=cache_size, namespaces=['Synapses']))
+        connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, target, namespaces=['Synapses'], \
+                                                        comm=comm, io_size=io_size, cache_size=cache_size))
 
-    maxiter = 100 if debug else None
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
         source_syn_map = defaultdict(list)
@@ -100,7 +111,6 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
             raise Exception('Rank: %i; target: %s; target_gid not matched across multiple attribute generators: %s' %
                             (rank, target, target_gid,
                              str([attr_gen_items[0] for attr_gen_items in attr_gen_package])))
-            sys.stdout.flush()
         if target_gid is not None:
             local_random.seed(int(target_gid + seed_offset))
             for this_target_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
@@ -116,17 +126,16 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
             weights_dict[target_gid - target_gid_offset] = \
                 {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
                  'weight': np.array(syn_weight_map.values()).astype('float32', copy=False)}
-            print 'Rank %i; target: %s; target_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
-                  '%.2f s' % (rank, target, target_gid, len(syn_weight_map), len(source_weights),
-                              time.time() - local_time)
+            logger( 'Rank %i; target: %s; target_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
+                    '%.2f s' % (rank, target, target_gid, len(syn_weight_map), len(source_weights),
+                              time.time() - local_time))
             count += 1
         else:
-            print 'Rank: %i received target_gid as None' % rank
-        if not debug:
-            append_cell_attributes(comm, weights_path, target, weights_dict, namespace=weights_namespace,
+            logger.info('Rank: %i received target_gid as None' % rank)
+        if not dry_run:
+            append_cell_attributes(weights_path, target, weights_dict, namespace=weights_namespace, comm=comm,
                                    io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
             # print 'Rank: %i, just after append' % rank
-        sys.stdout.flush()
         del source_syn_map
         del source_weights
         del syn_weight_map
@@ -134,16 +143,10 @@ def main(weights_path, weights_namespace, connections_path, io_size, chunk_size,
         del conn_attr_dict
         del weights_dict
         gc.collect()
-        if debug:
-            comm.barrier()
-            if maxiter is not None and itercount > maxiter:
-                break
-    if debug:
-        print 'Rank: %i exited the loop' % rank
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print 'target: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
-              (target, comm.size, np.sum(global_count), time.time() - start_time)
+        logger.info('target: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
+                        (target, comm.size, np.sum(global_count), time.time() - start_time))
 
 
 if __name__ == '__main__':

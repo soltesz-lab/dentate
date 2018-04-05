@@ -3,11 +3,33 @@ import sys, time, gc
 import numpy as np
 import h5py
 from neuroh5.io import read_cell_attributes, read_population_ranges
+import rbf
+from rbf.nodes import disperse
+from rbf.halton import halton
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
 selectivity_place_field = 1
 
+
+def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10): 
+    # Define the problem domain with line segments.
+    vert = np.array([[-arena_dimension,-arena_dimension],[-arena_dimension,arena_dimension],
+                    [arena_dimension,arena_dimension],[arena_dimension,-arena_dimension]])
+    smp = np.array([[0,1],[1,2],[2,3],[3,0]])
+
+    # create N quasi-uniformly distributed nodes over the unit square
+    nodes = halton(N,2)
+
+    # scale/translate the nodes to encompass the arena
+    nodes -= 0.5
+    nodes *= scale_factor * arena_dimension
+    
+    # evenly disperse the nodes over the domain using maxit iterative steps
+    for i in range(maxit):
+        nodes = disperse(nodes,vert,smp)
+
+    return (nodes,vert,smp)
 
 
 
@@ -63,7 +85,6 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
         y_offset = features_dict['Y Offset'][0]
         rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
     elif selectivity_type == selectivity_place_field:
-        print 'features_dict: ', features_dict
         field_width = features_dict['Field Width'][0]
         x_offset = features_dict['X Offset'][0]
         y_offset = features_dict['Y Offset'][0]
@@ -74,11 +95,11 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
     return response
 
 
-def read_trajectory (comm, selectivity_path, trajectory_id, verbose=False):
+def read_trajectory (comm, input_path, trajectory_id, verbose=False):
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
 
-    with h5py.File(selectivity_path, 'a') as f:
+    with h5py.File(input_path, 'a') as f:
         group = f[trajectory_namespace]
         dataset = group['x']
         x = dataset[:]
@@ -88,18 +109,17 @@ def read_trajectory (comm, selectivity_path, trajectory_id, verbose=False):
         d = dataset[:]
         dataset = group['t']
         t = dataset[:]
-
     return (x,y,d,t)
 
 
 def read_stimulus (comm, stimulus_path, stimulus_namespace, population, verbose=False):
         ratemap_lst = []
-        attr_gen = read_cell_attributes(comm, stimulus_path, population, namespace=stimulus_namespace)
+        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace, comm=comm)
         for gid, stimulus_dict in attr_gen:
             rate = stimulus_dict['rate']
             spiketrain = stimulus_dict['spiketrain']
             modulation = stimulus_dict['modulation']
-            peak_index = stimulus_dict['peak_index']
+            peak_index = stimulus_dict['peak index']
             ratemap_lst.append((gid, rate, spiketrain, peak_index))
 
         ## sort by peak_index
