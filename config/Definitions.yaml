@@ -16,7 +16,7 @@ Synapse Mechanisms:
   AMPA:    0
   GABA_A:  1
   GABA_B:  2
-  NMDA:    3
+  NMDA:    30
 Layers:
   Hilus: 0
   GCL:   1
