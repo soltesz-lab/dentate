@@ -115,7 +115,7 @@ class Env:
         population_names  = read_population_names(dataFilePath, self.comm)
         if rank == 0:
             print 'population_names = ', population_names
-        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, self.comm)
+        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, comm=self.comm)
 
         if rank == 0:
             print 'attribute info: ', self.cellAttributeInfo
