@@ -68,7 +68,7 @@ Cell Types:
         soma:
           inhibitory: # Inhibitory
             default: # layer
-              mean: 8.0
+              mean: 4.0
               variance: 0.2
   HC:
     template: HIPPCell
