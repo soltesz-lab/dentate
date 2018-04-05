@@ -25,7 +25,6 @@ module load atp
 
 set -x
 
-export ATP_ENABLED=1 
 export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
 export PYTHONPATH=$HOME/bin/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
@@ -43,9 +42,8 @@ git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 ## Necessary for correct loading of Darshan with LD_PRELOAD mechanism
-export PMI_NO_FORK=1
-export PMI_NO_PREINITIALIZE=1
-export LD_PRELOAD=/opt/cray/hdf5-parallel/1.8.16/GNU/4.9/lib/libhdf5_parallel_gnu_49.so.10
+##export PMI_NO_FORK=1
+##export PMI_NO_PREINITIALIZE=1
 
 aprun -n 32768 \
     python main.py  \
