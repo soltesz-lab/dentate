@@ -122,7 +122,7 @@ class Env:
 
             
     def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
-                 IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
+                 IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
@@ -132,6 +132,7 @@ class Env:
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
         :param tstop: physical time to simulate
+        :param stimulus_onset:  starting time of stimulus in ms
         :param max_walltime_hrs:  maximum wall time in hours
         :param results_write_time: time to write out results at end of simulation
         :param dt: simulation time step
@@ -177,8 +178,11 @@ class Env:
         # Initialization voltage
         self.v_init = v_init
 
-        # simulation time
+        # simulation time [ms]
         self.tstop = tstop
+
+        # stimulus onset time [ms]
+        self.stimulus_onset = stimulus_onset
 
         # maximum wall time in hours
         self.max_walltime_hrs = max_walltime_hrs

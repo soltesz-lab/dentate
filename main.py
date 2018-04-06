@@ -544,7 +544,8 @@ def mkstim(env):
                   logger.info( "*** Spike train for gid %i is of length %i (first spike at %g ms)" % (gid, len(vecstim_dict['spiketrain']),vecstim_dict['spiketrain'][0]))
                 else:
                   logger.info("*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain'])))
-                        
+
+              vecstim_dict['spiketrain'] += env.stimulus_onset
               cell = env.pc.gid2cell(gid)
               cell.play(h.Vector(vecstim_dict['spiketrain']))
 
@@ -697,6 +698,7 @@ def run (env):
 @click.option("--vrecord-fraction", type=float, default=0.001)
 @click.option("--tstop", type=int, default=1)
 @click.option("--v-init", type=float, default=-75.0)
+@click.option("--stimulus-onset", type=float, default=1.0)
 @click.option("--max-walltime-hours", type=float, default=1.0)
 @click.option("--results-write-time", type=float, default=360.0)
 @click.option("--dt", type=float, default=0.025)
@@ -704,7 +706,7 @@ def run (env):
 @click.option("--lptbal", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size, coredat,
-         vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+         vrecord_fraction, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     """
 
     :param config_file:
@@ -718,6 +720,7 @@ def main(config_file, template_paths, dataset_prefix, results_path, results_id, 
     :param vrecord_fraction:
     :param tstop:
     :param v_init:
+    :param stimulus_onset:
     :param max_walltime_hours:
     :param results_write_time:
     :param dt:
@@ -730,21 +733,15 @@ def main(config_file, template_paths, dataset_prefix, results_path, results_id, 
     comm = MPI.COMM_WORLD
 
     rank = comm.Get_rank()
-    if rank == 0:
-      logger.info('before Env')
-    comm.Barrier()
 
     np.seterr(all='raise')
     env = Env(comm, config_file, 
               template_paths, dataset_prefix, results_path, results_id,
               node_rank_file, io_size,
-              vrecord_fraction, coredat, tstop, v_init,
+              vrecord_fraction, coredat, tstop, v_init, stimulus_onset,
               max_walltime_hours, results_write_time,
               dt, ldbal, lptbal, verbose)
 
-    if rank == 0:
-      logger.info('before init')
-    comm.Barrier()
 
     init(env)
     run(env)
