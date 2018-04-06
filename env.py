@@ -85,6 +85,7 @@ class Env:
         dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
 
         (population_ranges, _) = read_population_ranges(dataFilePath, self.comm)
+
         if rank == 0:
             print 'population_ranges = ', population_ranges
         
@@ -95,7 +96,8 @@ class Env:
         population_names  = read_population_names(dataFilePath, self.comm)
         if rank == 0:
             print 'population_names = ', population_names
-        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, self.comm)
+
+        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, comm=self.comm)
 
         if rank == 0:
             print 'attribute info: ', self.cellAttributeInfo
@@ -220,11 +222,10 @@ class Env:
             self.resultsFilePath = "%s/%s_results.h5" % (self.resultsPath, self.modelName)
         else:
             self.resultsFilePath = "%s_results.h5" % self.modelName
-            
 
         if self.modelConfig.has_key('Connection Generator'):
             self.load_connection_generator()
-        
+
         if self.datasetPrefix is not None:
             self.load_celltypes()
 
