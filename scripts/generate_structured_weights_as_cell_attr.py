@@ -6,13 +6,14 @@ import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
-from dentate import stimulus
+from dentate import stimulus, utils
 import numpy as np
 from collections import defaultdict
 import click
-from itertools import izip_longest
+from itertools import izip_longest, izip
 import logging
 logging.basicConfig()
+
 
 """
 stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
@@ -98,9 +99,9 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
 
     seed_offset = int(env.modelConfig['Random Seeds']['PP Structured Weights'])
-    arena_dimension = env.modelConfig['Trajectory']['Distance to boundary']  # minimum distance from origin to boundary (cm)
-    default_run_vel = env.modelConfig['Trajectory']['Default run velocity']  # cm/s
-    spatial_resolution = env.modelConfig['Trajectory']['Spatial resolution']  # cm
+    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    default_run_vel = input_config['trajectory']['Default run velocity']  # cm/s
+    spatial_resolution = input_config['trajectory']['Spatial resolution']  # cm
 
     if rank == 0:
         import h5py
@@ -143,7 +144,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
-                                                        comm=comm, io_size=io_size))
+                                                        comm=comm))
 
     structured_weights_dict = {}
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
@@ -161,16 +162,18 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
             sys.stdout.flush()
         # else:
         #    print 'Rank: %i; received destination: %s; destination_gid: %s' % (rank, destination, str(destination_gid))
-        initial_weights_dict = read_cell_attribute_selection (weights_path, pop_name, \
-                                                              selection=[destination_gid], namespace=initial_weights_namespace, \
-                                                              comm=comm)
         
         if destination_gid is not None:
             if initial_weights_dict is None:
                 raise Exception('Rank: %i; destination: %s; destination_gid: %s; get_cell_attributes_by_gid didn\'t work' %
                                 (rank, destination, str(destination_gid)))
+            initial_weights_dict = read_cell_attribute_selection (weights_path, destination, \
+                                                                      selection=[destination_gid], namespace=initial_weights_namespace, \
+                                                                      comm=comm)
+            syn_weight_map = {}
+            for syn_id, weight in itertools.izip(initial_weights_dict['syn_id'], initial_weights_dict['weight']):
+                syn_weight_map[syn_id] = weight
             local_random.seed(int(destination_gid + seed_offset))
-            syn_weight_map = dict(zip(initial_weights_dict['syn_id'], initial_weights_dict['weight']))
             for this_destination_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
                 for i in xrange(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
@@ -222,7 +225,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                                            namespace=structured_weights_namespace, \
                                            comm=comm, io_size=io_size, chunk_size=chunk_size, \
                                            value_chunk_size=value_chunk_size)
-        structured_weights_dict.clear()
+            structured_weights_dict.clear()
         del syn_weight_map
         del source_syn_map
         del syn_peak_index_map
@@ -244,4 +247,4 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

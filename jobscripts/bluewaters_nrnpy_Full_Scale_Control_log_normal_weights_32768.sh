@@ -5,9 +5,9 @@
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=3:30:00
+#PBS -l walltime=18:00:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control_32768
+#PBS -N dentate_Full_Scale_Control_log_normal_weights_32768
 ### set the job stdout and stderr
 #PBS -e ./results/dentate.$PBS_JOBID.err
 #PBS -o ./results/dentate.$PBS_JOBID.out
@@ -15,19 +15,20 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
-#PBS -A baqc
 
 
 module swap PrgEnv-cray PrgEnv-gnu
 module load cray-hdf5-parallel
 module load bwpy 
 module load bwpy-mpi
+module load atp
 
 set -x
 
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
+export LD_LIBRARY_PATH=/sw/bw/bwpy/0.3.0/python-mpi/usr/lib:/sw/bw/bwpy/0.3.0/python-single/usr/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=$HOME/bin/nrn/lib/python:/projects/sciteam/baef/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
-export SCRATCH=/projects/sciteam/baqc
+export DARSHAN_LOGPATH=$PBS_O_WORKDIR/darshan-logs
 
 echo python is `which python`
 results_path=./results/Full_Scale_Control_$PBS_JOBID
@@ -44,16 +45,17 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ##export PMI_NO_FORK=1
 ##export PMI_NO_PREINITIALIZE=1
 
-aprun -n 32768 -b -- bwpy-environ -- \
-    python2.7 main.py  \
-    --config-file=config/Full_Scale_Control.yaml  \
+aprun -n 32768 \
+    python main.py  \
+    --config-file=config/Full_Scale_Control_log_normal_weights.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
-    --dataset-prefix="$SCRATCH" \
+    --dataset-prefix="/projects/sciteam/baef" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=10000 \
-    --v-init=-65 \
-    --max-walltime-hours=3.4 \
+    --tstop=12050 \
+    --v-init=-75 \
+    --max-walltime-hours=5.8 \
+    --node-rank-file=parts.32768 \
     --vrecord-fraction=0.001 \
     --verbose
 

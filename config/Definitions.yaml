@@ -35,4 +35,7 @@ Populations:
   MOPP: 8
   MPP:  9
   LPP:  10
+Input Features:
+  grid: 0
+  place: 1
 

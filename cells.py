@@ -1,6 +1,7 @@
 from neuron import h
 import copy
 import datetime
+import dentate
 from dentate.neuron_utils import *
 from dentate.utils import *
 import btmorph

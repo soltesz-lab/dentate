@@ -11,7 +11,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
     if verbose:
         print('Reading state data...')
 
-    attr_info_dict = read_cell_attribute_info(input_file, populations=list(population_names), cell_index=True)
+    attr_info_dict = read_cell_attribute_info(input_file, populations=list(population_names), read_cell_index=True)
 
     if query:
         print attr_info_dict
@@ -36,6 +36,8 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
         else:
             unitNo = set(unitNo)
 
+        print unitNo
+            
         state_dict = {}
         valiter    = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
         
