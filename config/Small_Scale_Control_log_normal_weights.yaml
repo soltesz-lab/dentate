@@ -9,8 +9,8 @@ Random Seeds: !include Random.yaml
 # Cell Data: DGC_forest_test_20180207.h5
 # Cell Data: DGC_forest_syns_weights_20171121_compressed.h5
 Cell Data: DGC_forest_test_syns_20180322.h5
-Connection Data: DGC_test_connections_20171019.h5
-Connection Generator: !include Full_Scale_Connections_structured_weights.yaml
+Connection Data: DG_GC_test_connections_20180402.h5
+Connection Generator: !include Full_Scale_Connections.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:

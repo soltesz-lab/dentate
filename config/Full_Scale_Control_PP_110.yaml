@@ -8,7 +8,7 @@ Cell Data: DG_Cells_Full_Scale_20180326.h5
 Connection Data: DG_Connections_Full_Scale_20180326.h5
 Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
-Input: !include Input.yaml
+Trajectory: !include Trajectory.yaml
 EC: !include EC.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
@@ -241,8 +241,8 @@ Cell Types:
               variance: 0.2
   MPP:
     template: MPPCell
-    Vector Stimulus: Vector Stimulus 0
+    Vector Stimulus: Vector Stimulus 110
   LPP:
     template: LPPCell
-    Vector Stimulus: Vector Stimulus 0
+    Vector Stimulus: Vector Stimulus 110
 

@@ -36,6 +36,8 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
         else:
             unitNo = set(unitNo)
 
+        print unitNo
+            
         state_dict = {}
         valiter    = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
         

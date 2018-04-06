@@ -22,12 +22,12 @@ logger = logging.getLogger(script_name)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--trajectory-id", type=int, default=0)
+@click.option("--stimulus-id", type=int, default=0)
 @click.option("--features-namespaces", "-n", type=str, multiple=True, default=['Grid Input Features','Place Input Features'])
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id, features_namespaces,
+def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
          stimulus_namespace, verbose, dry_run):
     """
 
@@ -36,7 +36,7 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
     :param chunk_size: int
     :param value_chunk_size: int
     :param cache_size: int
-    :param trajectory_id: int
+    :param stimulus_id: int
     :param features_namespace: str
     :param stimulus_namespace: str
     :param dry_run: bool
@@ -57,12 +57,17 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
     local_random = random.Random()
     input_spiketrain_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
-    arena_dimension = int(env.modelConfig['Trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
-    default_run_vel = int(env.modelConfig['Trajectory']['Default run velocity'])  # cm/s
-    spatial_resolution = int(env.modelConfig['Trajectory']['Spatial resolution'])  # cm
+    input_config = env.inputConfig[stimulus_id]
+    feature_type_dict = input_config['feature type']
 
-    trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
-    stimulus_id_namespace = '%s %s' % (stimulus_namespace, str(trajectory_id))
+    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+
+    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    default_run_vel = int(input_config['trajectory']['Default run velocity'])  # cm/s
+    spatial_resolution = float(input_config['trajectory']['Spatial resolution'])  # cm
+
+    trajectory_namespace = 'Trajectory %s' % str(stimulus_id)
+    stimulus_id_namespace = '%s %s' % (stimulus_namespace, str(stimulus_id))
 
     if rank == 0:
         with h5py.File(features_path, 'a') as f:
