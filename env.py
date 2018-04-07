@@ -120,9 +120,9 @@ class Env:
         if rank == 0:
             print 'attribute info: ', self.cellAttributeInfo
 
-            
-    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
-                 IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
+    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None,
+                 resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0,
+                 max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
@@ -245,11 +245,10 @@ class Env:
             self.resultsFilePath = "%s/%s_results.h5" % (self.resultsPath, self.modelName)
         else:
             self.resultsFilePath = "%s_results.h5" % self.modelName
-            
 
         if self.modelConfig.has_key('Connection Generator'):
             self.load_connection_generator()
-        
+
         if self.datasetPrefix is not None:
             self.load_celltypes()
 

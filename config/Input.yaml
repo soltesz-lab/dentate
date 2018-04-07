@@ -23,3 +23,12 @@
       place: 0.4
     LPP:
       place: 1.0
+120:
+## Configuration with 90% grid cells in MPP
+  trajectory: !include Trajectory.yaml
+  feature type:
+    MPP:
+      grid: 0.9
+      place: 0.1
+    LPP:
+      place: 1.0
