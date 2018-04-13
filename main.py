@@ -540,6 +540,8 @@ def mkstim(env):
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, vecstim_dict) in cell_vecstim:
               if env.verbose:
+                if rank == 0:
+                  logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
                 if len(vecstim_dict['spiketrain']) > 0:
                   logger.info( "*** Spike train for gid %i is of length %i (first spike at %g ms)" % (gid, len(vecstim_dict['spiketrain']),vecstim_dict['spiketrain'][0]))
                 else:

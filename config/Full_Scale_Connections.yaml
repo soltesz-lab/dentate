@@ -642,11 +642,11 @@ Connection Properties:
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 0.25
+        weight: 1.4
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 0.31
+        weight: 1.6
         velocity: 250.0
   MC:
     AAC:
@@ -659,7 +659,7 @@ Connection Properties:
         velocity: 250.0
     GC:
       AMPA:
-        weight: 0.9
+        weight: 1.8
         velocity: 250.0
     HC:
       GABA_A:
