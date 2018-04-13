@@ -63,7 +63,7 @@ Cell Types:
              variance: 0.2
           inhibitory: # Inhibitory
             default: # layer
-              mean: 2.25
+              mean: 1.5
               variance: 0.1
         soma:
           inhibitory: # Inhibitory

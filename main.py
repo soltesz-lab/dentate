@@ -136,10 +136,7 @@ def vout (env, output_path, t_vec, v_dict):
 
 def lfpout (env, output_path, lfp):
 
-    if not str(env.resultsId):
-        namespace_id = "Local Field Potential" 
-    else:
-        namespace_id = "Local Field Potential %s" % str(env.resultsId)
+    namespace_id = "Local Field Potential %s" % str(lfp.label)
 
     import h5py
     output = h5py.File(output_path)
@@ -624,10 +621,11 @@ def init(env):
     h.connectgjstime     = env.connectgjstime
     h.results_write_time = env.results_write_time
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
-    env.lfp              = lfp.LFP(env.pc, env.celltypes, env.lfpConfig['position'], \
-                                   rho=env.lfpConfig['rho'], dt_lfp=env.lfpConfig['dt'], \
-                                   fdst=env.lfpConfig['fraction'], maxEDist=env.lfpConfig['maxEDist'], \
-                                   seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
+    for lfp_label,lfp_config_dict in env.lfpConfig.iteritems():
+        env.lfp[lfp_label] = lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], \
+                                         rho=lfp_config_dict['rho'], dt_lfp=lfp_config_dict['dt'], \
+                                         fdst=lfp_config_dict['fraction'], maxEDist=lfp_config_dict['maxEDist'], \
+                                         seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
@@ -664,7 +662,8 @@ def run (env):
     env.pc.barrier()
     if (rank == 0):
         logger.info("*** Writing local field potential data")
-        lfpout(env, env.resultsFilePath, env.lfp)
+        for lfp in env.lfp.itervalues():
+            lfpout(env, env.resultsFilePath, lfp)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
