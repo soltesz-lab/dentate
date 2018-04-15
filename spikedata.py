@@ -228,7 +228,7 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
 
     return MI_dict
 
-def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, saveData = False):
+def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, saveData = False):
 
     pf_dict = {}
     pf_total_count = 0
@@ -237,10 +237,14 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, saveD
     pf_max = 0
     for ind, valdict  in rate_dict.iteritems():
         x      = valdict['x']
-        rate  = valdict['rate']
+        rate   = valdict['rate']
         m      = np.mean(rate)
         rate1  = np.subtract(rate, m)
-        s      = np.std(rate1)
+        if baseline_fraction is None:
+            s  = np.std(rate1)
+        else:
+            k = rate1.shape[0]/baseline_fraction
+            s = np.std(rate1[np.argpartition(rate1,k)[:k]])
         tmin   = x[0]
         tmax   = x[-1]
         bins   = np.arange(tmin, tmax, bin_size)
