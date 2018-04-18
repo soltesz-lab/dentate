@@ -115,14 +115,14 @@ class Env:
         population_names  = read_population_names(dataFilePath, self.comm)
         if rank == 0:
             print 'population_names = ', population_names
-        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, self.comm)
+        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, comm=self.comm)
 
         if rank == 0:
             print 'attribute info: ', self.cellAttributeInfo
 
-            
-    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
-                 IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
+    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None,
+                 resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0,
+                 max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
@@ -132,6 +132,7 @@ class Env:
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
         :param tstop: physical time to simulate
+        :param stimulus_onset:  starting time of stimulus in ms
         :param max_walltime_hrs:  maximum wall time in hours
         :param results_write_time: time to write out results at end of simulation
         :param dt: simulation time step
@@ -177,8 +178,11 @@ class Env:
         # Initialization voltage
         self.v_init = v_init
 
-        # simulation time
+        # simulation time [ms]
         self.tstop = tstop
+
+        # stimulus onset time [ms]
+        self.stimulus_onset = stimulus_onset
 
         # maximum wall time in hours
         self.max_walltime_hrs = max_walltime_hrs
@@ -241,25 +245,24 @@ class Env:
             self.resultsFilePath = "%s/%s_results.h5" % (self.resultsPath, self.modelName)
         else:
             self.resultsFilePath = "%s_results.h5" % self.modelName
-            
 
         if self.modelConfig.has_key('Connection Generator'):
             self.load_connection_generator()
-        
+
         if self.datasetPrefix is not None:
             self.load_celltypes()
 
         if self.modelConfig.has_key('Input'):
             self.load_input_config()
             
+        self.lfpConfig = {}
         if self.modelConfig.has_key('LFP'):
-            self.lfpConfig = { 'position': tuple(self.modelConfig['LFP']['position']),
-                               'maxEDist': self.modelConfig['LFP']['maxEDist'],
-                               'fraction': self.modelConfig['LFP']['fraction'],
-                               'rho': self.modelConfig['LFP']['rho'],
-                               'dt': self.modelConfig['LFP']['dt'] }
-        else:
-            self.lfpConfig = None
+            for label,config in self.modelConfig['LFP'].iteritems():
+                self.lfpConfig[label] = { 'position': tuple(config['position']),
+                                          'maxEDist': config['maxEDist'],
+                                          'fraction': config['fraction'],
+                                          'rho': config['rho'],
+                                          'dt': config['dt'] }
             
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
@@ -273,4 +276,4 @@ class Env:
         self.connectgjstime = 0
 
         self.simtime = None
-        self.lfp = None
+        self.lfp = {}

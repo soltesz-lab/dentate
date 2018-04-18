@@ -136,10 +136,7 @@ def vout (env, output_path, t_vec, v_dict):
 
 def lfpout (env, output_path, lfp):
 
-    if not str(env.resultsId):
-        namespace_id = "Local Field Potential" 
-    else:
-        namespace_id = "Local Field Potential %s" % str(env.resultsId)
+    namespace_id = "Local Field Potential %s" % str(lfp.label)
 
     import h5py
     output = h5py.File(output_path)
@@ -540,11 +537,14 @@ def mkstim(env):
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, vecstim_dict) in cell_vecstim:
               if env.verbose:
+                if rank == 0:
+                  logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
                 if len(vecstim_dict['spiketrain']) > 0:
                   logger.info( "*** Spike train for gid %i is of length %i (first spike at %g ms)" % (gid, len(vecstim_dict['spiketrain']),vecstim_dict['spiketrain'][0]))
                 else:
                   logger.info("*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain'])))
-                        
+
+              vecstim_dict['spiketrain'] += env.stimulus_onset
               cell = env.pc.gid2cell(gid)
               cell.play(h.Vector(vecstim_dict['spiketrain']))
 
@@ -623,10 +623,11 @@ def init(env):
     h.connectgjstime     = env.connectgjstime
     h.results_write_time = env.results_write_time
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
-    env.lfp              = lfp.LFP(env.pc, env.celltypes, env.lfpConfig['position'], \
-                                   rho=env.lfpConfig['rho'], dt_lfp=env.lfpConfig['dt'], \
-                                   fdst=env.lfpConfig['fraction'], maxEDist=env.lfpConfig['maxEDist'], \
-                                   seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
+    for lfp_label,lfp_config_dict in env.lfpConfig.iteritems():
+        env.lfp[lfp_label] = lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], \
+                                         rho=lfp_config_dict['rho'], dt_lfp=lfp_config_dict['dt'], \
+                                         fdst=lfp_config_dict['fraction'], maxEDist=lfp_config_dict['maxEDist'], \
+                                         seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
@@ -663,7 +664,8 @@ def run (env):
     env.pc.barrier()
     if (rank == 0):
         logger.info("*** Writing local field potential data")
-        lfpout(env, env.resultsFilePath, env.lfp)
+        for lfp in env.lfp.itervalues():
+            lfpout(env, env.resultsFilePath, lfp)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
@@ -697,6 +699,7 @@ def run (env):
 @click.option("--vrecord-fraction", type=float, default=0.001)
 @click.option("--tstop", type=int, default=1)
 @click.option("--v-init", type=float, default=-75.0)
+@click.option("--stimulus-onset", type=float, default=1.0)
 @click.option("--max-walltime-hours", type=float, default=1.0)
 @click.option("--results-write-time", type=float, default=360.0)
 @click.option("--dt", type=float, default=0.025)
@@ -704,7 +707,7 @@ def run (env):
 @click.option("--lptbal", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size, coredat,
-         vrecord_fraction, tstop, v_init, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
+         vrecord_fraction, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt, ldbal, lptbal, verbose):
     """
 
     :param config_file:
@@ -718,6 +721,7 @@ def main(config_file, template_paths, dataset_prefix, results_path, results_id, 
     :param vrecord_fraction:
     :param tstop:
     :param v_init:
+    :param stimulus_onset:
     :param max_walltime_hours:
     :param results_write_time:
     :param dt:
@@ -730,21 +734,15 @@ def main(config_file, template_paths, dataset_prefix, results_path, results_id, 
     comm = MPI.COMM_WORLD
 
     rank = comm.Get_rank()
-    if rank == 0:
-      logger.info('before Env')
-    comm.Barrier()
 
     np.seterr(all='raise')
     env = Env(comm, config_file, 
               template_paths, dataset_prefix, results_path, results_id,
               node_rank_file, io_size,
-              vrecord_fraction, coredat, tstop, v_init,
+              vrecord_fraction, coredat, tstop, v_init, stimulus_onset,
               max_walltime_hours, results_write_time,
               dt, ldbal, lptbal, verbose)
 
-    if rank == 0:
-      logger.info('before init')
-    comm.Barrier()
 
     init(env)
     run(env)

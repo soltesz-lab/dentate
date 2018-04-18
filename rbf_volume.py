@@ -121,6 +121,9 @@ class RBFVolume(object):
         u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
         uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
 
+        print 'uvl_obs: ',uvl_obs.shape
+        print 'xyz: ',xyz.shape
+        
         xvol = RBFInterpolant(uvl_obs,xyz[:,0],**kwargs)
         yvol = RBFInterpolant(uvl_obs,xyz[:,1],**kwargs)
         zvol = RBFInterpolant(uvl_obs,xyz[:,2],**kwargs)
@@ -437,9 +440,10 @@ class RBFVolume(object):
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
         hru, hrv = self._resample_uv(ures, vres)
-        volpts = self.ev(hru, hrv, self.l)
+        volpts = self.ev(hru, hrv, self.l).reshape(3,-1)
 
-        src =  mlab.pipeline.scalar_scatter(*volpts.T, **kwargs)
+        print 'volpts = ',volpts.shape
+        src =  mlab.pipeline.scalar_scatter(volpts[0,:], volpts[1,:], volpts[2,:], **kwargs)
         mlab.pipeline.volume(src, **kwargs)
         
         # Turn off perspective

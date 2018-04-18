@@ -47,7 +47,8 @@ def interpxyz(nn, nsegs, xx, yy, zz, ll, xint, yint, zint):
 
 class LFP:
 
-    def __init__(self, pc, celltypes, pos, rho = 333.0, fdst = 0.1, maxEDist=100., dt_lfp=0.5, seed=1):
+    def __init__(self, label, pc, celltypes, pos, rho = 333.0, fdst = 0.1, maxEDist=100., dt_lfp=0.5, seed=1):
+        self.label      = label
         self.pc         = pc
         self.dt_lfp     = dt_lfp
         self.seed       = seed
