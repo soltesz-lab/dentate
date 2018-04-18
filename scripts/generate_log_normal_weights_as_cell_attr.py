@@ -154,6 +154,7 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
     if rank == 0:
         logger.info('destination: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
                     (destination, comm.size, np.sum(global_count), time.time() - start_time))
+    MPI.Finalize()
 
 
 if __name__ == '__main__':

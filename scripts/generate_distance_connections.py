@@ -134,7 +134,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
                                          verbose=verbose, dry_run=dry_run)
-
+    MPI.Finalize()
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
