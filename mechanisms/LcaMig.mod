@@ -23,7 +23,7 @@ PARAMETER {
 NEURON {
 	SUFFIX lca
 	USEION lca READ elca WRITE ilca VALENCE 2
-	USEION ca READ cai, cao VALENCE 2 
+	USEION ca READ cai, cao
         RANGE glcabar, cai, ilca, elca
         :GLOBAL minf,matu
 	RANGE minf,matu
