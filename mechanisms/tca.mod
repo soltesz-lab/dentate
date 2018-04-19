@@ -14,7 +14,7 @@ UNITS {
 NEURON {
 	SUFFIX cat
 	USEION tca READ etca WRITE itca VALENCE 2
-	USEION ca READ cai, cao VALENCE 2
+	USEION ca READ cai, cao
         RANGE gcatbar,cai, itca, etca
 }
 
