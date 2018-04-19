@@ -16,19 +16,17 @@ module load hdf5
 module load scipy
 module load mpi4py
 
-export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
-ulimit -c unlimited
 
 set -x
 
 ibrun -np 768 python ./scripts/reindex_trees.py \
     --population=GC \
     --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_extended_compressed_20180224.h5 \
-    --output-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_reindex_20180224.h5 \
-    --index-path=$SCRATCH/dentate/Full_Scale_Control/dentate_GC_coords_20180224.h5 \
+    --output-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_reindex_20180418.h5 \
+    --index-path=$SCRATCH/dentate/Full_Scale_Control/dentate_GC_coords_20180418.h5 \
     --io-size=24 -v
