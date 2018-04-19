@@ -127,6 +127,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         global_count = comm.gather(count, root=0)
         if rank == 0:
             logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
+        MPI.Finalize()
 
 
 if __name__ == '__main__':

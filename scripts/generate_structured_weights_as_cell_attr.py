@@ -243,6 +243,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     if rank == 0:
         logger.info('destination: %s; %i ranks processed %i cells (%i assigned structured weights) in %.2f s' % \
                     (destination, comm.size, np.sum(global_count), np.sum(global_structured_count), time.time() - start_time))
+    MPI.Finalize()
 
 
 if __name__ == '__main__':

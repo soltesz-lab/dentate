@@ -1551,8 +1551,7 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
     for iplot, subset in enumerate(spkpoplst):
 
         if loadData:
-            import pickle
-            MI_dict = pickle.load(open(loadData[iplot],'rb'))
+            MI_dict = read_cell_attributes(loadData[iplot], subset, namespace='Spatial Mutual Information')
         else:
             spkts         = spktlst[iplot]
             spkinds       = spkindlst[iplot]
@@ -1696,8 +1695,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
     for iplot, subset in enumerate(spkpoplst):
 
         if loadData:
-            import pickle
-            rate_bin_dict = pickle.load(open(loadData[iplot],'rb'))
+            rate_bin_dict = read_cell_attributes(loadData[iplot], subset, namespace='Instantaneous Rate')
         else:
             spkts         = spktlst[iplot]
             spkinds       = spkindlst[iplot]

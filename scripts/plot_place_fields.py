@@ -2,7 +2,7 @@
 import sys, gc
 from mpi4py import MPI
 import click
-import utils, plot
+from dentate import utils, plot
 
 script_name = 'plot_place_fields.py'
 
