@@ -19,6 +19,14 @@ import click
 import logging
 logging.basicConfig()
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
+
 script_name = 'generate_distance_connections.py'
 logger = logging.getLogger(script_name)
 
