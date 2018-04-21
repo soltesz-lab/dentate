@@ -561,6 +561,8 @@ def init(env):
     h('mkstimtime = 0')
     h('connectcellstime = 0')
     h('connectgjstime = 0')
+    h('initializetime = 0')
+    h('setuptime = 0')
     h('results_write_time = 0')
     h.nclist = h.List()
     datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
@@ -588,41 +590,35 @@ def init(env):
       mkout (env, env.resultsFilePath)
     if (env.pc.id() == 0):
         logger.info("*** Creating cells...")
-    env.pc.barrier()
     h.startsw()
+    env.pc.barrier()
     mkcells(env)
     env.mkcellstime = h.stopsw()
+    h.startsw()
     env.pc.barrier()
     if (env.pc.id() == 0):
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
     logger.info("*** Rank %i created %i cells" % (env.pc.id(), len(env.cells)))
-    h.startsw()
     mkstim(env)
     env.mkstimtime = h.stopsw()
     if (env.pc.id() == 0):
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
-    env.pc.barrier()
     h.startsw()
+    env.pc.barrier()
     connectcells(env)
     env.connectcellstime = h.stopsw()
+    h.startsw()
     env.pc.barrier()
     if (env.pc.id() == 0):
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     logger.info("*** Rank %i created %i connections" % (env.pc.id(), int(h.nclist.count())))
-    h.startsw()
     #connectgjs(env)
+    env.pc.setup_transfer()
+    env.pc.set_maxstep(10.0)
     env.connectgjstime = h.stopsw()
     if (env.pc.id() == 0):
         logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
-    env.pc.setup_transfer()
-    env.pc.set_maxstep(10.0)
-    h.max_walltime_hrs   = env.max_walltime_hrs
-    h.mkcellstime        = env.mkcellstime
-    h.mkstimtime         = env.mkstimtime
-    h.connectcellstime   = env.connectcellstime
-    h.connectgjstime     = env.connectgjstime
-    h.results_write_time = env.results_write_time
-    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
+    h.startsw()
     for lfp_label,lfp_config_dict in env.lfpConfig.iteritems():
         env.lfp[lfp_label] = lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], \
                                          rho=lfp_config_dict['rho'], dt_lfp=lfp_config_dict['dt'], \
@@ -637,6 +633,15 @@ def init(env):
         ld_bal(env)
         if env.optlptbal:
             lpt_bal(env)
+    h.max_walltime_hrs   = env.max_walltime_hrs
+    h.results_write_time = env.results_write_time
+    h.mkcellstime        = env.mkcellstime
+    h.mkstimtime         = env.mkstimtime
+    h.connectcellstime   = env.connectcellstime
+    h.connectgjstime     = env.connectgjstime
+    h.initializetime     = h.stopsw()
+    h.setuptime          = h.mkcellstime + h.mkstimtime + h.connectcellstime + h.connectgjstime + h.initializetime
+    env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
 
 # Run the simulation
 def run (env):
