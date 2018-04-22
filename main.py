@@ -624,15 +624,6 @@ def init(env):
                                          rho=lfp_config_dict['rho'], dt_lfp=lfp_config_dict['dt'], \
                                          fdst=lfp_config_dict['fraction'], maxEDist=lfp_config_dict['maxEDist'], \
                                          seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
-    h.v_init = env.v_init
-    h.stdinit()
-    h.finitialize(env.v_init)
-    env.pc.barrier()
-    if env.optldbal or env.optlptbal:
-        cx(env)
-        ld_bal(env)
-        if env.optlptbal:
-            lpt_bal(env)
     h.max_walltime_hrs   = env.max_walltime_hrs
     h.results_write_time = env.results_write_time
     h.mkcellstime        = env.mkcellstime
@@ -642,7 +633,17 @@ def init(env):
     h.initializetime     = h.stopsw()
     h.setuptime          = h.mkcellstime + h.mkstimtime + h.connectcellstime + h.connectgjstime + h.initializetime
     env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
-
+    h.startsw()
+    h.v_init = env.v_init
+    h.stdinit()
+    h.finitialize(env.v_init)
+    if env.optldbal or env.optlptbal:
+        cx(env)
+        ld_bal(env)
+        if env.optlptbal:
+            lpt_bal(env)
+    h.setuptime = h.setuptime + h.stopsw()
+    
 # Run the simulation
 def run (env):
     rank = int(env.pc.id())
