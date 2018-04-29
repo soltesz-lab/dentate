@@ -442,7 +442,6 @@ class RBFVolume(object):
         hru, hrv = self._resample_uv(ures, vres)
         volpts = self.ev(hru, hrv, self.l).reshape(3,-1)
 
-        print 'volpts = ',volpts.shape
         src =  mlab.pipeline.scalar_scatter(volpts[0,:], volpts[1,:], volpts[2,:], **kwargs)
         mlab.pipeline.volume(src, **kwargs)
         

@@ -324,6 +324,74 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
     return ax
 
 
+def plot_reindex_positions(coords_path, population, distances_namespace='Arc Distances',
+                           reindex_namespace='Tree Reindex', reindex_attribute='New Cell Index', 
+                           fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot septo-temporal position (longitudinal and transverse arc distances).
+
+    :param coords_path:
+    :param distances_namespace: 
+    :param population: 
+
+    """
+
+    dx = 50
+    dy = 50
+    
+        
+    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    cell_reindex = read_cell_attributes(coords_path, population, namespace=reindex_namespace)
+    cell_reindex_dict = {}
+    for k,v in cell_reindex:
+        cell_reindex_dict[k] = v[reindex_attribute][0]
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    distance_U = {}
+    distance_V = {}
+    for k,v in soma_distances:
+        if cell_reindex_dict.has_key(k):
+            distance_U[k] = v['U Distance'][0]
+            distance_V[k] = v['V Distance'][0]
+        
+        
+    distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
+    distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
+
+    x_min = np.min(distance_U_array)
+    x_max = np.max(distance_U_array)
+    y_min = np.min(distance_V_array)
+    y_max = np.max(distance_V_array)
+
+    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+
+
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('Position distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_aspect('equal')
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Reindex Positions.png' 
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
 def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, rotate=None, verbose=False):
     
     env = Env(configFile=config)

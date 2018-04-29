@@ -10,7 +10,7 @@ DG_EXT_populations = ["MPP", "LPP"]
 DG_cells_file = "DG_Cells_Full_Scale_20180417.h5"
 DG_connections_file = "DG_Connections_Full_Scale_20180417.h5"
 
-DG_GC_coordinate_file  = "DGC_forest_reindex_compressed_20180224.h5"
+DG_GC_coordinate_file  = "dentate_GC_coords_20180418.h5"
 DG_IN_coordinate_file  = "dentate_generated_coords_20180305.h5"
 DG_EXT_coordinate_file = "dentate_generated_coords_20180305.h5"
 

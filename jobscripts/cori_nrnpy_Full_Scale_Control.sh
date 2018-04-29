@@ -2,10 +2,10 @@
 #
 #SBATCH -J dentate_Full_Scale_Control
 #SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
-#SBATCH -N 64
+#SBATCH -N 256
 #SBATCH --ntasks-per-node=32
-#SBATCH -p regular
-#SBATCH -t 6:30:00
+#SBATCH -q regular
+#SBATCH -t 5:30:00
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -34,14 +34,15 @@ echo python is `which python`
 
 set -x
 
-srun -n 2048 python main.py \
+srun -n 8192 python main.py \
  --config-file=config/Full_Scale_Control.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \
  --io-size=256 \
- --tstop=1500 \
- --v-init=-65 \
+ --tstop=2500 \
+ --v-init=-75 \
+ --stimulus-onset=150.0 \
  --max-walltime-hours=5.4 \
  --results-write-time=250 \
  --verbose
