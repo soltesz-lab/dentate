@@ -627,7 +627,7 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.19
+        weight: 0.4
         velocity: 250.0
     NGFC:
       GABA_A:
@@ -659,7 +659,7 @@ Connection Properties:
         velocity: 250.0
     GC:
       AMPA:
-        weight: 1.5
+        weight: 2.0
         velocity: 250.0
     HC:
       GABA_A:
@@ -671,7 +671,7 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.5
+        weight: 1.8
         velocity: 250.0
   HC:
     GC:

@@ -4,8 +4,8 @@
 #SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
 #SBATCH -N 256
 #SBATCH --ntasks-per-node=32
-#SBATCH -q regular
 #SBATCH -t 5:30:00
+#SBATCH -q regular
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
