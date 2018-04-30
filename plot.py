@@ -156,8 +156,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
-    distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(degrees)) ])
-    distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(degrees)) ])
+    distance_U = np.asarray([ soma_distances[v][0] for v in range(0,len(degrees)) ])
+    distance_V = np.asarray([ soma_distances[v][1] for v in range(0,len(degrees)) ])
 
     (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
      # size of each bin in x and y dimensions

@@ -18,9 +18,7 @@ ulimit -c unlimited
 
 set -x
 
-input=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_compressed_20180319.h5 
-input=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180307.h5 
-input=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180321.h5
+input=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_compressed_20180428.h5 
 
 ibrun -np 1536 $HOME/src/neuroh5/build/neurograph_vertex_metrics --indegree --outdegree -i 128 \
     $input
