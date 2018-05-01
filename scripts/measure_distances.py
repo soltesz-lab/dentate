@@ -8,7 +8,7 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
-from dentate.connection_generator import get_volume_distances, get_soma_distances
+from dentate.connection_generator import get_volume_distances, get_soma_distances, get_soma_depths
 from dentate.DG_volume import make_volume
 from dentate.env import Env
 import dentate.utils as utils
@@ -45,8 +45,14 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
     if rank == 0:
         logger.info('Reading population coordinates...')
     
+    min_l = float('inf')
+    max_l = 0.0
     population_ranges = read_population_ranges(coords_path)[0]
     for population in populations:
+        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
+        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
+        min_l = min(min_extent[2], min_l)
+        max_l = min(max_extent[2], max_l)
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace)
 
@@ -61,29 +67,35 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
 
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(-3.95, 3.2, ures=20, vres=20, lres=10)
+        ip_volume = make_volume(min_l, max_l, ures=20, vres=20, lres=10)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
         logger.info('Computing U volume distance interpolants...')
-        (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
+        (dist_u, obs_dist_u, dist_v, obs_dist_v, dist_l, obs_dist_l) = vol_dist
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis='phs3',extrapolate=True)
         coeff_dist_u = ip_dist_u._coeff
         logger.info('Computing V volume distance interpolants...')
         ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis='phs3',extrapolate=True)
         coeff_dist_v = ip_dist_v._coeff
+        logger.info('Computing L volume distance interpolants...')
+        ip_dist_l = RBFInterpolant(obs_dist_l,dist_l,order=1,basis='phs3',extrapolate=True)
+        coeff_dist_l = ip_dist_l._coeff
         logger.info('Broadcasting volume distance interpolants...')
         
     obs_dist_u = comm.bcast(obs_dist_u, root=0)
     coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
     obs_dist_v = comm.bcast(obs_dist_v, root=0)
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+    obs_dist_l = comm.bcast(obs_dist_l, root=0)
+    coeff_dist_l = comm.bcast(coeff_dist_l, root=0)
 
     ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis='phs3',extrapolate=True)
     ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis='phs3',extrapolate=True)
+    ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis='phs3',extrapolate=True)
 
     if rank == 0:
         logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, combined=False)
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, soma_coords, combined=False)
     
     output_path = coords_path
     for population in soma_distances.keys():
@@ -95,7 +107,8 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
         attr_dict = {}
         for k, v in dist_dict.iteritems():
             attr_dict[k] = { 'U Distance': np.asarray(v[0],dtype=np.float32), \
-                             'V Distance': np.asarray(v[1],dtype=np.float32) }
+                             'V Distance': np.asarray(v[1],dtype=np.float32), \
+                             'L Distance': np.asarray(v[2],dtype=np.float32) }
         append_cell_attributes(output_path, population, attr_dict,
                                namespace='Arc Distances', comm=comm,
                                io_size=io_size, chunk_size=chunk_size,

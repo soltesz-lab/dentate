@@ -277,13 +277,22 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
     sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
     obs_v = obs_uvl[sample_inds,:]    
     distances_v = np.concatenate(ldist_v)[sample_inds]
+        
+    if verbose:
+        logger.info('Computing L distances...')
+    ldist_l, obs_dist_l = ip_vol.point_distance(U, V, L, axis=2)
+    obs_uvl = np.array([np.concatenate(obs_dist_l[0]), \
+                        np.concatenate(obs_dist_l[1]), \
+                        np.concatenate(obs_dist_l[2])]).T
+    sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
+    obs_l = obs_uvl[sample_inds,:]    
+    distances_l = np.concatenate(ldist_l)[sample_inds]
 
-    return (distances_u, obs_u, distances_v, obs_v)
-
+    return (distances_u, obs_u, distances_v, obs_v, distances_l, obs_l)
 
 
         
-def get_soma_distances(comm, dist_u, dist_v, soma_coords, combined=False):
+def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, combined=False):
     rank = comm.rank
     size = comm.size
 
@@ -296,7 +305,8 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, combined=False):
                 uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
                 distance_u = dist_u(uvl_obs)
                 distance_v = dist_v(uvl_obs)
-                local_dist_dict[gid] = (distance_u, distance_v)
+                distance_l = dist_l(uvl_obs)
+                local_dist_dict[gid] = (distance_u, distance_v, distance_l)
         if combined:
             dist_dicts = comm.allgather(local_dist_dict)
             combined_dist_dict = {}
@@ -306,6 +316,32 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, combined=False):
             soma_distances[pop] = combined_dist_dict
         else:
             soma_distances[pop] = local_dist_dict
+
+    return soma_distances
+
+
+def get_soma_depths(comm, depths_uv, soma_coords, combined=False):
+    rank = comm.rank
+    size = comm.size
+
+    soma_distances = {}
+    for pop, coords_dict in soma_coords.iteritems():
+        local_depth_dict = {}
+        for gid, coords in coords_dict.iteritems():
+            if gid % size == rank:
+                soma_u, soma_v, soma_l = coords
+                uv_obs = np.array([soma_u,soma_v]).reshape(1,2)
+                depth_uv = depths_uv(uv_obs)
+                local_depth_dict[gid] = depth_uv
+        if combined:
+            dist_dicts = comm.allgather(local_depth_dict)
+            combined_depth_dict = {}
+            for depth_dict in depth_dicts:
+                for k, v in depth_dict.iteritems():
+                    combined_depth_dict[k] = v
+            soma_depths[pop] = combined_depth_dict
+        else:
+            soma_depths[pop] = local_depth_dict
 
     return soma_distances
 

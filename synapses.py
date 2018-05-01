@@ -313,7 +313,7 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
     syns_dict_ais  = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_hill = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_soma = defaultdict(lambda: defaultdict(lambda: {}))
-    py_sections = [sec for sec in cell.sections]
+    py_sections    = [sec for sec in cell.sections]
 
     syn_type_excitatory = env.Synapse_Types['excitatory']
     syn_type_inhibitory = env.Synapse_Types['inhibitory']
@@ -322,8 +322,8 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
     swc_type_basal  = env.SWC_Types['basal']
     swc_type_soma   = env.SWC_Types['soma']
     swc_type_axon   = env.SWC_Types['axon']
-    swc_type_ais   = env.SWC_Types['ais']
-    swc_type_hill  = env.SWC_Types['hillock']
+    swc_type_ais    = env.SWC_Types['ais']
+    swc_type_hill   = env.SWC_Types['hillock']
     
     syn_obj_dict = {}
 
