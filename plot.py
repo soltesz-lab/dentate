@@ -1985,12 +1985,12 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     for iplot, population in enumerate(include):
         rate_lst = []
         if verbose:
-            print 'Reading vector stimulus data for population %s...' % population 
+            print 'Reading vector stimulus data from namespace %s for population %s...' % (namespace_id, population )
         for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, namespace_id, population):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
 
-        M = max(M, len(rate))
+        M = max(M, len(rate_lst))
         N = len(rate_lst)
         rate_matrix = np.matrix(rate_lst)
         del(rate_lst)
