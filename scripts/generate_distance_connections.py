@@ -59,6 +59,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     extent      = {}
     soma_coords = {}
+    sigma       = {}
 
     if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
@@ -82,7 +83,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
-
+        sigma[population] = env.modelConfig['Connection Generator']['Axon Standard Deviation'][population]
+        
     obs_dist_u = None
     coeff_dist_u = None
     obs_dist_v = None
@@ -123,7 +125,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         if rank == 0:
             logger.info('Generating connection probabilities for population %s...' % destination_population)
 
-        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
+        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent, sigma[destination_population])
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         

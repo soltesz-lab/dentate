@@ -12,7 +12,7 @@ Axon Width:
     IS:   [3000., 3000.]
     MOPP: [2000., 2000.]
 Axon Offset:
-    MC:   [1000., 0.]
+    MC:   [1000., 1000.]
     GC:   [0., 0.]
     MPP:  [0., 0.]
     LPP:  [0., 0.]
@@ -23,6 +23,18 @@ Axon Offset:
     HC:   [0., 0.]
     IS:   [0., 0.]
     MOPP: [0., 0.]
+Axon Standard Deviation:
+    GC:   0.4
+    MC:   0.515
+    NGFC: 0.45
+    AAC:  0.45
+    BC:   0.45
+    HCC:  0.45
+    HC:   0.45
+    IS:   0.45
+    MOPP: 0.45
+    MPP:  1.0
+    LPP:  1.0
 Synapse Types:
     GC:
       MPP:  [excitatory]
@@ -627,7 +639,7 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.19
+        weight: 0.4
         velocity: 250.0
     NGFC:
       GABA_A:
@@ -642,11 +654,11 @@ Connection Properties:
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 1.4
+        weight: 1.6
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 1.6
+        weight: 1.8
         velocity: 250.0
   MC:
     AAC:
@@ -659,7 +671,7 @@ Connection Properties:
         velocity: 250.0
     GC:
       AMPA:
-        weight: 1.8
+        weight: 2.0
         velocity: 250.0
     HC:
       GABA_A:
@@ -671,7 +683,7 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.5
+        weight: 1.8
         velocity: 250.0
   HC:
     GC:
