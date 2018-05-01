@@ -3,8 +3,7 @@ from collections import defaultdict
 import sys, os.path, string, math
 from neuron import h
 import numpy as np
-import dentate
-from dentate import cells
+import cells
 
 def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seglist, seed, neurotree_dict=None):
     """Computes per-segment density of synapse placement. """
@@ -372,8 +371,8 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
         syn_mech_dict[syn_mech] = syn
       syn_obj_dict[syn_id] = syn_mech_dict
         
-    if spines:
-        cell.correct_for_spines()
+    #if spines:
+    #    cell.correct_for_spines()
 
     return syn_obj_dict
         

@@ -4,6 +4,9 @@ import datetime
 import dentate
 from dentate.neuron_utils import *
 from dentate.utils import *
+from neuroh5.h5py_io_utils import *
+from neuroh5.io import read_projection_names
+import synapses
 import btmorph
 
 
@@ -1804,3 +1807,127 @@ def make_cell(template_class, local_id=0, gid=0, dataset_path=""):
     """
     cell = template_class (local_id, gid, dataset_path)
     return cell
+
+
+def subset_syns_by_source(syn_id_list, cell_attr_dict, syn_index_map, postsyn_gid, env):
+    source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
+    subset_source_names = {}
+    for syn_id in syn_id_list:
+        source_id = cell_attr_dict[postsyn_gid]['source'][syn_index_map[postsyn_gid][syn_id]]
+        source_name = source_id2name[source_id]
+        if source_name not in subset_source_names:
+            subset_source_names[source_name] = [syn_id]
+        else:
+            subset_source_names[source_name].append(syn_id)
+    return subset_source_names
+
+
+def insert_syn_subset(cell, syn_attrs_dict, cell_attr_dict, postsyn_gid, subset_source_names, env, pop_name):
+    synapse_config = env.celltypes[pop_name]['synapses']
+    if synapse_config.has_key('spines'):
+        spines = synapse_config['spines']
+    else:
+        spines = False
+
+    if synapse_config.has_key('unique'):
+        unique = synapse_config['unique']
+    else:
+        unique = False
+
+    for source_name, subset_syn_ids in subset_source_names.iteritems():
+        subset_syn_ids = np.array(subset_syn_ids)
+        edge_count = 0
+        kinetics_dict = env.connection_generator[pop_name][source_name].synapse_kinetics
+        postsyn_cell = cell.hoc_cell
+        cell_syn_dict = cell_attr_dict[postsyn_gid]
+        cell_syn_types = cell_syn_dict['syn_types']
+        cell_swc_types = cell_syn_dict['swc_types']
+        cell_syn_locs = cell_syn_dict['syn_locs']
+        cell_syn_sections = cell_syn_dict['syn_secs']
+
+        edge_syn_ps_dict = synapses.mksyns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types,
+                                          cell_syn_locs, cell_syn_sections, kinetics_dict, env,
+                                          add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse,
+                                          spines=spines)
+        for (syn_id, syn_ps_dict) in edge_syn_ps_dict.iteritems():
+            for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
+                syn_attrs_dict[postsyn_gid][syn_id][syn_mech]['syn target'] = syn_ps
+        if env.verbose:
+            if int(env.pc.id()) == 0:
+                if edge_count == 0:
+                    for sec in list(postsyn_cell.all):
+                        h.psection(sec=sec)
+
+
+def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, env, pop_name):
+    """
+
+    :return:
+    """
+    datasetPath = os.path.join(env.datasetPrefix, env.datasetName)
+    connectivityFilePath = os.path.join(datasetPath, env.modelConfig['Connection Data'])
+
+    edge_count = 0
+    for source_name, subset_syn_ids in subset_source_names.iteritems():
+        edge_attr_index_map = get_edge_attributes_index_map(env.comm, connectivityFilePath, source_name, pop_name)
+        edge_attr_tuple = select_edge_attributes(postsyn_gid, env.comm, connectivityFilePath, edge_attr_index_map,
+                                                 source_name, pop_name, ['Synapses', 'Connections'])
+
+        presyn_gids = edge_attr_tuple[0]
+        edge_syn_ids = edge_attr_tuple[1]['Synapses']['syn_id']
+        edge_dists = edge_attr_tuple[1]['Connections']['distance']
+
+        edge_idxs = np.where(np.isin(edge_syn_ids, subset_syn_ids))
+        subset_presyn_gids = presyn_gids[edge_idxs]
+        subset_edge_dists = edge_dists[edge_idxs]
+
+        connection_dict = env.connection_generator[pop_name][source_name].connection_properties
+
+        for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+            syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
+            for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
+                connection_syn_mech_config = connection_dict[syn_mech]
+                #In full-scale model, we would need to read in weight information from the neuroh5 file
+                weight = connection_syn_mech_config['weight']
+                delay = (distance / connection_syn_mech_config['velocity']) + 0.1
+                if type(weight) is float:
+                    nc = mk_nc_syn(env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                else:
+                    nc = mk_nc_syn_wgtvector(env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                syn_attrs_dict[postsyn_gid][edge_syn_id][syn_ps.name] = {'netcon': nc, 'attrs': {}}
+
+        edge_count += len(presyn_gids)
+
+
+# -----------------------------------------------------------
+# Synapse wrapper
+
+def build_syn_attrs_dict(cell_attr_dict, gid):
+    syn_attrs_dict = {gid: {syn_id: {} for syn_id in cell_attr_dict[gid]['syn_ids']}}
+    syn_index_map = {gid: {syn_id: idx for idx, syn_id in enumerate(cell_attr_dict[gid]['syn_ids'])}}
+    return syn_attrs_dict, syn_index_map
+
+
+def fill_source_info(connectivityFilePath, cell_attr_dict, syn_index_map, gid, pop_name, env):
+    cell_attr_dict[gid]['source'] = np.full(len(cell_attr_dict[gid]['syn_ids']), np.nan)
+    source_names = []
+    for (source_name, this_pop_name) in read_projection_names(connectivityFilePath, comm=env.comm):
+        if this_pop_name == pop_name and source_name in env.connection_generator[pop_name].keys():
+            source_names.append(source_name)
+            source_id = int(env.pop_dict[source_name])
+            edge_attr_index_map = get_edge_attributes_index_map(env.comm, connectivityFilePath, source_name, pop_name)
+            edge_attr_tuple = select_edge_attributes(gid, env.comm, connectivityFilePath, edge_attr_index_map,
+                                                     source_name, 'GC', ['Synapses'])
+            for syn_id in edge_attr_tuple[1]['Synapses']['syn_id']:
+                cell_attr_dict[gid]['source'][syn_index_map[gid][syn_id]] = int(source_id)
+    return source_names
+
+
+def fill_syn_mech_names(syn_attrs_dict, syn_index_map, cell_attr_dict, gid, pop_name, env):
+    source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
+    for (syn_id, syn_dict) in syn_attrs_dict[gid].iteritems():
+        source_id = cell_attr_dict[gid]['source'][syn_index_map[gid][syn_id]]
+        source_name = source_id2name[source_id]
+        syn_kinetic_params = env.connection_generator[pop_name][source_name].synapse_kinetics
+        for (syn_mech, params) in syn_kinetic_params.iteritems():
+            syn_attrs_dict[gid][syn_id][syn_mech] = {'attrs': {}}

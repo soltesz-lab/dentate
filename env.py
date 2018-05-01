@@ -40,7 +40,8 @@ class Env:
         self.inputConfig = input_config
 
     def load_connection_generator(self):
-        
+        populations_dict = self.modelConfig['Definitions']['Populations']
+        self.pop_dict = populations_dict
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
         swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
         layers_dict      = self.modelConfig['Definitions']['Layers']

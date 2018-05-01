@@ -80,6 +80,11 @@ def mknetcon(pc, nclist, srcgid, dstgid, syn, weight, delay):
     nc.delay = delay
     nclist.append(nc)
 
+def mk_netcon(pc, srcgid, dstgid, syn, weight, delay):
+    nc = pc.gid_connect(srcgid, syn)
+    nc.weight[0] = weight
+    nc.delay = delay
+    return nc
 
 ## A variant of ParallelNetManager.nc_append that takes in a
 ## synaptic point process as an argument, as opposed to the index of a
@@ -90,8 +95,15 @@ def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
     assert (pc.gid_exists(dstgid))
     if (pc.gid_exists(dstgid)):
         cell = pc.gid2cell(dstgid)
-	mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
+    mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
 
+
+def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
+    assert (pc.gid_exists(dstgid))
+    if (pc.gid_exists(dstgid)):
+        cell = pc.gid2cell(dstgid)
+    nc = mk_netcon(pc, srcgid, dstgid, syn, weight / 1000.0, delay)
+    return nc
 
 
 ## A variant of ParallelNetManager.nc_append that 1) takes in a
@@ -105,7 +117,12 @@ def nc_appendsyn_wgtvector(pc, nclist, srcgid, dstgid, syn, weights, delay):
     widx = int(dstgid % weights.size())
     mknetcon(pc, nclist, srcgid, dstgid, syn, weights.x[widx]/1000.0, delay)
 
-
+def mk_nc_syn_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
+    assert (pc.gid_exists(dstgid))
+    cell = pc.gid2cell(dstgid)
+    widx = int(dstgid % weights.size())
+    nc = mk_netcon(pc, srcgid, dstgid, syn, weights.x[widx] / 1000.0, delay)
+    return nc
 
 ## Create gap junctions
 def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
