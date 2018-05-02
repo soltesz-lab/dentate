@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=188:ppn=16:xe
+#PBS -l nodes=376:ppn=16:xe
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=2:30:00
+#PBS -l walltime=3:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_Control
 ### set the job stdout and stderr
@@ -44,17 +44,17 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ##export PMI_NO_FORK=1
 ##export PMI_NO_PREINITIALIZE=1
 
-aprun -n 3008 -b -- bwpy-environ -- \
+aprun -n 6016 -b -- bwpy-environ -- \
     python2.7 main.py  \
     --config-file=config/Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=10000 \
+    --tstop=2500 \
     --v-init=-75 \
     --stimulus-onset=150.0 \
-    --max-walltime-hours=2.4 \
+    --max-walltime-hours=2.9 \
     --vrecord-fraction=0.001 \
     --verbose
 
