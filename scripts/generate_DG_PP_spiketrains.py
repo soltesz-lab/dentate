@@ -119,7 +119,7 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
                 else:
                     logger.info('Rank %i received attributes for gid %i' % (rank, gid))
                     local_time = time.time()
-                    response = stimulus.generate_spatial_ratemap(features_type, features_dict, x, y,
+                    response = stimulus.generate_spatial_ratemap(features_type, features_dict, t, x, y, 
                                                                 grid_peak_rate=20., place_peak_rate=20.)
                     local_random.seed(int(input_spiketrain_offset + gid))
                     spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)

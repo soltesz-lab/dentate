@@ -48,9 +48,11 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
 
     return t, interp_x, interp_y, d
 
+def fwhm2sigma(fwhm):
+    return fwhm / np.sqrt(8 * np.log(2))
 
-def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y,
-                             grid_peak_rate, place_peak_rate):
+def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x, interp_y,
+                             grid_peak_rate, place_peak_rate, ramp_up_period=500.0):
     """
 
     :param selectivity_type: int
@@ -92,6 +94,17 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_x, interp_y
 
     response = rate(interp_x, interp_y).astype('float32', copy=False)
 
+    if ramp_up_period is not None:
+        import scipy.signal as signal
+        timestep = interp_t[1] - interp_t[0]
+        fwhm = int(ramp_up_period*2 / timestep)
+        ramp_up_region = np.where(interp_t <= ramp_up_period)[0]
+        orig_response = response[ramp_up_region].copy()
+        sigma = fwhm2sigma(fwhm)
+        window = signal.gaussian(len(ramp_up_region)*2, std=sigma)
+        half_window = window[:int(len(window)/2)]
+        response[ramp_up_region] = response[ramp_up_region] * half_window
+    
     return response
 
 

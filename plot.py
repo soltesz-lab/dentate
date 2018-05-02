@@ -159,8 +159,15 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     distance_U = np.asarray([ soma_distances[v][0] for v in range(0,len(degrees)) ])
     distance_V = np.asarray([ soma_distances[v][1] for v in range(0,len(degrees)) ])
 
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
-     # size of each bin in x and y dimensions
+    if normed:
+        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
+        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+        H = np.zeros(H1.shape)
+        nz = np.where(H2 > 0.0)
+        H[nz] = np.divide(H1[nz], H2[nz])
+        H[nz] = np.divide(H[nz], np.max(H[nz]))
+    else:
+        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees)
         
     if verbose:
         print 'Plotting in-degree distribution...'
