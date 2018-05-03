@@ -43,6 +43,7 @@ class Env:
         populations_dict = self.modelConfig['Definitions']['Populations']
         self.pop_dict = populations_dict
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
+        self.syntypes_dict = syntypes_dict
         swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
         layers_dict      = self.modelConfig['Definitions']['Layers']
         synapse_kinetics = self.modelConfig['Connection Generator']['Synapse Kinetics']
@@ -51,6 +52,9 @@ class Env:
         synapse_layers   = self.modelConfig['Connection Generator']['Synapse Layers']
         synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
         connection_properties = self.modelConfig['Connection Generator']['Connection Properties']
+        if 'Synapse Mechanisms' in self.modelConfig['Connection Generator']:
+            synapse_mechanisms = self.modelConfig['Connection Generator']['Synapse Mechanisms']
+            self.syn_mech2PP_dict = synapse_mechanisms
 
         connection_generator_dict = {}
         

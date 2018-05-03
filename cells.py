@@ -1575,6 +1575,39 @@ def correct_g_pas_for_spines(cell):
             node.correct_g_pas_for_spines()
 
 
+def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
+    """
+    If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
+    dendritic section proportional to the number of excitatory synapses contained in the section.
+    """
+    # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
+    # capacitance and time constant
+    cm_fraction = 0.40
+    SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
+    this_syn_locs = filtered_synapse_attributes(cell_attr_dict, np.array(sec_index_map[node.index]), env,
+                                                syn_category='excitatory', output=['syn_locs'])
+    if this_syn_locs:
+        this_syn_locs = np.array(this_syn_locs)
+        seg_width = 1. / node.sec.nseg
+        for i, segment in enumerate(node.sec):
+            SA_seg = segment.area()
+            num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
+            cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
+            node.sec(segment.x).cm *= cm_correction_factor
+
+
+def correct_cm_for_spines(cell, cell_attr_dict, sec_index_map):
+    """
+
+    :param cell:
+    :param cell_attr_dict:
+    :return:
+    """
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        for node in get_nodes_of_subtype(cell, sec_type):
+            correct_node_cm(node, cell_attr_dict, sec_index_map)
+
+
 def init_nseg(sec, spatial_res=0):
     """
     Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
@@ -1845,7 +1878,7 @@ def insert_syn_subset(cell, syn_attrs_dict, cell_attr_dict, postsyn_gid, subset_
         cell_syn_locs = cell_syn_dict['syn_locs']
         cell_syn_sections = cell_syn_dict['syn_secs']
 
-        edge_syn_ps_dict = synapses.mksyns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types,
+        edge_syn_ps_dict = synapses.mk_syns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types,
                                           cell_syn_locs, cell_syn_sections, kinetics_dict, env,
                                           add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse,
                                           spines=spines)
@@ -1884,7 +1917,7 @@ def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, en
         connection_dict = env.connection_generator[pop_name][source_name].connection_properties
 
         for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
-            syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
+            syn_ps_dict = edge_syn_ps_dict[edge_syn_id] #may need to get edge_syn_ps_dict from mk_syns
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
                 connection_syn_mech_config = connection_dict[syn_mech]
                 #In full-scale model, we would need to read in weight information from the neuroh5 file
@@ -1931,3 +1964,42 @@ def fill_syn_mech_names(syn_attrs_dict, syn_index_map, cell_attr_dict, gid, pop_
         syn_kinetic_params = env.connection_generator[pop_name][source_name].synapse_kinetics
         for (syn_mech, params) in syn_kinetic_params.iteritems():
             syn_attrs_dict[gid][syn_id][syn_mech] = {'attrs': {}}
+
+
+def build_sec_index_map(cell_attr_dict, gid):
+    from collections import defaultdict
+    sec_index_map = defaultdict(list)
+    for idx, sec_idx in enumerate(cell_attr_dict[gid]['syn_secs']):
+        sec_index_map[sec_idx].append(idx)
+    return sec_index_map
+
+
+def filtered_synapse_attributes(cell_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=[]):
+    """
+
+    :param cell_attr_dict:
+    :param syn_idxs:
+    :param syn_category: string or list of str
+    :param layer: list of ints
+    :param output: list of str (each string must be a key in cell_attr_dict, ex. 'syn_locs')
+    :return:
+    """
+    if syn_category is not None:
+        if not isinstance(syn_category, (list,)):
+            syn_category = [syn_category]
+        correct_idxs = []
+        for category in syn_category:
+            syn_type_list = cell_attr_dict['syn_types'][syn_idxs]
+            #figure out how to chain different where results
+            correct_idxs += np.where(syn_type_list == env.syntypes_dict[category])
+        syn_idxs = syn_idxs[correct_idxs]
+    if layers is not None:
+        correct_idxs = []
+        for layer in layers:
+            syn_layer_list = cell_attr_dict['syn_layers'][syn_idxs]
+            correct_idxs += np.where(syn_layer_list==layer)
+        syn_idxs = syn_idxs[correct_idxs]
+    out = {}
+    for output_type in output:
+        out[output_type] = cell_attr_dict[output_type][syn_idxs]
+    return out

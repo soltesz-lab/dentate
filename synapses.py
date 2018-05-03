@@ -278,6 +278,15 @@ def syn_in_seg(seg, syns_dict):
     if any(seg.sec(x) == seg for x in syns_dict[seg.sec]): return True
     return False
 
+def make_specialized_syn_mech(mech_name, seg, PP_dict):
+    if mech_name in PP_dict:
+        PP_name = PP_dict[mech_name][1]
+        func = getattr(h, PP_name)
+        syn = func(seg)
+    else:
+        raise ValueError("Unrecognized synaptic mechanism name %s", mech_name)
+    return syn
+
 def make_syn_mech(mech_name, seg):
     if mech_name == 'AMPA':
         syn = h.Exp2Syn(seg)
@@ -289,10 +298,13 @@ def make_syn_mech(mech_name, seg):
         raise ValueError("Unrecognized synaptic mechanism name %s", mech_name)
     return syn
 
-def add_shared_synapse(mech_name, seg, syns_dict):
+def add_shared_synapse(mech_name, seg, syns_dict, PP_dict=None):
     """Returns the existing synapse in segment if any, otherwise creates it."""
     if not syn_in_seg(seg, syns_dict):
-        syn = make_syn_mech(mech_name, seg)
+        if PP_dict is not None:
+            syn = make_specialized_syn_mech(mech_name, seg, PP_dict)
+        else:
+            syn = make_syn_mech(mech_name, seg)
         syns_dict[seg.sec][syn.get_segment().x] = syn
         return syn
     else:
@@ -305,7 +317,8 @@ def add_unique_synapse(mech_name, seg, syns_dict):
     syn = make_syn_mech(mech_name, seg)
     return syn
     
-def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_params,env,add_synapse=add_shared_synapse,spines=False):
+def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kinetic_params,env,add_synapse=add_shared_synapse,
+           spines=False):
 
     syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
     syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
@@ -371,8 +384,77 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
         syn_mech_dict[syn_mech] = syn
       syn_obj_dict[syn_id] = syn_mech_dict
         
-    #if spines:
-    #    cell.correct_for_spines()
+    if spines:
+        cell.correct_for_spines()
+
+    return syn_obj_dict
+
+#New version of function, for use with dentate.cells
+def mk_syns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn_kinetic_params, env,
+            add_synapse=add_shared_synapse, spines=False):
+    syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_ais = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_hill = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_soma = defaultdict(lambda: defaultdict(lambda: {}))
+    py_sections = [sec for sec in cell.sections]
+
+    syn_type_excitatory = env.Synapse_Types['excitatory']
+    syn_type_inhibitory = env.Synapse_Types['inhibitory']
+
+    swc_type_apical = env.SWC_Types['apical']
+    swc_type_basal = env.SWC_Types['basal']
+    swc_type_soma = env.SWC_Types['soma']
+    swc_type_axon = env.SWC_Types['axon']
+    swc_type_ais = env.SWC_Types['ais']
+    swc_type_hill = env.SWC_Types['hillock']
+
+    syn_obj_dict = {}
+
+    for i in xrange(0, syn_ids.size):
+
+        syn_id = syn_ids[i]
+        if not (syn_id < syn_types.size):
+            print 'mksyns syn_ids for gid %i: ' % gid, syn_ids
+            raise ValueError('mksyns: cell %i received invalid syn_id %d' % (gid, syn_id))
+
+        syn_type = syn_types[syn_id]
+        swc_type = swc_types[syn_id]
+        syn_loc = syn_locs[syn_id]
+        syn_section = syn_sections[syn_id]
+
+        sref = None
+        sec = py_sections[syn_section]
+        if swc_type == swc_type_apical:
+            syns_dict = syns_dict_dend
+            if syn_type == syn_type_excitatory:
+                if spines and h.ismembrane('spines', sec=sec):
+                    sec(syn_loc).count_spines += 1
+        elif swc_type == swc_type_basal:
+            syns_dict = syns_dict_dend
+            if syn_type == syn_type_excitatory:
+                if spines and h.ismembrane('spines', sec=sec):
+                    sec(syn_loc).count_spines += 1
+        elif swc_type == swc_type_axon:
+            syns_dict = syns_dict_axon
+        elif swc_type == swc_type_ais:
+            syns_dict = syns_dict_ais
+        elif swc_type == swc_type_hill:
+            syns_dict = syns_dict_hill
+        elif swc_type == swc_type_soma:
+            syns_dict = syns_dict_soma
+        else:
+            raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
+        syn_mech_dict = {}
+        for (syn_mech, params) in syn_kinetic_params.iteritems():
+            syn = add_synapse(syn_mech, sec(syn_loc), syns_dict, env.syn_mech2PP_dict)
+            syn.tau1 = params['t_rise']
+            syn.tau2 = params['t_decay']
+            syn.e = params['e_rev']
+            cell.syns.append(syn)
+            cell.syntypes.o(syn_type).append(syn)
+            syn_mech_dict[syn_mech] = syn
+        syn_obj_dict[syn_id] = syn_mech_dict
 
     return syn_obj_dict
         

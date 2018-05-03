@@ -80,6 +80,7 @@ def mknetcon(pc, nclist, srcgid, dstgid, syn, weight, delay):
     nc.delay = delay
     nclist.append(nc)
 
+#New version of the function , used with dentate.cells
 def mk_netcon(pc, srcgid, dstgid, syn, weight, delay):
     nc = pc.gid_connect(srcgid, syn)
     nc.weight[0] = weight
@@ -95,9 +96,9 @@ def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
     assert (pc.gid_exists(dstgid))
     if (pc.gid_exists(dstgid)):
         cell = pc.gid2cell(dstgid)
-    mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
+	mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
 
-
+#New version of the function , used with dentate.cells
 def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
     assert (pc.gid_exists(dstgid))
     if (pc.gid_exists(dstgid)):
@@ -117,6 +118,7 @@ def nc_appendsyn_wgtvector(pc, nclist, srcgid, dstgid, syn, weights, delay):
     widx = int(dstgid % weights.size())
     mknetcon(pc, nclist, srcgid, dstgid, syn, weights.x[widx]/1000.0, delay)
 
+#New version of the function , used with dentate.cells
 def mk_nc_syn_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
     assert (pc.gid_exists(dstgid))
     cell = pc.gid2cell(dstgid)
