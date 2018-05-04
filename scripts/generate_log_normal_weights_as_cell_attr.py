@@ -117,7 +117,7 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
             for this_destination_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
                 for j in xrange(len(source_gid_array)):
                     this_source_gid = source_gid_array[j]
-                    this_syn_id = conn_attr_dict['Synapses'][0][j]
+                    this_syn_id = conn_attr_dict['Synapses']['syn_id'][j]
                     source_syn_map[this_source_gid].append(this_syn_id)
             source_weights = local_random.lognormal(mu, sigma, len(source_syn_map))
             # weights are synchronized across all inputs from the same source_gid
@@ -154,6 +154,7 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
     if rank == 0:
         logger.info('destination: %s; %i ranks generated log-normal weights for %i cells in %.2f s' % \
                     (destination, comm.size, np.sum(global_count), time.time() - start_time))
+    MPI.Finalize()
 
 
 if __name__ == '__main__':

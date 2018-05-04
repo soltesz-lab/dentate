@@ -156,8 +156,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
-    distance_U = np.asarray([ soma_distances[v+destination_start][0] for v in range(0,len(degrees)) ])
-    distance_V = np.asarray([ soma_distances[v+destination_start][1] for v in range(0,len(degrees)) ])
+    distance_U = np.asarray([ soma_distances[v][0] for v in range(0,len(degrees)) ])
+    distance_V = np.asarray([ soma_distances[v][1] for v in range(0,len(degrees)) ])
 
     (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
      # size of each bin in x and y dimensions
@@ -316,6 +316,74 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
             filename = saveFig
         else:
             filename = population+' Positions.png' 
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
+def plot_reindex_positions(coords_path, population, distances_namespace='Arc Distances',
+                           reindex_namespace='Tree Reindex', reindex_attribute='New Cell Index', 
+                           fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot septo-temporal position (longitudinal and transverse arc distances).
+
+    :param coords_path:
+    :param distances_namespace: 
+    :param population: 
+
+    """
+
+    dx = 50
+    dy = 50
+    
+        
+    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    cell_reindex = read_cell_attributes(coords_path, population, namespace=reindex_namespace)
+    cell_reindex_dict = {}
+    for k,v in cell_reindex:
+        cell_reindex_dict[k] = v[reindex_attribute][0]
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    distance_U = {}
+    distance_V = {}
+    for k,v in soma_distances:
+        if cell_reindex_dict.has_key(k):
+            distance_U[k] = v['U Distance'][0]
+            distance_V[k] = v['V Distance'][0]
+        
+        
+    distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
+    distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
+
+    x_min = np.min(distance_U_array)
+    x_max = np.max(distance_U_array)
+    y_min = np.min(distance_V_array)
+    y_max = np.max(distance_V_array)
+
+    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+
+
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('Position distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_aspect('equal')
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Reindex Positions.png' 
             plt.savefig(filename)
 
     if showFig:
@@ -710,8 +778,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable, timeRange=timeRange, verbose=verbose)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1551,8 +1618,7 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
     for iplot, subset in enumerate(spkpoplst):
 
         if loadData:
-            import pickle
-            MI_dict = pickle.load(open(loadData[iplot],'rb'))
+            MI_dict = read_cell_attributes(loadData[iplot], subset, namespace='Spatial Mutual Information')
         else:
             spkts         = spktlst[iplot]
             spkinds       = spkindlst[iplot]
@@ -1696,8 +1762,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
     for iplot, subset in enumerate(spkpoplst):
 
         if loadData:
-            import pickle
-            rate_bin_dict = pickle.load(open(loadData[iplot],'rb'))
+            rate_bin_dict = read_cell_attributes(loadData[iplot], subset, namespace='Instantaneous Rate')
         else:
             spkts         = spktlst[iplot]
             spkinds       = spkindlst[iplot]

@@ -39,7 +39,7 @@ class SimTimeEvent:
             ## remaining physical time
             trem = h.tstop - h.t
             ## remaining simulation time
-            tsimrem = self.max_walltime_hrs*3600 - self.tcsum - h.mkcellstime - h.connectcellstime - h.connectgjstime
+            tsimrem = self.max_walltime_hrs*3600 - self.tcsum - h.setuptime
             min_tsimrem = self.pc.allreduce(tsimrem, 3) ## minimum value
             ## simulation time necessary to complete the simulation
             tsimneeded = (trem/self.dt_checksimtime)*self.tcma+self.results_write_time

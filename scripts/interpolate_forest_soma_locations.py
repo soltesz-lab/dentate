@@ -1,4 +1,4 @@
-import sys, time, gc, itertools
+import sys, os, time, gc, itertools
 from mpi4py import MPI
 import numpy as np
 import dlib
@@ -24,7 +24,7 @@ concatOp = MPI.Op.Create(list_concat, commute=True)
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--coords-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--rotate", type=float)
 @click.option("--reltol", type=float, default=10.)
@@ -44,12 +44,16 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
     if io_size==-1:
         io_size = comm.size
 
-    if rank == 0:
-        logger.info('%i ranks have been allocated' % comm.size)
+    if rank==0:
+        import h5py
+        if not os.path.isfile(coords_path):
+            input_file  = h5py.File(forest_path,'r')
+            output_file = h5py.File(coords_path,'w')
+            input_file.copy('/H5Types',output_file)
+            input_file.close()
+            output_file.close()
+    comm.barrier()
 
-    if rank == 0:
-        logger.info('Reading population coordinates...')
-        
     (pop_ranges, _)  = read_population_ranges(forest_path)
     
 
@@ -154,7 +158,7 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
                                            namespace='Tree Reindex', io_size=1, comm=comm0)
             
         comm0.Barrier()
-            
+        MPI.Finalize()
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

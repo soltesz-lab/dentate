@@ -19,6 +19,14 @@ import click
 import logging
 logging.basicConfig()
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
+
 script_name = 'generate_distance_connections.py'
 logger = logging.getLogger(script_name)
 
@@ -51,6 +59,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     extent      = {}
     soma_coords = {}
+    sigma       = {}
 
     if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
@@ -74,7 +83,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
-
+        sigma[population] = env.modelConfig['Connection Generator']['Axon Standard Deviation'][population]
+        
     obs_dist_u = None
     coeff_dist_u = None
     obs_dist_v = None
@@ -115,7 +125,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         if rank == 0:
             logger.info('Generating connection probabilities for population %s...' % destination_population)
 
-        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
+        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent, sigma[destination_population])
 
         synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         
@@ -134,7 +144,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
                                          verbose=verbose, dry_run=dry_run)
-
+    MPI.Finalize()
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

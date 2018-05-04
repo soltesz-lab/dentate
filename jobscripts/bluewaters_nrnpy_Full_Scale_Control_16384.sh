@@ -54,6 +54,7 @@ aprun -n 16384 -b -- bwpy-environ -- \
     --io-size=256 \
     --tstop=10000 \
     --v-init=-75 \
+    --stimulus-onset=250. \
     --max-walltime-hours=0.5 \
     --vrecord-fraction=0.001 \
     --verbose

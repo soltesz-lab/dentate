@@ -17,7 +17,7 @@ module load mpi4py
 
 set -x
 
-export PYTHONPATH=/opt/python/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
@@ -47,4 +47,5 @@ mpirun_rsh -export-all -hostfile $nodefile -np 1680  \
  --tstop=10000 \
  --v-init=-75 \
  --max-walltime-hours=3.9 \
+ --stimulus-onset=50.0 \
  --verbose

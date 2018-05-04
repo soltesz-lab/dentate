@@ -19,7 +19,7 @@ UNITS {
 ? interface 
 NEURON { 
 SUFFIX nca
-USEION nca READ enca WRITE inca VALENCE 2 
+USEION nca READ enca WRITE inca VALENCE 2
 RANGE  gnca
 RANGE gncabar
 RANGE cinf, ctau, dinf, dtau, inca
