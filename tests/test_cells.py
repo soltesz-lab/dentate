@@ -1,5 +1,5 @@
 #Expects there to already be a hoc cell with a python wrapper (as defined in cells.py); the python cell should be called cell.
-from cells import *
+from dentate.cells import *
 from optimize_cells.plot_results import *
 import matplotlib.pyplot as plt
 
@@ -110,6 +110,26 @@ def compare_nseg(old_nseg, old_distances, new_nseg, new_distances, label_old, la
     print old_nseg['apical']
     print '%s nseg apical' %(label_new)
     print new_nseg['apical']
+
+
+def run_cm_correction_test(cell, context):
+    init_mechanisms(cell, reset_cable=True, from_file=True, mech_file_path=context.mech_file_path, cm_correct=False,
+                    g_pas_correct=False)
+    old_nseg, old_distances = count_nseg(cell)
+    plot_mech_param_distribution(cell, 'pas', 'g', export='old_dend_gpas', overwrite=False, param_label='dend.g_pas', show=False)
+    plot_cable_param_distribution(cell, 'cm', export='old_cm', param_label='cm', show=False, overwrite=True,
+                                  scale_factor=1)
+    init_mechanisms(cell, reset_cable=True, from_file=True, mech_file_path=context.mech_file_path, cm_correct=True, g_pas_correct=True,
+                    cell_attr_dict=context.cell_attr_dict[context.gid], sec_index_map=context.sec_index_map, env=context.env)
+    new_nseg, new_distances = count_nseg(cell)
+    compare_nseg(old_nseg, old_distances, new_nseg, new_distances, 'old', 'new')
+    plot_mech_param_distribution(cell, 'pas', 'g', export='new_dend_gpas', overwrite=False, param_label='dend.g_pas', show=False)
+    plot_mech_param_from_file('pas', 'g', ['old_dend_gpas', 'new_dend_gpas'], ['old', 'new'],
+                              param_label='dend.gpas')
+    plot_cable_param_distribution(cell, 'cm', export='new_cm', param_label='cm', show=False, overwrite=True,
+                                  scale_factor=1)
+    plot_mech_param_from_file('cm', None, ['old_cm', 'new_cm'], ['old', 'new'],
+                              param_label='cm')
 
 
 def run_cable_test(cell):

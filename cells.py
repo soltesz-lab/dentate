@@ -1676,9 +1676,8 @@ def correct_cm_for_spines(cell, cell_attr_dict, sec_index_map, env):
                     init_nseg(node.sec)
                     reinit_diam(node)
         if loop == 0:
-            init_mechanisms(cell, reset_cable=False, cm_correct=False, g_pas_correct=True, cell_attr_dict=cell_attr_dict,
+            init_mechanisms(cell, reset_cable=False, cm_correct=False, g_pas_correct=False, cell_attr_dict=cell_attr_dict,
                             sec_index_map=sec_index_map, env=env)
-            #does this need to be from file, and have a certain mech_file_path passed in?
 
 
 def get_distance_to_node(cell, root, node, loc=None):
