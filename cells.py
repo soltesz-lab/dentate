@@ -547,6 +547,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
                                               'syn_category': [],
                                               'syn_id': []}
         self.content['synapse_mechanism_attributes'] = {}
+        self.content['spine_count'] = []
 
     def get_sec(self):
         """
@@ -1179,7 +1180,8 @@ def import_mech_dict_from_yaml(cell, mech_file_path=None):
     cell.mech_dict = read_from_yaml(cell.mech_file_path)
 
 
-def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None):
+def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None, cm_correct=True, g_pas_correct=True,
+                    cell_attr_dict=None, sec_index_map=None, env=None):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
     each type of section in a HocCell. Traverses through the tree of SHocNode nodes following order of inheritance and
@@ -1202,6 +1204,14 @@ def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
             if cell.nodes[sec_type]:
                 update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
+    if cm_correct or g_pas_correct:
+        if cell_attr_dict is None or sec_index_map is None or env is None:
+            raise Exception('Must give cell_attr_dict, sec_index_map, and env as parameters in order to'
+                            'correct for spines.')
+    if reset_cable and cm_correct:
+        correct_cm_for_spines(cell, cell_attr_dict, sec_index_map, env)
+    if g_pas_correct:
+        correct_g_pas_for_spines(cell, cell_attr_dict, sec_index_map, env)
 
 
 def update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
@@ -1565,49 +1575,6 @@ def get_nodes_of_subtype(cell, sec_type):
         return cell.nodes[sec_type]
 
 
-def correct_g_pas_for_spines(cell):
-    """
-    If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
-    dendritic sections proportional to the number of excitatory synapses contained in each section.
-    """
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        for node in get_nodes_of_subtype(cell, sec_type):
-            node.correct_g_pas_for_spines()
-
-
-def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
-    """
-    If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
-    dendritic section proportional to the number of excitatory synapses contained in the section.
-    """
-    # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
-    # capacitance and time constant
-    cm_fraction = 0.40
-    SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
-    this_syn_locs = filtered_synapse_attributes(cell_attr_dict, np.array(sec_index_map[node.index]), env,
-                                                syn_category='excitatory', output=['syn_locs'])
-    if this_syn_locs:
-        this_syn_locs = np.array(this_syn_locs)
-        seg_width = 1. / node.sec.nseg
-        for i, segment in enumerate(node.sec):
-            SA_seg = segment.area()
-            num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
-            cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
-            node.sec(segment.x).cm *= cm_correction_factor
-
-
-def correct_cm_for_spines(cell, cell_attr_dict, sec_index_map):
-    """
-
-    :param cell:
-    :param cell_attr_dict:
-    :return:
-    """
-    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
-        for node in get_nodes_of_subtype(cell, sec_type):
-            correct_node_cm(node, cell_attr_dict, sec_index_map)
-
-
 def init_nseg(sec, spatial_res=0):
     """
     Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
@@ -1620,6 +1587,98 @@ def init_nseg(sec, spatial_res=0):
     #print sec.hname(), sec.nseg, sugg_nseg
     sugg_nseg *= 3 ** spatial_res
     sec.nseg = int(sugg_nseg)
+
+
+def reinit_diam(node):
+    """
+    For a node associated with a hoc section that is a tapered cylinder, every time the spatial resolution
+    of the section (nseg) is changed, the section diameters must be reinitialized. This method checks the
+    node's content dictionary for diameter boundaries and recalibrates the hoc section associated with this node.
+    """
+    if not node.get_diam_bounds() is None:
+        [diam1, diam2] = node.get_diam_bounds()
+        h('diam(0:1)={}:{}'.format(diam1, diam2), sec=node.sec)
+
+
+def count_spines_per_seg(node, cell_attr_dict, sec_index_map, env):
+    """
+
+    :param node:
+    :return:
+    """
+    node.content['spine_count'] = []
+    filtered_syns = filtered_synapse_attributes(cell_attr_dict, np.array(sec_index_map[node.index]), env,
+                                                syn_category='excitatory', output='syn_locs')
+    this_syn_locs = np.array(filtered_syns['syn_locs'])
+    seg_width = 1. / node.sec.nseg
+    for i, seg in enumerate(node.sec):
+        num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
+        node.content['spine_count'].append(num_spines)
+
+
+def correct_node_g_pas(node, cell, cell_attr_dict, sec_index_map, env):
+    """
+    If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in this
+    dendritic section proportional to the number of excitatory synapses contained in the section.
+    """
+    SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
+    if len(node.content['spine_count']) != node.sec.nseg:
+        count_spines_per_seg(node, cell_attr_dict, sec_index_map, env)
+    for i, segment in enumerate(node.sec):
+        SA_seg = segment.area()
+        num_spines = node.content['spine_count'][i]
+        soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
+        gpas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
+                                 (SA_seg * node.sec(segment.x).g_pas)
+        node.sec(segment.x).g_pas *= gpas_correction_factor
+
+
+def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
+    """
+    If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
+    dendritic section proportional to the number of excitatory synapses contained in the section.
+    """
+    # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
+    # capacitance and time constant
+    cm_fraction = 0.40
+    SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
+    if len(node.content['spine_count']) != node.sec.nseg:
+        count_spines_per_seg(node, cell_attr_dict, sec_index_map, env)
+    for i, segment in enumerate(node.sec):
+        SA_seg = segment.area()
+        num_spines = node.content['spine_count'][i]
+        cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
+        node.sec(segment.x).cm *= cm_correction_factor
+
+
+def correct_g_pas_for_spines(cell, cell_attr_dict, sec_index_map, env):
+    """
+    If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
+    dendritic sections proportional to the number of excitatory synapses contained in each section.
+    """
+    for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+        for node in get_nodes_of_subtype(cell, sec_type):
+            correct_node_g_pas(node, cell, cell_attr_dict, sec_index_map, env)
+
+
+def correct_cm_for_spines(cell, cell_attr_dict, sec_index_map, env):
+    """
+
+    :param cell:
+    :param cell_attr_dict:
+    :return:
+    """
+    for loop in xrange(2):
+        for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
+            for node in get_nodes_of_subtype(cell, sec_type):
+                correct_node_cm(node, cell_attr_dict, sec_index_map, env)
+                if loop == 0:
+                    init_nseg(node.sec)
+                    reinit_diam(node)
+        if loop == 0:
+            init_mechanisms(cell, reset_cable=False, cm_correct=False, g_pas_correct=True, cell_attr_dict=cell_attr_dict,
+                            sec_index_map=sec_index_map, env=env)
+            #does this need to be from file, and have a certain mech_file_path passed in?
 
 
 def get_distance_to_node(cell, root, node, loc=None):
@@ -1974,32 +2033,40 @@ def build_sec_index_map(cell_attr_dict, gid):
     return sec_index_map
 
 
-def filtered_synapse_attributes(cell_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=[]):
+def filtered_synapse_attributes(cell_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None, sorted=False):
     """
 
     :param cell_attr_dict:
     :param syn_idxs:
-    :param syn_category: string or list of str
-    :param layer: list of ints
-    :param output: list of str (each string must be a key in cell_attr_dict, ex. 'syn_locs')
+    :param syn_category: str or list of str
+    :param layer: int or list of ints
+    :param output: str or list of str (each string must be a key in cell_attr_dict, ex. 'syn_locs')
+    :param sorted: bool
     :return:
     """
     if syn_category is not None:
         if not isinstance(syn_category, (list,)):
             syn_category = [syn_category]
-        correct_idxs = []
+        correct_idxs = np.array([], dtype='i8')
         for category in syn_category:
             syn_type_list = cell_attr_dict['syn_types'][syn_idxs]
-            #figure out how to chain different where results
-            correct_idxs += np.where(syn_type_list == env.syntypes_dict[category])
+            where = np.where(syn_type_list==env.syntypes_dict[category])
+            correct_idxs = np.concatenate((correct_idxs, where[0]))
         syn_idxs = syn_idxs[correct_idxs]
     if layers is not None:
+        if not isinstance(layers, (list,)):
+            layers = [layers]
         correct_idxs = []
         for layer in layers:
             syn_layer_list = cell_attr_dict['syn_layers'][syn_idxs]
-            correct_idxs += np.where(syn_layer_list==layer)
+            where = np.where(syn_layer_list==layer)
+            correct_idxs = np.concatenate((correct_idxs, where[0]))
         syn_idxs = syn_idxs[correct_idxs]
+    if sorted:
+        syn_idxs = np.sort(syn_idxs)
     out = {}
+    if not isinstance(output, (list,)):
+        output = [output]
     for output_type in output:
         out[output_type] = cell_attr_dict[output_type][syn_idxs]
     return out
