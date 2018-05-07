@@ -12,7 +12,8 @@ from neuroh5.io import read_population_ranges, append_cell_attributes
 import click
 from dentate.utils import list_find
 from dentate.env import Env
-from dentate.DG_volume import make_volume
+from dentate.DG_volume import make_volume, DG_volume, make_uvl_distance
+import dlib
 import rbf
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
@@ -49,6 +50,8 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
         logger.info('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
+    optiter = 200
+    
     if rank==0:
         if not os.path.isfile(output_path):
             input_file  = h5py.File(types_path,'r')
@@ -131,13 +134,29 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
         sampled_idxs  = np.random.randint(0, node_count-1, size=int(population_count))
 
         xyz_coords = (in_nodes[sampled_idxs]).reshape(-1,3)
-        uvl_coords = vol.inverse(xyz_coords)
+        uvl_coords_interp = vol.inverse(xyz_coords)
             
         xyz_error = np.asarray([0.0, 0.0, 0.0])
         for i in xrange(0,population_count):
             if verbose:
                 logger.info('cell %i' % i)
-            xyz_coords1 = vol(uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]).ravel()
+            xyz_coords_interp = vol(uvl_coords_interp[i,0],uvl_coords_interp[i,1],uvl_coords_interp[i,2]).ravel()
+            xyz_error_interp  = np.abs(np.subtract(xyz_coords[i,:], xyz_coords_interp))
+
+            f_uvl_distance = make_uvl_distance(xyz_coords[i,:],rotate=rotate)
+            uvl_coords_opt,dist = dlib.find_min_global(f_uvl_distance, pop_min_extent, pop_max_extent, optiter)
+            xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], rotate=rotate)[0]
+            xyz_error_opt  = np.abs(np.subtract(xyz_coords[i,:], xyz_coords_opt))
+
+            if np.all (np.less (xyz_error_interp, xyz_error_opt)):
+                uvl_coords  = uvl_coords_interp
+                xyz_coords1 = xyz_coords_interp
+                xyz_error  = xyz_error_interp
+            else:
+                uvl_coords  = uvl_coords_opt
+                xyz_coords1 = xyz_coords_opt
+                xyz_error  = xyz_error_opt
+
             xyz_error   = np.add(xyz_error, np.abs(np.subtract(xyz_coords[i,:], xyz_coords1)))
             coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
                            uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]))
@@ -149,11 +168,11 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
 
         coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
         coords_dict = { population_start+i :  { 'X Coordinate': np.asarray([x_coord],dtype=np.float32),
-                                    'Y Coordinate': np.asarray([y_coord],dtype=np.float32),
-                                    'Z Coordinate': np.asarray([z_coord],dtype=np.float32),
-                                    'U Coordinate': np.asarray([u_coord],dtype=np.float32),
-                                    'V Coordinate': np.asarray([v_coord],dtype=np.float32),
-                                    'L Coordinate': np.asarray([l_coord],dtype=np.float32) }
+                                                'Y Coordinate': np.asarray([y_coord],dtype=np.float32),
+                                                'Z Coordinate': np.asarray([z_coord],dtype=np.float32),
+                                                'U Coordinate': np.asarray([u_coord],dtype=np.float32),
+                                                'V Coordinate': np.asarray([v_coord],dtype=np.float32),
+                                                'L Coordinate': np.asarray([l_coord],dtype=np.float32) }
                         for i,(x_coord,y_coord,z_coord,u_coord,v_coord,l_coord) in enumerate(coords) }
 
         append_cell_attributes(output_path, population, coords_dict,
