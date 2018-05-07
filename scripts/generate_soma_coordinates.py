@@ -149,7 +149,7 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
             xyz_error_opt  = np.abs(np.subtract(xyz_coords[i,:], xyz_coords_opt))
 
             if np.all (np.less (xyz_error_interp, xyz_error_opt)):
-                uvl_coords  = uvl_coords_interp
+                uvl_coords  = uvl_coords_interp[i,:]
                 xyz_coords1 = xyz_coords_interp
                 xyz_error  = xyz_error_interp
             else:
@@ -158,6 +158,10 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
                 xyz_error  = xyz_error_opt
 
             xyz_error   = np.add(xyz_error, np.abs(np.subtract(xyz_coords[i,:], xyz_coords1)))
+
+            assert((uvl_coords[0] <= pop_max_extent[0]) and (uvl_coords[0] >= pop_min_extent[0]))
+            assert((uvl_coords[1] <= pop_max_extent[1]) and (uvl_coords[1] >= pop_min_extent[1]))
+            assert((uvl_coords[2] <= pop_max_extent[2]) and (uvl_coords[2] >= pop_min_extent[2]))
             coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
                            uvl_coords[i,0],uvl_coords[i,1],uvl_coords[i,2]))
                            
