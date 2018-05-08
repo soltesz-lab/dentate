@@ -1,6 +1,6 @@
 Synapse Mechanisms:
   AMPA: SatExp2Syn
-  NMDA: SatExp2Syn
+  NMDA: FacilNMDA
   GABA_A: SatExp2Syn
   GABA_B: SatExp2Syn
 Synapse Mechanism Parameters:
@@ -11,6 +11,35 @@ Synapse Mechanism Parameters:
       - dur_onset
       - tau_offset
       - e
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  FacilExp2Syn:
+    mech_file: facil_exp2syn.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+      - f_inc
+      - f_max
+      - f_tau
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  FacilNMDA:
+    mech_file: facil_NMDA.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+      - f_inc
+      - f_max
+      - f_tau
+      - mg
+      - Kd
+      - gamma
     netcon_params:
       weight: 0
       g_unit: 1
