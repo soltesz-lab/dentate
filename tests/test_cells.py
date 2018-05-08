@@ -176,6 +176,14 @@ def run_cable_test(cell):
     #Try changing cm by a significant amount in apical branches only, and then see if this affects nseg. Then change the spatial
     #res parameter -- this should be a multiplier on the current nseg
 
+def count_syns(cell, context):
+    for node in cell.apical:
+        all_syn = filtered_synapse_attributes(context.cell_attr_dict[0], np.array(context.sec_index_map[node.index]),
+                                              context.env, syn_category='excitatory', output='syn_locs')['syn_locs']
+        print ('%s: length %.3f, num synapses %i, num segments %i, density %.3f' %(node.name, node.sec.L, len(all_syn),
+                                                                                   node.sec.nseg, len(all_syn)/node.sec.L))
+
+
 
 
 

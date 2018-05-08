@@ -806,7 +806,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
 # --------------------------------------------------------------------------------------------------------- #
 
 
-def append_section(cell, sec_type, sec=None):
+def append_section(cell, sec_type, sec_idx, sec=None):
     """
     Places the specified hoc section within the tree structure of the Python HocCell wrapper. If sec is None, creates
     a new hoc section.
@@ -815,7 +815,7 @@ def append_section(cell, sec_type, sec=None):
     :param sec: :class:'h.Section'
     :return node: :class:'SHocNode'
     """
-    node = SHocNode(cell.count)
+    node = SHocNode(sec_idx)
     if cell.count == 0:
         cell.tree.root = node
     cell.count += 1
@@ -854,8 +854,8 @@ def append_child_sections(cell, parent_node, child_sec_list, sec_type_map):
     :param sec_type_map: dict {str: str}
     """
     for child in child_sec_list:
-        sec_type = sec_type_map[child.hname()]
-        node = append_section(cell, sec_type, child)
+        sec_type, sec_idx = sec_type_map[child.hname()]
+        node = append_section(cell, sec_type, sec_idx, child)
         connect_nodes(parent_node, node, connect_hoc_sections=False)
         append_child_sections(cell, node, child.children(), sec_type_map)
 
@@ -1111,16 +1111,26 @@ def import_morphology_from_hoc(cell, hoc_cell):
     :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
     """
     sec_types = ['soma', 'axon', 'basal', 'apical', 'trunk', 'tuft', 'ais', 'hillock']
+    sec_idx_names = ['somaidx', 'axonidx', 'basalidx', 'apicalidx', 'trunkidx', 'tuftidx', 'aisidx', 'hilidx']
     sec_type_map = {}
-    for sec_type in sec_types:
+    for sec_type, sec_idx_name in zip(sec_types, sec_idx_names):
         if hasattr(hoc_cell, sec_type):
             this_sec_list = list(getattr(hoc_cell, sec_type))
+            if hasattr(hoc_cell, sec_idx_name):
+                sec_idx_list = list(getattr(hoc_cell, sec_idx_name))
+            else:
+                raise Exception('%s is not an attribute of the hoc cell.' %sec_idx_name)
             if sec_type == 'soma':
                 root_sec = this_sec_list[0]
-            for sec in this_sec_list:
-                sec_type_map[sec.hname()] = sec_type
+                root_idx = int(sec_idx_list[0])
+            for i, sec in enumerate(this_sec_list):
+                if (i+1) > len(sec_idx_list):
+                    sec_idx = int(sec_idx_list[0])
+                else:
+                    sec_idx = int(sec_idx_list[i])
+                sec_type_map[sec.hname()] = (sec_type, sec_idx)
     try:
-        root_node = append_section(cell, 'soma', root_sec)
+        root_node = append_section(cell, 'soma', root_idx, root_sec)
     except Exception:
         raise KeyError('import_morphology_from_hoc: problem locating soma section to act as root')
     append_child_sections(cell, root_node, root_sec.children(), sec_type_map)
@@ -1631,6 +1641,7 @@ def correct_node_g_pas(node, cell, cell_attr_dict, sec_index_map, env):
         gpas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
                                  (SA_seg * node.sec(segment.x).g_pas)
         node.sec(segment.x).g_pas *= gpas_correction_factor
+        print 'gpas correction factor for %s seg %i: %.3f' %(node.name, i, gpas_correction_factor)
 
 
 def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
@@ -1649,6 +1660,8 @@ def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
         num_spines = node.content['spine_count'][i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
+        if cm_correction_factor > 5.:
+            print 'cm correction factor for %s seg %i: %.3f with %i spines' %(node.name, i, cm_correction_factor, num_spines)
 
 
 def correct_g_pas_for_spines(cell, cell_attr_dict, sec_index_map, env):
