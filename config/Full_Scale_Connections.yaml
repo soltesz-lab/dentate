@@ -227,7 +227,20 @@ Synapse Layers:
     IS:
       GC:   [Hilus]
       IS:   [Hilus]
-Synapse Proportions:      
+Synapse Mechanisms:
+  AMPA:
+    - exp2EPSG
+    - Exp2EPSG
+  NMDA:
+    - exp2EPSG_NMDA
+    - Exp2EPSG_NMDA
+  GABA_A:
+    - a
+    - Exp2Syn
+  GABA_B:
+    - a
+    - Exp2Syn
+Synapse Proportions:
   GC:
     MPP:  [1.]
     LPP:  [1.]
