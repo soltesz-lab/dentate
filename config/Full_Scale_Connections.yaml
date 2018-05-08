@@ -1,3 +1,27 @@
+Synapse Mechanisms:
+  AMPA: SatExp2Syn
+  NMDA: SatExp2Syn
+  GABA_A: SatExp2Syn
+  GABA_B: SatExp2Syn
+Synapse Mechanism Parameters:
+  SatExp2Syn:
+    mech_file: sat_exp2syn.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  Exp2Syn:
+    mech_file: exp2syn.mod
+    mech_params:
+      - tau1
+      - tau2
+      - e
+    netcon_params:
+      weight: 0
 # full width in um [S-T, M-L]
 Axon Width:
     GC:   [900., 900.]
@@ -227,19 +251,6 @@ Synapse Layers:
     IS:
       GC:   [Hilus]
       IS:   [Hilus]
-Synapse Mechanisms:
-  AMPA:
-    - exp2EPSG
-    - Exp2EPSG
-  NMDA:
-    - exp2EPSG_NMDA
-    - Exp2EPSG_NMDA
-  GABA_A:
-    - a
-    - Exp2Syn
-  GABA_B:
-    - a
-    - Exp2Syn
 Synapse Proportions:
   GC:
     MPP:  [1.]

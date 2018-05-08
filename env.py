@@ -53,9 +53,11 @@ class Env:
         synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
         connection_properties = self.modelConfig['Connection Generator']['Connection Properties']
         if 'Synapse Mechanisms' in self.modelConfig['Connection Generator']:
-            synapse_mechanisms = self.modelConfig['Connection Generator']['Synapse Mechanisms']
-            self.syn_mech2PP_dict = synapse_mechanisms
-
+            self.synapse_mech_name_dict = self.modelConfig['Connection Generator']['Synapse Mechanisms']
+            if 'Synapse Mechanism Parameters' in self.modelConfig['Connection Generator']:
+                self.synapse_mech_param_dict = self.modelConfig['Connection Generator']['Synapse Mechanism Parameters']
+                # TODO: refer to this dict when setting attributes of synapses or netcons
+                # TODO: make sure that Connections.yaml is updated to reflect param_names for new point processes
         connection_generator_dict = {}
         
         for (key_postsyn, val_syntypes) in synapse_types.iteritems():

@@ -288,6 +288,12 @@ def make_specialized_syn_mech(mech_name, seg, PP_dict):
     return syn
 
 def make_syn_mech(mech_name, seg):
+    """
+    TODO: pass in env.synapse_mech_name_dict, instantiate point processes specified in Connections.yaml
+    :param mech_name:
+    :param seg:
+    :return:
+    """
     if mech_name == 'AMPA':
         syn = h.Exp2Syn(seg)
     elif mech_name == 'GABA_A':
@@ -299,7 +305,10 @@ def make_syn_mech(mech_name, seg):
     return syn
 
 def add_shared_synapse(mech_name, seg, syns_dict, PP_dict=None):
-    """Returns the existing synapse in segment if any, otherwise creates it."""
+    """
+    TODO: pass in env.synapse_mech_name_dict, instantiate point processes specified in Connections.yaml
+    Returns the existing synapse in segment if any, otherwise creates it.
+    """
     if not syn_in_seg(seg, syns_dict):
         if PP_dict is not None:
             syn = make_specialized_syn_mech(mech_name, seg, PP_dict)
@@ -447,7 +456,7 @@ def mk_syns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, sy
             raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
         syn_mech_dict = {}
         for (syn_mech, params) in syn_kinetic_params.iteritems():
-            syn = add_synapse(syn_mech, sec(syn_loc), syns_dict, env.syn_mech2PP_dict)
+            syn = add_synapse(syn_mech, sec(syn_loc), syns_dict, env.synapse_mech_name_dict)
             syn.tau1 = params['t_rise']
             syn.tau2 = params['t_decay']
             syn.e = params['e_rev']
