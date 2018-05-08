@@ -530,8 +530,8 @@ Synapse Kinetics:
           t_decay: 16.2
           e_rev: -75
         GABA_B:
-          t_rise: 86.8
-          t_decay: 428.1
+          t_rise: 86.8  # 50.0  https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
+          t_decay: 428.1  # 200.0  http://www.jneurosci.org/content/33/18/7961
           e_rev: -90
   NGFC:
       MPP:
