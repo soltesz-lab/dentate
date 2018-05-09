@@ -19,18 +19,27 @@ logging.basicConfig()
 script_name = 'measure_distances.py'
 logger = logging.getLogger(script_name)
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
-@click.option("--resample-volume", type=int, default=2)
+@click.option("--resample", type=int, default=2)
+@click.option("--resolution", type=int, default=15)
+@click.option("--rotate", type=float)
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, resample_volume, populations, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, resample, resolution, populations, rotate, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -48,11 +57,13 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
     min_l = float('inf')
     max_l = 0.0
     population_ranges = read_population_ranges(coords_path)[0]
+    population_extents = {}
     for population in populations:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
         max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
         min_l = min(min_extent[2], min_l)
-        max_l = min(max_extent[2], max_l)
+        max_l = max(max_extent[2], max_l)
+        population_extents[population] = (min_extent, max_extent)
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace)
 
@@ -64,21 +75,30 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
     coeff_dist_u = None
     obs_dist_v = None
     coeff_dist_v = None
+    obs_dist_l = None
+    coeff_dist_l = None
 
+    interp_penalty = 0.15
+    interp_basis = 'imq'
+    
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(min_l, max_l, ures=20, vres=20, lres=10)
+        ip_volume = make_volume(min_l-0.01, max_l+0.01, ures=resolution, vres=resolution, lres=resolution,\
+                                rotate=rotate)
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
-        logger.info('Computing U volume distance interpolants...')
+        vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
         (dist_u, obs_dist_u, dist_v, obs_dist_v, dist_l, obs_dist_l) = vol_dist
-        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis='phs3',extrapolate=True)
+        logger.info('Computing U volume distance interpolants...')
+        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=interp_basis,\
+                                       penalty=interp_penalty,extrapolate=False)
         coeff_dist_u = ip_dist_u._coeff
         logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis='phs3',extrapolate=True)
+        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=interp_basis,\
+                                       penalty=interp_penalty,extrapolate=False)
         coeff_dist_v = ip_dist_v._coeff
         logger.info('Computing L volume distance interpolants...')
-        ip_dist_l = RBFInterpolant(obs_dist_l,dist_l,order=1,basis='phs3',extrapolate=True)
+        ip_dist_l = RBFInterpolant(obs_dist_l,dist_l,order=1,basis=interp_basis,\
+                                       penalty=interp_penalty,extrapolate=False)
         coeff_dist_l = ip_dist_l._coeff
         logger.info('Broadcasting volume distance interpolants...')
         
@@ -89,13 +109,15 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
     obs_dist_l = comm.bcast(obs_dist_l, root=0)
     coeff_dist_l = comm.bcast(coeff_dist_l, root=0)
 
-    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis='phs3',extrapolate=True)
-    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis='phs3',extrapolate=True)
-    ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis='phs3',extrapolate=True)
+    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis=interp_basis,\
+                                   penalty=interp_penalty,extrapolate=False)
+    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis=interp_basis,\
+                                   penalty=interp_penalty,extrapolate=False)
+    ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis=interp_basis,\
+                                   penalty=interp_penalty,extrapolate=False)
 
-    if rank == 0:
-        logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, soma_coords, combined=False)
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
+                                        soma_coords, population_extents, allgather=False, verbose=verbose)
     
     output_path = coords_path
     for population in soma_distances.keys():
@@ -118,3 +140,4 @@ def main(config, coords_path, coords_namespace, resample_volume, populations, io
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
 
+    

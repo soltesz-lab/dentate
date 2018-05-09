@@ -4,6 +4,10 @@ import sys, os.path, string, math
 from neuron import h
 import numpy as np
 import cells
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seglist, seed, neurotree_dict=None):
     """Computes per-segment density of synapse placement. """
@@ -343,7 +347,7 @@ def mksyns(gid,cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,syn_kineti
 
       syn_id      = syn_ids[i]
       if not (syn_id < syn_types.size):
-          print 'mksyns syn_ids for gid %i: ' % gid, syn_ids
+          logger.error('mksyns syn_ids for gid %i: ' % gid, syn_ids)
           raise ValueError('mksyns: cell %i received invalid syn_id %d' % (gid, syn_id))
       
       syn_type    = syn_types[syn_id]
@@ -415,7 +419,7 @@ def mk_syns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, sy
 
         syn_id = syn_ids[i]
         if not (syn_id < syn_types.size):
-            print 'mksyns syn_ids for gid %i: ' % gid, syn_ids
+            logger.error('mksyns syn_ids for gid %i: ' % gid, syn_ids)
             raise ValueError('mksyns: cell %i received invalid syn_id %d' % (gid, syn_id))
 
         syn_type = syn_types[syn_id]

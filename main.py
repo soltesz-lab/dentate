@@ -20,6 +20,13 @@ logging.basicConfig()
 script_name = 'main.py'
 logger = logging.getLogger(script_name)
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
 ## Estimate cell complexity. Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
