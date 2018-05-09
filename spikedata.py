@@ -1,4 +1,4 @@
-import math
+import math, sys
 import itertools
 from collections import defaultdict
 from pathos.multiprocessing import ProcessPool
@@ -7,7 +7,11 @@ import neo, elephant
 from quantities import s, ms, Hz
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
-def read_spike_events(comm, input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None, verbose = False):
+## Returns a list of arrays with consecutive values from data
+def consecutive(data):
+    return np.split(data, np.where(np.diff(data) != 1)[0]+1)
+
+def read_spike_events(input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None, verbose = False):
 
     spkpoplst        = []
     spkindlst        = []
@@ -18,12 +22,13 @@ def read_spike_events(comm, input_file, population_names, namespace_id, timeVari
     tmin = float('inf')
     tmax = 0.
 
-    if verbose:
-        print('Reading spike data...')
 
     for pop_name in population_names:
+
+        if verbose:
+            print('Reading spike data for population %s...' % pop_name)
  
-        spkiter = read_cell_attributes(comm, input_file, pop_name, namespace=namespace_id)
+        spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id)
         this_num_cell_spks = 0
         active_set = set([])
 
@@ -117,41 +122,38 @@ def spike_rates (spkdict, t_dflt):
         rate_dict[ind] = rate
     return rate_dict
 
-def spike_bin_rates_func (item,bins,t_start,t_stop,sampling_period,sigma,kernel):
+def spike_inst_rates_func (item,t_start,t_stop,sampling_period,sigma,kernel,bin_steps=5):
     (ind, lst) = item
     print ind
-    spkts         = neo.core.SpikeTrain(np.asarray(lst, dtype=np.float32)*ms, t_start=t_start*ms, t_stop=t_stop*ms)
-    spkrates_r    = elephant.statistics.instantaneous_rate(spkts, sampling_period, kernel=kernel)
-    spkrates      = np.interp(spkts, np.linspace(t_start, t_stop, spkrates_r.size), spkrates_r.ravel())
-    del(spkrates_r)
-    bin_inds      = np.digitize(spkts, bins = bins)
-    rate_bins     = []
-    count_bins    = []
+    spkts = np.asarray(lst, dtype=np.float32)
+    spktrain      = neo.core.SpikeTrain(spkts*ms, t_start=t_start*ms, t_stop=t_stop*ms)
+    spkrates_r    = elephant.statistics.instantaneous_rate(spktrain, sampling_period, kernel=kernel).ravel()
+    spkrates_x    = np.linspace(t_start, t_stop, spkrates_r.size)
     
-    for ibin in xrange(1, len(bins)+1):
-        bin_spks  = spkts[bin_inds == ibin]
-        bin_rates = spkrates[bin_inds == ibin]
-        count    = bin_spks.size
-        if count > 0:
-            rate     = np.mean(bin_rates)
-        else:
-            rate = 0.0
-        rate_bins.append(rate)
-        count_bins.append(count)
-        
-    return (ind, (np.asarray(count_bins, dtype=np.uint32), np.asarray(rate_bins, dtype=np.float32)))
+    return (ind, { 'x': np.asarray(spkrates_x, dtype=np.float32),
+                   'rate': np.asarray(spkrates_r, dtype=np.float32)
+                 })
 
 
-def spike_bin_rates (comm, population, spkdict, bins, t_start, t_stop, sampling_period=0.025*ms, sigma = 0.05, nprocs=16, saveData=False):
+def spike_inst_rates (population, spkdict, timeRange, sampling_period=1.0*ms, sigma = 0.05, nprocs=1, saveData=False):
+
     kernel = elephant.kernels.GaussianKernel(sigma = sigma*s, invert = True)
 
+    t_start = timeRange[0]
+    t_stop = timeRange[1]
+
     pool = ProcessPool(nprocs)
-    spk_bin_dict = dict(pool.map(lambda (item): spike_bin_rates_func(item,bins,t_start,t_stop,sampling_period,sigma,kernel), spkdict.iteritems()))
+    spk_rate_dict = dict(pool.map(lambda (item): spike_inst_rates_func(item,t_start,t_stop,sampling_period,sigma,kernel), spkdict.iteritems()))
 
     if saveData:
-        write_cell_attributes(comm, saveData, population, spk_bin_dict, namespace='Spike Analysis')
+        if isinstance(saveData, basestring):
+            filename = saveData
+        else:
+            filename = '%s_spike_inst_rates.h5' % population
+
+        write_cell_attributes(filename, population, spk_rate_dict, namespace='Instantaneous Rate')
         
-    return spk_bin_dict
+    return spk_rate_dict
             
 
 def spike_bin_counts(spkdict, bins):
@@ -172,7 +174,7 @@ def spike_bin_counts(spkdict, bins):
     return count_bin_dict
 
 
-def spatial_information (comm, population, trajectory, spkdict, timeRange, positionBinSize, saveData = False):
+def spatial_information (population, trajectory, spkdict, timeRange, positionBinSize, saveData = False):
 
     tmin = timeRange[0]
     tmax = timeRange[1]
@@ -205,7 +207,7 @@ def spatial_information (comm, population, trajectory, spkdict, timeRange, posit
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_bin_rates(comm, population, spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], saveData=saveData)
+    rate_bin_dict = spike_bin_rates(population, spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], saveData=saveData)
     MI_dict = {}
     for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
         MI = 0.
@@ -222,32 +224,56 @@ def spatial_information (comm, population, trajectory, spkdict, timeRange, posit
         MI_dict[ind] = MI
 
     if saveData:
-        write_cell_attributes(comm, saveData, population, MI_dict, namespace='Spike Analysis')
+        write_cell_attributes(saveData, population, MI_dict, namespace='Spatial Mutual Information')
 
     return MI_dict
 
-
-def place_fields (rate_bin_dict, timeRange, saveData = False):
+def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, saveData = False):
 
     pf_dict = {}
-    for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
-        rates  = np.asarray(rate_bins)
-        m      = np.mean(rates)
-        rates1 = np.subtract(rates, m)
-        s      = np.std(rates1)
+    pf_total_count = 0
+    cell_count = 0
+    pf_min = sys.maxint
+    pf_max = 0
+    for ind, valdict  in rate_dict.iteritems():
+        x      = valdict['x']
+        rate   = valdict['rate']
+        m      = np.mean(rate)
+        rate1  = np.subtract(rate, m)
+        if baseline_fraction is None:
+            s  = np.std(rate1)
+        else:
+            k = rate1.shape[0]/baseline_fraction
+            s = np.std(rate1[np.argpartition(rate1,k)[:k]])
+        tmin   = x[0]
+        tmax   = x[-1]
+        bins   = np.arange(tmin, tmax, bin_size)
+        pf_bins  = []
+        pf_rate = []
+        pf_norm_rate = []
+        for ibin in xrange(1, len(bins)-1):
+            binx = np.linspace(bins[ibin-1],bins[ibin],binsteps)
+            r_n  = np.mean(np.interp(binx,x,rate1))
+            r    = np.mean(np.interp(binx,x,rate))
+            if r_n > nstdev*s:
+                  pf_bins.append(ibin)
+                  pf_rate.append(r)
+                  pf_norm_rate.append(r_n)
 
-        pf_count = 0
-        if m > 0.:
-            for ibin in xrange(0, len(rate_bins)):
-                r_n  = rates1[ibin]
-                if r_n > 1.5*s:
-                    pf_count += 1
-            
-        pf_dict[ind] = pf_count
+        pf_count = len(consecutive(pf_bins))
+        pf_min = min(pf_count, pf_min)
+        pf_max = max(pf_count, pf_max)
+        cell_count += 1
+        pf_total_count += pf_count
+        pf_dict[ind] = { 'pf_count': np.asarray([pf_count], dtype=np.uint32), \
+                         'pf_bins': np.asarray(pf_bins, dtype=np.uint32), \
+                         'pf_rate': np.asarray(pf_rate, dtype=np.float32),
+                         'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
 
+    print '%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count))
     if saveData:
-        import pickle
-        pickle.dump(pf_dict, open(saveData+' placefields.p','wb'))
+        write_cell_attributes(saveData, population, pf_dict, namespace='Place Fields')
+
     return pf_dict
             
             

@@ -1,3 +1,56 @@
+Synapse Mechanisms:
+  AMPA: SatExp2Syn
+  NMDA: FacilNMDA
+  GABA_A: SatExp2Syn
+  GABA_B: SatExp2Syn
+Synapse Mechanism Parameters:
+  SatExp2Syn:
+    mech_file: sat_exp2syn.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  FacilExp2Syn:
+    mech_file: facil_exp2syn.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+      - f_inc
+      - f_max
+      - f_tau
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  FacilNMDA:
+    mech_file: facil_NMDA.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+      - f_inc
+      - f_max
+      - f_tau
+      - mg
+      - Kd
+      - gamma
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  Exp2Syn:
+    mech_file: exp2syn.mod
+    mech_params:
+      - tau1
+      - tau2
+      - e
+    netcon_params:
+      weight: 0
 # full width in um [S-T, M-L]
 Axon Width:
     GC:   [900., 900.]
@@ -12,7 +65,7 @@ Axon Width:
     IS:   [3000., 3000.]
     MOPP: [2000., 2000.]
 Axon Offset:
-    MC:   [1000., 0.]
+    MC:   [1000., 1000.]
     GC:   [0., 0.]
     MPP:  [0., 0.]
     LPP:  [0., 0.]
@@ -215,7 +268,7 @@ Synapse Layers:
     IS:
       GC:   [Hilus]
       IS:   [Hilus]
-Synapse Proportions:      
+Synapse Proportions:
   GC:
     MPP:  [1.]
     LPP:  [1.]
@@ -227,8 +280,8 @@ Synapse Proportions:
     HC:   [0.55, 0.3]
     HCC:  [0.9]
   MC:
-    GC:  [0.05]
-    MC:  [0.95]
+    GC:  [0.45]
+    MC:  [0.55]
     HC:  [0.5]
     BC:  [0.77]
     AAC: [0.23]
@@ -518,8 +571,8 @@ Synapse Kinetics:
           t_decay: 16.2
           e_rev: -75
         GABA_B:
-          t_rise: 86.8
-          t_decay: 428.1
+          t_rise: 86.8  # 50.0  https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
+          t_decay: 428.1  # 200.0  http://www.jneurosci.org/content/33/18/7961
           e_rev: -90
   NGFC:
       MPP:
@@ -627,26 +680,26 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.19
+        weight: 0.4
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 1.2
+        weight: 0.15
         velocity: 250.0
       GABA_B:
-        weight: 1.1
+        weight: 0.1
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 1.2
+        weight: 0.15
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 0.25
+        weight: 1.6
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 0.31
+        weight: 1.8
         velocity: 250.0
   MC:
     AAC:
@@ -659,7 +712,7 @@ Connection Properties:
         velocity: 250.0
     GC:
       AMPA:
-        weight: 0.7
+        weight: 1.6
         velocity: 250.0
     HC:
       GABA_A:
@@ -671,7 +724,7 @@ Connection Properties:
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.5
+        weight: 1.1
         velocity: 250.0
   HC:
     GC:
@@ -788,11 +841,11 @@ Connection Properties:
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 2.0
+        weight: 0.33
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 2.0
+        weight: 0.25
         velocity: 250.0
   MOPP:
     MC:
@@ -813,7 +866,7 @@ Connection Properties:
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 2.0
+        weight: 1.0
         velocity: 250.0
   HCC:
     GC:

@@ -20,7 +20,7 @@ ENDCOMMENT
 
 NEURON {
 SUFFIX iconc_Ca
-USEION ca READ cai, ica, eca WRITE eca, cai VALENCE 2
+USEION ca READ cai, ica, eca WRITE eca, cai
 RANGE caiinf, catau, cai, eca
 }
 

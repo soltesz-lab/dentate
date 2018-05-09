@@ -1,8 +1,8 @@
 
 import sys, gc
-from mpi4py import MPI
 import click
-import utils, plot
+import dentate
+from dentate import utils, plot
 
 script_name = 'plot_raster.py'
 

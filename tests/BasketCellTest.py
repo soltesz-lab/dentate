@@ -23,8 +23,8 @@ def passive_test (tree, v_init):
     tstop = prelength+mainlength
     
     stimdur = 500.0
-    
-    stim1 = h.IClamp(cell.sections[0](0.5))
+    soma = list(cell.soma)[0]
+    stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
     stim1.amp   = -0.1
@@ -33,7 +33,7 @@ def passive_test (tree, v_init):
     h.tlog.record (h._ref_t)
 
     h.Vlog = h.Vector()
-    h.Vlog.record (cell.sections[0](0.5)._ref_v)
+    h.Vlog.record (soma(0.5)._ref_v)
     
     h.tstop = tstop
 
@@ -70,8 +70,8 @@ def ap_rate_test (tree, v_init):
     tstop = prelength+mainlength
     
     stimdur = 1000.0
-    
-    stim1 = h.IClamp(cell.sections[0](0.5))
+    soma = list(cell.soma)[0]
+    stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
     stim1.amp   = 0.2
@@ -80,10 +80,10 @@ def ap_rate_test (tree, v_init):
     h.tlog.record (h._ref_t)
 
     h.Vlog = h.Vector()
-    h.Vlog.record (cell.sections[0](0.5)._ref_v)
+    h.Vlog.record (soma(0.5)._ref_v)
 
     h.spikelog = h.Vector()
-    nc = h.NetCon(cell.sections[0](0.5)._ref_v, h.nil)
+    nc = h.NetCon(soma(0.5)._ref_v, h.nil)
     nc.threshold = -40.0
     nc.record(h.spikelog)
     
@@ -168,7 +168,7 @@ def fi_test (tree, v_init):
     
     stimdur = 1000.0
     
-    stim1 = h.IClamp(cell.sections[0](0.5))
+    stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
     stim1.amp   = 0.2
@@ -177,10 +177,10 @@ def fi_test (tree, v_init):
     h.tlog.record (h._ref_t)
 
     h.Vlog = h.Vector()
-    h.Vlog.record (cell.sections[0](0.5)._ref_v)
+    h.Vlog.record (soma(0.5)._ref_v)
 
     h.spikelog = h.Vector()
-    nc = h.NetCon(cell.sections[0](0.5)._ref_v, h.nil)
+    nc = h.NetCon(soma(0.5)._ref_v, h.nil)
     nc.threshold = -40.0
     nc.record(h.spikelog)
     
@@ -235,17 +235,18 @@ def gap_junction_test (tree, v_init):
     h.pc.set_gid2node(source, int(h.pc.id()))
     nc = cell1.connect2target(h.nil)
     h.pc.cell(source, nc, 1)
+    soma1 = list(cell1.soma)[0]
 
     h.pc.set_gid2node(destination, int(h.pc.id()))
     nc = cell2.connect2target(h.nil)
     h.pc.cell(destination, nc, 1)
-
-    stim1 = h.IClamp(cell1.sections[0](0.5))
+    soma2 = list(cell2.soma)[0]
+    stim1 = h.IClamp(soma2(0.5))
     stim1.delay = 250
     stim1.dur = stimdur
     stim1.amp = -0.1
 
-    stim2 = h.IClamp(cell2.sections[0](0.5))
+    stim2 = h.IClamp(soma2(0.5))
     stim2.delay = 500+stimdur
     stim2.dur = stimdur
     stim2.amp = -0.1
@@ -256,10 +257,10 @@ def gap_junction_test (tree, v_init):
     h.tlog.record (h._ref_t)
 
     h.Vlog1 = h.Vector(log_size)
-    h.Vlog1.record (cell1.sections[0](0.5)._ref_v)
+    h.Vlog1.record (soma1(0.5)._ref_v)
 
     h.Vlog2 = h.Vector(log_size)
-    h.Vlog2.record (cell2.sections[0](0.5)._ref_v)
+    h.Vlog2.record (soma2(0.5)._ref_v)
     
     h.mkgap(h.pc, h.gjlist, source, srcbranch, ggid, ggid+1, weight)
     h.mkgap(h.pc, h.gjlist, destination, dstbranch, ggid+1, ggid, weight)
@@ -284,8 +285,9 @@ def synapse_group_test (label, syntype, cell, w, v_holding, v_init):
     
     vv = h.Vector()
     vv.append(0,0,0,0,0,0)
-    
-    se = h.SEClamp(cell.sections[0](0.5))
+
+    soma = list(cell.soma)[0]
+    se = h.SEClamp(soma(0.5))
 
     if syntype == 0:
         v = cell.syntest_exc(cell.syntypes.o(syntype),se,w,v_holding,v_init)

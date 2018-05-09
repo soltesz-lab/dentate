@@ -1,16 +1,18 @@
 
-import sys, time, gc
+import sys, os, time, gc
 from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
-    NeuroH5ProjectionGen
-import h5py
-from neuroh5.h5py_io_utils import *
+import neuroh5
+from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
+import dentate
+from dentate.env import Env
+from dentate import stimulus, utils
 import numpy as np
 from collections import defaultdict
 import click
-from utils import *
-import stimulus
-from itertools import izip_longest
+from itertools import izip_longest, izip
+import logging
+logging.basicConfig()
+
 
 """
 stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
@@ -24,13 +26,8 @@ connections_path: contains existing mapping of syn_id to source_gid
 TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the previous weight distribution.
 """
 
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except:
-    pass
-
 script_name = 'generate_structured_weights_as_cell_attr.py'
+logger = logging.getLogger(script_name)
 
 local_random = np.random.RandomState()
 
@@ -40,6 +37,7 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 
 
 @click.command()
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--stimulus-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -48,17 +46,18 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
+@click.option("--stimulus-id", type=int, default=0)
+@click.option("--target-sparsity", type=float, default=0.1)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--trajectory-id", type=int, default=0)
-@click.option("--seed-offset", type=int, default=6)
-@click.option("--target-sparsity", type=float, default=0.1)
-@click.option("--debug", is_flag=True)
-def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namespace, structured_weights_namespace,
-         connections_path, destination, sources, io_size, chunk_size, value_chunk_size, cache_size, trajectory_id, seed_offset,
-         target_sparsity, debug):
+@click.option("--write-size", type=int, default=1)
+@click.option("--verbose", "-v", is_flag=True)
+@click.option("--dry-run", is_flag=True)
+def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weights_namespace, structured_weights_namespace,
+         connections_path, destination, sources, stimulus_id, target_sparsity, io_size, chunk_size, value_chunk_size, cache_size, write_size,
+         verbose, dry_run):
     """
 
     :param stimulus_path: str
@@ -71,63 +70,60 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     :param chunk_size: int
     :param value_chunk_size: int
     :param cache_size: int
-    :param trajectory_id: int
-    :param seed_offset: int
+    :param stimulus_id: int
     :param target_sparsity: float
-    :param debug:  bool
+    :param dry_run:  bool
     """
-    # make sure random seeds are not being reused for various types of stochastic sampling
-    seed_offset *= 2e6
+
+    if verbose:
+        logger.setLevel(logging.INFO)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    env = Env(comm=comm, configFile=config)
+
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%s: %i ranks have been allocated' % (script_name, comm.size)
-    sys.stdout.flush()
+        logger.info('%s: %i ranks have been allocated' % (script_name, comm.size))
 
-    stimulus_namespace += ' ' + str(trajectory_id)
+    stimulus_namespace += ' ' + str(stimulus_id)
 
     stimulus_attrs = {}
     for source in sources:
-        stimulus_attr_gen = bcast_cell_attributes(comm, 0, stimulus_path, source, namespace=stimulus_namespace)
-        stimulus_attrs[source] = {gid: attr_dict for gid, attr_dict in stimulus_attr_gen}
+        stimulus_attr_gen = bcast_cell_attributes(stimulus_path, source, namespace=stimulus_namespace, root=0, comm=comm)
+        stimulus_attrs[source] = { gid: attr_dict for gid, attr_dict in stimulus_attr_gen }
 
-    trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
+    trajectory_namespace = 'Trajectory %s' % str(stimulus_id)
 
-    arena_dimension = 100.  # minimum distance from origin to boundary (cm)
-    default_run_vel = 30.  # cm/s
-    spatial_resolution = 1.  # cm
+    seed_offset = int(env.modelConfig['Random Seeds']['PP Structured Weights'])
+
+    input_config = env.inputConfig[stimulus_id]
+    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    default_run_vel = input_config['trajectory']['Default run velocity']  # cm/s
+    spatial_resolution = input_config['trajectory']['Spatial resolution']  # cm
 
     if rank == 0:
-      with h5py.File(stimulus_path, 'a') as f:
-        if trajectory_namespace not in f:
-            print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
-            group = f.create_group(trajectory_namespace)
-            t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                                      spatial_resolution=spatial_resolution)
-            for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
-                dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
-                with dataset.collective:
-                    dataset[:] = value.astype('float32', copy=False)
-        else:
-            print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
-            group = f[trajectory_namespace]
-            dataset = group['x']
-            x = dataset[:]
-            dataset = group['y']
-            y = dataset[:]
-            dataset = group['d']
-            d = dataset[:]
-            dataset = group['t']
-            t = dataset[:]
+        import h5py
+        with h5py.File(stimulus_path) as f:
+          logger.info('Rank: %i; Reading %s datasets' % (rank, trajectory_namespace))
+          group = f[trajectory_namespace]
+          dataset = group['x']
+          x = dataset[:]
+          dataset = group['y']
+          y = dataset[:]
+          dataset = group['d']
+          d = dataset[:]
+          dataset = group['t']
+          t = dataset[:]
     else:
         x = None
         y = None
         d = None
         t = None
+    comm.barrier()
+
     x = comm.bcast(x, root=0)
     y = comm.bcast(y, root=0)
     d = comm.bcast(d, root=0)
@@ -139,27 +135,24 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
     plasticity_kernel = np.vectorize(plasticity_kernel, excluded=[1])
     max_plasticity_kernel_area = np.sum(plasticity_kernel(d, np.max(d) / 2.)) * spatial_resolution
 
-    pop_ranges, pop_size = read_population_ranges(comm, stimulus_path)
-    target_gid_offset = pop_ranges[destination][0]
+    pop_ranges, pop_size = read_population_ranges(stimulus_path, comm=comm)
 
     count = 0
+    gid_count = 0
     structured_count = 0
     start_time = time.time()
 
-    gid_index_map = get_cell_attributes_gid_index_map(comm, weights_path, destination, initial_weights_namespace)
-
     connection_gen_list = []
     for source in sources:
-        connection_gen_list.append(NeuroH5ProjectionGen(comm, connections_path, source, destination, io_size=io_size,
-                                                        cache_size=cache_size, namespaces=['Synapses']))
+        connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
+                                                        comm=comm))
 
-    maxiter = 100 if debug else None
+    structured_weights_dict = {}
     for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
         local_time = time.time()
-        syn_weight_map = {}
+        syn_weight_dict = {}
         source_syn_map = defaultdict(list)
         syn_peak_index_map = {}
-        structured_weights_dict = {}
         modulated_inputs = 0
         source_gid_array = None
         conn_attr_dict = None
@@ -170,18 +163,21 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
             sys.stdout.flush()
         # else:
         #    print 'Rank: %i; received destination: %s; destination_gid: %s' % (rank, destination, str(destination_gid))
-        initial_weights_dict = get_cell_attributes_by_gid(destination_gid, comm, weights_path, gid_index_map, destination,
-                                                          initial_weights_namespace, destination_gid_offset)
+        
         if destination_gid is not None:
-            if initial_weights_dict is None:
-                raise Exception('Rank: %i; destination: %s; destination_gid: %s; get_cell_attributes_by_gid didn\'t work' %
-                                (rank, destination, str(destination_gid)))
+            itval = read_cell_attribute_selection (weights_path, destination, \
+                                                   selection=[destination_gid], \
+                                                   namespace=initial_weights_namespace, \
+                                                   comm=comm)
+            _,initial_weights_dict = itval.next()
+            syn_weight_dict = { int(syn_id): float(weight) for (syn_id, weight) in 
+                                izip(np.nditer(initial_weights_dict['syn_id']),
+                                     np.nditer(initial_weights_dict['weight'])) }
             local_random.seed(int(destination_gid + seed_offset))
-            syn_weight_map = dict(zip(initial_weights_dict['syn_id'], initial_weights_dict['weight']))
             for this_destination_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
                 for i in xrange(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
-                    this_syn_id = conn_attr_dict['Synapses'][0][i]
+                    this_syn_id = conn_attr_dict['Synapses']['syn_id'][i]
                     source_syn_map[this_source_gid].append(this_syn_id)
             if local_random.uniform() <= target_sparsity:
                 modify_weights = True
@@ -192,7 +188,7 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
             for source in stimulus_attrs:
                 peak_rate = peak_rate_dict[source]
                 for this_source_gid in stimulus_attrs[source]:
-                    peak_index = stimulus_attrs[source][this_source_gid]['peak_index'][0]
+                    peak_index = stimulus_attrs[source][this_source_gid]['peak index'][0]
                     if modify_weights:
                         norm_rate = stimulus_attrs[source][this_source_gid]['rate'] / peak_rate
                         this_plasticity_signal = np.sum(np.multiply(norm_rate, this_plasticity_kernel)) * \
@@ -204,49 +200,51 @@ def main(stimulus_path, stimulus_namespace, weights_path, initial_weights_namesp
                         syn_peak_index_map[this_syn_id] = peak_index
                         if delta_weight >= 0.1:
                             modulated_inputs += 1
-                        syn_weight_map[this_syn_id] += delta_weight
-            structured_weights_dict[destination_gid - destination_gid_offset] = \
+                        syn_weight_dict[this_syn_id] += delta_weight
+            structured_weights_dict[destination_gid] = \
                 {'syn_id': np.array(syn_peak_index_map.keys()).astype('uint32', copy=False),
-                 'weight': np.array([syn_weight_map[syn_id] for syn_id in syn_peak_index_map]).astype('float32',
+                 'weight': np.array([syn_weight_dict[syn_id] for syn_id in syn_peak_index_map]).astype('float32',
                                                                                                       copy=False),
                  'peak_index': np.array(syn_peak_index_map.values()).astype('uint32', copy=False),
                  'structured': np.array([int(modify_weights)], dtype='uint32')}
             if modify_weights:
-                print 'Rank %i; destination: %s; gid %i; generated structured weights for %i/%i inputs in %.2f s' % \
-                      (rank, destination, destination_gid, modulated_inputs, len(syn_weight_map), time.time() - local_time)
+                logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i/%i inputs in %.2f s' % \
+                             (rank, destination, destination_gid, modulated_inputs, len(syn_weight_dict), time.time() - local_time))
                 structured_count += 1
             else:
-                print 'Rank %i; destination: %s; gid %i; calculated input peak_locs for %i inputs in %.2f s (not selected ' \
-                      'for structured weights)' % (rank, destination, destination_gid, len(syn_weight_map),
-                                                   time.time() - local_time)
+                logger.info('Rank %i; destination: %s; gid %i; calculated input peak_locs for %i inputs in %.2f s (not selected ' \
+                            'for structured weights)' % (rank, destination, destination_gid, len(syn_weight_dict),
+                                                         time.time() - local_time))
             count += 1
         else:
-            print 'Rank: %i received destination_gid as None' % rank
-        if not debug:
-            append_cell_attributes(comm, weights_path, destination, structured_weights_dict,
-                                   namespace=structured_weights_namespace, io_size=io_size, chunk_size=chunk_size,
-                                   value_chunk_size=value_chunk_size)
-        sys.stdout.flush()
-        del syn_weight_map
+            logger.info('Rank: %i received destination_gid as None' % rank)
+        gid_count += 1
+        if gid_count % write_size == 0:
+            if not dry_run:
+                append_cell_attributes(weights_path, destination, structured_weights_dict, \
+                                           namespace=structured_weights_namespace, \
+                                           comm=comm, io_size=io_size, chunk_size=chunk_size, \
+                                           value_chunk_size=value_chunk_size)
+            structured_weights_dict.clear()
+        del syn_weight_dict
         del source_syn_map
         del syn_peak_index_map
-        del structured_weights_dict
         del modulated_inputs
         del source_gid_array
         del conn_attr_dict
         gc.collect()
-        if debug:
-            comm.barrier()
-            if maxiter is not None and itercount > maxiter:
-                break
-    if debug:
-        print 'Rank: %i exited the loop' % rank
+    if not dry_run:
+        append_cell_attributes(weights_path, destination, structured_weights_dict, \
+                                   namespace=structured_weights_namespace, \
+                                   comm=comm, io_size=io_size, chunk_size=chunk_size, \
+                                   value_chunk_size=value_chunk_size)
     global_count = comm.gather(count, root=0)
     global_structured_count = comm.gather(structured_count, root=0)
     if rank == 0:
-        print 'destination: %s; %i ranks processed %i cells (%i assigned structured weights) in %.2f s' % \
-              (destination, comm.size, np.sum(global_count), np.sum(global_structured_count), time.time() - start_time)
+        logger.info('destination: %s; %i ranks processed %i cells (%i assigned structured weights) in %.2f s' % \
+                    (destination, comm.size, np.sum(global_count), np.sum(global_structured_count), time.time() - start_time))
+    MPI.Finalize()
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

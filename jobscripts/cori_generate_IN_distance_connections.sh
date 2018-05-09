@@ -2,10 +2,10 @@
 #
 #SBATCH -J generate_IN_distance_connections
 #SBATCH -o ./results/generate_IN_distance_connections.%j.o
-#SBATCH -N 64
+#SBATCH -N 128
 #PBS -N generate_IN_distance_connections
 #SBATCH -p regular
-#SBATCH -t 6:00:00
+#SBATCH -t 2:00:00
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -23,11 +23,11 @@ export PYTHONPATH=$HOME/model:/opt/python/lib/python2.7/site-packages:$PYTHONPAT
 export PYTHONPATH=$HOME/bin/nrn/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/.local/cori/2.7-anaconda/lib/python2.7/site-packages:$PYTHONPATH
 
-srun -n 2048 python ./scripts/generate_distance_connections.py \
+srun -n 4096 python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
        --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20180115.h5 \
        --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180228.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_cells_20180228.h5 \
        --coords-namespace=Coordinates \
-       --io-size=320 --cache-size=1 --value-chunk-size=50000 --chunk-size=10000
+       --io-size=64 --cache-size=1 --value-chunk-size=50000 --chunk-size=10000

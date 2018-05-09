@@ -38,8 +38,10 @@ def DG_volume(u, v, l, rotate=None):
 
 def make_volume(lmin, lmax, basis=rbf.basis.phs3, rotate=None, ures=33, vres=30, lres=10):  
     
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
+#    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
+#    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
+    obs_u = np.linspace(-0.02*np.pi, 1.01*np.pi, ures)
+    obs_v = np.linspace(-0.26*np.pi, 1.455*np.pi, vres)
     obs_l = np.linspace(lmin, lmax, num=lres)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')

@@ -318,8 +318,6 @@ class RBFVolume(object):
             paxes = [ axes[i] for i in aidx ]
             prod = cartesian_product(paxes)
             for ip, p in enumerate(prod):
-                if verbose:
-                    print 'RBF point distance: ', p
                 ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
                 pts  = self.ev(*ecoords).reshape(3, -1).T                
                 a = pts[1:,:]
@@ -437,9 +435,9 @@ class RBFVolume(object):
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
         hru, hrv = self._resample_uv(ures, vres)
-        volpts = self.ev(hru, hrv, self.l)
+        volpts = self.ev(hru, hrv, self.l).reshape(3,-1)
 
-        src =  mlab.pipeline.scalar_scatter(*volpts.T, **kwargs)
+        src =  mlab.pipeline.scalar_scatter(volpts[0,:], volpts[1,:], volpts[2,:], **kwargs)
         mlab.pipeline.volume(src, **kwargs)
         
         # Turn off perspective

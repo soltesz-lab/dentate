@@ -13,6 +13,13 @@ import click
 import logging
 logging.basicConfig()
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
 script_name="distribute_synapse_locs.py"
 logger = logging.getLogger(script_name)
 
@@ -127,6 +134,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         global_count = comm.gather(count, root=0)
         if rank == 0:
             logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
+        MPI.Finalize()
 
 
 if __name__ == '__main__':

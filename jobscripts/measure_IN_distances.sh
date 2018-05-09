@@ -1,7 +1,10 @@
 
-mpirun.mpich -np 4 python ./scripts/measure_distances.py \
+mpirun.mpich -np 8 python ./scripts/measure_distances.py \
               --config=./config/Full_Scale_Control.yaml \
-              -i AAC -i BC -i MC -i HC -i HCC -i NGFC -i MOPP \
-              --coords-path=./datasets/dentate_Full_Scale_Control_coords_20180305.h5 \
-              --io-size=2
+              --coords-namespace=Coordinates \
+              -i BC \
+              --coords-path=./datasets/DG_coords_20180507.h5 \
+              --rotate=-35 \
+              --io-size=2 -v
+##              -i AAC -i BC -i MC -i HC -i HCC -i NGFC -i MOPP \
 

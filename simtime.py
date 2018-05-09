@@ -39,7 +39,7 @@ class SimTimeEvent:
             ## remaining physical time
             trem = h.tstop - h.t
             ## remaining simulation time
-            tsimrem = max_walltime_hrs*3600 - self.tcsum - h.mkcellstime - h.connectcellstime - h.connectgjstime
+            tsimrem = self.max_walltime_hrs*3600 - self.tcsum - h.setuptime
             min_tsimrem = self.pc.allreduce(tsimrem, 3) ## minimum value
             ## simulation time necessary to complete the simulation
             tsimneeded = (trem/self.dt_checksimtime)*self.tcma+self.results_write_time
@@ -55,9 +55,9 @@ class SimTimeEvent:
                         print "*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms" % (h.tstop, min_tstop)
                 if (min_tstop <= h.t):
                     h.tstop = h.t + h.dt
-            else:
-                h.tstop = min_tstop
-                h.cvode.event(h.tstop)
+                else:
+                    h.tstop = min_tstop
+                    h.cvode.event(h.tstop)
         self.nsimsteps = self.nsimsteps + 1
         self.walltime_checksimtime = wt
         if (h.t + self.dt_checksimtime < h.tstop):

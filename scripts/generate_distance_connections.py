@@ -19,6 +19,14 @@ import click
 import logging
 logging.basicConfig()
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
+
 script_name = 'generate_distance_connections.py'
 logger = logging.getLogger(script_name)
 
@@ -30,15 +38,19 @@ logger = logging.getLogger(script_name)
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
-@click.option("--resample-volume", type=int, default=5)
+@click.option("--resample", type=int, default=2)
+@click.option("--resolution", type=int, default=15)
+@click.option("--rotate", type=float)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
+@click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resample_volume, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose):
+         synapses_namespace, resample, resolution, rotate, io_size,
+         chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -51,7 +63,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
 
-    if rank==0:
+    if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
             input_file  = h5py.File(coords_path,'r')
             output_file = h5py.File(connectivity_path,'w')
@@ -63,8 +75,14 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     if rank == 0:
         logger.info('Reading population coordinates...')
     
+    min_l = float('inf')
+    max_l = 0.0
     population_ranges = read_population_ranges(coords_path)[0]
     for population in population_ranges.keys():
+        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
+        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
+        min_l = min(min_extent[2], min_l)
+        max_l = max(max_extent[2], max_l)
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace)
 
@@ -73,31 +91,59 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
+        
+    obs_dist_u = None
+    coeff_dist_u = None
+    obs_dist_v = None
+    coeff_dist_v = None
+    obs_dist_l = None
+    coeff_dist_l = None
 
-    vol_dist = None
+    interp_penalty = 0.15
+    interp_basis = 'imq'
+    vol_res = volume_resolution
+    
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(-3.95, 3.2, ures=16, vres=15, lres=10)
+        ip_volume = make_volume(min_l, max_l, ures=resolution, vres=resolution, lres=resolution,\
+                                rotate=rotate)
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, res=resample_volume, verbose=True)
-        logger.info('Broadcasting volume distances...')
+        vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
+        (dist_u, obs_dist_u, dist_v, obs_dist_v, dist_l, obs_dist_l) = vol_dist
+        logger.info('Computing U volume distance interpolants...')
+        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=interp_basis,\
+                                       penalty=interp_penalty,extrapolate=False)
+        coeff_dist_u = ip_dist_u._coeff
+        logger.info('Computing V volume distance interpolants...')
+        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=interp_basis,\
+                                       penalty=interp_penalty,extrapolate=False)
+        coeff_dist_v = ip_dist_v._coeff
+        logger.info('Computing L volume distance interpolants...')
+        ip_dist_l = RBFInterpolant(obs_dist_l,dist_l,order=1,basis=interp_basis,\
+                                       penalty=interp_penalty,extrapolate=False)
+        coeff_dist_l = ip_dist_l._coeff
+        logger.info('Broadcasting volume distance interpolants...')
         
-    vol_dist = comm.bcast(vol_dist, root=0)
-    if rank == 0:
-        logger.info('Computing volume distance interpolants...')
+    obs_dist_u = comm.bcast(obs_dist_u, root=0)
+    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
+    obs_dist_v = comm.bcast(obs_dist_v, root=0)
+    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+    obs_dist_l = comm.bcast(obs_dist_l, root=0)
+    coeff_dist_l = comm.bcast(coeff_dist_l, root=0)
 
-    step=1
-    (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
-    ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=rbf.basis.phs3,extrapolate=True)
-    del dist_u, obs_dist_u
+    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis=interp_basis,\
+                                   penalty=interp_penalty,extrapolate=False)
+    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis=interp_basis,\
+                                   penalty=interp_penalty,extrapolate=False)
+    ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis=interp_basis,\
+                                   penalty=interp_penalty,extrapolate=False)
 
-    sample_inds = np.arange(0, obs_dist_v.shape[0]-1, step)
-    ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=rbf.basis.phs3,extrapolate=True)
-    del dist_v, obs_dist_v
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
+                                        soma_coords, population_extents, allgather=False, verbose=verbose)
 
     if rank == 0:
         logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, combined=True)
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, soma_coords, allgather=True)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
@@ -126,8 +172,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          synapse_seed, synapses_namespace, 
                                          connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
-                                         verbose=verbose)
-
+                                         verbose=verbose, dry_run=dry_run)
+    MPI.Finalize()
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

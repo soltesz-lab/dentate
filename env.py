@@ -5,7 +5,8 @@ from neuroh5.io import read_cell_attributes, read_population_ranges, read_popula
 import numpy as np
 from collections import namedtuple, defaultdict
 import yaml
-import utils
+import dentate
+from dentate import utils
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',
                                  ['synapse_types',
@@ -19,9 +20,30 @@ ConnectionGenerator = namedtuple('ConnectionGenerator',
 class Env:
     """Network model configuration."""
 
-    def load_connection_generator(self):
+    def load_input_config(self):
+        features_type_dict = self.modelConfig['Definitions']['Input Features']
+        input_dict = self.modelConfig['Input']
+        input_config = {}
         
+        for (id,dvals) in input_dict.iteritems():
+            config_dict = {}
+            config_dict['trajectory'] = dvals['trajectory']
+            feature_type_dict = {}
+            for (pop,pdvals) in dvals['feature type'].iteritems():
+                pop_feature_type_dict = {}
+                for (feature_type_name,feature_type_fraction) in pdvals.iteritems():
+                    pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)
+                feature_type_dict[pop] = pop_feature_type_dict
+            config_dict['feature type'] = feature_type_dict
+            input_config[int(id)] = config_dict
+
+        self.inputConfig = input_config
+
+    def load_connection_generator(self):
+        populations_dict = self.modelConfig['Definitions']['Populations']
+        self.pop_dict = populations_dict
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
+        self.syntypes_dict = syntypes_dict
         swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
         layers_dict      = self.modelConfig['Definitions']['Layers']
         synapse_kinetics = self.modelConfig['Connection Generator']['Synapse Kinetics']
@@ -30,7 +52,12 @@ class Env:
         synapse_layers   = self.modelConfig['Connection Generator']['Synapse Layers']
         synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
         connection_properties = self.modelConfig['Connection Generator']['Connection Properties']
-
+        if 'Synapse Mechanisms' in self.modelConfig['Connection Generator']:
+            self.synapse_mech_name_dict = self.modelConfig['Connection Generator']['Synapse Mechanisms']
+            if 'Synapse Mechanism Parameters' in self.modelConfig['Connection Generator']:
+                self.synapse_mech_param_dict = self.modelConfig['Connection Generator']['Synapse Mechanism Parameters']
+                # TODO: refer to this dict when setting attributes of synapses or netcons
+                # TODO: make sure that Connections.yaml is updated to reflect param_names for new point processes
         connection_generator_dict = {}
         
         for (key_postsyn, val_syntypes) in synapse_types.iteritems():
@@ -79,20 +106,30 @@ class Env:
         typenames = celltypes.keys()
         typenames.sort()
 
+        self.comm.Barrier()
+
         datasetPath = os.path.join(self.datasetPrefix,self.datasetName)
         dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
 
         (population_ranges, _) = read_population_ranges(dataFilePath, self.comm)
+        if rank == 0:
+            print 'population_ranges = ', population_ranges
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
 
         population_names  = read_population_names(dataFilePath, self.comm)
-        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, self.comm)
-            
-    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None,
-                 IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
+        if rank == 0:
+            print 'population_names = ', population_names
+        self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, comm=self.comm)
+
+        if rank == 0:
+            print 'attribute info: ', self.cellAttributeInfo
+
+    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None,
+                 resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0,
+                 max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False, verbose=False):
         """
         :param configFile: the name of the model configuration file
         :param datasetPrefix: the location of all datasets
@@ -102,6 +139,7 @@ class Env:
         :param IOsize: the number of MPI ranks to be used for I/O operations
         :param v_init: initialization membrane potential
         :param tstop: physical time to simulate
+        :param stimulus_onset:  starting time of stimulus in ms
         :param max_walltime_hrs:  maximum wall time in hours
         :param results_write_time: time to write out results at end of simulation
         :param dt: simulation time step
@@ -147,8 +185,11 @@ class Env:
         # Initialization voltage
         self.v_init = v_init
 
-        # simulation time
+        # simulation time [ms]
         self.tstop = tstop
+
+        # stimulus onset time [ms]
+        self.stimulus_onset = stimulus_onset
 
         # maximum wall time in hours
         self.max_walltime_hrs = max_walltime_hrs
@@ -192,6 +233,7 @@ class Env:
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
+        self.feature_types = defs['Input Features']
         if self.modelConfig.has_key('Geometry'):
             self.geometry = self.modelConfig['Geometry']
         else:
@@ -210,22 +252,24 @@ class Env:
             self.resultsFilePath = "%s/%s_results.h5" % (self.resultsPath, self.modelName)
         else:
             self.resultsFilePath = "%s_results.h5" % self.modelName
-            
 
         if self.modelConfig.has_key('Connection Generator'):
             self.load_connection_generator()
-        
+
         if self.datasetPrefix is not None:
             self.load_celltypes()
 
+        if self.modelConfig.has_key('Input'):
+            self.load_input_config()
+            
+        self.lfpConfig = {}
         if self.modelConfig.has_key('LFP'):
-            self.lfpConfig = { 'position': tuple(self.modelConfig['LFP']['position']),
-                               'maxEDist': self.modelConfig['LFP']['maxEDist'],
-                               'fraction': self.modelConfig['LFP']['fraction'],
-                               'rho': self.modelConfig['LFP']['rho'],
-                               'dt': self.modelConfig['LFP']['dt'] }
-        else:
-            self.lfpConfig = None
+            for label,config in self.modelConfig['LFP'].iteritems():
+                self.lfpConfig[label] = { 'position': tuple(config['position']),
+                                          'maxEDist': config['maxEDist'],
+                                          'fraction': config['fraction'],
+                                          'rho': config['rho'],
+                                          'dt': config['dt'] }
             
         self.t_vec = h.Vector()   # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
@@ -239,4 +283,4 @@ class Env:
         self.connectgjstime = 0
 
         self.simtime = None
-        self.lfp = None
+        self.lfp = {}

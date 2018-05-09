@@ -1,7 +1,8 @@
 #Expects there to already be a hoc cell with a python wrapper (as defined in cells.py); the python cell should be called cell.
-from cells import *
+from dentate.cells import *
 from optimize_cells.plot_results import *
 import matplotlib.pyplot as plt
+
 
 def param_dict_to_array(x_dict, param_names):
     """
@@ -111,6 +112,26 @@ def compare_nseg(old_nseg, old_distances, new_nseg, new_distances, label_old, la
     print new_nseg['apical']
 
 
+def run_cm_correction_test(cell, context):
+    init_mechanisms(cell, reset_cable=True, from_file=True, mech_file_path=context.mech_file_path, cm_correct=False,
+                    g_pas_correct=False)
+    old_nseg, old_distances = count_nseg(cell)
+    plot_mech_param_distribution(cell, 'pas', 'g', export='old_dend_gpas', overwrite=False, param_label='dend.g_pas', show=False)
+    plot_cable_param_distribution(cell, 'cm', export='old_cm', param_label='cm', show=False, overwrite=True,
+                                  scale_factor=1)
+    init_mechanisms(cell, reset_cable=True, from_file=True, mech_file_path=context.mech_file_path, cm_correct=True, g_pas_correct=True,
+                    cell_attr_dict=context.cell_attr_dict[context.gid], sec_index_map=context.sec_index_map, env=context.env)
+    new_nseg, new_distances = count_nseg(cell)
+    compare_nseg(old_nseg, old_distances, new_nseg, new_distances, 'old', 'new')
+    plot_mech_param_distribution(cell, 'pas', 'g', export='new_dend_gpas', overwrite=False, param_label='dend.g_pas', show=False)
+    plot_mech_param_from_file('pas', 'g', ['old_dend_gpas', 'new_dend_gpas'], ['old', 'new'],
+                              param_label='dend.gpas')
+    plot_cable_param_distribution(cell, 'cm', export='new_cm', param_label='cm', show=False, overwrite=True,
+                                  scale_factor=1)
+    plot_mech_param_from_file('cm', None, ['old_cm', 'new_cm'], ['old', 'new'],
+                              param_label='cm')
+
+
 def run_cable_test(cell):
     plot_cable_param_distribution(cell, 'cm', export='old_cm.hdf5', param_label='cm', show=False, overwrite=True, scale_factor=1)
     modify_mech_param(cell, 'soma', 'cable', 'cm', value=2.)
@@ -154,6 +175,14 @@ def run_cable_test(cell):
     compare_nseg(nseg3, distances3, nseg4, distances4, 'post step 3', 'post step 4')
     #Try changing cm by a significant amount in apical branches only, and then see if this affects nseg. Then change the spatial
     #res parameter -- this should be a multiplier on the current nseg
+
+def count_syns(cell, context):
+    for node in cell.apical:
+        all_syn = filtered_synapse_attributes(context.cell_attr_dict[0], np.array(context.sec_index_map[node.index]),
+                                              context.env, syn_category='excitatory', output='syn_locs')['syn_locs']
+        print ('%s: length %.3f, num synapses %i, num segments %i, density %.3f' %(node.name, node.sec.L, len(all_syn),
+                                                                                   node.sec.nseg, len(all_syn)/node.sec.L))
+
 
 
 
