@@ -1,7 +1,8 @@
 ## Model configuration of dentate gyrus network
 Model Name: dentatenet
+#y
 Dataset Name: Small_Scale_Control
-# Dataset Name: Small_Scale0207
+Dataset Name: Small_Scale0207
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
