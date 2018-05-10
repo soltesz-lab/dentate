@@ -1190,7 +1190,7 @@ def import_mech_dict_from_yaml(cell, mech_file_path=None):
     cell.mech_dict = read_from_yaml(cell.mech_file_path)
 
 
-def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None, cm_correct=True, g_pas_correct=True,
+def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None, cm_correct=False, g_pas_correct=False,
                     cell_attr_dict=None, sec_index_map=None, env=None):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
@@ -1641,7 +1641,6 @@ def correct_node_g_pas(node, cell, cell_attr_dict, sec_index_map, env):
         gpas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
                                  (SA_seg * node.sec(segment.x).g_pas)
         node.sec(segment.x).g_pas *= gpas_correction_factor
-        print 'gpas correction factor for %s seg %i: %.3f' %(node.name, i, gpas_correction_factor)
 
 
 def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
@@ -1660,8 +1659,6 @@ def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
         num_spines = node.content['spine_count'][i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
-        if cm_correction_factor > 5.:
-            print 'cm correction factor for %s seg %i: %.3f with %i spines' %(node.name, i, cm_correction_factor, num_spines)
 
 
 def correct_g_pas_for_spines(cell, cell_attr_dict, sec_index_map, env):
@@ -1806,7 +1803,7 @@ def custom_gradient_by_branch_order(cell, node, mech_name, param_name, baseline,
     branch_order = int(rules['custom']['branch_order'])
     if get_branch_order(cell, node) >= branch_order:
         if 'synapse' in mech_name:
-            _specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
+            specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
         else:
             specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, donor)
 
