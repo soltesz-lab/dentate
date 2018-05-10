@@ -1,9 +1,9 @@
 Synapse Mechanisms:
-  AMPA: SatExp2Syn
+  AMPA: Exp2Syn  # SatExp2Syn
   NMDA: FacilNMDA
-  GABA_A: SatExp2Syn
-  GABA_B: SatExp2Syn
-Synapse Mechanism Parameters:
+  GABA_A: Exp2Syn  # SatExp2Syn
+  GABA_B: Exp2Syn  # SatExp2Syn
+Synapse Parameter Rules:
   SatExp2Syn:
     mech_file: sat_exp2syn.mod
     mech_params:
@@ -347,331 +347,331 @@ Synapse Kinetics:
   GC:
       GC:
         AMPA:
-          t_rise: 0.5
-          t_decay: 5.5
-          e_rev: 0
+          tau1: 0.5
+          tau2: 5.5
+          e: 0
       MC:
         AMPA:
-          t_rise: 0.5
-          t_decay: 5.5
-          e_rev: 0
+          tau1: 0.5
+          tau2: 5.5
+          e: 0
       MPP:
         AMPA:
-          t_rise: 0.5
-          t_decay: 5.5
-          e_rev: 0
+          tau1: 0.5
+          tau2: 5.5
+          e: 0
       LPP:
         AMPA:
-          t_rise: 0.5
-          t_decay: 5.5
-          e_rev: 0
+          tau1: 0.5
+          tau2: 5.5
+          e: 0
       HC:
         GABA_A:
-          t_rise: 0.5
-          t_decay: 6.0
-          e_rev: -75
+          tau1: 0.5
+          tau2: 6.0
+          e: -75
       BC:
         GABA_A:
-          t_rise: 0.25
-          t_decay: 5.5
-          e_rev: -75
+          tau1: 0.25
+          tau2: 5.5
+          e: -75
       AAC:
         GABA_A:
-          t_rise: 0.3
-          t_decay: 2.9
-          e_rev: -75
+          tau1: 0.3
+          tau2: 2.9
+          e: -75
       HCC:
         GABA_A:
-          t_rise: 0.4
-          t_decay: 1.1
-          e_rev: -75
+          tau1: 0.4
+          tau2: 1.1
+          e: -75
       NGFC:
         GABA_A:
-          t_rise:  0.1
-          t_decay: 10.0
-          e_rev:   -75
+          tau1:  0.1
+          tau2: 10.0
+          e:   -75
         GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev:   -90
+          tau1:  86.8
+          tau2: 428.1
+          e:   -90
       MOPP:
         GABA_A:
-          t_rise:  0.1
-          t_decay: 10.0
-          e_rev:   -75
+          tau1:  0.1
+          tau2: 10.0
+          e:   -75
   MC:
       GC:
         AMPA:
-          t_rise: 0.5
-          t_decay: 6.2
-          e_rev: 0
+          tau1: 0.5
+          tau2: 6.2
+          e: 0
       MC:
         AMPA:
-          t_rise: 0.45
-          t_decay: 2.2
-          e_rev: 0
+          tau1: 0.45
+          tau2: 2.2
+          e: 0
       HC:
         GABA_A:
-          t_rise: 0.5
-          t_decay: 6.0
-          e_rev: -75
+          tau1: 0.5
+          tau2: 6.0
+          e: -75
       BC:
         GABA_A:
-          t_rise: 0.3
-          t_decay: 3.3
-          e_rev: -75
+          tau1: 0.3
+          tau2: 3.3
+          e: -75
       AAC:
         GABA_A:
-          t_rise: 0.3
-          t_decay: 3.3
-          e_rev: -75
+          tau1: 0.3
+          tau2: 3.3
+          e: -75
       HCC:
         GABA_A:
-          t_rise: 0.6
-          t_decay: 4.7
-          e_rev: -75
+          tau1: 0.6
+          tau2: 4.7
+          e: -75
   HC:
       GC:
         AMPA:
-          t_rise: 0.3
-          t_decay: 6.2
-          e_rev: 0
+          tau1: 0.3
+          tau2: 6.2
+          e: 0
       MC:
         AMPA:
-          t_rise: 0.9
-          t_decay: 3.6
-          e_rev: 0
+          tau1: 0.9
+          tau2: 3.6
+          e: 0
       HC:
         GABA_A:
-          t_rise: 0.37
-          t_decay: 10.48
-          e_rev: -75
+          tau1: 0.37
+          tau2: 10.48
+          e: -75
       BC:
         GABA_A:
-          t_rise: 0.265
-          t_decay: 2.88
-          e_rev: -75
+          tau1: 0.265
+          tau2: 2.88
+          e: -75
       IS:
         GABA_A:
-          t_rise: 0.37
-          t_decay: 10.48
-          e_rev: -75
+          tau1: 0.37
+          tau2: 10.48
+          e: -75
   BC:
       GC:
         AMPA:
-          t_rise: 0.3
-          t_decay: 6.2
-          e_rev: 0
+          tau1: 0.3
+          tau2: 6.2
+          e: 0
       MC:
         AMPA:
-          t_rise: 0.9
-          t_decay: 3.6
-          e_rev: 0
+          tau1: 0.9
+          tau2: 3.6
+          e: 0
       MPP:
         AMPA:
-          t_rise:  0.5
-          t_decay: 3.0
-          e_rev:     0
+          tau1:  0.5
+          tau2: 3.0
+          e:     0
       LPP:
         AMPA:
-          t_rise:  0.5
-          t_decay: 3.0
-          e_rev:     0
+          tau1:  0.5
+          tau2: 3.0
+          e:     0
       HC:
         GABA_A:
-          t_rise: 0.46
-          t_decay: 4.43
-          e_rev: -75
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
       BC:
         GABA_A:
-          t_rise: 0.22
-          t_decay: 3.35
-          e_rev: -75
+          tau1: 0.22
+          tau2: 3.35
+          e: -75
       HCC:
         GABA_A:
-          t_rise: 0.6
-          t_decay: 4.78
-          e_rev: -75
+          tau1: 0.6
+          tau2: 4.78
+          e: -75
       NGFC:
         GABA_A:
-          t_rise:   4.2
-          t_decay: 14.0
-          e_rev:    -75
+          tau1:   4.2
+          tau2: 14.0
+          e:    -75
         GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev:   -90
+          tau1:  86.8
+          tau2: 428.1
+          e:   -90
       MOPP:
         GABA_A:
-          t_rise:   4.2
-          t_decay: 14.0
-          e_rev:    -75
+          tau1:   4.2
+          tau2: 14.0
+          e:    -75
       IS:
         GABA_A:
-          t_rise: 0.46
-          t_decay: 4.43
-          e_rev: -75
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
   AAC:
       GC:
         AMPA:
-          t_rise: 0.3
-          t_decay: 6.2
-          e_rev: 0
+          tau1: 0.3
+          tau2: 6.2
+          e: 0
       MC:
         AMPA:
-          t_rise: 0.9
-          t_decay: 3.6
-          e_rev: 0
+          tau1: 0.9
+          tau2: 3.6
+          e: 0
       HC:
         GABA_A:
-          t_rise: 0.46
-          t_decay: 4.43
-          e_rev: -75
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
       NGFC:
         GABA_A:
-          t_rise:  4.2
-          t_decay: 14.0
-          e_rev: -75
+          tau1:  4.2
+          tau2: 14.0
+          e: -75
         GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev: -90
+          tau1:  86.8
+          tau2: 428.1
+          e: -90
       MOPP:
         GABA_A:
-          t_rise:  4.2
-          t_decay: 14.0
-          e_rev: -75
+          tau1:  4.2
+          tau2: 14.0
+          e: -75
       IS:
         GABA_A:
-          t_rise: 0.46
-          t_decay: 4.43
-          e_rev: -75
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
   HCC:
       GC:
         AMPA:
-          t_rise: 0.3
-          t_decay: 6.2
-          e_rev: 0
+          tau1: 0.3
+          tau2: 6.2
+          e: 0
       MC:
         AMPA:
-          t_rise: 0.9
-          t_decay: 3.6
-          e_rev: 0
+          tau1: 0.9
+          tau2: 3.6
+          e: 0
       BC:
         GABA_A:
-          t_rise: 0.28
-          t_decay: 3.45
-          e_rev: -75
+          tau1: 0.28
+          tau2: 3.45
+          e: -75
       HCC:
         GABA_A:
-          t_rise: 0.72
-          t_decay: 4.7
-          e_rev: -75
+          tau1: 0.72
+          tau2: 4.7
+          e: -75
       IS:
         GABA_A:
-          t_rise: 0.46
-          t_decay: 4.43
-          e_rev: -75
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
       MOPP:
         GABA_A:
-          t_rise:  4.2
-          t_decay: 16.2
-          e_rev: -75
+          tau1:  4.2
+          tau2: 16.2
+          e: -75
       NGFC:
         GABA_A:
-          t_rise:  4.2
-          t_decay: 16.2
-          e_rev: -75
+          tau1:  4.2
+          tau2: 16.2
+          e: -75
         GABA_B:
-          t_rise: 86.8  # 50.0  https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
-          t_decay: 428.1  # 200.0  http://www.jneurosci.org/content/33/18/7961
-          e_rev: -90
+          tau1: 86.8  # 50.0  https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
+          tau2: 428.1  # 200.0  http://www.jneurosci.org/content/33/18/7961
+          e: -90
   NGFC:
       MPP:
         AMPA:
-          t_rise: 3.0
-          t_decay: 30.0
-          e_rev: 0
+          tau1: 3.0
+          tau2: 30.0
+          e: 0
       LPP:
         AMPA:
-          t_rise: 3.0
-          t_decay: 30.0
-          e_rev: 0
+          tau1: 3.0
+          tau2: 30.0
+          e: 0
       HC:
         GABA_A:
-          t_rise: 0.72
-          t_decay: 4.7
-          e_rev: -75
+          tau1: 0.72
+          tau2: 4.7
+          e: -75
       IS:
         GABA_A:
-          t_rise: 0.46
-          t_decay: 4.43
-          e_rev: -75
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
       NGFC:
         GABA_A:
-          t_rise:  4.2
-          t_decay: 14.0
-          e_rev: -75
+          tau1:  4.2
+          tau2: 14.0
+          e: -75
         GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev: -90
+          tau1:  86.8
+          tau2: 428.1
+          e: -90
   MOPP:
       MPP:
         AMPA:
-          t_rise: 0.5
-          t_decay: 3.0
-          e_rev: 0
+          tau1: 0.5
+          tau2: 3.0
+          e: 0
       MC:
         AMPA:
-          t_rise: 0.9
-          t_decay: 3.6
-          e_rev: 0
+          tau1: 0.9
+          tau2: 3.6
+          e: 0
       BC:
         GABA_A:
-          t_rise: 0.72
-          t_decay: 10.0
-          e_rev: -75
+          tau1: 0.72
+          tau2: 10.0
+          e: -75
       HC:
         GABA_A:
-          t_rise: 0.72
-          t_decay: 4.7
-          e_rev: -75
+          tau1: 0.72
+          tau2: 4.7
+          e: -75
       HCC:
         GABA_A:
-          t_rise: 0.72
-          t_decay: 4.7
-          e_rev: -75
+          tau1: 0.72
+          tau2: 4.7
+          e: -75
       IS:
         GABA_A:
-          t_rise: 0.46
-          t_decay: 4.43
-          e_rev: -75
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
       NGFC:
         GABA_A:
-          t_rise:  4.5
-          t_decay: 13.8
-          e_rev: -75
+          tau1:  4.5
+          tau2: 13.8
+          e: -75
         GABA_B:
-          t_rise:  86.8
-          t_decay: 428.1
-          e_rev: -90
+          tau1:  86.8
+          tau2: 428.1
+          e: -90
       MOPP:
         GABA_A:
-          t_rise:  4.5
-          t_decay: 13.8
-          e_rev: -75
+          tau1:  4.5
+          tau2: 13.8
+          e: -75
   IS:
       GC:
         AMPA:
-          t_rise: 0.3
-          t_decay: 6.2
-          e_rev: 0
+          tau1: 0.3
+          tau2: 6.2
+          e: 0
       IS:
         GABA_A:
-          t_rise: 0.37
-          t_decay: 10.48
-          e_rev: -75
+          tau1: 0.37
+          tau2: 10.48
+          e: -75
 Connection Properties:
   GC:
     AAC:
