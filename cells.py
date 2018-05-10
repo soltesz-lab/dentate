@@ -2007,8 +2007,8 @@ def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, en
 # Synapse wrapper
 
 def build_syn_attrs_dict(cell_attr_dict, gid):
-    syn_attrs_dict = {gid: {syn_id: {} for syn_id in cell_attr_dict[gid]['syn_ids']}}
-    syn_index_map = {gid: {syn_id: idx for idx, syn_id in enumerate(cell_attr_dict[gid]['syn_ids'])}}
+    syn_attrs_dict = {syn_id: {} for syn_id in cell_attr_dict[gid]['syn_ids']}
+    syn_index_map = {syn_id: idx for idx, syn_id in enumerate(cell_attr_dict[gid]['syn_ids'])}
     return syn_attrs_dict, syn_index_map
 
 
