@@ -1940,18 +1940,15 @@ def build_syn_attrs_dict(cell_attr_dict, gid):
 
 
 def fill_source_info(connectivityFilePath, cell_attr_dict, syn_index_map, gid, pop_name, env):
-    cell_attr_dict[gid]['source'] = np.full(len(cell_attr_dict[gid]['syn_ids']), np.nan)
-    source_names = []
-    for (source_name, this_pop_name) in read_projection_names(connectivityFilePath, comm=env.comm):
-        if this_pop_name == pop_name and source_name in env.connection_generator[pop_name].keys():
-            source_names.append(source_name)
-            source_id = int(env.pop_dict[source_name])
-            edge_attr_index_map = get_edge_attributes_index_map(env.comm, connectivityFilePath, source_name, pop_name)
-            edge_attr_tuple = select_edge_attributes(gid, env.comm, connectivityFilePath, edge_attr_index_map,
+    this_source_id_list = [np.nan for i in xrange(len(cell_attr_dict[gid]['syn_ids']))]
+    for source_name in env.connection_generator[pop_name]:
+        source_id = int(env.pop_dict[source_name])
+        edge_attr_index_map = get_edge_attributes_index_map(env.comm, connectivityFilePath, source_name, pop_name)
+        edge_attr_tuple = select_edge_attributes(gid, env.comm, connectivityFilePath, edge_attr_index_map,
                                                      source_name, 'GC', ['Synapses'])
-            for syn_id in edge_attr_tuple[1]['Synapses']['syn_id']:
-                cell_attr_dict[gid]['source'][syn_index_map[gid][syn_id]] = int(source_id)
-    return source_names
+        for syn_id in edge_attr_tuple[1]['Synapses']['syn_id']:
+            this_source_id_list[syn_index_map[gid][syn_id]] = source_id
+    cell_attr_dict[gid]['source'] = np.array(this_source_id_list, dtype='uint32')
 
 
 def fill_syn_mech_names(syn_attrs_dict, syn_index_map, cell_attr_dict, gid, pop_name, env):
