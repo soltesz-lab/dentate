@@ -66,69 +66,61 @@ def simulate(h, v_init, prelength, mainlength):
     h.fadvance()
     h.continuerun(h.tstop)
 
-    
 
-## Adds a network connection to a single synapse point process
-##    pc: ParallelContext
-##    nclist: list of netcons
-##    srcgid: source gid
-##    dstgid: target gid
-##    syn: synapse point process
-def mknetcon(pc, nclist, srcgid, dstgid, syn, weight, delay):
+def mknetcon(pc, srcgid, dstgid, syn, weight, delay):
+    """
+    Adds a network connection to a single synapse point process
+    :param pc: :class:'h.ParallelContext'
+    :param srcgid: int; source gid
+    :param dstgid: int; destination gid
+    :param syn: synapse point process
+    :param weight: float
+    :param delay: float
+    :return: :class:'h.NetCon'
+    """
+    assert pc.gid_exists(dstgid)
+    if pc.gid_exists(dstgid):
+        cell = pc.gid2cell(dstgid)
     nc = pc.gid_connect(srcgid, syn)
     nc.weight[0] = weight
     nc.delay = delay
-    nclist.append(nc)
+    return nc
 
-#New version of the function , used with dentate.cells
-def mk_netcon(pc, srcgid, dstgid, syn, weight, delay):
+
+def mknetcon_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
+    """
+    Adds a network connection to a single synapse point process. Sets weight to a value from the provided weights
+    vector.
+    :param pc: :class:'h.ParallelContext'
+    :param srcgid: int; source gid
+    :param dstgid: int; destination gid
+    :param syn: synapse point process
+    :param weights: :class:'h.Vector'
+    :param delay: float
+    :return: :class:'h.NetCon'
+    """
+    assert pc.gid_exists(dstgid)
+    if pc.gid_exists(dstgid):
+        cell = pc.gid2cell(dstgid)
     nc = pc.gid_connect(srcgid, syn)
-    nc.weight[0] = weight
+    widx = int(dstgid % weights.size())
+    nc.weight[0] = weights.x[widx]
     nc.delay = delay
     return nc
 
-## A variant of ParallelNetManager.nc_append that takes in a
-## synaptic point process as an argument, as opposed to the index of a
-## synapse in cell.synlist) 
-def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
-    ## target in this subset
-    ## source may be on this or another machine
-    assert (pc.gid_exists(dstgid))
-    if (pc.gid_exists(dstgid)):
-        cell = pc.gid2cell(dstgid)
-	mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
 
-#New version of the function , used with dentate.cells
-def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
-    assert (pc.gid_exists(dstgid))
-    if (pc.gid_exists(dstgid)):
-        cell = pc.gid2cell(dstgid)
-    nc = mk_netcon(pc, srcgid, dstgid, syn, weight / 1000.0, delay)
-    return nc
-
-
-## A variant of ParallelNetManager.nc_append that 1) takes in a
-## synaptic point process as an argument (as opposed to the index of a
-## synapse in cell.synlist) and 2) chooses the synaptic
-## weight from a predefined vector of synaptic weights for this
-## connection type
-def nc_appendsyn_wgtvector(pc, nclist, srcgid, dstgid, syn, weights, delay):
-    assert (pc.gid_exists(dstgid))
-    cell = pc.gid2cell(dstgid)
-    widx = int(dstgid % weights.size())
-    mknetcon(pc, nclist, srcgid, dstgid, syn, weights.x[widx]/1000.0, delay)
-
-#New version of the function , used with dentate.cells
-def mk_nc_syn_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
-    assert (pc.gid_exists(dstgid))
-    cell = pc.gid2cell(dstgid)
-    widx = int(dstgid % weights.size())
-    nc = mk_netcon(pc, srcgid, dstgid, syn, weights.x[widx] / 1000.0, delay)
-    return nc
-
-## Create gap junctions
 def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
-    
+    """
+    Create gap junctions
+    :param pc:
+    :param gjlist:
+    :param gid:
+    :param secidx:
+    :param sgid:
+    :param dgid:
+    :param w:
+    :return:
+    """
     cell = pc.gid2cell(gid)
     
     ##printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)

@@ -12,7 +12,7 @@ from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, s
     scatter_read_cell_attributes, write_cell_attributes
 from dentate.env import Env
 from dentate import lpt, synapses, cells, lfp, simtime
-from dentate.neuron_utils import nc_appendsyn, nc_appendsyn_wgtvector, mkgap
+from dentate.neuron_utils import mknetcon, mknetcon_wgtvector, mkgap
 import logging
 
 logging.basicConfig()
@@ -324,9 +324,10 @@ def connectcells(env):
                             weight = connection_syn_mech_config['weight']
                         delay = (distance / connection_syn_mech_config['velocity']) + 0.1
                         if type(weight) is float:
-                            nc_appendsyn(env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                            this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn_ps, weight, delay)
                         else:
-                            nc_appendsyn_wgtvector(env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                            this_nc = mknetcon_wgtvector(env.pc, presyn_gid, postsyn_gid, syn_ps, weight, delay)
+                        h.nclist.append(this_nc)
                 if env.verbose:
                     if int(env.pc.id()) == 0:
                         if edge_count == 0:
