@@ -676,250 +676,250 @@ Connection Properties:
   GC:
     AAC:
       GABA_A: 
-        weight: 1.0
+        weight: 0.001
         velocity: 250.0
     BC:
       GABA_A: 
-        weight: 0.65
+        weight: 0.00065
         velocity: 250.0
     HC:
       GABA_A:
-        weight: 6.0
+        weight: 0.006
         velocity: 250.0
     HCC:
       GABA_A:
-        weight: 3.0
+        weight: 0.003
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.19
+        weight: 0.00019
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 0.15
+        weight: 0.00015
         velocity: 250.0
       GABA_B:
-        weight: 0.1
+        weight: 0.0001
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 0.15
+        weight: 0.00015
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 1.6
+        weight: 0.0016
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 1.8
+        weight: 0.0018
         velocity: 250.0
   MC:
     AAC:
       GABA_A:
-        weight: 3.0
+        weight: 0.003
         velocity: 250.0
     BC:
       GABA_A:
-        weight: 1.5
+        weight: 0.0015
         velocity: 250.0
     GC:
       AMPA:
-        weight: 1.5
+        weight: 0.0015
         velocity: 250.0
     HC:
       GABA_A:
-        weight: 1.0
+        weight: 0.001
         velocity: 250.0
     HCC:
       GABA_A:
-        weight: 0.6
+        weight: 0.0006
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.5
+        weight: 0.0005
         velocity: 250.0
   HC:
     GC:
       AMPA:
-        weight: 4.7
+        weight: 0.0047
         velocity: 250.0
     HC:
       GABA_A:
-        weight: 0.623
+        weight: 0.000623
         velocity: 250.0
     MC:
       AMPA:
-        weight: 2.2
+        weight: 0.0022
         velocity: 250.0
     BC:
       GABA_A:
-        weight: 5.2
+        weight: 0.0052
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 0.5
+        weight: 0.0005
         velocity: 250.0
   BC:
     GC:
       AMPA:
-        weight: 4.7
+        weight: 0.0047
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.3
+        weight: 0.0003
         velocity: 250.0
     HC:
       GABA_A:
-        weight: 2.14
+        weight: 0.00214
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 2.14
+        weight: 0.00214
         velocity: 250.0
     BC:
       GABA_A:
-        weight: 4.27
+        weight: 0.00427
         velocity: 250.0
     HCC:
       GABA_A:
-        weight: 0.664
+        weight: 0.000664
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 0.183
+        weight: 0.000183
         velocity: 250.0
       GABA_B:
-        weight: 0.181
+        weight: 0.000181
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 0.2
+        weight: 0.0002
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 0.5
+        weight: 0.0005
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 0.5
+        weight: 0.0005
         velocity: 250.0
   AAC:
     GC:
       AMPA:
-        weight: 4.7
+        weight: 0.0047
         velocity: 250.0
     MC:
       AMPA:
-        weight: 0.3
+        weight: 0.0003
         velocity: 250.0
     HC:
       GABA_A:
-        weight: 2.14
+        weight: 0.00214
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 1.0
+        weight: 0.0010
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 0.183
+        weight: 0.000183
         velocity: 250.0
       GABA_B:
-        weight: 0.181
+        weight: 0.000181
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 0.2
+        weight: 0.0002
         velocity: 250.0
   NGFC:
     HC:
       GABA_A:
-        weight: 0.473
+        weight: 0.000473
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 0.113
+        weight: 0.000113
         velocity: 250.0
       GABA_B:
-        weight: 0.169
+        weight: 0.000169
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 0.113
+        weight: 0.000113
         velocity: 250.0
     GC:
       AMPA:
-        weight: 4.7
+        weight: 0.0047
         velocity: 250.0
     LPP:
       AMPA:
-        weight: 0.33
+        weight: 0.00033
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 0.25
+        weight: 0.00025
         velocity: 250.0
   MOPP:
     MC:
       AMPA:
-        weight: 0.5
+        weight: 0.0005
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 0.113
+        weight: 0.000113
         velocity: 250.0
     HC:
       GABA_A:
-        weight: 0.473
+        weight: 0.000473
         velocity: 250.0
     HCC:
       GABA_A:
-        weight: 0.325
+        weight: 0.000325
         velocity: 250.0
     MPP:
       AMPA:
-        weight: 1.0
+        weight: 0.0010
         velocity: 250.0
   HCC:
     GC:
       AMPA:
-        weight: 4.7
+        weight: 0.0047
         velocity: 250.0
     MC:
       AMPA:
-        weight: 2.3
+        weight: 0.0023
         velocity: 250.0
     BC:
       GABA_A:
-        weight: 3.82
+        weight: 0.00382
         velocity: 250.0
     HCC:
       GABA_A:
-        weight: 0.325
+        weight: 0.000325
         velocity: 250.0
     NGFC:
       GABA_A:
-        weight: 0.168
+        weight: 0.000168
         velocity: 250.0
       GABA_B:
-        weight: 0.215
+        weight: 0.000215
         velocity: 250.0
     MOPP:
       GABA_A:
-        weight: 0.168
+        weight: 0.000168
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 0.5
+        weight: 0.0005
         velocity: 250.0
   IS:
     GC:
       AMPA:
-        weight: 0.5
+        weight: 0.0005
         velocity: 250.0
     IS:
       GABA_A:
-        weight: 1.0
+        weight: 0.0010
         velocity: 250.0
 Gap Junctions:
   Locations:
