@@ -542,11 +542,6 @@ class SHocNode(btmorph.btstructs2.SNode2):
         """
         btmorph.btstructs2.SNode2.__init__(self, index)
         self.content['spines'] = []
-        self.content['synapses'] = []
-        self.content['synapse_attributes'] = {'syn_locs': [],
-                                              'syn_category': [],
-                                              'syn_id': []}
-        self.content['synapse_mechanism_attributes'] = {}
         self.content['spine_count'] = []
 
     def get_sec(self):
@@ -577,16 +572,6 @@ class SHocNode(btmorph.btstructs2.SNode2):
         if not self.get_diam_bounds() is None:
             [diam1, diam2] = self.get_diam_bounds()
             h('diam(0:1)={}:{}'.format(diam1, diam2), sec=self.sec)
-
-    def append_synapse_attribute(self, syn_category, loc):
-        """
-
-        :param syn_category: str
-        :param loc: float
-        """
-        self.synapse_attributes['syn_locs'].append(loc)
-        self.synapse_attributes['syn_category'].append(syn_category_enumerator[syn_category])
-        self.synapse_attributes['syn_id'].append(len(self.synapse_attributes['syn_id']))
 
     def get_filtered_synapse_attributes(self, syn_category=None, syn_type=None, layer=None):
         """
@@ -623,43 +608,6 @@ class SHocNode(btmorph.btstructs2.SNode2):
             filtered_attributes['layer'].append(this_layer)
             filtered_attributes['syn_id'].append(this_syn_id)
         return filtered_attributes
-
-    def correct_cm_for_spines(self):
-        """
-        If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
-        dendritic section proportional to the number of excitatory synapses contained in the section.
-        """
-        # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
-        # capacitance and time constant
-        cm_fraction = 0.40
-        SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
-        this_syn_locs = self.get_filtered_synapse_attributes(syn_category='excitatory')['syn_locs']
-        if this_syn_locs:
-            this_syn_locs = np.array(this_syn_locs)
-            seg_width = 1. / self.sec.nseg
-            for i, segment in enumerate(self.sec):
-                SA_seg = segment.area()
-                num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
-                cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
-                self.sec(segment.x).cm *= cm_correction_factor
-
-    def correct_g_pas_for_spines(self):
-        """
-        If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in this
-        dendritic section proportional to the number of excitatory synapses contained in the section.
-        """
-        SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
-        this_syn_locs = self.get_filtered_synapse_attributes(syn_category='excitatory')['syn_locs']
-        if this_syn_locs:
-            this_syn_locs = np.array(this_syn_locs)
-            seg_width = 1. / self.sec.nseg
-            for i, segment in enumerate(self.sec):
-                SA_seg = segment.area()
-                num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
-                soma_g_pas = self.sec.cell().mech_dict['soma']['pas']['g']['value']
-                gpas_correction_factor = (SA_seg * self.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
-                                         (SA_seg * self.sec(segment.x).g_pas)
-                self.sec(segment.x).g_pas *= gpas_correction_factor
 
     def get_diam_bounds(self):
         """
@@ -757,35 +705,16 @@ class SHocNode(btmorph.btstructs2.SNode2):
         Returns a list of the spine head sections attached to the hoc section associated with this node.
         :return: list of :class:'SHocNode' of sec_type == 'spine_head'
         """
-        return self.content['spines']
+        return [head for neck in self.children if neck.type == 'spine_neck' for head in neck.children
+                if head.type == 'spine_head']
 
     @property
-    def synapses(self):
+    def spine_count(self):
         """
-        Returns a list of the objects of :class:'Synapse' associated with this node.
-        :return: list of hoc objects, type depends on .mod file(s) used to implement synapses
+        Returns a list of the number of excitatory synaptic connections to the hoc section associated with this node.
+        :return: list of int
         """
-        return self.content['synapses']
-
-    @property
-    def synapse_attributes(self):
-        """
-        synapse_attributes is a dict specifying attributes of potential synapses, including 'syn_category'
-        (e.g. 'excitatory' or 'inhibitory'), 'syn_locs', and 'syn_id' (unique index within each node).
-        :return: dict of list
-        """
-        return self.content['synapse_attributes']
-
-    @property
-    def synapse_mechanism_attributes(self):
-        """
-        synapse_mechanism_attributes is a nested dict specifying parameters of synaptic point processes and netcon
-        objects, indexed by syn_id.
-        e.g. {syn_id: {'AMPA_KIN': {'gmax': float},
-                                   {'weight': float}}}
-        :return: dict of dict
-        """
-        return self.content['synapse_mechanism_attributes']
+        return self.content['spine_count']
 
     @property
     def connection_loc(self):
@@ -1632,16 +1561,16 @@ def correct_node_g_pas(node, cell, cell_attr_dict, sec_index_map, env):
     dendritic section proportional to the number of excitatory synapses contained in the section.
     """
     SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
-    if len(node.content['spine_count']) != node.sec.nseg:
+    if len(node.spine_count) != node.sec.nseg:
         count_spines_per_seg(node, cell_attr_dict, sec_index_map, env)
     for i, segment in enumerate(node.sec):
         SA_seg = segment.area()
-        num_spines = node.content['spine_count'][i]
+        num_spines = node.spine_count[i]
         soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
         gpas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
                                  (SA_seg * node.sec(segment.x).g_pas)
         node.sec(segment.x).g_pas *= gpas_correction_factor
-        print 'gpas correction factor for %s seg %i: %.3f' %(node.name, i, gpas_correction_factor)
+        # print 'gpas correction factor for %s seg %i: %.3f' %(node.name, i, gpas_correction_factor)
 
 
 def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
@@ -1653,11 +1582,11 @@ def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
     # capacitance and time constant
     cm_fraction = 0.40
     SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
-    if len(node.content['spine_count']) != node.sec.nseg:
+    if len(node.spine_count) != node.sec.nseg:
         count_spines_per_seg(node, cell_attr_dict, sec_index_map, env)
     for i, segment in enumerate(node.sec):
         SA_seg = segment.area()
-        num_spines = node.content['spine_count'][i]
+        num_spines = node.spine_count[i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
         if cm_correction_factor > 5.:
