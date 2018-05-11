@@ -1823,7 +1823,7 @@ def make_neurotree_cell (template_class, local_id=0, gid=0, dataset_path="", neu
     vsrc     = neurotree_dict['section_topology']['src']
     vdst     = neurotree_dict['section_topology']['dst']
     swc_type = neurotree_dict['swc_type']
-    cell     = template_class (local_id, gid, dataset_path, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, swc_type)
+    cell     = template_class(local_id, gid, dataset_path, vlayer, vsrc, vdst, secnodes, vx, vy, vz, vradius, swc_type)
     return cell
 
 
@@ -1836,7 +1836,7 @@ def make_cell(template_class, local_id=0, gid=0, dataset_path=""):
     :param dataset_path:
     :return:
     """
-    cell = template_class (local_id, gid, dataset_path)
+    cell = template_class(local_id, gid, dataset_path)
     return cell
 
 

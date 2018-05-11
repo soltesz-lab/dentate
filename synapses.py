@@ -321,25 +321,30 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
     return syn_dict
 
 
-def syn_in_seg(seg, syns_dict):
+def syn_in_seg(syn_name, seg, syns_dict):
     """
-
-    :param seg:
-    :param syns_dict:
-    :return:
+    If a synaptic mechanism of the specified type already exists in the specified segment, it is returned.
+    Otherwise, it returns None.
+    :param syn_name: str
+    :param seg: hoc segment
+    :param syns_dict: nested defaultdict
+    :return: hoc point process or None
     """
-    if seg.sec not in syns_dict:
-        return False
-    if any(seg.sec(x) == seg for x in syns_dict[seg.sec]):
-        return True
-    return False
+    for sec in syns_dict:
+        if seg.sec == sec:
+            for x in syns_dict[sec]:
+                if x == seg.x:
+                    if syn_name in syns_dict[sec][x]:
+                        syn = syns_dict[sec][x][syn_name]
+                        return syn
+    return None
 
 
 def make_syn_mech(mech_name, seg):
     """
     :param mech_name: str (name of the point_process, specified by env.synapse_mech_names)
-    :param seg:
-    :return:
+    :param seg: hoc segment
+    :return: hoc point process
     """
     if hasattr(h, mech_name):
         syn = getattr(h, mech_name)(seg)
@@ -348,45 +353,58 @@ def make_syn_mech(mech_name, seg):
     return syn
 
 
-def add_shared_synapse(mech_name, seg, syns_dict):
+def add_shared_synapse(syn_name, seg, mech_names=None, syns_dict=None):
     """
-    Returns the existing synapse in segment if any, otherwise creates it.
-    :param mech_name: str (name of the point_process, specified by env.synapse_mech_names)
-    :param seg:
-    :param syns_dict:
-    :return:
+    If a synaptic mechanism of the specified type already exists in the specified segment, it is returned.
+    Otherwise, it creates one and adds is to the provided syns_dict.
+    :param syn_name: str
+    :param seg: hoc segment
+    :param mech_names: dict to convert syn_name to hoc mechanism name
+    :param syns_dict: nested defaultdict
+    :return: hoc point process
     """
-    if not syn_in_seg(seg, syns_dict):
+    syn = syn_in_seg(syn_name, seg, syns_dict)
+    if syn is None:
+        if mech_names is not None:
+            mech_name = mech_names[syn_name]
+        else:
+            mech_name = syn_name
         syn = make_syn_mech(mech_name, seg)
-        syns_dict[seg.sec][syn.get_segment().x] = syn
-        return syn
+        syns_dict[seg.sec][seg.x][mech_name] = syn
+    return syn
+
+
+def add_unique_synapse(syn_name, seg, mech_names=None, syns_dict=None):
+    """
+    Creates a new synapse in the given segment.
+    :param syn_name: str
+    :param seg: hoc segment
+    :param mech_names: dict to convert syn_name to hoc mechanism name
+    :param syns_dict: nested defaultdict
+    :return: hoc point process
+    """
+    if mech_names is not None:
+        mech_name = mech_names[syn_name]
     else:
-        for x, syn in syns_dict[seg.sec].iteritems():
-            if seg.sec(x) == seg:
-               return syn
-
-
-def add_unique_synapse(mech_name, seg, syns_dict=None):
-    """
-    Creates a synapse in the given segment.
-    :param mech_name: str (name of the point_process, specified by env.synapse_mech_names)
-    :param seg:
-    :param syns_dict:
-    :return:
-    """
+        mech_name = syn_name
     syn = make_syn_mech(mech_name, seg)
     return syn
 
 
-def config_syn(mech_name, rules, syn=None, nc=None, **params):
+def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
     """
 
-    :param mech_name: str (name of the point_process, specified by env.synapse_mech_names)
-    :param rules: dict specified by env.synapse_param_rules
+    :param syn_name: str
+    :param rules: dict to correctly parse params for specified hoc mechanism
+    :param mech_names: dict to convert syn_name to hoc mechanism name
     :param syn: synaptic mechanism object
     :param nc: :class:'h.NetCon'
     :param params: dict
     """
+    if mech_names is not None:
+        mech_name = mech_names[syn_name]
+    else:
+        mech_name = syn_name
     for param, val in params.iteritems():
         failed = True
         if param in rules[mech_name]['mech_params']:
@@ -411,7 +429,7 @@ def config_syn(mech_name, rules, syn=None, nc=None, **params):
 def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn_kinetic_params, env,
            add_synapse=add_shared_synapse, spines=False):
     """
-    TODO: add_shared_synapse only allows one synapse per segment, but we need to allow more than only point process (like AMPA and NMDA, or GABA-A and GABA-B)
+    20180510: Aaron modified add_shared_synapse to allow at most synaptic mechanism OF EACH TYPE per segment.
     :param gid:
     :param cell:
     :param syn_ids:
@@ -423,13 +441,13 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
     :param env:
     :param add_synapse:
     :param spines:
-    :return:
+    :return: nested dict of hoc point processes
     """
-    syns_dict_dend = defaultdict(lambda: defaultdict(lambda: {}))
-    syns_dict_axon = defaultdict(lambda: defaultdict(lambda: {}))
-    syns_dict_ais  = defaultdict(lambda: defaultdict(lambda: {}))
-    syns_dict_hill = defaultdict(lambda: defaultdict(lambda: {}))
-    syns_dict_soma = defaultdict(lambda: defaultdict(lambda: {}))
+    syns_dict_dend = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
+    syns_dict_axon = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
+    syns_dict_ais  = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
+    syns_dict_hill = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
+    syns_dict_soma = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
     py_sections = [sec for sec in cell.sections]
 
     syn_type_excitatory = env.Synapse_Types['excitatory']
@@ -478,17 +496,14 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
         else:
             raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
         syn_mech_dict = {}
-        for (syn_mech, params) in syn_kinetic_params.iteritems():
-            syn = add_synapse(env.synapse_mech_names[syn_mech], sec(syn_loc), syns_dict)
-            config_syn(env.synapse_mech_names[syn_mech], rules=env.synapse_param_rules, syn=syn, **params)
-            """
-            syn.tau1 = params['t_rise']
-            syn.tau2 = params['t_decay']
-            syn.e = params['e_rev']
-            """
+        for (syn_name, params) in syn_kinetic_params.iteritems():
+            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), mech_names=env.synapse_mech_names,
+                              syns_dict=syns_dict)
+            config_syn(syn_name=syn_name, rules=env.synapse_param_rules, mech_names=env.synapse_mech_names, syn=syn,
+                       **params)
             cell.syns.append(syn)
             cell.syntypes.o(syn_type).append(syn)
-            syn_mech_dict[syn_mech] = syn
+            syn_mech_dict[syn_name] = syn
         syn_obj_dict[syn_id] = syn_mech_dict
 
     if spines:

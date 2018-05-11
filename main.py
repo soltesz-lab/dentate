@@ -311,7 +311,7 @@ def connectcells(env):
                         if edge_count == 0:
                             for sec in list(postsyn_cell.all):
                                 h.psection(sec=sec)
-
+                # TODO: Going forward, what is currently specified as 'weight', will instead be 'g_unit'
                 wgt_count = 0
                 for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
                     syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
