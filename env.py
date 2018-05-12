@@ -273,7 +273,7 @@ class Env:
         dataFilePath = os.path.join(datasetPath,self.modelConfig['Cell Data'])
 
         (population_ranges, _) = read_population_ranges(dataFilePath, self.comm)
-        if rank == 0:
+        if rank == 0 and self.verbose:
             print 'population_ranges = ', population_ranges
         
         for k in typenames:
@@ -281,9 +281,9 @@ class Env:
             celltypes[k]['num'] = population_ranges[k][1]
 
         population_names  = read_population_names(dataFilePath, self.comm)
-        if rank == 0:
+        if rank == 0 and self.verbose:
             print 'population_names = ', population_names
         self.cellAttributeInfo = read_cell_attribute_info(dataFilePath, population_names, comm=self.comm)
 
-        if rank == 0:
+        if rank == 0 and self.verbose:
             print 'attribute info: ', self.cellAttributeInfo
