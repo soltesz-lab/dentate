@@ -8,7 +8,7 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
-from dentate.connection_generator import get_volume_distances, get_soma_distances, get_soma_depths
+from dentate.connection_generator import get_volume_distances, get_soma_distances
 from dentate.DG_volume import make_volume
 from dentate.env import Env
 import dentate.utils as utils
@@ -92,14 +92,20 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=interp_basis,\
                                        penalty=interp_penalty,extrapolate=False)
         coeff_dist_u = ip_dist_u._coeff
+        del dist_u
+        gc.collect()
         logger.info('Computing V volume distance interpolants...')
         ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=interp_basis,\
                                        penalty=interp_penalty,extrapolate=False)
         coeff_dist_v = ip_dist_v._coeff
+        del dist_v
+        gc.collect()
         logger.info('Computing L volume distance interpolants...')
         ip_dist_l = RBFInterpolant(obs_dist_l,dist_l,order=1,basis=interp_basis,\
                                        penalty=interp_penalty,extrapolate=False)
         coeff_dist_l = ip_dist_l._coeff
+        del dist_l
+        gc.collect()
         logger.info('Broadcasting volume distance interpolants...')
         
     obs_dist_u = comm.bcast(obs_dist_u, root=0)
