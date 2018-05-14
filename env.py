@@ -22,28 +22,31 @@ class Env:
     """
     Network model configuration.
     """
-    def __init__(self, comm=None, configFile=None, templatePaths=None, datasetPrefix=None, resultsPath=None,
-                 resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False, tstop=0, v_init=-65,
-                 stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0, dt=0.025, ldbal=False, lptbal=False,
-                 verbose=False):
+    def __init__(self, comm=None, configFile=None, templatePaths=None, hoclibPath=None, datasetPrefix=None,
+                 resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False,
+                 tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0, dt=0.025,
+                 ldbal=False, lptbal=False, verbose=False):
         """
-        :param configFile: the name of the model configuration file
-        :param datasetPrefix: the location of all datasets
-        :param resultsPath: the directory in which to write spike raster and voltage trace files
-        :param resultsId: identifier that is used to constructs the namespaces in which to spike raster data and voltage trace data are written
-        :param nodeRankFile: the name of a file that specifies assignment of node gids to MPI ranks
-        :param IOsize: the number of MPI ranks to be used for I/O operations
-        :param v_init: initialization membrane potential
-        :param tstop: physical time to simulate
-        :param stimulus_onset:  starting time of stimulus in ms
-        :param max_walltime_hrs:  maximum wall time in hours
-        :param results_write_time: time to write out results at end of simulation
-        :param dt: simulation time step
-        :param vrecordFraction: fraction of cells to record intracellular voltage from
-        :param coredat: Save CoreNEURON data
-        :param ldbal: estimate load balance based on cell complexity
-        :param lptbal: calculate load balance with LPT algorithm
-        :param verbose: print verbose diagnostic messages while constructing the network
+        :param comm: :class:'MPI.COMM_WORLD'
+        :param configFile: str; model configuration file
+        :param templatePaths: str; colon-separated list of paths to directories containing hoc cell templates
+        :param hoclibPath: str; path to directory containing required hoc libraries
+        :param datasetPrefix: str; path to directory containing required neuroh5 data files
+        :param resultsPath: str; path to directory to export output files
+        :param resultsId: str; label for neuroh5 namespaces to write spike and voltage trace data
+        :param nodeRankFile: str; name of file specifying assignment of node gids to MPI ranks
+        :param IOsize: int; the number of MPI ranks to be used for I/O operations
+        :param vrecordFraction: float; fraction of cells to record intracellular voltage from
+        :param coredat: bool; Save CoreNEURON data
+        :param tstop: int; physical time to simulate (ms)
+        :param v_init: float; initialization membrane potential (mV)
+        :param stimulus_onset: float; starting time of stimulus (ms)
+        :param max_walltime_hrs: float; maximum wall time (hours)
+        :param results_write_time: float; time to write out results at end of simulation
+        :param dt: float; simulation time step
+        :param ldbal: bool; estimate load balance based on cell complexity
+        :param lptbal: bool; calculate load balance with LPT algorithm
+        :param verbose: bool; print verbose diagnostic messages while constructing the network
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
@@ -63,6 +66,9 @@ class Env:
         self.templatePaths = []
         if templatePaths is not None:
             self.templatePaths = string.split(templatePaths, ':')
+
+        # The location of required hoc libraries
+        self.hoclibPath = hoclibPath
 
         # The location of all datasets
         self.datasetPrefix = datasetPrefix

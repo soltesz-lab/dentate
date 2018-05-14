@@ -246,7 +246,10 @@ def connectcells(env):
             has_weights = False
             cell_weights_dict = None
         del cell_attributes_dict
-
+        """
+        TODO: correct_cell_for_spines_cm needs to be called once per cell before any shared synaptic point processes are
+        inserted, in case nseg changes.
+        """
         for presyn_name in presyn_names:
 
             edge_count = 0
@@ -604,20 +607,19 @@ def init(env):
     h('setuptime = 0')
     h('results_write_time = 0')
     h.nclist = h.List()
-    datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
-    h.datasetPath = datasetPath
+    h.datasetPath = env.datasetPath
     #  new ParallelContext object
     h.pc   = h.ParallelContext()
     env.pc = h.pc
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     # polymorphic value template
-    h.load_file("./templates/Value.hoc")
+    h.load_file(env.hoclibPath + '/templates/Value.hoc')
     # randomstream template
-    h.load_file("./templates/ranstream.hoc")
+    h.load_file(env.hoclibPath + '/templates/ranstream.hoc')
     # stimulus cell template
-    h.load_file("./templates/StimCell.hoc")
-    h.xopen("./lib.hoc")
+    h.load_file(env.hoclibPath + '/templates/StimCell.hoc')
+    h.xopen(env.hoclibPath + '/lib.hoc')
     h.dt = env.dt
     h.tstop = env.tstop
     if env.optldbal or env.optlptbal:
@@ -740,14 +742,16 @@ def run(env):
 
 @click.command()
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-paths", type=str)
+@click.option("--template-paths", type=str, default='templates')
+@click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              default='.')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-id", type=str, required=False, default='')
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=1)
-@click.option("--coredat", is_flag=True)
 @click.option("--vrecord-fraction", type=float, default=0.001)
+@click.option("--coredat", is_flag=True)
 @click.option("--tstop", type=int, default=1)
 @click.option("--v-init", type=float, default=-75.0)
 @click.option("--stimulus-onset", type=float, default=1.0)
@@ -757,41 +761,44 @@ def run(env):
 @click.option("--ldbal", is_flag=True)
 @click.option("--lptbal", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
-def main(config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size, coredat,
-         vrecord_fraction, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt, ldbal, lptbal,
-         verbose):
+@click.option('--dry-run', is_flag=True)
+def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id, node_rank_file, io_size,
+         vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt, ldbal,
+         lptbal, verbose, dry_run):
     """
-    :param config_file:
-    :param template_paths:
-    :param dataset_prefix:
-    :param results_path:
-    :param results_id:
-    :param node_rank_file:
-    :param io_size:
-    :param coredat:
-    :param vrecord_fraction:
-    :param tstop:
-    :param v_init:
-    :param stimulus_onset:
-    :param max_walltime_hours:
-    :param results_write_time:
-    :param dt:
-    :param ldbal:
-    :param lptbal:
-    :param verbose:
+    :param config_file: str; model configuration file
+    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+    :param hoc_lib_path: str; path to directory containing required hoc libraries
+    :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param results_path: str; path to directory to export output files
+    :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
+    :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
+    :param io_size: int; the number of MPI ranks to be used for I/O operations
+    :param vrecord_fraction: float; fraction of cells to record intracellular voltage from
+    :param coredat: bool; Save CoreNEURON data
+    :param tstop: int; physical time to simulate (ms)
+    :param v_init: float; initialization membrane potential (mV)
+    :param stimulus_onset: float; starting time of stimulus (ms)
+    :param max_walltime_hours: float; maximum wall time (hours)
+    :param results_write_time: float; time to write out results at end of simulation
+    :param dt: float; simulation time step
+    :param ldbal: bool; estimate load balance based on cell complexity
+    :param lptbal: bool; calculate load balance with LPT algorithm
+    :param verbose: bool; print verbose diagnostic messages while constructing the network
+    :param dry_run: bool; whether to actually execute simulation after building network
     """
     if verbose:
         logger.setLevel(logging.INFO)
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
 
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, dataset_prefix, results_path, results_id, node_rank_file, io_size,
-              vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt,
-              ldbal, lptbal, verbose)
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id,
+              node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
+              results_write_time, dt, ldbal, lptbal, verbose)
 
     init(env)
-    run(env)
+    if not dry_run:
+        run(env)
 
 
 if __name__ == '__main__':
