@@ -20,12 +20,12 @@ export LD_LIBRARY_PATH=$PI_HOME/hdf5-1.10.2/lib:$LD_LIBRARY_PATH
 
 set -x
 
-##              -i AAC -i BC  
+##              -i AAC -i BC
 
 mpirun -np 32 python ./scripts/measure_distances.py \
               --config=./config/Full_Scale_Control.yaml \
               --coords-namespace=Coordinates \
-              -i MC -i HC -i HCC -i NGFC -i MOPP -i IS -i LPP -i MPP \
+              -i MOPP -i LPP -i MPP -i HC -i HCC -i MC -i NGFC -i IS \
               --coords-path=$SCRATCH/dentate/Full_Scale_Control//DG_coords_20180507.h5 \
               --rotate=-35 \
               --io-size=2 -v

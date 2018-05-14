@@ -202,7 +202,7 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
 
 
         
-def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_extents, allgather=False, verbose=False):
+def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, populations, population_extents, allgather=False, verbose=False):
     """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -242,7 +242,8 @@ def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_ext
         logger.setLevel(logging.INFO)
 
     soma_distances = {}
-    for pop, coords_dict in soma_coords.iteritems():
+    for pop in populations:
+        coords_dict = soma_coords[pop]
         if rank == 0:
             logger.info('Computing soma distances for population %s...' % pop)
         count = 0

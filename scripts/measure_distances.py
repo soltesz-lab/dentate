@@ -78,7 +78,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     obs_dist_l = None
     coeff_dist_l = None
 
-    interp_penalty = 0.15
+    interp_penalty = 0.16
     interp_basis = 'imq'
     
     if rank == 0:
@@ -122,11 +122,13 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis=interp_basis,\
                                    penalty=interp_penalty,extrapolate=False)
 
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
-                                        soma_coords, population_extents, allgather=False, verbose=verbose)
     
     output_path = coords_path
-    for population in soma_distances.keys():
+    for population in populations:
+
+        soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
+                                            [population], soma_coords, population_extents, \
+                                            allgather=False, verbose=verbose)
 
         if rank == 0:
             logger.info('Writing distances for population %s...' % population)
