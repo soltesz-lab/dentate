@@ -302,7 +302,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     
 
 def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
-                       metric='dendrite_length', fontSize=14, showFig = True, saveFig = False, verbose = False):
+                       metric='dendrite_length', metric_index=0, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
 
@@ -320,7 +320,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
         
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
     
-    tree_metrics = { k: v[metric][0] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
+    tree_metrics = { k: v[metric][metric_index] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
         
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -333,6 +333,9 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     
     sorted_keys = sorted(tree_metrics.keys())
     tree_metrics_array = np.array([tree_metrics[k] for k in sorted_keys])
+    tree_metric_stats = (np.min(tree_metrics_array), np.max(tree_metrics_array), np.mean(tree_metrics_array))
+    print ('min: %f max: %f mean: %f' % (tree_metric_stats))
+    
     distance_U_array = np.array([distance_U[k] for k in sorted_keys])
     distance_V_array = np.array([distance_V[k] for k in sorted_keys])
 
