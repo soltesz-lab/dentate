@@ -80,6 +80,12 @@ def mknetcon(pc, nclist, srcgid, dstgid, syn, weight, delay):
     nc.delay = delay
     nclist.append(nc)
 
+#New version of the function , used with dentate.cells
+def mk_netcon(pc, srcgid, dstgid, syn, weight, delay):
+    nc = pc.gid_connect(srcgid, syn)
+    nc.weight[0] = weight
+    nc.delay = delay
+    return nc
 
 ## A variant of ParallelNetManager.nc_append that takes in a
 ## synaptic point process as an argument, as opposed to the index of a
@@ -92,6 +98,13 @@ def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
         cell = pc.gid2cell(dstgid)
 	mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
 
+#New version of the function , used with dentate.cells
+def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
+    assert (pc.gid_exists(dstgid))
+    if (pc.gid_exists(dstgid)):
+        cell = pc.gid2cell(dstgid)
+    nc = mk_netcon(pc, srcgid, dstgid, syn, weight / 1000.0, delay)
+    return nc
 
 
 ## A variant of ParallelNetManager.nc_append that 1) takes in a
@@ -105,14 +118,21 @@ def nc_appendsyn_wgtvector(pc, nclist, srcgid, dstgid, syn, weights, delay):
     widx = int(dstgid % weights.size())
     mknetcon(pc, nclist, srcgid, dstgid, syn, weights.x[widx]/1000.0, delay)
 
-
+#New version of the function , used with dentate.cells
+def mk_nc_syn_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
+    assert (pc.gid_exists(dstgid))
+    cell = pc.gid2cell(dstgid)
+    widx = int(dstgid % weights.size())
+    nc = mk_netcon(pc, srcgid, dstgid, syn, weights.x[widx] / 1000.0, delay)
+    return nc
 
 ## Create gap junctions
-def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
+def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w, verbose):
     
     cell = pc.gid2cell(gid)
-    
-    ##printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
+
+    if verbose:
+        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
     
     sec = cell.sections[secidx]
     seg = sec(0.5)

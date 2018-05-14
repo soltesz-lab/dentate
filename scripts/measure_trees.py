@@ -1,9 +1,10 @@
-import os
+import sys, os, time
 import itertools
+from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
 from neuron import h
-from dentate.utils import *
+from dentate.utils import list_find
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 import h5py
 import dentate
@@ -91,15 +92,37 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
                 logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
 
-                dendrite_area = 0.
-                dendrite_length = 0.
-                for sec in itertools.chain(cell.apical, cell.basal):
-                    dendrite_length = dendrite_length + sec.L
-                    for seg in sec.allseg():
-                        dendrite_area = dendrite_area + h.area(seg.x)
+                apicalidx = set(cell.apicalidx)
+                basalidx  = set(cell.basalidx)
 
-                measures_dict[gid] = { 'dendrite_area': np.asarray([dendrite_area], dtype=np.float32), \
-                                       'dendrite_length': np.asarray([dendrite_length], dtype=np.float32) }
+                GCLDidxs = set(cell.GCLDidxs)
+                PDidxs = set(cell.PDidxs)
+                MDidxs = set(cell.MDidxs)
+                DDidxs = set(cell.DDidxs)
+                
+                dendrite_area_dict = { k+1: 0.0 for k in xrange(0, 4) }
+                dendrite_length_dict = { k+1: 0.0 for k in xrange(0, 4) }
+                for (i, sec) in enumerate(cell.sections):
+                    if (i in apicalidx) or (i in basalidx):
+                        l = None
+                        if i in GCLDidxs:
+                            l = 1
+                        elif i in PDidxs:
+                            l = 2
+                        elif i in MDidxs:
+                            l = 3
+                        elif i in DDidxs:
+                            l = 4
+                        else:
+                            raise Exception('Unknown layer index %i' % i)
+                        dendrite_length_dict[l] = dendrite_length_dict[l] + sec.L
+                        dendrite_sec_area = 0.
+                        for seg in sec.allseg():
+                            dendrite_sec_area = dendrite_sec_area + h.area(seg.x)
+                        dendrite_area_dict[l] += dendrite_sec_area
+
+                measures_dict[gid] = { 'dendrite_area': np.asarray([ dendrite_area_dict[k] for k in sorted(dendrite_area_dict.keys()) ], dtype=np.float32), \
+                                       'dendrite_length': np.asarray([ dendrite_length_dict[k] for k in sorted(dendrite_length_dict.keys()) ], dtype=np.float32) }
                     
                 del cell
                 count += 1

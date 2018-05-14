@@ -40,8 +40,10 @@ class Env:
         self.inputConfig = input_config
 
     def load_connection_generator(self):
-        
+        populations_dict = self.modelConfig['Definitions']['Populations']
+        self.pop_dict = populations_dict
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
+        self.syntypes_dict = syntypes_dict
         swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
         layers_dict      = self.modelConfig['Definitions']['Layers']
         synapse_kinetics = self.modelConfig['Connection Generator']['Synapse Kinetics']
@@ -50,7 +52,12 @@ class Env:
         synapse_layers   = self.modelConfig['Connection Generator']['Synapse Layers']
         synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
         connection_properties = self.modelConfig['Connection Generator']['Connection Properties']
-
+        if 'Synapse Mechanisms' in self.modelConfig['Connection Generator']:
+            self.synapse_mech_name_dict = self.modelConfig['Connection Generator']['Synapse Mechanisms']
+            if 'Synapse Mechanism Parameters' in self.modelConfig['Connection Generator']:
+                self.synapse_mech_param_dict = self.modelConfig['Connection Generator']['Synapse Mechanism Parameters']
+                # TODO: refer to this dict when setting attributes of synapses or netcons
+                # TODO: make sure that Connections.yaml is updated to reflect param_names for new point processes
         connection_generator_dict = {}
         
         for (key_postsyn, val_syntypes) in synapse_types.iteritems():

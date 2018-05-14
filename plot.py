@@ -1,5 +1,5 @@
 
-import itertools
+import itertools, math
 from collections import defaultdict
 import numpy as np
 from scipy import signal, interpolate
@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
 import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, read_trees
+from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees
 import dentate
 from dentate import spikedata, statedata, stimulus
 from dentate.env import Env
@@ -116,6 +116,25 @@ def make_geometric_graph(x, y, z, edges):
     return g
 
 
+def update_bins(bins, binsize, x):
+    i = math.floor(x / binsize)
+    if i in bins:
+        bins[i] += 1
+    else:
+        bins[i] = 1
+
+        
+def finalize_bins(bins, binsize):
+    imin = int(min(bins.keys()))
+    imax = int(max(bins.keys()))
+    a = [0] * (imax - imin + 1)
+    b = [binsize * k for k in range(imin, imax + 1)]
+    for i in range(imin, imax + 1):
+        if i in bins:
+            a[i - imin] = bins[i]
+    return np.asarray(a), np.asarray(b)
+
+
 def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
                         metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
@@ -159,8 +178,15 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     distance_U = np.asarray([ soma_distances[v][0] for v in range(0,len(degrees)) ])
     distance_V = np.asarray([ soma_distances[v][1] for v in range(0,len(degrees)) ])
 
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
-     # size of each bin in x and y dimensions
+    if normed:
+        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
+        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+        H = np.zeros(H1.shape)
+        nz = np.where(H2 > 0.0)
+        H[nz] = np.divide(H1[nz], H2[nz])
+        H[nz] = np.divide(H[nz], np.max(H[nz]))
+    else:
+        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees)
         
     if verbose:
         print 'Plotting in-degree distribution...'
@@ -194,8 +220,89 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     return ax
 
 
+def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source,
+                        bin_size=20.0, fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot vertex distribution with respect to septo-temporal distance
+
+    :param connectivity_path:
+    :param coords_path:
+    :param distances_namespace: 
+    :param destination: 
+    :param source: 
+
+    """
+    
+    (population_ranges, _) = read_population_ranges(coords_path)
+
+    destination_start = population_ranges[destination][0]
+    destination_count = population_ranges[destination][1]
+
+    source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
+    destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+
+    source_soma_distance_U = {}
+    source_soma_distance_V = {}
+    destination_soma_distance_U = {}
+    destination_soma_distance_V = {}
+    for k,v in source_soma_distances:
+        source_soma_distance_U[k] = v['U Distance'][0]
+        source_soma_distance_V[k] = v['V Distance'][0]
+    for k,v in destination_soma_distances:
+        destination_soma_distance_U[k] = v['U Distance'][0]
+        destination_soma_distance_V[k] = v['V Distance'][0]
+
+    del(source_soma_distances)
+    del(destination_soma_distances)
+                
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
+    dist_bins = {}
+    dist_u_bins = {}
+    count = 0
+    min_dist = float('inf')
+    max_dist = 0.0
+    max_dist_u = 0.0
+    for (destination_gid,rest) in g:
+        if destination_gid is not None:
+            (source_indexes, attr_dict) = rest
+            for source_gid in source_indexes:
+                dist_u = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) 
+                dist = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) + \
+                       abs(destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid])
+                if verbose:
+                    print '%i: dist_u = %f' % (destination_gid, destination_soma_distance_U[destination_gid])
+                    print '%i: dist_u = %f' % (source_gid, source_soma_distance_U[source_gid])
+                    print '%i: %i -> %i: dist = %f; dist_u = %f' % (count, source_gid, destination_gid, dist, dist_u)
+                min_dist = min(min_dist, dist)
+                max_dist = max(max_dist, dist)
+                max_dist_u = max(max_dist_u, dist_u)
+                update_bins(dist_bins, bin_size, dist)
+                update_bins(dist_u_bins, bin_size, dist_u)
+            count = count + 1
+    dist_histoCount, dist_bin_edges = finalize_bins(dist_bins, bin_size)
+    dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins, bin_size)
+    if verbose:
+        print 'min dist = %f; max dist = %f; max dist u = %f' % (min_dist, max_dist, max_dist_u)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.bar(dist_bin_edges, dist_histoCount, width=bin_size)
+    ax2.bar(dist_u_bin_edges, dist_u_histoCount, width=bin_size)
+
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = '%s to %s.png' % (source, destination)
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+
+    
+
 def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
-                       metric='dendrite_length', fontSize=14, showFig = True, saveFig = False, verbose = False):
+                       metric='dendrite_length', metric_index=0, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
 
@@ -213,7 +320,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
         
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
     
-    tree_metrics = { k: v[metric][0] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
+    tree_metrics = { k: v[metric][metric_index] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
         
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -226,6 +333,9 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     
     sorted_keys = sorted(tree_metrics.keys())
     tree_metrics_array = np.array([tree_metrics[k] for k in sorted_keys])
+    tree_metric_stats = (np.min(tree_metrics_array), np.max(tree_metrics_array), np.mean(tree_metrics_array))
+    print ('min: %f max: %f mean: %f' % (tree_metric_stats))
+    
     distance_U_array = np.array([distance_U[k] for k in sorted_keys])
     distance_V_array = np.array([distance_V[k] for k in sorted_keys])
 
@@ -1985,12 +2095,12 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     for iplot, population in enumerate(include):
         rate_lst = []
         if verbose:
-            print 'Reading vector stimulus data for population %s...' % population 
+            print 'Reading vector stimulus data from namespace %s for population %s...' % (namespace_id, population )
         for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, namespace_id, population):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
 
-        M = max(M, len(rate))
+        M = max(M, len(rate_lst))
         N = len(rate_lst)
         rate_matrix = np.matrix(rate_lst)
         del(rate_lst)

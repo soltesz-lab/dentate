@@ -121,9 +121,6 @@ class RBFVolume(object):
         u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
         uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
 
-        print 'uvl_obs: ',uvl_obs.shape
-        print 'xyz: ',xyz.shape
-        
         xvol = RBFInterpolant(uvl_obs,xyz[:,0],**kwargs)
         yvol = RBFInterpolant(uvl_obs,xyz[:,1],**kwargs)
         zvol = RBFInterpolant(uvl_obs,xyz[:,2],**kwargs)
@@ -321,8 +318,6 @@ class RBFVolume(object):
             paxes = [ axes[i] for i in aidx ]
             prod = cartesian_product(paxes)
             for ip, p in enumerate(prod):
-                if verbose:
-                    print 'RBF point distance: ', p
                 ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
                 pts  = self.ev(*ecoords).reshape(3, -1).T                
                 a = pts[1:,:]
