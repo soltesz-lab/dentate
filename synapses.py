@@ -342,7 +342,7 @@ def syn_in_seg(syn_name, seg, syns_dict):
 
 def make_syn_mech(mech_name, seg):
     """
-    :param mech_name: str (name of the point_process, specified by env.synapse_mech_names)
+    :param mech_name: str (name of the point_process, specified by Env.synapse_attributes.syn_mech_names)
     :param seg: hoc segment
     :return: hoc point process
     """
@@ -460,6 +460,8 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
     swc_type_ais   = env.SWC_Types['ais']
     swc_type_hill  = env.SWC_Types['hillock']
     
+    syn_attrs = env.synapse_attributes
+
     syn_obj_dict = {}
 
     for i in xrange(syn_ids.size):
@@ -497,9 +499,9 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
             raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
         syn_mech_dict = {}
         for (syn_name, params) in syn_kinetic_params.iteritems():
-            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), mech_names=env.synapse_mech_names,
+            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), mech_names=syn_attrs.syn_mech_names,
                               syns_dict=syns_dict)
-            config_syn(syn_name=syn_name, rules=env.synapse_param_rules, mech_names=env.synapse_mech_names, syn=syn,
+            config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names, syn=syn,
                        **params)
             cell.syns.append(syn)
             cell.syntypes.o(syn_type).append(syn)

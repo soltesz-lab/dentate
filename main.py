@@ -8,7 +8,7 @@ from datetime import datetime
 import numpy as np
 from mpi4py import MPI  # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_projection_names, scatter_read_graph, bcast_graph, scatter_read_trees, \
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, \
     scatter_read_cell_attributes, write_cell_attributes
 from dentate.env import Env
 from dentate import lpt, synapses, cells, lfp, simtime
@@ -183,23 +183,18 @@ def connectcells(env):
     :param env:
     :return:
     """
-    datasetPath = os.path.join(env.datasetPrefix, env.datasetName)
-    connectivityFilePath = os.path.join(datasetPath, env.modelConfig['Connection Data'])
-    forestFilePath = os.path.join(datasetPath, env.modelConfig['Cell Data'])
+    connectivityFilePath = env.connectivityFilePath
+    forestFilePath = env.forestFilePath
 
     if env.verbose:
         if env.pc.id() == 0:
             logger.info('*** Connectivity file path is %s' % connectivityFilePath)
 
-    prj_dict = defaultdict(list)
-    for (src, dst) in read_projection_names(connectivityFilePath, comm=env.comm):
-        prj_dict[dst].append(src)
-
     if env.verbose:
         if env.pc.id() == 0:
             logger.info('*** Reading projections: ')
 
-    for (postsyn_name, presyn_names) in prj_dict.iteritems():
+    for (postsyn_name, presyn_names) in env.projection_dict.iteritems():
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if synapse_config.has_key('spines'):
@@ -424,7 +419,7 @@ def mkcells(env):
         templateName = env.celltypes[popName]['template']
         h.find_template(env.pc, h.templatePaths, templateName)
 
-    dataFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    dataFilePath = env.dataFilePath
 
     for popName in popNames:
         if env.verbose:
@@ -631,7 +626,7 @@ def init(env):
             lb.ExperimentalMechComplex()
 
     if env.pc.id() == 0:
-      mkout(env, env.resultsFilePath)
+        mkout(env, env.resultsFilePath)
     if env.pc.id() == 0:
         logger.info("*** Creating cells...")
     h.startsw()
