@@ -127,11 +127,12 @@ def mk_nc_syn_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
     return nc
 
 ## Create gap junctions
-def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
+def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w, verbose):
     
     cell = pc.gid2cell(gid)
-    
-    ##printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
+
+    if verbose:
+        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
     
     sec = cell.sections[secidx]
     seg = sec(0.5)

@@ -127,7 +127,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     for population in populations:
 
         soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
-                                            [population], soma_coords, population_extents, \
+                                            soma_coords, population_extents, [population], \
                                             allgather=False, verbose=verbose)
 
         if rank == 0:

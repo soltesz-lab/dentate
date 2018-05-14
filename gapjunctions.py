@@ -30,3 +30,4 @@ def coupling_strength(distance, cc):
 ## Connections based on weighted distance
 ## selected = datasample(transpose(1:length(distance)),round(gj_prob(pre_type,post_type)*length(distance)),'Weights',prob,'Replace',false);
 
+

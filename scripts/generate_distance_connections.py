@@ -138,12 +138,10 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis=interp_basis,\
                                    penalty=interp_penalty,extrapolate=False)
 
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
-                                        soma_coords, population_extents, allgather=False, verbose=verbose)
-
     if rank == 0:
         logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, soma_coords, allgather=True)
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, soma_coords, population_extents, \
+                                        allgather=True, verbose=verbose)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
