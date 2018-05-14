@@ -400,8 +400,6 @@ def mkcells(env):
     :param env:
     :return:
     """
-    h('objref templatePaths, templatePathValue')
-
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -409,27 +407,17 @@ def mkcells(env):
     ranstream_v_sample = np.random.RandomState()
     ranstream_v_sample.seed(v_sample_seed)
 
-    datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
-
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePathValue = h.Value(1,path)
-        h.templatePaths.append(h.templatePathValue)
+    datasetPath = env.datasetPath
+    dataFilePath = env.dataFilePath
     popNames = env.celltypes.keys()
     popNames.sort()
-    for popName in popNames:
-        # TODO: load the template specified by the key 'template', but from the file specified by the key 'templateFile'
-        templateName = env.celltypes[popName]['template']
-        h.find_template(env.pc, h.templatePaths, templateName)
-
-    dataFilePath = env.dataFilePath
 
     for popName in popNames:
         if env.verbose:
             if env.pc.id() == 0:
                 logger.info("*** Creating population %s" % popName)
-        templateName = env.celltypes[popName]['template']
-        templateClass = eval('h.%s' % templateName)
+        env.load_cell_template(popName)
+        templateClass = getattr(h, env.celltypes[popName]['template'])
 
         if env.celltypes[popName].has_key('synapses'):
             synapses = env.celltypes[popName]['synapses']
@@ -551,9 +539,8 @@ def mkstim(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    datasetPath  = os.path.join(env.datasetPrefix, env.datasetName)
-
-    inputFilePath = os.path.join(datasetPath,env.modelConfig['Cell Data'])
+    datasetPath = env.datasetPath
+    inputFilePath = env.dataFilePath
 
     popNames = env.celltypes.keys()
     popNames.sort()
@@ -632,6 +619,13 @@ def init(env):
     if env.pc.id() == 0:
         logger.info("*** Creating cells...")
     h.startsw()
+
+    h('objref templatePaths, templatePathValue')
+    h.templatePaths = h.List()
+    for path in env.templatePaths:
+        h.templatePathValue = h.Value(1, path)
+        h.templatePaths.append(h.templatePathValue)
+
     env.pc.barrier()
     mkcells(env)
     env.mkcellstime = h.stopsw()

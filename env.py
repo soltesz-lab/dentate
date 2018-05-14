@@ -301,3 +301,30 @@ class Env:
 
         if rank == 0 and self.verbose:
             print 'attribute info: ', self.cellAttributeInfo
+
+    def load_cell_template(self, popName):
+        """
+
+        :param popName: str
+        """
+        rank = self.comm.Get_rank()
+        if not self.celltypes.has_key(popName):
+            raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
+        templateName = self.celltypes[popName]['template']
+        if not hasattr(h, templateName):
+            if 'templateFile' in self.celltypes[popName]:
+                templateFile = self.celltypes[popName]['templateFile']
+                templateFilePath = None
+                for templatePath in self.templatePaths:
+                    if os.path.isfile(templatePath + '/' + templateFile):
+                        templateFilePath = templatePath + '/' + templateFile
+                        break
+                if templateFilePath is None:
+                    raise IOError('Env.load_cell_templates: population: %s; templateFile not found: %s' %
+                                  (popName, templateFile))
+                h.load_file(templateFilePath)
+                if rank == 0 and self.verbose:
+                    print 'Env.load_cell_templates: population: %s; templateFile loaded: %s' % \
+                          (popName, templateFilePath)
+            else:
+                h.find_template(self.pc, h.templatePaths, templateName)

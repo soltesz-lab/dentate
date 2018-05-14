@@ -15,6 +15,7 @@ Connection Generator: !include Full_Scale_Connections.yaml
 Cell Types: 
   GC:
     template: DGC
+    templateFile: DGC_Template_minimal.hoc
     synapses:
       spines: False  # This means: correct cm and g_pas to account for implicit spine membrane
       weights: False
