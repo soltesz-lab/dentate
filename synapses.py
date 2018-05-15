@@ -427,7 +427,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
 
 
 def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn_kinetic_params, env,
-           add_synapse=add_shared_synapse, spines=False):
+           add_synapse=add_shared_synapse):
     """
     20180510: Aaron modified add_shared_synapse to allow at most synaptic mechanism OF EACH TYPE per segment.
     :param gid:
@@ -440,7 +440,6 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
     :param syn_kinetic_params:
     :param env:
     :param add_synapse:
-    :param spines:
     :return: nested dict of hoc point processes
     """
     syns_dict_dend = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
@@ -479,14 +478,14 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
         sec = py_sections[syn_section]
         if swc_type == swc_type_apical:
             syns_dict = syns_dict_dend
-            if syn_type == syn_type_excitatory:
-                if spines and h.ismembrane('spines', sec=sec):
-                    sec(syn_loc).count_spines += 1
+            # if syn_type == syn_type_excitatory:
+            #    if spines and h.ismembrane('spines', sec=sec):
+            #        sec(syn_loc).count_spines += 1
         elif swc_type == swc_type_basal:
             syns_dict = syns_dict_dend
-            if syn_type == syn_type_excitatory:
-                if spines and h.ismembrane('spines', sec=sec):
-                    sec(syn_loc).count_spines += 1
+            # if syn_type == syn_type_excitatory:
+            #    if spines and h.ismembrane('spines', sec=sec):
+            #        sec(syn_loc).count_spines += 1
         elif swc_type == swc_type_axon:
             syns_dict = syns_dict_axon
         elif swc_type == swc_type_ais:
@@ -507,9 +506,6 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
             cell.syntypes.o(syn_type).append(syn)
             syn_mech_dict[syn_name] = syn
         syn_obj_dict[syn_id] = syn_mech_dict
-
-    if spines:
-        cell.correct_for_spines()
 
     if gid == 0 and env.verbose:
         sec = syns_dict.iterkeys().next()
