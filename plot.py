@@ -1,5 +1,5 @@
 
-import itertools, math
+import itertools, math, numbers
 from collections import defaultdict
 import numpy as np
 from scipy import signal, interpolate
@@ -11,7 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
 import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees
+from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
 import dentate
 from dentate import spikedata, statedata, stimulus
 from dentate.env import Env
@@ -302,7 +302,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     
 
 def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
-                       metric='dendrite_length', metric_index=0, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                       metric='dendrite_length', metric_index=0, percentile=None, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
 
@@ -335,6 +335,15 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     tree_metrics_array = np.array([tree_metrics[k] for k in sorted_keys])
     tree_metric_stats = (np.min(tree_metrics_array), np.max(tree_metrics_array), np.mean(tree_metrics_array))
     print ('min: %f max: %f mean: %f' % (tree_metric_stats))
+
+    if percentile is not None:
+        percentile_value = np.percentile(tree_metrics_array, percentile)
+        print '%f percentile value: %f' % (percentile, percentile_value)
+        sample = np.where(tree_metrics_array >= percentile_value)
+        tree_metrics_array = tree_metrics_array[sample]
+        sorted_keys = np.asarray(sorted_keys)[sample]
+        print sorted_keys
+        
     
     distance_U_array = np.array([distance_U[k] for k in sorted_keys])
     distance_V_array = np.array([distance_V[k] for k in sorted_keys])
@@ -345,7 +354,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     y_max = np.max(distance_V_array)
 
     (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, \
-                                         bins=[dx, dy], weights=tree_metrics_array, normed=True)
+                                         bins=[dx, dy], weights=tree_metrics_array)
 
 
     ax.axis([x_min, x_max, y_min, y_max])
@@ -506,7 +515,7 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
     
     env = Env(configFile=config)
 
-    rotate = env.geometry['Rotation']
+    rotate = env.geometry['Parametric Surface']['Rotation']
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
 
@@ -575,7 +584,7 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
     
     env = Env(configFile=config)
 
-    rotate = env.geometry['Rotation']
+    rotate = env.geometry['Parametric Surface']['Rotation']
 
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
@@ -594,8 +603,75 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
                 pop_min_extent = np.asarray(min_extent)
             else:
                 pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
-    
 
+    (population_ranges, _) = read_population_ranges(forest_path)
+
+    population_start = population_ranges[population][0]
+    population_count = population_ranges[population][1]
+
+    import networkx as nx
+    from mayavi import mlab
+    
+    if verbose:
+        print('Plotting trees in volume...')
+
+    #(trees, _) = NeuroH5TreeGen(forest_path, population)
+    if isinstance(sample, numbers.Real):
+        s = np.random.random_sample((population_count,))
+        selection = np.where(s <= sample) + population_start
+    else:
+        selection = list(sample)
+
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection)
+    for (gid,tree_dict) in tree_iter:
+
+        if verbose:
+            print('%i' % gid)
+        xcoords = tree_dict['x']
+        ycoords = tree_dict['y']
+        zcoords = tree_dict['z']
+        swc_type = tree_dict['swc_type']
+        layer    = tree_dict['layer']
+        secnodes = tree_dict['section_topology']['nodes']
+        src      = tree_dict['section_topology']['src']
+        dst      = tree_dict['section_topology']['dst']
+
+        dend_idxs = np.where(swc_type == 4)[0]
+        dend_idx_set = set(dend_idxs.flat)
+
+        edges = []
+        for sec, nodes in secnodes.iteritems():
+            for i in xrange(1, len(nodes)):
+                srcnode = nodes[i-1]
+                dstnode = nodes[i]
+                if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                    edges.append((srcnode, dstnode))
+        for (s,d) in itertools.izip(src,dst):
+            srcnode = secnodes[s][-1]
+            dstnode = secnodes[d][0]
+            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                edges.append((srcnode, dstnode))
+
+                
+        x = xcoords[dend_idxs].reshape(-1,)
+        y = ycoords[dend_idxs].reshape(-1,)
+        z = zcoords[dend_idxs].reshape(-1,)
+
+        # Make a NetworkX graph out of our point and edge data
+        g = make_geometric_graph(x, y, z, edges)
+
+        # Compute minimum spanning tree using networkx
+        # nx.mst returns an edge generator
+        edges = nx.minimum_spanning_tree(g).edges(data=True)
+        start_idx, end_idx, _ = np.array(list(edges)).T
+        start_idx = start_idx.astype(np.int)
+        end_idx   = end_idx.astype(np.int)
+        
+        # Plot this with Mayavi
+        plot_graph(x, y, z, start_idx, end_idx, edge_scalars=z[start_idx], \
+                       opacity=0.8, colormap='summer', line_width=width)
+
+            
     if verbose:
         print('Creating volume...')
 
@@ -605,70 +681,7 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
         subvol = DG_volume.make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
     else:
         vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
-    
 
-    import networkx as nx
-    from mayavi import mlab
-    
-    if verbose:
-        print('Plotting trees in volume...')
-
-    (trees, _) = read_trees(forest_path, population)
-    print trees
-    for (_,tree_dict) in trees:
-
-        s = np.random.random_sample()
-        if s <= sample:
-            xcoords = tree_dict['x']
-            ycoords = tree_dict['y']
-            zcoords = tree_dict['z']
-            swc_type = tree_dict['swc_type']
-
-            secnodes = tree_dict['section_topology']['nodes']
-            src      = tree_dict['section_topology']['src']
-            dst      = tree_dict['section_topology']['dst']
-
-            dend_idxs = np.where(swc_type == 4)[0]
-            dend_idx_set = set(dend_idxs.flat)
-
-            edges = []
-            for sec, nodes in secnodes.iteritems():
-                for i in xrange(1, len(nodes)):
-                    srcnode = nodes[i-1]
-                    dstnode = nodes[i]
-                    if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                        edges.append((srcnode, dstnode))
-            for (s,d) in itertools.izip(src,dst):
-                srcnode = secnodes[s][-1]
-                dstnode = secnodes[d][0]
-                if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                    edges.append((srcnode, dstnode))
-
-
-            x = xcoords[dend_idxs].reshape(-1,)
-            y = ycoords[dend_idxs].reshape(-1,)
-            z = zcoords[dend_idxs].reshape(-1,)
-
-            # Make a NetworkX graph out of our point and edge data
-            g = make_geometric_graph(x, y, z, edges)
-
-            # Compute minimum spanning tree using networkx
-            # nx.mst returns an edge generator
-            edges = nx.minimum_spanning_tree(g).edges(data=True)
-            start_idx, end_idx, _ = np.array(list(edges)).T
-            start_idx = start_idx.astype(np.int)
-            end_idx   = end_idx.astype(np.int)
-
-            # Plot this with Mayavi
-            plot_graph(x, y, z, start_idx, end_idx,
-                        edge_scalars=z[start_idx],
-                        opacity=0.8,
-                        colormap='summer',
-                        line_width=width)
-        else:
-            g = None
-            edges = []
-            
     if verbose:
         print('Plotting volume...')
     if subvol:

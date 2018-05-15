@@ -98,35 +98,27 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
             if gid is not None:
                 logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
+                secnodes_dict = morph_dict['section_topology']['nodes']
 
                 apicalidx = set(cell.apicalidx)
                 basalidx  = set(cell.basalidx)
-
-                GCLDidxs = set(cell.GCLDidxs)
-                PDidxs = set(cell.PDidxs)
-                MDidxs = set(cell.MDidxs)
-                DDidxs = set(cell.DDidxs)
                 
                 dendrite_area_dict = { k+1: 0.0 for k in xrange(0, 4) }
                 dendrite_length_dict = { k+1: 0.0 for k in xrange(0, 4) }
                 for (i, sec) in enumerate(cell.sections):
                     if (i in apicalidx) or (i in basalidx):
-                        l = None
-                        if i in GCLDidxs:
-                            l = 1
-                        elif i in PDidxs:
-                            l = 2
-                        elif i in MDidxs:
-                            l = 3
-                        elif i in DDidxs:
-                            l = 4
-                        else:
-                            raise Exception('Unknown layer index %i' % i)
-                        dendrite_length_dict[l] = dendrite_length_dict[l] + sec.L
-                        dendrite_sec_area = 0.
+                        secnodes = secnodes_dict[i]
+                        prev_layer = None
                         for seg in sec.allseg():
-                            dendrite_sec_area = dendrite_sec_area + h.area(seg.x)
-                        dendrite_area_dict[l] += dendrite_sec_area
+                            L     = seg.sec.L
+                            nseg  = seg.sec.nseg
+                            seg_l = L/nseg
+                            seg_area = h.area(seg.x)
+                            layer = cells.get_node_attribute('layer', morph_dict, seg.sec, secnodes, seg.x)
+                            layer = layer if layer > 0 else (prev_layer if prev_layer is not None else 1)
+                            prev_layer = layer
+                            dendrite_length_dict[layer] += seg_l
+                            dendrite_area_dict[layer] += seg_area
 
                 measures_dict[gid] = { 'dendrite_area': np.asarray([ dendrite_area_dict[k] for k in sorted(dendrite_area_dict.keys()) ], dtype=np.float32), \
                                        'dendrite_length': np.asarray([ dendrite_length_dict[k] for k in sorted(dendrite_length_dict.keys()) ], dtype=np.float32) }

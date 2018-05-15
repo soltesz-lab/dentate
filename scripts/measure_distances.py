@@ -52,7 +52,8 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
 
     if rank == 0:
         logger.info('Reading population coordinates...')
-    
+
+    rotate = env.geometry['Parametric Surface']['Rotation']
     min_l = float('inf')
     max_l = 0.0
     population_ranges = read_population_ranges(coords_path)[0]

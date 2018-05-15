@@ -91,7 +91,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
-    rotate = env.geometry['Rotation']
+    rotate = env.geometry['Parametric Surface']['Rotation']
         
     obs_dist_u = None
     coeff_dist_u = None
