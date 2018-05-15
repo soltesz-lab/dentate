@@ -25,7 +25,7 @@ class Env:
     def __init__(self, comm=None, configFile=None, templatePaths=None, hoclibPath=None, datasetPrefix=None,
                  resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False,
                  tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0, dt=0.025,
-                 ldbal=False, lptbal=False, verbose=False):
+                 ldbal=False, lptbal=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param configFile: str; model configuration file

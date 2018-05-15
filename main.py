@@ -186,6 +186,8 @@ def connectcells(env):
     connectivityFilePath = env.connectivityFilePath
     forestFilePath = env.forestFilePath
 
+    syn_attrs = env.synapse_attributes
+
     if env.verbose:
         if env.pc.id() == 0:
             logger.info('*** Connectivity file path is %s' % connectivityFilePath)
@@ -197,10 +199,10 @@ def connectcells(env):
     for (postsyn_name, presyn_names) in env.projection_dict.iteritems():
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
-        if synapse_config.has_key('spines'):
-            spines = synapse_config['spines']
+        if synapse_config.has_key('correct_for_spines'):
+            correct_for_spines = synapse_config['correct_for_spines']
         else:
-            spines = False
+            correct_for_spines = False
 
         if synapse_config.has_key('unique'):
             unique = synapse_config['unique']
@@ -246,10 +248,14 @@ def connectcells(env):
             has_weights = False
             cell_weights_dict = None
         del cell_attributes_dict
+
+        syn_attrs.load_syn_id_attrs(gid, )
+
         """
         TODO: correct_cell_for_spines_cm needs to be called once per cell before any shared synaptic point processes are
         inserted, in case nseg changes.
         """
+
         for presyn_name in presyn_names:
 
             edge_count = 0
@@ -301,8 +307,7 @@ def connectcells(env):
                 edge_syn_ps_dict = \
                     synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, cell_syn_types, cell_swc_types,
                                     cell_syn_locs, cell_syn_sections, kinetics_dict, env,
-                                    add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse,
-                                    spines=spines)
+                                    add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
                 if env.verbose:
                     if int(env.pc.id()) == 0:

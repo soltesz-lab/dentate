@@ -17,7 +17,7 @@ Cell Types:
     template: DGC
     templateFile: DGC_Template_minimal.hoc
     synapses:
-      spines: False  # This means: correct cm and g_pas to account for implicit spine membrane
+      correct_for_spines: True
       weights: False
       density:
         apical:

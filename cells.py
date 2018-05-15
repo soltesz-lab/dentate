@@ -19,7 +19,7 @@ ordered_sec_types = ['soma', 'hillock', 'ais', 'axon', 'basal', 'trunk', 'apical
 syn_category_enumerator = {'excitatory': 0, 'inhibitory': 1, 'neuromodulatory': 2}
 
 
-class HocCell(object):
+class BiophysCell(object):
     """
     A Python wrapper for neuronal cell objects specified in the NEURON language hoc.
     Extends btmorph.STree to provide an tree interface to facilitate:
@@ -51,7 +51,7 @@ class HocCell(object):
             elif self.soma:
                 self.spike_detector = connect2target(self, self.soma[0].sec)
             if self.mech_file_path is not None:
-                init_mechanisms(self, init_cable=True, from_file=True, mech_file_path=self.mech_file_path)
+                init_biophysics(self, init_cable=True, from_file=True, mech_file_path=self.mech_file_path)
 
     def init_synaptic_mechanisms(self):
         """
@@ -173,7 +173,7 @@ class HocCell(object):
 
     def _modify_synaptic_mech_param(self, sec_type, mech_name=None, param_name=None, value=None, origin=None,
                                     slope=None, tau=None, xhalf=None, min=None, max=None, min_loc=None, max_loc=None,
-                                    outside=None, syn_type=None, variance=None, replace=True, custom=None):
+                                    outside=None, syn_type=None, variance=None, replace=True, custom=None, **kwargs):
 
         """
         Attributes of synaptic point processes are stored in the synapse_mechanism_attributes dictionary of each node.
@@ -788,9 +788,9 @@ class SynapseAttributes(object):
 
 def append_section(cell, sec_type, sec_idx, sec=None):
     """
-    Places the specified hoc section within the tree structure of the Python HocCell wrapper. If sec is None, creates
+    Places the specified hoc section within the tree structure of the Python BiophysCell wrapper. If sec is None, creates
     a new hoc section.
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param sec_type: str
     :param sec: :class:'h.Section'
     :return node: :class:'SHocNode'
@@ -827,8 +827,8 @@ def connect_nodes(parent, child, parent_loc=1., child_loc=0., connect_hoc_sectio
 def append_child_sections(cell, parent_node, child_sec_list, sec_type_map):
     """
     Traverses the subtree of a parent section, and places each child hoc section within the tree structure of the
-    Python HocCell wrapper
-    :param cell: :class:'HocCell'
+    Python BiophysCell wrapper
+    :param cell: :class:'BiophysCell'
     :param parent_node: :class:'SHocNode'
     :param child_sec_list: list of :class:'h.Section'
     :param sec_type_map: dict {str: str}
@@ -961,7 +961,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
     dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
     initial model specification, or during parameter optimization. For modifications to persist across simulations,
-    the mechanism dictionary must be saved to a file using self.export_mech_dict() and re-imported during HocCell
+    the mechanism dictionary must be saved to a file using self.export_mech_dict() and re-imported during BiophysCell
     initialization.
     :param sec_type: str
     :param mech_name: str
@@ -1087,7 +1087,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
 def import_morphology_from_hoc(cell, hoc_cell):
     """
     Append sections from an existing instance of a NEURON cell template to a Python cell wrapper.
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
     """
     sec_types = ['soma', 'axon', 'basal', 'apical', 'trunk', 'tuft', 'ais', 'hillock']
@@ -1120,7 +1120,7 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     """
     Converts analog voltage in the specified section to digital spike output. Initializes and returns an h.NetCon
     object with voltage as a reference parameter connected to the specified target.
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param sec: :class:'h.Section'
     :param loc: float
     :param param: str
@@ -1154,8 +1154,8 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
 def import_mech_dict_from_yaml(cell, mech_file_path=None):
     """
     Imports from a .yaml file a dictionary specifying parameters of NEURON cable properties, density mechanisms, and
-    point processes for each type of section in a HocCell.
-    :param cell: :class:'HocCell'
+    point processes for each type of section in a BiophysCell.
+    :param cell: :class:'BiophysCell'
     :param mech_file_path: str (path)
     """
     if mech_file_path is None:
@@ -1170,15 +1170,15 @@ def import_mech_dict_from_yaml(cell, mech_file_path=None):
     cell.mech_dict = read_from_yaml(cell.mech_file_path)
 
 
-def init_mechanisms(cell, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False, correct_g_pas=False,
+def init_biophysics(cell, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False, correct_g_pas=False,
                     env=None):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
-    each type of section in a HocCell. Traverses through the tree of SHocNode nodes following order of inheritance and
+    each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance and
     properly sets membrane mechanism parameters, including gradients and inheritance of parameters from nodes along the
     path from root. It is not necessary to reset cable parameters again after specification of morphology, but it can be
     done later with the reset_cable flag.
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param mech_file_path: str (path)
     :param reset_cable: bool
     :param from_file: bool
@@ -1192,14 +1192,14 @@ def init_mechanisms(cell, mech_file_path=None, reset_cable=True, from_file=False
         if os.path.isfile(mech_file_path):
             import_mech_dict_from_yaml(cell, mech_file_path)
         else:
-            raise Exception('init_mechanisms: mech_file_path is not a valid path.')
+            raise Exception('init_biophysics: mech_file_path is not a valid path.')
     for sec_type in ordered_sec_types:
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
             if cell.nodes[sec_type]:
                 update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
     if correct_cm or correct_g_pas:
         if env is None:
-            raise Exception('init_mechanisms: missing Env object; required to parse network configuration and count '
+            raise Exception('init_biophysics: missing Env object; required to parse network configuration and count '
                             'synapses.')
     if reset_cable and correct_cm:
         correct_cell_for_spines_cm(cell, env)
@@ -1212,7 +1212,7 @@ def update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
     This method loops through all sections of the specified type, and consults the mechanism dictionary to update
     mechanism properties. If the reset_cable flag is True, cable parameters are re-initialize first, then the
     ion channel mechanisms are updated.
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param sec_type: str
     :param reset_cable: bool
     """
@@ -1234,8 +1234,8 @@ def reset_cable_by_node(cell, node):
     """
     Consults a dictionary specifying parameters of NEURON cable properties such as axial resistance ('Ra'),
     membrane specific capacitance ('cm'), and a spatial resolution parameter to specify the number of separate
-    segments per section in a HocCell
-    :param cell: :class:'HocCell'
+    segments per section in a BiophysCell
+    :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
     """
     sec_type = node.type
@@ -1659,7 +1659,7 @@ def correct_cell_for_spines_g_pas(cell, env):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
     dendritic sections proportional to the number of excitatory synapses contained in each section.
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
     """
     soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
@@ -1671,7 +1671,7 @@ def correct_cell_for_spines_g_pas(cell, env):
 def correct_cell_for_spines_cm(cell, env):
     """
 
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
     """
     for loop in xrange(2):
@@ -1682,7 +1682,7 @@ def correct_cell_for_spines_cm(cell, env):
                     init_nseg(node.sec)
                     reinit_diam(node)
         if loop == 0:
-            init_mechanisms(cell, reset_cable=False, correct_cm=False, correct_g_pas=False, env=env)
+            init_biophysics(cell, reset_cable=False, correct_cm=False, correct_g_pas=False, env=env)
 
 
 def get_distance_to_node(cell, root, node, loc=None):
@@ -1737,7 +1737,7 @@ def get_branch_order(cell, node):
     Calculates the branch order of a SHocNode node. The order is defined as 0 for all soma, axon, and apical trunk
     dendrite nodes, but defined as 1 for basal dendrites that branch from the soma, and apical and tuft dendrites
     that branch from the trunk. Increases by 1 after each additional branch point. Makes sure not to count spines.
-    :param cell: :class:'HocCell'
+    :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
     :return: int
     """
@@ -1921,10 +1921,6 @@ def subset_syns_by_source(syn_id_list, syn_id_attr_dict, syn_index_map, postsyn_
 
 def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subset_source_names, env, pop_name):
     synapse_config = env.celltypes[pop_name]['synapses']
-    if synapse_config.has_key('spines'):
-        spines = synapse_config['spines']
-    else:
-        spines = False
 
     if synapse_config.has_key('unique'):
         unique = synapse_config['unique']
@@ -1942,10 +1938,10 @@ def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subse
         cell_syn_locs = cell_syn_dict['syn_locs']
         cell_syn_sections = cell_syn_dict['syn_secs']
 
-        edge_syn_ps_dict = synapses.mk_syns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types,
-                                          cell_syn_locs, cell_syn_sections, kinetics_dict, env,
-                                          add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse,
-                                          spines=spines)
+        edge_syn_ps_dict = \
+            synapses.mk_syns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types, cell_syn_locs,
+                             cell_syn_sections, kinetics_dict, env,
+                             add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
         for (syn_id, syn_ps_dict) in edge_syn_ps_dict.iteritems():
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
                 syn_attrs_dict[postsyn_gid][syn_id][syn_mech]['syn target'] = syn_ps
