@@ -26,12 +26,11 @@ concatOp = MPI.Op.Create(list_concat, commute=True)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
-@click.option("--rotate", type=float)
 @click.option("--reltol", type=float, default=10.)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, forest_path, coords_path, populations, rotate, reltol, optiter, io_size, verbose):
+def main(config, forest_path, coords_path, populations, reltol, optiter, io_size, verbose):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -64,6 +63,8 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
 
     ## comm0 includes only rank 0
     comm0 = comm.Split(color, 0)
+
+    rotate = env.geometry['Rotation']
     
     for population in populations:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]

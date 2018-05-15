@@ -18,8 +18,10 @@ def DG_volume(u, v, l, rotate=None):
     l = np.array([l]).reshape(-1,)
 
     if rotate is not None:
-        a = float(np.deg2rad(rotate))
-        rot = rotate3d([1,0,0], a)
+        for i in xrange(0, 3):
+            if rotate[i] != 0.:
+                a = float(np.deg2rad(rotate[i]))
+                rot = rotate3d([ 1 if i == j else 0 for j in xrange(0,3) ], a)
     else:
         rot = None
 

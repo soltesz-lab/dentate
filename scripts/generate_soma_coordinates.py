@@ -49,12 +49,11 @@ def random_subset( iterator, K ):
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--alpha-radius", type=float, default=120.)
-@click.option("--rotate", type=float)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', type=bool, default=False, is_flag=True)
-def main(config, types_path, output_path, output_namespace, populations, alpha_radius, rotate, io_size, chunk_size, value_chunk_size, verbose):
+def main(config, types_path, output_path, output_namespace, populations, alpha_radius, io_size, chunk_size, value_chunk_size, verbose):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -82,6 +81,7 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
 
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
+    rotate = env.geometry['Rotation']
 
     population_ranges = read_population_ranges(output_path, comm)[0]
 

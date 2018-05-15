@@ -13,6 +13,7 @@ Parametric Surface:
     IML:   [3.1730, 4.4767, 1.]
     MML:   [3.1730, 4.4767, 2.]
     OML:   [3.1730, 4.4767, 3.1]
+  Rotation: [-35.0, 0., -0.]
 Cell Layers:
   Minimum Extent:
     GC: [0.03142, -0.7225, -1.95]

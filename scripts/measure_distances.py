@@ -32,14 +32,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--resample", type=int, default=2)
 @click.option("--resolution", type=int, default=15)
-@click.option("--rotate", type=float)
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, resample, resolution, populations, rotate, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, resample, resolution, populations, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     if verbose:
         logger.setLevel(logging.INFO)

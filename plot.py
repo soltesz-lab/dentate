@@ -502,10 +502,11 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     return ax
 
 
-def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, rotate=None, verbose=False):
+def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, verbose=False):
     
     env = Env(configFile=config)
 
+    rotate = env.geometry['Rotation']
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
 
@@ -570,9 +571,11 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
 
 
     
-def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05, subvol=True, rotate=None, verbose=False):
+def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05, subvol=True, verbose=False):
     
     env = Env(configFile=config)
+
+    rotate = env.geometry['Rotation']
 
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']

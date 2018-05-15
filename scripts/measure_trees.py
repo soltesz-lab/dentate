@@ -15,6 +15,13 @@ import click
 import logging
 logging.basicConfig()
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
 script_name="measure_trees.py"
 logger = logging.getLogger(script_name)
 
@@ -131,6 +138,7 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
         append_cell_attributes(output_path, population, measures_dict,
                                namespace='Tree Measurements', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                value_chunk_size=value_chunk_size, cache_size=cache_size)
+    MPI.Finalize()
 
 
 
