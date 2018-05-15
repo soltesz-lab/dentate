@@ -53,233 +53,234 @@ Synapse Parameter Rules:
       weight: 0
 # full width in um [S-T, M-L]
 Axon Width:
-    GC:   [900., 900.]
-    MPP:  [1500., 3000.]
-    LPP:  [1500., 3000.]
-    MC:   [4000., 4000.]
-    NGFC: [2000., 2000.]
-    AAC:  [1700., 1100.]
-    BC:   [1700., 1000.]
-    HCC:  [2600., 2600.]
-    HC:   [3000., 3000.]
-    IS:   [3000., 3000.]
-    MOPP: [2000., 2000.]
+  GC:   [900., 900.]
+  MPP:  [1500., 3000.]
+  LPP:  [1500., 3000.]
+  MC:   [4000., 4000.]
+  NGFC: [2000., 2000.]
+  AAC:  [1700., 1100.]
+  BC:   [1700., 1000.]
+  HCC:  [2600., 2600.]
+  HC:   [3000., 3000.]
+  IS:   [3000., 3000.]
+  MOPP: [2000., 2000.]
 Axon Offset:
-    MC:   [1000., 1000.]
-    GC:   [0., 0.]
-    MPP:  [0., 0.]
-    LPP:  [0., 0.]
-    NGFC: [0., 0.]
-    AAC:  [0., 0.]
-    BC:   [0., 0.]
-    HCC:  [0., 0.]
-    HC:   [0., 0.]
-    IS:   [0., 0.]
-    MOPP: [0., 0.]
+  MC:   [1000., 1000.]
+  GC:   [0., 0.]
+  MPP:  [0., 0.]
+  LPP:  [0., 0.]
+  NGFC: [0., 0.]
+  AAC:  [0., 0.]
+  BC:   [0., 0.]
+  HCC:  [0., 0.]
+  HC:   [0., 0.]
+  IS:   [0., 0.]
+  MOPP: [0., 0.]
 Axon Standard Deviation:
-    GC:   0.4
-    MC:   0.515
-    NGFC: 0.45
-    AAC:  0.45
-    BC:   0.45
-    HCC:  0.45
-    HC:   0.45
-    IS:   0.45
-    MOPP: 0.45
-    MPP:  1.0
-    LPP:  1.0
+  GC:   0.4
+  MC:   0.515
+  NGFC: 0.45
+  AAC:  0.45
+  BC:   0.45
+  HCC:  0.45
+  HC:   0.45
+  IS:   0.45
+  MOPP: 0.45
+  MPP:  1.0
+  LPP:  1.0
 Synapse Types:
-    GC:
-      MPP:  [excitatory]
-      LPP:  [excitatory]
-      MC:   [excitatory]
-      NGFC: [inhibitory]
-      AAC:  [inhibitory]
-      BC:   [inhibitory]
-      HCC:  [inhibitory]
-      HC:   [inhibitory]
-      MOPP: [inhibitory]
-    MC:
-      GC:   [excitatory]
-      MC:   [excitatory]
-      HC:   [inhibitory]
-      BC:   [inhibitory]
-      AAC:  [inhibitory]
-      HCC:  [inhibitory]
-    HC:
-      GC:  [excitatory]
-      MC:  [excitatory]
-      HC:  [inhibitory]
-      BC:  [inhibitory]
-      IS:  [inhibitory]
-    BC:
-      GC:   [excitatory]
-      MC:   [excitatory]
-      HC:   [inhibitory]
-      BC:   [inhibitory]
-      HCC:  [inhibitory]
-      NGFC: [inhibitory]
-      MOPP: [inhibitory]
-      IS:   [inhibitory]
-      MPP:  [excitatory]
-      LPP:  [excitatory]
-    AAC:
-      GC:   [excitatory]
-      MC:   [excitatory]
-      HC:   [inhibitory]
-      NGFC: [inhibitory]
-      MOPP: [inhibitory]
-    HCC:
-      GC:   [excitatory]
-      MC:   [excitatory]
-      BC:   [inhibitory]
-      HCC:  [inhibitory]
-      NGFC: [inhibitory]
-      MOPP: [inhibitory]
-      IS:   [inhibitory]
-    NGFC:
-      HC:   [inhibitory]
-      NGFC: [inhibitory]
-      MPP:  [excitatory]
-      LPP:  [excitatory]
-    MOPP:
-      MC:   [excitatory]
-      MOPP: [inhibitory]
-      HC:   [inhibitory]
-      HCC:  [inhibitory]
-      MPP:  [excitatory]
-    IS:
-      GC:   [excitatory]
-      IS:   [inhibitory]
+  GC:
+    MPP:  [excitatory]
+    LPP:  [excitatory]
+    MC:   [excitatory]
+    NGFC: [inhibitory]
+    AAC:  [inhibitory]
+    BC:   [inhibitory]
+    HCC:  [inhibitory]
+    HC:   [inhibitory]
+    MOPP: [inhibitory]
+  MC:
+    GC:   [excitatory]
+    MC:   [excitatory]
+    HC:   [inhibitory]
+    BC:   [inhibitory]
+    AAC:  [inhibitory]
+    HCC:  [inhibitory]
+  HC:
+    GC:  [excitatory]
+    MC:  [excitatory]
+    HC:  [inhibitory]
+    IS:  [inhibitory]
+  BC:
+    GC:   [excitatory]
+    MC:   [excitatory]
+    HC:   [inhibitory]
+    BC:   [inhibitory]
+    HCC:  [inhibitory]
+    NGFC: [inhibitory]
+    MOPP: [inhibitory]
+    IS:   [inhibitory]
+    MPP:  [excitatory]
+    LPP:  [excitatory]
+  AAC:
+    GC:   [excitatory]
+    MC:   [excitatory]
+    HCC:  [inhibitory]
+  HCC:
+    GC:   [excitatory]
+    MC:   [excitatory]
+    HCC:  [inhibitory]
+    NGFC: [inhibitory]
+    MOPP: [inhibitory]
+    IS:   [inhibitory]
+    MPP:  [excitatory]
+    LPP:  [excitatory]
+  NGFC:
+    HC:   [inhibitory]
+    NGFC: [inhibitory]
+    MOPP: [inhibitory]
+    MPP:  [excitatory]
+    LPP:  [excitatory]
+  MOPP:
+    MC:   [excitatory]
+    MOPP: [inhibitory]
+    NGFC: [inhibitory]
+    HC:   [inhibitory]
+    HCC:  [inhibitory]
+    MPP:  [excitatory]
+    LPP:  [excitatory]
+  IS:
+    GC:   [excitatory]
+    IS:   [inhibitory]
 Synapse Locations:
-    GC:
-      MPP:  [apical]
-      LPP:  [apical]
-      MC:   [apical]
-      NGFC: [apical]
-      AAC:  [ais]
-      BC:   [soma, apical]
-      MOPP: [apical]
-      HCC:  [apical]
-      HC:   [apical]
-    MC:
-      GC:   [apical]
-      MC:   [apical]
-      HC:   [apical]
-      BC:   [soma, apical]
-      AAC:  [soma]
-      HCC:  [apical]
-    HC:
-      GC:   [apical, basal]
-      MC:   [apical, basal]
-      HC:   [apical, basal]
-      BC:   [apical, basal]
-      IS:   [apical, basal]
-    BC:
-      GC:   [apical, basal]
-      MC:   [basal]
-      HC:   [apical]
-      BC:   [apical, basal]
-      HCC:  [basal]
-      NGFC: [apical, basal]
-      MOPP: [apical, basal]
-      IS:   [basal]
-      MPP:  [apical]
-      LPP:  [apical]
-    AAC:
-      GC: [apical, basal]
-      MC: [basal]
-      HC: [apical]
-      NGFC: [apical, basal]
-      MOPP: [apical, basal]
-      IS:   [basal]
-    HCC:
-      GC: [apical, basal]
-      MC: [basal]
-      BC: [basal]
-      HCC: [basal]
-      NGFC: [apical, basal]
-      MOPP: [apical, basal]
-      IS:   [basal]
-    NGFC:
-      HC: [apical]
-      NGFC: [apical]
-      MOPP: [apical]
-      MPP:  [basal]
-      LPP:  [apical]
-    MOPP:
-      MC:   [basal, apical]
-      MPP:  [apical]
-      HC:   [basal]
-      HCC:  [basal]
-      MOPP: [apical]
-      NGFC: [apical]
-    IS:
-      GC:   [apical, basal]
-      IS:   [apical]
+  GC:
+    MPP:  [apical]
+    LPP:  [apical]
+    MC:   [apical]
+    NGFC: [apical, apical]
+    AAC:  [ais]
+    BC:   [soma, apical]
+    MOPP: [apical, apical]
+    HCC:  [apical]
+    HC:   [apical, apical]
+  MC:
+    GC:   [apical]
+    MC:   [apical]
+    HC:   [apical]
+    BC:   [soma, apical]
+    AAC:  [ais]
+    HCC:  [apical]
+  HC:
+    GC:   [apical, basal]
+    MC:   [apical, basal]
+    HC:   [apical, basal]
+    BC:   [apical, basal]
+    IS:   [apical, soma, basal]
+  BC:
+    GC:   [basal, basal]
+    MC:   [apical]
+    HC:   [apical, apical]
+    BC:   [basal, soma]
+    HCC:  [apical]
+    NGFC: [apical, apical]
+    MOPP: [apical, apical]
+    IS:   [basal]
+    MPP:  [apical]
+    LPP:  [apical]
+  AAC:
+    GC:   [basal, basal]
+    MC:   [apical]
+    HCC:  [apical]
+  HCC:
+    GC:   [basal]
+    MC:   [basal]
+    HCC:  [basal, apical]
+    NGFC: [apical, apical]
+    MOPP: [apical, apical]
+    IS:   [basal, soma]
+    MPP:  [apical]
+    LPP:  [apical]
+  NGFC:
+    HC:   [basal, apical]
+    NGFC: [basal, apical]
+    MOPP: [basal, apical]
+    MPP:  [basal]
+    LPP:  [apical]
+  MOPP:
+    MC:   [basal]
+    MPP:  [basal]
+    LPP:  [apical]
+    HC:   [basal, apical]
+    HCC:  [basal]
+    MOPP: [basal, apical]
+    NGFC: [basal, apical]
+  IS:
+    GC:   [apical, basal]
+    IS:   [apical, soma, basal]
 Synapse Layers:
-    GC:
-      MPP:  [MML]
-      LPP:  [OML]
-      MC:   [IML]
-      AAC:  [GCL]
-      BC:   [GCL, IML]
-      NGFC: [MML, OML]
-      MOPP: [MML, OML]
-      HC:   [MML, OML]
-      HCC:  [IML]
-    MC:
-      GC:  [Hilus]
-      MC:  [Hilus]
-      HC:  [IML]
-      BC:  [Hilus]
-      AAC: [Hilus]
-      HCC: [IML]
-    HC:
-      GC:  [Hilus]
-      MC:  [GCL]
-      HC:  [Hilus]
-      BC:  [GCL]
-      IS:  [Hilus]
-    BC:
-      GC:   [Hilus, GCL]
-      MC:   [Hilus]
-      HC:   [MML]
-      BC:   [GCL, IML]
-      HCC:  [Hilus]
-      NGFC: [MML, OML]
-      MOPP: [MML, OML]
-      IS:   [Hilus]
-      MPP:  [MML]
-      LPP:  [OML]
-    AAC:
-      GC:   [Hilus, GCL]
-      MC:   [GCL]
-      HC:   [IML, MML]
-      NGFC: [MML, OML]
-      MOPP: [MML, OML]
-    HCC:
-      GC:   [Hilus, GCL]
-      MC:   [GCL]
-      BC:   [GCL]
-      HCC:  [GCL]
-      NGFC: [OML]
-      MOPP: [MML]
-      IS:   [Hilus]
-    NGFC:
-      HC:   [MML, OML]
-      NGFC: [OML]
-      MPP:  [MML]
-      LPP:  [OML]
-    MOPP:
-      MC:   [IML]
-      MOPP: [MML]
-      HC:   [IML]
-      HCC:  [IML]
-      MPP:  [MML]
-    IS:
-      GC:   [Hilus]
-      IS:   [Hilus]
+  GC:
+    MPP:  [MML]
+    LPP:  [OML]
+    MC:   [IML]
+    AAC:  [GCL]
+    BC:   [GCL, IML]
+    NGFC: [MML, OML]
+    MOPP: [MML, OML]
+    HC:   [MML, OML]
+    HCC:  [IML]
+  MC:
+    GC:  [Hilus]
+    MC:  [Hilus]
+    HC:  [Hilus]
+    BC:  [Hilus, Hilus]
+    AAC: [Hilus]
+    HCC: [Hilus]
+  HC:
+    GC:  [Hilus, Hilus]
+    MC:  [Hilus, Hilus]
+    HC:  [Hilus, Hilus]
+    IS:  [Hilus, Hilus, Hilus]
+  BC:
+    GC:   [Hilus, GCL]
+    MC:   [IML]
+    HC:   [MML, OML]
+    BC:   [GCL, GCL]
+    HCC:  [IML]
+    NGFC: [MML, OML]
+    MOPP: [MML, OML]
+    IS:   [Hilus]
+    MPP:  [MML]
+    LPP:  [OML]
+  AAC:
+    GC:   [Hilus, GCL]
+    MC:   [GCL]
+    HCC:  [IML]
+  HCC:
+    GC:   [Hilus]
+    MC:   [Hilus]
+    HCC:  [Hilus, IML]
+    NGFC: [MML, OML]
+    MOPP: [MML, OML]
+    IS:   [Hilus, Hilus]
+    MPP:  [MML]
+    LPP:  [OML]
+  NGFC:
+    HC:   [MML, OML]
+    NGFC: [MML, OML]
+    MOPP: [MML, OML]
+    MPP:  [MML]
+    LPP:  [OML]
+  MOPP:
+    MC:   [IML]
+    MOPP: [MML, OML]
+    NGFC: [MML, OML]
+    HC:   [MML, OML]
+    HCC:  [IML]
+    MPP:  [MML]
+    LPP:  [OML]
+  IS:
+    GC:   [Hilus, Hilus]
+    IS:   [Hilus, Hilus, Hilus]
 Synapse Proportions:
   GC:
     MPP:  [1.]
@@ -287,640 +288,434 @@ Synapse Proportions:
     MC:   [1.]
     AAC:  [1.]
     BC:   [1., 0.1]
-    NGFC: [0.15, 0.4]
+    NGFC: [0.15, 0.15]
     MOPP: [0.3, 0.3]
-    HC:   [0.55, 0.3]
+    HC:   [0.55, 0.55]
     HCC:  [0.9]
   MC:
-    GC:  [0.45]
-    MC:  [0.55]
-    HC:  [0.5]
-    BC:  [0.77]
-    AAC: [0.23]
-    HCC: [0.5]
+    GC:  [0.23]
+    MC:  [0.77]
+    HC:  [0.33]
+    BC:  [1., 0.33]
+    AAC: [1.]
+    HCC: [0.34]
   HC:
-    MC:  [1.0]
-    BC:  [1.0]
-    GC:  [1.0]
-    HC:  [0.75]
-    IS:  [0.25]
+    MC:  [0.5, 0.5]
+    GC:  [0.5, 0.5]
+    HC:  [0.75, 0.75]
+    IS:  [0.25, 1., 0.25]
   BC:
-    GC:   [0.5, 0.5]
-    MC:   [0.5]
+    GC:   [1., 1.]
+    MC:   [1.]
     MPP:  [1.0]
     LPP:  [1.0]
-    BC:   [0.1, 1.0]
-    HCC:  [0.5]
-    HC:   [0.34]
-    NGFC: [0.33, 0.5]
-    MOPP: [0.33, 0.5]
-    IS:   [0.5]
-  AAC:
-    GC:   [0.5, 0.5]
-    MC:   [0.5]
-    HC:   [1.0, 0.9]
-    NGFC: [0.05, 0.5]
-    MOPP: [0.05, 0.5]
-  HCC:
-    GC:   [1.0, 0.5]
-    MC:   [0.5]
-    BC:   [0.2]
-    HCC:  [0.8]
-    NGFC: [1.0]
-    MOPP: [1.0]
+    BC:   [1.0, 1.0]
+    HCC:  [1.0]
+    HC:   [0.34, 0.34]
+    NGFC: [0.33, 0.33]
+    MOPP: [0.33, 0.33]
     IS:   [1.0]
+  AAC:
+    GC:   [1.0, 1.0]
+    MC:   [1.0]
+    HCC:   [1.0]
+  HCC:
+    GC:   [0.5]
+    MC:   [0.5]
+    HCC:  [0.5, 1.0]
+    NGFC: [0.5, 0.5]
+    MOPP: [0.5, 0.5]
+    IS:   [0.5, 1.0]
+    MPP:  [1.0]
+    LPP:  [1.0]
   NGFC:
-    HC:   [1.0, 0.66]
-    NGFC: [0.34]
+    HC:   [0.34, 0.34]
+    NGFC: [0.33, 0.33]
+    MOPP: [0.33, 0.33]
     MPP:  [1.0]
     LPP:  [1.0]
   MOPP:
     MC:   [1.0]
-    MOPP: [1.0]
-    HC:   [0.5]
-    HCC:  [0.5]
+    HC:   [0.34, 0.34]
+    NGFC: [0.33, 0.33]
+    MOPP: [0.33, 0.33]
+    HCC:  [1.0]
     MPP:  [1.0]
+    LPP:  [1.0]
   IS:
-    GC:   [1.0]
-    IS:   [1.0]
-Synapse Kinetics:
+    GC:   [1.0. 1.0, 1.0]
+    IS:   [1.0, 1.0]
+Synapse Parameters:
   GC:
-      GC:
-        AMPA:
-          tau1: 0.5
-          tau2: 5.5
-          e: 0
-      MC:
-        AMPA:
-          tau1: 0.5
-          tau2: 5.5
-          e: 0
-      MPP:
-        AMPA:
-          tau1: 0.5
-          tau2: 5.5
-          e: 0
-      LPP:
-        AMPA:
-          tau1: 0.5
-          tau2: 5.5
-          e: 0
-      HC:
-        GABA_A:
-          tau1: 0.5
-          tau2: 6.0
-          e: -75
-      BC:
-        GABA_A:
-          tau1: 0.25
-          tau2: 5.5
-          e: -75
-      AAC:
-        GABA_A:
-          tau1: 0.3
-          tau2: 2.9
-          e: -75
-      HCC:
-        GABA_A:
-          tau1: 0.4
-          tau2: 1.1
-          e: -75
-      NGFC:
-        GABA_A:
-          tau1:  0.1
-          tau2: 10.0
-          e:   -75
-        GABA_B:
-          tau1:  86.8
-          tau2: 428.1
-          e:   -90
-      MOPP:
-        GABA_A:
-          tau1:  0.1
-          tau2: 10.0
-          e:   -75
-  MC:
-      GC:
-        AMPA:
-          tau1: 0.5
-          tau2: 6.2
-          e: 0
-      MC:
-        AMPA:
-          tau1: 0.45
-          tau2: 2.2
-          e: 0
-      HC:
-        GABA_A:
-          tau1: 0.5
-          tau2: 6.0
-          e: -75
-      BC:
-        GABA_A:
-          tau1: 0.3
-          tau2: 3.3
-          e: -75
-      AAC:
-        GABA_A:
-          tau1: 0.3
-          tau2: 3.3
-          e: -75
-      HCC:
-        GABA_A:
-          tau1: 0.6
-          tau2: 4.7
-          e: -75
-  HC:
-      GC:
-        AMPA:
-          tau1: 0.3
-          tau2: 6.2
-          e: 0
-      MC:
-        AMPA:
-          tau1: 0.9
-          tau2: 3.6
-          e: 0
-      HC:
-        GABA_A:
-          tau1: 0.37
-          tau2: 10.48
-          e: -75
-      BC:
-        GABA_A:
-          tau1: 0.265
-          tau2: 2.88
-          e: -75
-      IS:
-        GABA_A:
-          tau1: 0.37
-          tau2: 10.48
-          e: -75
-  BC:
-      GC:
-        AMPA:
-          tau1: 0.3
-          tau2: 6.2
-          e: 0
-      MC:
-        AMPA:
-          tau1: 0.9
-          tau2: 3.6
-          e: 0
-      MPP:
-        AMPA:
-          tau1:  0.5
-          tau2: 3.0
-          e:     0
-      LPP:
-        AMPA:
-          tau1:  0.5
-          tau2: 3.0
-          e:     0
-      HC:
-        GABA_A:
-          tau1: 0.46
-          tau2: 4.43
-          e: -75
-      BC:
-        GABA_A:
-          tau1: 0.22
-          tau2: 3.35
-          e: -75
-      HCC:
-        GABA_A:
-          tau1: 0.6
-          tau2: 4.78
-          e: -75
-      NGFC:
-        GABA_A:
-          tau1:   4.2
-          tau2: 14.0
-          e:    -75
-        GABA_B:
-          tau1:  86.8
-          tau2: 428.1
-          e:   -90
-      MOPP:
-        GABA_A:
-          tau1:   4.2
-          tau2: 14.0
-          e:    -75
-      IS:
-        GABA_A:
-          tau1: 0.46
-          tau2: 4.43
-          e: -75
-  AAC:
-      GC:
-        AMPA:
-          tau1: 0.3
-          tau2: 6.2
-          e: 0
-      MC:
-        AMPA:
-          tau1: 0.9
-          tau2: 3.6
-          e: 0
-      HC:
-        GABA_A:
-          tau1: 0.46
-          tau2: 4.43
-          e: -75
-      NGFC:
-        GABA_A:
-          tau1:  4.2
-          tau2: 14.0
-          e: -75
-        GABA_B:
-          tau1:  86.8
-          tau2: 428.1
-          e: -90
-      MOPP:
-        GABA_A:
-          tau1:  4.2
-          tau2: 14.0
-          e: -75
-      IS:
-        GABA_A:
-          tau1: 0.46
-          tau2: 4.43
-          e: -75
-  HCC:
-      GC:
-        AMPA:
-          tau1: 0.3
-          tau2: 6.2
-          e: 0
-      MC:
-        AMPA:
-          tau1: 0.9
-          tau2: 3.6
-          e: 0
-      BC:
-        GABA_A:
-          tau1: 0.28
-          tau2: 3.45
-          e: -75
-      HCC:
-        GABA_A:
-          tau1: 0.72
-          tau2: 4.7
-          e: -75
-      IS:
-        GABA_A:
-          tau1: 0.46
-          tau2: 4.43
-          e: -75
-      MOPP:
-        GABA_A:
-          tau1:  4.2
-          tau2: 16.2
-          e: -75
-      NGFC:
-        GABA_A:
-          tau1:  4.2
-          tau2: 16.2
-          e: -75
-        GABA_B:
-          tau1: 86.8  # 50.0  https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
-          tau2: 428.1  # 200.0  http://www.jneurosci.org/content/33/18/7961
-          e: -90
-  NGFC:
-      MPP:
-        AMPA:
-          tau1: 3.0
-          tau2: 30.0
-          e: 0
-      LPP:
-        AMPA:
-          tau1: 3.0
-          tau2: 30.0
-          e: 0
-      HC:
-        GABA_A:
-          tau1: 0.72
-          tau2: 4.7
-          e: -75
-      IS:
-        GABA_A:
-          tau1: 0.46
-          tau2: 4.43
-          e: -75
-      NGFC:
-        GABA_A:
-          tau1:  4.2
-          tau2: 14.0
-          e: -75
-        GABA_B:
-          tau1:  86.8
-          tau2: 428.1
-          e: -90
-  MOPP:
-      MPP:
-        AMPA:
-          tau1: 0.5
-          tau2: 3.0
-          e: 0
-      MC:
-        AMPA:
-          tau1: 0.9
-          tau2: 3.6
-          e: 0
-      BC:
-        GABA_A:
-          tau1: 0.72
-          tau2: 10.0
-          e: -75
-      HC:
-        GABA_A:
-          tau1: 0.72
-          tau2: 4.7
-          e: -75
-      HCC:
-        GABA_A:
-          tau1: 0.72
-          tau2: 4.7
-          e: -75
-      IS:
-        GABA_A:
-          tau1: 0.46
-          tau2: 4.43
-          e: -75
-      NGFC:
-        GABA_A:
-          tau1:  4.5
-          tau2: 13.8
-          e: -75
-        GABA_B:
-          tau1:  86.8
-          tau2: 428.1
-          e: -90
-      MOPP:
-        GABA_A:
-          tau1:  4.5
-          tau2: 13.8
-          e: -75
-  IS:
-      GC:
-        AMPA:
-          tau1: 0.3
-          tau2: 6.2
-          e: 0
-      IS:
-        GABA_A:
-          tau1: 0.37
-          tau2: 10.48
-          e: -75
-Connection Properties:
-  GC:
-    AAC:
-      GABA_A: 
-        weight: 0.001
-        velocity: 250.0
-    BC:
-      GABA_A: 
-        weight: 0.00065
-        velocity: 250.0
-    HC:
-      GABA_A:
-        weight: 0.006
-        velocity: 250.0
-    HCC:
-      GABA_A:
-        weight: 0.003
-        velocity: 250.0
     MC:
       AMPA:
+        tau1: 0.5
+        tau2: 5.5
+        e: 0
         weight: 0.00019
-        velocity: 250.0
-    NGFC:
-      GABA_A:
-        weight: 0.00015
-        velocity: 250.0
-      GABA_B:
-        weight: 0.0001
-        velocity: 250.0
-    MOPP:
-      GABA_A:
-        weight: 0.00015
-        velocity: 250.0
     MPP:
       AMPA:
+        tau1: 0.5
+        tau2: 5.5
+        e: 0
         weight: 0.0016
-        velocity: 250.0
     LPP:
       AMPA:
+        tau1: 0.5
+        tau2: 5.5
+        e: 0
         weight: 0.0018
-        velocity: 250.0
-  MC:
-    AAC:
-      GABA_A:
-        weight: 0.003
-        velocity: 250.0
-    BC:
-      GABA_A:
-        weight: 0.0015
-        velocity: 250.0
-    GC:
-      AMPA:
-        weight: 0.0015
-        velocity: 250.0
     HC:
       GABA_A:
+        tau1: 0.5
+        tau2: 6.0
+        e: -75
+        weight: 0.006
+    BC:
+      GABA_A:
+        tau1: 0.25
+        tau2: 5.5
+        e: -75
+        weight: 0.00065
+    AAC:
+      GABA_A:
+        tau1: 0.3
+        tau2: 2.9
+        e: -75
         weight: 0.001
-        velocity: 250.0
     HCC:
       GABA_A:
-        weight: 0.0006
-        velocity: 250.0
+        tau1: 0.4
+        tau2: 1.1
+        e: -75
+        weight: 0.003
+    NGFC:
+      GABA_A:
+        tau1:  0.1
+        tau2: 10.0
+        e:   -75
+        weight: 0.00015
+      GABA_B:
+        tau1:  50.0
+        tau2: 200.0
+        e:   -90
+        weight: 0.0001
+    MOPP:
+      GABA_A:
+        tau1:  0.1
+        tau2: 10.0
+        e:   -75
+        weight: 0.00015
+  MC:
+    GC:
+      AMPA:
+        tau1: 0.5
+        tau2: 6.2
+        e: 0
+        weight: 0.0015
     MC:
       AMPA:
+        tau1: 0.45
+        tau2: 2.2
+        e: 0
         weight: 0.0005
-        velocity: 250.0
+    HC:
+      GABA_A:
+        tau1: 0.5
+        tau2: 6.0
+        e: -75
+        weight: 0.001
+    BC:
+      GABA_A:
+        tau1: 0.3
+        tau2: 3.3
+        e: -75
+        weight: 0.0015
+    AAC:
+      GABA_A:
+        tau1: 0.3
+        tau2: 3.3
+        e: -75
+        weight: 0.003
+    HCC:
+      GABA_A:
+        tau1: 0.6
+        tau2: 4.7
+        e: -75
+        weight: 0.0006
   HC:
     GC:
       AMPA:
+        tau1: 0.3
+        tau2: 6.2
+        e: 0
         weight: 0.0047
-        velocity: 250.0
-    HC:
-      GABA_A:
-        weight: 0.000623
-        velocity: 250.0
     MC:
       AMPA:
+        tau1: 0.9
+        tau2: 3.6
+        e: 0
         weight: 0.0022
-        velocity: 250.0
-    BC:
+    HC:
       GABA_A:
-        weight: 0.0052
-        velocity: 250.0
+        tau1: 0.37
+        tau2: 10.48
+        e: -75
+        weight: 0.000623
     IS:
       GABA_A:
+        tau1: 0.37
+        tau2: 10.48
+        e: -75
         weight: 0.0005
-        velocity: 250.0
   BC:
     GC:
       AMPA:
+        tau1: 0.3
+        tau2: 6.2
+        e: 0
         weight: 0.0047
-        velocity: 250.0
     MC:
       AMPA:
+        tau1: 0.9
+        tau2: 3.6
+        e: 0
         weight: 0.0003
-        velocity: 250.0
-    HC:
-      GABA_A:
-        weight: 0.00214
-        velocity: 250.0
-    IS:
-      GABA_A:
-        weight: 0.00214
-        velocity: 250.0
-    BC:
-      GABA_A:
-        weight: 0.00427
-        velocity: 250.0
-    HCC:
-      GABA_A:
-        weight: 0.000664
-        velocity: 250.0
-    NGFC:
-      GABA_A:
-        weight: 0.000183
-        velocity: 250.0
-      GABA_B:
-        weight: 0.000181
-        velocity: 250.0
-    MOPP:
-      GABA_A:
-        weight: 0.0002
-        velocity: 250.0
-    LPP:
-      AMPA:
-        weight: 0.0005
-        velocity: 250.0
     MPP:
       AMPA:
+        tau1:  0.5
+        tau2: 3.0
+        e:     0
         weight: 0.0005
-        velocity: 250.0
+    LPP:
+      AMPA:
+        tau1:  0.5
+        tau2: 3.0
+        e:     0
+        weight: 0.0005
+    HC:
+      GABA_A:
+        tau1: 0.46
+        tau2: 4.43
+        e: -75
+        weight: 0.00214
+    BC:
+      GABA_A:
+        tau1: 0.22
+        tau2: 3.35
+        e: -75
+        weight: 0.00427
+    HCC:
+      GABA_A:
+        tau1: 0.6
+        tau2: 4.78
+        e: -75
+        weight: 0.000664
+    NGFC:
+      GABA_A:
+        tau1:   4.2
+        tau2: 14.0
+        e:    -75
+        weight: 0.000183
+      GABA_B:
+        tau1:  50.0
+        tau2: 200.0
+        e:   -90
+        weight: 0.000181
+    MOPP:
+      GABA_A:
+        tau1:   4.2
+        tau2: 14.0
+        e:    -75
+        weight: 0.0002
+    IS:
+      GABA_A:
+        tau1: 0.46
+        tau2: 4.43
+        e: -75
+        weight: 0.00214
   AAC:
     GC:
       AMPA:
+        tau1: 0.3
+        tau2: 6.2
+        e: 0
         weight: 0.0047
-        velocity: 250.0
     MC:
       AMPA:
+        tau1: 0.9
+        tau2: 3.6
+        e: 0
         weight: 0.0003
-        velocity: 250.0
-    HC:
-      GABA_A:
-        weight: 0.00214
-        velocity: 250.0
-    IS:
-      GABA_A:
-        weight: 0.0010
-        velocity: 250.0
-    NGFC:
-      GABA_A:
-        weight: 0.000183
-        velocity: 250.0
-      GABA_B:
-        weight: 0.000181
-        velocity: 250.0
-    MOPP:
-      GABA_A:
-        weight: 0.0002
-        velocity: 250.0
-  NGFC:
-    HC:
-      GABA_A:
-        weight: 0.000473
-        velocity: 250.0
-    NGFC:
-      GABA_A:
-        weight: 0.000113
-        velocity: 250.0
-      GABA_B:
-        weight: 0.000169
-        velocity: 250.0
-    MOPP:
-      GABA_A:
-        weight: 0.000113
-        velocity: 250.0
-    GC:
-      AMPA:
-        weight: 0.0047
-        velocity: 250.0
-    LPP:
-      AMPA:
-        weight: 0.00033
-        velocity: 250.0
-    MPP:
-      AMPA:
-        weight: 0.00025
-        velocity: 250.0
-  MOPP:
-    MC:
-      AMPA:
-        weight: 0.0005
-        velocity: 250.0
-    MOPP:
-      GABA_A:
-        weight: 0.000113
-        velocity: 250.0
-    HC:
-      GABA_A:
-        weight: 0.000473
-        velocity: 250.0
     HCC:
       GABA_A:
-        weight: 0.000325
-        velocity: 250.0
-    MPP:
-      AMPA:
-        weight: 0.0010
-        velocity: 250.0
+        tau1: 0.6
+        tau2: 4.78
+        e: -75
+        weight: 0.000664
   HCC:
     GC:
       AMPA:
+        tau1: 0.3
+        tau2: 6.2
+        e: 0
         weight: 0.0047
-        velocity: 250.0
     MC:
       AMPA:
+        tau1: 0.9
+        tau2: 3.6
+        e: 0
         weight: 0.0023
-        velocity: 250.0
-    BC:
-      GABA_A:
-        weight: 0.00382
-        velocity: 250.0
     HCC:
       GABA_A:
+        tau1: 0.72
+        tau2: 4.7
+        e: -75
         weight: 0.000325
-        velocity: 250.0
-    NGFC:
-      GABA_A:
-        weight: 0.000168
-        velocity: 250.0
-      GABA_B:
-        weight: 0.000215
-        velocity: 250.0
-    MOPP:
-      GABA_A:
-        weight: 0.000168
-        velocity: 250.0
     IS:
       GABA_A:
+        tau1: 0.46
+        tau2: 4.43
+        e: -75
         weight: 0.0005
-        velocity: 250.0
+    MOPP:
+      GABA_A:
+        tau1:  4.2
+        tau2: 16.2
+        e: -75
+        weight: 0.000168
+    NGFC:
+      GABA_A:
+        tau1:  4.2
+        tau2: 16.2
+        e: -75
+        weight: 0.000168
+      GABA_B:
+        tau1:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
+        tau2: 200.0  # http://www.jneurosci.org/content/33/18/7961
+        e: -90
+        weight: 0.000215
+    MPP:
+      AMPA:
+        tau1: 0.5
+        tau2: 5.0
+        e: 0
+        weight: 0.0005
+    LPP:
+      AMPA:
+        tau1: 0.5
+        tau2: 5.0
+        e: 0
+        weight: 0.0005
+  NGFC:
+    MPP:
+      AMPA:
+        tau1: 0.5
+        tau2: 5.0
+        e: 0
+        weight: 0.00025
+    LPP:
+      AMPA:
+        tau1: 0.5
+        tau2: 5.0
+        e: 0
+        weight: 0.00033
+    HC:
+      GABA_A:
+        tau1: 0.72
+        tau2: 4.7
+        e: -75
+        weight: 0.000473
+    MOPP:
+      GABA_A:
+        tau1:  4.2
+        tau2: 14.0
+        e: -75
+        weight: 0.000113
+    NGFC:
+      GABA_A:
+        tau1:  4.2
+        tau2: 14.0
+        e: -75
+        weight: 0.000113
+      GABA_B:
+        tau1:  50.0
+        tau2: 200.0
+        e: -90
+        weight: 0.000169
+  MOPP:
+    MPP:
+      AMPA:
+        tau1: 0.5
+        tau2: 5.0
+        e: 0
+        weight: 0.0010
+    LPP:
+      AMPA:
+        tau1: 0.5
+        tau2: 5.0
+        e: 0
+        weight: 0.0010
+    MC:
+      AMPA:
+        tau1: 0.9
+        tau2: 3.6
+        e: 0
+        weight: 0.0005
+    HC:
+      GABA_A:
+        tau1: 0.72
+        tau2: 4.7
+        e: -75
+        weight: 0.000473
+    HCC:
+      GABA_A:
+        tau1: 0.72
+        tau2: 4.7
+        e: -75
+        weight: 0.000325
+    NGFC:
+      GABA_A:
+        tau1:  4.2
+        tau2: 14.0
+        e: -75
+        weight: 0.000113
+      GABA_B:
+        tau1:  50.0
+        tau2: 200.0
+        e: -90
+        weight: 0.000169
+    MOPP:
+      GABA_A:
+        tau1:  4.5
+        tau2: 13.8
+        e: -75
+        weight: 0.000113
   IS:
     GC:
       AMPA:
+        tau1: 0.3
+        tau2: 6.2
+        e: 0
         weight: 0.0005
-        velocity: 250.0
     IS:
       GABA_A:
+        tau1: 0.37
+        tau2: 10.48
+        e: -75
         weight: 0.0010
-        velocity: 250.0
+Connection Velocity:
+  AAC: 250.0
+  BC: 250.0
+  HC: 250.0
+  HCC: 250.0
+  MC: 250.0
+  NGFC: 250.0
+  MOPP: 250.0
+  MPP: 250.0
+  LPP: 250.0
+  IS: 250.0
+  GC: 250.0
 Gap Junctions:
   Locations:
     BC:
@@ -969,4 +764,3 @@ Gap Junctions:
   ## Based on Fig. 6B from Amitai 2002
   Coupling Weights: { 0: 1.0, 25: 0.5, 75: 0.375, 125: 0.1875, 175: 0.1875 }
   Coupling Parameters: [0.0002,-0.0658,7.3211]
-  

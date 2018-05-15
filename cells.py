@@ -1959,7 +1959,7 @@ def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subse
     for source_name, subset_syn_ids in subset_source_names.iteritems():
         subset_syn_ids = np.array(subset_syn_ids)
         edge_count = 0
-        kinetics_dict = env.connection_generator[pop_name][source_name].synapse_kinetics
+        syn_params_dict = env.connection_generator[pop_name][source_name].synapse_parameters
         postsyn_cell = cell.hoc_cell
         cell_syn_dict = syn_id_attr_dict[postsyn_gid]
         cell_syn_types = cell_syn_dict['syn_types']
@@ -1969,7 +1969,7 @@ def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subse
 
         edge_syn_ps_dict = \
             synapses.mk_syns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types, cell_syn_locs,
-                             cell_syn_sections, kinetics_dict, env,
+                             cell_syn_sections, syn_params_dict, env,
                              add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
         for (syn_id, syn_ps_dict) in edge_syn_ps_dict.iteritems():
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
@@ -2019,19 +2019,6 @@ def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, en
                 syn_attrs_dict[postsyn_gid][edge_syn_id][syn_ps.name] = {'netcon': nc, 'attrs': {}}
 
         edge_count += len(presyn_gids)
-
-
-# ----------------------------------------------------------- Synapse wrapper -------------------------- #
-
-
-def fill_syn_mech_names(syn_attrs_dict, syn_index_map, syn_id_attr_dict, gid, pop_name, env):
-    source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
-    for (syn_id, syn_dict) in syn_attrs_dict[gid].iteritems():
-        source_id = syn_id_attr_dict[gid]['syn_sources'][syn_index_map[gid][syn_id]]
-        source_name = source_id2name[source_id]
-        syn_kinetic_params = env.connection_generator[pop_name][source_name].synapse_kinetics
-        for (syn_mech, params) in syn_kinetic_params.iteritems():
-            syn_attrs_dict[gid][syn_id][syn_mech] = {'attrs': {}}
 
 
 def get_filtered_syn_indexes(syn_id_attr_dict, syn_indexes=None, syn_types=None, layers=None, sources=None,

@@ -426,7 +426,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                                  (param, mech_name))
 
 
-def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn_kinetic_params, env,
+def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn_params, env,
            add_synapse=add_shared_synapse):
     """
     20180510: Aaron modified add_shared_synapse to allow at most synaptic mechanism OF EACH TYPE per segment.
@@ -437,7 +437,7 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
     :param swc_types:
     :param syn_locs:
     :param syn_sections:
-    :param syn_kinetic_params:
+    :param syn_params:
     :param env:
     :param add_synapse:
     :return: nested dict of hoc point processes
@@ -496,7 +496,7 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
         else:
             raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
         syn_mech_dict = {}
-        for (syn_name, params) in syn_kinetic_params.iteritems():
+        for (syn_name, params) in syn_params.iteritems():
             syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), mech_names=syn_attrs.syn_mech_names,
                               syns_dict=syns_dict)
             config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names, syn=syn,

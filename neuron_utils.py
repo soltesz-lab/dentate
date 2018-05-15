@@ -67,44 +67,20 @@ def simulate(h, v_init, prelength, mainlength):
     h.continuerun(h.tstop)
 
 
-def mknetcon(pc, srcgid, dstgid, syn, weight, delay):
+def mknetcon(pc, srcgid, dstgid, syn, delay, weight=1):
     """
     Adds a network connection to a single synapse point process
     :param pc: :class:'h.ParallelContext'
     :param srcgid: int; source gid
     :param dstgid: int; destination gid
     :param syn: synapse point process
-    :param weight: float
     :param delay: float
+    :param weight: float
     :return: :class:'h.NetCon'
     """
     assert pc.gid_exists(dstgid)
-    if pc.gid_exists(dstgid):
-        cell = pc.gid2cell(dstgid)
     nc = pc.gid_connect(srcgid, syn)
     nc.weight[0] = weight
-    nc.delay = delay
-    return nc
-
-
-def mknetcon_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
-    """
-    Adds a network connection to a single synapse point process. Sets weight to a value from the provided weights
-    vector.
-    :param pc: :class:'h.ParallelContext'
-    :param srcgid: int; source gid
-    :param dstgid: int; destination gid
-    :param syn: synapse point process
-    :param weights: :class:'h.Vector'
-    :param delay: float
-    :return: :class:'h.NetCon'
-    """
-    assert pc.gid_exists(dstgid)
-    if pc.gid_exists(dstgid):
-        cell = pc.gid2cell(dstgid)
-    nc = pc.gid_connect(srcgid, syn)
-    widx = int(dstgid % weights.size())
-    nc.weight[0] = weights.x[widx]
     nc.delay = delay
     return nc
 
