@@ -53,6 +53,7 @@ class Env:
 
         self.gidlist = []
         self.cells = []
+        self.biophys_cells = {}
 
         self.comm = comm
 

@@ -474,7 +474,6 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
         syn_loc = syn_locs[syn_id]
         syn_section = syn_sections[syn_id]
 
-        sref = None
         sec = py_sections[syn_section]
         if swc_type == swc_type_apical:
             syns_dict = syns_dict_dend

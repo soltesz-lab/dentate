@@ -11,6 +11,7 @@ from neuron import h
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, \
     scatter_read_cell_attributes, write_cell_attributes
 from dentate.env import Env
+from dentate.cells import *
 from dentate import lpt, synapses, cells, lfp, simtime
 from dentate.neuron_utils import mknetcon, mknetcon_wgtvector, mkgap
 import logging
@@ -179,13 +180,13 @@ def lfpout(env, output_path, lfp):
 
 def connectcells(env):
     """
-
+    TODO: Add garbage collection by default, but configurable during network tuning.
     :param env:
     :return:
     """
     connectivityFilePath = env.connectivityFilePath
     forestFilePath = env.forestFilePath
-
+    rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
 
     if env.verbose:
@@ -219,6 +220,11 @@ def connectcells(env):
         else:
             weights_namespace = 'Weights'
 
+        if synapse_config.has_key('mech_file_path'):
+            mech_file_path = synapse_config['mech_file_path']
+        else:
+            mech_file_path = None
+
         if env.verbose:
             if int(env.pc.id()) == 0:
                 logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
@@ -249,12 +255,20 @@ def connectcells(env):
             cell_weights_dict = None
         del cell_attributes_dict
 
-        syn_attrs.load_syn_id_attrs(gid, )
-
-        """
-        TODO: correct_cell_for_spines_cm needs to be called once per cell before any shared synaptic point processes are
-        inserted, in case nseg changes.
-        """
+        if mech_file_path is not None:
+            for gid in cell_synapses_dict:
+                syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+                biophys_cell = BiophysCell(gid=gid, population=postsyn_name, hoc_cell=env.pc.gid2cell(gid))
+                try:
+                    init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
+                                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                except IndexError:
+                    raise IndexError('connectcells: population: %s; gid: %i; could not load biophysics from path: '
+                                     '%s' % (postsyn_name, gid, mech_file_path))
+                env.biophys_cells[gid] = biophys_cell
+                if env.verbose and rank == 0:
+                    print 'connectcells: population: %s; gid: %i; loaded biophysics from path: %s' % \
+                          (postsyn_name, gid, mech_file_path)
 
         for presyn_name in presyn_names:
 
@@ -459,7 +473,7 @@ def mkcells(env):
                         logger.info("*** Creating gid %i" % gid)
 
                 verboseflag = 0
-                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
+                model_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
                                                        dataset_path=datasetPath)
                 if env.verbose:
                     if (rank == 0) and (i == 0):
@@ -514,7 +528,7 @@ def mkcells(env):
                         logger.info("*** Creating gid %i" % gid)
 
                 verboseflag = 0
-                model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+                model_cell = make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
