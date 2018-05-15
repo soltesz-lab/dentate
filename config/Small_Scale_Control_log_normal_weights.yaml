@@ -15,9 +15,10 @@ Connection Generator: !include Full_Scale_Connections.yaml
 Cell Types: 
   GC:
     template: DGC
+    templateFile: DGC_Template_minimal.hoc
     synapses:
-      spines: True
-      weights: True
+      spines: False  # This means: correct cm and g_pas to account for implicit spine membrane
+      weights: False
       density:
         apical:
           excitatory: # Excitatory https://www.ncbi.nlm.nih.gov/pubmed/2760687
@@ -53,7 +54,7 @@ Cell Types:
   MC:
     template: MossyCell
     synapses:
-      weights: True
+      weights: False
       density:
         apical:
           excitatory: 

@@ -3,7 +3,8 @@ from collections import defaultdict
 import sys, os.path, string, math
 from neuron import h
 import numpy as np
-import cells
+import pprint
+from dentate.cells import *
 
 
 def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seglist, seed,
@@ -44,7 +45,7 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, sec_inde
             if neurotree_dict is not None:
                 secindex = sec_index_dict[seg.sec]
                 secnodes = secnodes_dict[secindex]
-                layer = cells.get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
+                layer = get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
             else:
                 layer = -1
             layers.append(layer)
@@ -112,7 +113,7 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
             if neurotree_dict is not None:
                 secindex = sec_index_dict[seg.sec]
                 secnodes = secnodes_dict[secindex]
-                layer = cells.get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
+                layer = get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
             else:
                 layer = -1
             layers.append(layer)
@@ -330,19 +331,18 @@ def syn_in_seg(syn_name, seg, syns_dict):
     :param syns_dict: nested defaultdict
     :return: hoc point process or None
     """
-    for sec in syns_dict:
-        if seg.sec == sec:
-            for x in syns_dict[sec]:
-                if x == seg.x:
-                    if syn_name in syns_dict[sec][x]:
-                        syn = syns_dict[sec][x][syn_name]
-                        return syn
+    sec = seg.sec
+    for x in syns_dict[sec]:
+        if sec(x) == seg:
+            if syn_name in syns_dict[sec][x]:
+                syn = syns_dict[sec][x][syn_name]
+                return syn
     return None
 
 
 def make_syn_mech(mech_name, seg):
     """
-    :param mech_name: str (name of the point_process, specified by env.synapse_mech_names)
+    :param mech_name: str (name of the point_process, specified by Env.synapse_attributes.syn_mech_names)
     :param seg: hoc segment
     :return: hoc point process
     """
@@ -370,7 +370,7 @@ def add_shared_synapse(syn_name, seg, mech_names=None, syns_dict=None):
         else:
             mech_name = syn_name
         syn = make_syn_mech(mech_name, seg)
-        syns_dict[seg.sec][seg.x][mech_name] = syn
+        syns_dict[seg.sec][seg.x][syn_name] = syn
     return syn
 
 
@@ -460,6 +460,8 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
     swc_type_ais   = env.SWC_Types['ais']
     swc_type_hill  = env.SWC_Types['hillock']
     
+    syn_attrs = env.synapse_attributes
+
     syn_obj_dict = {}
 
     for i in xrange(syn_ids.size):
@@ -497,9 +499,9 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
             raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
         syn_mech_dict = {}
         for (syn_name, params) in syn_kinetic_params.iteritems():
-            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), mech_names=env.synapse_mech_names,
+            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), mech_names=syn_attrs.syn_mech_names,
                               syns_dict=syns_dict)
-            config_syn(syn_name=syn_name, rules=env.synapse_param_rules, mech_names=env.synapse_mech_names, syn=syn,
+            config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names, syn=syn,
                        **params)
             cell.syns.append(syn)
             cell.syntypes.o(syn_type).append(syn)
@@ -508,6 +510,11 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
 
     if spines:
         cell.correct_for_spines()
+
+    if gid == 0 and env.verbose:
+        sec = syns_dict.iterkeys().next()
+        print 'syns_dict[%s]:' % sec.hname()
+        pprint.pprint(syns_dict[sec])
 
     return syn_obj_dict
 

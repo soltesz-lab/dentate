@@ -1,7 +1,6 @@
 from neuron import h
 import copy
 import datetime
-import dentate
 from dentate.neuron_utils import *
 from dentate.utils import *
 from neuroh5.h5py_io_utils import *
@@ -535,7 +534,6 @@ class SHocNode(btmorph.btstructs2.SNode2):
     Extends SNode2 with some methods for storing and retrieving additional information in the node's content
     dictionary related to running NEURON models specified in the hoc language.
     """
-
     def __init__(self, index=0):
         """
         :param index: int : unique node identifier
@@ -730,6 +728,59 @@ class SHocNode(btmorph.btstructs2.SNode2):
         loc = h.parent_connection()
         h.pop_section()
         return loc
+
+
+# --------------------------------------------------------------------------------------------------------- #
+
+
+class SynapseAttributes(object):
+    """
+    As a network is constructed, this class provides an interface to store, retrieve, and modify attributes of synaptic
+    mechanisms. Handles instantiation of complex subcellular gradients of synaptic mechanism attributes.
+    """
+    def __init__(self, syn_mech_names, syn_param_rules):
+        """
+        An Env object containing imported network configuration metadata is used to initialize a SynapseAttributes
+        object to track all metadata related to the identity, location, and configuration of all synaptic connections
+        in the network.
+        :param env: :class:'Env'
+        :param syn_mech_names: dict
+        :param syn_param_rules: dict
+        """
+        self.syn_mech_names = syn_mech_names
+        self.syn_param_rules = syn_param_rules
+        self.select_cell_attr_index_map = {}  # population name (str): gid (int): index in file (int)
+        # dest population name (str): source population name (str): gid (int): index in file (int)
+        self.select_edge_attr_index_map = defaultdict(dict)
+
+        self.syn_id_attr_dict = {}  # gid (int): attr_name (str): array
+        self.syn_mech_attr_dict = defaultdict(dict)  # gid (int): syn_id (int): dict
+        self.syn_id_attr_index_map = {}  # gid (int): syn_id (int): index in syn_id_attr_dict (int)
+        self.sec_index_map = defaultdict(lambda: defaultdict(list))  # gid (int): sec_id (int): list of indexes in syn_id_attr_dict (int)
+
+    def load_syn_id_attrs(self, gid, syn_id_attr_dict):
+        """
+
+        :param gid: int
+        :param syn_id_attr_dict: dict
+        """
+        self.syn_id_attr_dict[gid] = syn_id_attr_dict
+        # value of -1 used to indicate not yet assigned; all source populations are associated with positive integers
+        self.syn_id_attr_dict[gid]['source'] = np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
+        self.syn_id_attr_index_map[gid] = {syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids'])}
+        for i, sec_id in enumerate(syn_id_attr_dict['syn_secs']):
+            self.sec_index_map[gid][sec_id].append(i)
+
+    def load_edge_attrs(self, gid, source_name, syn_ids, env):
+        """
+        TODO: move functionality of fill_syn_mech_names to here
+        :param gid: int
+        :param source_name: str; name of source population
+        :param syn_ids: array of int
+        """
+        source = int(env.pop_dict[source_name])
+        indexes = [self.syn_id_attr_index_map[gid][syn_id] for syn_id in syn_ids]
+        self.syn_id_attr_dict[gid]['source'][indexes] = source
 
 
 # --------------------------------------------------------------------------------------------------------- #
@@ -1119,8 +1170,8 @@ def import_mech_dict_from_yaml(cell, mech_file_path=None):
     cell.mech_dict = read_from_yaml(cell.mech_file_path)
 
 
-def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None, cm_correct=False, g_pas_correct=False,
-                    cell_attr_dict=None, sec_index_map=None, env=None):
+def init_mechanisms(cell, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False, correct_g_pas=False,
+                    env=None):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
     each type of section in a HocCell. Traverses through the tree of SHocNode nodes following order of inheritance and
@@ -1128,9 +1179,12 @@ def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None
     path from root. It is not necessary to reset cable parameters again after specification of morphology, but it can be
     done later with the reset_cable flag.
     :param cell: :class:'HocCell'
+    :param mech_file_path: str (path)
     :param reset_cable: bool
     :param from_file: bool
-    :param mech_file_path: str (path)
+    :param correct_cm: bool
+    :param correct_g_pas: bool
+    :param env: :class:'Env'
     """
     if from_file:
         if mech_file_path is None:
@@ -1138,19 +1192,19 @@ def init_mechanisms(cell, reset_cable=True, from_file=False, mech_file_path=None
         if os.path.isfile(mech_file_path):
             import_mech_dict_from_yaml(cell, mech_file_path)
         else:
-            raise Exception('mech_file_path is not a valid path.')
+            raise Exception('init_mechanisms: mech_file_path is not a valid path.')
     for sec_type in ordered_sec_types:
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
             if cell.nodes[sec_type]:
                 update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=reset_cable)
-    if cm_correct or g_pas_correct:
-        if cell_attr_dict is None or sec_index_map is None or env is None:
-            raise Exception('Must give cell_attr_dict, sec_index_map, and env as parameters in order to'
-                            'correct for spines.')
-    if reset_cable and cm_correct:
-        correct_cm_for_spines(cell, cell_attr_dict, sec_index_map, env)
-    if g_pas_correct:
-        correct_g_pas_for_spines(cell, cell_attr_dict, sec_index_map, env)
+    if correct_cm or correct_g_pas:
+        if env is None:
+            raise Exception('init_mechanisms: missing Env object; required to parse network configuration and count '
+                            'synapses.')
+    if reset_cable and correct_cm:
+        correct_cell_for_spines_cm(cell, env)
+    if correct_g_pas:
+        correct_cell_for_spines_g_pas(cell, env)
 
 
 def update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=False):
@@ -1539,14 +1593,17 @@ def reinit_diam(node):
         h('diam(0:1)={}:{}'.format(diam1, diam2), sec=node.sec)
 
 
-def count_spines_per_seg(node, cell_attr_dict, sec_index_map, env):
+def count_spines_per_seg(node, env, gid):
     """
 
-    :param node:
-    :return:
+    :param node: :class:'SHocNode'
+    :param env: :class:'Env'
+    :param gid: int
     """
+    syn_id_attr_dict = env.synapse_attributes.syn_id_attr_dict[gid]
+    sec_index_map = env.synapse_attributes.sec_index_map[gid]
     node.content['spine_count'] = []
-    filtered_syns = filtered_synapse_attributes(cell_attr_dict, np.array(sec_index_map[node.index]), env,
+    filtered_syns = filtered_synapse_attributes(syn_id_attr_dict, np.array(sec_index_map[node.index]), env,
                                                 syn_category='excitatory', output='syn_locs')
     this_syn_locs = np.array(filtered_syns['syn_locs'])
     seg_width = 1. / node.sec.nseg
@@ -1555,35 +1612,42 @@ def count_spines_per_seg(node, cell_attr_dict, sec_index_map, env):
         node.content['spine_count'].append(num_spines)
 
 
-def correct_node_g_pas(node, cell, cell_attr_dict, sec_index_map, env):
+def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in this
     dendritic section proportional to the number of excitatory synapses contained in the section.
+    :param node: :class:'SHocNode'
+    :param env: :class:'Env'
+    :param gid: int
+    :param soma_g_pas: float
     """
     SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
     if len(node.spine_count) != node.sec.nseg:
-        count_spines_per_seg(node, cell_attr_dict, sec_index_map, env)
+        count_spines_per_seg(node, env, gid)
     for i, segment in enumerate(node.sec):
         SA_seg = segment.area()
         num_spines = node.spine_count[i]
-        soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
+
         gpas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
                                  (SA_seg * node.sec(segment.x).g_pas)
         node.sec(segment.x).g_pas *= gpas_correction_factor
         # print 'gpas correction factor for %s seg %i: %.3f' %(node.name, i, gpas_correction_factor)
 
 
-def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
+def correct_node_for_spines_cm(node, env, gid):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
     dendritic section proportional to the number of excitatory synapses contained in the section.
+    :param node: :class:'SHocNode'
+    :param env:  :class:'Env'
+    :param gid: int
     """
     # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
-    # capacitance and time constant
+    # capacitance and time constant:
     cm_fraction = 0.40
     SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
     if len(node.spine_count) != node.sec.nseg:
-        count_spines_per_seg(node, cell_attr_dict, sec_index_map, env)
+        count_spines_per_seg(node, env, gid)
     for i, segment in enumerate(node.sec):
         SA_seg = segment.area()
         num_spines = node.spine_count[i]
@@ -1591,33 +1655,34 @@ def correct_node_cm(node, cell_attr_dict, sec_index_map, env):
         node.sec(segment.x).cm *= cm_correction_factor
 
 
-def correct_g_pas_for_spines(cell, cell_attr_dict, sec_index_map, env):
+def correct_cell_for_spines_g_pas(cell, env):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
     dendritic sections proportional to the number of excitatory synapses contained in each section.
+    :param cell: :class:'HocCell'
+    :param env: :class:'Env'
     """
+    soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         for node in get_nodes_of_subtype(cell, sec_type):
-            correct_node_g_pas(node, cell, cell_attr_dict, sec_index_map, env)
+            correct_node_for_spines_g_pas(node, env, cell.gid, soma_g_pas)
 
 
-def correct_cm_for_spines(cell, cell_attr_dict, sec_index_map, env):
+def correct_cell_for_spines_cm(cell, env):
     """
 
-    :param cell:
-    :param cell_attr_dict:
-    :return:
+    :param cell: :class:'HocCell'
+    :param env: :class:'Env'
     """
     for loop in xrange(2):
         for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
             for node in get_nodes_of_subtype(cell, sec_type):
-                correct_node_cm(node, cell_attr_dict, sec_index_map, env)
+                correct_node_for_spines_cm(node, env, cell.gid)
                 if loop == 0:
                     init_nseg(node.sec)
                     reinit_diam(node)
         if loop == 0:
-            init_mechanisms(cell, reset_cable=False, cm_correct=False, g_pas_correct=False, cell_attr_dict=cell_attr_dict,
-                            sec_index_map=sec_index_map, env=env)
+            init_mechanisms(cell, reset_cable=False, correct_cm=False, correct_g_pas=False, env=env)
 
 
 def get_distance_to_node(cell, root, node, loc=None):
@@ -1672,6 +1737,7 @@ def get_branch_order(cell, node):
     Calculates the branch order of a SHocNode node. The order is defined as 0 for all soma, axon, and apical trunk
     dendrite nodes, but defined as 1 for basal dendrites that branch from the soma, and apical and tuft dendrites
     that branch from the trunk. Increases by 1 after each additional branch point. Makes sure not to count spines.
+    :param cell: :class:'HocCell'
     :param node: :class:'SHocNode'
     :return: int
     """
@@ -1803,7 +1869,7 @@ def get_node_attribute (name, content, sec, secnodes, x=None):
         return None
 
 
-def make_neurotree_cell (template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
+def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
     """
 
     :param template_class:
@@ -1840,11 +1906,11 @@ def make_cell(template_class, local_id=0, gid=0, dataset_path=""):
     return cell
 
 
-def subset_syns_by_source(syn_id_list, cell_attr_dict, syn_index_map, postsyn_gid, env):
+def subset_syns_by_source(syn_id_list, syn_id_attr_dict, syn_index_map, postsyn_gid, env):
     source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
     subset_source_names = {}
     for syn_id in syn_id_list:
-        source_id = cell_attr_dict[postsyn_gid]['source'][syn_index_map[postsyn_gid][syn_id]]
+        source_id = syn_id_attr_dict[postsyn_gid]['source'][syn_index_map[postsyn_gid][syn_id]]
         source_name = source_id2name[source_id]
         if source_name not in subset_source_names:
             subset_source_names[source_name] = [syn_id]
@@ -1853,7 +1919,7 @@ def subset_syns_by_source(syn_id_list, cell_attr_dict, syn_index_map, postsyn_gi
     return subset_source_names
 
 
-def insert_syn_subset(cell, syn_attrs_dict, cell_attr_dict, postsyn_gid, subset_source_names, env, pop_name):
+def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subset_source_names, env, pop_name):
     synapse_config = env.celltypes[pop_name]['synapses']
     if synapse_config.has_key('spines'):
         spines = synapse_config['spines']
@@ -1870,7 +1936,7 @@ def insert_syn_subset(cell, syn_attrs_dict, cell_attr_dict, postsyn_gid, subset_
         edge_count = 0
         kinetics_dict = env.connection_generator[pop_name][source_name].synapse_kinetics
         postsyn_cell = cell.hoc_cell
-        cell_syn_dict = cell_attr_dict[postsyn_gid]
+        cell_syn_dict = syn_id_attr_dict[postsyn_gid]
         cell_syn_types = cell_syn_dict['syn_types']
         cell_swc_types = cell_syn_dict['swc_types']
         cell_syn_locs = cell_syn_dict['syn_locs']
@@ -1933,50 +1999,37 @@ def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, en
 # -----------------------------------------------------------
 # Synapse wrapper
 
-def build_syn_attrs_dict(cell_attr_dict, gid):
-    syn_attrs_dict = {syn_id: {} for syn_id in cell_attr_dict[gid]['syn_ids']}
-    syn_index_map = {syn_id: idx for idx, syn_id in enumerate(cell_attr_dict[gid]['syn_ids'])}
+def build_syn_attrs_dict(syn_id_attr_dict, gid):
+    syn_attrs_dict = {syn_id: {} for syn_id in syn_id_attr_dict[gid]['syn_ids']}
+    syn_index_map = {syn_id: idx for idx, syn_id in enumerate(syn_id_attr_dict[gid]['syn_ids'])}
     return syn_attrs_dict, syn_index_map
 
 
-def fill_source_info(connectivityFilePath, cell_attr_dict, syn_index_map, gid, pop_name, env):
-    this_source_id_list = [np.nan for i in xrange(len(cell_attr_dict[gid]['syn_ids']))]
-    for source_name in env.connection_generator[pop_name]:
-        source_id = int(env.pop_dict[source_name])
-        edge_attr_index_map = get_edge_attributes_index_map(env.comm, connectivityFilePath, source_name, pop_name)
-        edge_attr_tuple = select_edge_attributes(gid, env.comm, connectivityFilePath, edge_attr_index_map,
-                                                     source_name, 'GC', ['Synapses'])
-        for syn_id in edge_attr_tuple[1]['Synapses']['syn_id']:
-            this_source_id_list[syn_index_map[gid][syn_id]] = source_id
-    cell_attr_dict[gid]['source'] = np.array(this_source_id_list, dtype='uint32')
-
-
-def fill_syn_mech_names(syn_attrs_dict, syn_index_map, cell_attr_dict, gid, pop_name, env):
+def fill_syn_mech_names(syn_attrs_dict, syn_index_map, syn_id_attr_dict, gid, pop_name, env):
     source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
     for (syn_id, syn_dict) in syn_attrs_dict[gid].iteritems():
-        source_id = cell_attr_dict[gid]['source'][syn_index_map[gid][syn_id]]
+        source_id = syn_id_attr_dict[gid]['source'][syn_index_map[gid][syn_id]]
         source_name = source_id2name[source_id]
         syn_kinetic_params = env.connection_generator[pop_name][source_name].synapse_kinetics
         for (syn_mech, params) in syn_kinetic_params.iteritems():
             syn_attrs_dict[gid][syn_id][syn_mech] = {'attrs': {}}
 
 
-def build_sec_index_map(cell_attr_dict, gid):
-    from collections import defaultdict
+def build_sec_index_map(syn_id_attr_dict, gid):
     sec_index_map = defaultdict(list)
-    for idx, sec_idx in enumerate(cell_attr_dict[gid]['syn_secs']):
+    for idx, sec_idx in enumerate(syn_id_attr_dict[gid]['syn_secs']):
         sec_index_map[sec_idx].append(idx)
     return sec_index_map
 
 
-def filtered_synapse_attributes(cell_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None, sorted=False):
+def filtered_synapse_attributes(syn_id_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None, sorted=False):
     """
 
-    :param cell_attr_dict:
+    :param syn_id_attr_dict:
     :param syn_idxs:
     :param syn_category: str or list of str
     :param layer: int or list of ints
-    :param output: str or list of str (each string must be a key in cell_attr_dict, ex. 'syn_locs')
+    :param output: str or list of str (each string must be a key in syn_id_attr_dict, ex. 'syn_locs')
     :param sorted: bool
     :return:
     """
@@ -1985,7 +2038,7 @@ def filtered_synapse_attributes(cell_attr_dict, syn_idxs, env, syn_category=None
             syn_category = [syn_category]
         correct_idxs = np.array([], dtype='i8')
         for category in syn_category:
-            syn_type_list = cell_attr_dict['syn_types'][syn_idxs]
+            syn_type_list = syn_id_attr_dict['syn_types'][syn_idxs]
             where = np.where(syn_type_list==env.syntypes_dict[category])
             correct_idxs = np.concatenate((correct_idxs, where[0]))
         syn_idxs = syn_idxs[correct_idxs]
@@ -1994,7 +2047,7 @@ def filtered_synapse_attributes(cell_attr_dict, syn_idxs, env, syn_category=None
             layers = [layers]
         correct_idxs = []
         for layer in layers:
-            syn_layer_list = cell_attr_dict['syn_layers'][syn_idxs]
+            syn_layer_list = syn_id_attr_dict['syn_layers'][syn_idxs]
             where = np.where(syn_layer_list==layer)
             correct_idxs = np.concatenate((correct_idxs, where[0]))
         syn_idxs = syn_idxs[correct_idxs]
@@ -2004,5 +2057,5 @@ def filtered_synapse_attributes(cell_attr_dict, syn_idxs, env, syn_category=None
     if not isinstance(output, (list,)):
         output = [output]
     for output_type in output:
-        out[output_type] = cell_attr_dict[output_type][syn_idxs]
+        out[output_type] = syn_id_attr_dict[output_type][syn_idxs]
     return out
