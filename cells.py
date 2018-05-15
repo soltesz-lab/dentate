@@ -754,7 +754,7 @@ class SynapseAttributes(object):
         self.select_edge_attr_index_map = defaultdict(dict)
 
         self.syn_id_attr_dict = {}  # gid (int): attr_name (str): array
-        self.syn_mech_attr_dict = defaultdict(dict)  # gid (int): syn_id (int): dict
+        self.syn_mech_attr_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))  # gid (int): syn_id (int): dict
         self.syn_id_attr_index_map = {}  # gid (int): syn_id (int): index in syn_id_attr_dict (int)
         # gid (int): sec_id (int): list of indexes in syn_id_attr_dict (int)
         self.sec_index_map = defaultdict(lambda: defaultdict(list))
@@ -776,7 +776,7 @@ class SynapseAttributes(object):
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env):
         """
-        TODO: move functionality of fill_syn_mech_names to here
+
         :param gid: int
         :param source_name: str; name of source population
         :param syn_ids: array of int
@@ -785,6 +785,28 @@ class SynapseAttributes(object):
         indexes = [self.syn_id_attr_index_map[gid][syn_id] for syn_id in syn_ids]
         self.syn_id_attr_dict[gid]['syn_sources'][indexes] = source
 
+    def append_netcon(self, gid, syn_id, syn_name, nc):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        """
+        self.syn_mech_attr_dict[gid][syn_id][syn_name]['netcon'] = nc
+
+    def get_netcon(self, gid, syn_id, syn_name):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        :return: :class:'h.NetCon'
+        """
+        if (self.syn_mech_attr_dict[gid][syn_id].has_key(syn_name) and
+            self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('netcon')):
+            return self.syn_mech_attr_dict[gid][syn_id][syn_name]['netcon']
+        else:
+            return None
 
 # --------------------------------------------------------------------------------------------------------- #
 

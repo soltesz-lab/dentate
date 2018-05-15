@@ -256,6 +256,7 @@ def connectcells(env):
         del cell_attributes_dict
 
         if mech_file_path is not None:
+            first_gid = cell_synapses_dict.iteritems().next()
             for gid in cell_synapses_dict:
                 syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
                 biophys_cell = BiophysCell(gid=gid, population=postsyn_name, hoc_cell=env.pc.gid2cell(gid))
@@ -266,7 +267,7 @@ def connectcells(env):
                     raise IndexError('connectcells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
                 env.biophys_cells[gid] = biophys_cell
-                if env.verbose and rank == 0:
+                if env.verbose and rank == 0 and gid == first_gid:
                     print 'connectcells: population: %s; gid: %i; loaded biophysics from path: %s' % \
                           (postsyn_name, gid, mech_file_path)
 
@@ -313,6 +314,8 @@ def connectcells(env):
                 edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
                 edge_dists = edges[1]['Connections'][distance_attr_index]
 
+                syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
+
                 cell_syn_types = cell_syn_dict['syn_types']
                 cell_swc_types = cell_syn_dict['swc_types']
                 cell_syn_locs = cell_syn_dict['syn_locs']
@@ -344,7 +347,8 @@ def connectcells(env):
                             this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn_ps, weight, delay)
                         else:
                             this_nc = mknetcon_wgtvector(env.pc, presyn_gid, postsyn_gid, syn_ps, weight, delay)
-                        h.nclist.append(this_nc)
+                        syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_mech, this_nc)
+                        # h.nclist.append(this_nc)
                 if env.verbose:
                     if int(env.pc.id()) == 0:
                         if edge_count == 0:
