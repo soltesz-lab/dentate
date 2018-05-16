@@ -740,10 +740,8 @@ class SynapseAttributes(object):
     """
     def __init__(self, syn_mech_names, syn_param_rules):
         """
-        An Env object containing imported network configuration metadata is used to initialize a SynapseAttributes
-        object to track all metadata related to the identity, location, and configuration of all synaptic connections
-        in the network.
-        :param env: :class:'Env'
+        An Env object containing imported network configuration metadata uses an instance of SynapseAttributes to track
+        all metadata related to the identity, location, and configuration of all synaptic connections in the network.
         :param syn_mech_names: dict
         :param syn_param_rules: dict
         """

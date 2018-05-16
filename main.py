@@ -278,6 +278,7 @@ def connectcells(env):
 
             if env.verbose:
                 if env.pc.id() == 0:
+                    print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
                     logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
             if env.nodeRanks is None:
@@ -348,7 +349,7 @@ def connectcells(env):
                         this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn_ps, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
-                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict)
+                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
                         if has_weights and syn_wgt_dict.has_key(syn_name) and \
                                 syn_wgt_dict[syn_name].has_key(edge_syn_id):
                             weight = float(syn_wgt_dict[syn_name][edge_syn_id])
