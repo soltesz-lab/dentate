@@ -983,7 +983,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     """
     global verbose
     if 'synapse' in mech_name:
-        update_synaptic_mech_param(sec_type, mech_name, param_name, value, origin, slope, tau, xhalf, min,
+        update_syn_mechanisms_by_sec_type(sec_type, mech_name, param_name, value, origin, slope, tau, xhalf, min,
                                          max, min_loc, max_loc, outside, syn_type, variance, replace, custom)
         return
     backup_content = None
@@ -1285,7 +1285,7 @@ def update_mechanism_by_node(cell, node, mech_name, mech_content):
         node.sec.insert(mech_name)
 
 
-def parse_mech_content(cell, node, mech_name, param_name, rules, syn_type=None):
+def parse_mech_content(cell, node, mech_name, param_name, rules, env=None, syn_type=None):
     """
         This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
         interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
@@ -1367,7 +1367,9 @@ def parse_mech_content(cell, node, mech_name, param_name, rules, syn_type=None):
                     raise Exception('Cannot specify %s mechanism: %s parameter: %s without a provided origin' %
                                     (mech_name, syn_type, param_name))
                 else:
-                    _specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
+                    if env is None:
+                        raise Exception('Must provide env object in order to specify syanptic mechanism.')
+                    specify_syn_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type, donor)
             else:
                 if donor is None:
                     raise Exception('Cannot specify mechanism: %s parameter: %s without a provided origin' %
@@ -1376,7 +1378,9 @@ def parse_mech_content(cell, node, mech_name, param_name, rules, syn_type=None):
         elif mech_name == 'ions':
             setattr(node.sec, param_name, baseline)
         elif 'synapse' in mech_name:
-            _specify_synaptic_parameter(node, mech_name, param_name, baseline, rules, syn_type)
+            if env is None:
+                raise Exception('Must provide env object in order to specify syanptic mechanism.')
+            specify_syn_mech_parameter(node, mech_name, param_name, baseline, rules, syn_type)
         else:
             node.sec.insert(mech_name)
             setattr(node.sec, param_name + "_" + mech_name, baseline)
@@ -1449,7 +1453,7 @@ def specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, d
 
 #Need to write get_synapse_attributes -- was this supposed to be similar to node.get_filtered_synapse_attributes?
 #Was update synapse supposed to be an updated version of specify_synaptic_parameter?
-def update_synapse_attributes_by_node(cell, node, mech_name, mech_content):
+def update_synapse_attributes_by_node(cell, node, mech_name, mech_content, env, gid):
     """
     Consults a dictionary to specify properties of synapses of the specified category. Only sets values in a nodes
     dictionary of synapse attributes. Must then call 'update_synapses' to modify properties of underlying hoc
@@ -1460,6 +1464,10 @@ def update_synapse_attributes_by_node(cell, node, mech_name, mech_content):
     """
     syn_category = mech_name.split(' ')[0]
     # Only specify synapse attributes if this category of synapses has been specified in this node
+    syn_id_attr_dict = env.synapse_attributes.syn_id_attr_dict[gid]
+    syn_idxs = syn_id_attr_dict['syn_ids']
+    filtered_synapse_attributes(syn_id_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None,
+                                sorted=False)
     if get_synapse_attributes(node, syn_category=syn_category)['syn_locs']:
         for syn_type in mech_content:
             if mech_content[syn_type] is not None:
@@ -1467,15 +1475,13 @@ def update_synapse_attributes_by_node(cell, node, mech_name, mech_content):
                     # accommodate either a dict, or a list of dicts specifying multiple location constraints for
                     # a single parameter
                     if isinstance(mech_content[syn_type][param_name], dict):
-                        parse_mech_content(cell, node, mech_name, param_name, mech_content[syn_type][param_name], syn_type)
+                        parse_mech_content(cell, node, mech_name, param_name, mech_content[syn_type][param_name], env, syn_type)
                     elif isinstance(mech_content[syn_type][param_name], Iterable):
                         for mech_content_entry in mech_content[syn_type][param_name]:
-                            parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, syn_type)
+                            parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, env, syn_type)
 
 
-
-
-def specify_synaptic_parameter(cell, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+def specify_syn_mech_parameter(cell, node, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
     """
     This method interprets an entry from the mechanism dictionary to set parameters for synapse_mechanism_attributes
     contained in this node. Appropriately implements slopes and inheritances.
