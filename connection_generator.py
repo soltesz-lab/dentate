@@ -202,7 +202,7 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
 
 
         
-def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_extents, populations=None, allgather=False, verbose=False):
+def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False, verbose=False):
     """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -261,16 +261,18 @@ def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_ext
                     assert((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
                     assert((limits[1][2] - soma_l + 0.001 >= 0.) and (soma_l - limits[0][2] + 0.001 >= 0.))
                 except Exception as e:
-                    logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
+                    logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
+                                     (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                 try:
-                    distance_u = dist_u(uvl_obs)
-                    distance_v = dist_v(uvl_obs)
-                    distance_l = dist_l(uvl_obs)
+                    distance_u = dist_u(uvl_obs, chunk_size=interp_chunk_size)
+                    distance_v = dist_v(uvl_obs, chunk_size=interp_chunk_size)
+                    distance_l = dist_l(uvl_obs, chunk_size=interp_chunk_size)
                     assert(distance_u >= 0.0)
                     assert(distance_v >= 0.0)
                     assert(distance_l >= 0.0)
                 except Exception as e:
-                    logger.error("gid %i: distance calculation error for coordinates %f %f %f (distances: %f %f %f)" % (gid, soma_u, soma_v, soma_l, dist_u(uvl_obs), dist_v(uvl_obs), dist_l(uvl_obs)))
+                    logger.error("gid %i: distance calculation error for coordinates %f %f %f (distances: %f %f %f)" % \
+                                     (gid, soma_u, soma_v, soma_l, dist_u(uvl_obs), dist_v(uvl_obs), dist_l(uvl_obs)))
                     raise e
                 local_dist_dict[gid] = (distance_u, distance_v, distance_l)
                 if rank == 0:

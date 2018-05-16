@@ -33,12 +33,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--resample", type=int, default=2)
 @click.option("--resolution", type=int, default=15)
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
+@click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, resample, resolution, populations, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, resample, resolution, populations, interp_chunk_size, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -128,7 +129,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
 
         soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
                                             soma_coords, population_extents, [population], \
-                                            allgather=False, verbose=verbose)
+                                            allgather=False, interp_chunk_size=interp_chunk_size, verbose=verbose)
 
         if rank == 0:
             logger.info('Writing distances for population %s...' % population)

@@ -40,6 +40,7 @@ sigma = 0.35
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--weights-namespace", type=str, default='Log-Normal Weights')
+@click.option("--weights-name", type=str, default='AMPA')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
@@ -50,7 +51,7 @@ sigma = 0.35
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
+def main(config, weights_path, weights_namespace, weights_name, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
     """
 
     :param weights_path: str
@@ -126,7 +127,7 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
                     syn_weight_map[this_syn_id] = this_weight
             weights_dict[destination_gid] = \
                 {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
-                 'weight': np.array(syn_weight_map.values()).astype('float32', copy=False)}
+                 weights_name: np.array(syn_weight_map.values()).astype('float32', copy=False)}
             logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
                         '%.2f s' % (rank, destination, destination_gid, len(syn_weight_map), len(source_weights),
                                     time.time() - local_time))

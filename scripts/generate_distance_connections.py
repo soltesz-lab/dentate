@@ -40,6 +40,7 @@ logger = logging.getLogger(script_name)
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
 @click.option("--resample", type=int, default=2)
 @click.option("--resolution", type=int, default=15)
+@click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -48,7 +49,7 @@ logger = logging.getLogger(script_name)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resample, resolution, io_size,
+         synapses_namespace, resample, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     if verbose:
@@ -142,7 +143,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     if rank == 0:
         logger.info('Computing soma distances...')
     soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, soma_coords, population_extents, \
-                                        allgather=True, verbose=verbose)
+                                        allgather=True, interp_chunk_size=interp_chunk_size, verbose=verbose)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 

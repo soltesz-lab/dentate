@@ -31,27 +31,27 @@ Cell Types:
              variance: 0.28
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             GCL: # layer
-              mean: 1.0
+              mean: 0.2
               variance: 0.01
             IML: # layer
-              mean: 1.0
+              mean: 0.7
               variance: 0.01
             OML: # layer
-              mean: 3.5
+              mean: 0.7
               variance: 0.01
             MML: # layer
-              mean: 3.5
+              mean: 0.7
               variance: 0.01
         soma:
-          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
-            default: # layer
-              mean: 4.0
-              variance: 0.2
+          inhibitory: 
+            default: 
+              mean: 10.0
+              variance: 0.1
         ais:
-          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
-            default: # layer
-              mean: 4.0
-              variance: 0.2
+          inhibitory: 
+            default: 
+              mean: 1.3
+              variance: 0.1
   MC:
     template: MossyCell
     synapses:
@@ -59,17 +59,17 @@ Cell Types:
         apical:
           excitatory: 
             Hilus: # layer
-             mean: 3.5 
-             variance: 0.2
+             mean: 1.18 
+             variance: 0.1
           inhibitory: # Inhibitory
             default: # layer
-              mean: 1.5
+              mean: 1.0
               variance: 0.1
         soma:
           inhibitory: # Inhibitory
             default: # layer
               mean: 4.0
-              variance: 0.2
+              variance: 0.1
   HC:
     template: HIPPCell
     synapses:
@@ -79,16 +79,16 @@ Cell Types:
             default: # layer
              mean: 1.0
              variance: 0.2
-          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+          inhibitory: 
             default: # layer
               mean: 0.25
               variance: 0.1
         basal:
-          excitatory: # excitatory
+          excitatory: 
             default: # layer
               mean: 1.0
               variance: 0.2
-          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+          inhibitory: 
             default: # layer
               mean: 0.25
               variance: 0.1
