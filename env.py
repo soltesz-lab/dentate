@@ -14,8 +14,7 @@ ConnectionGenerator = namedtuple('ConnectionGenerator',
                                   'synapse_locations',
                                   'synapse_layers',
                                   'synapse_proportions',
-                                  'synapse_kinetics',
-                                  'connection_properties'])
+                                  'synapse_parameters'])
 
 
 class Env:
@@ -53,6 +52,7 @@ class Env:
 
         self.gidlist = []
         self.cells = []
+        self.biophys_cells = {}
 
         self.comm = comm
 
@@ -192,6 +192,8 @@ class Env:
         self.simtime = None
         self.lfp = {}
 
+        self.edge_count = defaultdict(dict)
+
     def load_input_config(self):
         """
 
@@ -226,14 +228,13 @@ class Env:
         self.syntypes_dict = syntypes_dict
         swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
         layers_dict      = self.modelConfig['Definitions']['Layers']
-        synapse_kinetics = self.modelConfig['Connection Generator']['Synapse Kinetics']
+        synapse_parameters = self.modelConfig['Connection Generator']['Synapse Parameters']
         synapse_types    = self.modelConfig['Connection Generator']['Synapse Types']
         synapse_locs     = self.modelConfig['Connection Generator']['Synapse Locations']
         synapse_layers   = self.modelConfig['Connection Generator']['Synapse Layers']
         synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
-        connection_properties = self.modelConfig['Connection Generator']['Connection Properties']
+        self.connection_velocity = self.modelConfig['Connection Generator']['Connection Velocity']
         syn_mech_names = self.modelConfig['Connection Generator']['Synapse Mechanisms']
-        # TODO: refer to this dict when setting attributes of synapses or netcons
         syn_param_rules = self.modelConfig['Connection Generator']['Synapse Parameter Rules']
         self.synapse_attributes = SynapseAttributes(syn_mech_names, syn_param_rules)
         connection_generator_dict = {}
@@ -245,31 +246,13 @@ class Env:
                 val_synlocs     = synapse_locs[key_postsyn][key_presyn]
                 val_synlayers   = synapse_layers[key_postsyn][key_presyn]
                 val_proportions = synapse_proportions[key_postsyn][key_presyn]
-                val_synkins     = synapse_kinetics[key_postsyn][key_presyn]
-                val_connprops1  = {}
-                for (k_mech,v_mech) in connection_properties[key_postsyn][key_presyn].iteritems():
-                    v_mech1 = {}
-                    for (k,v) in v_mech.iteritems():
-                        v1 = v
-                        if type(v) is dict:
-                            if v.has_key('from file'):
-                                with open(v['from file']) as fp:
-                                    lst = []
-                                    lines = fp.readlines()
-                                    for l in lines:
-                                        lst.append(float(l))
-                            v1 = h.Vector(np.asarray(lst, dtype=np.float32))
-                        v_mech1[k] = v1
-                    val_connprops1[k_mech] = v_mech1
-                            
-
+                val_synparams   = synapse_parameters[key_postsyn][key_presyn]
                 val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
                 val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
                 val_synlayers1 = [layers_dict[val_synlayer] for val_synlayer in val_synlayers]
                 
                 connection_generator_dict[key_postsyn][key_presyn] = \
-                    ConnectionGenerator(val_syntypes1, val_synlocs1, val_synlayers1, val_proportions, val_synkins,
-                                        val_connprops1)
+                    ConnectionGenerator(val_syntypes1, val_synlocs1, val_synlayers1, val_proportions, val_synparams)
 
         self.connection_generator = connection_generator_dict
 

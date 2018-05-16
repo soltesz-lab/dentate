@@ -11,8 +11,10 @@ from neuron import h
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, \
     scatter_read_cell_attributes, write_cell_attributes
 from dentate.env import Env
-from dentate import lpt, synapses, cells, lfp, simtime
-from dentate.neuron_utils import mknetcon, mknetcon_wgtvector, mkgap
+from dentate.cells import *
+from dentate.synapses import *
+from dentate import lpt, lfp, simtime
+from dentate.neuron_utils import mknetcon, mkgap
 import logging
 
 logging.basicConfig()
@@ -179,13 +181,13 @@ def lfpout(env, output_path, lfp):
 
 def connectcells(env):
     """
-
+    TODO: Add garbage collection by default, but configurable during network tuning.
     :param env:
     :return:
     """
     connectivityFilePath = env.connectivityFilePath
     forestFilePath = env.forestFilePath
-
+    rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
 
     if env.verbose:
@@ -219,6 +221,11 @@ def connectcells(env):
         else:
             weights_namespace = 'Weights'
 
+        if synapse_config.has_key('mech_file_path'):
+            mech_file_path = synapse_config['mech_file_path']
+        else:
+            mech_file_path = None
+
         if env.verbose:
             if int(env.pc.id()) == 0:
                 logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
@@ -249,19 +256,29 @@ def connectcells(env):
             cell_weights_dict = None
         del cell_attributes_dict
 
-        syn_attrs.load_syn_id_attrs(gid, )
-
-        """
-        TODO: correct_cell_for_spines_cm needs to be called once per cell before any shared synaptic point processes are
-        inserted, in case nseg changes.
-        """
+        if mech_file_path is not None:
+            first_gid = cell_synapses_dict.iteritems().next()
+            for gid in cell_synapses_dict:
+                syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+                biophys_cell = BiophysCell(gid=gid, population=postsyn_name, hoc_cell=env.pc.gid2cell(gid))
+                try:
+                    init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
+                                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                except IndexError:
+                    raise IndexError('connectcells: population: %s; gid: %i; could not load biophysics from path: '
+                                     '%s' % (postsyn_name, gid, mech_file_path))
+                env.biophys_cells[gid] = biophys_cell
+                if env.verbose and rank == 0 and gid == first_gid:
+                    print 'connectcells: population: %s; gid: %i; loaded biophysics from path: %s' % \
+                          (postsyn_name, gid, mech_file_path)
 
         for presyn_name in presyn_names:
 
-            edge_count = 0
+            env.edge_count[postsyn_name][presyn_name] = 0
 
             if env.verbose:
                 if env.pc.id() == 0:
+                    print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
                     logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
             if env.nodeRanks is None:
@@ -276,8 +293,7 @@ def connectcells(env):
 
             edge_iter = graph[postsyn_name][presyn_name]
 
-            connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
-            kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
+            syn_params_dict = env.connection_generator[postsyn_name][presyn_name].synapse_parameters
 
             syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
             distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
@@ -289,9 +305,17 @@ def connectcells(env):
 
                 if has_weights:
                     cell_wgt_dict = cell_weights_dict[postsyn_gid]
-                    syn_wgt_dict = {int(syn_id): float(weight) for (syn_id, weight) in
-                                    itertools.izip(np.nditer(cell_wgt_dict['syn_id']),
-                                                   np.nditer(cell_wgt_dict['weight']))}
+                    syn_names = cell_wgt_dict.keys()
+                    syn_names.remove('syn_id')
+                    syn_wgt_dict = defaultdict(dict)
+                    for i, syn_id in enumerate(cell_wgt_dict['syn_id']):
+                        for syn_name in syn_names:
+                            # TODO: this is here for backwards compatibility; cell_wgt_dict should contain keys
+                            # corresponding to the syn_name (e.g. 'AMPA') instead of 'weight'
+                            if syn_name == 'weight':
+                                syn_wgt_dict['AMPA'][int(syn_id)] = float(cell_wgt_dict[syn_name][i])
+                            else:
+                                syn_wgt_dict[syn_name][int(syn_id)] = float(cell_wgt_dict[syn_name][i])
                 else:
                     syn_wgt_dict = None
 
@@ -299,44 +323,44 @@ def connectcells(env):
                 edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
                 edge_dists = edges[1]['Connections'][distance_attr_index]
 
+                syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
+
                 cell_syn_types = cell_syn_dict['syn_types']
                 cell_swc_types = cell_syn_dict['swc_types']
                 cell_syn_locs = cell_syn_dict['syn_locs']
                 cell_syn_sections = cell_syn_dict['syn_secs']
 
                 edge_syn_ps_dict = \
-                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, cell_syn_types, cell_swc_types,
-                                    cell_syn_locs, cell_syn_sections, kinetics_dict, env,
-                                    add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+                    mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, cell_syn_types, cell_swc_types,
+                                    cell_syn_locs, cell_syn_sections, syn_params_dict, env,
+                                    add_synapse=add_unique_synapse if unique else add_shared_synapse)
 
                 if env.verbose:
                     if int(env.pc.id()) == 0:
-                        if edge_count == 0:
+                        if env.edge_count[postsyn_name][presyn_name] == 0:
                             for sec in list(postsyn_cell.all):
                                 h.psection(sec=sec)
                 # TODO: Going forward, what is currently specified as 'weight', will instead be 'g_unit'
                 wgt_count = 0
                 for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
                     syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
-                    for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
-                        connection_syn_mech_config = connection_dict[syn_mech]
-                        if has_weights and syn_wgt_dict.has_key(edge_syn_id):
+                    for (syn_name, syn_ps) in syn_ps_dict.iteritems():
+                        delay = (distance / env.connection_velocity[presyn_name]) + 0.1
+                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn_ps, delay)
+                        syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
+                        config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
+                        if has_weights and syn_wgt_dict.has_key(syn_name) and \
+                                syn_wgt_dict[syn_name].has_key(edge_syn_id):
+                            weight = float(syn_wgt_dict[syn_name][edge_syn_id])
+                            this_nc.weight[0] = this_nc.weight[0] * weight
                             wgt_count += 1
-                            weight = float(syn_wgt_dict[edge_syn_id]) * connection_syn_mech_config['weight']
-                        else:
-                            weight = connection_syn_mech_config['weight']
-                        delay = (distance / connection_syn_mech_config['velocity']) + 0.1
-                        if type(weight) is float:
-                            this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn_ps, weight, delay)
-                        else:
-                            this_nc = mknetcon_wgtvector(env.pc, presyn_gid, postsyn_gid, syn_ps, weight, delay)
-                        h.nclist.append(this_nc)
                 if env.verbose:
                     if int(env.pc.id()) == 0:
-                        if edge_count == 0:
+                        if env.edge_count[postsyn_name][presyn_name] == 0:
                             logger.info('*** Found %i synaptic weights for gid %i' % (wgt_count, postsyn_gid))
 
-                edge_count += len(presyn_gids)
+                env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
 
 
 def connectgjs(env):
@@ -459,7 +483,7 @@ def mkcells(env):
                         logger.info("*** Creating gid %i" % gid)
 
                 verboseflag = 0
-                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
+                model_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
                                                        dataset_path=datasetPath)
                 if env.verbose:
                     if (rank == 0) and (i == 0):
@@ -514,7 +538,7 @@ def mkcells(env):
                         logger.info("*** Creating gid %i" % gid)
 
                 verboseflag = 0
-                model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+                model_cell = make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
@@ -651,7 +675,8 @@ def init(env):
     env.pc.barrier()
     if env.pc.id() == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
-    logger.info("*** Rank %i created %i connections" % (env.pc.id(), int(h.nclist.count())))
+    edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
+    logger.info("*** Rank %i created %i connections" % (env.pc.id(), edge_count))
     #connectgjs(env)
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)

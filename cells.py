@@ -740,10 +740,8 @@ class SynapseAttributes(object):
     """
     def __init__(self, syn_mech_names, syn_param_rules):
         """
-        An Env object containing imported network configuration metadata is used to initialize a SynapseAttributes
-        object to track all metadata related to the identity, location, and configuration of all synaptic connections
-        in the network.
-        :param env: :class:'Env'
+        An Env object containing imported network configuration metadata uses an instance of SynapseAttributes to track
+        all metadata related to the identity, location, and configuration of all synaptic connections in the network.
         :param syn_mech_names: dict
         :param syn_param_rules: dict
         """
@@ -754,9 +752,10 @@ class SynapseAttributes(object):
         self.select_edge_attr_index_map = defaultdict(dict)
 
         self.syn_id_attr_dict = {}  # gid (int): attr_name (str): array
-        self.syn_mech_attr_dict = defaultdict(dict)  # gid (int): syn_id (int): dict
+        self.syn_mech_attr_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))  # gid (int): syn_id (int): dict
         self.syn_id_attr_index_map = {}  # gid (int): syn_id (int): index in syn_id_attr_dict (int)
-        self.sec_index_map = defaultdict(lambda: defaultdict(list))  # gid (int): sec_id (int): list of indexes in syn_id_attr_dict (int)
+        # gid (int): sec_id (int): list of indexes in syn_id_attr_dict (int)
+        self.sec_index_map = defaultdict(lambda: defaultdict(list))
 
     def load_syn_id_attrs(self, gid, syn_id_attr_dict):
         """
@@ -766,22 +765,46 @@ class SynapseAttributes(object):
         """
         self.syn_id_attr_dict[gid] = syn_id_attr_dict
         # value of -1 used to indicate not yet assigned; all source populations are associated with positive integers
-        self.syn_id_attr_dict[gid]['source'] = np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
+        self.syn_id_attr_dict[gid]['syn_sources'] = \
+            np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
         self.syn_id_attr_index_map[gid] = {syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids'])}
         for i, sec_id in enumerate(syn_id_attr_dict['syn_secs']):
             self.sec_index_map[gid][sec_id].append(i)
+        self.sec_index_map[gid][sec_id] = np.array(self.sec_index_map[gid][sec_id], dtype='uint32')
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env):
         """
-        TODO: move functionality of fill_syn_mech_names to here
+
         :param gid: int
         :param source_name: str; name of source population
         :param syn_ids: array of int
         """
         source = int(env.pop_dict[source_name])
         indexes = [self.syn_id_attr_index_map[gid][syn_id] for syn_id in syn_ids]
-        self.syn_id_attr_dict[gid]['source'][indexes] = source
+        self.syn_id_attr_dict[gid]['syn_sources'][indexes] = source
 
+    def append_netcon(self, gid, syn_id, syn_name, nc):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        """
+        self.syn_mech_attr_dict[gid][syn_id][syn_name]['netcon'] = nc
+
+    def get_netcon(self, gid, syn_id, syn_name):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        :return: :class:'h.NetCon'
+        """
+        if (self.syn_mech_attr_dict[gid][syn_id].has_key(syn_name) and
+            self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('netcon')):
+            return self.syn_mech_attr_dict[gid][syn_id][syn_name]['netcon']
+        else:
+            return None
 
 # --------------------------------------------------------------------------------------------------------- #
 
@@ -1609,13 +1632,17 @@ def count_spines_per_seg(node, env, gid):
     syn_id_attr_dict = env.synapse_attributes.syn_id_attr_dict[gid]
     sec_index_map = env.synapse_attributes.sec_index_map[gid]
     node.content['spine_count'] = []
-    filtered_syns = filtered_synapse_attributes(syn_id_attr_dict, np.array(sec_index_map[node.index]), env,
-                                                syn_category='excitatory', output='syn_locs')
-    this_syn_locs = np.array(filtered_syns['syn_locs'])
-    seg_width = 1. / node.sec.nseg
-    for i, seg in enumerate(node.sec):
-        num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
-        node.content['spine_count'].append(num_spines)
+    sec_syn_indexes = np.array(sec_index_map[node.index])
+    if len(sec_syn_indexes > 0):
+        filtered_syn_indexes = get_filtered_syn_indexes(syn_id_attr_dict, sec_syn_indexes,
+                                                        syn_types=[env.Synapse_Types['excitatory']])
+        this_syn_locs = syn_id_attr_dict['syn_locs'][filtered_syn_indexes]
+        seg_width = 1. / node.sec.nseg
+        for i, seg in enumerate(node.sec):
+            num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
+            node.content['spine_count'].append(num_spines)
+    else:
+        node.content['spine_count'] = [0] * node.sec.nseg
 
 
 def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas):
@@ -1916,7 +1943,7 @@ def subset_syns_by_source(syn_id_list, syn_id_attr_dict, syn_index_map, postsyn_
     source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
     subset_source_names = {}
     for syn_id in syn_id_list:
-        source_id = syn_id_attr_dict[postsyn_gid]['source'][syn_index_map[postsyn_gid][syn_id]]
+        source_id = syn_id_attr_dict[postsyn_gid]['syn_sources'][syn_index_map[postsyn_gid][syn_id]]
         source_name = source_id2name[source_id]
         if source_name not in subset_source_names:
             subset_source_names[source_name] = [syn_id]
@@ -1936,7 +1963,7 @@ def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subse
     for source_name, subset_syn_ids in subset_source_names.iteritems():
         subset_syn_ids = np.array(subset_syn_ids)
         edge_count = 0
-        kinetics_dict = env.connection_generator[pop_name][source_name].synapse_kinetics
+        syn_params_dict = env.connection_generator[pop_name][source_name].synapse_parameters
         postsyn_cell = cell.hoc_cell
         cell_syn_dict = syn_id_attr_dict[postsyn_gid]
         cell_syn_types = cell_syn_dict['syn_types']
@@ -1946,7 +1973,7 @@ def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subse
 
         edge_syn_ps_dict = \
             synapses.mk_syns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types, cell_syn_locs,
-                             cell_syn_sections, kinetics_dict, env,
+                             cell_syn_sections, syn_params_dict, env,
                              add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
         for (syn_id, syn_ps_dict) in edge_syn_ps_dict.iteritems():
             for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
@@ -1998,66 +2025,25 @@ def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, en
         edge_count += len(presyn_gids)
 
 
-# -----------------------------------------------------------
-# Synapse wrapper
-
-def build_syn_attrs_dict(syn_id_attr_dict, gid):
-    syn_attrs_dict = {syn_id: {} for syn_id in syn_id_attr_dict[gid]['syn_ids']}
-    syn_index_map = {syn_id: idx for idx, syn_id in enumerate(syn_id_attr_dict[gid]['syn_ids'])}
-    return syn_attrs_dict, syn_index_map
-
-
-def fill_syn_mech_names(syn_attrs_dict, syn_index_map, syn_id_attr_dict, gid, pop_name, env):
-    source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
-    for (syn_id, syn_dict) in syn_attrs_dict[gid].iteritems():
-        source_id = syn_id_attr_dict[gid]['source'][syn_index_map[gid][syn_id]]
-        source_name = source_id2name[source_id]
-        syn_kinetic_params = env.connection_generator[pop_name][source_name].synapse_kinetics
-        for (syn_mech, params) in syn_kinetic_params.iteritems():
-            syn_attrs_dict[gid][syn_id][syn_mech] = {'attrs': {}}
-
-
-def build_sec_index_map(syn_id_attr_dict, gid):
-    sec_index_map = defaultdict(list)
-    for idx, sec_idx in enumerate(syn_id_attr_dict[gid]['syn_secs']):
-        sec_index_map[sec_idx].append(idx)
-    return sec_index_map
-
-
-def filtered_synapse_attributes(syn_id_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None, sorted=False):
+def get_filtered_syn_indexes(syn_id_attr_dict, syn_indexes=None, syn_types=None, layers=None, sources=None,
+                             swc_types=None):
     """
 
-    :param syn_id_attr_dict:
-    :param syn_idxs:
-    :param syn_category: str or list of str
-    :param layer: int or list of ints
-    :param output: str or list of str (each string must be a key in syn_id_attr_dict, ex. 'syn_locs')
-    :param sorted: bool
-    :return:
+    :param syn_id_attr_dict: dict
+    :param syn_indexes: array of int
+    :param syn_types: list of enumerated type: synapse category
+    :param layers: list of enumerated type: layer
+    :param sources: list of enumerated type: population names of source projections
+    :param swc_types: list of enumerated type: swc_type
+    :return: array of int
     """
-    if syn_category is not None:
-        if not isinstance(syn_category, (list,)):
-            syn_category = [syn_category]
-        correct_idxs = np.array([], dtype='i8')
-        for category in syn_category:
-            syn_type_list = syn_id_attr_dict['syn_types'][syn_idxs]
-            where = np.where(syn_type_list==env.syntypes_dict[category])
-            correct_idxs = np.concatenate((correct_idxs, where[0]))
-        syn_idxs = syn_idxs[correct_idxs]
-    if layers is not None:
-        if not isinstance(layers, (list,)):
-            layers = [layers]
-        correct_idxs = []
-        for layer in layers:
-            syn_layer_list = syn_id_attr_dict['syn_layers'][syn_idxs]
-            where = np.where(syn_layer_list==layer)
-            correct_idxs = np.concatenate((correct_idxs, where[0]))
-        syn_idxs = syn_idxs[correct_idxs]
-    if sorted:
-        syn_idxs = np.sort(syn_idxs)
-    out = {}
-    if not isinstance(output, (list,)):
-        output = [output]
-    for output_type in output:
-        out[output_type] = syn_id_attr_dict[output_type][syn_idxs]
-    return out
+    matches = np.vectorize(lambda query, item: (query is None) or (item in query), excluded={0})
+    if syn_indexes is None:
+        syn_indexes = np.arange(len(syn_id_attr_dict['syn_ids']), dtype='uint32')
+    else:
+        syn_indexes = np.array(syn_indexes, dtype='uint32')
+    filtered_indexes = np.where(matches(syn_types, syn_id_attr_dict['syn_types'][syn_indexes]) &
+                                matches(layers, syn_id_attr_dict['syn_layers'][syn_indexes]) &
+                                matches(sources, syn_id_attr_dict['syn_sources'][syn_indexes]) &
+                                matches(swc_types, syn_id_attr_dict['swc_types'][syn_indexes]))[0]
+    return syn_indexes[filtered_indexes]
