@@ -13,15 +13,8 @@ import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 import click, logging
-from dentate.utils import random_clustered_shuffle, random_choice_w_replacement
+from dentate.utils import list_index, random_clustered_shuffle, random_choice_w_replacement
 logger = logging.getLogger(__name__)
-
-def list_index (element, lst):
-    try:
-        index_element = lst.index(element)
-        return index_element
-    except ValueError:
-        return None
 
 
     
@@ -163,7 +156,7 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
     U, V, L = ip_vol._resample_uvl(res, res, res)
 
     logger.info('Computing U distances...')
-    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0, verbose=verbose, return_zeros=True)
+    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
     obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
                         np.concatenate(obs_dist_u[1]), \
                         np.concatenate(obs_dist_u[2])]).T
@@ -175,7 +168,7 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
     logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
     
     logger.info('Computing V distances...')
-    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1, verbose=verbose, return_zeros=True)
+    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
     obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
                         np.concatenate(obs_dist_v[1]), \
                         np.concatenate(obs_dist_v[2])]).T
@@ -187,7 +180,7 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
     logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
         
     logger.info('Computing L distances...')
-    ldist_l, obs_dist_l = ip_vol.point_distance(U, V, L, axis=2, verbose=verbose, return_zeros=True)
+    ldist_l, obs_dist_l = ip_vol.point_distance(U, V, L, axis=2)
     obs_uvl = np.array([np.concatenate(obs_dist_l[0]), \
                         np.concatenate(obs_dist_l[1]), \
                         np.concatenate(obs_dist_l[2])]).T

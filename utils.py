@@ -88,6 +88,13 @@ def list_argsort(f, seq):
     #lambda version by Tony Veijalainen
     return [i for i,x in sorted(enumerate(seq), key = lambda x: f(x[1]))]
 
+def list_index (element, lst):
+    try:
+        index_element = lst.index(element)
+        return index_element
+    except ValueError:
+        return None
+
 
 def random_choice_w_replacement(ranstream,n,p):
     return ranstream.multinomial(n,p.ravel())
