@@ -289,13 +289,19 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl, axis=0, return_coords=True, return_zeros=False, verbose=False):
+    def point_distance(self, su, sv, sl, axis=0, axis_origin=None, return_coords=True):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
         ----------
         u, v, l : array-like
- 
+
+        axis: axis along which the distance should be computed
+
+        axis_origin: the origin coordinate for the given axes (the left-most coordinate if None)
+
+        return_coords: if True, returns the coordinates for which computed distance (default: True)
+
         Returns
         -------
         If the lengths of u and v are at least 2, returns the total arc length
@@ -305,38 +311,43 @@ class RBFVolume(object):
         v = np.array([sv]).reshape(-1,)
         l = np.array([sl]).reshape(-1,)
 
-        axes = [u, v, l]
+        input_axes = [u, v, l]
+        if axis_origin is None:
+            axis_origin = input_axes[axis][0]
 
+        c = input_axes[axis]
+        cl = np.sort(c[np.where[c <= axis_origin]])[::-1]
+        cr = np.sort(c[np.where[c >  axis_origin]])
+
+        ordered_axes = [[ cl if i == axis else x for (i, x) in enumerate(input_axes) ], \
+                        [ cr if i == axis else x for (i, x) in enumerate(input_axes) ]]
+        
         aidx = [0,1,2]
         aidx.remove(axis)
 
-        npts = axes[axis].shape[0]
-        
         distances = []
-        coords = [ [] for i in xrange(0,3) ]
-        if npts > 1:
-            paxes = [ axes[i] for i in aidx ]
-            prod = cartesian_product(paxes)
-            for ip, p in enumerate(prod):
-                ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
-                pts  = self.ev(*ecoords).reshape(3, -1).T                
-                a = pts[1:,:]
-                b = pts[0:npts-1,:]
-                if return_zeros:
+        coords    = [ [] for i in xrange(0,3) ]
+        for axes in ordered_axes:
+            
+            npts = axes[axis].shape[0]
+        
+            if npts > 1:
+                paxes = [ axes[i] for i in aidx ]
+                prod = cartesian_product(paxes)
+                for ip, p in enumerate(prod):
+                    ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
+                    pts  = self.ev(*ecoords).reshape(3, -1).T                
+                    a = pts[1:,:]
+                    b = pts[0:npts-1,:]
                     d = np.zeros(npts,)
                     d[1:npts] = np.cumsum(euclidean_distance(a, b))
-                else:
-                    d = np.cumsum(euclidean_distance(a, b))
-                distances.append(d)
-                if return_coords:
-                    if return_zeros:
+                    distances.append(d)
+                    if return_coords:
                         pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
-                    else:
-                        pcoords = [ x[1:] if i == axis else np.repeat(p[aidx.index(i)],npts-1) for (i, x) in enumerate(axes) ]       
-                    for i, col in enumerate(pcoords):
-                        coords[i].append(col)
-        else:
-            prod = None
+                        for i, col in enumerate(pcoords):
+                            coords[i].append(col)
+            else:
+                prod = None
 
         if return_coords:
             return distances, coords
