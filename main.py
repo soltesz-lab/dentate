@@ -14,12 +14,6 @@ from dentate import lpt, lfp, simtime
 import logging
 
 
-logging.basicConfig()
-
-script_name = 'main.py'
-logger = logging.getLogger(script_name)
-
-
 # Estimate cell complexity. Code by Michael Hines from the discussion thread
 # https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
@@ -36,6 +30,7 @@ def cx(env):
 
 # for given cxvec on each rank what is the fractional load balance.
 def ld_bal(env):
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     cxvec = env.cxvec
@@ -181,8 +176,8 @@ def connectcells(env):
     TODO: Add garbage collection of SynapseAttribute and BiophsCell objects by default, but configurable during
     network tuning.
     :param env:
-    :return:
     """
+    logger = env.logger
     connectivityFilePath = env.connectivityFilePath
     forestFilePath = env.forestFilePath
     rank = int(env.pc.id())
@@ -427,6 +422,7 @@ def mkcells(env):
     :param env:
     :return:
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -563,6 +559,7 @@ def mkstim(env):
     :param env:
     :return:
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -606,6 +603,7 @@ def init(env):
 
     :param env:
     """
+    logger = env.logger
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
     h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
@@ -709,12 +707,13 @@ def init(env):
     h.setuptime = h.setuptime + h.stopsw()
 
 
-def run(env):
+def run(env, output=True):
     """
     Run the simulation
     :param env:
-    :return:
+    :param output: bool
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -730,17 +729,18 @@ def run(env):
     env.pc.barrier()
     if rank == 0:
         logger.info("*** Writing spike data")
-    spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
-    if env.vrecordFraction > 0.:
-      if rank == 0:
-        logger.info("*** Writing intracellular trace data")
-      t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
-      vout(env, env.resultsFilePath, t_vec, env.v_dict)
-    env.pc.barrier()
-    if rank == 0:
-        logger.info("*** Writing local field potential data")
-        for lfp in env.lfp.itervalues():
-            lfpout(env, env.resultsFilePath, lfp)
+    if output:
+        spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+        if env.vrecordFraction > 0.:
+          if rank == 0:
+            logger.info("*** Writing intracellular trace data")
+          t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
+          vout(env, env.resultsFilePath, t_vec, env.v_dict)
+        env.pc.barrier()
+        if rank == 0:
+            logger.info("*** Writing local field potential data")
+            for lfp in env.lfp.itervalues():
+                lfpout(env, env.resultsFilePath, lfp)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
@@ -809,6 +809,8 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
     :param verbose: bool; print verbose diagnostic messages while constructing the network
     :param dry_run: bool; whether to actually execute simulation after building network
     """
+    logging.basicConfig()
+    logger = logging.getLogger(os.path.basename(__file__))
     if verbose:
         logger.setLevel(logging.INFO)
     comm = MPI.COMM_WORLD
@@ -816,7 +818,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id,
               node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
-              results_write_time, dt, ldbal, lptbal, verbose)
+              results_write_time, dt, ldbal, lptbal, verbose, logger=logger)
 
     init(env)
     if not dry_run:
@@ -824,4 +826,4 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index(script_name)+1):])
+    main(args=sys.argv[(sys.argv.index(os.path.basename(__file__))+1):])

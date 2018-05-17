@@ -7,10 +7,6 @@ from nested.utils import Context
 
 
 context = Context()
-logging.basicConfig()
-
-script_name = os.path.basename(__file__)
-logger = logging.getLogger(script_name)
 
 
 @click.command()
@@ -21,24 +17,40 @@ logger = logging.getLogger(script_name)
               default='.')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='datasets')  # '/mnt/s')
+@click.option("--tstop", type=int, default=1)
+@click.option("--v-init", type=float, default=-75.0)
+@click.option("--max-walltime-hours", type=float, default=0.1)
 @click.option('--verbose', '-v', is_flag=True)
-def main(config_file, template_paths, hoc_lib_path, dataset_prefix, verbose):
+@click.option('--run-test', is_flag=True)
+def main(config_file, template_paths, hoc_lib_path, dataset_prefix, tstop, v_init, max_walltime_hours, verbose,
+         run_test):
     """
+
     :param config_file: str; model configuration file
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
     :param hoc_lib_path: str; path to directory containing required hoc libraries
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param tstop: int (ms)
+    :param v_init: float (mV)
+    :param max_walltime_hours: int (hrs)
     :param verbose: bool; print verbose diagnostic messages while constructing the network
+    :param run_test: bool; run sim for duration tstop, do not save any output
     """
+    logging.basicConfig()
+    logger = logging.getLogger(os.path.basename(__file__))
     if verbose:
         logger.setLevel(logging.INFO)
     comm = MPI.COMM_WORLD
 
+    start_time = time.time()
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, verbose=verbose)
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, io_size=comm.size, tstop=tstop,
+              verbose=verbose, logger=logger)
     context.update(locals())
     init(env)
+    if run_test:
+        run(env, output=False)
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index(script_name)+1):])
+    main(args=sys.argv[(sys.argv.index(os.path.basename(__file__)) + 1):])
