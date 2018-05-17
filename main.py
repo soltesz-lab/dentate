@@ -2,20 +2,17 @@
 Dentate Gyrus model initialization script
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
-import sys, os, os.path, click, itertools
-from collections import defaultdict
-from datetime import datetime
-import numpy as np
-from mpi4py import MPI  # Must come before importing NEURON
-from neuron import h
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, \
-    scatter_read_cell_attributes, write_cell_attributes
+import click
+from dentate.utils import *
+from dentate.neuron_utils import *
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
+    write_cell_attributes
 from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import *
 from dentate import lpt, lfp, simtime
-from dentate.neuron_utils import mknetcon, mkgap
 import logging
+
 
 logging.basicConfig()
 
@@ -181,7 +178,8 @@ def lfpout(env, output_path, lfp):
 
 def connectcells(env):
     """
-    TODO: Add garbage collection by default, but configurable during network tuning.
+    TODO: Add garbage collection of SynapseAttribute and BiophsCell objects by default, but configurable during
+    network tuning.
     :param env:
     :return:
     """

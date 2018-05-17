@@ -1,9 +1,5 @@
-import itertools
-from collections import defaultdict
-import sys, os.path, string, math
-from neuron import h
-import numpy as np
-import pprint
+from dentate.utils import *
+from dentate.neuron_utils import *
 from dentate.cells import *
 
 
@@ -353,14 +349,17 @@ def make_syn_mech(mech_name, seg):
     return syn
 
 
-def add_shared_synapse(syn_name, seg, mech_names=None, syns_dict=None):
+def add_shared_synapse(syn_name, seg, syns_dict, rules=None, mech_names=None, **mech_params):
     """
     If a synaptic mechanism of the specified type already exists in the specified segment, it is returned.
-    Otherwise, it creates one and adds is to the provided syns_dict.
+    Otherwise, this method creates one in the provided segment and adds it to the provided syns_dict. If rules and
+    mech_params are provided, they are used to initialize the new synapse before it is returned.
     :param syn_name: str
     :param seg: hoc segment
-    :param mech_names: dict to convert syn_name to hoc mechanism name
     :param syns_dict: nested defaultdict
+    :param rules: dict to correctly parse params for specified hoc mechanism
+    :param mech_names: dict to convert syn_name to hoc mechanism name
+    :param mech_params: dict
     :return: hoc point process
     """
     syn = syn_in_seg(syn_name, seg, syns_dict)
@@ -371,16 +370,21 @@ def add_shared_synapse(syn_name, seg, mech_names=None, syns_dict=None):
             mech_name = syn_name
         syn = make_syn_mech(mech_name, seg)
         syns_dict[seg.sec][seg.x][syn_name] = syn
+        if rules is not None and len(mech_params) > 0:
+            config_syn(syn_name, rules, mech_names, syn, **mech_params)
     return syn
 
 
-def add_unique_synapse(syn_name, seg, mech_names=None, syns_dict=None):
+def add_unique_synapse(syn_name, seg, syns_dict=None, rules=None, mech_names=None, **mech_params):
     """
-    Creates a new synapse in the given segment.
+    Creates a new synapse in the provided segment. If rules and mech_params are provided, they are used to initialize
+    the new synapse before it is returned.
     :param syn_name: str
     :param seg: hoc segment
-    :param mech_names: dict to convert syn_name to hoc mechanism name
     :param syns_dict: nested defaultdict
+    :param rules: dict to correctly parse params for specified hoc mechanism
+    :param mech_names: dict to convert syn_name to hoc mechanism name
+    :param mech_params: dict
     :return: hoc point process
     """
     if mech_names is not None:
@@ -388,6 +392,8 @@ def add_unique_synapse(syn_name, seg, mech_names=None, syns_dict=None):
     else:
         mech_name = syn_name
     syn = make_syn_mech(mech_name, seg)
+    if rules is not None and len(mech_params) > 0:
+        config_syn(syn_name, rules, mech_names, syn, **mech_params)
     return syn
 
 
@@ -465,7 +471,7 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
 
     for i in xrange(syn_ids.size):
         syn_id = syn_ids[i]
-        if not (syn_id < syn_types.size):
+        if not (i < syn_types.size):
             print 'mksyns: syn_ids for gid %i: ' % gid, syn_ids
             raise ValueError('mksyns: cell %i received invalid syn_id %d' % (gid, syn_id))
 
@@ -477,14 +483,8 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
         sec = py_sections[syn_section]
         if swc_type == swc_type_apical:
             syns_dict = syns_dict_dend
-            # if syn_type == syn_type_excitatory:
-            #    if spines and h.ismembrane('spines', sec=sec):
-            #        sec(syn_loc).count_spines += 1
         elif swc_type == swc_type_basal:
             syns_dict = syns_dict_dend
-            # if syn_type == syn_type_excitatory:
-            #    if spines and h.ismembrane('spines', sec=sec):
-            #        sec(syn_loc).count_spines += 1
         elif swc_type == swc_type_axon:
             syns_dict = syns_dict_axon
         elif swc_type == swc_type_ais:
@@ -497,10 +497,8 @@ def mksyns(gid, cell, syn_ids, syn_types, swc_types, syn_locs, syn_sections, syn
             raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
         syn_mech_dict = {}
         for (syn_name, params) in syn_params.iteritems():
-            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), mech_names=syn_attrs.syn_mech_names,
-                              syns_dict=syns_dict)
-            config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names, syn=syn,
-                       **params)
+            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict, rules=syn_attrs.syn_param_rules,
+                              mech_names=syn_attrs.syn_mech_names, **params)
             cell.syns.append(syn)
             cell.syntypes.o(syn_type).append(syn)
             syn_mech_dict[syn_name] = syn

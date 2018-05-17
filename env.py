@@ -1,13 +1,8 @@
-import sys, os.path, string
-from mpi4py import MPI # Must come before importing NEURON
-from neuron import h
-from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, \
-    read_cell_attribute_info
-import numpy as np
-from collections import namedtuple, defaultdict
-import yaml
-from dentate import utils
+from dentate.utils import *
+from dentate.neuron_utils import *
+from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.cells import SynapseAttributes
+
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',
                                  ['synapse_types',
@@ -125,7 +120,7 @@ class Env:
 
         if configFile is not None:
             with open(configFile) as fp:
-                self.modelConfig = yaml.load(fp, utils.IncludeLoader)
+                self.modelConfig = yaml.load(fp, IncludeLoader)
         else:
             raise RuntimeError("missing configuration file")
 
