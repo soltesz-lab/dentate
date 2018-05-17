@@ -182,19 +182,7 @@ def get_volume_distances (ip_vol, res=2, step=1, interp_chunk_size=1000, verbose
     logger.info('V coord min: %f max: %f' % (np.min(V), np.max(V)))
     logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
         
-    logger.info('Computing L distances...')
-    ldist_l, obs_dist_l = ip_vol.point_distance(U, V, L, axis=2, axis_origin=axis_origins[2], interp_chunk_size=interp_chunk_size)
-    obs_uvl = np.array([np.concatenate(obs_dist_l[0]), \
-                        np.concatenate(obs_dist_l[1]), \
-                        np.concatenate(obs_dist_l[2])]).T
-    sample_inds = np.arange(0, obs_uvl.shape[0], step)
-    obs_l = obs_uvl[sample_inds,:]    
-    distances_l = np.concatenate(ldist_l)[sample_inds]
-
-    logger.info('L coord min: %f max: %f' % (np.min(L), np.max(L)))
-    logger.info('L distance min: %f max: %f' % (np.min(distances_l), np.max(distances_l)))
-
-    return (distances_u, obs_u, distances_v, obs_v, distances_l, obs_l)
+    return (distances_u, obs_u, distances_v, obs_v)
 
 
         
