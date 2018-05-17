@@ -125,7 +125,6 @@ class RBFVolume(object):
         yvol = RBFInterpolant(uvl_obs,xyz[:,1],**kwargs)
         zvol = RBFInterpolant(uvl_obs,xyz[:,2],**kwargs)
 
-
         uvol = RBFInterpolant(xyz,uvl_obs[:,0],**kwargs)
         vvol = RBFInterpolant(xyz,uvl_obs[:,1],**kwargs)
         lvol = RBFInterpolant(xyz,uvl_obs[:,2],**kwargs)
@@ -168,7 +167,7 @@ class RBFVolume(object):
         hrl = np.interp(newlndxs, *nls)
         return hru, hrv, hrl
 
-    def ev(self, su, sv, sl):
+    def ev(self, su, sv, sl, chunk_size=1000):
         """Get point(s) in volume at (su, sv, sl).
 
         Parameters
@@ -183,9 +182,9 @@ class RBFVolume(object):
         U, V, L = np.meshgrid(su, sv, sl)
         uvl_s = np.array([U.ravel(),V.ravel(),L.ravel()]).T
         
-        X = self._xvol(uvl_s)
-        Y = self._yvol(uvl_s)
-        Z = self._zvol(uvl_s)
+        X = self._xvol(uvl_s, chunk_size=chunk_size)
+        Y = self._yvol(uvl_s, chunk_size=chunk_size)
+        Z = self._zvol(uvl_s, chunk_size=chunk_size)
 
         arr = np.array([X,Y,Z])
         
@@ -289,7 +288,7 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl, axis=0, axis_origin=None, return_coords=True):
+    def point_distance(self, su, sv, sl, axis=0, interp_chunk_size=1000, axis_origin=None, return_coords=True):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
@@ -316,18 +315,19 @@ class RBFVolume(object):
             axis_origin = input_axes[axis][0]
 
         c = input_axes[axis]
-        cl = np.sort(c[np.where[c <= axis_origin]])[::-1]
-        cr = np.sort(c[np.where[c >  axis_origin]])
+        
+        cl = (np.sort(c[np.where(c < axis_origin)[0]]))[::-1]
+        cr = np.sort(c[np.where(c >=  axis_origin)[0]])
 
-        ordered_axes = [[ cl if i == axis else x for (i, x) in enumerate(input_axes) ], \
-                        [ cr if i == axis else x for (i, x) in enumerate(input_axes) ]]
+        ordered_axes = [(-1, [ cl if i == axis else x for (i, x) in enumerate(input_axes) ]), \
+                        (1, [ cr if i == axis else x for (i, x) in enumerate(input_axes) ])]
         
         aidx = [0,1,2]
         aidx.remove(axis)
 
         distances = []
         coords    = [ [] for i in xrange(0,3) ]
-        for axes in ordered_axes:
+        for (sgn, axes) in ordered_axes:
             
             npts = axes[axis].shape[0]
         
@@ -336,18 +336,19 @@ class RBFVolume(object):
                 prod = cartesian_product(paxes)
                 for ip, p in enumerate(prod):
                     ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
-                    pts  = self.ev(*ecoords).reshape(3, -1).T                
+                    pts  = self.ev(*ecoords, chunk_size=interp_chunk_size).reshape(3, -1).T                
                     a = pts[1:,:]
                     b = pts[0:npts-1,:]
                     d = np.zeros(npts,)
                     d[1:npts] = np.cumsum(euclidean_distance(a, b))
-                    distances.append(d)
+                    if sgn < 0:
+                        distances.append(np.negative(d))
+                    else:
+                        distances.append(d)
                     if return_coords:
                         pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
                         for i, col in enumerate(pcoords):
                             coords[i].append(col)
-            else:
-                prod = None
 
         if return_coords:
             return distances, coords
@@ -620,7 +621,7 @@ def test_point_distance():
     obs_l = np.linspace(-1.0, 1., num=3)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l).reshape(3, u.size)
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
 
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
@@ -631,6 +632,9 @@ def test_point_distance():
     print dist
     print coords
     dist, coords = vol.point_distance(U, V[0], L)
+    print dist
+    print coords
+    dist, coords = vol.point_distance(U, V[0], L, axis_origin=np.median(obs_u))
     print dist
     print coords
 

@@ -14,7 +14,7 @@ def list_find (f, lst):
     return None
 
 @click.command()
-@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--coords-path", '-c', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", '-d', type=str, default='Arc Distances')
 @click.option("--population", '-i', type=str, required=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)

@@ -76,7 +76,7 @@ class ConnectionProb(object):
         source_soma_distances = self.soma_distances[source_population]
 
         destination_u, destination_v, destination_l  = destination_coords
-        destination_distance_u, destination_distance_v, destination_distance_l = destination_distances
+        destination_distance_u, destination_distance_v = destination_distances
         
         distance_u_lst = []
         distance_v_lst = []
@@ -93,7 +93,7 @@ class ConnectionProb(object):
 
             source_u, source_v, source_l = coords
 
-            source_distance_u, source_distance_v, source_distance_l  = source_soma_distances[source_gid]
+            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
 
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
@@ -128,7 +128,7 @@ class ConnectionProb(object):
         return pn.ravel(), source_gid.ravel(), distance_u.ravel(), distance_v.ravel()
 
 
-def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
+def get_volume_distances (ip_vol, res=2, step=1, interp_chunk_size=1000, verbose=False):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -155,39 +155,42 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
     logger.info('Resampling volume...')
     U, V, L = ip_vol._resample_uvl(res, res, res)
 
+    axis_origins = [np.median(U), np.median(V), np.max(L)]
+    logger.info('Axis origins: %f %f %f' % (tuple(axis_origins)))
+    
     logger.info('Computing U distances...')
-    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
+    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0, axis_origin=axis_origins[0], interp_chunk_size=interp_chunk_size)
     obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
                         np.concatenate(obs_dist_u[1]), \
                         np.concatenate(obs_dist_u[2])]).T
     sample_inds = np.arange(0, obs_uvl.shape[0], step)
     obs_u = obs_uvl[sample_inds,:]
     distances_u = np.concatenate(ldist_u)[sample_inds]
-    assert(np.all(distances_u >= 0.0))
+
     logger.info('U coord min: %f max: %f' % (np.min(U), np.max(U)))
     logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
     
     logger.info('Computing V distances...')
-    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
+    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1, axis_origin=axis_origins[1], interp_chunk_size=interp_chunk_size)
     obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
                         np.concatenate(obs_dist_v[1]), \
                         np.concatenate(obs_dist_v[2])]).T
     sample_inds = np.arange(0, obs_uvl.shape[0], step)
     obs_v = obs_uvl[sample_inds,:]
     distances_v = np.concatenate(ldist_v)[sample_inds]
-    assert(np.all(distances_v >= 0.0))
+
     logger.info('V coord min: %f max: %f' % (np.min(V), np.max(V)))
     logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
         
     logger.info('Computing L distances...')
-    ldist_l, obs_dist_l = ip_vol.point_distance(U, V, L, axis=2)
+    ldist_l, obs_dist_l = ip_vol.point_distance(U, V, L, axis=2, axis_origin=axis_origins[2], interp_chunk_size=interp_chunk_size)
     obs_uvl = np.array([np.concatenate(obs_dist_l[0]), \
                         np.concatenate(obs_dist_l[1]), \
                         np.concatenate(obs_dist_l[2])]).T
     sample_inds = np.arange(0, obs_uvl.shape[0], step)
     obs_l = obs_uvl[sample_inds,:]    
     distances_l = np.concatenate(ldist_l)[sample_inds]
-    assert(np.all(distances_l >= 0.0))
+
     logger.info('L coord min: %f max: %f' % (np.min(L), np.max(L)))
     logger.info('L distance min: %f max: %f' % (np.min(distances_l), np.max(distances_l)))
 
@@ -195,7 +198,7 @@ def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
 
 
         
-def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False, verbose=False):
+def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False, verbose=False):
     """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -206,8 +209,6 @@ def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_ext
         Interpolation function for computing arc distances along the first dimension of the volume.
     dist_v : RBFInterpolant
         Interpolation function for computing arc distances along the second dimension of the volume.
-    dist_l : RBFInterpolant
-        Interpolation function for computing arc distances along the third dimension of the volume.
     soma_coords : { population_name : coords_dict }
         A dictionary that maps each cell population name to a dictionary of coordinates. The dictionary of coordinates must have the following type:
           coords_dict : { gid : (u, v, l) }
@@ -224,7 +225,7 @@ def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_ext
     -------
     A dictionary of the form:
 
-      { population: { gid: (distance_U, distance_V, distance_L) } }
+      { population: { gid: (distance_U, distance_V } }
 
     """
 
@@ -245,10 +246,12 @@ def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_ext
         count = 0
         local_dist_dict = {}
         limits = population_extents[pop]
+        uvl_obs = []
+        gids    = []
         for gid, coords in coords_dict.iteritems():
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
-                uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
+                uvl_obs.append(np.array([soma_u,soma_v,soma_l]).reshape(1,3))
                 try:
                     assert((limits[1][0] - soma_u + 0.001 >= 0.) and (soma_u - limits[0][0] + 0.001 >= 0.))
                     assert((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
@@ -256,21 +259,20 @@ def get_soma_distances(comm, dist_u, dist_v, dist_l, soma_coords, population_ext
                 except Exception as e:
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
-                try:
-                    distance_u = dist_u(uvl_obs, chunk_size=interp_chunk_size)
-                    distance_v = dist_v(uvl_obs, chunk_size=interp_chunk_size)
-                    distance_l = dist_l(uvl_obs, chunk_size=interp_chunk_size)
-                    assert(distance_u >= 0.0)
-                    assert(distance_v >= 0.0)
-                    assert(distance_l >= 0.0)
-                except Exception as e:
-                    logger.error("gid %i: distance calculation error for coordinates %f %f %f (distances: %f %f %f)" % \
-                                     (gid, soma_u, soma_v, soma_l, dist_u(uvl_obs), dist_v(uvl_obs), dist_l(uvl_obs)))
-                    raise e
-                local_dist_dict[gid] = (distance_u, distance_v, distance_l)
-                if rank == 0:
-                    logger.info('gid %i: coordinates: %f %f %f distances: %f %f %f' % (gid, soma_u, soma_v, soma_l, distance_u, distance_v, distance_l))
-                count = count + 1
+                gids.append(gid)
+        uvl_obs_array = np.vstack(uvl_obs)
+        k = uvl_obs_array.shape[0]
+        distance_u = dist_u(uvl_obs_array, chunk_size=interp_chunk_size)
+        distance_v = dist_v(uvl_obs_array, chunk_size=interp_chunk_size)
+        assert(np.all(np.isfinite(distance_u)))
+        assert(np.all(np.isfinite(distance_v)))
+        for (i,gid) in enumerate(gids):
+            local_dist_dict[gid] = (distance_u[i], distance_v[i])
+            if rank == 0:
+                soma_u = uvl_obs_array[i,0]
+                soma_v = uvl_obs_array[i,1]
+                soma_l = uvl_obs_array[i,2]
+                logger.info('gid %i: coordinates: %f %f %f distances: %f %f' % (gid, soma_u, soma_v, soma_l, distance_u[i], distance_v[i]))
         if allgather:
             dist_dicts = comm.allgather(local_dist_dict)
             combined_dist_dict = {}

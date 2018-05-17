@@ -98,8 +98,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     coeff_dist_u = None
     obs_dist_v = None
     coeff_dist_v = None
-    obs_dist_l = None
-    coeff_dist_l = None
 
     interp_penalty = 0.15
     interp_basis = 'imq'
@@ -111,7 +109,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                 rotate=rotate)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
-        (dist_u, obs_dist_u, dist_v, obs_dist_v, dist_l, obs_dist_l) = vol_dist
+        (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=interp_basis,\
                                        penalty=interp_penalty,extrapolate=False)
@@ -120,29 +118,21 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=interp_basis,\
                                        penalty=interp_penalty,extrapolate=False)
         coeff_dist_v = ip_dist_v._coeff
-        logger.info('Computing L volume distance interpolants...')
-        ip_dist_l = RBFInterpolant(obs_dist_l,dist_l,order=1,basis=interp_basis,\
-                                       penalty=interp_penalty,extrapolate=False)
-        coeff_dist_l = ip_dist_l._coeff
         logger.info('Broadcasting volume distance interpolants...')
         
     obs_dist_u = comm.bcast(obs_dist_u, root=0)
     coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
     obs_dist_v = comm.bcast(obs_dist_v, root=0)
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-    obs_dist_l = comm.bcast(obs_dist_l, root=0)
-    coeff_dist_l = comm.bcast(coeff_dist_l, root=0)
 
     ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis=interp_basis,\
                                    penalty=interp_penalty,extrapolate=False)
     ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis=interp_basis,\
                                    penalty=interp_penalty,extrapolate=False)
-    ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis=interp_basis,\
-                                   penalty=interp_penalty,extrapolate=False)
 
     if rank == 0:
         logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, soma_coords, population_extents, \
+    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                         allgather=True, interp_chunk_size=interp_chunk_size, verbose=verbose)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']

@@ -31,7 +31,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--resample", type=int, default=2)
-@click.option("--resolution", type=int, default=15)
+@click.option("--resolution", type=int, default=16)
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
@@ -59,12 +59,14 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     max_l = 0.0
     population_ranges = read_population_ranges(coords_path)[0]
     population_extents = {}
-    for population in populations:
+    for population in population_ranges.keys():
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
         max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
         min_l = min(min_extent[2], min_l)
         max_l = max(max_extent[2], max_l)
         population_extents[population] = (min_extent, max_extent)
+        
+    for population in populations:
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace)
 
@@ -76,11 +78,10 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     coeff_dist_u = None
     obs_dist_v = None
     coeff_dist_v = None
-    obs_dist_l = None
-    coeff_dist_l = None
 
     interp_penalty = 0.16
     interp_basis = 'imq'
+    interp_order = 2
     
     if rank == 0:
         logger.info('Creating volume...')
@@ -88,24 +89,18 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
                                 rotate=rotate)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
-        (dist_u, obs_dist_u, dist_v, obs_dist_v, dist_l, obs_dist_l) = vol_dist
+        (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=interp_basis,\
+        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty,extrapolate=False)
         coeff_dist_u = ip_dist_u._coeff
         del dist_u
         gc.collect()
         logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=interp_basis,\
+        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty,extrapolate=False)
         coeff_dist_v = ip_dist_v._coeff
         del dist_v
-        gc.collect()
-        logger.info('Computing L volume distance interpolants...')
-        ip_dist_l = RBFInterpolant(obs_dist_l,dist_l,order=1,basis=interp_basis,\
-                                       penalty=interp_penalty,extrapolate=False)
-        coeff_dist_l = ip_dist_l._coeff
-        del dist_l
         gc.collect()
         logger.info('Broadcasting volume distance interpolants...')
         
@@ -113,23 +108,20 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
     obs_dist_v = comm.bcast(obs_dist_v, root=0)
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-    obs_dist_l = comm.bcast(obs_dist_l, root=0)
-    coeff_dist_l = comm.bcast(coeff_dist_l, root=0)
 
-    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis=interp_basis,\
+    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                    penalty=interp_penalty,extrapolate=False)
-    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis=interp_basis,\
-                                   penalty=interp_penalty,extrapolate=False)
-    ip_dist_l = RBFInterpolant(obs_dist_l,coeff=coeff_dist_l,order=1,basis=interp_basis,\
+    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
                                    penalty=interp_penalty,extrapolate=False)
 
     
     output_path = coords_path
     for population in populations:
 
-        soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, ip_dist_l, \
-                                            soma_coords, population_extents, [population], \
-                                            allgather=False, interp_chunk_size=interp_chunk_size, verbose=verbose)
+        soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, \
+                                            soma_coords, population_extents, populations=[population], \
+                                            interp_chunk_size=interp_chunk_size, allgather=False, \
+                                            verbose=verbose)
 
         if rank == 0:
             logger.info('Writing distances for population %s...' % population)
@@ -137,9 +129,9 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
         dist_dict = soma_distances[population]
         attr_dict = {}
         for k, v in dist_dict.iteritems():
-            attr_dict[k] = { 'U Distance': np.asarray(v[0],dtype=np.float32), \
-                             'V Distance': np.asarray(v[1],dtype=np.float32), \
-                             'L Distance': np.asarray(v[2],dtype=np.float32) }
+            attr_dict[k] = { 'U Distance': np.asarray([v[0]],dtype=np.float32), \
+                             'V Distance': np.asarray([v[1]],dtype=np.float32), \
+                             'L Distance': np.asarray([v[2]],dtype=np.float32) }
         append_cell_attributes(output_path, population, attr_dict,
                                namespace='Arc Distances', comm=comm,
                                io_size=io_size, chunk_size=chunk_size,
