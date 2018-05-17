@@ -3,7 +3,10 @@ Dentate Gyrus model initialization script
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 from dentate.main import *
+from nested.utils import Context
 
+
+context = Context()
 logging.basicConfig()
 
 script_name = os.path.basename(__file__)
@@ -33,7 +36,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, verbose):
 
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, verbose=verbose)
-
+    context.update(locals())
     init(env)
 
 

@@ -1,11 +1,7 @@
-from neuron import h
-import copy
-import datetime
-from dentate.neuron_utils import *
 from dentate.utils import *
+from dentate.neuron_utils import *
+from dentate.synapses import *
 from neuroh5.h5py_io_utils import *
-from neuroh5.io import read_projection_names
-import synapses
 import btmorph
 
 
@@ -752,7 +748,8 @@ class SynapseAttributes(object):
         self.select_edge_attr_index_map = defaultdict(dict)
 
         self.syn_id_attr_dict = {}  # gid (int): attr_name (str): array
-        self.syn_mech_attr_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))  # gid (int): syn_id (int): dict
+        # gid (int): syn_id (int): dict
+        self.syn_mech_attr_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
         self.syn_id_attr_index_map = {}  # gid (int): syn_id (int): index in syn_id_attr_dict (int)
         # gid (int): sec_id (int): list of indexes in syn_id_attr_dict (int)
         self.sec_index_map = defaultdict(lambda: defaultdict(list))
@@ -770,7 +767,8 @@ class SynapseAttributes(object):
         self.syn_id_attr_index_map[gid] = {syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids'])}
         for i, sec_id in enumerate(syn_id_attr_dict['syn_secs']):
             self.sec_index_map[gid][sec_id].append(i)
-        self.sec_index_map[gid][sec_id] = np.array(self.sec_index_map[gid][sec_id], dtype='uint32')
+        for sec_id in self.sec_index_map[gid]:
+            self.sec_index_map[gid][sec_id] = np.array(self.sec_index_map[gid][sec_id], dtype='uint32')
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env):
         """
@@ -789,8 +787,23 @@ class SynapseAttributes(object):
         :param gid: int
         :param syn_id: int
         :param syn_name: str
+        :param nc: :class:'h.NetCon'
         """
         self.syn_mech_attr_dict[gid][syn_id][syn_name]['netcon'] = nc
+
+    def has_netcon(self, gid, syn_id, syn_name):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        :return: bool
+        """
+        if (self.syn_mech_attr_dict[gid][syn_id].has_key(syn_name) and
+                self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('netcon')):
+            return True
+        else:
+            return False
 
     def get_netcon(self, gid, syn_id, syn_name):
         """
@@ -800,11 +813,48 @@ class SynapseAttributes(object):
         :param syn_name: str
         :return: :class:'h.NetCon'
         """
-        if (self.syn_mech_attr_dict[gid][syn_id].has_key(syn_name) and
-            self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('netcon')):
+        if self.has_netcon(gid, syn_id, syn_name):
             return self.syn_mech_attr_dict[gid][syn_id][syn_name]['netcon']
         else:
             return None
+
+    def append_vecstim(self, gid, syn_id, syn_name, vs):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        :param :class:'h.VecStim'
+        """
+        self.syn_mech_attr_dict[gid][syn_id][syn_name]['vecstim'] = vs
+
+    def has_mech_attrs(self, gid, syn_id, syn_name):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        :return: bool
+        """
+        if self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('attrs') and \
+                len(self.syn_mech_attr_dict[gid][syn_id][syn_name]) > 0:
+            return True
+        else:
+            return False
+
+    def get_mech_attrs(self, gid, syn_id, syn_name):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        :return: :class:'h.NetCon'
+        """
+        if self.has_mech_attrs(gid, syn_id, syn_name):
+            return self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs']
+        else:
+            return None
+
 
 # --------------------------------------------------------------------------------------------------------- #
 
@@ -1870,6 +1920,166 @@ def custom_gradient_by_terminal(cell, node, mech_name, param_name, baseline, rul
             setattr(getattr(seg, mech_name), param_name, value)
 
 
+def get_filtered_syn_indexes(syn_id_attr_dict, syn_indexes=None, syn_types=None, layers=None, sources=None,
+                             swc_types=None):
+    """
+
+    :param syn_id_attr_dict: dict
+    :param syn_indexes: array of int
+    :param syn_types: list of enumerated type: synapse category
+    :param layers: list of enumerated type: layer
+    :param sources: list of enumerated type: population names of source projections
+    :param swc_types: list of enumerated type: swc_type
+    :return: array of int
+    """
+    matches = np.vectorize(lambda query, item: (query is None) or (item in query), excluded={0})
+    if syn_indexes is None:
+        syn_indexes = np.arange(len(syn_id_attr_dict['syn_ids']), dtype='uint32')
+    else:
+        syn_indexes = np.array(syn_indexes, dtype='uint32')
+    filtered_indexes = np.where(matches(syn_types, syn_id_attr_dict['syn_types'][syn_indexes]) &
+                                matches(layers, syn_id_attr_dict['syn_layers'][syn_indexes]) &
+                                matches(sources, syn_id_attr_dict['syn_sources'][syn_indexes]) &
+                                matches(swc_types, syn_id_attr_dict['swc_types'][syn_indexes]))[0]
+    return syn_indexes[filtered_indexes]
+
+
+def organize_syn_ids_by_source(gid, env, syn_ids=None):
+    """
+
+    :param gid: int
+    :param env: :class:'Env'
+    :param syn_ids: array of int
+    """
+    source_names = {id: name for name, id in env.pop_dict.iteritems()}
+    source_syn_ids = defaultdict(list)
+    syn_attrs = env.synapse_attributes
+    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
+    syn_id_attr_index_map = syn_attrs.syn_id_attr_index_map[gid]
+
+    for syn_id in syn_ids:
+        source_id = syn_id_attr_dict['syn_sources'][syn_id_attr_index_map[syn_id]]
+        source_name = source_names[source_id]
+        source_syn_ids[source_name].append(syn_id)
+    return source_syn_ids
+
+
+def insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, syn_ids, unique=False):
+    """
+    TODO: add a check for 'distances' in syn_id_attr_dict to initialize netcon delays
+    1) make syns (if not unique, keep track of syn_in_seg for shared synapses)
+    2) initialize syns with syn_mech_params from config_file
+    3) make netcons
+    4) initialize netcons with syn_mech_params from config_file
+
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param syn_ids: array of int
+    :param insert: bool; whether to insert synapses if none exist at syn_id
+    :param unique: bool; whether to insert synapses if none exist at syn_id
+    """
+    rank = int(env.pc.id())
+    gid = cell.gid
+    postsyn_name = cell.population
+    syn_attrs = env.synapse_attributes
+    syn_params = env.connection_generator[postsyn_name][presyn_name].synapse_parameters
+
+    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
+    syn_id_attr_index_map = syn_attrs.syn_id_attr_index_map[gid]
+
+    shared_syns_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
+    syn_obj_dict = defaultdict(dict)
+
+    add_synapse = add_unique_synapse if unique else add_shared_synapse
+
+    syn_count = 0
+    for syn_id in syn_ids:
+        syn_index = syn_id_attr_index_map[syn_id]
+        sec_id = syn_id_attr_dict['syn_secs'][syn_index]
+        sec = cell.tree.get_node_with_index(sec_id)
+        syn_loc = syn_id_attr_dict['syn_loc'][syn_index]
+        for syn_name, mech_params in syn_params.iteritems():
+            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=shared_syns_dict,
+                              rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names, **mech_params)
+            syn_obj_dict[syn_id][syn_name] = syn
+            syn_count += 1
+
+    nc_count = 0
+    for syn_id in syn_ids:
+        for syn_name, syn in syn_obj_dict[syn_id].iteritems():
+            this_nc, this_vecstim = mknetcon_vecstim(syn)
+            syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
+            syn_attrs.append_vecstim(gid, syn_id, syn_name, this_vecstim)
+            config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names,
+                       nc=this_nc, **syn_params[syn_name])
+            nc_count += 1
+
+    if env.verbose and rank == 0:
+        print 'insert_cell_synapses_from_mech_attrs: inserted %i netcons; %i syn_ids; source: %s; target: %s ' \
+              'cell %i' % (nc_count, len(syn_ids), presyn_name, postsyn_name, gid)
+
+
+def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, unique=None):
+    """
+    1) organize syn_ids by source population
+    2) if insert, collate syn_ids without netcons, iterate over sources and call insert_cell_synapses_from_mech_attrs
+    3) iterate over all syn_ids, and call config_syn with **syn_mech_attr_dict[syn_name]['attrs'] (which may be empty)
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param syn_ids: array of int
+    :param insert: bool; whether to insert synapses if none exist at syn_id
+    :param unique: bool; whether newly inserted synapses should be unique or shared per segment
+    """
+    rank = int(env.pc.id())
+    gid = cell.gid
+    postsyn_name = cell.population
+    syn_attrs = env.synapse_attributes
+    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
+
+    synapse_config = env.celltypes[postsyn_name]['synapses']
+    if unique is None:
+        if synapse_config.has_key('unique'):
+            unique = synapse_config['unique']
+        else:
+            unique = False
+
+    if syn_ids is None:
+        syn_ids = syn_id_attr_dict['syn_ids']
+
+    source_syn_ids = organize_syn_ids_by_source(gid, env, syn_ids)
+
+    if insert:
+        insert_syn_ids = defaultdict(list)
+        for presyn_name in source_syn_ids:
+            syn_names = env.connection_generator[postsyn_name][presyn_name].synapse_parameters.keys()
+            for syn_id in source_syn_ids[presyn_name]:
+                for syn_name in syn_names:
+                    if not syn_attrs.has_netcon(gid, syn_id, syn_name):
+                        insert_syn_ids[presyn_name].append(syn_id)
+                        break
+        for presyn_name in insert_syn_ids:
+            insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, insert_syn_ids[presyn_name], unique=unique)
+
+    nc_count = 0
+
+    for presyn_name in source_syn_ids:
+        syn_names = env.connection_generator[postsyn_name][presyn_name].synapse_parameters.keys()
+        for syn_id in source_syn_ids[presyn_name]:
+            for syn_name in syn_names:
+                mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
+                if mech_params is not None:
+                    this_netcon = syn_attrs.get_netcon(gid, syn_id, syn_name)
+                    if this_netcon is not None:
+                        config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                   mech_names=syn_attrs.syn_mech_names, nc=this_netcon, **mech_params)
+                        nc_count += 1
+
+    if env.verbose and rank == 0:
+        print 'update_cell_synapses_from_mech_attrs: updated mech_params; %i netcons; %i syn_ids on %s cell %i' % \
+              (nc_count, len(syn_ids), postsyn_name, gid)
+
+
+
 # -------------------------------------------------------------------------------------------------------------------- #
 
 
@@ -1933,50 +2143,7 @@ def make_cell(template_class, local_id=0, gid=0, dataset_path=""):
     return cell
 
 
-def subset_syns_by_source(syn_id_list, syn_id_attr_dict, syn_index_map, postsyn_gid, env):
-    source_id2name = {id: name for (name, id) in env.pop_dict.iteritems()}
-    subset_source_names = {}
-    for syn_id in syn_id_list:
-        source_id = syn_id_attr_dict[postsyn_gid]['syn_sources'][syn_index_map[postsyn_gid][syn_id]]
-        source_name = source_id2name[source_id]
-        if source_name not in subset_source_names:
-            subset_source_names[source_name] = [syn_id]
-        else:
-            subset_source_names[source_name].append(syn_id)
-    return subset_source_names
 
-
-def insert_syn_subset(cell, syn_attrs_dict, syn_id_attr_dict, postsyn_gid, subset_source_names, env, pop_name):
-    synapse_config = env.celltypes[pop_name]['synapses']
-
-    if synapse_config.has_key('unique'):
-        unique = synapse_config['unique']
-    else:
-        unique = False
-
-    for source_name, subset_syn_ids in subset_source_names.iteritems():
-        subset_syn_ids = np.array(subset_syn_ids)
-        edge_count = 0
-        syn_params_dict = env.connection_generator[pop_name][source_name].synapse_parameters
-        postsyn_cell = cell.hoc_cell
-        cell_syn_dict = syn_id_attr_dict[postsyn_gid]
-        cell_syn_types = cell_syn_dict['syn_types']
-        cell_swc_types = cell_syn_dict['swc_types']
-        cell_syn_locs = cell_syn_dict['syn_locs']
-        cell_syn_sections = cell_syn_dict['syn_secs']
-
-        edge_syn_ps_dict = \
-            synapses.mk_syns(postsyn_gid, postsyn_cell, subset_syn_ids, cell_syn_types, cell_swc_types, cell_syn_locs,
-                             cell_syn_sections, syn_params_dict, env,
-                             add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
-        for (syn_id, syn_ps_dict) in edge_syn_ps_dict.iteritems():
-            for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
-                syn_attrs_dict[postsyn_gid][syn_id][syn_mech]['syn target'] = syn_ps
-        if env.verbose:
-            if int(env.pc.id()) == 0:
-                if edge_count == 0:
-                    for sec in list(postsyn_cell.all):
-                        h.psection(sec=sec)
 
 
 def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, env, pop_name):
@@ -2019,25 +2186,3 @@ def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, en
         edge_count += len(presyn_gids)
 
 
-def get_filtered_syn_indexes(syn_id_attr_dict, syn_indexes=None, syn_types=None, layers=None, sources=None,
-                             swc_types=None):
-    """
-
-    :param syn_id_attr_dict: dict
-    :param syn_indexes: array of int
-    :param syn_types: list of enumerated type: synapse category
-    :param layers: list of enumerated type: layer
-    :param sources: list of enumerated type: population names of source projections
-    :param swc_types: list of enumerated type: swc_type
-    :return: array of int
-    """
-    matches = np.vectorize(lambda query, item: (query is None) or (item in query), excluded={0})
-    if syn_indexes is None:
-        syn_indexes = np.arange(len(syn_id_attr_dict['syn_ids']), dtype='uint32')
-    else:
-        syn_indexes = np.array(syn_indexes, dtype='uint32')
-    filtered_indexes = np.where(matches(syn_types, syn_id_attr_dict['syn_types'][syn_indexes]) &
-                                matches(layers, syn_id_attr_dict['syn_layers'][syn_indexes]) &
-                                matches(sources, syn_id_attr_dict['syn_sources'][syn_indexes]) &
-                                matches(swc_types, syn_id_attr_dict['swc_types'][syn_indexes]))[0]
-    return syn_indexes[filtered_indexes]

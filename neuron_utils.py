@@ -1,8 +1,9 @@
-import itertools
-from collections import defaultdict
-import sys, os.path, string
-import numpy as np
-import math
+from dentate.utils import *
+try:
+    from mpi4py import MPI  # Must come before importing NEURON
+except Exception:
+    pass
+from neuron import h
 
 
 freq = 100      # Hz, frequency at which AC length constant will be computed
@@ -67,9 +68,9 @@ def simulate(h, v_init, prelength, mainlength):
     h.continuerun(h.tstop)
 
 
-def mknetcon(pc, srcgid, dstgid, syn, delay, weight=1):
+def mknetcon(pc, srcgid, dstgid, syn, delay=0.1, weight=1):
     """
-    Adds a network connection to a single synapse point process
+    Creates a network connection from the provided source to the provided synaptic point process.
     :param pc: :class:'h.ParallelContext'
     :param srcgid: int; source gid
     :param dstgid: int; destination gid
@@ -83,6 +84,22 @@ def mknetcon(pc, srcgid, dstgid, syn, delay, weight=1):
     nc.weight[0] = weight
     nc.delay = delay
     return nc
+
+
+def mknetcon_vecstim(syn, delay=0.1, weight=1):
+    """
+    Creates a VecStim object to drive the provided synaptic point process, and a network connection from the VecStim
+    source to the synapse target.
+    :param syn: synapse point process
+    :param delay: float
+    :param weight: float
+    :return: :class:'h.NetCon', :class:'h.VecStim'
+    """
+    vs = h.VecStim()
+    nc = h.NetCon(vs, syn)
+    nc.weight[0] = weight
+    nc.delay = delay
+    return nc, vs
 
 
 def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
