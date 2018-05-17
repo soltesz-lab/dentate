@@ -1504,7 +1504,7 @@ def update_synapse_attributes_by_node(cell, node, mech_name, mech_content, env, 
                             parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, env, syn_type)
 
 
-def specify_syn_mech_parameter(cell, node, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
+def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
     """
     This method interprets an entry from the mechanism dictionary to set parameters for synapse_mechanism_attributes
     contained in this node. Appropriately implements slopes and inheritances.
@@ -1529,9 +1529,13 @@ def specify_syn_mech_parameter(cell, node, mech_name, param_name, baseline, rule
         normal = True
     else:
         normal = False
-    this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category)
-    for i in xrange(len(this_synapse_attributes['syn_locs'])):
-        loc = this_synapse_attributes['syn_locs'][i]
+    #this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category)
+    syn_idxs = get_filtered_syn_indexes(env.synapse_attributes.syn_id_attr_dict[gid],
+                                       env.synapse_attributes.sec_index_map[node.index], syn_category=syn_category)
+    syn_locs = env.synapse_attributes.syn_id_attr_dict[gid]['syn_locs'][syn_idxs]
+    syn_ids =
+    for i in xrange(len(syn_locs)):
+        loc = syn_locs[i]
         this_syn_id = this_synapse_attributes['syn_id'][i]
         if this_syn_id not in node.synapse_mechanism_attributes:
             node.synapse_mechanism_attributes[this_syn_id] = {}
