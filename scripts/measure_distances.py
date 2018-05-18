@@ -130,8 +130,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
         attr_dict = {}
         for k, v in dist_dict.iteritems():
             attr_dict[k] = { 'U Distance': np.asarray([v[0]],dtype=np.float32), \
-                             'V Distance': np.asarray([v[1]],dtype=np.float32), \
-                             'L Distance': np.asarray([v[2]],dtype=np.float32) }
+                             'V Distance': np.asarray([v[1]],dtype=np.float32) }
         append_cell_attributes(output_path, population, attr_dict,
                                namespace='Arc Distances', comm=comm,
                                io_size=io_size, chunk_size=chunk_size,

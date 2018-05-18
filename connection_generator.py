@@ -248,12 +248,13 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                 gids.append(gid)
-        uvl_obs_array = np.vstack(uvl_obs)
-        k = uvl_obs_array.shape[0]
-        distance_u = dist_u(uvl_obs_array, chunk_size=interp_chunk_size)
-        distance_v = dist_v(uvl_obs_array, chunk_size=interp_chunk_size)
-        assert(np.all(np.isfinite(distance_u)))
-        assert(np.all(np.isfinite(distance_v)))
+        if len(uvl_obs) > 0:
+            uvl_obs_array = np.vstack(uvl_obs)
+            k = uvl_obs_array.shape[0]
+            distance_u = dist_u(uvl_obs_array, chunk_size=interp_chunk_size)
+            distance_v = dist_v(uvl_obs_array, chunk_size=interp_chunk_size)
+            assert(np.all(np.isfinite(distance_u)))
+            assert(np.all(np.isfinite(distance_v)))
         for (i,gid) in enumerate(gids):
             local_dist_dict[gid] = (distance_u[i], distance_v[i])
             if rank == 0:
