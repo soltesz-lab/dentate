@@ -1611,72 +1611,59 @@ def modify_syn_mech_param(cell, sec_type, mech_name, syn_name, param_name=None, 
     elif not mech_name in cell.mech_dict[sec_type]:
         backup_content = copy.deepcopy(cell.mech_dict[sec_type])
         cell.mech_dict[sec_type][mech_name] = {syn_name: mech_content}
-    # This mechanism has been inserted, but synapse type has not been specified
+    # This synaptic mechanism has not yet been specified in this type of section
     elif not syn_name in cell.mech_dict[sec_type][mech_name]:
         backup_content = copy.deepcopy(cell.mech_dict[sec_type])
         cell.mech_dict[sec_type][mech_name][syn_name] = mech_content
-    # No parameters have been specified
-    elif cell.mech_dict[sec_type][mech_name] is None:
+    # This synaptic mechanism has been specified, but no parameters have been specified
+    elif cell.mech_dict[sec_type][mech_name][syn_name] is None:
         backup_content = copy.deepcopy(cell.mech_dict[sec_type])
-        cell.mech_dict[sec_type][mech_name] = mech_content
+        cell.mech_dict[sec_type][mech_name][syn_name] = mech_content
     # This parameter has already been specified
-    elif param_name is not None and param_name in cell.mech_dict[sec_type][mech_name]:
+    elif param_name is not None and param_name in cell.mech_dict[sec_type][mech_name][syn_name]:
         backup_content = copy.deepcopy(cell.mech_dict[sec_type])
         # Determine whether to replace or extend the current dictionary entry.
         if replace:
-            cell.mech_dict[sec_type][mech_name][param_name] = rules
-        elif type(cell.mech_dict[sec_type][mech_name][param_name]) == dict:
-            cell.mech_dict[sec_type][mech_name][param_name] = [cell.mech_dict[sec_type][mech_name][param_name],
-                                                               rules]
+            cell.mech_dict[sec_type][mech_name][syn_name][param_name] = rules
+        elif type(cell.mech_dict[sec_type][mech_name][syn_name][param_name]) == dict:
+            cell.mech_dict[sec_type][mech_name][syn_name][param_name] = \
+                [cell.mech_dict[sec_type][mech_name][syn_name][param_name], rules]
         elif type(cell.mech_dict[sec_type][mech_name][param_name]) == list:
-            cell.mech_dict[sec_type][mech_name][param_name].append(rules)
-    # This mechanism has been inserted, but this parameter has not yet been specified
+            cell.mech_dict[sec_type][mech_name][syn_name][param_name].append(rules)
+    # This synaptic mechanism has been specified, but this parameter has not yet been specified
     elif param_name is not None:
         backup_content = copy.deepcopy(cell.mech_dict[sec_type])
-        cell.mech_dict[sec_type][mech_name][param_name] = rules
+        cell.mech_dict[sec_type][mech_name][syn_name][param_name] = rules
 
-    try:
-        # all membrane mechanisms in sections of type sec_type must be reinitialized after changing cable properties
-        if mech_name == 'cable':
-            if param_name in ['Ra', 'cm', 'spatial_res']:
-                update_all_mechanisms_by_sec_type(cell, sec_type, reset_cable=True)
+
+    for node in cell.nodes[sec_type]:
+        try:
+            update_syn_mechanism_by_node(cell, node, mech_name, {syn_name: mech_content}, env, gid)
+        except (AttributeError, NameError, ValueError, KeyError):
+            if backup_content is None:
+                del cell.mech_dict[sec_type]
             else:
-                print 'Exception: Unknown cable property: {}'.format(param_name)
-                raise KeyError
-        else:
-            for node in cell.nodes[sec_type]:
-                try:
-                    update_mechanism_by_node(cell, node, mech_name, mech_content)
-                except (AttributeError, NameError, ValueError, KeyError):
-                    raise KeyError
-    except KeyError:
-        if backup_content is None:
-            del cell.mech_dict[sec_type]
-        else:
-            cell.mech_dict[sec_type] = copy.deepcopy(backup_content)
-        if not param_name is None:
-            raise Exception('Problem specifying mechanism: %s parameter: %s in node: %s' %
-                            (mech_name, param_name, node.name))
-        else:
-            raise Exception('Problem specifying mechanism: %s in node: %s' %
-                            (mech_name, node.name))
+                cell.mech_dict[sec_type] = copy.deepcopy(backup_content)
+            if param_name is not None:
+                raise Exception('Problem specifying %s mechanism: %s parameter: %s in node: %s' %
+                                (mech_name, syn_name, param_name, node.name))
+            else:
+                raise Exception('Problem specifying %s mechanism: %s in node: %s' %
+                                (mech_name, syn_name, node.name))
 
-#Need to write get_synapse_attributes -- was this supposed to be similar to node.get_filtered_synapse_attributes?
-#Was update synapse supposed to be an updated version of specify_synaptic_parameter?
-def update_synapse_attributes_by_node(cell, node, mech_name, mech_content, env, gid):
+
+def update_syn_mechanism_by_node(cell, node, mech_name, mech_content, env, gid):
     """
-    Consults a dictionary to specify properties of synapses of the specified category. Only sets values in a nodes
-    dictionary of synapse attributes. Must then call 'update_synapses' to modify properties of underlying hoc
-    point process and netcon objects.
+    Consults a dictionary to specify properties of synapses of the specified category. Changes values in
+    env.synapse_attributes.syn_mech_attr_dict. Must then call 'update_cell_synapses_from_mech_attrs' to modify
+    properties of underlying hoc point process and netcon objects.
     :param node: :class:'SHocNode'
     :param mech_name: str
     :param mech_content: dict
     """
-    syn_category = mech_name.split(' ')[0]
-    # Only specify synapse attributes if this category of synapses has been specified in this node
     syn_id_attr_dict = env.synapse_attributes.syn_id_attr_dict[gid]
     syn_idxs = syn_id_attr_dict['syn_ids']
-    filtered_synapse_attributes(syn_id_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None,
+    filtered_idxs = filtered_synapse_attributes(syn_id_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None,
                                 sorted=False)
     if get_synapse_attributes(node, syn_category=syn_category)['syn_locs']:
         for syn_type in mech_content:
