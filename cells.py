@@ -770,6 +770,17 @@ class SynapseAttributes(object):
         for sec_id in self.sec_index_map[gid]:
             self.sec_index_map[gid][sec_id] = np.array(self.sec_index_map[gid][sec_id], dtype='uint32')
 
+    def load_syn_weights(self, gid, syn_name, syn_ids, weights):
+        """
+
+        :param gid:
+        :param syn_ids:
+        :param weights:
+        """
+        for i, syn_id in enumerate(syn_ids):
+            params = {'weight': weights[i]}
+            self.append_mech_attrs(gid, syn_id, syn_name, params)
+
     def load_edge_attrs(self, gid, source_name, syn_ids, env):
         """
 
@@ -854,6 +865,21 @@ class SynapseAttributes(object):
             return self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs']
         else:
             return None
+
+    def append_mech_attrs(self, gid, syn_id, syn_name, params):
+        """
+
+        :param gid: int
+        :param syn_id: int
+        :param syn_name: str
+        :param params: dict
+        """
+        if not self.has_mech_attrs(gid, syn_id, syn_name):
+            self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs'] = params
+        else:
+            for param, val in params.iteritems():
+                self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs'][param] = val
+
 
 
 # --------------------------------------------------------------------------------------------------------- #
@@ -1993,16 +2019,23 @@ def insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, syn_ids, unique
     add_synapse = add_unique_synapse if unique else add_shared_synapse
 
     syn_count = 0
+    syns_set = set()
     for syn_id in syn_ids:
         syn_index = syn_id_attr_index_map[syn_id]
         sec_id = syn_id_attr_dict['syn_secs'][syn_index]
-        sec = cell.tree.get_node_with_index(sec_id)
-        syn_loc = syn_id_attr_dict['syn_loc'][syn_index]
+        sec = cell.tree.get_node_with_index(sec_id).sec
+        syn_loc = syn_id_attr_dict['syn_locs'][syn_index]
         for syn_name, mech_params in syn_params.iteritems():
             syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=shared_syns_dict,
-                              rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names, **mech_params)
+                              mech_names=syn_attrs.syn_mech_names)
             syn_obj_dict[syn_id][syn_name] = syn
-            syn_count += 1
+            if syn not in syns_set:
+                config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names,
+                           syn=syn, **mech_params)
+                cell.hoc_cell.syns.append(syn)
+                syns_set.add(syn)
+                env.syns_set[gid].add(syn)
+                syn_count += 1
 
     nc_count = 0
     for syn_id in syn_ids:
@@ -2015,8 +2048,9 @@ def insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, syn_ids, unique
             nc_count += 1
 
     if env.verbose and rank == 0:
-        print 'insert_cell_synapses_from_mech_attrs: inserted %i netcons; %i syn_ids; source: %s; target: %s ' \
-              'cell %i' % (nc_count, len(syn_ids), presyn_name, postsyn_name, gid)
+        print 'insert_cell_synapses_from_mech_attrs: source: %s; target: %s cell %i: ' \
+              'created %i syns and %i netcons for %i syn_ids' % \
+              (presyn_name, postsyn_name, gid, syn_count, nc_count, len(syn_ids))
 
 
 def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, unique=None):
@@ -2061,7 +2095,8 @@ def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, 
             insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, insert_syn_ids[presyn_name], unique=unique)
 
     nc_count = 0
-
+    syn_count = 0
+    syns_set = {}
     for presyn_name in source_syn_ids:
         syn_names = env.connection_generator[postsyn_name][presyn_name].synapse_parameters.keys()
         for syn_id in source_syn_ids[presyn_name]:
@@ -2070,14 +2105,20 @@ def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, 
                 if mech_params is not None:
                     this_netcon = syn_attrs.get_netcon(gid, syn_id, syn_name)
                     if this_netcon is not None:
+                        syn = this_netcon.syn()
+                        if syn not in syns_set:
+                            syns_set.add(syn)
+                            syn_count += 1
+                        else:
+                            syn = None
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
-                                   mech_names=syn_attrs.syn_mech_names, nc=this_netcon, **mech_params)
+                                   mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
                         nc_count += 1
 
     if env.verbose and rank == 0:
-        print 'update_cell_synapses_from_mech_attrs: updated mech_params; %i netcons; %i syn_ids on %s cell %i' % \
-              (nc_count, len(syn_ids), postsyn_name, gid)
-
+        print 'update_cell_synapses_from_mech_attrs: source: %s; target: %s cell %i: ' \
+              'updated mech_params for %i syns and %i netcons for %i syn_ids' % \
+              (presyn_name, postsyn_name, gid, syn_count, nc_count, len(syn_ids))
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -2141,48 +2182,3 @@ def make_cell(template_class, local_id=0, gid=0, dataset_path=""):
     """
     cell = template_class(local_id, gid, dataset_path)
     return cell
-
-
-
-
-
-def mk_subset_netcons(cell, syn_attrs_dict, postsyn_gid, subset_source_names, env, pop_name):
-    """
-
-    :return:
-    """
-    datasetPath = os.path.join(env.datasetPrefix, env.datasetName)
-    connectivityFilePath = os.path.join(datasetPath, env.modelConfig['Connection Data'])
-
-    edge_count = 0
-    for source_name, subset_syn_ids in subset_source_names.iteritems():
-        edge_attr_index_map = get_edge_attributes_index_map(env.comm, connectivityFilePath, source_name, pop_name)
-        edge_attr_tuple = select_edge_attributes(postsyn_gid, env.comm, connectivityFilePath, edge_attr_index_map,
-                                                 source_name, pop_name, ['Synapses', 'Connections'])
-
-        presyn_gids = edge_attr_tuple[0]
-        edge_syn_ids = edge_attr_tuple[1]['Synapses']['syn_id']
-        edge_dists = edge_attr_tuple[1]['Connections']['distance']
-
-        edge_idxs = np.where(np.isin(edge_syn_ids, subset_syn_ids))
-        subset_presyn_gids = presyn_gids[edge_idxs]
-        subset_edge_dists = edge_dists[edge_idxs]
-
-        connection_dict = env.connection_generator[pop_name][source_name].connection_properties
-
-        for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
-            syn_ps_dict = edge_syn_ps_dict[edge_syn_id] #may need to get edge_syn_ps_dict from mk_syns
-            for (syn_mech, syn_ps) in syn_ps_dict.iteritems():
-                connection_syn_mech_config = connection_dict[syn_mech]
-                #In full-scale model, we would need to read in weight information from the neuroh5 file
-                weight = connection_syn_mech_config['weight']
-                delay = (distance / connection_syn_mech_config['velocity']) + 0.1
-                if type(weight) is float:
-                    nc = mk_nc_syn(env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
-                else:
-                    nc = mk_nc_syn_wgtvector(env.pc, h.nclist, presyn_gid, postsyn_gid, syn_ps, weight, delay)
-                syn_attrs_dict[postsyn_gid][edge_syn_id][syn_ps.name] = {'netcon': nc, 'attrs': {}}
-
-        edge_count += len(presyn_gids)
-
-

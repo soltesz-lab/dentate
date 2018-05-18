@@ -214,8 +214,8 @@ def connectcells(env):
         else:
             weights_namespace = 'Weights'
 
-        if synapse_config.has_key('mech_file_path'):
-            mech_file_path = synapse_config['mech_file_path']
+        if env.celltypes[postsyn_name].has_key('mech_file_path'):
+            mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
         else:
             mech_file_path = None
 
@@ -249,10 +249,12 @@ def connectcells(env):
             cell_weights_dict = None
         del cell_attributes_dict
 
-        if mech_file_path is not None:
-            first_gid = cell_synapses_dict.iteritems().next()
-            for gid in cell_synapses_dict:
-                syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+        first_gid = None
+        for gid in cell_synapses_dict:
+            syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+            if mech_file_path is not None:
+                if first_gid is None:
+                    first_gid = gid
                 biophys_cell = BiophysCell(gid=gid, population=postsyn_name, hoc_cell=env.pc.gid2cell(gid))
                 try:
                     init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
@@ -294,9 +296,9 @@ def connectcells(env):
             for (postsyn_gid, edges) in edge_iter:
 
                 postsyn_cell = env.pc.gid2cell(postsyn_gid)
-                cell_syn_dict = cell_synapses_dict[postsyn_gid]
 
                 if has_weights:
+                    # TODO: use syn_attrs.load_weights(), and pull weights from syn_mech_attr_dict instead
                     cell_wgt_dict = cell_weights_dict[postsyn_gid]
                     syn_names = cell_wgt_dict.keys()
                     syn_names.remove('syn_id')
@@ -318,15 +320,10 @@ def connectcells(env):
 
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
-                cell_syn_types = cell_syn_dict['syn_types']
-                cell_swc_types = cell_syn_dict['swc_types']
-                cell_syn_locs = cell_syn_dict['syn_locs']
-                cell_syn_sections = cell_syn_dict['syn_secs']
-
                 edge_syn_ps_dict = \
-                    mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, cell_syn_types, cell_swc_types,
-                                    cell_syn_locs, cell_syn_sections, syn_params_dict, env,
-                                    add_synapse=add_unique_synapse if unique else add_shared_synapse)
+                    mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                           env.edge_count[postsyn_name][presyn_name],
+                           add_synapse=add_unique_synapse if unique else add_shared_synapse)
 
                 if env.verbose:
                     if int(env.pc.id()) == 0:
@@ -362,6 +359,7 @@ def connectgjs(env):
     :param env:
     :return:
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 

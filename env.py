@@ -188,7 +188,7 @@ class Env:
         self.lfp = {}
 
         self.edge_count = defaultdict(dict)
-
+        self.syns_set = defaultdict(set)
         self.logger = logger
 
     def load_input_config(self):
