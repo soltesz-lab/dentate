@@ -14,12 +14,6 @@ from dentate import lpt, lfp, simtime
 import logging
 
 
-logging.basicConfig()
-
-script_name = 'main.py'
-logger = logging.getLogger(script_name)
-
-
 # Estimate cell complexity. Code by Michael Hines from the discussion thread
 # https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
@@ -36,6 +30,7 @@ def cx(env):
 
 # for given cxvec on each rank what is the fractional load balance.
 def ld_bal(env):
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     cxvec = env.cxvec
@@ -181,8 +176,8 @@ def connectcells(env):
     TODO: Add garbage collection of SynapseAttribute and BiophsCell objects by default, but configurable during
     network tuning.
     :param env:
-    :return:
     """
+    logger = env.logger
     connectivityFilePath = env.connectivityFilePath
     forestFilePath = env.forestFilePath
     rank = int(env.pc.id())
@@ -219,8 +214,8 @@ def connectcells(env):
         else:
             weights_namespace = 'Weights'
 
-        if synapse_config.has_key('mech_file_path'):
-            mech_file_path = synapse_config['mech_file_path']
+        if env.celltypes[postsyn_name].has_key('mech_file_path'):
+            mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
         else:
             mech_file_path = None
 
@@ -254,10 +249,12 @@ def connectcells(env):
             cell_weights_dict = None
         del cell_attributes_dict
 
-        if mech_file_path is not None:
-            first_gid = cell_synapses_dict.iteritems().next()
-            for gid in cell_synapses_dict:
-                syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+        first_gid = None
+        for gid in cell_synapses_dict:
+            syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+            if mech_file_path is not None:
+                if first_gid is None:
+                    first_gid = gid
                 biophys_cell = BiophysCell(gid=gid, population=postsyn_name, hoc_cell=env.pc.gid2cell(gid))
                 try:
                     init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
@@ -299,9 +296,9 @@ def connectcells(env):
             for (postsyn_gid, edges) in edge_iter:
 
                 postsyn_cell = env.pc.gid2cell(postsyn_gid)
-                cell_syn_dict = cell_synapses_dict[postsyn_gid]
 
                 if has_weights:
+                    # TODO: use syn_attrs.load_weights(), and pull weights from syn_mech_attr_dict instead
                     cell_wgt_dict = cell_weights_dict[postsyn_gid]
                     syn_names = cell_wgt_dict.keys()
                     syn_names.remove('syn_id')
@@ -323,15 +320,10 @@ def connectcells(env):
 
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
-                cell_syn_types = cell_syn_dict['syn_types']
-                cell_swc_types = cell_syn_dict['swc_types']
-                cell_syn_locs = cell_syn_dict['syn_locs']
-                cell_syn_sections = cell_syn_dict['syn_secs']
-
                 edge_syn_ps_dict = \
-                    mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, cell_syn_types, cell_swc_types,
-                                    cell_syn_locs, cell_syn_sections, syn_params_dict, env,
-                                    add_synapse=add_unique_synapse if unique else add_shared_synapse)
+                    mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                           env.edge_count[postsyn_name][presyn_name],
+                           add_synapse=add_unique_synapse if unique else add_shared_synapse)
 
                 if env.verbose:
                     if int(env.pc.id()) == 0:
@@ -367,6 +359,7 @@ def connectgjs(env):
     :param env:
     :return:
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -427,6 +420,7 @@ def mkcells(env):
     :param env:
     :return:
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -563,6 +557,7 @@ def mkstim(env):
     :param env:
     :return:
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -606,6 +601,7 @@ def init(env):
 
     :param env:
     """
+    logger = env.logger
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
     h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
@@ -709,12 +705,13 @@ def init(env):
     h.setuptime = h.setuptime + h.stopsw()
 
 
-def run(env):
+def run(env, output=True):
     """
     Run the simulation
     :param env:
-    :return:
+    :param output: bool
     """
+    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -730,17 +727,18 @@ def run(env):
     env.pc.barrier()
     if rank == 0:
         logger.info("*** Writing spike data")
-    spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
-    if env.vrecordFraction > 0.:
-      if rank == 0:
-        logger.info("*** Writing intracellular trace data")
-      t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
-      vout(env, env.resultsFilePath, t_vec, env.v_dict)
-    env.pc.barrier()
-    if rank == 0:
-        logger.info("*** Writing local field potential data")
-        for lfp in env.lfp.itervalues():
-            lfpout(env, env.resultsFilePath, lfp)
+    if output:
+        spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+        if env.vrecordFraction > 0.:
+          if rank == 0:
+            logger.info("*** Writing intracellular trace data")
+          t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
+          vout(env, env.resultsFilePath, t_vec, env.v_dict)
+        env.pc.barrier()
+        if rank == 0:
+            logger.info("*** Writing local field potential data")
+            for lfp in env.lfp.itervalues():
+                lfpout(env, env.resultsFilePath, lfp)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
@@ -809,6 +807,8 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
     :param verbose: bool; print verbose diagnostic messages while constructing the network
     :param dry_run: bool; whether to actually execute simulation after building network
     """
+    logging.basicConfig()
+    logger = logging.getLogger(os.path.basename(__file__))
     if verbose:
         logger.setLevel(logging.INFO)
     comm = MPI.COMM_WORLD
@@ -816,7 +816,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id,
               node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
-              results_write_time, dt, ldbal, lptbal, verbose)
+              results_write_time, dt, ldbal, lptbal, verbose, logger=logger)
 
     init(env)
     if not dry_run:
@@ -824,4 +824,4 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index(script_name)+1):])
+    main(args=sys.argv[(sys.argv.index(os.path.basename(__file__))+1):])

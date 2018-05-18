@@ -16,10 +16,10 @@ Cell Types:
   GC:
     template: DGC
     templateFile: DGC_Template_minimal.hoc
+    mech_file_path: ../optimize_cells/mechanisms/20180209_DG_GC_hoc_leak_mech.yaml
     synapses:
       correct_for_spines: True
       weights: False
-      mech_file_path: ../optimize_cells/mechanisms/20180209_DG_GC_hoc_leak_mech.yaml
       density:
         apical:
           excitatory: # Excitatory https://www.ncbi.nlm.nih.gov/pubmed/2760687
