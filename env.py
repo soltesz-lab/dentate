@@ -189,6 +189,12 @@ class Env:
 
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
+        if logger is None:
+            logging.basicConfig()
+            logger = logging.getLogger(os.path.basename(__file__))
+            print os.path.basename(__file__)
+            if verbose:
+                logger.setLevel(logging.INFO)
         self.logger = logger
 
     def load_input_config(self):

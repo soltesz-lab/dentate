@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import yaml
 import pprint
+import logging
 
 
 class IncludeLoader(yaml.Loader):

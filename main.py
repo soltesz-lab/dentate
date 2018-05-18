@@ -11,7 +11,6 @@ from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import *
 from dentate import lpt, lfp, simtime
-import logging
 
 
 # Estimate cell complexity. Code by Michael Hines from the discussion thread
@@ -241,12 +240,21 @@ def connectcells(env):
         if cell_attributes_dict.has_key(weights_namespace):
             has_weights = True
             cell_weights_dict = {k: v for (k, v) in cell_attributes_dict[weights_namespace]}
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info('*** Found synaptic weights for population %s' % (postsyn_name))
+            first_gid = None
+            for gid in cell_weights_dict:
+                if first_gid is None:
+                    first_gid = gid
+                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
+                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'AMPA')
+                    if syn_name == 'weight':
+                        syn_name = 'AMPA'
+                    syn_attrs.load_syn_weights(gid, syn_name, cell_weights_dict[gid]['syn_id'],
+                                               cell_weights_dict[gid][syn_name])
+                    if env.verbose and rank == 0 and gid == first_gid:
+                        logger.info('*** connectcells: population: %s; gid: %i; found %i %s synaptic weights' %
+                                    (postsyn_name, postsyn_gid, len(cell_weights_dict[gid][syn_name]), syn_name))
         else:
             has_weights = False
-            cell_weights_dict = None
         del cell_attributes_dict
 
         first_gid = None
@@ -264,8 +272,8 @@ def connectcells(env):
                                      '%s' % (postsyn_name, gid, mech_file_path))
                 env.biophys_cells[gid] = biophys_cell
                 if env.verbose and rank == 0 and gid == first_gid:
-                    print 'connectcells: population: %s; gid: %i; loaded biophysics from path: %s' % \
-                          (postsyn_name, gid, mech_file_path)
+                    logger.info('*** connectcells: population: %s; gid: %i; loaded biophysics from path: %s' %
+                                (postsyn_name, gid, mech_file_path))
 
         for presyn_name in presyn_names:
 
@@ -296,31 +304,13 @@ def connectcells(env):
             for (postsyn_gid, edges) in edge_iter:
 
                 postsyn_cell = env.pc.gid2cell(postsyn_gid)
-
-                if has_weights:
-                    # TODO: use syn_attrs.load_weights(), and pull weights from syn_mech_attr_dict instead
-                    cell_wgt_dict = cell_weights_dict[postsyn_gid]
-                    syn_names = cell_wgt_dict.keys()
-                    syn_names.remove('syn_id')
-                    syn_wgt_dict = defaultdict(dict)
-                    for i, syn_id in enumerate(cell_wgt_dict['syn_id']):
-                        for syn_name in syn_names:
-                            # TODO: this is here for backwards compatibility; cell_wgt_dict should contain keys
-                            # corresponding to the syn_name (e.g. 'AMPA') instead of 'weight'
-                            if syn_name == 'weight':
-                                syn_wgt_dict['AMPA'][int(syn_id)] = float(cell_wgt_dict[syn_name][i])
-                            else:
-                                syn_wgt_dict[syn_name][int(syn_id)] = float(cell_wgt_dict[syn_name][i])
-                else:
-                    syn_wgt_dict = None
-
                 presyn_gids = edges[0]
                 edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
                 edge_dists = edges[1]['Connections'][distance_attr_index]
 
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
-                edge_syn_ps_dict = \
+                edge_syn_obj_dict = \
                     mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
                            env.edge_count[postsyn_name][presyn_name],
                            add_synapse=add_unique_synapse if unique else add_shared_synapse)
@@ -330,27 +320,24 @@ def connectcells(env):
                         if env.edge_count[postsyn_name][presyn_name] == 0:
                             for sec in list(postsyn_cell.all):
                                 h.psection(sec=sec)
-                # TODO: Going forward, what is currently specified as 'weight', will instead be 'g_unit'
-                wgt_count = 0
-                for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
-                    syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
-                    for (syn_name, syn_ps) in syn_ps_dict.iteritems():
+
+                for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+                    for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
                         delay = (distance / env.connection_velocity[presyn_name]) + 0.1
-                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn_ps, delay)
+                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
-                        if has_weights and syn_wgt_dict.has_key(syn_name) and \
-                                syn_wgt_dict[syn_name].has_key(edge_syn_id):
-                            weight = float(syn_wgt_dict[syn_name][edge_syn_id])
-                            this_nc.weight[0] = this_nc.weight[0] * weight
-                            wgt_count += 1
-                if env.verbose:
-                    if int(env.pc.id()) == 0:
-                        if env.edge_count[postsyn_name][presyn_name] == 0:
-                            logger.info('*** Found %i synaptic weights for gid %i' % (wgt_count, postsyn_gid))
+                        if has_weights and not postsyn_gid in env.biophys_cells:
+                            mech_params = syn_attrs.get_mech_attrs(postsyn_gid, edge_syn_id, syn_name)
+                            if mech_params is not None and mech_params.has_key('weight'):
+                                weight = mech_params['weight']
+                                this_nc.weight[0] = this_nc.weight[0] * weight
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
+    for gid, biophys_cell in env.biophys_cells.iteritems():
+        # TODO: update_mech_attrs
+        update_cell_synapses_from_mech_attrs(biophys_cell, env)
 
 
 def connectgjs(env):

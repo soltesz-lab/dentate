@@ -778,19 +778,26 @@ class SynapseAttributes(object):
         :param weights:
         """
         for i, syn_id in enumerate(syn_ids):
-            params = {'weight': weights[i]}
+            params = {'weight': float(weights[i])}
             self.append_mech_attrs(gid, syn_id, syn_name, params)
 
-    def load_edge_attrs(self, gid, source_name, syn_ids, env):
+    def load_edge_attrs(self, gid, source_name, syn_ids, env, delays=None):
         """
 
         :param gid: int
         :param source_name: str; name of source population
         :param syn_ids: array of int
+        :param env: :class:'Env'
+        :param delays: array of float; axon conduction (netcon) delays
         """
         source = int(env.pop_dict[source_name])
         indexes = [self.syn_id_attr_index_map[gid][syn_id] for syn_id in syn_ids]
         self.syn_id_attr_dict[gid]['syn_sources'][indexes] = source
+        if delays is not None:
+            if not self.syn_id_attr_dict[gid].has_key('delays'):
+                self.syn_id_attr_dict[gid]['delays'] = \
+                    np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, 0., dtype='float32')
+            self.syn_id_attr_dict[gid]['delays'][indexes] = delays
 
     def append_netcon(self, gid, syn_id, syn_name, nc):
         """
@@ -2253,10 +2260,10 @@ def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, 
                                    mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
                         nc_count += 1
 
-    if env.verbose and rank == 0:
-        print 'update_cell_synapses_from_mech_attrs: source: %s; target: %s cell %i: ' \
+    if env.verbose and rank == 0 and nc_count > 0:
+        print 'update_cell_synapses_from_mech_attrs: population: %s; cell %i: ' \
               'updated mech_params for %i syns and %i netcons for %i syn_ids' % \
-              (presyn_name, postsyn_name, gid, syn_count, nc_count, len(syn_ids))
+              (postsyn_name, gid, syn_count, nc_count, len(syn_ids))
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
