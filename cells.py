@@ -1688,20 +1688,19 @@ def update_syn_mechanism_by_node(cell, node, mech_name, mech_content, env, gid):
     :param mech_content: dict
     """
     syn_id_attr_dict = env.synapse_attributes.syn_id_attr_dict[gid]
-    syn_idxs = syn_id_attr_dict['syn_ids']
-    filtered_idxs = filtered_synapse_attributes(syn_id_attr_dict, syn_idxs, env, syn_category=None, layers=None, output=None,
-                                sorted=False)
-    if get_synapse_attributes(node, syn_category=syn_category)['syn_locs']:
-        for syn_type in mech_content:
-            if mech_content[syn_type] is not None:
-                for param_name in mech_content[syn_type]:
-                    # accommodate either a dict, or a list of dicts specifying multiple location constraints for
-                    # a single parameter
-                    if isinstance(mech_content[syn_type][param_name], dict):
-                        parse_mech_content(cell, node, mech_name, param_name, mech_content[syn_type][param_name], env, syn_type)
-                    elif isinstance(mech_content[syn_type][param_name], Iterable):
-                        for mech_content_entry in mech_content[syn_type][param_name]:
-                            parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, env, syn_type)
+    for syn_name in mech_content:
+        if mech_content[syn_name] is not None:
+            filtered_idxs = get_filtered_syn_indexes(syn_id_attr_dict, env.synapse_attributes.sec_index_map[node.index],
+                                                     **mech_content[syn_name])
+            for param_name in mech_content[syn_name]:
+                # accommodate either a dict, or a list of dicts specifying multiple location constraints for
+                # a single parameter
+                if isinstance(mech_content[syn_name][param_name], dict):
+                    parse_syn_mech_content(cell, node, mech_name, param_name, mech_content[syn_name][param_name], env,
+                                           syn_name)
+                elif isinstance(mech_content[syn_name][param_name], Iterable):
+                    for mech_content_entry in mech_content[syn_name][param_name]:
+                        parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, env, syn_name)
 
 
 def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
@@ -1729,7 +1728,6 @@ def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline,
         normal = True
     else:
         normal = False
-    #this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category)
     syn_idxs = get_filtered_syn_indexes(env.synapse_attributes.syn_id_attr_dict[gid],
                                        env.synapse_attributes.sec_index_map[node.index], syn_category=syn_category)
     syn_locs = env.synapse_attributes.syn_id_attr_dict[gid]['syn_locs'][syn_idxs]
