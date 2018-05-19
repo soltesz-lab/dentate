@@ -12,8 +12,8 @@ from rbf.interpolate import RBFInterpolant
 import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-import click, logging
 from dentate.utils import list_index, random_clustered_shuffle, random_choice_w_replacement
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -25,7 +25,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, extent, res=5):
+    def __init__(self, destination_population, soma_coords, get_soma_pair_distances, extent):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -35,7 +35,7 @@ class ConnectionProb(object):
         """
         self.destination_population = destination_population
         self.soma_coords = soma_coords
-        self.soma_distances = soma_distances
+        self.get_soma_pair_distances = get_soma_pair_distances
         self.p_dist = {}
         self.width  = {}
         self.offset = {}
@@ -70,10 +70,11 @@ class ConnectionProb(object):
         :return: tuple of array of int
         """
         destination_coords = self.soma_coords[self.destination_population][destination_gid]
-        destination_distances = self.soma_distances[self.destination_population][destination_gid]
+        source_coords = self.soma_coords[source_population]
+
+        destination_distances = self.get_soma_distances[self.destination_population][destination_gid]
         
-        source_soma_coords = self.soma_coords[source_population]
-        source_soma_distances = self.soma_distances[source_population]
+        distances = self.get_soma_pair_distances([destination_gid])
 
         destination_u, destination_v, destination_l  = destination_coords
         destination_distance_u, destination_distance_v = destination_distances
@@ -127,152 +128,6 @@ class ConnectionProb(object):
             pn = p
         return pn.ravel(), source_gid.ravel(), distance_u.ravel(), distance_v.ravel()
 
-
-def get_volume_distances (ip_vol, res=2, step=1, interp_chunk_size=1000, verbose=False):
-    """Computes arc-distances along the dimensions of an `RBFVolume` instance.
-
-    Parameters
-    ----------
-    ip_vol : RBFVolume
-        An interpolated volume instance of class RBFVolume.
-    res : int
-        Resampling factor for the U, V, L coordinates of the volume. 
-        This parameter will be used to resample the volume and reduce the error of the arc distance calculation.
-    step : int (default=1)
-        Used to subsample the arrays of computed distances.
-    Returns
-    -------
-    (Y1, X1, ... , YN, XN) where N is the number of dimensions of the volume.
-    X : array of coordinates
-        The sampled coordinates.
-    Y : array of distances
-        The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
-    """
-
-    if verbose:
-        logger.setLevel(logging.INFO)
-
-    logger.info('Resampling volume...')
-    U, V, L = ip_vol._resample_uvl(res, res, res)
-
-    axis_origins = [np.median(U), np.median(V), np.max(L)]
-    logger.info('Axis origins: %f %f %f' % (tuple(axis_origins)))
-    
-    logger.info('Computing U distances...')
-    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0, axis_origin=axis_origins[0], interp_chunk_size=interp_chunk_size)
-    obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
-                        np.concatenate(obs_dist_u[1]), \
-                        np.concatenate(obs_dist_u[2])]).T
-    sample_inds = np.arange(0, obs_uvl.shape[0], step)
-    obs_u = obs_uvl[sample_inds,:]
-    distances_u = np.concatenate(ldist_u)[sample_inds]
-
-    logger.info('U coord min: %f max: %f' % (np.min(U), np.max(U)))
-    logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
-    
-    logger.info('Computing V distances...')
-    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1, axis_origin=axis_origins[1], interp_chunk_size=interp_chunk_size)
-    obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
-                        np.concatenate(obs_dist_v[1]), \
-                        np.concatenate(obs_dist_v[2])]).T
-    sample_inds = np.arange(0, obs_uvl.shape[0], step)
-    obs_v = obs_uvl[sample_inds,:]
-    distances_v = np.concatenate(ldist_v)[sample_inds]
-
-    logger.info('V coord min: %f max: %f' % (np.min(V), np.max(V)))
-    logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
-        
-    return (distances_u, obs_u, distances_v, obs_v)
-
-
-        
-def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False, verbose=False):
-    """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
-
-    Parameters
-    ----------
-    comm : MPIComm
-        mpi4py MPI communicator
-    dist_u : RBFInterpolant
-        Interpolation function for computing arc distances along the first dimension of the volume.
-    dist_v : RBFInterpolant
-        Interpolation function for computing arc distances along the second dimension of the volume.
-    soma_coords : { population_name : coords_dict }
-        A dictionary that maps each cell population name to a dictionary of coordinates. The dictionary of coordinates must have the following type:
-          coords_dict : { gid : (u, v, l) }
-          where:
-          - gid: cell identifier
-          - u, v, l: floating point coordinates
-    population_extents: { population_name : limits }
-        A dictionary of maximum and minimum population coordinates in u,v,l space
-        Argument limits has the following type:
-         ((min_u, min_v, min_l), (max_u, max_v, max_l))
-    allgather: boolean (default: False)
-       if True, the results are gathered from all ranks and combined
-    Returns
-    -------
-    A dictionary of the form:
-
-      { population: { gid: (distance_U, distance_V } }
-
-    """
-
-    rank = comm.rank
-    size = comm.size
-
-    if verbose:
-        logger.setLevel(logging.INFO)
-
-    if populations is None:
-        populations = soma_coords.keys()
-        
-    soma_distances = {}
-    for pop in populations:
-        coords_dict = soma_coords[pop]
-        if rank == 0:
-            logger.info('Computing soma distances for population %s...' % pop)
-        count = 0
-        local_dist_dict = {}
-        limits = population_extents[pop]
-        uvl_obs = []
-        gids    = []
-        for gid, coords in coords_dict.iteritems():
-            if gid % size == rank:
-                soma_u, soma_v, soma_l = coords
-                uvl_obs.append(np.array([soma_u,soma_v,soma_l]).reshape(1,3))
-                try:
-                    assert((limits[1][0] - soma_u + 0.001 >= 0.) and (soma_u - limits[0][0] + 0.001 >= 0.))
-                    assert((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
-                    assert((limits[1][2] - soma_l + 0.001 >= 0.) and (soma_l - limits[0][2] + 0.001 >= 0.))
-                except Exception as e:
-                    logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
-                                     (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
-                gids.append(gid)
-        if len(uvl_obs) > 0:
-            uvl_obs_array = np.vstack(uvl_obs)
-            k = uvl_obs_array.shape[0]
-            distance_u = dist_u(uvl_obs_array, chunk_size=interp_chunk_size)
-            distance_v = dist_v(uvl_obs_array, chunk_size=interp_chunk_size)
-            assert(np.all(np.isfinite(distance_u)))
-            assert(np.all(np.isfinite(distance_v)))
-        for (i,gid) in enumerate(gids):
-            local_dist_dict[gid] = (distance_u[i], distance_v[i])
-            if rank == 0:
-                soma_u = uvl_obs_array[i,0]
-                soma_v = uvl_obs_array[i,1]
-                soma_l = uvl_obs_array[i,2]
-                logger.info('gid %i: coordinates: %f %f %f distances: %f %f' % (gid, soma_u, soma_v, soma_l, distance_u[i], distance_v[i]))
-        if allgather:
-            dist_dicts = comm.allgather(local_dist_dict)
-            combined_dist_dict = {}
-            for dist_dict in dist_dicts:
-                for k, v in dist_dict.iteritems():
-                    combined_dist_dict[k] = v
-            soma_distances[pop] = combined_dist_dict
-        else:
-            soma_distances[pop] = local_dist_dict
-
-    return soma_distances
 
 
 
@@ -392,8 +247,8 @@ def generate_synaptic_connections(rank,
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
-                                     synapse_seed, synapse_namespace, 
-                                     connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
+                                     synapse_seed, connectivity_seed, cluster_seed,
+                                     synapse_namespace, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
                                      verbose=False, dry_run=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
@@ -402,9 +257,9 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     :param connection_prob: ConnectionProb instance
     :param forest_path: location of file with neuronal trees and synapse information
     :param synapse_seed: random seed for synapse partitioning
-    :param synapse_namespace: namespace of synapse properties
     :param connectivity_seed: random seed for connectivity generation
     :param cluster_seed: random seed for determining connectivity clustering for repeated connections from the same source
+    :param synapse_namespace: namespace of synapse properties
     :param connectivity_namespace: namespace of connectivity attributes
     :param io_size: number of I/O ranks to use for parallel connectivity append
     :param chunk_size: HDF5 chunk size for connectivity file (pointer and index datasets)

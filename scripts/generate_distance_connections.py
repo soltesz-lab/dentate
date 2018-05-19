@@ -12,7 +12,7 @@ from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
 from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections, get_volume_distances, get_soma_distances
-from dentate.DG_volume import make_volume
+from dentate.geometry import make_volume
 from dentate.env import Env
 import dentate.utils as utils
 import click

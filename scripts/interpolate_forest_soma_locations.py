@@ -3,7 +3,7 @@ from mpi4py import MPI
 import numpy as np
 import dlib
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
-from dentate.DG_volume import DG_volume, make_volume, make_uvl_distance
+from dentate.geometry import DG_volume, make_volume, make_uvl_distance
 from dentate.env import Env
 from dentate.utils import list_find, list_argsort
 import random

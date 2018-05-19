@@ -12,7 +12,7 @@ from neuroh5.io import read_population_ranges, append_cell_attributes
 import click
 from dentate.utils import list_find
 from dentate.env import Env
-from dentate.DG_volume import make_volume, DG_volume, make_uvl_distance
+from dentate.geometry import make_volume, DG_volume, make_uvl_distance
 import dlib
 import rbf
 from rbf.nodes import snap_to_boundary,disperse,menodes

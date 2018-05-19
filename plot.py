@@ -443,6 +443,61 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
     return ax
 
 
+def plot_coordinates(coords_path, population, namespace, index = 0,
+                        fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot coordinates
+
+    :param coords_path:
+    :param namespace: 
+    :param population: 
+
+    """
+
+    dx = 50
+    dy = 50
+    
+        
+    soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
+    
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    coord_U = {}
+    coord_V = {}
+    for k,v in soma_coords:
+        coord_U[k] = v['U Coordinate'][index]
+        coord_V[k] = v['V Coordinate'][index]
+    
+    coord_U_array = np.asarray([coord_U[k] for k in sorted(coord_U.keys())])
+    coord_V_array = np.asarray([coord_V[k] for k in sorted(coord_V.keys())])
+
+    x_min = np.min(coord_U_array)
+    x_max = np.max(coord_U_array)
+    y_min = np.min(coord_V_array)
+    y_max = np.max(coord_V_array)
+
+    ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
+    ax.axis([x_min, x_max, y_min, y_max])
+    
+    ax.set_xlabel('U coordinate (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('V coordinate (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Coordinates.png' 
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
 def plot_reindex_positions(coords_path, population, distances_namespace='Arc Distances',
                            reindex_namespace='Tree Reindex', reindex_attribute='New Cell Index', 
                            fontSize=14, showFig = True, saveFig = False, verbose = False):
@@ -555,12 +610,12 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
     if verbose:
         print('Creating volume...')
 
-    import DG_volume
+    from dentate.geometry import make_volume
 
     if subvol:
-        subvol = DG_volume.make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+        subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
     else:
-        vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
+        vol = make_volume (-3.95, 3.0, rotate=rotate)
     
     if verbose:
         print('Plotting volume...')
@@ -675,12 +730,12 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
     if verbose:
         print('Creating volume...')
 
-    import DG_volume
+    from dentate.geometry import make_volume
 
     if subvol:
-        subvol = DG_volume.make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+        subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
     else:
-        vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
+        vol = make_volume (-3.95, 3.0, rotate=rotate)
 
     if verbose:
         print('Plotting volume...')
