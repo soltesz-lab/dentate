@@ -5,11 +5,10 @@ __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 import click
 from dentate.utils import *
 from dentate.neuron_utils import *
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
-    write_cell_attributes
 from dentate.env import Env
 from dentate.cells import *
-from dentate.synapses import *
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
+    write_cell_attributes
 from dentate import lpt, lfp, simtime
 
 
@@ -255,7 +254,7 @@ def connectcells(env, cleanup=True):
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
-                biophys_cell = BiophysCell(gid=gid, population=postsyn_name, hoc_cell=env.pc.gid2cell(gid))
+                biophys_cell = BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
                     init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
                                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
