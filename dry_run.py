@@ -36,18 +36,16 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, tstop, v_ini
     :param verbose: bool; print verbose diagnostic messages while constructing the network
     :param run_test: bool; run sim for duration tstop, do not save any output
     """
-    """
     logging.basicConfig()
     logger = logging.getLogger(os.path.basename(__file__))
     if verbose:
         logger.setLevel(logging.INFO)
-    """
     comm = MPI.COMM_WORLD
 
     start_time = time.time()
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, io_size=comm.size, tstop=tstop,
-              verbose=verbose)  # , logger=logger)
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, tstop=tstop, verbose=verbose,
+              logger=logger)
     context.update(locals())
     init(env)
     if run_test:

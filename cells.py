@@ -743,6 +743,7 @@ class SynapseAttributes(object):
         """
         self.syn_mech_names = syn_mech_names
         self.syn_param_rules = syn_param_rules
+        # TODO: these two dicts need to also be indexed by the namespace
         self.select_cell_attr_index_map = {}  # population name (str): gid (int): index in file (int)
         # dest population name (str): source population name (str): gid (int): index in file (int)
         self.select_edge_attr_index_map = defaultdict(dict)
@@ -855,7 +856,7 @@ class SynapseAttributes(object):
         :return: bool
         """
         if self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('attrs') and \
-                len(self.syn_mech_attr_dict[gid][syn_id][syn_name]) > 0:
+                len(self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs']) > 0:
             return True
         else:
             return False
@@ -887,6 +888,19 @@ class SynapseAttributes(object):
             for param, val in params.iteritems():
                 self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs'][param] = val
 
+    def cleanup(self, gid):
+        """
+
+        :param gid: int
+        """
+        if gid in self.syn_id_attr_dict:
+            del self.syn_id_attr_index_map[gid]
+            del self.syn_id_attr_dict[gid]
+            del self.sec_index_map[gid]
+        for syn_id in self.syn_mech_attr_dict[gid]:
+            for syn_name in self.syn_mech_attr_dict[gid][syn_id]:
+                if 'attrs' in self.syn_mech_attr_dict[gid][syn_id][syn_name]:
+                    del self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs']
 
 
 # --------------------------------------------------------------------------------------------------------- #
@@ -1150,8 +1164,8 @@ def init_biophysics(cell, mech_file_path=None, reset_cable=True, from_file=False
                     env=None):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
-    each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance and
-    properly sets membrane mechanism parameters, including gradients and inheritance of parameters from nodes along the
+    each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance
+    sets membrane mechanism parameters, including gradients and inheritance of parameters from nodes along the
     path from root. It is not necessary to reset cable parameters again after specification of morphology, but it can be
     done later with the reset_cable flag.
     :param cell: :class:'BiophysCell'
@@ -2135,23 +2149,25 @@ def organize_syn_ids_by_source(gid, env, syn_ids=None):
     return source_syn_ids
 
 
-def insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, syn_ids, unique=False):
+def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, unique=False):
     """
-    TODO: add a check for 'distances' in syn_id_attr_dict to initialize netcon delays
+    TODO: add a check for 'delays' in syn_id_attr_dict to initialize netcon delays
     1) make syns (if not unique, keep track of syn_in_seg for shared synapses)
     2) initialize syns with syn_mech_params from config_file
     3) make netcons
     4) initialize netcons with syn_mech_params from config_file
 
-    :param cell: :class:'BiophysCell'
+    :param gid: int
     :param env: :class:'Env'
+    :param postsyn_name: str
+    :param presyn_name: str
     :param syn_ids: array of int
-    :param insert: bool; whether to insert synapses if none exist at syn_id
     :param unique: bool; whether to insert synapses if none exist at syn_id
     """
     rank = int(env.pc.id())
-    gid = cell.gid
-    postsyn_name = cell.population
+    if not env.biophys_cells[postsyn_name].has_key(gid):
+        raise KeyError('insert_syns_from_mech_attrs: problem locating BiophysCell with gid: %i' % gid)
+    cell = env.biophys_cells[postsyn_name][gid]
     syn_attrs = env.synapse_attributes
     syn_params = env.connection_generator[postsyn_name][presyn_name].synapse_parameters
 
@@ -2193,25 +2209,26 @@ def insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, syn_ids, unique
             nc_count += 1
 
     if env.verbose and rank == 0:
-        print 'insert_cell_synapses_from_mech_attrs: source: %s; target: %s cell %i: ' \
+        print 'insert_syns_from_mech_attrs: source: %s; target: %s cell %i: ' \
               'created %i syns and %i netcons for %i syn_ids' % \
               (presyn_name, postsyn_name, gid, syn_count, nc_count, len(syn_ids))
 
 
-def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, unique=None):
+def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=False, unique=None, verbose=None):
     """
     1) organize syn_ids by source population
-    2) if insert, collate syn_ids without netcons, iterate over sources and call insert_cell_synapses_from_mech_attrs
-    3) iterate over all syn_ids, and call config_syn with **syn_mech_attr_dict[syn_name]['attrs'] (which may be empty)
-    :param cell: :class:'BiophysCell'
+    2) if insert, collate syn_ids without netcons, iterate over sources and call insert_syns_from_mech_attrs
+       (requires a BiophysCell with the specified gid to be present in the Env).
+    3) iterate over all syn_ids, and call config_syn with params from syn_mech_attr_dict (which may be empty)
+    :param gid: int
     :param env: :class:'Env'
+    :param postsyn_name: str
     :param syn_ids: array of int
     :param insert: bool; whether to insert synapses if none exist at syn_id
     :param unique: bool; whether newly inserted synapses should be unique or shared per segment
+    :param verbose: bool
     """
     rank = int(env.pc.id())
-    gid = cell.gid
-    postsyn_name = cell.population
     syn_attrs = env.synapse_attributes
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
 
@@ -2228,6 +2245,8 @@ def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, 
     source_syn_ids = organize_syn_ids_by_source(gid, env, syn_ids)
 
     if insert:
+        if not env.biophys_cells[postsyn_name].has_key(gid):
+            raise KeyError('config_syns_from_mech_attrs: insert: problem locating BiophysCell with gid: %i' % gid)
         insert_syn_ids = defaultdict(list)
         for presyn_name in source_syn_ids:
             syn_names = env.connection_generator[postsyn_name][presyn_name].synapse_parameters.keys()
@@ -2237,11 +2256,11 @@ def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, 
                         insert_syn_ids[presyn_name].append(syn_id)
                         break
         for presyn_name in insert_syn_ids:
-            insert_cell_synapses_from_mech_attrs(cell, env, presyn_name, insert_syn_ids[presyn_name], unique=unique)
+            insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, insert_syn_ids[presyn_name], unique=unique)
 
     nc_count = 0
     syn_count = 0
-    syns_set = {}
+    syns_set = set()
     for presyn_name in source_syn_ids:
         syn_names = env.connection_generator[postsyn_name][presyn_name].synapse_parameters.keys()
         for syn_id in source_syn_ids[presyn_name]:
@@ -2260,8 +2279,10 @@ def update_cell_synapses_from_mech_attrs(cell, env, syn_ids=None, insert=False, 
                                    mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
                         nc_count += 1
 
-    if env.verbose and rank == 0 and nc_count > 0:
-        print 'update_cell_synapses_from_mech_attrs: population: %s; cell %i: ' \
+    if verbose is None:
+        verbose = env.verbose
+    if verbose and rank == 0:
+        print 'config_syns_from_mech_attrs: population: %s; cell %i: ' \
               'updated mech_params for %i syns and %i netcons for %i syn_ids' % \
               (postsyn_name, gid, syn_count, nc_count, len(syn_ids))
 

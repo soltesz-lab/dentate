@@ -170,10 +170,9 @@ def lfpout(env, output_path, lfp):
     output.close()
 
 
-def connectcells(env):
+def connectcells(env, cleanup=True):
     """
-    TODO: Add garbage collection of SynapseAttribute and BiophsCell objects by default, but configurable during
-    network tuning.
+    TODO: cleanup might need to be more granular than binary
     :param env:
     """
     logger = env.logger
@@ -182,13 +181,9 @@ def connectcells(env):
     rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
 
-    if env.verbose:
-        if env.pc.id() == 0:
-            logger.info('*** Connectivity file path is %s' % connectivityFilePath)
-
-    if env.verbose:
-        if env.pc.id() == 0:
-            logger.info('*** Reading projections: ')
+    if env.verbose and rank == 0:
+        logger.info('*** Connectivity file path is %s' % connectivityFilePath)
+        logger.info('*** Reading projections: ')
 
     for (postsyn_name, presyn_names) in env.projection_dict.iteritems():
 
@@ -238,7 +233,6 @@ def connectcells(env):
                                                                 io_size=env.IOsize)
         cell_synapses_dict = {k: v for (k, v) in cell_attributes_dict['Synapse Attributes']}
         if cell_attributes_dict.has_key(weights_namespace):
-            has_weights = True
             cell_weights_dict = {k: v for (k, v) in cell_attributes_dict[weights_namespace]}
             first_gid = None
             for gid in cell_weights_dict:
@@ -252,9 +246,7 @@ def connectcells(env):
                                                cell_weights_dict[gid][syn_name])
                     if env.verbose and rank == 0 and gid == first_gid:
                         logger.info('*** connectcells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, postsyn_gid, len(cell_weights_dict[gid][syn_name]), syn_name))
-        else:
-            has_weights = False
+                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
         del cell_attributes_dict
 
         first_gid = None
@@ -270,7 +262,7 @@ def connectcells(env):
                 except IndexError:
                     raise IndexError('connectcells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
-                env.biophys_cells[gid] = biophys_cell
+                env.biophys_cells[postsyn_name][gid] = biophys_cell
                 if env.verbose and rank == 0 and gid == first_gid:
                     logger.info('*** connectcells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
@@ -328,16 +320,27 @@ def connectcells(env):
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
-                        if has_weights and not postsyn_gid in env.biophys_cells:
-                            mech_params = syn_attrs.get_mech_attrs(postsyn_gid, edge_syn_id, syn_name)
-                            if mech_params is not None and mech_params.has_key('weight'):
-                                weight = mech_params['weight']
-                                this_nc.weight[0] = this_nc.weight[0] * weight
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
-    for gid, biophys_cell in env.biophys_cells.iteritems():
-        # TODO: update_mech_attrs
-        update_cell_synapses_from_mech_attrs(biophys_cell, env)
+
+        first_gid = None
+        # this is a pre-built list to survive change in len during iteration
+        local_time = time.time()
+        for gid in cell_synapses_dict.keys():
+            if first_gid is None:
+                first_gid = gid
+                this_verbose = True
+            else:
+                this_verbose = False
+            # TODO: update_mech_attrs
+            config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=this_verbose)
+            if cleanup:
+                syn_attrs.cleanup(gid)
+                if gid in env.biophys_cells[postsyn_name]:
+                    del env.biophys_cells[postsyn_name][gid]
+        if env.verbose:
+            logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
+                        (rank, postsyn_name, local_time - time.time()))
 
 
 def connectgjs(env):
@@ -427,11 +430,6 @@ def mkcells(env):
         env.load_cell_template(popName)
         templateClass = getattr(h, env.celltypes[popName]['template'])
 
-        if env.celltypes[popName].has_key('synapses'):
-            synapses = env.celltypes[popName]['synapses']
-        else:
-            synapses = {}
-
         v_sample_set = set([])
         env.v_dict[popName] = {}
 
@@ -459,9 +457,8 @@ def mkcells(env):
             for (gid, tree) in trees:
                 if env.verbose:
                     if env.pc.id() == 0:
-                        logger.info("*** Creating gid %i" % gid)
+                        logger.info("*** Creating %s gid %i" % (popName, gid))
 
-                verboseflag = 0
                 model_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
                                                        dataset_path=datasetPath)
                 if env.verbose:
@@ -514,9 +511,8 @@ def mkcells(env):
             for (gid, cell_coords_dict) in coords:
                 if env.verbose:
                     if env.pc.id() == 0:
-                        logger.info("*** Creating gid %i" % gid)
+                        logger.info("*** Creating %s gid %i" % (popName, gid))
 
-                verboseflag = 0
                 model_cell = make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
@@ -651,13 +647,13 @@ def init(env):
     h.startsw()
     env.pc.barrier()
     connectcells(env)
-    env.connectcellstime = h.stopsw()
-    h.startsw()
     env.pc.barrier()
+    env.connectcellstime = h.stopsw()
     if env.pc.id() == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
     logger.info("*** Rank %i created %i connections" % (env.pc.id(), edge_count))
+    h.startsw()
     #connectgjs(env)
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
@@ -756,7 +752,7 @@ def run(env, output=True):
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-id", type=str, required=False, default='')
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--io-size", type=int, default=1)
+@click.option("--io-size", type=int, default=0)
 @click.option("--vrecord-fraction", type=float, default=0.001)
 @click.option("--coredat", is_flag=True)
 @click.option("--tstop", type=int, default=1)

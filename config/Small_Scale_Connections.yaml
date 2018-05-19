@@ -4,6 +4,15 @@ Synapse Mechanisms:
   GABA_A: SatExp2Syn
   GABA_B: SatExp2Syn
 Synapse Parameter Rules:
+  LinExp2Syn:
+    mech_file: lin_exp2syn.mod
+    mech_params:
+      - tau_rise
+      - tau_decay
+      - e
+    netcon_params:
+      weight: 0
+      g_unit: 1
   SatExp2Syn:
     mech_file: sat_exp2syn.mod
     mech_params:
