@@ -5,7 +5,7 @@ from neuroh5.io import read_population_ranges, read_population_names, bcast_cell
 import h5py
 import numpy as np
 import dentate
-from dentate.geometry import make_volume, project_points
+from dentate.geometry import make_volume, icp_transform
 from dentate.env import Env
 import dentate.utils as utils
 import click
@@ -71,20 +71,15 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
         gc.collect()
     
     output_path = coords_path
+    soma_coords = icp_transform(comm, soma_coords, projection_depth, population_extents, \
+                                populations=populations, rotate=rotate, verbose=verbose)
+    
     for population in populations:
 
-        (soma_u_projections, soma_v_projections) = project_points(comm, soma_coords, population_extents, projection_depth, \
-                                                                      populations=[population], rotate=rotate, allgather=False, verbose=verbose)
-
         if rank == 0:
-            logger.info('Writing projections for population %s...' % population)
+            logger.info('Writing transformed coordinates for population %s...' % population)
 
-        prj_u_dict = soma_u_projections[population]
-        prj_v_dict = soma_v_projections[population]
-        attr_dict = {}
-        for k, v in prj_u_dict.iteritems():
-            attr_dict[k] = { 'U Coordinate': v, 'V Coordinate': prj_v_dict[k] }
-        append_cell_attributes(output_path, population, attr_dict,
+        append_cell_attributes(output_path, population, soma_coords[population],
                                namespace='Soma Projections', comm=comm,
                                io_size=io_size, chunk_size=chunk_size,
                                value_chunk_size=value_chunk_size, cache_size=cache_size)

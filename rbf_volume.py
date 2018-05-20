@@ -1,4 +1,4 @@
-"""Implements a parametric volume as a 3-tuple of RBF instances, one each for x, y and z.
+"""Implements a parametric volume as a 3-tuple of RBF instances, one each for u, v and l.
 Based on code from bspline_surface.py
 """
 

@@ -6,13 +6,14 @@
 import sys, time, gc, itertools
 from collections import defaultdict
 import numpy as np
-import dlib
+import dlib, pcl
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume, rotate3d
+from dentate.rbf_surface import RBFSurface, rotate3d
 
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
@@ -51,8 +52,9 @@ def DG_volume(u, v, l, rotate=None):
 
     return xyz
 
-def make_volume(lmin, lmax, basis=rbf.basis.phs3, rotate=None, ures=33, vres=30, lres=10):  
-    
+def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30, lres=10):  
+    """Creates an RBF volume based on the parametric equations of the dentate volume.
+    """
 #    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
 #    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
     obs_u = np.linspace(-0.02*np.pi, 1.01*np.pi, ures)
@@ -67,6 +69,22 @@ def make_volume(lmin, lmax, basis=rbf.basis.phs3, rotate=None, ures=33, vres=30,
     return vol
 
 
+def make_surface(obs_l, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30, lres=10):  
+    """Creates an RBF surface based on the parametric equations of the dentate volume.
+    """
+#    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
+#    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
+    obs_u = np.linspace(-0.02*np.pi, 1.01*np.pi, ures)
+    obs_v = np.linspace(-0.26*np.pi, 1.455*np.pi, vres)
+
+    u, v = np.meshgrid(obs_u, obs_v, indexing='ij')
+    xyz = DG_volume (u, v, obs_l, rotate=rotate)
+
+    srf = RBFSurface(obs_u, obs_v, xyz, basis=basis, order=2)
+
+    return srf
+
+
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
     a, b are row vectors of points.
@@ -76,14 +94,6 @@ def euclidean_distance(a, b):
 
 def make_uvl_distance(xyz_coords,rotate=None):
       f = lambda u, v, l: euclidean_distance(DG_volume(u,v,l,rotate=rotate), xyz_coords)
-      return f
-
-def make_u_distance(xyz_coords,v,l,rotate=None):
-      f = lambda u: euclidean_distance(DG_volume(u,v,l,rotate=rotate), xyz_coords)
-      return f
-
-def make_v_distance(xyz_coords,u,l,rotate=None):
-      f = lambda v: euclidean_distance(DG_volume(u,v,l,rotate=rotate), xyz_coords)
       return f
 
 
@@ -234,7 +244,12 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
     return soma_distances
 
 
-def project_points(comm, soma_coords, population_extents, projection_ls, rotate=None, populations=None, allgather=False, verbose=False, optiter=150):
+def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=None, populations=None, verbose=False, icp_iter=1000, opt_iter=100):
+    """
+    Uses the iterative closest point (ICP) algorithm of the PCL library to transform soma coordinates onto a surface for a particular L value.
+    http://pointclouds.org/documentation/tutorials/iterative_closest_point.php#iterative-closest-point
+
+    """
 
     rank = comm.rank
     size = comm.size
@@ -244,55 +259,73 @@ def project_points(comm, soma_coords, population_extents, projection_ls, rotate=
 
     if populations is None:
         populations = soma_coords.keys()
+
+    srf_resample = 25
+    
+    projection_ptclouds = []
+    for obs_l in projection_ls:
+        srf = make_surface (obs_l, rotate=rotate)
+        U, V = srf._resample_uv(srf_resample, srf_resample)
+        meshpts = self.ev(U, V)
+        projection_ptcloud = pcl.PointCloud()
+        projection_ptcloud.from_array(meshpts)
+        projection_ptclouds.append(projection_ptcloud)
         
-    soma_u_projections = {}
-    soma_v_projections = {}
+    soma_coords_dict = {}
     for pop in populations:
         coords_dict = soma_coords[pop]
         if rank == 0:
-            logger.info('Computing point projections for population %s...' % pop)
+            logger.info('Computing point transformation for population %s...' % pop)
         count = 0
         limits = population_extents[pop]
-        prj_u_dict = {}
-        prj_v_dict = {}
+        xyz_coords = []
+        gids = []
         for gid, coords in coords_dict.iteritems():
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
-                xyz_coords = DG_volume(soma_u, soma_v, soma_l, rotate=rotate)
-                prj_u_coords = []
-                prj_v_coords = []
-                
-                for prj_l in projection_ls:
-                    f_u_distance = make_u_distance(xyz_coords,soma_v,prj_l,rotate=rotate)
-                    f_v_distance = make_v_distance(xyz_coords,soma_u,prj_l,rotate=rotate)
-                    u_coord,u_dist = \
-                      dlib.find_min_global(f_u_distance, [limits[0][0]], [limits[1][0]], optiter)
-                    v_coord,v_dist = \
-                      dlib.find_min_global(f_v_distance, [limits[0][1]], [limits[1][1]], optiter)
-                    prj_u_coords.append(u_coord[0])
-                    prj_v_coords.append(v_coord[0])
-                    if rank == 0:
-                        logger.info('gid %i: u: %f v: %f l: %f prj l: %f prj u: %f prj v: %f' % (gid, soma_u, soma_v, soma_l, prj_l, u_coord[0], v_coord[0]))
+                xyz_coords.append(DG_volume(soma_u, soma_v, soma_l, rotate=rotate))
+                gids.append(gid)
+        xyz_pts = np.vstack(xyz_coords)
+        
+        cloud_in = pcl.PointCloud()
+        cloud_in.from_array(xyz_pts)
 
+        icp = cloud_in.make_IterativeClosestPoint()
 
-                prj_u_dict[gid] = np.asarray(prj_u_coords, dtype=np.float32)
-                prj_v_dict[gid] = np.asarray(prj_v_coords, dtype=np.float32)
+        all_est_xyz_coords = []
+        all_est_uvl_coords = []
+        all_interp_err = []
+        
+        for (k,cloud_prj) in enumerate(projection_ls):
+            k_est_xyz_coords = np.zeros((len(gids),3)
+            k_est_uvl_coords = np.zeros((len(gids),3)
+            interp_err = np.zeros((len(gids),)
+            converged, transf, estimate, fitness = icp.icp(cloud_in, cloud_prj, max_iter=icp_iter)
+            logger.info('Transformation of population %s has converged: ' % (pop) + str(converged) + ' score: %f' % (fitness) )
+            for i, gid in itertools.izip(xrange(0, estimate.size), gids):
+                k_xyz_coords = estimate[i]
+                k_est_xyz_coords[i,:] = est_xyz_coords
+                f_uvl_distance = make_uvl_distance(est_xyz_coords,rotate=rotate)
+                uvl_coords,err = dlib.find_min_global(f_uvl_distance, limits[0], limits[1], opt_iter)
+                k_est_uvl_coords[i,:] = uvl_coords
+                interp_err[i,] = err
+                if rank == 0:
+                    logger.info('gid %i: u: %f v: %f l: %f' % (gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+            all_est_xyz_coords.append(k_est_xyz_coords)
+            all_est_uvl_coords.append(k_est_uvl_coords)
+            all_interp_err.append(interp_err)
 
-        if allgather:
-            prj_u_dicts = comm.allgather(prj_u_dict)
-            prj_v_dicts = comm.allgather(prj_v_dict)
-            combined_prj_u_dict = {}
-            combined_prj_v_dict = {}
-            for prj_u_dict in prj_u_dicts:
-                for k, v in prj_u_dict.iteritems():
-                    combined_prj_u_dict[k] = v
-            for prj_v_dict in prj_v_dicts:
-                for k, v in prj_v_dict.iteritems():
-                    combined_prj_v_dict[k] = v
-            soma_u_projections[pop] = combined_prj_u_dict
-            soma_v_projections[pop] = combined_prj_v_dict
-        else:
-            soma_u_projections[pop] = prj_u_dict
-            soma_v_projections[pop] = prj_v_dict
+        coords_dict = {}
+        for (i, gid) in enumerate(gids):
+            coords_dict[gid] = { 'X Coordinate': np.asarray([ col[i,0] for col in all_est_xyz_coords ], dtype='float32'),
+                                 'Y Coordinate': np.asarray([ col[i,1] for col in all_est_xyz_coords ], dtype='float32'),
+                                 'Z Coordinate': np.asarray([ col[i,2] for col in all_est_xyz_coords ], dtype='float32'),
+                                 'U Coordinate': np.asarray([ col[i,0] for col in all_est_uvl_coords ], dtype='float32'),
+                                 'V Coordinate': np.asarray([ col[i,1] for col in all_est_uvl_coords ], dtype='float32'),
+                                 'L Coordinate': np.asarray([ col[i,2] for col in all_est_uvl_coords ], dtype='float32'),
+                                 'Interpolation Error': np.asarray( [err[i] for err in all_interp_err ], dtype='float32') }
 
-    return (soma_u_projections, soma_v_projections)
+        soma_coords_dict[pop] = coords_dict
+                                  
+    return soma_coords_dict
+

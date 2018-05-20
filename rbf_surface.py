@@ -1,4 +1,4 @@
-"""Implements a parametric surface as a tuple of RBF instances, one for x and y.
+"""Implements a parametric surface as a tuple of RBF instances, one for u and v.
 Based on code from bspline_surface.py
 """
 
@@ -403,7 +403,7 @@ def test_uv_isospline():
     for ii in xrange(len(order)):
         srf = RBFSurface(obs_u, obs_v, xyz, order=order[ii])
 
-        U, V = srf._resample_uv(5, 5)
+        U, V = srf._resample_uv(50, 50)
         L = np.asarray([-1.0])
 
         nupts = U.shape[0]
@@ -456,7 +456,7 @@ def test_point_distance():
     
 if __name__ == '__main__':
     test_uv_isospline()
-    test_point_distance()
+#    test_point_distance()
      
 
     
