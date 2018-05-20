@@ -339,7 +339,7 @@ def connectcells(env, cleanup=True):
                     del env.biophys_cells[postsyn_name][gid]
         if env.verbose:
             logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
-                        (rank, postsyn_name, local_time - time.time()))
+                        (rank, postsyn_name, time.time() - local_time))
 
 
 def connectgjs(env):

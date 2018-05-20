@@ -54,64 +54,7 @@ class BiophysCell(object):
                 self.spike_detector = connect2target(self, self.soma[0].sec)
             if self.mech_file_path is not None:
                 import_mech_dict_from_file(self, self.mech_file_path)
-
-    def init_synaptic_mechanisms(self):
-        """
-        Attributes of potential synapses are stored in the synapse_mechanism_attributes dictionary within each node. Any
-        time that synapse attributes are modified, this method can be called to synchronize those attributes with any
-        synaptic point processes contained either within a parent section, or child spines.
-        """
-        for sec_type in ['soma', 'ais', 'basal', 'trunk', 'apical', 'tuft']:
-            for node in self.get_nodes_of_subtype(sec_type):
-                for syn in self.get_synapses(node):
-                    if syn.id is not None and syn.id in node.synapse_mechanism_attributes:
-                        for mech_name in (mech_name for mech_name in node.synapse_mechanism_attributes[syn.id]
-                                          if mech_name in syn.targets):
-                            for param_name, param_val in \
-                                    node.synapse_mechanism_attributes[syn.id][mech_name].iteritems():
-                                if hasattr(syn.target(mech_name), param_name):
-                                    setattr(syn.target(mech_name), param_name, param_val)
-                                elif hasattr(syn.netcon(mech_name), param_name):
-                                    if param_name == 'weight':
-                                        syn.netcon(mech_name).weight[0] = param_val
-                                    else:
-                                        setattr(syn.netcon(mech_name), param_name, param_val)
-
-    def _get_closest_synapse(self, node, loc, syn_type=None, downstream=True):
-        """
-        This method finds the closest synapse to the specified location within or downstream of the provided node. Used
-        for inheritance of synaptic mechanism parameters. Can also look upstream instead. Can also find the closest
-        synapse containing a synaptic point_process of a specific type.
-        :param node: :class:'SHocNode'
-        :param loc: float
-        :param syn_type: str
-        :return: :class:'Synapse'
-        """
-
-        syn_list = [syn for syn in node.synapses if syn_type is None or syn_type in syn._syn]
-        for spine in node.spines:
-            syn_list.extend([syn for syn in spine.synapses if syn_type is None or syn_type in syn._syn])
-        if not syn_list:
-            if downstream:
-                for child in [child for child in node.children if child.type == node.type]:
-                    target_syn = self._get_closest_synapse(child, 0., syn_type)
-                    if target_syn is not None:
-                        return target_syn
-                return None
-            elif node.parent.type == node.type:
-                return self._get_closest_synapse(node.parent, 1., syn_type, downstream=False)
-            else:
-                return None
-        else:
-            min_distance = 1.
-            target_syn = None
-            for syn in syn_list:
-                distance = abs(syn.loc - loc)
-                if distance < min_distance:
-                    min_distance = distance
-                    target_syn = syn
-            return target_syn
-
+    
     def _get_closest_synapse_attribute(self, node, loc, syn_category, syn_type=None, downstream=True):
         """
         This method finds the closest synapse_attribute to the specified location within or downstream of the specified
@@ -146,144 +89,7 @@ class BiophysCell(object):
                 return self._get_closest_synapse_attribute(node.parent, 1., syn_category, syn_type, downstream)
             else:
                 return node, None
-
-    def _modify_synaptic_mech_param(self, sec_type, mech_name=None, param_name=None, value=None, origin=None,
-                                    slope=None, tau=None, xhalf=None, min=None, max=None, min_loc=None, max_loc=None,
-                                    outside=None, syn_type=None, variance=None, replace=True, custom=None, **kwargs):
-
-        """
-        Attributes of synaptic point processes are stored in the synapse_mechanism_attributes dictionary of each node.
-        This method first updates the mechanism dictionary, then replaces or creates synapse_mechanism_attributes in
-        nodes of type sec_type. Handles special nested dictionary specification for synaptic parameters.
-        :param sec_type: str
-        :param mech_name: str
-        :param param_name: str
-        :param value: float
-        :param origin: str
-        :param slope: float
-        :param tau: float
-        :param xhalf: float
-        :param min: float
-        :param max: float
-        :param min_loc: float
-        :param max_loc: float
-        :param outside: float
-        :param syn_type: str
-        :param variance: str
-        :param replace: bool
-        :param custom: dict
-        """
-        global verbose
-        backup_content = None
-        mech_content = None
-        if syn_type is None:
-            raise Exception('Cannot specify %s mechanism parameters without a specified type of synaptic point process.'
-                            % mech_name)
-        if not sec_type in self.nodes:
-            raise Exception('Cannot specify %s mechanism: %s parameter: %s for unknown sec_type: %s' %
-                            (mech_name, syn_type, param_name, sec_type))
-        if not param_name is None:
-            if value is None and origin is None:
-                raise Exception('Cannot set %s mechanism: %s parameter: %s without a specified origin or value' %
-                                (mech_name, syn_type, param_name))
-            rules = {}
-            if not origin is None:
-                if not origin in self.nodes + ['parent', 'branch_origin']:
-                    raise Exception('Cannot inherit %s mechanism: %s parameter: %s from unknown origin: %s' %
-                                    (mech_name, syn_type, param_name, origin))
-                else:
-                    rules['origin'] = origin
-            if not custom is None:
-                rules['custom'] = custom
-            if not value is None:
-                rules['value'] = value
-            if not slope is None:
-                rules['slope'] = slope
-            if not tau is None:
-                rules['tau'] = tau
-            if not xhalf is None:
-                rules['xhalf'] = xhalf
-            if not min is None:
-                rules['min'] = min
-            if not max is None:
-                rules['max'] = max
-            if not min_loc is None:
-                rules['min_loc'] = min_loc
-            if not max_loc is None:
-                rules['max_loc'] = max_loc
-            if not outside is None:
-                rules['outside'] = outside
-            if not variance is None:
-                rules['variance'] = variance
-            mech_content = {param_name: rules}
-        # No mechanisms have been inserted into this type of section yet
-        if not sec_type in self.mech_dict:
-            self.mech_dict[sec_type] = {mech_name: {syn_type: mech_content}}
-        # No synapse attributes have been specified in this type of section yet
-        elif not mech_name in self.mech_dict[sec_type]:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            self.mech_dict[sec_type][mech_name] = {syn_type: mech_content}
-        # This synaptic mechanism has not yet been specified in this type of section
-        elif not syn_type in self.mech_dict[sec_type][mech_name]:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            self.mech_dict[sec_type][mech_name][syn_type] = mech_content
-        # This synaptic mechanism has been specified, but no parameters have been specified
-        elif self.mech_dict[sec_type][mech_name][syn_type] is None:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            self.mech_dict[sec_type][mech_name][syn_type] = mech_content
-        # This parameter has already been specified.
-        elif param_name is not None and param_name in self.mech_dict[sec_type][mech_name][syn_type]:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            # Determine whether to replace or extend the current dictionary entry.
-            if replace:
-                self.mech_dict[sec_type][mech_name][syn_type][param_name] = rules
-            elif type(self.mech_dict[sec_type][mech_name][syn_type][param_name]) == dict:
-                self.mech_dict[sec_type][mech_name][syn_type][param_name] = \
-                    [self.mech_dict[sec_type][mech_name][syn_type][param_name], rules]
-            elif type(self.mech_dict[sec_type][mech_name][syn_type][param_name]) == list:
-                self.mech_dict[sec_type][mech_name][syn_type][param_name].append(rules)
-        # This synaptic mechanism has been specified, but this parameter has not yet been specified
-        elif param_name is not None:
-            backup_content = copy.deepcopy(self.mech_dict[sec_type])
-            self.mech_dict[sec_type][mech_name][syn_type][param_name] = rules
-
-        for node in self.get_nodes_of_subtype(sec_type):
-            try:
-                self._modify_mechanism(node, mech_name, {syn_type: mech_content})
-            except (AttributeError, NameError, ValueError, KeyError):
-                if backup_content is None:
-                    del self.mech_dict[sec_type]
-                else:
-                    self.mech_dict[sec_type] = copy.deepcopy(backup_content)
-                if param_name is not None:
-                    raise Exception('Problem specifying %s mechanism: %s parameter: %s in node: %s' %
-                                    (mech_name, syn_type, param_name, node.name))
-                else:
-                    raise Exception('Problem specifying %s mechanism: %s in node: %s' %
-                                    (mech_name, syn_type, node.name))
-
-    def get_path_length_swc(self, path):
-        """
-        Calculates the distance between nodes given a list of SNode2 nodes connected in a path.
-        :param path: list : :class:'SNode2'
-        :return: int or float
-        """
-        distance = 0.
-        for i in xrange(len(path) - 1):
-            distance += np.sqrt(np.sum((path[i].content['p3d'].xyz - path[i + 1].content['p3d'].xyz) ** 2.))
-        return distance
-
-    def get_node_length_swc(self, raw_node):
-        """
-        Calculates the distance between the center points of an SNode2 node and its parent.
-        :param raw_node: :class:'SNode2'
-        :return: float
-        """
-        if not raw_node.parent is None:
-            return np.sqrt(np.sum((raw_node.content['p3d'].xyz - raw_node.parent.content['p3d'].xyz) ** 2.))
-        else:
-            return 0.
-
+    
     @property
     def gid(self):
         return self._gid
@@ -508,9 +314,9 @@ def lambda_f(sec, f=freq):
     """
     Calculates the AC length constant for the given section at the frequency f
     Used to determine the number of segments per hoc section to achieve the desired spatial and temporal resolution
-    :param sec : :class:'h.Section'
-    :param f : int
-    :return : int
+    :param sec: :class:'h.Section'
+    :param f: int
+    :return: int
     """
     diam = np.mean([seg.diam for seg in sec])
     Ra = sec.Ra
@@ -633,7 +439,7 @@ def get_node_along_path_to_root(cell, node, sec_type):
     parent = node
     if parent.type == sec_type:
         return parent
-    elif parent == cell.tree.root:
+    elif parent is cell.tree.root:
         return None
     else:
         return get_node_along_path_to_root(cell, parent.parent, sec_type)
@@ -643,7 +449,6 @@ def get_spatial_res(cell, node):
     """
     Checks the mechanism dictionary if the section type of this node has a specified spatial resolution factor.
     Used to scale the number of segments per section in the hoc model by a factor of an exponent of 3.
-    TODO: Might need to handle special 'origin' values ('parent', 'branch_origin')
     :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode
     :return: int
@@ -655,14 +460,14 @@ def get_spatial_res(cell, node):
     if 'value' in rules:
         return rules['value']
     elif 'origin' in rules:
-        if rules['origin'] in cell.nodes:  # if this sec_type also inherits the value, continue following the path
-            return get_spatial_res(cell, get_node_along_path_to_root(cell, node, rules['origin']))
+        donor = get_donor(cell, node, rules['origin'])
+        if donor is not None:
+            return get_spatial_res(cell, donor)
         else:
-            print 'Exception: Spatial resolution cannot be inherited from sec_type: {}'.format(rules['origin'])
-            raise KeyError
+            raise RuntimeError('get_spatial_res: cannot inherit spatial resolution from origin_type: %s' %
+                               rules['origin'])
     else:
-        print 'Exception: Cannot set spatial resolution without a specified origin or value'
-        raise KeyError
+        raise RuntimeError('get_spatial_res: cannot set spatial resolution without a specified origin or value')
 
 
 def import_morphology_from_hoc(cell, hoc_cell):
@@ -743,17 +548,6 @@ def init_nseg(sec, spatial_res=0, verbose=False):
     sec.nseg = int(sugg_nseg)
 
 
-def reinit_diam(node):
-    """
-    For a node associated with a hoc section that is a tapered cylinder, every time the spatial resolution
-    of the section (nseg) is changed, the section diameters must be reinitialized. This method checks the
-    node's content dictionary for diameter boundaries and recalibrates the hoc section associated with this node.
-    """
-    if not node.get_diam_bounds() is None:
-        [diam1, diam2] = node.get_diam_bounds()
-        h('diam(0:1)={}:{}'.format(diam1, diam2), sec=node.sec)
-
-
 def insert_spine(cell, node, parent_loc, child_loc=0, neck_L=1.58, neck_diam=0.077, head_L=0.5, head_diam=0.5):
     """
     Spines consist of two hoc sections: a cylindrical spine head and a cylindrical spine neck.
@@ -787,26 +581,16 @@ def get_distance_to_node(cell, root, node, loc=None):
     :return: int or float
     """
     length = 0.
-    if node in cell.soma:
+    if node is root:
         return length
-    if not loc is None:
+    if loc is not None:
         length += loc * node.sec.L
-    if root in cell.soma:
-        while not node.parent in cell.soma:
-            node.sec.push()
-            loc = h.parent_connection()
-            h.pop_section()
-            node = node.parent
-            length += loc * node.sec.L
-    elif node_in_subtree(cell, root, node):
-        while not node.parent is root:
-            node.sec.push()
-            loc = h.parent_connection()
-            h.pop_section()
-            node = node.parent
-            length += loc * node.sec.L
-    else:
+    if not node_in_subtree(cell, root, node):
         return None  # node is not connected to root
+    while node.parent is not root:
+        loc = node.connection_loc
+        node = node.parent
+        length += loc * node.sec.L
     return length
 
 
@@ -876,6 +660,30 @@ def is_terminal(node):
         return False
     else:
         return not bool([child for child in node.children if not child.type == 'spine_neck'])
+
+
+def get_path_length_swc(path):
+    """
+    Calculates the distance between nodes given a list of SNode2 nodes connected in a path.
+    :param path: list of :class:'SNode2'
+    :return: int or float
+    """
+    distance = 0.
+    for i in xrange(len(path) - 1):
+        distance += np.sqrt(np.sum((path[i].content['p3d'].xyz - path[i + 1].content['p3d'].xyz) ** 2.))
+    return distance
+
+
+def get_node_length_swc(node):
+    """
+    Calculates the distance between the center points of an SNode2 node and its parent.
+    :param node: :class:'SNode2'
+    :return: float
+    """
+    if not node.parent is None:
+        return np.sqrt(np.sum((node.content['p3d'].xyz - node.parent.content['p3d'].xyz) ** 2.))
+    else:
+        return 0.
 
 
 # ------------------------------------ Methods to specify cell biophysics -------------------------------------------- #
@@ -969,6 +777,7 @@ def reset_cable_by_node(cell, node):
             update_mechanism_by_node(cell, node, 'cable', mech_content)
     else:
         init_nseg(node.sec)
+        node.reinit_diam()
 
 
 def count_spines_per_seg(node, env, gid):
@@ -1068,7 +877,7 @@ def correct_cell_for_spines_cm(cell, env):
                 correct_node_for_spines_cm(node, env, cell.gid)
                 if loop == 0:
                     init_nseg(node.sec)  # , verbose=True)
-                    reinit_diam(node)
+                    node.reinit_diam()
         loop += 1
     init_biophysics(cell, env, reset_cable=False)
 
@@ -1076,24 +885,26 @@ def correct_cell_for_spines_cm(cell, env):
 def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False):
     """
     This method loops through all sections of the specified type, and consults the mechanism dictionary to update
-    mechanism properties. If the reset_cable flag is True, cable parameters are re-initialize first, then the
+    mechanism properties. If the reset_cable flag is True, cable parameters are re-initialized first, then the
     ion channel mechanisms are updated.
     :param cell: :class:'BiophysCell'
     :param sec_type: str
     :param reset_cable: bool
     """
-    if sec_type in cell.nodes and sec_type in cell.mech_dict:
-        for node in cell.nodes[sec_type]:
+    if sec_type in cell.nodes:
+        if reset_cable:
             # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
             # mechanism gradients
-            if reset_cable and 'cable' in cell.mech_dict[sec_type]:
+            for node in cell.nodes[sec_type]:
                 reset_cable_by_node(cell, node)
-            for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
-                              if not mech_name in ['cable', 'ions', 'synapses']):
-                update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
-            # ion-related parameters do not exist until after membrane mechanisms have been inserted
-            if 'ions' in cell.mech_dict[sec_type]:
-                update_mechanism_by_node(cell, node, 'ions', cell.mech_dict[sec_type]['ions'])
+        if sec_type in cell.mech_dict:
+            for node in cell.nodes[sec_type]:
+                for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
+                                  if mech_name not in ['cable', 'ions', 'synapses']):
+                    update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
+                # ion-related parameters do not exist until after membrane mechanisms have been inserted
+                if 'ions' in cell.mech_dict[sec_type]:
+                    update_mechanism_by_node(cell, node, 'ions', cell.mech_dict[sec_type]['ions'])
 
 
 def update_mechanism_by_sec_type(cell, sec_type, mech_name):
@@ -1110,21 +921,12 @@ def update_mechanism_by_sec_type(cell, sec_type, mech_name):
             update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
 
 
-def get_mech_rules_dict(**rules):
+def get_mech_rules_dict(cell, **rules):
     """
-    Used by the modify_mech_param and modify_syn_mech_param functions. Takes in a series of arguments and constructs
-    a validated rules dictionary that will be used to update the cell's mechanism dictionary.
-    :param value:
-    :param origin:
-    :param slope:
-    :param tau:
-    :param xhalf:
-    :param min:
-    :param max:
-    :param min_loc:
-    :param max_loc:
-    :param outside:
-    :param custom:
+    Used by modify_mech_param. Takes in a series of arguments and constructs a validated rules dictionary that will be
+    used to update a cell's mechanism dictionary.
+    :param cell: :class:'BiophysCell'
+    :param rules: dict
     :return: dict
     """
     rules_dict = {name: rules[name] for name in
@@ -1132,8 +934,9 @@ def get_mech_rules_dict(**rules):
                                      'outside', 'custom'] if name in rules and rules[name] is not None)}
     if 'origin' in rules_dict:
         origin_type = rules_dict['origin']
-        if origin_type not in default_ordered_sec_types + ['parent', 'branch_origin']:
-            raise ValueError('modify_mech_param: cannot inherit from unknown origin type: %s' % origin_type)
+        valid_sec_types = [sec_type for sec_type in cell.nodes if len(cell.nodes[sec_type]) > 0]
+        if origin_type not in valid_sec_types + ['parent', 'branch_origin']:
+            raise ValueError('modify_mech_param: cannot inherit from invalid origin type: %s' % origin_type)
     return rules_dict
 
 
@@ -1165,19 +968,21 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     :param verbose: bool
     """
     if sec_type not in cell.nodes:
-        raise ValueError('modify_mech_param: missing sec_type: %s' % sec_type)
+        raise ValueError('modify_mech_param: sec_type: %s not in cell' % sec_type)
     if param_name is None:
         if mech_name in ['cable', 'ions']:
-            raise ValueError('modify_mech_param: missing required parameter to modify mechanism: %s' % mech_name)
+            raise ValueError('modify_mech_param: missing required parameter to modify mechanism: %s in sec_type: %s' %
+                             (mech_name, sec_type))
+        mech_content = None
     else:
         if value is None and origin is None:
-            raise ValueError('modify_mech_param: mechanism: %s; parameter: %s; missing origin or value' %
-                             (mech_name, param_name))
+            raise ValueError('modify_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
+                             'sec_type: %s' % (mech_name, param_name, sec_type))
+        rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min, max=max,
+                                    min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
+        mech_content = {param_name: rules}
 
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
-    rules = get_mech_rules_dict(value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min, max=max,
-                           min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
-    mech_content = {param_name: rules}
 
     # No mechanisms have been inserted into this type of section yet
     if sec_type not in cell.mech_dict:
@@ -1186,18 +991,18 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     # have been specified
     elif mech_name not in cell.mech_dict[sec_type] or cell.mech_dict[sec_type][mech_name] is None:
         cell.mech_dict[sec_type][mech_name] = mech_content
-    # This parameter has already been specified
-    elif param_name is not None and param_name in cell.mech_dict[sec_type][mech_name]:
-        if not append:
-            cell.mech_dict[sec_type][mech_name][param_name] = rules
-        elif isinstance(cell.mech_dict[sec_type][mech_name][param_name], dict):
-            cell.mech_dict[sec_type][mech_name][param_name] = [cell.mech_dict[sec_type][mech_name][param_name],
-                                                               rules]
-        elif isinstance(cell.mech_dict[sec_type][mech_name][param_name], list):
-            cell.mech_dict[sec_type][mech_name][param_name].append(rules)
-    # This mechanism has been inserted, but this parameter has not yet been specified
     elif param_name is not None:
-        cell.mech_dict[sec_type][mech_name][param_name] = rules
+        # This parameter has already been specified, and the user wants to append a new rule set
+        if param_name in cell.mech_dict[sec_type][mech_name] and append:
+            if isinstance(cell.mech_dict[sec_type][mech_name][param_name], dict):
+                cell.mech_dict[sec_type][mech_name][param_name] = \
+                    [cell.mech_dict[sec_type][mech_name][param_name], rules]
+            elif isinstance(cell.mech_dict[sec_type][mech_name][param_name], list):
+                cell.mech_dict[sec_type][mech_name][param_name].append(rules)
+        # This mechanism has been inserted, but this parameter has not yet been specified,
+        # or the user wants to replace an existing rule set
+        else:
+            cell.mech_dict[sec_type][mech_name][param_name] = rules
 
     try:
         # all membrane mechanisms in sections of type sec_type must be reinitialized after changing cable properties
@@ -1205,28 +1010,28 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
             if param_name in ['Ra', 'cm', 'spatial_res']:
                 update_biophysics_by_sec_type(cell, sec_type, reset_cable=True)
             else:
-                print 'ValueError: modify_mech_param: unknown cable property: %s' % param_name
-                raise ValueError
+                print 'AttributeError: modify_mech_param: unknown cable property: %s' % param_name
+                raise RuntimeError
         else:
             for node in cell.nodes[sec_type]:
                 try:
                     update_mechanism_by_node(cell, node, mech_name, mech_content)
-                except (AttributeError, NameError, ValueError, KeyError):
-                    raise ValueError
-    except ValueError:
+                except (AttributeError, NameError, ValueError, KeyError, RuntimeError):
+                    raise RuntimeError
+    except RuntimeError:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
-        if not param_name is None:
-            raise ValueError('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
+        if param_name is not None:
+            raise RuntimeError('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
                             (mech_name, param_name, node.name))
         else:
-            raise Exception('modify_mech_param: problem modifying mechanism: %s in node: %s' %
+            raise RuntimeError('modify_mech_param: problem modifying mechanism: %s in node: %s' %
                             (mech_name, node.name))
 
 
 def update_mechanism_by_node(cell, node, mech_name, mech_content):
     """
     This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
-    calls parse_mech_content to interpret the rules and set the values for the given node.
+    calls parse_mech_rules to interpret the rules and set the values for the given node.
     :param node: :class:'SHocNode'
     :param mech_name: str
     :param mech_content: dict
@@ -1236,74 +1041,68 @@ def update_mechanism_by_node(cell, node, mech_name, mech_content):
             # accommodate either a dict, or a list of dicts specifying multiple location constraints for
             # a single parameter
             if isinstance(mech_content[param_name], dict):
-                parse_mech_content(cell, node, mech_name, param_name, mech_content[param_name])
-            elif isinstance(mech_content[param_name], Iterable):
+                parse_mech_rules(cell, node, mech_name, param_name, mech_content[param_name])
+            elif isinstance(mech_content[param_name], list):
                 for mech_content_entry in mech_content[param_name]:
-                    parse_mech_content(cell, node, mech_name, param_name, mech_content_entry)
+                    parse_mech_rules(cell, node, mech_name, param_name, mech_content_entry)
     else:
         node.sec.insert(mech_name)
 
 
-def parse_mech_content(cell, node, mech_name, param_name, rules, env=None, gid=None, syn_type=None):
+def get_donor(cell, node, origin_type):
+    """
+
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode'
+    :param origin_type: str
+    :return: :class:'SHocNode'
+    """
+    if origin_type == 'parent':
+        if node.type == 'spine_head':
+            donor = node.parent.parent.parent
+        elif node.type == 'spine_neck':
+            donor = node.parent.parent
+        else:
+            donor = node.parent
+    elif origin_type == 'branch_origin':
+        donor = get_dendrite_origin(cell, node)
+    elif origin_type in cell.nodes:
+        donor = get_node_along_path_to_root(cell, node, origin_type)
+    else:
+        raise ValueError('get_donor: unknown origin_type: %s' % origin_type)
+    return donor
+
+
+def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
     """
     This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
     interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
     inheritance of values from the closest segment of a specified type of section along the path from root. Also
-    handles rules with distance boundaries, and rules to set synapse attributes. Gradients can be specified as
-    linear, exponential, or sigmoidal. Custom functions can also be provided to specify arbitrary distributions.
+    handles rules with distance boundaries. Gradients can be specified as linear, exponential, or sigmoidal. Custom
+    functions can also be provided to specify arbitrary distributions.
     :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
     :param mech_name: str
     :param param_name: str
     :param rules: dict
-    :param syn_type: str
     """
-    if 'synapse' in mech_name:
-        if syn_type is None:
-            raise Exception('Cannot set %s mechanism parameter: %s without a specified point process' %
-                            (mech_name, param_name))
-    # an 'origin' with no 'value' inherits a starting parameter from the origin sec_type
+    # an 'origin' with no 'value' inherits a baseline value from the origin sec_type
     # a 'value' with no 'origin' is independent of other sec_types
     # an 'origin' with a 'value' uses the origin sec_type only as a reference point for applying a
     # distance-dependent gradient
-    if 'origin' in rules:
-        if rules['origin'] == 'parent':
-            if node.type == 'spine_head':
-                donor = node.parent.parent.parent
-            elif node.type == 'spine_neck':
-                donor = node.parent.parent
-            else:
-                donor = node.parent
-        elif rules['origin'] == 'branch_origin':
-            donor = get_dendrite_origin(cell, node)
-        elif rules['origin'] in cell.nodes:
-            donor = get_node_along_path_to_root(cell, node, rules['origin'])
-        else:
-            if 'synapse' in mech_name:
-                raise Exception('%s mechanism: %s parameter: %s cannot inherit from unknown origin: %s' %
-                                (mech_name, syn_type, param_name, rules['origin']))
-            else:
-                raise Exception('Mechanism: {} parameter: {} cannot inherit from unknown origin: {}'.format(
-                    mech_name, param_name, rules['origin']))
-    else:
-        donor = None
+    if 'origin' in rules and donor is None:
+        donor = get_donor(cell, node, rules['origin'])
+        if donor is None:
+            raise RuntimeError('parse_mech_rules: problem inheriting mechanism: %s parameter: %s from origin: %s'
+                               ' in sec_type: %s' % (mech_name, param_name, rules['origin'], node.type))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
-        if 'synapse' in mech_name:
-            raise Exception('Cannot set %s mechanism: %s parameter: %s without a specified origin or value' %
-                            (mech_name, syn_type, param_name))
-        else:
-            raise Exception('Cannot set mechanism: {} parameter: {} without a specified origin or value'.format(
-                mech_name, param_name))
+        raise RuntimeError('parse_mech_rules: cannot set mechanism: %s parameter: %s in sec_type: %s without a '
+                           'specified origin or value' % (mech_name, param_name, node.type))
     else:
         if (mech_name == 'cable') and (param_name == 'spatial_res'):
             baseline = get_spatial_res(cell, donor)
-        elif 'synapse' in mech_name:
-            baseline = inherit_mech_param(cell, donor, mech_name, param_name, syn_type)
-            if baseline is None:
-                raise Exception('Cannot inherit %s mechanism: %s parameter: %s from sec_type: %s' %
-                                (mech_name, syn_type, param_name, donor.type))
         else:
             baseline = inherit_mech_param(cell, donor, mech_name, param_name)
     if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
@@ -1315,49 +1114,27 @@ def parse_mech_content(cell, node, mech_name, param_name, rules, env=None, gid=N
         node.reinit_diam()
     else:
         if 'custom' in rules:
-            if rules['custom']['method'] in globals() and callable(globals()[rules['custom']['method']]):
-                method_to_call = globals()[rules['custom']['method']]
-                method_to_call(cell, node, mech_name, param_name, baseline, rules, syn_type, donor)
-            else:
-                raise Exception('The custom method %s is not defined for this cell type.' %
-                                rules['custom']['method'])
+            parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor)
         elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
-            if 'synapse' in mech_name:
-                if donor is None:
-                    raise Exception('Cannot specify %s mechanism: %s parameter: %s without a provided origin' %
-                                    (mech_name, syn_type, param_name))
-                else:
-                    if env is None or gid is None:
-                        raise Exception('Must provide env object and gid in order to specify syanptic mechanism.')
-                    specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, donor,
-                                               env)
-            else:
-                if donor is None:
-                    raise Exception('Cannot specify mechanism: %s parameter: %s without a provided origin' %
-                                    (mech_name, param_name))
-                specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, donor)
+            if donor is None:
+                raise RuntimeError('parse_mech_rules: cannot specify mechanism: %s parameter: %s in sec_type: %s '
+                                   'without a provided origin' % (mech_name, param_name, node.type))
+            set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor)
         elif mech_name == 'ions':
             setattr(node.sec, param_name, baseline)
-        elif 'synapse' in mech_name:
-            if env is None or gid is None:
-                raise Exception('Must provide env object and gid in order to specify syanptic mechanism.')
-            specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, env)
         else:
             node.sec.insert(mech_name)
             setattr(node.sec, param_name + "_" + mech_name, baseline)
 
 
-def inherit_mech_param(cell, donor, mech_name, param_name, syn_type=None):
+def inherit_mech_param(cell, donor, mech_name, param_name):
     """
     When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
-    returns the value of that parameter found in the section or final segment of the donor node. For synaptic
-    mechanism parameters, searches for the closest synapse_attribute in the donor node. If the donor node does not
-    contain synapse_mechanism_attributes due to location constraints, this method searches first child nodes, then
-    nodes along the path to root.
+    returns the value of that parameter found in the section or final segment of the donor node.
+    :param cell: :class:'BiophysCell'
     :param donor: :class:'SHocNode'
     :param mech_name: str
     :param param_name: str
-    :param syn_type: str
     :return: float
     """
     # accesses the last segment of the section
@@ -1368,32 +1145,15 @@ def inherit_mech_param(cell, donor, mech_name, param_name, syn_type=None):
                 return getattr(donor.sec, param_name)
             else:
                 return getattr(donor.sec(loc), param_name)
-        elif 'synapse' in mech_name:
-            # first look downstream for a nearby synapse, then upstream.
-            syn_category = mech_name.split(' ')[0]
-            target_node, target_index = get_closest_synapse_attribute(donor, 1., syn_category, syn_type,
-                                                                            downstream=True)
-            if target_index is None and donor.parent is not None:
-                target_node, target_index = get_closest_synapse_attribute(donor.parent, 1., syn_category,
-                                                                                syn_type, downstream=False)
-            if target_index is not None \
-                    and param_name in target_node.synapse_mechanism_attributes[target_index][syn_type]:
-                return target_node.synapse_mechanism_attributes[target_index][syn_type][param_name]
-            else:
-                return None
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
-    except (AttributeError, NameError, KeyError):
-        if syn_type is None:
-            print 'Exception: Problem inheriting mechanism: {} parameter: {} from sec_type: {}'.format(
-                mech_name, param_name, donor.type)
-        else:
-            print 'Exception: Problem inheriting %s mechanism: %s parameter: %s from sec_type: %s' % \
-                  (mech_name, syn_type, param_name, donor.type)
-        raise KeyError
+    except (AttributeError, NameError, KeyError, ValueError, RuntimeError):
+        print 'RuntimeError: inherit_mech_param: problem inheriting %s mechanism: %s parameter: %s from sec_type: ' \
+              '%s' % (mech_name, param_name, donor.type)
+        raise RuntimeError
 
 
-def specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, donor=None):
+def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=None):
     """
 
     :param node: :class:'SHocNode'
@@ -1404,8 +1164,8 @@ def specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, d
     :param donor: :class:'SHocNode' or None
     """
     if donor is None:
-        raise Exception('Cannot specify mechanism: {} parameter: {} without a provided origin'.format(
-            mech_name, param_name))
+        raise Exception('Cannot specify mechanism: %s parameter: %s in sec_type: %s without a provided origin' %
+                        (mech_name, param_name, node.type))
     if 'min_loc' in rules:
         min_distance = rules['min_loc']
     else:
@@ -1471,22 +1231,78 @@ def zero_na(cell):
 # ------------------------------- Methods to specify synaptic mechanisms  -------------------------------------------- #
 
 
-def modify_syn_mech_param(cell, sec_type, mech_name, syn_name, param_name=None, value=None, origin=None, slope=None,
-                          tau=None, xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None,
-                          variance=None, syn_types=None, layers=None, sources=None, replace=True, custom=None, env=None,
-                          gid=None):
+def get_syn_filter_dict(env, rules):
     """
-    Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
-    dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
-    initial model specification, or during parameter optimization. For modifications to persist across simulations,
-    the mechanism dictionary must be saved to a file using self.export_mech_dict() and re-imported during BiophysCell
-    initialization.
+    Used by modify_syn_mech_param. Takes in a series of arguments and constructs a validated rules dictionary that
+    specifies to which sets of synapses a rule applies. Values of filter queries are validated by the provided Env.
+    :param rules: dict
+    :return: dict
+    """
+    valid_filter_names = ['syn_types', 'layers', 'sources']
+    rules_dict = {}
+    for name in rules:
+        if name not in valid_filter_names:
+            raise ValueError('modify_syn_mech_param: %s not a recognized category to filter synapses' % name)
+    rules_dict.update(rules)
+    if 'syn_types' in rules_dict:
+        for syn_type in rules_dict['syn_types']:
+            if syn_type not in env.Synapse_Types:
+                raise ValueError('modify_syn_mech_param: syn_type: %s not recognized by network configuration' %
+                                 syn_type)
+    if 'layers' in rules_dict:
+        for layer in rules_dict['layers']:
+            if layer not in env.layers:
+                raise ValueError('modify_syn_mech_param: layer: %s not recognized by network configuration' %
+                                 layer)
+    if 'sources' in rules_dict:
+        for source in rules_dict['sources']:
+            if source not in env.celltypes:
+                raise ValueError('modify_syn_mech_param: presynaptic population: %s not recognized by network '
+                                 'configuration' % source)
+    return rules_dict
+
+
+def validate_syn_mech_param(env, syn_name, param_name):
+    """
+
+    :param env: :class:'Env'
+    :param syn_name: str
+    :param param_name: str
+    :return: bool
+    """
+    syn_mech_names = env.synapse_attributes.syn_mech_names
+    if syn_name not in syn_mech_names:
+        return False
+    syn_param_rules = env.synapse_attributes.syn_param_rules
+    mech_name = syn_mech_names[syn_name]
+    if mech_name not in syn_param_rules:
+        return False
+    if 'mech_params' in syn_param_rules[mech_name] and param_name in syn_param_rules[mech_name]['mech_params']:
+        return True
+    if 'netcon_params' in syn_param_rules[mech_name] and param_name in syn_param_rules[mech_name]['netcon_params']:
+        return True
+    return False
+
+
+def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
+                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
+                      append=False, filters=None, verbose=False):
+    """
+    Modifies the mechanism dictionary that specifies attributes of synaptic mechanisms by sec_type. This method is 
+    meant to be called manually during initial model specification, or during parameter optimization. For modifications 
+    to persist across simulations, the mechanism dictionary must be saved to a file using export_mech_dict() and 
+    re-imported during BiophysCell initialization. 
+    Note that update_syn_mech_attrs must be called separately to populate the syn_mech_attrs_dict of a
+    SynapseAttributes object based on the rules specified in the mechanism dictionary.
+    Then config_syns_from_mech_attrs must be called separately to finally set the attributes of any synaptic 
+    point_process and netcon objects that have been inserted at what are otherwise placeholder synaptic sites. 
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
     :param sec_type: str
-    :param mech_name: str (ex. 'synapse')
-    :param syn_name: str (ex. 'AMPA_KIN5')
-    :param param_name: str (ex. 'g_max')
+    :param syn_name: str
+    :param param_name: str
     :param value: float
-    :param origin: str
+    :param origin: str (sec_type)
     :param slope: float
     :param tau: float
     :param xhalf: float
@@ -1495,74 +1311,50 @@ def modify_syn_mech_param(cell, sec_type, mech_name, syn_name, param_name=None, 
     :param min_loc: float
     :param max_loc: float
     :param outside: float
-    :param variance: str
-    :param syn_types: list of enumerated type: synapse category
-    :param layers: list of enumerated type: layer
-    :param sources: list of enumerated type: population names of source projections
-    :param replace: bool
     :param custom: dict
-    :param env: Env object
-    :param gid: int
+    :param append: bool
+    :param filters: dict
+    :param verbose: bool
     """
-    global verbose
-    backup_content = None
+    if sec_type not in cell.nodes:
+        raise ValueError('modify_syn_mech_param: sec_type: %s not in cell' % sec_type)
+    if param_name is None:
+        raise ValueError('modify_syn_mech_param: missing required parameter to modify synaptic mechanism: %s '
+                         'in sec_type: %s' % (syn_name, sec_type))
+    if not validate_syn_mech_param(env, syn_name, param_name):
+        raise ValueError('modify_syn_mech_param: synaptic mechanism: %s or parameter: %s not recognized by network '
+                                 'configuration' % (syn_name, param_name))
+    if value is None and origin is None:
+        raise ValueError('modify_syn_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
+                         'sec_type: %s' % (syn_name, param_name, sec_type))
+    rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min, max=max,
+                                min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
+    if filters is not None:
+        syn_filters = get_syn_filter_dict(env, filters)
+        rules['filters'] = syn_filters
 
-    rules = build_rules_dict(cell, sec_type, mech_name, param_name, value, origin, slope, tau, xhalf, min, max, min_loc,
-                             max_loc, outside, variance, custom)
-    if syn_types is not None:
-        rules.update({'syn_types': syn_types})
-    if layers is not None:
-        rules.update({'layers': layers})
-    if sources is not None:
-        rules.update({'sources': sources})
     mech_content = {param_name: rules}
 
-    # No mechanisms have been inserted into this type of section yet
-    if not sec_type in cell.mech_dict:
-        cell.mech_dict[sec_type] = {mech_name: {syn_name: mech_content}}
-    # No synapse attributes have been specified in this type of section yet
-    elif not mech_name in cell.mech_dict[sec_type]:
-        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
-        cell.mech_dict[sec_type][mech_name] = {syn_name: mech_content}
-    # This synaptic mechanism has not yet been specified in this type of section
-    elif not syn_name in cell.mech_dict[sec_type][mech_name]:
-        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
-        cell.mech_dict[sec_type][mech_name][syn_name] = mech_content
-    # This synaptic mechanism has been specified, but no parameters have been specified
-    elif cell.mech_dict[sec_type][mech_name][syn_name] is None:
-        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
-        cell.mech_dict[sec_type][mech_name][syn_name] = mech_content
-    # This parameter has already been specified
-    elif param_name is not None and param_name in cell.mech_dict[sec_type][mech_name][syn_name]:
-        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
-        # Determine whether to replace or extend the current dictionary entry.
-        if replace:
-            cell.mech_dict[sec_type][mech_name][syn_name][param_name] = rules
-        elif type(cell.mech_dict[sec_type][mech_name][syn_name][param_name]) == dict:
-            cell.mech_dict[sec_type][mech_name][syn_name][param_name] = \
-                [cell.mech_dict[sec_type][mech_name][syn_name][param_name], rules]
-        elif type(cell.mech_dict[sec_type][mech_name][param_name]) == list:
-            cell.mech_dict[sec_type][mech_name][syn_name][param_name].append(rules)
-    # This synaptic mechanism has been specified, but this parameter has not yet been specified
-    elif param_name is not None:
-        backup_content = copy.deepcopy(cell.mech_dict[sec_type])
-        cell.mech_dict[sec_type][mech_name][syn_name][param_name] = rules
-
-
-    for node in cell.nodes[sec_type]:
-        try:
-            update_syn_mechanism_by_node(cell, node, mech_name, {syn_name: mech_content}, env, gid)
-        except (AttributeError, NameError, ValueError, KeyError):
-            if backup_content is None:
-                del cell.mech_dict[sec_type]
-            else:
-                cell.mech_dict[sec_type] = copy.deepcopy(backup_content)
-            if param_name is not None:
-                raise Exception('Problem specifying %s mechanism: %s parameter: %s in node: %s' %
-                                (mech_name, syn_name, param_name, node.name))
-            else:
-                raise Exception('Problem specifying %s mechanism: %s in node: %s' %
-                                (mech_name, syn_name, node.name))
+    # No mechanisms have been specified in this type of section yet
+    if sec_type not in cell.mech_dict:
+        cell.mech_dict[sec_type] = {'synapses': {syn_name: mech_content}}
+    # No synaptic mechanisms have been specified in this type of section yet
+    elif 'synapses' not in cell.mech_dict[sec_type]:
+        cell.mech_dict[sec_type]['synapses'] = {syn_name: mech_content}
+    # Synaptic mechanisms have been specified in this type of section, but not this syn_name
+    elif syn_name not in cell.mech_dict[sec_type]['synapses']:
+        cell.mech_dict[sec_type]['synapses'][syn_name] = mech_content
+    # This parameter of this syn_name has already been specified in this type of section, and the user wants to append
+    # a new rule set
+    elif param_name in cell.mech_dict[sec_type]['synapses'][syn_name] and append:
+        if isinstance(cell.mech_dict[sec_type]['synapses'][syn_name][param_name], dict):
+            cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = \
+                [cell.mech_dict[sec_type]['synapses'][syn_name][param_name], rules]
+        elif isinstance(cell.mech_dict[sec_type]['synapses'][syn_name][param_name], list):
+            cell.mech_dict[sec_type]['synapses'][syn_name][param_name].append(rules)
+    # This syn_name has been specified, but not this parameter, or the user wants to replace an existing rule set
+    else:
+        cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
 
 def update_syn_mechanism_by_node(cell, node, mech_name, mech_content, env, gid):
@@ -1587,7 +1379,7 @@ def update_syn_mechanism_by_node(cell, node, mech_name, mech_content, env, gid):
                                            syn_name)
                 elif isinstance(mech_content[syn_name][param_name], list):
                     for mech_content_entry in mech_content[syn_name][param_name]:
-                        parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, env, syn_name)
+                        parse_mech_rules(cell, node, mech_name, param_name, mech_content_entry, env, syn_name)
 
 
 def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
@@ -1663,64 +1455,85 @@ def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline,
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
 
 
-def custom_gradient_by_branch_order(cell, node, mech_name, param_name, baseline, rules, syn_type, donor=None, gid=None,
-                                    env=None):
+def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor):
     """
-
+    If the provided node meets custom criteria, rules are modified are passed back to parse_mech_rules with the
+    'custom' item removed. Avoids having to determine baseline and donor over again.
+    :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
     :param mech_name: str
     :param param_name: str
     :param baseline: float
     :param rules: dict
-    :param syn_type: str
     :param donor: :class:'SHocNode' or None
     """
-    branch_order = int(rules['custom']['branch_order'])
-    if get_branch_order(cell, node) >= branch_order:
-        if 'synapse' in mech_name:
-            if env is None or gid is None:
-                specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, donor, env)
-        else:
-            specify_mech_parameter(cell, node, mech_name, param_name, baseline, rules, donor)
+    if 'func' not in rules['custom'] or rules['custom']['func'] is None:
+        raise RuntimeError('parse_custom_mech_rules: no custom function provided')
+    if rules['custom']['func'] in globals() and callable(globals()[rules['custom']['func']]):
+        func = globals()[rules['custom']['func']]
+    else:
+        raise RuntimeError('parse_custom_mech_rules: problem locating custom function: %s' % rules['custom']['func'])
+    custom = copy.deepcopy(rules['custom'])
+    del custom['func']
+    new_rules = copy.deepcopy(rules)
+    del new_rules['custom']
+    new_rules['value'] = baseline
+    new_rules = func(cell, node, baseline, new_rules, donor, **custom)
+    if new_rules:
+        parse_mech_rules(cell, node, mech_name, param_name, new_rules, donor)
 
 
-def custom_gradient_by_terminal(cell, node, mech_name, param_name, baseline, rules, syn_type, donor=None):
+def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_order, **kwargs):
     """
-
+    Allows the provided rule to be applied if the provided node meets specified branch order criterion.
+    :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
-    :param mech_name: str
-    :param param_name: str
     :param baseline: float
     :param rules: dict
-    :param syn_type: str
     :param donor: :class:'SHocNode' or None
+    :param branch_order: int or float
+    :return: dict or False
     """
-    if is_terminal(node):
-        start_val = baseline
-        if 'min' in rules:
-            end_val = rules['min']
-            direction = -1
-        elif 'max' in rules:
-            end_val = rules['max']
-            direction = 1
+    if branch_order is None:
+        raise RuntimeError('custom_filter_by_branch_order: custom argument: branch_order not provided for sec_type: %s' %
+                           node.type)
+    branch_order = int(branch_order)
+    if get_branch_order(cell, node) < branch_order:
+        return False
+    return rules
+
+
+def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
+    """
+    Allows the provided rule to be applied if the provided node is a terminal branch. Adjusts the specified slope based
+    on the length of the associated section.
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode'
+    :param baseline: float
+    :param rules: dict
+    :param donor: :class:'SHocNode' or None
+    :return: dict or False
+    """
+    if not is_terminal(node):
+        return False
+    start_val = baseline
+    if 'min' in rules:
+        end_val = rules['min']
+        direction = -1
+    elif 'max' in rules:
+        end_val = rules['max']
+        direction = 1
+    else:
+        raise RuntimeError('custom_filter_by_terminal: no min or max target value specified for sec_type: %s' %
+                           node.type)
+    slope = (end_val - start_val)/node.sec.L
+    if 'slope' in rules:
+        if direction < 0.:
+            slope = min(rules['slope'], slope)
         else:
-            raise Exception('custom_gradient_by_terminal: no min or max target value specified for mechanism: %s '
-                            'parameter: %s' % (mech_name, param_name))
-        slope = (end_val - start_val)/node.sec.L
-        if 'slope' in rules:
-            if direction < 0.:
-                slope = min(rules['slope'], slope)
-            else:
-                slope = max(rules['slope'], slope)
-        for seg in node.sec:
-            value = start_val + slope * seg.x * node.sec.L
-            if direction < 0:
-                if value < end_val:
-                    value = end_val
-            else:
-                if value < end_val:
-                    value = end_val
-            setattr(getattr(seg, mech_name), param_name, value)
+            slope = max(rules['slope'], slope)
+    rules['slope'] = slope
+    return rules
 
 
 # ------------------- Methods to specify cells from hoc templates and neuroh5 trees ---------------------------------- #
@@ -1734,7 +1547,7 @@ def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neur
     :param gid:
     :param dataset_path:
     :param neurotree_dict:
-    :return:
+    :return: hoc cell object
     """
     vx       = neurotree_dict['x']
     vy       = neurotree_dict['y']
@@ -1757,7 +1570,7 @@ def make_cell(template_class, local_id=0, gid=0, dataset_path=""):
     :param local_id:
     :param gid:
     :param dataset_path:
-    :return:
+    :return: hoc cell object
     """
     cell = template_class(local_id, gid, dataset_path)
     return cell
