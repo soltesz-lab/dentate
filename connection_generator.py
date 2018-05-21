@@ -25,7 +25,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, get_soma_pair_distances, extent):
+    def __init__(self, destination_population, soma_coords, soma_distances, layer_scale, extent):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -35,7 +35,7 @@ class ConnectionProb(object):
         """
         self.destination_population = destination_population
         self.soma_coords = soma_coords
-        self.get_soma_pair_distances = get_soma_pair_distances
+        self.soma_distances = soma_distances
         self.p_dist = {}
         self.width  = {}
         self.offset = {}
@@ -72,9 +72,9 @@ class ConnectionProb(object):
         destination_coords = self.soma_coords[self.destination_population][destination_gid]
         source_coords = self.soma_coords[source_population]
 
-        destination_distances = self.get_soma_distances[self.destination_population][destination_gid]
+        destination_distances = self.soma_distances[self.destination_population][destination_gid]
         
-        distances = self.get_soma_pair_distances([destination_gid])
+        distances = self.soma_distances([destination_gid])
 
         destination_u, destination_v, destination_l  = destination_coords
         destination_distance_u, destination_distance_v = destination_distances

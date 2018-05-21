@@ -628,9 +628,9 @@ def test_point_distance():
     U, V = vol._resample_uv(5, 5)
     L = np.asarray([1.0, 0.0, -1.0])
     
-    dist, coords = vol.point_distance(U, V, L)
-    print dist
-    print coords
+    #dist, coords = vol.point_distance(U, V, L)
+    #print dist
+    #print coords
     dist, coords = vol.point_distance(U, V[0], L)
     print dist
     print coords
