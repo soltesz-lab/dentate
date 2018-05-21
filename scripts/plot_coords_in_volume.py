@@ -21,10 +21,10 @@ def list_find (f, lst):
 @click.option("--scale", type=float, default=15.0)
 @click.option("--subvol", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config, coords_path, coords_namespace, population, rotate, scale, subvol, verbose):
+def main(config, coords_path, coords_namespace, population, scale, subvol, verbose):
         
     plot.plot_coords_in_volume (population, coords_path, coords_namespace, config, \
-                                subvol=subvol, scale=scale, rotate=rotate, verbose=verbose)
+                                subvol=subvol, scale=scale, verbose=verbose)
         
 
 if __name__ == '__main__':

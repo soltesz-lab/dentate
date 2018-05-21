@@ -78,26 +78,26 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     obs_dist_v = None
     coeff_dist_v = None
 
-    interp_penalty = 0.16
-    interp_basis = 'imq'
+    interp_penalty = 0.1
+    interp_basis = 'ga'
     interp_order = 2
     
     if rank == 0:
         logger.info('Creating volume...')
-        ip_volume = make_volume(min_l-0.01, max_l+0.01, ures=resolution, vres=resolution, lres=resolution,\
+        ip_volume = make_volume(min_l-0.01, max_l+0.01, ures=24, vres=20, lres=resolution,\
                                 rotate=rotate)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
         (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty,extrapolate=False)
+                                       penalty=interp_penalty)
         coeff_dist_u = ip_dist_u._coeff
         del dist_u
         gc.collect()
         logger.info('Computing V volume distance interpolants...')
         ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty,extrapolate=False)
+                                       penalty=interp_penalty)
         coeff_dist_v = ip_dist_v._coeff
         del dist_v
         gc.collect()
@@ -109,9 +109,9 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
 
     ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty,extrapolate=False)
+                                   penalty=interp_penalty)
     ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty,extrapolate=False)
+                                   penalty=interp_penalty)
 
     
     output_path = coords_path

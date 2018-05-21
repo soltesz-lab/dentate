@@ -6,7 +6,7 @@
 import sys, time, gc, itertools
 from collections import defaultdict
 import numpy as np
-import dlib, pcl
+
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -97,7 +97,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, res=2, step=1, interp_chunk_size=1000, verbose=False):
+def get_volume_distances (ip_vol, res=2, interp_chunk_size=1000, verbose=False):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -107,8 +107,6 @@ def get_volume_distances (ip_vol, res=2, step=1, interp_chunk_size=1000, verbose
     res : int
         Resampling factor for the U, V, L coordinates of the volume. 
         This parameter will be used to resample the volume and reduce the error of the arc distance calculation.
-    step : int (default=1)
-        Used to subsample the arrays of computed distances.
     Returns
     -------
     (Y1, X1, ... , YN, XN) where N is the number of dimensions of the volume.
@@ -132,9 +130,8 @@ def get_volume_distances (ip_vol, res=2, step=1, interp_chunk_size=1000, verbose
     obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
                         np.concatenate(obs_dist_u[1]), \
                         np.concatenate(obs_dist_u[2])]).T
-    sample_inds = np.arange(0, obs_uvl.shape[0], step)
-    obs_u = obs_uvl[sample_inds,:]
-    distances_u = np.concatenate(ldist_u)[sample_inds]
+    obs_u = obs_uvl
+    distances_u = np.concatenate(ldist_u)
 
     logger.info('U coord min: %f max: %f' % (np.min(U), np.max(U)))
     logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
@@ -144,9 +141,8 @@ def get_volume_distances (ip_vol, res=2, step=1, interp_chunk_size=1000, verbose
     obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
                         np.concatenate(obs_dist_v[1]), \
                         np.concatenate(obs_dist_v[2])]).T
-    sample_inds = np.arange(0, obs_uvl.shape[0], step)
-    obs_v = obs_uvl[sample_inds,:]
-    distances_v = np.concatenate(ldist_v)[sample_inds]
+    obs_v = obs_uvl
+    distances_v = np.concatenate(ldist_v)
 
     logger.info('V coord min: %f max: %f' % (np.min(V), np.max(V)))
     logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
@@ -250,7 +246,9 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
     http://pointclouds.org/documentation/tutorials/iterative_closest_point.php#iterative-closest-point
 
     """
-
+    
+    import dlib, pcl
+    
     rank = comm.rank
     size = comm.size
 
@@ -297,9 +295,9 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
         all_interp_err = []
         
         for (k,cloud_prj) in enumerate(projection_ls):
-            k_est_xyz_coords = np.zeros((len(gids),3)
-            k_est_uvl_coords = np.zeros((len(gids),3)
-            interp_err = np.zeros((len(gids),)
+            k_est_xyz_coords = np.zeros((len(gids),3))
+            k_est_uvl_coords = np.zeros((len(gids),3))
+            interp_err = np.zeros((len(gids),))
             converged, transf, estimate, fitness = icp.icp(cloud_in, cloud_prj, max_iter=icp_iter)
             logger.info('Transformation of population %s has converged: ' % (pop) + str(converged) + ' score: %f' % (fitness) )
             for i, gid in itertools.izip(xrange(0, estimate.size), gids):

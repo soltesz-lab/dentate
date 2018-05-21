@@ -382,7 +382,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
 
 
 def plot_positions(coords_path, population, distances_namespace='Arc Distances', 
-                    fontSize=14, showFig = True, saveFig = False, verbose = False):
+                    binSize=25., fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -391,9 +391,6 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
     :param population: 
 
     """
-
-    dx = 50
-    dy = 50
     
         
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
@@ -410,6 +407,9 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
     
     distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
     distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
+
+    dx = round(np.max(distance_U_array) / binSize)
+    dy = round(np.max(distance_V_array) / binSize)
 
     x_min = np.min(distance_U_array)
     x_max = np.max(distance_U_array)
