@@ -912,11 +912,12 @@ def update_mechanism_by_sec_type(cell, sec_type, mech_name):
     During parameter optimization, it is often convenient to reinitialize all the parameters for a single mechanism
     in a subset of compartments. For example, g_pas in basal dendrites that inherit the value from the soma after
     modifying the value in the soma compartment.
+    :param cell: :class:'BiophysCell'
     :param sec_type: str
     :param mech_name: str
     :return:
     """
-    if sec_type in cell.mech_dict and mech_name in cell.mech_dict[sec_type]:
+    if sec_type in cell.nodes and sec_type in cell.mech_dict and mech_name in cell.mech_dict[sec_type]:
         for node in cell.nodes[sec_type]:
             update_mechanism_by_node(cell, node, mech_name, cell.mech_dict[sec_type][mech_name])
 
@@ -1032,6 +1033,7 @@ def update_mechanism_by_node(cell, node, mech_name, mech_content):
     """
     This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
     calls parse_mech_rules to interpret the rules and set the values for the given node.
+    :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
     :param mech_name: str
     :param mech_content: dict
@@ -1231,11 +1233,13 @@ def zero_na(cell):
 # ------------------------------- Methods to specify synaptic mechanisms  -------------------------------------------- #
 
 
-def get_syn_filter_dict(env, rules):
+def get_syn_filter_dict(env, rules, convert=False):
     """
     Used by modify_syn_mech_param. Takes in a series of arguments and constructs a validated rules dictionary that
     specifies to which sets of synapses a rule applies. Values of filter queries are validated by the provided Env.
+    :param env: :class:'Env'
     :param rules: dict
+    :param convert: bool; whether to convert string values to enumerated type
     :return: dict
     """
     valid_filter_names = ['syn_types', 'layers', 'sources']
@@ -1245,20 +1249,26 @@ def get_syn_filter_dict(env, rules):
             raise ValueError('modify_syn_mech_param: %s not a recognized category to filter synapses' % name)
     rules_dict.update(rules)
     if 'syn_types' in rules_dict:
-        for syn_type in rules_dict['syn_types']:
+        for i, syn_type in enumerate(rules_dict['syn_types']):
             if syn_type not in env.Synapse_Types:
                 raise ValueError('modify_syn_mech_param: syn_type: %s not recognized by network configuration' %
                                  syn_type)
+            if convert:
+                rules_dict['syn_types'][i] = env.Synapse_Types[syn_type]
     if 'layers' in rules_dict:
-        for layer in rules_dict['layers']:
+        for i, layer in enumerate(rules_dict['layers']):
             if layer not in env.layers:
                 raise ValueError('modify_syn_mech_param: layer: %s not recognized by network configuration' %
                                  layer)
+            if convert:
+                rules_dict['layers'][i] = env.layers[layer]
     if 'sources' in rules_dict:
-        for source in rules_dict['sources']:
-            if source not in env.celltypes:
+        for i, source in enumerate(rules_dict['sources']):
+            if source not in env.pop_dict:
                 raise ValueError('modify_syn_mech_param: presynaptic population: %s not recognized by network '
                                  'configuration' % source)
+            if convert:
+                rules_dict['sources'][i] = env.pop_dict[source]
     return rules_dict
 
 
@@ -1288,13 +1298,13 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
                       xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
                       append=False, filters=None, verbose=False):
     """
-    Modifies the mechanism dictionary that specifies attributes of synaptic mechanisms by sec_type. This method is 
+    Modifies a cell's mechanism dictionary to specify attributes of a synaptic mechanism by sec_type. This method is
     meant to be called manually during initial model specification, or during parameter optimization. For modifications 
     to persist across simulations, the mechanism dictionary must be saved to a file using export_mech_dict() and 
     re-imported during BiophysCell initialization. 
-    Note that update_syn_mech_attrs must be called separately to populate the syn_mech_attrs_dict of a
-    SynapseAttributes object based on the rules specified in the mechanism dictionary.
-    Then config_syns_from_mech_attrs must be called separately to finally set the attributes of any synaptic 
+    Calls update_syn_mech_by_sec_type to set placeholder values in the syn_mech_attrs_dict of a SynapseAttributes
+    object.
+    Note that config_syns_from_mech_attrs must be called separately to finally set the attributes of any synaptic
     point_process and netcon objects that have been inserted at what are otherwise placeholder synaptic sites. 
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
@@ -1354,32 +1364,78 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
             cell.mech_dict[sec_type]['synapses'][syn_name][param_name].append(rules)
     # This syn_name has been specified, but not this parameter, or the user wants to replace an existing rule set
     else:
-        cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
+
+       cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
 
-def update_syn_mechanism_by_node(cell, node, mech_name, mech_content, env, gid):
+def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content):
     """
-    Consults a dictionary to specify properties of synapses of the specified category. Changes values in
-    env.synapse_attributes.syn_mech_attr_dict. Must then call 'update_cell_synapses_from_mech_attrs' to modify
-    properties of underlying hoc point process and netcon objects.
-    :param node: :class:'SHocNode'
-    :param mech_name: str
+    For the provided sec_type and synaptic mechanism, this method loops through the parameters specified in the
+    mechanism dictionary, interprets the rules, and sets placeholder values in the syn_mech_attr_dict of a
+    SynapseAttributes object.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param sec_type: str
+    :param syn_name: str
     :param mech_content: dict
     """
-    syn_id_attr_dict = env.synapse_attributes.syn_id_attr_dict[gid]
-    for syn_name in mech_content:
-        if mech_content[syn_name] is not None:
-            filtered_idxs = get_filtered_syn_indexes(syn_id_attr_dict, env.synapse_attributes.sec_index_map[node.index],
-                                                     **mech_content[syn_name])
-            for param_name in mech_content[syn_name]:
-                # accommodate either a dict, or a list of dicts specifying multiple location constraints for
-                # a single parameter
-                if isinstance(mech_content[syn_name][param_name], dict):
-                    parse_syn_mech_content(cell, node, mech_name, param_name, mech_content[syn_name][param_name], env,
-                                           syn_name)
-                elif isinstance(mech_content[syn_name][param_name], list):
-                    for mech_content_entry in mech_content[syn_name][param_name]:
-                        parse_mech_rules(cell, node, mech_name, param_name, mech_content_entry, env, syn_name)
+    for param_name in mech_content:
+        # accommodate either a dict, or a list of dicts specifying rules for a single parameter
+        if isinstance(mech_content[param_name], dict):
+            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content[param_name])
+        elif isinstance(mech_content[param_name], list):
+            for mech_content_entry in mech_content[param_name]:
+                update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry)
+
+
+def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules):
+    """
+    For the provided synaptic mechanism and parameter, this method loops through nodes of the provided sec_type,
+    interprets the provided rules, and sets placeholder values in the syn_mech_attr_dict of a SynapseAttributes object.
+    If filter queries are provided, their values are converted to enumerated types.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param sec_type: str
+    :param syn_name: str
+    :param param_name: str
+    :param rules: dict
+    """
+    if 'filters' in rules:
+        filters = get_syn_filter_dict(env, rules['filters'], convert=True)
+        rules = copy.deepcopy(rules)
+        del rules['filters']
+    else:
+        filters = None
+    if sec_type in cell.nodes:
+        for node in cell.nodes[sec_type]:
+            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters)
+
+
+def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters):
+    """
+    For the provided synaptic mechanism and parameter, this method first determines the set of placeholder synapses in
+    the provided node that match any provided filters. Then calls parse_syn_mech_rules to interpret the provided rules,
+    and set placeholder values in the syn_mech_attr_dict of a SynapseAttributes object.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param node: :class:'SHocNode'
+    :param syn_name: str
+    :param param_name: str
+    :param rules: dict
+    :param filters: dict: {category: list of int}
+    """
+    gid = cell.gid
+    syn_attrs = env.synapse_attributes
+    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
+    sec_index_map = syn_attrs.sec_index_map[gid]
+    if filters is None:
+        filtered_syn_indexes = sec_index_map[node.index]
+    else:
+        filtered_syn_indexes = get_filtered_syn_indexes(syn_id_attr_dict, sec_index_map[node.index], **filters)
+    if len(filtered_syn_indexes) > 0:
+        syn_ids = syn_id_attr_dict['syn_ids'][filtered_syn_indexes]
+        # TODO: allow 'origin' to be a filter_dict
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules)
 
 
 def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
@@ -1457,7 +1513,7 @@ def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline,
 
 def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor):
     """
-    If the provided node meets custom criteria, rules are modified are passed back to parse_mech_rules with the
+    If the provided node meets custom criteria, rules are modified and passed back to parse_mech_rules with the
     'custom' item removed. Avoids having to determine baseline and donor over again.
     :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'

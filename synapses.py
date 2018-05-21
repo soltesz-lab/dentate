@@ -48,13 +48,14 @@ class SynapseAttributes(object):
     def load_syn_weights(self, gid, syn_name, syn_ids, weights):
         """
 
-        :param gid:
-        :param syn_ids:
-        :param weights:
+        :param gid: int
+        :param syn_name: str
+        :param syn_ids: array of int
+        :param weights: array of float
         """
         for i, syn_id in enumerate(syn_ids):
             params = {'weight': float(weights[i])}
-            self.append_mech_attrs(gid, syn_id, syn_name, params)
+            self.set_mech_attrs(gid, syn_id, syn_name, params)
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env, delays=None):
         """
@@ -148,7 +149,7 @@ class SynapseAttributes(object):
         else:
             return None
 
-    def append_mech_attrs(self, gid, syn_id, syn_name, params):
+    def set_mech_attrs(self, gid, syn_id, syn_name, params):
         """
 
         :param gid: int
