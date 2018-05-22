@@ -1610,7 +1610,7 @@ def modify_syn_mech_param(cell, sec_type, mech_name, syn_name, param_name=None, 
     :param outside: float
     :param variance: str
     :param syn_types: list of enumerated type: synapse category
-    :param layers: list of enumerated type: layer
+    :param layers: list of str
     :param sources: list of enumerated type: population names of source projections
     :param replace: bool
     :param custom: dict
@@ -1690,17 +1690,100 @@ def update_syn_mechanism_by_node(cell, node, mech_name, mech_content, env, gid):
     syn_id_attr_dict = env.synapse_attributes.syn_id_attr_dict[gid]
     for syn_name in mech_content:
         if mech_content[syn_name] is not None:
-            filtered_idxs = get_filtered_syn_indexes(syn_id_attr_dict, env.synapse_attributes.sec_index_map[node.index],
-                                                     **mech_content[syn_name])
             for param_name in mech_content[syn_name]:
+                if 'filters' in mech_content[syn_name]:
+                    filtered_idxs = get_filtered_syn_indexes(syn_id_attr_dict,
+                                                             env.synapse_attributes.sec_index_map[node.index],
+                                                             **mech_content[syn_name][param_name]['filters'])
+                    if len(filtered_idxs) == 0:
+                        continue
                 # accommodate either a dict, or a list of dicts specifying multiple location constraints for
                 # a single parameter
                 if isinstance(mech_content[syn_name][param_name], dict):
                     parse_syn_mech_content(cell, node, mech_name, param_name, mech_content[syn_name][param_name], env,
-                                           syn_name)
+                                           gid, syn_name)
                 elif isinstance(mech_content[syn_name][param_name], Iterable):
                     for mech_content_entry in mech_content[syn_name][param_name]:
-                        parse_mech_content(cell, node, mech_name, param_name, mech_content_entry, env, syn_name)
+                        parse_syn_mech_content(cell, node, mech_name, param_name, mech_content_entry, env, gid, syn_name)
+
+
+def get_parent_syn_from_sec(cell, donor_node, mech_name, param_name, syn_name, env, gid):
+    cell = cell
+
+
+def parse_syn_mech_content(cell, node, mech_name, param_name, rules, env, gid, syn_name):
+    """
+        This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
+        interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
+        inheritance of values from the closest segment of a specified type of section along the path from root. Also
+        handles rules with distance boundaries, and rules to set synapse attributes. Gradients can be specified as
+        linear, exponential, or sigmoidal. Custom functions can also be provided to specify arbitrary distributions.
+        :param node: :class:'SHocNode'
+        :param mech_name: str
+        :param param_name: str
+        :param rules: dict
+        :param syn_name: str
+    """
+    # an 'origin' with no 'value' inherits a starting parameter from the origin sec_type
+    # a 'value' with no 'origin' is independent of other sec_types
+    # an 'origin' with a 'value' uses the origin sec_type only as a reference point for applying a
+    # distance-dependent gradient
+    donor_node, donor_syn_id = None, None
+    if 'origin' in rules:
+        if rules['origin'] == 'parent':
+            if node.type == 'spine_head':
+                donor_node = node.parent.parent.parent
+            elif node.type == 'spine_neck':
+                donor_node = node.parent.parent
+            else:
+                donor_node = node.parent
+            if 'origin_filters' in rules:
+                donor_syn_id = filtered_syn_in_node(donor_node, rules['origin_filters'])
+                while donor_syn_id is None:
+                    """
+                    """
+        elif rules['origin'] == 'branch_origin':
+            donor_node = get_dendrite_origin(cell, node)
+        elif rules['origin'] in cell.nodes:
+            donor_node = get_node_along_path_to_root(node, rules['origin'])
+        if donor_node is not None:
+            donor_syn_id = get_parent_syn_from_sec(cell, donor_node, mech_name, param_name, syn_name, env, gid)
+        elif isinstance(rules['origin'], dict):
+            donor_syn_id, donor_node = get_parent_syn_from_filters(cell, mech_name, param_name, syn_name, rules['origin'])
+        else:
+            raise Exception('%s mechanism: %s parameter: %s cannot inherit from unknown origin: %s' %
+                            (mech_name, syn_name, param_name, rules['origin']))
+    if 'value' in rules:
+        baseline = rules['value']
+    elif donor_syn_id is None:
+        raise Exception('Cannot set %s mechanism: %s parameter: %s without a specified origin or value' %
+                        (mech_name, syn_name, param_name))
+    else:
+        #baseline = inherit_mech_param(cell, donor, mech_name, param_name, syn_name)
+        baseline = inherit_mech_param(cell, donor_syn_id, donor_node, mech_name, param_name, syn_name) #Need to modify this function
+        if baseline is None:
+            raise Exception('Cannot inherit %s mechanism: %s parameter: %s from %s syn_id: %i' %
+                            (mech_name, syn_name, param_name, donor_node.type, donor_syn_id))
+    if 'custom' in rules:
+        if rules['custom']['method'] in globals() and callable(globals()[rules['custom']['method']]):
+            method_to_call = globals()[rules['custom']['method']]
+            method_to_call(cell, node, mech_name, param_name, baseline, rules, syn_name, donor_node, donor_syn_id)
+        else:
+            raise Exception('The custom method %s is not defined for this cell type.' %
+                            rules['custom']['method'])
+    elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
+        if donor_syn_id is None:
+            raise Exception('Cannot specify %s mechanism: %s parameter: %s without a provided origin' %
+                            (mech_name, syn_name, param_name))
+        else:
+            if env is None or gid is None:
+                raise Exception('Must provide env object and gid in order to specify syanptic mechanism.')
+            specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_name, donor_syn_id,
+                                       donor_node, env)
+    else:
+        if env is None or gid is None:
+            raise Exception('Must provide env object and gid in order to specify syanptic mechanism.')
+        specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_name, env)
 
 
 def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
