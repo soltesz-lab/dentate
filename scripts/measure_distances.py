@@ -30,7 +30,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--resample", type=int, default=2)
-@click.option("--resolution", type=int, default=16)
+@click.option("--resolution", type=(int,int,int), default=(25,17,10))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
@@ -58,7 +58,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     max_l = 0.0
     population_ranges = read_population_ranges(coords_path)[0]
     population_extents = {}
-    for population in population_ranges.keys():
+    for population in populations:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
         max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
         min_l = min(min_extent[2], min_l)
@@ -79,25 +79,28 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     coeff_dist_v = None
 
     interp_penalty = 0.1
-    interp_basis = 'ga'
+    interp_basis = 'imq'
     interp_order = 2
     
     if rank == 0:
-        logger.info('Creating volume...')
-        ip_volume = make_volume(min_l-0.01, max_l+0.01, ures=24, vres=20, lres=resolution,\
+        logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
+        ip_volume = make_volume(min_l-0.01, max_l+0.01, \
+                                ures=resolution[0], \
+                                vres=resolution[1], \
+                                lres=resolution[2], \
                                 rotate=rotate)
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
         (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty)
+                                       penalty=interp_penalty, extrapolate=False)
         coeff_dist_u = ip_dist_u._coeff
         del dist_u
         gc.collect()
         logger.info('Computing V volume distance interpolants...')
         ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty)
+                                       penalty=interp_penalty, extrapolate=False)
         coeff_dist_v = ip_dist_v._coeff
         del dist_v
         gc.collect()
@@ -109,9 +112,9 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
 
     ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
+                                   penalty=interp_penalty, extrapolate=False)
     ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
+                                   penalty=interp_penalty, extrapolate=False)
 
     
     output_path = coords_path

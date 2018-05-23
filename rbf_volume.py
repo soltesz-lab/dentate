@@ -316,8 +316,8 @@ class RBFVolume(object):
 
         c = input_axes[axis]
         
-        cl = (np.sort(c[np.where(c < axis_origin)[0]]))[::-1]
-        cr = np.sort(c[np.where(c >=  axis_origin)[0]])
+        cl = (np.sort(c[np.where(c <= axis_origin)[0]]))[::-1]
+        cr = np.sort(c[np.where(c >  axis_origin)[0]])
 
         ordered_axes = [(-1, [ cl if i == axis else x for (i, x) in enumerate(input_axes) ]), \
                         (1, [ cr if i == axis else x for (i, x) in enumerate(input_axes) ])]
@@ -336,15 +336,19 @@ class RBFVolume(object):
                 prod = cartesian_product(paxes)
                 for ip, p in enumerate(prod):
                     ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
-                    pts  = self.ev(*ecoords, chunk_size=interp_chunk_size).reshape(3, -1).T                
+                    pts  = self.ev(*ecoords, chunk_size=interp_chunk_size).reshape(3, -1).T
                     a = pts[1:,:]
                     b = pts[0:npts-1,:]
-                    d = np.zeros(npts,)
-                    d[1:npts] = np.cumsum(euclidean_distance(a, b))
+                    dist = np.zeros(npts,)
+                    dist[1:npts] = np.cumsum(euclidean_distance(a, b))
+                    ## distance from axis_origin to first point
+                    origin_coords = np.asarray([ axis_origin if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ])
+                    origin_pt = self.ev(*origin_coords, chunk_size=interp_chunk_size).reshape(1,3)
+                    origin_dist = euclidean_distance(origin_pt, b[0, :].reshape(1,3))
                     if sgn < 0:
-                        distances.append(np.negative(d))
+                        distances.append(np.negative(dist + origin_dist))
                     else:
-                        distances.append(d)
+                        distances.append(dist + origin_dist)
                     if return_coords:
                         pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
                         for i, col in enumerate(pcoords):
