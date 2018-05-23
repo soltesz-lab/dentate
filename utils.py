@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import yaml
 import pprint
+import logging
 
 
 class IncludeLoader(yaml.Loader):
@@ -75,7 +76,13 @@ def nested_convert_scalars(data):
     return data
 
 
-def list_find (f, lst):
+def list_find(f, lst):
+    """
+
+    :param f:
+    :param lst:
+    :return:
+    """
     i=0
     for x in lst:
         if f(x):
@@ -86,6 +93,11 @@ def list_find (f, lst):
 
 
 def list_argsort(f, seq):
-    # http://stackoverflow.com/questions/3382352/equivalent-of-numpy-argsort-in-basic-python/3383106#3383106
-    #lambda version by Tony Veijalainen
+    """
+    http://stackoverflow.com/questions/3382352/equivalent-of-numpy-argsort-in-basic-python/3383106#3383106
+    lambda version by Tony Veijalainen
+    :param f:
+    :param seq:
+    :return:
+    """
     return [i for i,x in sorted(enumerate(seq), key = lambda x: f(x[1]))]

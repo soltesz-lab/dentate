@@ -5,13 +5,11 @@ __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 import click
 from dentate.utils import *
 from dentate.neuron_utils import *
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
-    write_cell_attributes
 from dentate.env import Env
 from dentate.cells import *
-from dentate.synapses import *
+from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
+    write_cell_attributes
 from dentate import lpt, lfp, simtime
-import logging
 
 
 # Estimate cell complexity. Code by Michael Hines from the discussion thread
@@ -171,10 +169,9 @@ def lfpout(env, output_path, lfp):
     output.close()
 
 
-def connectcells(env):
+def connectcells(env, cleanup=True):
     """
-    TODO: Add garbage collection of SynapseAttribute and BiophsCell objects by default, but configurable during
-    network tuning.
+    TODO: cleanup might need to be more granular than binary
     :param env:
     """
     logger = env.logger
@@ -183,13 +180,9 @@ def connectcells(env):
     rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
 
-    if env.verbose:
-        if env.pc.id() == 0:
-            logger.info('*** Connectivity file path is %s' % connectivityFilePath)
-
-    if env.verbose:
-        if env.pc.id() == 0:
-            logger.info('*** Reading projections: ')
+    if env.verbose and rank == 0:
+        logger.info('*** Connectivity file path is %s' % connectivityFilePath)
+        logger.info('*** Reading projections: ')
 
     for (postsyn_name, presyn_names) in env.projection_dict.iteritems():
 
@@ -239,14 +232,20 @@ def connectcells(env):
                                                                 io_size=env.IOsize)
         cell_synapses_dict = {k: v for (k, v) in cell_attributes_dict['Synapse Attributes']}
         if cell_attributes_dict.has_key(weights_namespace):
-            has_weights = True
             cell_weights_dict = {k: v for (k, v) in cell_attributes_dict[weights_namespace]}
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info('*** Found synaptic weights for population %s' % (postsyn_name))
-        else:
-            has_weights = False
-            cell_weights_dict = None
+            first_gid = None
+            for gid in cell_weights_dict:
+                if first_gid is None:
+                    first_gid = gid
+                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
+                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'AMPA')
+                    if syn_name == 'weight':
+                        syn_name = 'AMPA'
+                    syn_attrs.load_syn_weights(gid, syn_name, cell_weights_dict[gid]['syn_id'],
+                                               cell_weights_dict[gid][syn_name])
+                    if env.verbose and rank == 0 and gid == first_gid:
+                        logger.info('*** connectcells: population: %s; gid: %i; found %i %s synaptic weights' %
+                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
         del cell_attributes_dict
 
         first_gid = None
@@ -255,17 +254,17 @@ def connectcells(env):
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
-                biophys_cell = BiophysCell(gid=gid, population=postsyn_name, hoc_cell=env.pc.gid2cell(gid))
+                biophys_cell = BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
                     init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
                                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connectcells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
-                env.biophys_cells[gid] = biophys_cell
+                env.biophys_cells[postsyn_name][gid] = biophys_cell
                 if env.verbose and rank == 0 and gid == first_gid:
-                    print 'connectcells: population: %s; gid: %i; loaded biophysics from path: %s' % \
-                          (postsyn_name, gid, mech_file_path)
+                    logger.info('*** connectcells: population: %s; gid: %i; loaded biophysics from path: %s' %
+                                (postsyn_name, gid, mech_file_path))
 
         for presyn_name in presyn_names:
 
@@ -296,31 +295,13 @@ def connectcells(env):
             for (postsyn_gid, edges) in edge_iter:
 
                 postsyn_cell = env.pc.gid2cell(postsyn_gid)
-
-                if has_weights:
-                    # TODO: use syn_attrs.load_weights(), and pull weights from syn_mech_attr_dict instead
-                    cell_wgt_dict = cell_weights_dict[postsyn_gid]
-                    syn_names = cell_wgt_dict.keys()
-                    syn_names.remove('syn_id')
-                    syn_wgt_dict = defaultdict(dict)
-                    for i, syn_id in enumerate(cell_wgt_dict['syn_id']):
-                        for syn_name in syn_names:
-                            # TODO: this is here for backwards compatibility; cell_wgt_dict should contain keys
-                            # corresponding to the syn_name (e.g. 'AMPA') instead of 'weight'
-                            if syn_name == 'weight':
-                                syn_wgt_dict['AMPA'][int(syn_id)] = float(cell_wgt_dict[syn_name][i])
-                            else:
-                                syn_wgt_dict[syn_name][int(syn_id)] = float(cell_wgt_dict[syn_name][i])
-                else:
-                    syn_wgt_dict = None
-
                 presyn_gids = edges[0]
                 edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
                 edge_dists = edges[1]['Connections'][distance_attr_index]
 
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
-                edge_syn_ps_dict = \
+                edge_syn_obj_dict = \
                     mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
                            env.edge_count[postsyn_name][presyn_name],
                            add_synapse=add_unique_synapse if unique else add_shared_synapse)
@@ -330,27 +311,35 @@ def connectcells(env):
                         if env.edge_count[postsyn_name][presyn_name] == 0:
                             for sec in list(postsyn_cell.all):
                                 h.psection(sec=sec)
-                # TODO: Going forward, what is currently specified as 'weight', will instead be 'g_unit'
-                wgt_count = 0
-                for (presyn_gid, edge_syn_id, distance) in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
-                    syn_ps_dict = edge_syn_ps_dict[edge_syn_id]
-                    for (syn_name, syn_ps) in syn_ps_dict.iteritems():
+
+                for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+                    for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
                         delay = (distance / env.connection_velocity[presyn_name]) + 0.1
-                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn_ps, delay)
+                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
-                        if has_weights and syn_wgt_dict.has_key(syn_name) and \
-                                syn_wgt_dict[syn_name].has_key(edge_syn_id):
-                            weight = float(syn_wgt_dict[syn_name][edge_syn_id])
-                            this_nc.weight[0] = this_nc.weight[0] * weight
-                            wgt_count += 1
-                if env.verbose:
-                    if int(env.pc.id()) == 0:
-                        if env.edge_count[postsyn_name][presyn_name] == 0:
-                            logger.info('*** Found %i synaptic weights for gid %i' % (wgt_count, postsyn_gid))
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
+
+        first_gid = None
+        # this is a pre-built list to survive change in len during iteration
+        local_time = time.time()
+        for gid in cell_synapses_dict.keys():
+            if first_gid is None:
+                first_gid = gid
+                this_verbose = True
+            else:
+                this_verbose = False
+            # TODO: update_mech_attrs
+            config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=this_verbose)
+            if cleanup:
+                syn_attrs.cleanup(gid)
+                if gid in env.biophys_cells[postsyn_name]:
+                    del env.biophys_cells[postsyn_name][gid]
+        if env.verbose:
+            logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
+                        (rank, postsyn_name, time.time() - local_time))
 
 
 def connectgjs(env):
@@ -440,11 +429,6 @@ def mkcells(env):
         env.load_cell_template(popName)
         templateClass = getattr(h, env.celltypes[popName]['template'])
 
-        if env.celltypes[popName].has_key('synapses'):
-            synapses = env.celltypes[popName]['synapses']
-        else:
-            synapses = {}
-
         v_sample_set = set([])
         env.v_dict[popName] = {}
 
@@ -472,9 +456,8 @@ def mkcells(env):
             for (gid, tree) in trees:
                 if env.verbose:
                     if env.pc.id() == 0:
-                        logger.info("*** Creating gid %i" % gid)
+                        logger.info("*** Creating %s gid %i" % (popName, gid))
 
-                verboseflag = 0
                 model_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
                                                        dataset_path=datasetPath)
                 if env.verbose:
@@ -527,9 +510,8 @@ def mkcells(env):
             for (gid, cell_coords_dict) in coords:
                 if env.verbose:
                     if env.pc.id() == 0:
-                        logger.info("*** Creating gid %i" % gid)
+                        logger.info("*** Creating %s gid %i" % (popName, gid))
 
-                verboseflag = 0
                 model_cell = make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
@@ -664,13 +646,13 @@ def init(env):
     h.startsw()
     env.pc.barrier()
     connectcells(env)
-    env.connectcellstime = h.stopsw()
-    h.startsw()
     env.pc.barrier()
+    env.connectcellstime = h.stopsw()
     if env.pc.id() == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
     logger.info("*** Rank %i created %i connections" % (env.pc.id(), edge_count))
+    h.startsw()
     #connectgjs(env)
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
@@ -769,7 +751,7 @@ def run(env, output=True):
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-id", type=str, required=False, default='')
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--io-size", type=int, default=1)
+@click.option("--io-size", type=int, default=0)
 @click.option("--vrecord-fraction", type=float, default=0.001)
 @click.option("--coredat", is_flag=True)
 @click.option("--tstop", type=int, default=1)

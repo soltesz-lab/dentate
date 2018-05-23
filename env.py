@@ -1,7 +1,7 @@
 from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
-from dentate.cells import SynapseAttributes
+from dentate.synapses import SynapseAttributes
 
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',
@@ -47,7 +47,7 @@ class Env:
 
         self.gidlist = []
         self.cells = []
-        self.biophys_cells = {}
+        self.biophys_cells = defaultdict(dict)
 
         self.comm = comm
 
@@ -189,6 +189,11 @@ class Env:
 
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
+        if logger is None:
+            logging.basicConfig()
+            logger = logging.getLogger(os.path.basename(__file__))
+            if verbose:
+                logger.setLevel(logging.INFO)
         self.logger = logger
 
     def load_input_config(self):

@@ -44,8 +44,8 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, tstop, v_ini
 
     start_time = time.time()
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, io_size=comm.size, tstop=tstop,
-              verbose=verbose, logger=logger)
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, tstop=tstop, verbose=verbose,
+              logger=logger)
     context.update(locals())
     init(env)
     if run_test:
