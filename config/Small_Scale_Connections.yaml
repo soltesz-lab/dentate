@@ -60,6 +60,18 @@ Synapse Parameter Rules:
       - e
     netcon_params:
       weight: 0
+  AMPA_KIN:
+    mech_file: ampa_kin.mod
+    mech_params:
+      - gmax
+    netcon_params:
+      weight: 0
+  NMDA_KIN5:
+    mech_file: nmda_kin5.mod
+    mech_params:
+      - gmax
+    netcon_params:
+      weight: 0
 # full width in um [S-T, M-L]
 Axon Width:
   GC:   [900., 900.]

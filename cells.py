@@ -1095,8 +1095,9 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
-            raise RuntimeError('parse_mech_rules: problem inheriting mechanism: %s parameter: %s from origin: %s'
-                               ' in sec_type: %s' % (mech_name, param_name, rules['origin'], node.type))
+            raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for mechanism: %s '
+                               'parameter: %s from origin: %s in sec_type: %s' %
+                               (rules['origin'], mech_name, param_name, node.type))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
@@ -1225,7 +1226,8 @@ def zero_na(cell):
     """
     Set na channel conductances to zero in all compartments. Used during parameter optimization.
     """
-    for sec_type in default_ordered_sec_types:
+    for sec_type in (sec_type for sec_type in default_ordered_sec_types if sec_type in cell.nodes and
+                     sec_type in cell.mech_dict):
         for na_type in (na_type for na_type in ['nas', 'nax'] if na_type in cell.mech_dict[sec_type]):
             modify_mech_param(cell, sec_type, na_type, 'gbar', 0.)
 
@@ -1295,8 +1297,8 @@ def validate_syn_mech_param(env, syn_name, param_name):
 
 
 def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
-                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                      append=False, filters=None, verbose=False):
+                          xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
+                          append=False, filters=None, origin_filters=None, verbose=False):
     """
     Modifies a cell's mechanism dictionary to specify attributes of a synaptic mechanism by sec_type. This method is
     meant to be called manually during initial model specification, or during parameter optimization. For modifications 
@@ -1324,6 +1326,7 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
     :param custom: dict
     :param append: bool
     :param filters: dict
+    :param origin_filters: dict
     :param verbose: bool
     """
     if sec_type not in cell.nodes:
@@ -1333,15 +1336,25 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
                          'in sec_type: %s' % (syn_name, sec_type))
     if not validate_syn_mech_param(env, syn_name, param_name):
         raise ValueError('modify_syn_mech_param: synaptic mechanism: %s or parameter: %s not recognized by network '
-                                 'configuration' % (syn_name, param_name))
-    if value is None and origin is None:
-        raise ValueError('modify_syn_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
-                         'sec_type: %s' % (syn_name, param_name, sec_type))
+                         'configuration' % (syn_name, param_name))
+    if value is None:
+        if origin is None:
+            raise ValueError('modify_syn_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
+                             'sec_type: %s' % (syn_name, param_name, sec_type))
+        elif origin_filters is None:
+            raise ValueError('modify_syn_mech_param: mechanism: %s; parameter: %s; sec_type: %s cannot inherit from '
+                             'origin: %s without origin_filters' % (syn_name, param_name, sec_type, origin))
     rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min, max=max,
                                 min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
     if filters is not None:
         syn_filters = get_syn_filter_dict(env, filters)
         rules['filters'] = syn_filters
+
+    if origin_filters is not None:
+        origin_syn_filters = get_syn_filter_dict(env, origin_filters)
+        rules['origin_filters'] = origin_syn_filters
+
+    backup_mech_dict = copy.deepcopy(cell.mech_dict)
 
     mech_content = {param_name: rules}
 
@@ -1364,8 +1377,14 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
             cell.mech_dict[sec_type]['synapses'][syn_name][param_name].append(rules)
     # This syn_name has been specified, but not this parameter, or the user wants to replace an existing rule set
     else:
-
        cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
+
+    try:
+        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content)
+    except (KeyError, ValueError, AttributeError, RuntimeError):
+        cell.mech_dict = copy.deepcopy(backup_mech_dict)
+        raise RuntimeError('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s' %
+                           (syn_name, param_name, sec_type))
 
 
 def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content):
@@ -1406,12 +1425,18 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
         del rules['filters']
     else:
         filters = None
+    if 'origin_filters' in rules:
+        origin_filters = get_syn_filter_dict(env, rules['origin_filters'], convert=True)
+        rules = copy.deepcopy(rules)
+        del rules['origin_filters']
+    else:
+        origin_filters = None
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
-            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters)
+            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters, origin_filters)
 
 
-def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters):
+def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None):
     """
     For the provided synaptic mechanism and parameter, this method first determines the set of placeholder synapses in
     the provided node that match any provided filters. Then calls parse_syn_mech_rules to interpret the provided rules,
@@ -1423,6 +1448,7 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
     :param param_name: str
     :param rules: dict
     :param filters: dict: {category: list of int}
+    :param origin_filters: dict: {category: list of int}
     """
     gid = cell.gid
     syn_attrs = env.synapse_attributes
@@ -1434,21 +1460,105 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
         filtered_syn_indexes = get_filtered_syn_indexes(syn_id_attr_dict, sec_index_map[node.index], **filters)
     if len(filtered_syn_indexes) > 0:
         syn_ids = syn_id_attr_dict['syn_ids'][filtered_syn_indexes]
-        # TODO: allow 'origin' to be a filter_dict
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules)
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters)
 
 
-def specify_syn_mech_parameter(cell, node, gid, mech_name, param_name, baseline, rules, syn_type, env, donor=None):
+def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None):
     """
+    Provided a synaptic mechanism, a parameter, a node, and a set of syn_ids. Interprets the provided rules, calls
+    inherit_syn_mech_param to retrieve a value from a donor, if necessary. Sets placeholder values in the
+    syn_mech_attr_dict of a SynapseAttributes object.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param node: :class:'SHocNode'
+    :param syn_ids: array of int
+    :param syn_name: str
+    :param param_name: str
+    :param rules: dict
+    :param origin_filters: dict: {category: list of int}
+    :param donor: :class:'SHocNode'
+    """
+    # an 'origin' with no 'value' inherits a baseline value from an upstream synapse, consulting any origin_filters
+    # a 'value' with no 'origin' is independent of other sec_types
+    # an 'origin' with a 'value' uses the origin sec_type only as a reference point for applying a
+    # distance-dependent gradient
+    if 'origin' in rules and donor is None:
+        donor = get_donor(cell, node, rules['origin'])
+        if donor is None:
+            raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for mechanism: %s '
+                               'parameter: %s from origin: %s in sec_type: %s' %
+                               (rules['origin'], syn_name, param_name, node.type))
+    if 'value' in rules:
+        baseline = rules['value']
+    elif donor is None:
+        raise RuntimeError('parse_syn_mech_rules: cannot set mechanism: %s parameter: %s in sec_type: %s without a '
+                           'specified origin or value' % (syn_name, param_name, node.type))
+    else:
+        baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
+
+    if 'custom' in rules:
+        parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor)
+    elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
+        if donor is None:
+            raise RuntimeError('parse_syn_mech_rules: cannot specify mechanism: %s parameter: %s in sec_type: %s '
+                               'without a provided origin' % (syn_name, param_name, node.type))
+        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor)
+    else:
+        for syn_id in syn_ids:
+            syn_attrs = env.synapse_attributes
+            syn_attrs.set_mech_attrs(cell.gid, syn_id, syn_name, {param_name: baseline})
+
+
+def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
+    """
+    Follows path from donor to root until a synapse is located that matches the provided filter, then returns its value
+    for the requested parameter.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param donor: :class:'SHocNode'
+    :param syn_name: str
+    :param param_name: str
+    :param origin_filters: dict: {category: list of int}
+    :return: float
+    """
+    gid = cell.gid
+    syn_attrs = env.synapse_attributes
+    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
+    sec_index_map = syn_attrs.sec_index_map[gid]
+    if origin_filters is None:
+        filtered_syn_indexes = sec_index_map[donor.index]
+    else:
+        filtered_syn_indexes = get_filtered_syn_indexes(syn_id_attr_dict, sec_index_map[donor.index], **origin_filters)
+    if len(filtered_syn_indexes) > 0:
+        valid_syn_indexes = []
+        for syn_index in filtered_syn_indexes:
+            syn_id = syn_id_attr_dict['syn_ids'][syn_index]
+            if syn_attrs.has_mech_attrs(gid, syn_id, syn_name):
+                valid_syn_indexes.append(syn_index)
+        if len(valid_syn_indexes) > 0:
+            valid_syn_indexes.sort(key=lambda x: syn_id_attr_dict['syn_locs'][x])
+            syn_id = syn_id_attr_dict['syn_ids'][valid_syn_indexes[-1]]
+            return syn_attrs.get_mech_attrs(gid, syn_id, syn_name)[param_name]
+    if donor is cell.tree.root:
+        return
+    else:
+        return inherit_syn_mech_param(cell, env, donor.parent, syn_name, param_name, origin_filters)
+
+
+def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None):
+    """
+    TODO: Implement this.
     This method interprets an entry from the mechanism dictionary to set parameters for synapse_mechanism_attributes
     contained in this node. Appropriately implements slopes and inheritances.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
     :param node: :class:'SHocNode'
-    :param mech_name: str
+    :param syn_ids: array of int
+    :param syn_name: str
     :param param_name: str
     :param baseline: float
     :param rules: dict
-    :param syn_type: str
-    :param donor: :class:'SHocNode' or None
+    :param donor: :class:'SHocNode'
     """
     syn_category = mech_name.split(' ')[0]
     if 'min_loc' in rules:
@@ -1539,6 +1649,38 @@ def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
         parse_mech_rules(cell, node, mech_name, param_name, new_rules, donor)
 
 
+def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor):
+    """
+    If the provided node meets custom criteria, rules are modified and passed back to parse_mech_rules with the
+    'custom' item removed. Avoids having to determine baseline and donor over again.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param node: :class:'SHocNode'
+    :param syn_ids: array of int
+    :param syn_name: str
+    :param param_name: str
+    :param baseline: float
+    :param rules: dict
+    :param origin_filters: dict: {category: list of int}
+    :param donor: :class:'SHocNode' or None
+    """
+    if 'func' not in rules['custom'] or rules['custom']['func'] is None:
+        raise RuntimeError('parse_custom_syn_mech_rules: no custom function provided')
+    if rules['custom']['func'] in globals() and callable(globals()[rules['custom']['func']]):
+        func = globals()[rules['custom']['func']]
+    else:
+        raise RuntimeError('parse_custom_syn_mech_rules: problem locating custom function: %s' %
+                           rules['custom']['func'])
+    custom = copy.deepcopy(rules['custom'])
+    del custom['func']
+    new_rules = copy.deepcopy(rules)
+    del new_rules['custom']
+    new_rules['value'] = baseline
+    new_rules = func(cell, node, baseline, new_rules, donor, **custom)
+    if new_rules:
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, new_rules, donor)
+
+
 def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_order, **kwargs):
     """
     Allows the provided rule to be applied if the provided node meets specified branch order criterion.
@@ -1551,8 +1693,8 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     :return: dict or False
     """
     if branch_order is None:
-        raise RuntimeError('custom_filter_by_branch_order: custom argument: branch_order not provided for sec_type: %s' %
-                           node.type)
+        raise RuntimeError('custom_filter_by_branch_order: custom argument: branch_order not provided for sec_type: '
+                           '%s' % node.type)
     branch_order = int(branch_order)
     if get_branch_order(cell, node) < branch_order:
         return False
