@@ -1364,7 +1364,6 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
             cell.mech_dict[sec_type]['synapses'][syn_name][param_name].append(rules)
     # This syn_name has been specified, but not this parameter, or the user wants to replace an existing rule set
     else:
-
        cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
 
@@ -1436,6 +1435,7 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
         syn_ids = syn_id_attr_dict['syn_ids'][filtered_syn_indexes]
         # TODO: allow 'origin' to be a filter_dict
         parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules)
+
 
 def parse_syn_mech_content(cell, node, mech_name, param_name, rules, env, gid, syn_name):
     """
