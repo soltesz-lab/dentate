@@ -1017,7 +1017,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
             for node in cell.nodes[sec_type]:
                 try:
                     update_mechanism_by_node(cell, node, mech_name, mech_content)
-                except (AttributeError, NameError, ValueError, KeyError, RuntimeError):
+                except(AttributeError, NameError, ValueError, KeyError, RuntimeError):
                     raise RuntimeError
     except RuntimeError:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
@@ -1077,21 +1077,21 @@ def get_donor(cell, node, origin_type):
 
 def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
     """
-    This method loops through all the segments in a node and sets the value(s) for a single mechanism parameter by
-    interpreting the rules specified in the mechanism dictionary. Properly handles ion channel gradients and
-    inheritance of values from the closest segment of a specified type of section along the path from root. Also
-    handles rules with distance boundaries. Gradients can be specified as linear, exponential, or sigmoidal. Custom
-    functions can also be provided to specify arbitrary distributions.
+    Provided a membrane density mechanism, a parameter, a node, and a dict of rules. Interprets the provided rules,
+    including complex gradient and inheritance rules. Gradients can be specified as linear, exponential, or sigmoidal.
+    Custom functions can also be provided to specify more complex distributions. Calls inherit_mech_param to retrieve a
+    value from a donor node, if necessary. Calls set_mech_param to set the values of the actual hoc membrane density
+    mechanisms.
+    1) A 'value' with no 'origin' requires no further processing
+    2) An 'origin' with no 'value' requires a donor node to inherit a baseline value
+    3) An 'origin' with a 'value' requires a donor node to use as a reference point for applying a distance-dependent
+    gradient
     :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
     :param mech_name: str
     :param param_name: str
     :param rules: dict
     """
-    # an 'origin' with no 'value' inherits a baseline value from the origin sec_type
-    # a 'value' with no 'origin' is independent of other sec_types
-    # an 'origin' with a 'value' uses the origin sec_type only as a reference point for applying a
-    # distance-dependent gradient
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
@@ -1107,7 +1107,7 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
         if (mech_name == 'cable') and (param_name == 'spatial_res'):
             baseline = get_spatial_res(cell, donor)
         else:
-            baseline = inherit_mech_param(cell, donor, mech_name, param_name)
+            baseline = inherit_mech_param(donor, mech_name, param_name)
     if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
         if param_name == 'spatial_res':
             init_nseg(node.sec, baseline)
@@ -1115,26 +1115,16 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
             setattr(node.sec, param_name, baseline)
             init_nseg(node.sec, get_spatial_res(cell, node))
         node.reinit_diam()
+    elif 'custom' in rules:
+        parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor)
     else:
-        if 'custom' in rules:
-            parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor)
-        elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
-            if donor is None:
-                raise RuntimeError('parse_mech_rules: cannot specify mechanism: %s parameter: %s in sec_type: %s '
-                                   'without a provided origin' % (mech_name, param_name, node.type))
-            set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor)
-        elif mech_name == 'ions':
-            setattr(node.sec, param_name, baseline)
-        else:
-            node.sec.insert(mech_name)
-            setattr(node.sec, param_name + "_" + mech_name, baseline)
+        set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor)
 
 
-def inherit_mech_param(cell, donor, mech_name, param_name):
+def inherit_mech_param(donor, mech_name, param_name):
     """
     When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
-    returns the value of that parameter found in the section or final segment of the donor node.
-    :param cell: :class:'BiophysCell'
+    returns the value of the requested parameter from the segment closest to the end of the section.
     :param donor: :class:'SHocNode'
     :param mech_name: str
     :param param_name: str
@@ -1150,10 +1140,9 @@ def inherit_mech_param(cell, donor, mech_name, param_name):
                 return getattr(donor.sec(loc), param_name)
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
-    except (AttributeError, NameError, KeyError, ValueError, RuntimeError):
-        print 'RuntimeError: inherit_mech_param: problem inheriting %s mechanism: %s parameter: %s from sec_type: ' \
-              '%s' % (mech_name, param_name, donor.type)
-        raise RuntimeError
+    except(AttributeError, NameError, KeyError, ValueError, RuntimeError):
+        raise RuntimeError('inherit_mech_param: problem inheriting %s mechanism: %s parameter: %s from sec_type: %s' %
+                           (mech_name, param_name, donor.type))
 
 
 def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=None):
@@ -1166,60 +1155,87 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
     :param rules: dict
     :param donor: :class:'SHocNode' or None
     """
-    if donor is None:
-        raise Exception('Cannot specify mechanism: %s parameter: %s in sec_type: %s without a provided origin' %
-                        (mech_name, param_name, node.type))
-    if 'min_loc' in rules:
-        min_distance = rules['min_loc']
-    else:
-        min_distance = None
-    if 'max_loc' in rules:
-        max_distance = rules['max_loc']
-    else:
-        max_distance = None
-    min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)
-    max_seg_distance = get_distance_to_node(cell, donor, node, (0.5 + node.sec.nseg - 1) / node.sec.nseg)
-    # if any part of the section is within the location constraints, insert the mechanism, and specify
-    # the parameter at the segment level
-    if (min_distance is None or max_seg_distance >= min_distance) and \
-            (max_distance is None or min_seg_distance <= max_distance):
-        if not mech_name == 'ions':
+    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
+        if mech_name == 'ions':
+            setattr(node.sec, param_name, baseline)
+        else:
             node.sec.insert(mech_name)
-        if min_distance is None:
-            min_distance = 0.
-        for seg in node.sec:
-            seg_loc = get_distance_to_node(cell, donor, node, seg.x)
-            if seg_loc >= min_distance and (max_distance is None or seg_loc <= max_distance):
-                if 'slope' in rules:
-                    seg_loc -= min_distance
-                    if 'tau' in rules:
-                        if 'xhalf' in rules:  # sigmoidal gradient
-                            offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
-                            value = offset + rules['slope'] /\
-                                             (1. + np.exp((rules['xhalf'] - seg_loc) / rules['tau']))
-                        else:  # exponential gradient
-                            offset = baseline - rules['slope']
-                            value = offset + rules['slope'] * np.exp(seg_loc / rules['tau'])
-                    else:  # linear gradient
-                        value = baseline + rules['slope'] * seg_loc
-                    if 'min' in rules and value < rules['min']:
-                        value = rules['min']
-                    elif 'max' in rules and value > rules['max']:
-                        value = rules['max']
-                else:
-                    value = baseline
-            # by default, if only some segments in a section meet the location constraints, the parameter inherits
-            # the mechanism's default value. if another value is desired, it can be specified via an 'outside' key
-            # in the mechanism dictionary entry
-            elif 'outside' in rules:
-                value = rules['outside']
-            else:
-                value = None
-            if value is not None:
-                if mech_name == 'ions':
-                    setattr(seg, param_name, value)
-                else:
-                    setattr(getattr(seg, mech_name), param_name, value)
+            setattr(node.sec, param_name + "_" + mech_name, baseline)
+    elif donor is None:
+        raise RuntimeError('set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s '
+                           'without a provided origin' % (mech_name, param_name, node.type))
+    else:
+        min_distance = rules['min_loc'] if 'min_loc' in rules else 0.
+        max_distance = rules['max_loc'] if 'max_loc' in rules else None
+        min_val = rules['min'] if 'min' in rules else None
+        max_val = rules['max'] if 'max' in rules else None
+        slope = rules['slope'] if 'slope' in rules else None
+        tau = rules['tau'] if 'tau' in rules else None
+        xhalf = rules['xhalf'] if 'xhalf' in rules else None
+        outside = rules['outside'] if 'outside' in rules else None
+
+        # No need to insert the mechanism into the section if no segment matches location constraints
+        min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)
+        max_seg_distance = get_distance_to_node(cell, donor, node, (0.5 + node.sec.nseg - 1) / node.sec.nseg)
+        if (min_distance is None or max_seg_distance > min_distance) and \
+                (max_distance is None or min_seg_distance <= max_distance):
+            # insert the mechanism first
+            if not mech_name == 'ions':
+                node.sec.insert(mech_name)
+            if min_distance is None:
+                min_distance = 0.
+            for seg in node.sec:
+                distance = get_distance_to_node(cell, donor, node, seg.x)
+                value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val, max_val,
+                                  tau, xhalf, outside)
+                if value is not None:
+                    if mech_name == 'ions':
+                        setattr(seg, param_name, value)
+                    else:
+                        setattr(getattr(seg, mech_name), param_name, value)
+
+
+def get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance=None, min_val=None, max_val=None, 
+                              tau=None, xhalf=None, outside=None):
+    """
+    By default, if only some segments or synapses in a section meet the location constraints, the parameter inherits the
+    mechanism's default value. if another value is desired, it can be specified via an 'outside' key in the mechanism
+    dictionary entry.
+    :param distance: float 
+    :param baseline: float
+    :param slope: float
+    :param min_distance: float 
+    :param max_distance: float
+    :param min_val: float
+    :param max_val: float
+    :param tau: float
+    :param xhalf: float
+    :param outside: float
+    :return: float
+    """
+    if distance > min_distance and (max_distance is None or distance <= max_distance):
+        if slope is not None:
+            distance -= min_distance
+            if tau is not None:
+                if xhalf is not None:  # sigmoidal gradient
+                    offset = baseline - slope / (1. + np.exp(xhalf / tau))
+                    value = offset + slope / (1. + np.exp((xhalf - distance) / tau))
+                else:  # exponential gradient
+                    offset = baseline - slope
+                    value = offset + slope * np.exp(distance / tau)
+            else:  # linear gradient
+                value = baseline + slope * distance
+            if min_val is not None and value < min_val:
+                value = min_val
+            elif max_val is not None and value > max_val:
+                value = max_val
+        else:
+            value = baseline
+    elif outside is not None:
+        value = outside
+    else:
+        value = None
+    return value
 
 
 def zero_na(cell):
@@ -1381,7 +1397,7 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
 
     try:
         update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content)
-    except (KeyError, ValueError, AttributeError, RuntimeError):
+    except(KeyError, ValueError, AttributeError, NameError, RuntimeError):
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         raise RuntimeError('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s' %
                            (syn_name, param_name, sec_type))
@@ -1465,9 +1481,15 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
 
 def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None):
     """
-    Provided a synaptic mechanism, a parameter, a node, and a set of syn_ids. Interprets the provided rules, calls
-    inherit_syn_mech_param to retrieve a value from a donor, if necessary. Sets placeholder values in the
+    Provided a synaptic mechanism, a parameter, a node, a list of syn_ids, and a dict of rules. Interprets the provided
+    rules, including complex gradient and inheritance rules. Gradients can be specified as linear, exponential, or
+    sigmoidal. Custom functions can also be provided to specify more complex distributions. Calls inherit_syn_mech_param
+    to retrieve a value from a donor node, if necessary. Calls set_syn_mech_params to sets placeholder values in the
     syn_mech_attr_dict of a SynapseAttributes object.
+    1) A 'value' with no 'origin' requires no further processing
+    2) An 'origin' with no 'value' requires a donor node to inherit a baseline value
+    3) An 'origin' with a 'value' requires a donor node to use as a reference point for applying a distance-dependent
+    gradient
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
     :param node: :class:'SHocNode'
@@ -1478,40 +1500,28 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param origin_filters: dict: {category: list of int}
     :param donor: :class:'SHocNode'
     """
-    # an 'origin' with no 'value' inherits a baseline value from an upstream synapse, consulting any origin_filters
-    # a 'value' with no 'origin' is independent of other sec_types
-    # an 'origin' with a 'value' uses the origin sec_type only as a reference point for applying a
-    # distance-dependent gradient
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
-            raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for mechanism: %s '
-                               'parameter: %s from origin: %s in sec_type: %s' %
+            raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic '
+                               'mechanism: %s parameter: %s in sec_type: %s' %
                                (rules['origin'], syn_name, param_name, node.type))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
-        raise RuntimeError('parse_syn_mech_rules: cannot set mechanism: %s parameter: %s in sec_type: %s without a '
-                           'specified origin or value' % (syn_name, param_name, node.type))
+        raise RuntimeError('parse_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in '
+                           'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
-
     if 'custom' in rules:
         parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor)
-    elif 'min_loc' in rules or 'max_loc' in rules or 'slope' in rules:
-        if donor is None:
-            raise RuntimeError('parse_syn_mech_rules: cannot specify mechanism: %s parameter: %s in sec_type: %s '
-                               'without a provided origin' % (syn_name, param_name, node.type))
-        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor)
-    else:
-        for syn_id in syn_ids:
-            syn_attrs = env.synapse_attributes
-            syn_attrs.set_mech_attrs(cell.gid, syn_id, syn_name, {param_name: baseline})
+    set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
     """
-    Follows path from donor to root until a synapse is located that matches the provided filter, then returns its value
+    Follows path from the provided donor node to root until synapses are located that match the provided filter. Returns
+    the requested parameter value from the synapse closest to the end of the section.
     for the requested parameter.
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
@@ -1547,9 +1557,9 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None):
     """
-    TODO: Implement this.
-    This method interprets an entry from the mechanism dictionary to set parameters for synapse_mechanism_attributes
-    contained in this node. Appropriately implements slopes and inheritances.
+    Provided a synaptic mechanism, a parameter, a node, a list of syn_ids, and a dict of rules. Sets placeholder values
+    for each provided syn_id in the syn_mech_attr_dict of a SynapseAttributes object. If the provided rules specify a
+    distance-dependent gradient, a baseline value and a donor node are required as reference points.
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
     :param node: :class:'SHocNode'
@@ -1560,62 +1570,36 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     :param rules: dict
     :param donor: :class:'SHocNode'
     """
-    syn_category = mech_name.split(' ')[0]
-    if 'min_loc' in rules:
-        min_distance = rules['min_loc']
+    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
+        for syn_id in syn_ids:
+            syn_attrs = env.synapse_attributes
+            syn_attrs.set_mech_attrs(cell.gid, syn_id, syn_name, {param_name: baseline})
+    elif donor is None:
+        raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in sec_type: '
+                           '%s without a provided donor node' % (syn_name, param_name, node.type))
     else:
-        min_distance = 0.
-    if 'max_loc' in rules:
-        max_distance = rules['max_loc']
-    else:
-        max_distance = None
-    if 'variance' in rules and rules['variance'] == 'normal':
-        normal = True
-    else:
-        normal = False
-    syn_idxs = get_filtered_syn_indexes(env.synapse_attributes.syn_id_attr_dict[gid],
-                                       env.synapse_attributes.sec_index_map[node.index], syn_category=syn_category)
-    syn_locs = env.synapse_attributes.syn_id_attr_dict[gid]['syn_locs'][syn_idxs]
-    syn_ids = env.synapse_attributes.syn_id_attr_dict[gid]['syn_ids'][syn_idxs]
-    syn_mech_attr_dict = env.synapse_attributes.syn_mech_attr_dict[gid]
-    for i in xrange(len(syn_locs)):
-        loc = syn_locs[i]
-        this_syn_id = syn_ids[i]
-        if this_syn_id not in syn_mech_attr_dict:
-            syn_mech_attr_dict[this_syn_id] = defaultdict(dict)
-        if syn_type not in syn_mech_attr_dict[this_syn_id]:
-            syn_mech_attr_dict[this_syn_id][syn_type] = {}
-        if donor is None:
-            value = baseline
-        else:
-            distance = get_distance_to_node(cell, donor, node, loc)
-            # If only some synapses in a section meet the location constraints, the synaptic parameter will
-            # maintain its default value in all other locations. values for other locations must be specified
-            # with an additional entry in the mechanism dictionary.
-            if distance >= min_distance and (max_distance is None or distance <= max_distance):
-                if 'slope' in rules:
-                    distance -= min_distance
-                    if 'tau' in rules:
-                        if 'xhalf' in rules:  # sigmoidal gradient
-                            offset = baseline - rules['slope'] / (1. + np.exp(rules['xhalf'] / rules['tau']))
-                            value = offset + rules['slope'] / (1. + np.exp((rules['xhalf'] - distance) /
-                                                                           rules['tau']))
-                        else:  # exponential gradient
-                            offset = baseline - rules['slope']
-                            value = offset + rules['slope'] * np.exp(distance / rules['tau'])
-                    else:  # linear gradient
-                        value = baseline + rules['slope'] * distance
-                    if 'min' in rules and value < rules['min']:
-                        value = rules['min']
-                    elif 'max' in rules and value > rules['max']:
-                        value = rules['max']
-                else:
-                    value = baseline
-        if normal:
-            value = cell.random.normal(value, value / 6.)
-        if 'attrs' not in syn_mech_attr_dict[this_syn_id][syn_type]:
-            syn_mech_attr_dict[this_syn_id][syn_type]['attrs'] = {}
-        syn_mech_attr_dict[this_syn_id][syn_type]['attrs'][param_name] = value
+        min_distance = rules['min_loc'] if 'min_loc' in rules else 0.
+        max_distance = rules['max_loc'] if 'max_loc' in rules else None
+        min_val = rules['min'] if 'min' in rules else None
+        max_val = rules['max'] if 'max' in rules else None
+        slope = rules['slope'] if 'slope' in rules else None
+        tau = rules['tau'] if 'tau' in rules else None
+        xhalf = rules['xhalf'] if 'xhalf' in rules else None
+        outside = rules['outside'] if 'outside' in rules else None
+
+        gid = cell.gid
+        syn_attrs = env.synapse_attributes
+        syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
+        syn_id_attr_index_map = syn_attrs.syn_id_attr_index_map[gid]
+
+        for syn_id in syn_ids:
+            syn_index = syn_id_attr_index_map[syn_id]
+            syn_loc = syn_id_attr_dict['syn_locs'][syn_index]
+            distance = get_distance_to_node(cell, donor, node, syn_loc)
+            value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val, max_val,
+                                              tau, xhalf, outside)
+            if value is not None:
+                syn_attrs.set_mech_attrs(cell.gid, syn_id, syn_name, {param_name: value})
 
 
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
