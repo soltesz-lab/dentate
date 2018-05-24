@@ -1071,7 +1071,8 @@ def get_donor(cell, node, origin_type):
     elif origin_type in cell.nodes:
         donor = get_node_along_path_to_root(cell, node, origin_type)
     else:
-        raise ValueError('get_donor: unknown origin_type: %s' % origin_type)
+        print 'ValueError: get_donor: unknown origin_type: %s' % origin_type
+        raise ValueError
     return donor
 
 
@@ -1095,14 +1096,15 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
-            raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for mechanism: %s '
-                               'parameter: %s from origin: %s in sec_type: %s' %
-                               (rules['origin'], mech_name, param_name, node.type))
+            print 'RuntimeError: parse_syn_mech_rules: problem identifying donor of origin_type: %s for mechanism: %s ' \
+                  'parameter: %s from origin: %s in sec_type: %s' % (rules['origin'], mech_name, param_name, node.type)
+            raise RuntimeError
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
-        raise RuntimeError('parse_mech_rules: cannot set mechanism: %s parameter: %s in sec_type: %s without a '
-                           'specified origin or value' % (mech_name, param_name, node.type))
+        print 'RuntimeError: parse_mech_rules: cannot set mechanism: %s parameter: %s in sec_type: %s without a ' \
+              'specified origin or value' % (mech_name, param_name, node.type)
+        raise RuntimeError
     else:
         if (mech_name == 'cable') and (param_name == 'spatial_res'):
             baseline = get_spatial_res(cell, donor)
@@ -1141,8 +1143,9 @@ def inherit_mech_param(donor, mech_name, param_name):
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
     except(AttributeError, NameError, KeyError, ValueError, RuntimeError):
-        raise RuntimeError('inherit_mech_param: problem inheriting %s mechanism: %s parameter: %s from sec_type: %s' %
-                           (mech_name, param_name, donor.type))
+        print 'RuntimeError: inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' % \
+              (mech_name, param_name, donor.type)
+        raise RuntimeError
 
 
 def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=None):
@@ -1162,8 +1165,9 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
             node.sec.insert(mech_name)
             setattr(node.sec, param_name + "_" + mech_name, baseline)
     elif donor is None:
-        raise RuntimeError('set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s '
-                           'without a provided origin' % (mech_name, param_name, node.type))
+        print 'RuntimeError: set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s ' \
+              'without a provided origin' % (mech_name, param_name, node.type)
+        raise RuntimeError
     else:
         min_distance = rules['min_loc'] if 'min_loc' in rules else 0.
         max_distance = rules['max_loc'] if 'max_loc' in rules else None
@@ -1264,7 +1268,8 @@ def get_syn_filter_dict(env, rules, convert=False):
     rules_dict = {}
     for name in rules:
         if name not in valid_filter_names:
-            raise ValueError('modify_syn_mech_param: %s not a recognized category to filter synapses' % name)
+            print 'ValueError: modify_syn_mech_param: %s not a recognized category to filter synapses' % name
+            raise ValueError
     rules_dict.update(rules)
     if 'syn_types' in rules_dict:
         for i, syn_type in enumerate(rules_dict['syn_types']):
