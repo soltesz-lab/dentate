@@ -1204,16 +1204,16 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
                         setattr(getattr(seg, mech_name), param_name, value)
 
 
-def get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance=None, min_val=None, max_val=None, 
+def get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance=None, min_val=None, max_val=None,
                               tau=None, xhalf=None, outside=None):
     """
     By default, if only some segments or synapses in a section meet the location constraints, the parameter inherits the
     mechanism's default value. if another value is desired, it can be specified via an 'outside' key in the mechanism
     dictionary entry.
-    :param distance: float 
+    :param distance: float
     :param baseline: float
     :param slope: float
-    :param min_distance: float 
+    :param min_distance: float
     :param max_distance: float
     :param min_val: float
     :param max_val: float
@@ -1326,7 +1326,7 @@ def validate_syn_mech_param(env, syn_name, param_name):
 
 def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                           xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                          append=False, filters=None, origin_filters=None, verbose=False):
+                          append=False, filters=None, origin_filters=None, verbose=False, config_syn_mech=False):
     """
     Modifies a cell's mechanism dictionary to specify attributes of a synaptic mechanism by sec_type. This method is
     meant to be called manually during initial model specification, or during parameter optimization. For modifications 
@@ -1408,14 +1408,14 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
        cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
     try:
-        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content)
+        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, config_syn_mech)
     except(KeyError, ValueError, AttributeError, NameError, RuntimeError):
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         raise RuntimeError('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s' %
                            (syn_name, param_name, sec_type))
 
 
-def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content):
+def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, config_syn_mech=False):
     """
     For the provided sec_type and synaptic mechanism, this method loops through the parameters specified in the
     mechanism dictionary, interprets the rules, and sets placeholder values in the syn_mech_attr_dict of a
@@ -1429,13 +1429,15 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content):
     for param_name in mech_content:
         # accommodate either a dict, or a list of dicts specifying rules for a single parameter
         if isinstance(mech_content[param_name], dict):
-            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content[param_name])
+            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content[param_name],
+                                              config_syn_mech)
         elif isinstance(mech_content[param_name], list):
             for mech_content_entry in mech_content[param_name]:
-                update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry)
+                update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry,
+                                                  config_syn_mech)
 
 
-def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules):
+def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, config_syn_mech=False):
     """
     For the provided synaptic mechanism and parameter, this method loops through nodes of the provided sec_type,
     interprets the provided rules, and sets placeholder values in the syn_mech_attr_dict of a SynapseAttributes object.
@@ -1461,10 +1463,12 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
         origin_filters = None
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
-            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters, origin_filters)
+            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters, origin_filters,
+                                          config_syn_mech)
 
 
-def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None):
+def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
+                                  config_syn_mech=False):
     """
     For the provided synaptic mechanism and parameter, this method first determines the set of placeholder synapses in
     the provided node that match any provided filters. Then calls parse_syn_mech_rules to interpret the provided rules,
@@ -1488,10 +1492,11 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
         filtered_syn_indexes = get_filtered_syn_indexes(syn_id_attr_dict, sec_index_map[node.index], **filters)
     if len(filtered_syn_indexes) > 0:
         syn_ids = syn_id_attr_dict['syn_ids'][filtered_syn_indexes]
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters)
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters, config_syn_mech=config_syn_mech)
 
 
-def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None):
+def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None,
+                         config_syn_mech=False):
     """
     Provided a synaptic mechanism, a parameter, a node, a list of syn_ids, and a dict of rules. Interprets the provided
     rules, including complex gradient and inheritance rules. Gradients can be specified as linear, exponential, or
@@ -1526,8 +1531,9 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
     if 'custom' in rules:
-        parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor)
-    set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor)
+        parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor, config_syn_mech)
+    else:
+        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor, config_syn_mech)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
@@ -1567,7 +1573,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
         return inherit_syn_mech_param(cell, env, donor.parent, syn_name, param_name, origin_filters)
 
 
-def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None):
+def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None, config_syn_mech=False):
     """
     Provided a synaptic mechanism, a parameter, a node, a list of syn_ids, and a dict of rules. Sets placeholder values
     for each provided syn_id in the syn_mech_attr_dict of a SynapseAttributes object. If the provided rules specify a
@@ -1612,6 +1618,8 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
                                               tau, xhalf, outside)
             if value is not None:
                 syn_attrs.set_mech_attrs(cell.gid, syn_id, syn_name, {param_name: value})
+    if config_syn_mech:
+        config_syns_from_mech_attrs(gid, env, syn_name, syn_ids=syn_ids, insert=False)
 
 
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
@@ -1649,7 +1657,7 @@ def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
         parse_mech_rules(cell, node, mech_name, param_name, new_rules, donor)
 
 
-def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor):
+def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor, config_syn_mech=False):
     """
     If the provided node meets custom criteria, rules are modified and passed back to parse_mech_rules with the
     'custom' item removed. Avoids having to determine baseline and donor over again.
@@ -1678,7 +1686,7 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, new_rules, donor)
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, new_rules, donor, config_syn_mech)
 
 
 def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_order, **kwargs):
