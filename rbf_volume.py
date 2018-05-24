@@ -336,7 +336,7 @@ class RBFVolume(object):
         origin_pts = origin_pts.reshape(3, -1).T
         oind = np.lexsort(tuple([ origin_coords[:,i] for i in aidx ]))
         origin_sorted = origin_pts[oind]
-        
+
         for (sgn, axes) in ordered_axes:
 
             npts = axes[axis].shape[0]
@@ -356,6 +356,13 @@ class RBFVolume(object):
                 rind = np.lexsort(tuple([ ref_coords[:,i] for i in aidx ]))
                 ref_sorted = ref_point[rind]
                 cdist = euclidean_distance(origin_sorted, ref_sorted)
+                for i in xrange(0,len(cdist)):
+                    if abs(cdist[i] < 1e-3):
+                        cdist[i] = 0.
+                distances.append(sgn * cdist)
+                if return_coords:
+                    for i in xrange(0,3):
+                        coords[i].append(ref_coords[rind,i])
                 for i in xrange(0, npts-1):
                     a = split_pts[i+1]
                     b = split_pts[i]
@@ -370,8 +377,9 @@ class RBFVolume(object):
                     distances.append(sgn * cdist)
                     if return_coords:
                         for i in xrange(0,3):
-                            coords[i].append(b_coords[bind,i])
+                            coords[i].append(a_coords[aind,i])
 
+                            
         if return_coords:
             return distances, coords
         else:

@@ -6,7 +6,6 @@
 import sys, time, gc, itertools
 from collections import defaultdict
 import numpy as np
-
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -97,16 +96,15 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, res=2, interp_chunk_size=1000, verbose=False):
+def get_volume_distances (ip_vol, nsample=100, res=3, alpha_radius=120., interp_chunk_size=1000, verbose=False):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
     ----------
     ip_vol : RBFVolume
         An interpolated volume instance of class RBFVolume.
-    res : int
-        Resampling factor for the U, V, L coordinates of the volume. 
-        This parameter will be used to resample the volume and reduce the error of the arc distance calculation.
+    nsample : int
+        Number of points to sample inside the volume.
     Returns
     -------
     (Y1, X1, ... , YN, XN) where N is the number of dimensions of the volume.
@@ -119,34 +117,76 @@ def get_volume_distances (ip_vol, res=2, interp_chunk_size=1000, verbose=False):
     if verbose:
         logger.setLevel(logging.INFO)
 
-    logger.info('Resampling volume...')
-    U, V, L = ip_vol._resample_uvl(res, res, res)
+    span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
 
-    origin_coords = np.asarray([np.median(U), np.median(V), np.max(L)])
+    origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
     logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
-    
-    logger.info('Computing U distances...')
-    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0, origin_coords=origin_coords, interp_chunk_size=interp_chunk_size)
-    obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
-                        np.concatenate(obs_dist_u[1]), \
-                        np.concatenate(obs_dist_u[2])]).T
-    obs_u = obs_uvl
-    distances_u = np.concatenate(ldist_u)
 
-    logger.info('U coord min: %f max: %f' % (np.min(U), np.max(U)))
-    logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
-    
-    logger.info('Computing V distances...')
-    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1, origin_coords=origin_coords, interp_chunk_size=interp_chunk_size)
-    obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
-                        np.concatenate(obs_dist_v[1]), \
-                        np.concatenate(obs_dist_v[2])]).T
-    obs_v = obs_uvl
-    distances_v = np.concatenate(ldist_v)
+    if verbose:
+        logger.info("Constructing alpha shape...")
+    tri = ip_vol.create_triangulation()
+    alpha = alpha_shape([], alpha_radius, tri=tri)
 
-    logger.info('V coord min: %f max: %f' % (np.min(V), np.max(V)))
-    logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
+    vert = alpha.points
+    smp  = np.asarray(alpha.bounds, dtype=np.int64)
+
+    N = nsample*2 # total number of nodes
+    node_count = 0
+    itr = 1
+
+    if verbose:
+        logger.info("Generating %i nodes..." % N)
+    while node_count < nsample:
+        # create N quasi-uniformly distributed nodes
+        nodes, smpid = menodes(N,vert,smp,itr=itr)
+    
+        # remove nodes outside of the domain
+        in_nodes = nodes[contains(nodes,vert,smp)]
+                              
+        node_count = len(in_nodes)
+        itr = int(itr / 2)
+
+    xyz_coords = in_nodes.reshape(-1,3)
+    uvl_coords_interp = ip_vol.inverse(xyz_coords)
+
+    if verbose:
+        logger.info("%i nodes generated" % node_count)
+
         
+    logger.info('Computing distances...')
+    ldists_u = []
+    ldists_v = []
+    obss_u = []
+    obss_v = []
+    for uvl in uvl_coords_interp:
+        sample_U = uvl[0]
+        sample_V = uvl[1]
+        sample_L = uvl[2]
+        ldist_u, obs_dist_u = ip_vol.point_distance(span_U, sample_V, sample_L, axis=0, \
+                                                    origin_coords=origin_coords, \
+                                                    interp_chunk_size=interp_chunk_size)
+        ldist_v, obs_dist_v = ip_vol.point_distance(sample_U, span_V, sample_L, axis=1, \
+                                                    origin_coords=origin_coords, \
+                                                    interp_chunk_size=interp_chunk_size)
+        obs_u = np.array([np.concatenate(obs_dist_u[0]), \
+                          np.concatenate(obs_dist_u[1]), \
+                          np.concatenate(obs_dist_u[2])]).T
+        obs_v = np.array([np.concatenate(obs_dist_v[0]), \
+                          np.concatenate(obs_dist_v[1]), \
+                          np.concatenate(obs_dist_v[2])]).T
+        ldists_u.append(ldist_u)
+        ldists_v.append(ldist_v)
+        obss_u.append(obs_u)
+        obss_v.append(obs_v)
+
+    distances_u = np.concatenate(ldists_u).reshape(-1)
+    obs_u = np.concatenate(obss_u)
+    distances_v = np.concatenate(ldists_v).reshape(-1)
+    obs_v = np.concatenate(obss_v)
+    
+    logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
+    logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
+
     return (distances_u, obs_u, distances_v, obs_v)
 
 

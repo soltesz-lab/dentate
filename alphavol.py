@@ -64,6 +64,7 @@ def free_boundary(simplices):
                         simplices[:,[0, 1, 3]], \
                         simplices[:,[0, 2, 3]], \
                         simplices[:,[1, 2, 3]]))
+
     ## Find unique facets                    
     ufacets, counts = np.unique(facets,return_counts=True,axis=0)
 
@@ -90,7 +91,9 @@ def alpha_shape(pts,radius,tri=None):
 
 ##   Based on MATLAB code by Jonas Lundgren <splinefit@gmail.com>
 
-
+    if tri is None:
+        assert(len(pts) > 0)
+    
 ## Check coordinates
     if tri is None:
         dim = pts.shape[1]
@@ -109,6 +112,7 @@ def alpha_shape(pts,radius,tri=None):
     if tri is None:
         tri = Delaunay(pts)
 
+    
     ## Check for zero volume tetrahedra since
     ## these can be of arbitrary large circumradius
     holes = False
@@ -125,7 +129,7 @@ def alpha_shape(pts,radius,tri=None):
     rccidxs = np.where(rcc < radius)[0]
     T       = tri.simplices[rccidxs,:]
     rcc     = rcc[rccidxs]
-    
+
     bnd = free_boundary(T)
     
     return AlphaShape(tri.points, T, bnd)

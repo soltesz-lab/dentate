@@ -381,27 +381,21 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     return ax
 
 
-def plot_positions(coords_path, population, distances_namespace='Arc Distances', 
-                    binSize=25., fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
-    :param coords_path:
-    :param distances_namespace: 
-    :param population: 
+    :param label: 
+    :param distances: 
 
     """
-    
-        
-    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
-    
         
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
     distance_U = {}
     distance_V = {}
-    for k,v in soma_distances:
+    for k,v in distances.iteritems():
         distance_U[k] = v['U Distance'][0]
         distance_V[k] = v['V Distance'][0]
     
@@ -418,7 +412,6 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
 
     (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
 
-
     ax.axis([x_min, x_max, y_min, y_max])
 
     X, Y = np.meshgrid(xedges, yedges)
@@ -426,7 +419,7 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('Position distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
@@ -434,7 +427,7 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = population+' Positions.png' 
+            filename = label+' Positions.png' 
             plt.savefig(filename)
 
     if showFig:
