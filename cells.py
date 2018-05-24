@@ -1237,12 +1237,11 @@ def get_syn_filter_dict(env, rules, convert=False):
     :return: dict
     """
     valid_filter_names = ['syn_types', 'layers', 'sources']
-    rules_dict = {}
     for name in rules:
         if name not in valid_filter_names:
             print 'ValueError: get_syn_filter_dict: unrecognized filter category: %s' % name
             raise ValueError
-    rules_dict.update(rules)
+    rules_dict = copy.deepcopy(rules)
     if 'syn_types' in rules_dict:
         for i, syn_type in enumerate(rules_dict['syn_types']):
             if syn_type not in env.Synapse_Types:
@@ -1418,21 +1417,20 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     :param rules: dict
     :param update_targets: bool
     """
-    if 'filters' in rules:
-        filters = get_syn_filter_dict(env, rules['filters'], convert=True)
-        rules = copy.deepcopy(rules)
-        del rules['filters']
+    new_rules = copy.deepcopy(rules)
+    if 'filters' in new_rules:
+        filters = get_syn_filter_dict(env, new_rules['filters'], convert=True)
+        del new_rules['filters']
     else:
         filters = None
-    if 'origin_filters' in rules:
-        origin_filters = get_syn_filter_dict(env, rules['origin_filters'], convert=True)
-        rules = copy.deepcopy(rules)
-        del rules['origin_filters']
+    if 'origin_filters' in new_rules:
+        origin_filters = get_syn_filter_dict(env, new_rules['origin_filters'], convert=True)
+        del new_rules['origin_filters']
     else:
         origin_filters = None
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
-            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters, origin_filters,
+            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
                                           update_targets)
 
 
