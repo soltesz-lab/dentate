@@ -28,8 +28,7 @@ class BiophysCell(object):
         :param pop_name: str
         :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
         :param mech_file_path: str (path)
-        :param swc_type_defs: dict; {str: int}
-        :param ordered_swc_types: list of str
+        :param env: :class:'Env'
         """
         self._gid = gid
         self._pop_name = pop_name
@@ -54,41 +53,6 @@ class BiophysCell(object):
                 self.spike_detector = connect2target(self, self.soma[0].sec)
             if self.mech_file_path is not None:
                 import_mech_dict_from_file(self, self.mech_file_path)
-    
-    def _get_closest_synapse_attribute(self, node, loc, syn_category, syn_type=None, downstream=True):
-        """
-        This method finds the closest synapse_attribute to the specified location within or downstream of the specified
-        node. Used for inheritance of synaptic mechanism parameters. Can also look upstream instead. Can also find the
-        closest synapse_attribute specifying parameters of a synaptic point_process of a specific type.
-        :param node: :class:'SHocNode'
-        :param loc: float
-        :param syn_category: str
-        :param syn_type: str
-        :param downstream: bool
-        :return: tuple: (:class:'SHocNode', int) : node containing synapse, syn_id
-        """
-        min_distance = 1.
-        target_index = None
-        this_synapse_attributes = node.get_filtered_synapse_attributes(syn_category=syn_category, syn_type=syn_type)
-        if this_synapse_attributes['syn_locs']:
-            for i in xrange(len(this_synapse_attributes['syn_locs'])):
-                this_syn_loc = this_synapse_attributes['syn_locs'][i]
-                distance = abs(loc - this_syn_loc)
-                if distance < min_distance:
-                    min_distance = distance
-                    target_index = this_synapse_attributes['syn_id'][i]
-            return node, target_index
-        else:
-            if downstream:
-                for child in (child for child in node.children if child.type not in ['spine_head', 'spine_neck']):
-                    target_node, target_index = self._get_closest_synapse_attribute(child, 0., syn_category, syn_type)
-                    if target_index is not None:
-                        return target_node, target_index
-                return node, None
-            elif node.parent is not None:  # stop at the root
-                return self._get_closest_synapse_attribute(node.parent, 1., syn_category, syn_type, downstream)
-            else:
-                return node, None
     
     @property
     def gid(self):
@@ -464,10 +428,13 @@ def get_spatial_res(cell, node):
         if donor is not None:
             return get_spatial_res(cell, donor)
         else:
-            raise RuntimeError('get_spatial_res: cannot inherit spatial resolution from origin_type: %s' %
-                               rules['origin'])
+            print 'RuntimeError: get_spatial_res: node: %s cannot inherit spatial resolution from origin_type: %s' % \
+                  (node.name, rules['origin'])
+            raise RuntimeError
     else:
-        raise RuntimeError('get_spatial_res: cannot set spatial resolution without a specified origin or value')
+        print 'RuntimeError: get_spatial_res: cannot set spatial resolution in node: %s without a specified origin ' \
+              'or value' % node.name
+        raise RuntimeError
 
 
 def import_morphology_from_hoc(cell, hoc_cell):
@@ -1273,13 +1240,13 @@ def get_syn_filter_dict(env, rules, convert=False):
     rules_dict = {}
     for name in rules:
         if name not in valid_filter_names:
-            print 'ValueError: modify_syn_mech_param: %s not a recognized category to filter synapses' % name
+            print 'ValueError: get_syn_filter_dict: unrecognized filter category: %s' % name
             raise ValueError
     rules_dict.update(rules)
     if 'syn_types' in rules_dict:
         for i, syn_type in enumerate(rules_dict['syn_types']):
             if syn_type not in env.Synapse_Types:
-                print 'ValueError: modify_syn_mech_param: syn_type: %s not recognized by network configuration' % \
+                print 'ValueError: get_syn_filter_dict: syn_type: %s not recognized by network configuration' % \
                       syn_type
                 raise ValueError
             if convert:
@@ -1287,14 +1254,14 @@ def get_syn_filter_dict(env, rules, convert=False):
     if 'layers' in rules_dict:
         for i, layer in enumerate(rules_dict['layers']):
             if layer not in env.layers:
-                print 'ValueError: modify_syn_mech_param: layer: %s not recognized by network configuration' % layer
+                print 'ValueError: get_syn_filter_dict: layer: %s not recognized by network configuration' % layer
                 raise ValueError
             if convert:
                 rules_dict['layers'][i] = env.layers[layer]
     if 'sources' in rules_dict:
         for i, source in enumerate(rules_dict['sources']):
             if source not in env.pop_dict:
-                print 'ValueError: modify_syn_mech_param: presynaptic population: %s not recognized by network ' \
+                print 'ValueError: get_syn_filter_dict: presynaptic population: %s not recognized by network ' \
                       'configuration' % source
                 raise ValueError
             if convert:
@@ -1520,14 +1487,16 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
-            raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic '
-                               'mechanism: %s parameter: %s in sec_type: %s' %
-                               (rules['origin'], syn_name, param_name, node.type))
+            print 'RuntimeError: parse_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic ' \
+                  'mechanism: %s parameter: %s in sec_type: %s' % \
+                  (rules['origin'], syn_name, param_name, node.type)
+            raise RuntimeError
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
-        raise RuntimeError('parse_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in '
-                           'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
+        print 'RuntimeError: parse_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in ' \
+              'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type)
+        raise RuntimeError
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
     if 'custom' in rules:
@@ -1593,8 +1562,9 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
             syn_attrs = env.synapse_attributes
             syn_attrs.set_mech_attrs(cell.gid, syn_id, syn_name, {param_name: baseline})
     elif donor is None:
-        raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in sec_type: '
-                           '%s without a provided donor node' % (syn_name, param_name, node.type))
+        print 'RuntimeError: set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in ' \
+              'sec_type: %s without a provided donor node' % (syn_name, param_name, node.type)
+        raise RuntimeError
     else:
         min_distance = rules['min_loc'] if 'min_loc' in rules else 0.
         max_distance = rules['max_loc'] if 'max_loc' in rules else None
@@ -1673,12 +1643,16 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     :param donor: :class:'SHocNode' or None
     """
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
-        raise RuntimeError('parse_custom_syn_mech_rules: no custom function provided')
+        print 'RuntimeError: parse_custom_syn_mech_rules: no custom function provided for synaptic mechanism: %s ' \
+              'parameter: %s in sec_type: %s' % (syn_name, param_name, node.type)
+        raise RuntimeError
     if rules['custom']['func'] in globals() and callable(globals()[rules['custom']['func']]):
         func = globals()[rules['custom']['func']]
     else:
-        raise RuntimeError('parse_custom_syn_mech_rules: problem locating custom function: %s' %
-                           rules['custom']['func'])
+        print 'RuntimeError: parse_custom_syn_mech_rules: problem locating custom function: %s for synaptic ' \
+              'mechanism: %s parameter: %s in sec_type: %s' % \
+              (rules['custom']['func'], syn_name, param_name, node.type)
+        raise RuntimeError
     custom = copy.deepcopy(rules['custom'])
     del custom['func']
     new_rules = copy.deepcopy(rules)
