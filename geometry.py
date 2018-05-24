@@ -122,11 +122,11 @@ def get_volume_distances (ip_vol, res=2, interp_chunk_size=1000, verbose=False):
     logger.info('Resampling volume...')
     U, V, L = ip_vol._resample_uvl(res, res, res)
 
-    axis_origins = [np.median(U), np.median(V), np.max(L)]
-    logger.info('Axis origins: %f %f %f' % (tuple(axis_origins)))
+    origin_coords = np.asarray([np.median(U), np.median(V), np.max(L)])
+    logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
     
     logger.info('Computing U distances...')
-    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0, axis_origin=axis_origins[0], interp_chunk_size=interp_chunk_size)
+    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0, origin_coords=origin_coords, interp_chunk_size=interp_chunk_size)
     obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
                         np.concatenate(obs_dist_u[1]), \
                         np.concatenate(obs_dist_u[2])]).T
@@ -137,7 +137,7 @@ def get_volume_distances (ip_vol, res=2, interp_chunk_size=1000, verbose=False):
     logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
     
     logger.info('Computing V distances...')
-    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1, axis_origin=axis_origins[1], interp_chunk_size=interp_chunk_size)
+    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1, origin_coords=origin_coords, interp_chunk_size=interp_chunk_size)
     obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
                         np.concatenate(obs_dist_v[1]), \
                         np.concatenate(obs_dist_v[2])]).T
@@ -212,14 +212,21 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
                 except Exception as e:
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
+                    raise e
                 gids.append(gid)
         if len(uvl_obs) > 0:
             uvl_obs_array = np.vstack(uvl_obs)
             k = uvl_obs_array.shape[0]
             distance_u = dist_u(uvl_obs_array, chunk_size=interp_chunk_size)
             distance_v = dist_v(uvl_obs_array, chunk_size=interp_chunk_size)
-            assert(np.all(np.isfinite(distance_u)))
-            assert(np.all(np.isfinite(distance_v)))
+            try:
+                assert(np.all(np.isfinite(distance_u)))
+                assert(np.all(np.isfinite(distance_v)))
+            except Exception as e:
+                print 'distance_u: ', distance_u
+                print 'distance_v: ', distance_v
+                raise e
+                
         for (i,gid) in enumerate(gids):
             local_dist_dict[gid] = (distance_u[i], distance_v[i])
             if rank == 0:

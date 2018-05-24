@@ -167,12 +167,13 @@ class RBFVolume(object):
         hrl = np.interp(newlndxs, *nls)
         return hru, hrv, hrl
 
-    def ev(self, su, sv, sl, chunk_size=1000):
+    def ev(self, su, sv, sl, chunk_size=1000, return_coords=False):
         """Get point(s) in volume at (su, sv, sl).
 
         Parameters
         ----------
         u, v, l : scalar or array-like
+        return_coords : boolean, return the coordinates that were evaluated
 
         Returns
         -------
@@ -180,15 +181,18 @@ class RBFVolume(object):
         """
 
         U, V, L = np.meshgrid(su, sv, sl)
-        uvl_s = np.array([U.ravel(),V.ravel(),L.ravel()]).T
-        
-        X = self._xvol(uvl_s, chunk_size=chunk_size)
-        Y = self._yvol(uvl_s, chunk_size=chunk_size)
-        Z = self._zvol(uvl_s, chunk_size=chunk_size)
+        uvl_coords = np.array([U.ravel(),V.ravel(),L.ravel()]).T
+
+        X = self._xvol(uvl_coords, chunk_size=chunk_size)
+        Y = self._yvol(uvl_coords, chunk_size=chunk_size)
+        Z = self._zvol(uvl_coords, chunk_size=chunk_size)
 
         arr = np.array([X,Y,Z])
-        
-        return arr.reshape(3, len(U), -1)
+
+        if return_coords:
+            return (arr.reshape(3, len(U), -1), uvl_coords)
+        else:
+            return arr.reshape(3, len(U), -1)
 
     def inverse(self, xyz):
         """Get parametric coordinates (u, v, l) that correspond to the given x, y, z.
@@ -288,7 +292,7 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl, axis=0, interp_chunk_size=1000, axis_origin=None, return_coords=True):
+    def point_distance(self, su, sv, sl, axis=0, interp_chunk_size=1000, origin_coords=None, return_coords=True):
         """Cumulative distance between pairs of (u, v, l) coordinates.
 
         Parameters
@@ -297,7 +301,7 @@ class RBFVolume(object):
 
         axis: axis along which the distance should be computed
 
-        axis_origin: the origin coordinate for the given axes (the left-most coordinate if None)
+        origin_coords: the origin coordinates (the left-most coordinate of each axis if None)
 
         return_coords: if True, returns the coordinates for which computed distance (default: True)
 
@@ -311,48 +315,62 @@ class RBFVolume(object):
         l = np.array([sl]).reshape(-1,)
 
         input_axes = [u, v, l]
-        if axis_origin is None:
-            axis_origin = input_axes[axis][0]
+        if origin_coords is None:
+           origin_coords = np.asarray([ input_axes[i][0] for i in xrange(0,3) ])
 
-        c = input_axes[axis]
-        
-        cl = (np.sort(c[np.where(c <= axis_origin)[0]]))[::-1]
-        cr = np.sort(c[np.where(c >  axis_origin)[0]])
+        c = input_axes
 
-        ordered_axes = [(-1, [ cl if i == axis else x for (i, x) in enumerate(input_axes) ]), \
-                        (1, [ cr if i == axis else x for (i, x) in enumerate(input_axes) ])]
-        
-        aidx = [0,1,2]
+        cl = [ (np.sort(c[i][np.where(c[i] <= origin_coords[i])[0]]))[::-1] if i == axis else c[i] for i in xrange(0,3) ]
+        cr = [ (np.sort(c[i][np.where(c[i] > origin_coords[i])[0]])) if i == axis else c[i] for i in xrange(0,3) ]
+
+        ordered_axes = [ (-1, cl), (1, cr) ]
+
+        aidx = list(xrange(0,3))
         aidx.remove(axis)
-
-        distances = []
-        coords    = [ [] for i in xrange(0,3) ]
-        for (sgn, axes) in ordered_axes:
-            
-            npts = axes[axis].shape[0]
         
+        distances = []
+        coords   = [ [] for i in xrange(0,3) ]
+
+        origin_axes = [ origin_coords[i] if i == axis else c[i] for i in xrange(0,3) ]
+        (origin_pts, origin_coords) = self.ev(*origin_axes, return_coords=True)
+        origin_pts = origin_pts.reshape(3, -1).T
+        oind = np.lexsort(tuple([ origin_coords[:,i] for i in aidx ]))
+        origin_sorted = origin_pts[oind]
+        
+        for (sgn, axes) in ordered_axes:
+
+            npts = axes[axis].shape[0]
+
             if npts > 1:
-                paxes = [ axes[i] for i in aidx ]
-                prod = cartesian_product(paxes)
-                for ip, p in enumerate(prod):
-                    ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
-                    pts  = self.ev(*ecoords, chunk_size=interp_chunk_size).reshape(3, -1).T
-                    a = pts[1:,:]
-                    b = pts[0:npts-1,:]
-                    dist = np.zeros(npts,)
-                    dist[1:npts] = np.cumsum(euclidean_distance(a, b))
-                    ## distance from axis_origin to first point
-                    origin_coords = np.asarray([ axis_origin if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ])
-                    origin_pt = self.ev(*origin_coords, chunk_size=interp_chunk_size).reshape(1,3)
-                    origin_dist = euclidean_distance(origin_pt, b[0, :].reshape(1,3))
-                    if sgn < 0:
-                        distances.append(np.negative(dist + origin_dist))
-                    else:
-                        distances.append(dist + origin_dist)
+                (eval_pts, eval_coords) = self.ev(*axes, chunk_size=interp_chunk_size, return_coords=True)
+                coord_idx = np.argsort(eval_coords[:,axis])
+                if sgn < 0:
+                    coord_idx = coord_idx[::-1]
+                all_pts = (eval_pts.reshape(3, -1).T)[coord_idx,:]
+                all_pts_coords = eval_coords[coord_idx,:]
+                split_pts = np.split(all_pts, npts)
+                split_pts_coords = np.split(all_pts_coords, npts)
+                ## distance from axis_origin to first point
+                ref_point  = split_pts[0]
+                ref_coords = split_pts_coords[0]
+                rind = np.lexsort(tuple([ ref_coords[:,i] for i in aidx ]))
+                ref_sorted = ref_point[rind]
+                cdist = euclidean_distance(origin_sorted, ref_sorted)
+                for i in xrange(0, npts-1):
+                    a = split_pts[i+1]
+                    b = split_pts[i]
+                    a_coords = split_pts_coords[i+1]
+                    b_coords = split_pts_coords[i]
+                    aind = np.lexsort(tuple([ a_coords[:,i] for i in aidx ]))
+                    bind = np.lexsort(tuple([ b_coords[:,i] for i in aidx ]))
+                    a_sorted = a[aind]
+                    b_sorted = b[bind]
+                    dist = euclidean_distance(a_sorted, b_sorted)
+                    cdist = cdist + dist
+                    distances.append(sgn * cdist)
                     if return_coords:
-                        pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
-                        for i, col in enumerate(pcoords):
-                            coords[i].append(col)
+                        for i in xrange(0,3):
+                            coords[i].append(b_coords[bind,i])
 
         if return_coords:
             return distances, coords
@@ -507,7 +525,7 @@ class RBFVolume(object):
 
         
     def copy(self):
-        """Get a copy of the surface
+        """Get a copy of the volume
         """
         from copy import deepcopy
         return deepcopy(self)
