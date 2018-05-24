@@ -464,6 +464,32 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                                  (param, mech_name))
 
 
+def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
+    """
+
+    :param syn_name: str
+    :param rules: dict to correctly parse params for specified hoc mechanism
+    :param param_name: str
+    :param mech_names: dict to convert syn_name to hoc mechanism name
+    :param nc: :class:'h.NetCon'
+    """
+    if mech_names is not None:
+        mech_name = mech_names[syn_name]
+    else:
+        mech_name = syn_name
+    if nc is not None:
+        syn = nc.syn()
+        if param_name in rules[mech_name]['mech_params']:
+            if syn is not None and hasattr(syn, param_name):
+                return getattr(syn, param_name)
+        elif param_name in rules[mech_name]['netcon_params']:
+            i = rules[mech_name]['netcon_params'][param_name]
+            if nc.wcnt() >= i:
+                return nc.weight[i]
+    raise AttributeError('get_syn_mech_param: problem setting attribute: %s for synaptic mechanism: %s' %
+                         (param_name, mech_name))
+
+
 def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shared_synapse):
     """
 
