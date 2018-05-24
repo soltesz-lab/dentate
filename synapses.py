@@ -1,6 +1,5 @@
 from dentate.utils import *
 from dentate.neuron_utils import *
-# from dentate.cells import *
 
 
 class SynapseAttributes(object):
