@@ -23,7 +23,7 @@ def main(coords_path, distances_namespace, population, verbose):
 
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
     
-    plot.plot_positions (soma_distances, population, verbose=verbose)
+    plot.plot_positions (population, soma_distances, verbose=verbose)
         
 
 if __name__ == '__main__':

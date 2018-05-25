@@ -253,6 +253,7 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                     raise e
+                uvl_obs.append(np.array([soma_u,soma_v,limits[1][2]]).reshape(1,3))
                 gids.append(gid)
         if len(uvl_obs) > 0:
             uvl_obs_array = np.vstack(uvl_obs)

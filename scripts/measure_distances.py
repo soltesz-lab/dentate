@@ -94,13 +94,13 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
         (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty, extrapolate=False)
+                                       penalty=interp_penalty, extrapolate=True)
         coeff_dist_u = ip_dist_u._coeff
         del dist_u
         gc.collect()
         logger.info('Computing V volume distance interpolants...')
         ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty, extrapolate=False)
+                                       penalty=interp_penalty, extrapolate=True)
         coeff_dist_v = ip_dist_v._coeff
         del dist_v
         gc.collect()
@@ -112,9 +112,9 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
 
     ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty, extrapolate=False)
+                                   penalty=interp_penalty, extrapolate=True)
     ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty, extrapolate=False)
+                                   penalty=interp_penalty, extrapolate=True)
 
     
     output_path = coords_path
