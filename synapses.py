@@ -3,7 +3,7 @@ from collections import defaultdict
 import sys, os.path, string, math
 from neuron import h
 import numpy as np
-import cells
+from dentate import utils, neuron_utils
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,13 +54,14 @@ class SynapseAttributes(object):
     def load_syn_weights(self, gid, syn_name, syn_ids, weights):
         """
 
-        :param gid:
-        :param syn_ids:
-        :param weights:
+        :param gid: int
+        :param syn_name: str
+        :param syn_ids: array of int
+        :param weights: array of float
         """
         for i, syn_id in enumerate(syn_ids):
             params = {'weight': float(weights[i])}
-            self.append_mech_attrs(gid, syn_id, syn_name, params)
+            self.set_mech_attrs(gid, syn_id, syn_name, params)
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env, delays=None):
         """
@@ -154,7 +155,7 @@ class SynapseAttributes(object):
         else:
             return None
 
-    def append_mech_attrs(self, gid, syn_id, syn_name, params):
+    def set_mech_attrs(self, gid, syn_id, syn_name, params):
         """
 
         :param gid: int
@@ -470,6 +471,32 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
         if failed:
             raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
                                  (param, mech_name))
+
+
+def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
+    """
+
+    :param syn_name: str
+    :param rules: dict to correctly parse params for specified hoc mechanism
+    :param param_name: str
+    :param mech_names: dict to convert syn_name to hoc mechanism name
+    :param nc: :class:'h.NetCon'
+    """
+    if mech_names is not None:
+        mech_name = mech_names[syn_name]
+    else:
+        mech_name = syn_name
+    if nc is not None:
+        syn = nc.syn()
+        if param_name in rules[mech_name]['mech_params']:
+            if syn is not None and hasattr(syn, param_name):
+                return getattr(syn, param_name)
+        elif param_name in rules[mech_name]['netcon_params']:
+            i = rules[mech_name]['netcon_params'][param_name]
+            if nc.wcnt() >= i:
+                return nc.weight[i]
+    raise AttributeError('get_syn_mech_param: problem setting attribute: %s for synaptic mechanism: %s' %
+                         (param_name, mech_name))
 
 
 def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shared_synapse):
