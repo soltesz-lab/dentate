@@ -18,7 +18,9 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 import logging
 
-logger = logging.getLogger(__name__)
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = logging.getLogger('dentate.%s' % __name__)
 
 
 max_u = 11690.

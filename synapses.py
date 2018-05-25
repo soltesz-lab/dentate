@@ -6,7 +6,9 @@ import numpy as np
 from dentate import utils, neuron_utils
 import logging
 
-logger = logging.getLogger(__name__)
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = logging.getLogger('dentate.%s' % __name__)
 
 
 class SynapseAttributes(object):

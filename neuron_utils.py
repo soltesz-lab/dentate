@@ -1,4 +1,3 @@
-from dentate import utils
 try:
     from mpi4py import MPI  # Must come before importing NEURON
 except Exception:
@@ -75,7 +74,7 @@ def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
 
 
 ## Create gap junctions
-def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w, verbose):
+def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
     """
     Create gap junctions
     :param pc:
@@ -89,9 +88,6 @@ def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w, verbose):
     """
     cell = pc.gid2cell(gid)
 
-    if verbose:
-        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
-    
     sec = cell.sections[secidx]
     seg = sec(0.5)
     gj = ggap(seg)

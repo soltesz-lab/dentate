@@ -3,6 +3,10 @@ from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
+import logging
+logging.basicConfig()
+
+logger = logging.getLogger('dentate')
 
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',
@@ -55,9 +59,11 @@ class Env:
         self.colsep = ' '  # column separator for text data files
         self.bufsize = 100000  # buffer size for text data files
 
-        # print verbose diagnostic messages while constructing the network
+        # print verbose diagnostic messages
         self.verbose = verbose
-
+        if verbose:
+            logger.setLevel(logging.INFO)
+        
         # Directories for cell templates
         self.templatePaths = []
         if templatePaths is not None:
@@ -268,7 +274,7 @@ class Env:
 
         (population_ranges, _) = read_population_ranges(self.dataFilePath, self.comm)
         if rank == 0 and self.verbose:
-            print 'population_ranges = ', population_ranges
+            logger.info('population_ranges = %s' % str(population_ranges))
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
@@ -276,11 +282,11 @@ class Env:
 
         population_names  = read_population_names(self.dataFilePath, self.comm)
         if rank == 0 and self.verbose:
-            print 'population_names = ', population_names
+            logger.info('population_names = %s' % str(population_names))
         self.cellAttributeInfo = read_cell_attribute_info(self.dataFilePath, population_names, comm=self.comm)
 
         if rank == 0 and self.verbose:
-            print 'attribute info: ', self.cellAttributeInfo
+            logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
 
     def load_cell_template(self, popName):
         """
@@ -304,7 +310,7 @@ class Env:
                                   (popName, templateFile))
                 h.load_file(templateFilePath)
                 if rank == 0 and self.verbose:
-                    print 'Env.load_cell_templates: population: %s; templateFile loaded: %s' % \
-                          (popName, templateFilePath)
+                    logger.info('load_cell_templates: population: %s; templateFile loaded: %s' % \
+                                (popName, templateFilePath))
             else:
                 h.find_template(self.pc, h.templatePaths, templateName)

@@ -548,9 +548,6 @@ def test_surface(u, v, l):
     return np.array([x, y, z])
 
 def test_nodes():
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    
     from rbf.nodes import snap_to_boundary,disperse,menodes
     from rbf.geometry import contains
     from alphavol import alpha_shape

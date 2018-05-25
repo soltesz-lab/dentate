@@ -14,8 +14,10 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 from dentate.utils import list_index, random_clustered_shuffle, random_choice_w_replacement
 import logging
-logger = logging.getLogger(__name__)
 
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = logging.getLogger('dentate.%s' % __name__)
 
     
 class ConnectionProb(object):

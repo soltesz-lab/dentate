@@ -11,7 +11,9 @@ from dentate.env import Env
 import h5py
 import logging
 
-logger = logging.getLogger(__name__)
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = logging.getLogger('dentate.%s' % __name__)
 
 
 ## Code by Michael Hines from the discussion thread
@@ -419,8 +421,10 @@ def connectgjs(env):
                     weight    = weights[i]
                     if env.pc.gid_exists(source):
                         mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
+                        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", env.pc.id(), sourcve, srcbranch, srcsec, weight, ggid, ggid+1)
                     if env.pc.gid_exists(destination):
                         mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
+                        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", env.pc.id(), destination, dstbranch, dstsec, weight, ggid+1, ggid)
                     ggid = ggid+2
 
             del graph[name]
