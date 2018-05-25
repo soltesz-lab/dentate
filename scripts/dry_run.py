@@ -2,7 +2,8 @@
 Dentate Gyrus model initialization script
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
-from dentate.main import *
+
+from dentate import network
 from nested.utils import Context
 
 
@@ -36,20 +37,14 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, tstop, v_ini
     :param verbose: bool; print verbose diagnostic messages while constructing the network
     :param run_test: bool; run sim for duration tstop, do not save any output
     """
-    logging.basicConfig()
-    logger = logging.getLogger(os.path.basename(__file__))
-    if verbose:
-        logger.setLevel(logging.INFO)
-    comm = MPI.COMM_WORLD
 
     start_time = time.time()
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, tstop=tstop, verbose=verbose,
-              logger=logger)
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, tstop=tstop, verbose=verbose)
     context.update(locals())
-    init(env)
+    network.init(env)
     if run_test:
-        run(env, output=False)
+        network.run(env, output=False)
 
 
 if __name__ == '__main__':

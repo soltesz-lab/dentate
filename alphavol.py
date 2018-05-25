@@ -6,7 +6,6 @@ AlphaShape = namedtuple('AlphaShape', ['points', 'simplices', 'bounds'], verbose
 
 
 ## Volumes/areas of tetrahedra/triangles
-
 def volumes(simplices, points):
     
     A = points[simplices[:,0],:]

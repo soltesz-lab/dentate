@@ -1,24 +1,27 @@
 """
-Dentate Gyrus model initialization script
+Dentate Gyrus network initialization routines.
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
-import click
+
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
     write_cell_attributes
 from dentate import utils, neuron_utils, cells
 from dentate import lpt, lfp, simtime
 from dentate.env import Env
+import h5py
+import logging
 
-sys_excepthook = sys.excepthook
-def mpi_excepthook(type, value, traceback):
-    sys_excepthook(type, value, traceback)
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+logger = logging.getLogger(__name__)
 
-## Estimate cell complexity. Code by Michael Hines from the discussion thread
+
+## Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
+    """
+    Estimates cell complexity. Uses the LoadBalance class.
+
+    :param env: an instance of the `dentate.Env` class.
+    """
     rank = int(env.pc.id())
     lb = h.LoadBalance()
     if os.path.isfile("mcomplex.dat"):
@@ -30,9 +33,12 @@ def cx(env):
     return cxvec
 
 
-# for given cxvec on each rank what is the fractional load balance.
 def ld_bal(env):
-    logger = env.logger
+    """
+    For given cxvec on each rank, calculates the fractional load balance.
+
+    :param env: an instance of the `dentate.Env` class.
+    """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     cxvec = env.cxvec
@@ -43,9 +49,14 @@ def ld_bal(env):
         logger.info("*** expected load balance %.2f" % (sum_cx / nhosts / max_sum_cx))
 
 
-# Each rank has gidvec, cxvec: gather everything to rank 0, do lpt
-# algorithm and write to a balance file.
 def lpt_bal(env):
+    """
+    Load-balancing based on the LPT algorithm. 
+    Each rank has gidvec, cxvec: gather everything to rank 0, do lpt
+    algorithm and write to a balance file.    
+
+    :param env: an instance of the `dentate.Env` class.
+    """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -73,12 +84,12 @@ def lpt_bal(env):
 
 def mkout(env, results_filename):
     """
+    Creates simulation results file and adds H5Types group compatible with NeuroH5.
 
     :param env:
     :param results_filename:
     :return:
     """
-    import h5py
     datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
     dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
     dataFile      = h5py.File(dataFilePath,'r')
@@ -90,6 +101,7 @@ def mkout(env, results_filename):
 
 def spikeout(env, output_path, t_vec, id_vec):
     """
+    Writes spike time to specified NeuroH5 output file.
 
     :param env:
     :param output_path:
@@ -135,6 +147,7 @@ def spikeout(env, output_path, t_vec, id_vec):
 
 def vout(env, output_path, t_vec, v_dict):
     """
+    Writes intracellular voltage traces to specified NeuroH5 output file.
 
     :param env:
     :param output_path:
@@ -155,6 +168,7 @@ def vout(env, output_path, t_vec, v_dict):
 
 def lfpout(env, output_path, lfp):
     """
+    Writes local field potential voltage traces to specified HDF5 output file.
 
     :param env:
     :param output_path:
@@ -175,10 +189,14 @@ def lfpout(env, output_path, lfp):
 
 def connectcells(env, cleanup=True):
     """
+    Loads NeuroH5 connectivity file, instantiates the corresponding
+    synapse and network connection mechanisms for each postsynaptic cell.
+
+
     TODO: cleanup might need to be more granular than binary
     :param env:
+
     """
-    logger = env.logger
     connectivityFilePath = env.connectivityFilePath
     forestFilePath = env.forestFilePath
     rank = int(env.pc.id())
@@ -348,11 +366,12 @@ def connectcells(env, cleanup=True):
 
 def connectgjs(env):
     """
+    Loads NeuroH5 connectivity file, instantiates the corresponding
+    half-gap mechanisms on the pre- and post-junction cells.
 
     :param env:
     :return:
     """
-    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -409,11 +428,11 @@ def connectgjs(env):
 
 def mkcells(env):
     """
+    Instantiates cell templates according to population ranges and NeuroH5 morphology if present.
 
     :param env:
     :return:
     """
-    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -539,11 +558,13 @@ def mkcells(env):
 
 def mkstim(env):
     """
+    Loads spike train data from NeuroH5 file for those populations
+    that have 'Vector Stimulus' entry in the cell configuration.
 
     :param env:
     :return:
+
     """
-    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -584,10 +605,11 @@ def mkstim(env):
 
 def init(env):
     """
+    Initializes the network by calling mkcells, mkstim, connectcells, connectgjs.
+    Performs optional load balancing.
 
     :param env:
     """
-    logger = env.logger
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
     h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
@@ -693,11 +715,14 @@ def init(env):
 
 def run(env, output=True):
     """
-    Run the simulation
+    Runs network simulation. Assumes that procedure `init` has been
+    called with the network configuration proviedd by the `env`
+    argument.
+
     :param env:
     :param output: bool
+
     """
-    logger = env.logger
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -744,70 +769,3 @@ def run(env, output=True):
     env.pc.runworker()
     env.pc.done()
     h.quit()
-
-
-@click.command()
-@click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-paths", type=str, default='templates')
-@click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='.')
-@click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-id", type=str, required=False, default='')
-@click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--io-size", type=int, default=0)
-@click.option("--vrecord-fraction", type=float, default=0.001)
-@click.option("--coredat", is_flag=True)
-@click.option("--tstop", type=int, default=1)
-@click.option("--v-init", type=float, default=-75.0)
-@click.option("--stimulus-onset", type=float, default=1.0)
-@click.option("--max-walltime-hours", type=float, default=1.0)
-@click.option("--results-write-time", type=float, default=360.0)
-@click.option("--dt", type=float, default=0.025)
-@click.option("--ldbal", is_flag=True)
-@click.option("--lptbal", is_flag=True)
-@click.option('--verbose', '-v', is_flag=True)
-@click.option('--dry-run', is_flag=True)
-def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id, node_rank_file, io_size,
-         vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt, ldbal,
-         lptbal, verbose, dry_run):
-    """
-    :param config_file: str; model configuration file
-    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
-    :param hoc_lib_path: str; path to directory containing required hoc libraries
-    :param dataset_prefix: str; path to directory containing required neuroh5 data files
-    :param results_path: str; path to directory to export output files
-    :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
-    :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
-    :param io_size: int; the number of MPI ranks to be used for I/O operations
-    :param vrecord_fraction: float; fraction of cells to record intracellular voltage from
-    :param coredat: bool; Save CoreNEURON data
-    :param tstop: int; physical time to simulate (ms)
-    :param v_init: float; initialization membrane potential (mV)
-    :param stimulus_onset: float; starting time of stimulus (ms)
-    :param max_walltime_hours: float; maximum wall time (hours)
-    :param results_write_time: float; time to write out results at end of simulation
-    :param dt: float; simulation time step
-    :param ldbal: bool; estimate load balance based on cell complexity
-    :param lptbal: bool; calculate load balance with LPT algorithm
-    :param verbose: bool; print verbose diagnostic messages while constructing the network
-    :param dry_run: bool; whether to actually execute simulation after building network
-    """
-    logging.basicConfig()
-    logger = logging.getLogger(os.path.basename(__file__))
-    if verbose:
-        logger.setLevel(logging.INFO)
-    comm = MPI.COMM_WORLD
-
-    np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id,
-              node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
-              results_write_time, dt, ldbal, lptbal, verbose, logger=logger)
-
-    init(env)
-    if not dry_run:
-        run(env)
-
-
-if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index(os.path.basename(__file__))+1):])

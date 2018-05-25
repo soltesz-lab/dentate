@@ -1,3 +1,4 @@
+
 from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
@@ -19,7 +20,7 @@ class Env:
     def __init__(self, comm=None, configFile=None, templatePaths=None, hoclibPath=None, datasetPrefix=None,
                  resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False,
                  tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0, dt=0.025,
-                 ldbal=False, lptbal=False, verbose=False, logger=None, **kwargs):
+                 ldbal=False, lptbal=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param configFile: str; model configuration file
@@ -189,12 +190,6 @@ class Env:
 
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
-        if logger is None:
-            logging.basicConfig()
-            logger = logging.getLogger(os.path.basename(__file__))
-            if verbose:
-                logger.setLevel(logging.INFO)
-        self.logger = logger
 
     def load_input_config(self):
         """
