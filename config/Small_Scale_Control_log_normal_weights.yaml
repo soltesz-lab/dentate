@@ -1,23 +1,23 @@
 ## Model configuration of dentate gyrus network
 Model Name: dentatenet
-Dataset Name: Small_Scale_Control
-# Dataset Name: Small_Scale0207
+Dataset Name: Small_Scale
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-# Cell Data: DGC_forest_test_syns_20171019.h5
-# Cell Data: DGC_forest_test_20180207.h5
-# Cell Data: DGC_forest_syns_weights_20171121_compressed.h5
-Cell Data: DGC_forest_test_syns_20180322.h5
+# Cell Data: DGC_forest_test_syns_20180322.h5
+Cell Data: DG_small_scale_tree_syns_weights_20180413.h5
 Connection Data: DG_GC_test_connections_20180402.h5
-Connection Generator: !include Full_Scale_Connections.yaml
+Connection Generator: !include Small_Scale_Connections.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:
     template: DGC
+    templateFile: DGC_Template_minimal.hoc
+    mech_file_path: ../optimize_cells/mechanisms/20180209_DG_GC_hoc_leak_mech.yaml
     synapses:
-      spines: True
+      correct_for_spines: True
       weights: True
+      weights namespace: Log-Normal Weights
       density:
         apical:
           excitatory: # Excitatory https://www.ncbi.nlm.nih.gov/pubmed/2760687
@@ -53,7 +53,7 @@ Cell Types:
   MC:
     template: MossyCell
     synapses:
-      weights: True
+      weights: False
       density:
         apical:
           excitatory: 
