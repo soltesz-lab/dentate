@@ -5,13 +5,18 @@ from pathos.multiprocessing import ProcessPool
 import numpy as np
 import neo, elephant
 from quantities import s, ms, Hz
+from dentate import utils
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
+
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = utils.get_module_logger(__name__)
 
 ## Returns a list of arrays with consecutive values from data
 def consecutive(data):
     return np.split(data, np.where(np.diff(data) != 1)[0]+1)
 
-def read_spike_events(input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None, verbose = False):
+def read_spike_events(input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None):
 
     spkpoplst        = []
     spkindlst        = []
@@ -25,8 +30,7 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
 
     for pop_name in population_names:
 
-        if verbose:
-            print('Reading spike data for population %s...' % pop_name)
+        logger.info('Reading spike data for population %s...' % pop_name)
  
         spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id)
         this_num_cell_spks = 0
@@ -73,8 +77,7 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
                         
         # Limit to maxSpikes
         if (maxSpikes is not None) and (len(pop_spkts)>maxSpikes):
-            if verbose:
-                print('  Reading only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
+            logger.warn('  Reading only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
             sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(maxSpikes))
             pop_spkts   = pop_spkts[sample_inds]
             pop_spkinds = pop_spkinds[sample_inds]
@@ -87,8 +90,7 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
         spkindlst.append(np.take(pop_spkinds, sort_idxs))
         del pop_spkinds
         
-        if verbose:
-            print 'Read %i spikes for population %s' % (this_num_cell_spks, pop_name)
+        logger.warn('Read %i spikes for population %s' % (this_num_cell_spks, pop_name))
 
     return {'spkpoplst': spkpoplst, 'spktlst': spktlst, 'spkindlst': spkindlst, 'tmin': tmin, 'tmax': tmax,
             'pop_active_cells': pop_active_cells, 'num_cell_spks': num_cell_spks }
@@ -293,7 +295,7 @@ def mvcorrcoef(X,y):
     return r
 
 
-def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None, verbose=False):
+def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
     """Compute correlation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -328,8 +330,7 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None, 
         
         # Limit to maxElems
         if (maxElems is not None) and (x_matrix.shape[0]>maxElems):
-            if verbose:
-                print('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], pop_name))
+            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], pop_name))
             sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(maxElems))
             x_matrix = x_matrix[sample_inds,:]
 
@@ -352,7 +353,7 @@ def autocorr (y, lag):
     else:
         return r
 
-def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxElems=None, verbose=False):
+def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxElems=None):
     """Compute autocorrelation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -387,8 +388,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
         
         # Limit to maxElems
         if (maxElems is not None) and (x_matrix.shape[0]>maxElems):
-            if verbose:
-                print('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], pop_name))
+            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], pop_name))
             sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(maxElems))
             x_matrix = x_matrix[sample_inds,:]
 

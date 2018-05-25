@@ -1,17 +1,14 @@
 
-import sys, os, gc
+import sys, os, gc, click, logging
 import numpy as np
 import dentate
 from dentate import utils, spikedata
 from neuroh5.io import read_population_ranges, read_population_names
 from quantities import s, ms
 import h5py
-import click
-import logging
-logging.basicConfig()
 
 script_name = 'measure_inst_rates.py'
-logger = logging.getLogger(script_name)
+logger = utils.get_script_logger(script_name)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())

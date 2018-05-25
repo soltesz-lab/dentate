@@ -1,16 +1,13 @@
 
-import sys, os, gc
+import sys, os, gc, click, logging
 import numpy as np
 import dentate
 from dentate import utils, spikedata
 from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes
 import h5py
-import click
-import logging
-logging.basicConfig()
 
 script_name = 'measure_place_fields.py'
-logger = logging.getLogger(script_name)
+logger = utils.get_script_logger(script_name)
 
 @click.command()
 @click.option("--inst-rates-path", '-p', required=True, type=click.Path())

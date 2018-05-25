@@ -12,13 +12,12 @@ from rbf.interpolate import RBFInterpolant
 import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-from dentate.utils import list_index, random_clustered_shuffle, random_choice_w_replacement
-import logging
+from dentate import utils
+from utils import list_index, random_clustered_shuffle, random_choice_w_replacement
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
-logger = logging.getLogger('dentate.%s' % __name__)
-
+logger = utils.get_module_logger(__name__)
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -252,7 +251,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                      synapse_seed, connectivity_seed, cluster_seed,
                                      synapse_namespace, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
-                                     verbose=False, dry_run=False):
+                                     dry_run=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
     :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
@@ -269,8 +268,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     :param cache_size: how many cells to read ahead
     :param write_size: how many cells to write out at the same time
     """
-    if verbose:
-        logger.setLevel(logging.INFO)
         
     rank = comm.rank
 

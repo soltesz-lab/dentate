@@ -1,5 +1,5 @@
 
-import sys, os, gc
+import sys, os, gc, click, logging
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
 import h5py
@@ -8,12 +8,9 @@ import dentate
 from dentate.geometry import make_volume, icp_transform
 from dentate.env import Env
 import dentate.utils as utils
-import click
-import logging
-logging.basicConfig()
 
 script_name = 'project_somas.py'
-logger = logging.getLogger(script_name)
+logger = utils.get_script_logger(script_name)
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):

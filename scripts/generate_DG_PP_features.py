@@ -1,4 +1,4 @@
-import sys, os, time, gc
+import sys, os, time, gc, random, click, logging
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
@@ -6,13 +6,11 @@ import h5py
 import dentate
 from dentate.env import Env
 from dentate.geometry import DG_volume, make_volume, make_uvl_distance
-from dentate.utils import list_find, list_argsort
+from dentate.utils import list_find, list_argsort, get_script_logger
 from dentate.stimulus import generate_spatial_offsets
-import random, click, logging
-logging.basicConfig()
 
 script_name = 'generate_DG_PP_features.py'
-logger = logging.getLogger(script_name)
+logger = get_script_logger(script_name)
 
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells

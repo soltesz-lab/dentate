@@ -9,11 +9,10 @@ from dentate import utils, neuron_utils, cells
 from dentate import lpt, lfp, simtime
 from dentate.env import Env
 import h5py
-import logging
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
-logger = logging.getLogger('dentate.%s' % __name__)
+logger = utils.get_module_logger(__name__)
 
 
 ## Code by Michael Hines from the discussion thread
@@ -204,7 +203,7 @@ def connectcells(env, cleanup=True):
     rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
 
-    if env.verbose and rank == 0:
+    if rank == 0:
         logger.info('*** Connectivity file path is %s' % connectivityFilePath)
         logger.info('*** Reading projections: ')
 
@@ -236,9 +235,8 @@ def connectcells(env, cleanup=True):
         else:
             mech_file_path = None
 
-        if env.verbose:
-            if int(env.pc.id()) == 0:
-                logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
+        if int(env.pc.id()) == 0:
+            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
         if has_weights:
             cell_attr_namespaces = ['Synapse Attributes', weights_namespace]
@@ -267,7 +265,7 @@ def connectcells(env, cleanup=True):
                         syn_name = 'AMPA'
                     syn_attrs.load_syn_weights(gid, syn_name, cell_weights_dict[gid]['syn_id'],
                                                cell_weights_dict[gid][syn_name])
-                    if env.verbose and rank == 0 and gid == first_gid:
+                    if rank == 0 and gid == first_gid:
                         logger.info('*** connectcells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
         del cell_attributes_dict
@@ -286,7 +284,7 @@ def connectcells(env, cleanup=True):
                     raise IndexError('connectcells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
                 env.biophys_cells[postsyn_name][gid] = biophys_cell
-                if env.verbose and rank == 0 and gid == first_gid:
+                if rank == 0 and gid == first_gid:
                     logger.info('*** connectcells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
 
@@ -294,10 +292,8 @@ def connectcells(env, cleanup=True):
 
             env.edge_count[postsyn_name][presyn_name] = 0
 
-            if env.verbose:
-                if env.pc.id() == 0:
-                    print '*** Connecting %s -> %s' % (presyn_name, postsyn_name)
-                    logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
+            if env.pc.id() == 0:
+                logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
             if env.nodeRanks is None:
                 (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.IOsize,
@@ -330,11 +326,10 @@ def connectcells(env, cleanup=True):
                            env.edge_count[postsyn_name][presyn_name],
                            add_synapse=add_unique_synapse if unique else add_shared_synapse)
 
-                if env.verbose:
-                    if int(env.pc.id()) == 0:
-                        if env.edge_count[postsyn_name][presyn_name] == 0:
-                            for sec in list(postsyn_cell.all):
-                                h.psection(sec=sec)
+                if env.verbose and (int(env.pc.id()) == 0):
+                    if env.edge_count[postsyn_name][presyn_name] == 0:
+                        for sec in list(postsyn_cell.all):
+                            h.psection(sec=sec)
 
                 for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
                     for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
@@ -361,9 +356,9 @@ def connectcells(env, cleanup=True):
                 syn_attrs.cleanup(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
-        if env.verbose:
-            logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
-                        (rank, postsyn_name, time.time() - local_time))
+
+        logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
+                    (rank, postsyn_name, time.time() - local_time))
 
 
 def connectgjs(env):
@@ -394,9 +389,8 @@ def connectgjs(env):
 
         ggid = 2e6
         for name in gapjunctions.keys():
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info("*** Creating gap junctions %s" % name)
+            if env.pc.id() == 0:
+                logger.info("*** Creating gap junctions %s" % name)
             prj = graph[name]
             attrmap = a[name]
             weight_attr_idx = attrmap['Weight']+1
@@ -450,9 +444,8 @@ def mkcells(env):
     popNames.sort()
 
     for popName in popNames:
-        if env.verbose:
-            if env.pc.id() == 0:
-                logger.info("*** Creating population %s" % popName)
+        if env.pc.id() == 0:
+            logger.info("*** Creating population %s" % popName)
         env.load_cell_template(popName)
         templateClass = getattr(h, env.celltypes[popName]['template'])
 
@@ -465,32 +458,28 @@ def mkcells(env):
                 v_sample_set.add(gid)
 
         if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info("*** Reading trees for population %s" % popName)
+            if env.pc.id() == 0:
+                logger.info("*** Reading trees for population %s" % popName)
 
             if env.nodeRanks is None:
                 (trees, forestSize) = scatter_read_trees(dataFilePath, popName, comm=env.comm, io_size=env.IOsize)
             else:
                 (trees, forestSize) = scatter_read_trees(dataFilePath, popName, comm=env.comm, io_size=env.IOsize,
                                                          node_rank_map=env.nodeRanks)
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info("*** Done reading trees for population %s" % popName)
+            if env.pc.id() == 0:
+                logger.info("*** Done reading trees for population %s" % popName)
 
             h.numCells = 0
             i = 0
             for (gid, tree) in trees:
-                if env.verbose:
-                    if env.pc.id() == 0:
-                        logger.info("*** Creating %s gid %i" % (popName, gid))
+                if env.pc.id() == 0:
+                    logger.info("*** Creating %s gid %i" % (popName, gid))
 
                 model_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
                                                        dataset_path=datasetPath)
-                if env.verbose:
-                    if (rank == 0) and (i == 0):
-                        for sec in list(model_cell.all):
-                            h.psection(sec=sec)
+                if env.verbose and (rank == 0) and (i == 0):
+                    for sec in list(model_cell.all):
+                        h.psection(sec=sec)
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, int(env.pc.id()))
@@ -508,14 +497,12 @@ def mkcells(env):
                     env.v_dict[popName][gid] = v_vec
                 i = i + 1
                 h.numCells = h.numCells + 1
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info("*** Created %i cells" % i)
+            if env.pc.id() == 0:
+                logger.info("*** Created %i cells" % i)
 
         elif env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Coordinates'):
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info("*** Reading coordinates for population %s" % popName)
+            if env.pc.id() == 0:
+                logger.info("*** Reading coordinates for population %s" % popName)
 
             if env.nodeRanks is None:
                 cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, popName,
@@ -526,18 +513,16 @@ def mkcells(env):
                                                                     namespaces=['Coordinates'],
                                                                     node_rank_map=env.nodeRanks,
                                                                     comm=env.comm, io_size=env.IOsize)
-            if env.verbose:
-                if env.pc.id() == 0:
-                    logger.info("*** Done reading coordinates for population %s" % popName)
+            if env.pc.id() == 0:
+                logger.info("*** Done reading coordinates for population %s" % popName)
 
             coords = cell_attributes_dict['Coordinates']
 
             h.numCells = 0
             i = 0
             for (gid, cell_coords_dict) in coords:
-                if env.verbose:
-                    if env.pc.id() == 0:
-                        logger.info("*** Creating %s gid %i" % (popName, gid))
+                if env.pc.id() == 0:
+                    logger.info("*** Creating %s gid %i" % (popName, gid))
 
                 model_cell = make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
 
@@ -592,15 +577,12 @@ def mkstim(env):
                                                                     comm=env.comm, io_size=env.IOsize)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             for (gid, vecstim_dict) in cell_vecstim:
-                if env.verbose:
-                    if rank == 0:
-                        logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
-                    if len(vecstim_dict['spiketrain']) > 0:
-                        logger.info("*** Spike train for gid %i is of length %i (first spike at %g ms)" % (
-                        gid, len(vecstim_dict['spiketrain']), vecstim_dict['spiketrain'][0]))
-                    else:
-                        logger.info(
-                            "*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain'])))
+                if rank == 0:
+                    logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
+                if len(vecstim_dict['spiketrain']) > 0:
+                    logger.info("*** Spike train for gid %i is of length %i (first spike at %g ms)" % (gid, len(vecstim_dict['spiketrain']), vecstim_dict['spiketrain'][0]))
+                else:
+                    logger.info("*** Spike train for gid %i is of length %i" % (gid, len(vecstim_dict['spiketrain'])))
 
                 vecstim_dict['spiketrain'] += env.stimulus_onset
                 cell = env.pc.gid2cell(gid)

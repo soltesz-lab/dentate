@@ -6,7 +6,7 @@ from dentate.synapses import SynapseAttributes
 import logging
 logging.basicConfig()
 
-logger = logging.getLogger('dentate')
+logger = get_root_logger()
 
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',

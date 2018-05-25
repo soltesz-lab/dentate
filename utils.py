@@ -5,6 +5,8 @@ import copy, pprint, logging
 import numpy as np
 import yaml
 import pprint
+import logging
+logging.basicConfig()
 
 
 class IncludeLoader(yaml.Loader):
@@ -23,6 +25,18 @@ class IncludeLoader(yaml.Loader):
             return yaml.load(f, IncludeLoader)
 
 IncludeLoader.add_constructor('!include', IncludeLoader.include)
+
+def get_root_logger():
+    logger = logging.getLogger('dentate')
+    return logger
+
+def get_module_logger(name):
+    logger = logging.getLogger('dentate.%s' % module)
+    return logger
+
+def get_script_logger(name):
+    logger = logging.getLogger('dentate.%s' % module)
+    return logger
 
 
 def write_to_yaml(file_path, data, convert_scalars=False):

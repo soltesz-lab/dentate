@@ -1,18 +1,15 @@
-import sys, os, time, gc, itertools
+
+import sys, os, time, gc, itertools, random, click, logging
 from mpi4py import MPI
 import numpy as np
 import dlib
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
 from dentate.geometry import DG_volume, make_volume, make_uvl_distance
 from dentate.env import Env
-from dentate.utils import list_find, list_argsort
-import random
-import click  # CLI argument processing
-import logging
-logging.basicConfig()
+from dentate.utils import list_find, list_argsort, get_script_logger
 
 script_name = 'interpolate_forest_soma_locations.py'
-logger = logging.getLogger(script_name)
+logger = get_script_logger(script_name)
 
 def list_concat(a, b, datatype):
     return a+b

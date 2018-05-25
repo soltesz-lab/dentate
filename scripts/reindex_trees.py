@@ -1,15 +1,11 @@
-import sys, random
+import sys, random, click, logging
 from mpi4py import MPI
 import numpy as np
 from neuroh5.io import read_population_ranges, append_cell_trees, append_cell_attributes, bcast_cell_attributes, NeuroH5TreeGen
 from dentate.utils import *
-import pprint
-import click
-import logging
-logging.basicConfig()
 
 script_name = 'reindex_trees.py'
-logger = logging.getLogger(script_name)
+logger = get_script_logger(script_name)
 
 
 @click.command()
