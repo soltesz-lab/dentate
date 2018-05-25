@@ -7,7 +7,6 @@ from dentate.geometry import make_volume, get_volume_distances
 from dentate.env import Env
 
 script_name = 'plot_volume_distancs.py'
-logger = utils.get_script_logger(script_name)
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -17,8 +16,8 @@ logger = utils.get_script_logger(script_name)
 @click.option("--verbose", "-v", is_flag=True)
 def main(config, resolution, resample, alpha_radius, verbose):
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     env = Env(configFile=config)
 

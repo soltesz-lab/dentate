@@ -5,6 +5,7 @@
 
 import sys, time, gc, itertools
 from collections import defaultdict
+from mpi4py import MPI
 import numpy as np
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
@@ -13,10 +14,8 @@ from rbf.geometry import contains
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume, rotate3d
 from dentate.rbf_surface import RBFSurface, rotate3d
-
-from mpi4py import MPI
+from dentate import utils
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-import logging
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -97,7 +96,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, nsample=1000, res=3, alpha_radius=120., interp_chunk_size=1000):
+def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_chunk_size=1000):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -172,7 +171,7 @@ def get_volume_distances (ip_vol, nsample=1000, res=3, alpha_radius=120., interp
         ldists_v.append(ldist_v)
         obss_u.append(obs_u)
         obss_v.append(obs_v)
-
+        
     distances_u = np.concatenate(ldists_u).reshape(-1)
     obs_u = np.concatenate(obss_u)
     distances_v = np.concatenate(ldists_v).reshape(-1)

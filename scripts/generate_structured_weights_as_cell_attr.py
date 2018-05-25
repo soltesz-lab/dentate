@@ -25,7 +25,6 @@ TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the 
 """
 
 script_name = 'generate_structured_weights_as_cell_attr.py'
-logger = utils.get_script_logger(script_name)
 
 local_random = np.random.RandomState()
 
@@ -73,8 +72,8 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     :param dry_run:  bool
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank

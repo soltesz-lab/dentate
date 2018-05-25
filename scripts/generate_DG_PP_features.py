@@ -10,7 +10,6 @@ from dentate.utils import list_find, list_argsort, get_script_logger
 from dentate.stimulus import generate_spatial_offsets
 
 script_name = 'generate_DG_PP_features.py'
-logger = get_script_logger(script_name)
 
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
@@ -55,8 +54,8 @@ def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_
     :param write_size:
     :param dry_run:
     """
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank

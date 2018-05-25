@@ -10,7 +10,6 @@ from dentate.env import Env
 import dentate.utils as utils
 
 script_name = 'project_somas.py'
-logger = utils.get_script_logger(script_name)
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -34,8 +33,8 @@ sys.excepthook = mpi_excepthook
 @click.option("--verbose", "-v", is_flag=True)
 def main(config, coords_path, coords_namespace, resample, resolution, populations, projection_depth, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
     
     comm = MPI.COMM_WORLD
     rank = comm.rank

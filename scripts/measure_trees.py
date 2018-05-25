@@ -19,7 +19,6 @@ def mpi_excepthook(type, value, traceback):
 sys.excepthook = mpi_excepthook
 
 script_name="measure_trees.py"
-logger = get_script_logger(script_name)
 
 
 @click.command()
@@ -46,8 +45,8 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
     :param cache_size:
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
         
     comm = MPI.COMM_WORLD
     rank = comm.rank

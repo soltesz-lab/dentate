@@ -8,7 +8,7 @@ from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_popula
 import h5py
 import dentate
 from dentate.env import Env
-from dentate.utils import list_find, get_script_logger
+from dentate import utils
 
 
 """
@@ -62,8 +62,8 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     :param dry_run:  bool
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -156,4 +156,4 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

@@ -7,7 +7,6 @@ from neuroh5.io import read_population_ranges, read_population_names
 from quantities import s, ms
 import h5py
 
-script_name = 'measure_inst_rates.py'
 logger = utils.get_script_logger(script_name)
 
 @click.command()
@@ -24,8 +23,8 @@ logger = utils.get_script_logger(script_name)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(spike_events_path, spike_events_namespace, include, sigma, sampling_period, t_variable, t_max, t_min, output_path, nprocs, verbose):
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
     
     if t_max is None:
         timeRange = None

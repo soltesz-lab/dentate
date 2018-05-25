@@ -7,7 +7,6 @@ from neuroh5.io import read_population_ranges, read_population_names, read_cell_
 import h5py
 
 script_name = 'measure_place_fields.py'
-logger = utils.get_script_logger(script_name)
 
 @click.command()
 @click.option("--inst-rates-path", '-p', required=True, type=click.Path())
@@ -19,8 +18,8 @@ logger = utils.get_script_logger(script_name)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(inst_rates_path, inst_rates_namespace, include, bin_size, nstdev, baseline_fraction, verbose):
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
     
     if not include:
         population_names  = read_population_names(inst_rates_path)

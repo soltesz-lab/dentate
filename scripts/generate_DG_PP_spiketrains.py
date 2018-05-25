@@ -1,5 +1,5 @@
 
-import sys, time, gc
+import sys, time, gc, random, click, logging
 import numpy as np
 import mpi4py
 from mpi4py import MPI
@@ -8,11 +8,8 @@ from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_populati
 import dentate
 from dentate.env import Env
 from dentate import stimulus, stgen, utils
-import random, click, logging
-logging.basicConfig()
 
 script_name = 'generate_DG_PP_spiketrains.py'
-logger = logging.getLogger(script_name)
 
 
 @click.command()
@@ -41,8 +38,8 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
     :param stimulus_namespace: str
     :param dry_run: bool
     """
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank

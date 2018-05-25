@@ -20,7 +20,6 @@ def mpi_excepthook(type, value, traceback):
 sys.excepthook = mpi_excepthook
 
 script_name = 'measure_distances.py'
-logger = utils.get_script_logger(script_name)
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -37,8 +36,8 @@ logger = utils.get_script_logger(script_name)
 @click.option("--verbose", "-v", is_flag=True)
 def main(config, coords_path, coords_namespace, resample, resolution, populations, interp_chunk_size, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
     
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -87,7 +86,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
                                 lres=resolution[2], \
                                 rotate=rotate)
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
+        vol_dist = get_volume_distances(ip_volume, res=resample)
         (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
@@ -119,8 +118,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
 
         soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, \
                                             soma_coords, population_extents, populations=[population], \
-                                            interp_chunk_size=interp_chunk_size, allgather=False, \
-                                            verbose=verbose)
+                                            interp_chunk_size=interp_chunk_size, allgather=False)
 
         if rank == 0:
             logger.info('Writing distances for population %s...' % population)

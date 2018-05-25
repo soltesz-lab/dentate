@@ -4,9 +4,6 @@ from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
 import logging
-logging.basicConfig()
-
-logger = get_root_logger()
 
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',
@@ -61,8 +58,8 @@ class Env:
 
         # print verbose diagnostic messages
         self.verbose = verbose
-        if verbose:
-            logger.setLevel(logging.INFO)
+        config_logging(verbose)
+        self.logger = get_root_logger()
         
         # Directories for cell templates
         self.templatePaths = []
@@ -168,8 +165,9 @@ class Env:
             self.load_input_config()
 
         self.projection_dict = defaultdict(list)
-        for (src, dst) in read_projection_names(self.connectivityFilePath, comm=self.comm):
-            self.projection_dict[dst].append(src)
+        if self.datasetPrefix is not None:
+            for (src, dst) in read_projection_names(self.connectivityFilePath, comm=self.comm):
+                self.projection_dict[dst].append(src)
 
         self.lfpConfig = {}
         if self.modelConfig.has_key('LFP'):

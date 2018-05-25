@@ -6,7 +6,6 @@ import numpy as np
 import yaml
 import pprint
 import logging
-logging.basicConfig()
 
 
 class IncludeLoader(yaml.Loader):
@@ -26,16 +25,22 @@ class IncludeLoader(yaml.Loader):
 
 IncludeLoader.add_constructor('!include', IncludeLoader.include)
 
-def get_root_logger():
+def config_logging(verbose):
+    if verbose:
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.WARN)
+
+def get_root_logger():        
     logger = logging.getLogger('dentate')
     return logger
 
 def get_module_logger(name):
-    logger = logging.getLogger('dentate.%s' % module)
+    logger = logging.getLogger('%s' % name)
     return logger
 
 def get_script_logger(name):
-    logger = logging.getLogger('dentate.%s' % module)
+    logger = logging.getLogger('dentate.%s' % name)
     return logger
 
 
