@@ -1,3 +1,56 @@
+Synapse Mechanisms:
+  AMPA: SatExp2Syn
+  NMDA: FacilNMDA
+  GABA_A: SatExp2Syn
+  GABA_B: SatExp2Syn
+Synapse Mechanism Parameters:
+  SatExp2Syn:
+    mech_file: sat_exp2syn.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  FacilExp2Syn:
+    mech_file: facil_exp2syn.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+      - f_inc
+      - f_max
+      - f_tau
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  FacilNMDA:
+    mech_file: facil_NMDA.mod
+    mech_params:
+      - sat
+      - dur_onset
+      - tau_offset
+      - e
+      - f_inc
+      - f_max
+      - f_tau
+      - mg
+      - Kd
+      - gamma
+    netcon_params:
+      weight: 0
+      g_unit: 1
+  Exp2Syn:
+    mech_file: exp2syn.mod
+    mech_params:
+      - tau1
+      - tau2
+      - e
+    netcon_params:
+      weight: 0
 # full width in um [S-T, M-L]
 Axon Width:
     GC:   [900., 900.]
@@ -227,7 +280,7 @@ Synapse Layers:
     IS:
       GC:   [Hilus]
       IS:   [Hilus]
-Synapse Proportions:      
+Synapse Proportions:
   GC:
     MPP:  [1.]
     LPP:  [1.]
@@ -530,8 +583,8 @@ Synapse Kinetics:
           t_decay: 16.2
           e_rev: -75
         GABA_B:
-          t_rise: 86.8
-          t_decay: 428.1
+          t_rise: 86.8  # 50.0  https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
+          t_decay: 428.1  # 200.0  http://www.jneurosci.org/content/33/18/7961
           e_rev: -90
   NGFC:
       MPP:
