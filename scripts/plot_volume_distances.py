@@ -1,17 +1,12 @@
-import sys
+import sys, click, logging
 from mpi4py import MPI
 import numpy as np
-import click, logging
 import dentate
-from dentate import plot
+from dentate import plot, utils
 from dentate.geometry import make_volume, get_volume_distances
 from dentate.env import Env
-import dentate.utils as utils
-logging.basicConfig()
 
-logging.basicConfig()
 script_name = 'plot_volume_distancs.py'
-logger = logging.getLogger(script_name)
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -21,8 +16,8 @@ logger = logging.getLogger(script_name)
 @click.option("--verbose", "-v", is_flag=True)
 def main(config, resolution, resample, alpha_radius, verbose):
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     env = Env(configFile=config)
 

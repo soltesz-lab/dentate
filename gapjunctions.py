@@ -3,7 +3,6 @@ from collections import defaultdict
 import sys, os.path, string, math
 from neuron import h
 import numpy as np
-#import utils, cells
 
 
 ## Compartment weights

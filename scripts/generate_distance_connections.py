@@ -2,7 +2,7 @@
 ## Generates distance-weighted random connectivity between the specified populations.
 ##
 
-import sys, os, gc
+import sys, os, gc, click, logging
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
 import h5py
@@ -15,9 +15,6 @@ from dentate.connection_generator import ConnectionProb, generate_uv_distance_co
 from dentate.geometry import make_volume
 from dentate.env import Env
 import dentate.utils as utils
-import click
-import logging
-logging.basicConfig()
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -26,9 +23,7 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
-
 script_name = 'generate_distance_connections.py'
-logger = logging.getLogger(script_name)
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -52,8 +47,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
          synapses_namespace, resample, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
     
     comm = MPI.COMM_WORLD
     rank = comm.rank

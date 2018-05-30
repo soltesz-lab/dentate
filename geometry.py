@@ -5,6 +5,7 @@
 
 import sys, time, gc, itertools
 from collections import defaultdict
+from mpi4py import MPI
 import numpy as np
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
@@ -13,13 +14,12 @@ from rbf.geometry import contains
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume, rotate3d
 from dentate.rbf_surface import RBFSurface, rotate3d
-
-from mpi4py import MPI
+from dentate import utils
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-import logging
 
-logger = logging.getLogger(__name__)
-
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = utils.get_module_logger(__name__)
 
 max_u = 11690.
 max_v = 2956.
@@ -96,7 +96,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, nsample=100, res=3, alpha_radius=120., interp_chunk_size=1000, verbose=False):
+def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_chunk_size=1000):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -114,16 +114,12 @@ def get_volume_distances (ip_vol, nsample=100, res=3, alpha_radius=120., interp_
         The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
-
     span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
 
     origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
     logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
 
-    if verbose:
-        logger.info("Constructing alpha shape...")
+    logger.info("Constructing alpha shape...")
     tri = ip_vol.create_triangulation()
     alpha = alpha_shape([], alpha_radius, tri=tri)
 
@@ -134,8 +130,7 @@ def get_volume_distances (ip_vol, nsample=100, res=3, alpha_radius=120., interp_
     node_count = 0
     itr = 1
 
-    if verbose:
-        logger.info("Generating %i nodes..." % N)
+    logger.info("Generating %i nodes..." % N)
     while node_count < nsample:
         # create N quasi-uniformly distributed nodes
         nodes, smpid = menodes(N,vert,smp,itr=itr)
@@ -149,9 +144,7 @@ def get_volume_distances (ip_vol, nsample=100, res=3, alpha_radius=120., interp_
     xyz_coords = in_nodes.reshape(-1,3)
     uvl_coords_interp = ip_vol.inverse(xyz_coords)
 
-    if verbose:
-        logger.info("%i nodes generated" % node_count)
-
+    logger.info("%i nodes generated" % node_count)
         
     logger.info('Computing distances...')
     ldists_u = []
@@ -178,7 +171,7 @@ def get_volume_distances (ip_vol, nsample=100, res=3, alpha_radius=120., interp_
         ldists_v.append(ldist_v)
         obss_u.append(obs_u)
         obss_v.append(obs_v)
-
+        
     distances_u = np.concatenate(ldists_u).reshape(-1)
     obs_u = np.concatenate(obss_u)
     distances_v = np.concatenate(ldists_v).reshape(-1)
@@ -191,7 +184,7 @@ def get_volume_distances (ip_vol, nsample=100, res=3, alpha_radius=120., interp_
 
 
         
-def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False, verbose=False):
+def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False):
     """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -224,9 +217,6 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
 
     rank = comm.rank
     size = comm.size
-
-    if verbose:
-        logger.setLevel(logging.INFO)
 
     if populations is None:
         populations = soma_coords.keys()
@@ -288,7 +278,7 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
     return soma_distances
 
 
-def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=None, populations=None, verbose=False, icp_iter=1000, opt_iter=100):
+def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=None, populations=None, icp_iter=1000, opt_iter=100):
     """
     Uses the iterative closest point (ICP) algorithm of the PCL library to transform soma coordinates onto a surface for a particular L value.
     http://pointclouds.org/documentation/tutorials/iterative_closest_point.php#iterative-closest-point
@@ -299,9 +289,6 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
     
     rank = comm.rank
     size = comm.size
-
-    if verbose:
-        logger.setLevel(logging.INFO)
 
     if populations is None:
         populations = soma_coords.keys()

@@ -1,10 +1,9 @@
 from dentate.utils import *
 from dentate.neuron_utils import *
-import logging
 
-
-logger = logging.getLogger(__name__)
-
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = get_module_logger(__name__)
 
 class SynapseAttributes(object):
     """

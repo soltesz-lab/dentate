@@ -1,3 +1,4 @@
+
 from collections import defaultdict, Iterable, namedtuple
 import sys, os.path, string, time, gc, math, datetime, numbers, itertools
 import copy, pprint, logging
@@ -23,6 +24,24 @@ class IncludeLoader(yaml.Loader):
             return yaml.load(f, IncludeLoader)
 
 IncludeLoader.add_constructor('!include', IncludeLoader.include)
+
+def config_logging(verbose):
+    if verbose:
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.WARN)
+
+def get_root_logger():        
+    logger = logging.getLogger('dentate')
+    return logger
+
+def get_module_logger(name):
+    logger = logging.getLogger('%s' % name)
+    return logger
+
+def get_script_logger(name):
+    logger = logging.getLogger('dentate.%s' % name)
+    return logger
 
 
 def write_to_yaml(file_path, data, convert_scalars=False):

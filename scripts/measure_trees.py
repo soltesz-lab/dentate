@@ -1,19 +1,15 @@
-import sys, os, time
-import itertools
+import sys, os, time, itertools, click, logging
 from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
 from neuron import h
-from dentate.utils import list_find
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 import h5py
 import dentate
 from dentate.env import Env
 import dentate.cells as cells
 import dentate.synapses as synapses
-import click
-import logging
-logging.basicConfig()
+from dentate.utils import list_find, get_script_logger
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -23,7 +19,6 @@ def mpi_excepthook(type, value, traceback):
 sys.excepthook = mpi_excepthook
 
 script_name="measure_trees.py"
-logger = logging.getLogger(script_name)
 
 
 @click.command()
@@ -50,8 +45,8 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
     :param cache_size:
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
         
     comm = MPI.COMM_WORLD
     rank = comm.rank

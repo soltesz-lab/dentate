@@ -1,17 +1,14 @@
 
-import sys, os, time, gc
+import sys, os, time, gc, click, logging
+from collections import defaultdict
+from itertools import izip, izip_longest
+import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
+import h5py
 import dentate
 from dentate.env import Env
-from dentate.utils import list_find
-import numpy as np
-import h5py
-from collections import defaultdict
-import click
-from itertools import izip, izip_longest
-import logging
-logging.basicConfig()
+from dentate import utils
 
 
 """
@@ -27,7 +24,7 @@ TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the 
 """
 
 script_name = 'generate_log_normal_weights_as_cell_attr.py'
-logger = logging.getLogger(script_name)
+logger = get_script_logger(script_name)
 
 local_random = np.random.RandomState()
 
@@ -65,8 +62,8 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     :param dry_run:  bool
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -159,4 +156,4 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

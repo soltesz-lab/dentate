@@ -3,27 +3,22 @@
 ##
 
 
-import sys, itertools, os.path
+import sys, itertools, os.path, math, random, click, logging
 from mpi4py import MPI
-import h5py
 import numpy as np
-import math, random
 from neuroh5.io import read_population_ranges, append_cell_attributes
-import click
-from dentate.utils import list_find
+import h5py
+from dentate.utils import list_find, config_logging, get_script_logger
 from dentate.env import Env
 from dentate.geometry import make_volume, DG_volume, make_uvl_distance
-import dlib
-import rbf
-from rbf.nodes import snap_to_boundary,disperse,menodes
+import dlib, rbf
+from rbf.nodes import snap_to_boundary, disperse, menodes
 from rbf.geometry import contains
 from alphavol import alpha_shape
-import logging
-
-logging.basicConfig()
 
 script_name = "generate_soma_coordinates.py"
-logger = logging.getLogger(script_name)
+logger = get_script_logger(script_name)
+
 
 def random_subset( iterator, K ):
     result = []
@@ -54,8 +49,9 @@ def random_subset( iterator, K ):
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', type=bool, default=False, is_flag=True)
 def main(config, types_path, output_path, output_namespace, populations, alpha_radius, io_size, chunk_size, value_chunk_size, verbose):
-    if verbose:
-        logger.setLevel(logging.INFO)
+
+    config_logging(verbose)
+    logger = get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank

@@ -49,10 +49,6 @@ def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w, verbose):
     """
     cell = pc.gid2cell(gid)
 
-    if verbose:
-        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n",
-                    pc.id, gid, branch, sec, w, sgid, dgid)
-    
     sec = cell.sections[secidx]
     seg = sec(0.5)
     gj = ggap(seg)
