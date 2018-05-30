@@ -3,8 +3,8 @@ Dentate Gyrus model initialization script
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 
-from mpi4py import MPI
 import sys, click, os
+from mpi4py import MPI
 import numpy as np
 from dentate import network
 from dentate.env import Env
