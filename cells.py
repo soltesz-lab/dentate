@@ -3,10 +3,10 @@ from dentate.neuron_utils import *
 from dentate.synapses import *
 from neuroh5.h5py_io_utils import *
 import btmorph
-import logging
 
 
-logger = logging.getLogger(__name__)
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = get_module_logger(__name__)
 
 freq = 100      # Hz, frequency at which AC length constant will be computed
 d_lambda = 0.1  # no segment will be longer than this fraction of the AC length constant

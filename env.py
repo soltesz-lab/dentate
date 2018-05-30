@@ -1,9 +1,7 @@
-
 from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
-import logging
 
 
 ConnectionGenerator = namedtuple('ConnectionGenerator',
@@ -272,7 +270,7 @@ class Env:
 
         (population_ranges, _) = read_population_ranges(self.dataFilePath, self.comm)
         if rank == 0 and self.verbose:
-            logger.info('population_ranges = %s' % str(population_ranges))
+            self.logger.info('population_ranges = %s' % str(population_ranges))
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
@@ -280,11 +278,11 @@ class Env:
 
         population_names  = read_population_names(self.dataFilePath, self.comm)
         if rank == 0 and self.verbose:
-            logger.info('population_names = %s' % str(population_names))
+            self.logger.info('population_names = %s' % str(population_names))
         self.cellAttributeInfo = read_cell_attribute_info(self.dataFilePath, population_names, comm=self.comm)
 
         if rank == 0 and self.verbose:
-            logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
+            self.logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
 
     def load_cell_template(self, popName):
         """
@@ -308,7 +306,7 @@ class Env:
                                   (popName, templateFile))
                 h.load_file(templateFilePath)
                 if rank == 0 and self.verbose:
-                    logger.info('load_cell_templates: population: %s; templateFile loaded: %s' % \
+                    self.logger.info('load_cell_templates: population: %s; templateFile loaded: %s' % \
                                 (popName, templateFilePath))
             else:
                 h.find_template(self.pc, h.templatePaths, templateName)

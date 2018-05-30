@@ -10,16 +10,13 @@ import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
     write_cell_attributes
 from dentate import lpt, lfp, simtime
-from dentate.env import Env
-import logging
 
-## This logger will inherit its setting from its root logger, dentate,
-## which is created in module env
+# This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
 
-## Code by Michael Hines from the discussion thread
-## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
+# Code by Michael Hines from this discussion thread:
+# https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
 def cx(env):
     """
     Estimates cell complexity. Uses the LoadBalance class.
@@ -366,11 +363,9 @@ def connectcells(env, cleanup=True):
 
 def connectgjs(env):
     """
-    Loads NeuroH5 connectivity file, instantiates the corresponding
-    half-gap mechanisms on the pre- and post-junction cells.
-
-    :param env:
-    :return:
+    Loads NeuroH5 connectivity file, instantiates the corresponding half-gap mechanisms on the pre- and post-junction
+    cells.
+    :param env: :class:'Env'
     """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
@@ -419,11 +414,15 @@ def connectgjs(env):
                     if env.pc.gid_exists(source):
                         mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
                         if env.verbose:
-                            logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", env.pc.id(), sourcve, srcbranch, srcsec, weight, ggid, ggid+1)
+                            logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
+                                        'sgid = %d dgid = %d\n' %
+                                        (env.pc.id(), source, srcbranch, srcsec, weight, ggid, ggid+1))
                     if env.pc.gid_exists(destination):
                         mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
                         if env.verbose:
-                            logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", env.pc.id(), destination, dstbranch, dstsec, weight, ggid+1, ggid)
+                            logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
+                                        'dgid = %d\n' %
+                                        (env.pc.id(), destination, dstbranch, dstsec, weight, ggid+1, ggid))
                     ggid = ggid+2
 
             del graph[name]
