@@ -1,4 +1,4 @@
-from dentate import utils
+from dentate.utils import *
 try:
     from mpi4py import MPI  # Must come before importing NEURON
 except Exception:
@@ -35,46 +35,6 @@ def simulate(h, v_init, prelength, mainlength):
     h.continuerun(h.tstop)
 
 
-## Adds a network connection to a single synapse point process
-##    pc: ParallelContext
-##    nclist: list of netcons
-##    srcgid: source gid
-##    dstgid: target gid
-##    syn: synapse point process
-def mknetcon(pc, nclist, srcgid, dstgid, syn, weight, delay):
-    nc = pc.gid_connect(srcgid, syn)
-    nc.weight[0] = weight
-    nc.delay = delay
-    nclist.append(nc)
-
-#New version of the function, used with dentate.cells
-def mk_netcon(pc, srcgid, dstgid, syn, weight, delay):
-    nc = pc.gid_connect(srcgid, syn)
-    nc.weight[0] = weight
-    nc.delay = delay
-    return nc
-
-## A variant of ParallelNetManager.nc_append that takes in a
-## synaptic point process as an argument, as opposed to the index of a
-## synapse in cell.synlist) 
-def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
-    ## target in this subset
-    ## source may be on this or another machine
-    assert (pc.gid_exists(dstgid))
-    if (pc.gid_exists(dstgid)):
-        cell = pc.gid2cell(dstgid)
-	mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
-
-#New version of the function , used with dentate.cells
-def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
-    assert (pc.gid_exists(dstgid))
-    if (pc.gid_exists(dstgid)):
-        cell = pc.gid2cell(dstgid)
-    nc = mk_netcon(pc, srcgid, dstgid, syn, weight / 1000.0, delay)
-    return nc
-
-
-## Create gap junctions
 def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w, verbose):
     """
     Create gap junctions
@@ -90,7 +50,8 @@ def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w, verbose):
     cell = pc.gid2cell(gid)
 
     if verbose:
-        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
+        logger.info("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n",
+                    pc.id, gid, branch, sec, w, sgid, dgid)
     
     sec = cell.sections[secidx]
     seg = sec(0.5)

@@ -3,13 +3,16 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 
+from dentate.utils import *
+from dentate.neuron_utils import *
+from dentate.cells import *
+import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
     write_cell_attributes
-from dentate import utils, neuron_utils, cells
 from dentate import lpt, lfp, simtime
 from dentate.env import Env
-import h5py
 import logging
+
 
 logger = logging.getLogger(__name__)
 

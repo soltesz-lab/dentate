@@ -4,25 +4,34 @@ Dentate Gyrus model initialization script
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 
 from mpi4py import MPI
-import sys, click
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
-    write_cell_attributes
+import sys, click, os
+import numpy as np
 from dentate import network
 from dentate.env import Env
 
-sys_excepthook = sys.excepthook
+
 def mpi_excepthook(type, value, traceback):
+    """
+
+    :param type:
+    :param value:
+    :param traceback:
+    :return:
+    """
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
+
+
+sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
 
 @click.command()
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-paths", type=str, default='templates')
+@click.option("--template-paths", type=str, default='../templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='.')
+              default='..')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--results-id", type=str, required=False, default='')
@@ -65,9 +74,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
     :param verbose: bool; print verbose diagnostic messages while constructing the network
     :param dry_run: bool; whether to actually execute simulation after building network
     """
-
     comm = MPI.COMM_WORLD
-
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id,
               node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,

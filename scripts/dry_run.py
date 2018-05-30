@@ -3,7 +3,11 @@ Dentate Gyrus model initialization script
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 
+import sys, click, os
+from mpi4py import MPI
+import numpy as np
 from dentate import network
+from dentate.env import Env
 from nested.utils import Context
 
 
@@ -12,12 +16,12 @@ context = Context()
 
 @click.command()
 @click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default='config/Small_Scale_Control_log_normal_weights.yaml')
-@click.option("--template-paths", type=str, default='../dgc/Mateos-Aparicio2014:templates')
+              default='../config/Small_Scale_Control_log_normal_weights.yaml')
+@click.option("--template-paths", type=str, default='../../dgc/Mateos-Aparicio2014:../templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='.')
+              default='..')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='datasets')  # '/mnt/s')
+              default='../datasets')  # '/mnt/s')
 @click.option("--tstop", type=int, default=1)
 @click.option("--v-init", type=float, default=-75.0)
 @click.option("--max-walltime-hours", type=float, default=0.1)
@@ -37,8 +41,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, tstop, v_ini
     :param verbose: bool; print verbose diagnostic messages while constructing the network
     :param run_test: bool; run sim for duration tstop, do not save any output
     """
-
-    start_time = time.time()
+    comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, tstop=tstop, verbose=verbose)
     context.update(locals())

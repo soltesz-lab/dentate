@@ -101,7 +101,14 @@ def list_argsort(f, seq):
     """
     return [i for i,x in sorted(enumerate(seq), key = lambda x: f(x[1]))]
 
-def list_index (element, lst):
+
+def list_index(element, lst):
+    """
+
+    :param element:
+    :param lst:
+    :return:
+    """
     try:
         index_element = lst.index(element)
         return index_element
@@ -110,11 +117,18 @@ def list_index (element, lst):
 
 
 def random_choice_w_replacement(ranstream,n,p):
+    """
+
+    :param ranstream:
+    :param n:
+    :param p:
+    :return:
+    """
     return ranstream.multinomial(n,p.ravel())
 
 
-def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_std=1.0,
-                         center_ids=None, center_box=(-10.0, 10.0), random_seed=None):
+def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_std=1.0, center_ids=None,
+                         center_box=(-10.0, 10.0), random_seed=None):
     """Generate isotropic Gaussian blobs for clustering.
 
     Parameters
@@ -182,7 +196,8 @@ def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_st
     return X, y
 
 
-def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, cluster_std=1.0, center_box=(-1.0, 1.0), random_seed=None):
+def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, cluster_std=1.0, center_box=(-1.0, 1.0),
+                             random_seed=None):
     """Generates a Gaussian random clustering given a number of cluster
     centers, samples per each center, optional integer center ids, and
     cluster standard deviation.
