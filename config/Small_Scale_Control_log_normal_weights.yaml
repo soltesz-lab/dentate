@@ -32,24 +32,24 @@ Cell Types:
              variance: 0.28
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             IML: # layer
-              mean: 1.0
+              mean: 0.7
               variance: 0.01
             OML: # layer
-              mean: 3.5
+              mean: 0.7
               variance: 0.01
             MML: # layer
-              mean: 3.5
+              mean: 0.7
               variance: 0.01
         soma:
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
-              mean: 4.0
-              variance: 0.2
-        axon:
+              mean: 10.22
+              variance: 0.32
+        ais:
           inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
             default: # layer
-              mean: 4.0
-              variance: 0.2
+              mean: 0.6
+              variance: 0.05
   MC:
     template: MossyCell
     synapses:
@@ -69,6 +69,11 @@ Cell Types:
             default: # layer
               mean: 8.0
               variance: 0.2
+        ais:
+          inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+            default: # layer
+              mean: 0.6
+              variance: 0.05
   HC:
     template: HIPPCell
     synapses:
