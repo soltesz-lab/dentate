@@ -6,6 +6,10 @@ except Exception:
 from neuron import h
 
 
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = get_module_logger(__name__)
+
+
 def hoc_results_to_python(hoc_results):
     results_dict = {}
     for i in xrange(0, int(hoc_results.count())):
@@ -28,6 +32,13 @@ def write_results(results, filepath, header):
 
     
 def simulate(h, v_init, prelength, mainlength):
+    """
+
+    :param h:
+    :param v_init:
+    :param prelength:
+    :param mainlength:
+    """
     h.cvode_active (1)
     h.finitialize(v_init)
     h.tstop = prelength+mainlength

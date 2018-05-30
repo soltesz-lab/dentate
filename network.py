@@ -2,14 +2,16 @@
 Dentate Gyrus network initialization routines.
 """
 __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
-
-from dentate.utils import *
 from dentate.neuron_utils import *
-from dentate.cells import *
+import dentate.cells as cells
+import dentate.synapses as synapses
+import dentate.lpt as lpt
+import dentate.lfp as lfp
+import dentate.simtime as simtime
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
     write_cell_attributes
-from dentate import lpt, lfp, simtime
+
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -276,15 +278,15 @@ def connectcells(env, cleanup=True):
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
-                biophys_cell = BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
+                biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
                                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connectcells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
                 env.biophys_cells[postsyn_name][gid] = biophys_cell
-                if env.verbose and rank == 0 and gid == first_gid:
+                if rank == 0 and gid == first_gid:
                     logger.info('*** connectcells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
 
@@ -322,11 +324,11 @@ def connectcells(env, cleanup=True):
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
                 edge_syn_obj_dict = \
-                    mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
                            env.edge_count[postsyn_name][presyn_name],
-                           add_synapse=add_unique_synapse if unique else add_shared_synapse)
+                           add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
-                if env.verbose and rank == 0:
+                if rank == 0:
                     if env.edge_count[postsyn_name][presyn_name] == 0:
                         for sec in list(postsyn_cell.all):
                             h.psection(sec=sec)
@@ -334,9 +336,9 @@ def connectcells(env, cleanup=True):
                 for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
                     for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
                         delay = (distance / env.connection_velocity[presyn_name]) + 0.1
-                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
+                        this_nc = synapses.mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                        config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
@@ -351,14 +353,13 @@ def connectcells(env, cleanup=True):
             else:
                 this_verbose = False
             # TODO: update_mech_attrs
-            config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=this_verbose)
+            synapses.config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=this_verbose)
             if cleanup:
                 syn_attrs.cleanup(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
-        if env.verbose:
-            logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
-                        (rank, postsyn_name, time.time() - local_time))
+        logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
+                    (rank, postsyn_name, time.time() - local_time))
 
 
 def connectgjs(env):
@@ -413,16 +414,14 @@ def connectgjs(env):
                     weight    = weights[i]
                     if env.pc.gid_exists(source):
                         mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
-                        if env.verbose:
-                            logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
-                                        'sgid = %d dgid = %d\n' %
-                                        (env.pc.id(), source, srcbranch, srcsec, weight, ggid, ggid+1))
+                        logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
+                                    'sgid = %d dgid = %d\n' %
+                                    (rank, source, srcbranch, srcsec, weight, ggid, ggid+1))
                     if env.pc.gid_exists(destination):
                         mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
-                        if env.verbose:
-                            logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
-                                        'dgid = %d\n' %
-                                        (env.pc.id(), destination, dstbranch, dstsec, weight, ggid+1, ggid))
+                        logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
+                                    'dgid = %d\n' %
+                                    (rank, destination, dstbranch, dstsec, weight, ggid+1, ggid))
                     ggid = ggid+2
 
             del graph[name]
@@ -479,14 +478,14 @@ def mkcells(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (popName, gid))
 
-                model_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
+                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
                                                        dataset_path=datasetPath)
-                if env.verbose and rank == 0 and i == 0:
+                if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
-                env.pc.set_gid2node(gid, int(env.pc.id()))
+                env.pc.set_gid2node(gid, rank)
                 # Tell the ParallelContext that this cell is a spike source
                 # for all other hosts. NetCon is temporary.
                 nc = model_cell.connect2target(h.nil)
@@ -528,7 +527,7 @@ def mkcells(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (popName, gid))
 
-                model_cell = make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+                model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
@@ -537,7 +536,7 @@ def mkcells(env):
 
                 env.gidlist.append(gid)
                 env.cells.append(model_cell)
-                env.pc.set_gid2node(gid, int(env.pc.id()))
+                env.pc.set_gid2node(gid, rank)
                 # Tell the ParallelContext that this cell is a spike source
                 # for all other hosts. NetCon is temporary.
                 nc = model_cell.connect2target(h.nil)
@@ -583,13 +582,12 @@ def mkstim(env):
             if rank == 0:
                 logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
             for (gid, vecstim_dict) in cell_vecstim:
-                if env.verbose:
-                    if len(vecstim_dict['spiketrain']) > 0:
-                        logger.info("*** Spike train for gid %i is of length %i (first spike at %g ms)" %
-                                    (gid, len(vecstim_dict['spiketrain']), vecstim_dict['spiketrain'][0]))
-                    else:
-                        logger.info("*** Spike train for gid %i is of length %i" %
-                                    (gid, len(vecstim_dict['spiketrain'])))
+                if len(vecstim_dict['spiketrain']) > 0:
+                    logger.info("*** Spike train for gid %i is of length %i (first spike at %g ms)" %
+                                (gid, len(vecstim_dict['spiketrain']), vecstim_dict['spiketrain'][0]))
+                else:
+                    logger.info("*** Spike train for gid %i is of length %i" %
+                                (gid, len(vecstim_dict['spiketrain'])))
 
                 vecstim_dict['spiketrain'] += env.stimulus_onset
                 cell = env.pc.gid2cell(gid)
@@ -638,9 +636,9 @@ def init(env):
         if not os.path.isfile("mcomplex.dat"):
             lb.ExperimentalMechComplex()
 
-    if env.pc.id() == 0:
+    if rank == 0:
         mkout(env, env.resultsFilePath)
-    if env.pc.id() == 0:
+    if rank == 0:
         logger.info("*** Creating cells...")
     h.startsw()
 
@@ -655,28 +653,28 @@ def init(env):
     env.mkcellstime = h.stopsw()
     h.startsw()
     env.pc.barrier()
-    if env.pc.id() == 0:
+    if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
-    logger.info("*** Rank %i created %i cells" % (env.pc.id(), len(env.cells)))
+    logger.info("*** Rank %i created %i cells" % (rank, len(env.cells)))
     mkstim(env)
     env.mkstimtime = h.stopsw()
-    if env.pc.id() == 0:
+    if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     h.startsw()
     env.pc.barrier()
     connectcells(env)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
-    if env.pc.id() == 0:
+    if rank == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
-    logger.info("*** Rank %i created %i connections" % (env.pc.id(), edge_count))
+    logger.info("*** Rank %i created %i connections" % (rank, edge_count))
     h.startsw()
     #connectgjs(env)
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
     env.connectgjstime = h.stopsw()
-    if env.pc.id() == 0:
+    if rank == 0:
         logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
     h.startsw()
     for lfp_label,lfp_config_dict in env.lfpConfig.iteritems():
@@ -750,8 +748,8 @@ def run(env, output=True):
     avgcomp  = env.pc.allreduce(comptime, 1)/nhosts
     maxcomp  = env.pc.allreduce(comptime, 2)
 
-    if env.pc.id() == 0:
-        logger.info("Execution time summary for host %i:" % (int(env.pc.id())))
+    if rank == 0:
+        logger.info("Execution time summary for host %i:" % rank)
         logger.info("  created cells in %g seconds" % env.mkcellstime)
         logger.info("  connected cells in %g seconds" % env.connectcellstime)
         logger.info("  created gap junctions in %g seconds" % env.connectgjstime)

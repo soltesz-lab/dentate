@@ -5,7 +5,7 @@ __author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
 import sys, click, os
 from mpi4py import MPI
 import numpy as np
-from dentate import network
+import dentate.network as network
 from dentate.env import Env
 from nested.utils import Context
 

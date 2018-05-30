@@ -6,21 +6,26 @@ import yaml
 
 
 class IncludeLoader(yaml.Loader):
+    """
 
+    """
     def __init__(self, stream):
-
         self._root = os.path.split(stream.name)[0]
-
         yaml.Loader.__init__(self, stream)
 
     def include(self, node):
+        """
 
+        :param node:
+        :return:
+        """
         filename = os.path.join(self._root, self.construct_scalar(node))
-
         with open(filename, 'r') as f:
             return yaml.load(f, IncludeLoader)
 
+
 IncludeLoader.add_constructor('!include', IncludeLoader.include)
+
 
 def config_logging(verbose):
     if verbose:
@@ -28,17 +33,24 @@ def config_logging(verbose):
     else:
         logging.basicConfig(level=logging.WARN)
 
+
 def get_root_logger():        
     logger = logging.getLogger('dentate')
     return logger
+
 
 def get_module_logger(name):
     logger = logging.getLogger('%s' % name)
     return logger
 
+
 def get_script_logger(name):
     logger = logging.getLogger('dentate.%s' % name)
     return logger
+
+
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = get_module_logger(__name__)
 
 
 def write_to_yaml(file_path, data, convert_scalars=False):
@@ -49,7 +61,6 @@ def write_to_yaml(file_path, data, convert_scalars=False):
     :param convert_scalars: bool
     :return:
     """
-    import yaml
     with open(file_path, 'w') as outfile:
         if convert_scalars:
             data = nested_convert_scalars(data)
@@ -62,13 +73,12 @@ def read_from_yaml(file_path):
     :param file_path: str (should end in '.yaml')
     :return:
     """
-    import yaml
     if os.path.isfile(file_path):
         with open(file_path, 'r') as stream:
             data = yaml.load(stream)
         return data
     else:
-        raise Exception('File: {} does not exist.'.format(file_path))
+        raise IOError('read_from_yaml: invalid file_path: %s' % file_path)
 
 
 def nested_convert_scalars(data):
