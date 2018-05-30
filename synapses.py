@@ -289,7 +289,7 @@ def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, un
                     '%i syn_ids' % (presyn_name, postsyn_name, gid, syn_count, nc_count, len(syn_ids)))
 
 
-def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=False, unique=None):
+def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=False, unique=None, verbose=None):
     """
     1) organize syn_ids by source population
     2) if insert, collate syn_ids without netcons, iterate over sources and call insert_syns_from_mech_attrs
@@ -301,6 +301,7 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
     :param syn_ids: array of int
     :param insert: bool; whether to insert synapses if none exist at syn_id
     :param unique: bool; whether newly inserted synapses should be unique or shared per segment
+    :param verbose: bool
     """
     rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
@@ -353,7 +354,7 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
                                    mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
                         nc_count += 1
 
-    if rank == 0:
+    if verbose and rank == 0:
         logger.info('config_syns_from_mech_attrs: population: %s; cell %i: updated mech_params for %i syns and %i '
                     'netcons for %i syn_ids' % (postsyn_name, gid, syn_count, nc_count, len(syn_ids)))
 
