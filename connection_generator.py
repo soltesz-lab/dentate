@@ -1,7 +1,5 @@
 
-##
-## Classes and procedures related to neuronal connectivity generation.
-##
+"""Classes and procedures related to neuronal connectivity generation. """
 
 import sys, time, gc, itertools
 from collections import defaultdict

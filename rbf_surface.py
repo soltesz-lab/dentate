@@ -259,7 +259,7 @@ class RBFSurface(object):
         return arr
 
         
-    def point_distance(self, su, sv, axis=0, interp_chunk_size=1000, axis_origin=None, return_coords=True):
+    def axis_distance(self, su, sv, axis=0, interp_chunk_size=1000, axis_origin=None, return_coords=True):
         """Cumulative distance between pairs of (u, v) coordinates.
 
         Parameters
@@ -428,7 +428,7 @@ def test_uv_isospline():
     mlab.show()
     
 
-def test_point_distance():
+def test_axis_distance():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
@@ -441,13 +441,13 @@ def test_point_distance():
 
     U, V = srf._resample_uv(5, 5)
     
-    dist, coords = srf.point_distance(U, V)
+    dist, coords = srf.axis_distance(U, V)
     print dist
     print coords
-    dist, coords = srf.point_distance(U, V[0])
+    dist, coords = srf.axis_distance(U, V[0])
     print dist
     print coords
-    dist, coords = srf.point_distance(U, V[0], axis_origin=np.median(obs_u))
+    dist, coords = srf.axis_distance(U, V[0], axis_origin=np.median(obs_u))
     print dist
     print coords
 
@@ -456,7 +456,7 @@ def test_point_distance():
     
 if __name__ == '__main__':
     test_uv_isospline()
-#    test_point_distance()
+#    test_axis_distance()
      
 
     

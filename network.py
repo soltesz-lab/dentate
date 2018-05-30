@@ -1,7 +1,8 @@
 """
 Dentate Gyrus network initialization routines.
 """
-__author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
+__author__ = 'See AUTHORS.md'
+
 from dentate.neuron_utils import *
 import dentate.cells as cells
 import dentate.synapses as synapses
@@ -603,18 +604,9 @@ def init(env):
     """
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
-    h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
+    h('objref pc, nclist, nc, nil')
     h('strdef datasetPath')
     h('numCells = 0')
-    h('totalNumCells = 0')
-    h('max_walltime_hrs = 0')
-    h('mkcellstime = 0')
-    h('mkstimtime = 0')
-    h('connectcellstime = 0')
-    h('connectgjstime = 0')
-    h('initializetime = 0')
-    h('setuptime = 0')
-    h('results_write_time = 0')
     h.nclist = h.List()
     h.datasetPath = env.datasetPath
     #  new ParallelContext object
@@ -670,7 +662,7 @@ def init(env):
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
     h.startsw()
-    #connectgjs(env)
+    connectgjs(env)
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
     env.connectgjstime = h.stopsw()
@@ -683,16 +675,9 @@ def init(env):
                     dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
                     maxEDist=lfp_config_dict['maxEDist'],
                     seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
-    h.max_walltime_hrs   = env.max_walltime_hrs
-    h.results_write_time = env.results_write_time
-    h.mkcellstime        = env.mkcellstime
-    h.mkstimtime         = env.mkstimtime
-    h.connectcellstime   = env.connectcellstime
-    h.connectgjstime     = env.connectgjstime
-    h.initializetime     = h.stopsw()
-    h.setuptime          = h.mkcellstime + h.mkstimtime + h.connectcellstime + h.connectgjstime + h.initializetime
-    env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
-    h.startsw()
+    setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + h.stopsw()
+    max_setup_time       = self.pc.allreduce(setup_time, 2) ## maximum value
+    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
@@ -701,7 +686,6 @@ def init(env):
         ld_bal(env)
         if env.optlptbal:
             lpt_bal(env)
-    h.setuptime = h.setuptime + h.stopsw()
 
 
 def run(env, output=True):

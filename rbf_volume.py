@@ -293,7 +293,7 @@ class RBFVolume(object):
 
         
     def point_distance(self, su, sv, sl, axis=0, interp_chunk_size=1000, origin_coords=None, return_coords=True):
-        """Cumulative distance between pairs of (u, v, l) coordinates.
+        """Cumulative distance along an axis between pairs of (u, v, l) coordinates
 
         Parameters
         ----------
@@ -351,18 +351,18 @@ class RBFVolume(object):
                 split_pts = np.split(all_pts, npts)
                 split_pts_coords = np.split(all_pts_coords, npts)
                 ## distance from axis_origin to first point
-                ref_point  = split_pts[0]
-                ref_coords = split_pts_coords[0]
-                rind = np.lexsort(tuple([ ref_coords[:,i] for i in aidx ]))
-                ref_sorted = ref_point[rind]
-                cdist = euclidean_distance(origin_sorted, ref_sorted)
+                fst_point  = split_pts[0]
+                fst_coords = split_pts_coords[0]
+                find = np.lexsort(tuple([ fst_coords[:,i] for i in aidx ]))
+                fst_sorted = fst_point[find]
+                cdist = euclidean_distance(origin_sorted, fst_sorted)
                 for i in xrange(0,len(cdist)):
                     if abs(cdist[i] < 1e-3):
                         cdist[i] = 0.
                 distances.append(sgn * cdist)
                 if return_coords:
                     for i in xrange(0,3):
-                        coords[i].append(ref_coords[rind,i])
+                        coords[i].append(fst_coords[find,i])
                 for i in xrange(0, npts-1):
                     a = split_pts[i+1]
                     b = split_pts[i]

@@ -1,7 +1,5 @@
 
-##
-## Classes and procedures related to neuronal geometry and distance calculation.
-##
+"""Classes and procedures related to neuronal geometry and distance calculation."""
 
 import sys, time, gc, itertools
 from collections import defaultdict
@@ -184,17 +182,18 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
 
 
         
-def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False):
-    """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
+def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False):
+    """Interpolates arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
     ----------
     comm : MPIComm
         mpi4py MPI communicator
-    dist_u : RBFInterpolant
+    ip_dist_u : RBFInterpolant
         Interpolation function for computing arc distances along the first dimension of the volume.
-    dist_v : RBFInterpolant
+    ip_dist_v : RBFInterpolant
         Interpolation function for computing arc distances along the second dimension of the volume.
+    ip_volume: optional instance of RBFVolume
     soma_coords : { population_name : coords_dict }
         A dictionary that maps each cell population name to a dictionary of coordinates. The dictionary of coordinates must have the following type:
           coords_dict : { gid : (u, v, l) }
@@ -220,7 +219,7 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
 
     if populations is None:
         populations = soma_coords.keys()
-        
+
     soma_distances = {}
     for pop in populations:
         coords_dict = soma_coords[pop]
@@ -247,9 +246,8 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
                 gids.append(gid)
         if len(uvl_obs) > 0:
             uvl_obs_array = np.vstack(uvl_obs)
-            k = uvl_obs_array.shape[0]
-            distance_u = dist_u(uvl_obs_array, chunk_size=interp_chunk_size)
-            distance_v = dist_v(uvl_obs_array, chunk_size=interp_chunk_size)
+            distance_u = ip_dist_u(uvl_obs_array)
+            distance_v = ip_dist_v(uvl_obs_array)
             try:
                 assert(np.all(np.isfinite(distance_u)))
                 assert(np.all(np.isfinite(distance_v)))
@@ -265,6 +263,121 @@ def get_soma_distances(comm, dist_u, dist_v, soma_coords, population_extents, in
                 soma_v = uvl_obs_array[i,1]
                 soma_l = uvl_obs_array[i,2]
                 logger.info('gid %i: coordinates: %f %f %f distances: %f %f' % (gid, soma_u, soma_v, soma_l, distance_u[i], distance_v[i]))
+        if allgather:
+            dist_dicts = comm.allgather(local_dist_dict)
+            combined_dist_dict = {}
+            for dist_dict in dist_dicts:
+                for k, v in dist_dict.iteritems():
+                    combined_dist_dict[k] = v
+            soma_distances[pop] = combined_dist_dict
+        else:
+            soma_distances[pop] = local_dist_dict
+
+    return soma_distances
+
+
+
+def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, interp_chunk_size=1000, populations=None, allgather=False):
+    """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
+
+    Parameters
+    ----------
+    comm : MPIComm
+        mpi4py MPI communicator
+    ip_vol: instance of RBFVolume
+    soma_coords : { population_name : coords_dict }
+        A dictionary that maps each cell population name to a dictionary of coordinates. The dictionary of coordinates must have the following type:
+          coords_dict : { gid : (u, v, l) }
+          where:
+          - gid: cell identifier
+          - u, v, l: floating point coordinates
+    population_extents: { population_name : limits }
+        A dictionary of maximum and minimum population coordinates in u,v,l space
+        Argument limits has the following type:
+         ((min_u, min_v, min_l), (max_u, max_v, max_l))
+    allgather: boolean (default: False)
+       if True, the results are gathered from all ranks and combined
+    Returns
+    -------
+    A dictionary of the form:
+
+      { population: { gid: (distance_U, distance_V } }
+
+    """
+
+    rank = comm.rank
+    size = comm.size
+
+    if populations is None:
+        populations = soma_coords.keys()
+
+    span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
+    origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+
+    soma_distances = {}
+    for pop in populations:
+        coords_dict = soma_coords[pop]
+        if rank == 0:
+            logger.info('Computing soma distances for population %s...' % pop)
+        count = 0
+        local_dist_dict = {}
+        limits = population_extents[pop]
+        uvl_obs = []
+        gids    = []
+        for gid, coords in coords_dict.iteritems():
+            if gid % size == rank:
+                soma_u, soma_v, soma_l = coords
+                uvl_obs.append(np.array([soma_u,soma_v,soma_l]).reshape(1,3))
+                try:
+                    assert((limits[1][0] - soma_u + 0.001 >= 0.) and (soma_u - limits[0][0] + 0.001 >= 0.))
+                    assert((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
+                    assert((limits[1][2] - soma_l + 0.001 >= 0.) and (soma_l - limits[0][2] + 0.001 >= 0.))
+                except Exception as e:
+                    logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
+                                     (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
+                    raise e
+                uvl_obs.append(np.array([soma_u,soma_v,limits[1][2]]).reshape(1,3))
+                gids.append(gid)
+
+        distance_u = []
+        distance_v = []
+        if len(uvl_obs) > 0:
+            for (gid, uvl) in itertools.izip(gids, uvl_obs):
+                soma_u = uvl[0]
+                soma_v = uvl[1]
+                soma_l = uvl[2]
+
+                origin_u = origin_coords[0]
+                origin_v = origin_coords[1]
+                origin_l = origin_coords[2]
+                
+                usteps = round(abs(soma_u - origin_u) / 0.01)
+                vsteps = round(abs(soma_v - origin_v) / 0.01)
+                uu = np.linspace(origin_u, soma_u, usteps)
+                uv = np.linspace(origin_v, soma_v, 3)
+                vv = np.linspace(origin_v, soma_v, vsteps)
+                vu = np.linspace(origin_u, soma_v, 3)
+                l = origin_coords[2]
+                cdistance_u, coords_u = ip_vol.point_distance(uu, uv, l, axis=0, chunk_size=interp_chunk_size)
+                cdistance_v, coords_v = ip_vol.point_distance(vu, vv, l, axis=1, chunk_size=interp_chunk_size)
+
+                print cdistance_u
+                print cdistance_v
+                
+                try:
+                    assert(np.all(np.isfinite(cdistance_u)))
+                    assert(np.all(np.isfinite(cdistance_v)))
+                except Exception as e:
+                    logger.error('Invalid distances: distance_u: %f; distance_v: %f', distance_u, distance_v)
+                    raise e
+                distance_u.append(np.mean(cdistance_u[np.where(coords_u[:,0] == uvl[0])]))
+                distance_v.append(np.mean(cdistance_v[np.where(coords_v[:,1] == uvl[1])]))
+                local_dist_dict[gid] = (distance_u, distance_v)
+                
+                if rank == 0:
+                    logger.info('gid %i: coordinates: %f %f %f distances: %f %f' % \
+                                    (gid, soma_u, soma_v, soma_l, distance_u, distance_v))
+                    
         if allgather:
             dist_dicts = comm.allgather(local_dist_dict)
             combined_dist_dict = {}
@@ -361,4 +474,3 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
         soma_coords_dict[pop] = coords_dict
                                   
     return soma_coords_dict
-

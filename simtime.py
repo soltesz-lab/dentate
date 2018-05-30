@@ -1,12 +1,14 @@
 
+
 from neuron import h
 
 class SimTimeEvent:
 
-    def __init__(self, pc, max_walltime_hours, results_write_time, dt_status=1.0, dt_checksimtime=5.0):
+    def __init__(self, pc, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
         self.pc  = pc
-        self.walltime_status = 0
+        self.walltime_status = h.startsw()
         self.dt_status = dt_status
+        self.setup_time = setup_time
         self.tcsum = 0.
         self.tcma = 0.
         self.nsimsteps = 0
@@ -22,9 +24,13 @@ class SimTimeEvent:
 
     def simstatus(self):
         wt = h.startsw()
-        if (self.walltime_status > 0):
+        if h.t > 0.:
             if (int(self.pc.id()) == 0):
                 print "*** rank 0 computation time at t=%g ms was %g s" % (h.t, wt-self.walltime_status)
+        else:
+            init_time = wt-self.walltime_status
+            max_init_time = self.pc.allreduce(init_time, 2) ## maximum value
+            self.setup_time += max_init_time
         self.walltime_status = wt
         if ((h.t + self.dt_status) < h.tstop):
             h.cvode.event(h.t + self.dt_status, self.simstatus)
@@ -39,7 +45,7 @@ class SimTimeEvent:
             ## remaining physical time
             trem = h.tstop - h.t
             ## remaining simulation time
-            tsimrem = self.max_walltime_hrs*3600 - self.tcsum - h.setuptime
+            tsimrem = self.max_walltime_hrs*3600 - self.tcsum - self.setup_time
             min_tsimrem = self.pc.allreduce(tsimrem, 3) ## minimum value
             ## simulation time necessary to complete the simulation
             tsimneeded = (trem/self.dt_checksimtime)*self.tcma+self.results_write_time
