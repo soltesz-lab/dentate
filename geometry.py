@@ -165,10 +165,6 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
         ldists_v.append(ldist_v)
         obss_u.append(obs_u)
         obss_v.append(obs_v)
-
-        print 'uvl: ', uvl
-        print 'obs_u: ', obs_u
-        print 'obs_v: ', obs_v
         
     distances_u = np.concatenate(ldists_u).reshape(-1)
     obs_u = np.concatenate(obss_u)
