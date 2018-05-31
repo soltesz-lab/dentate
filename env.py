@@ -193,6 +193,13 @@ class Env:
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
 
+        if self.hoclibPath:
+            # polymorphic hoc value template
+            h.load_file(self.hoclibPath + '/templates/Value.hoc')
+            # stimulus cell template
+            h.load_file(self.hoclibPath + '/templates/StimCell.hoc')
+            h.xopen(self.hoclibPath + '/lib.hoc')
+
     def load_input_config(self):
         """
 
@@ -293,6 +300,13 @@ class Env:
         if not self.celltypes.has_key(popName):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
+
+        h('objref templatePaths, templatePathValue')
+        h.templatePaths = h.List()
+        for path in env.templatePaths:
+            h.templatePathValue = h.Value(1, path)
+            h.templatePaths.append(h.templatePathValue)
+
         if not hasattr(h, templateName):
             if 'templateFile' in self.celltypes[popName]:
                 templateFile = self.celltypes[popName]['templateFile']
@@ -302,11 +316,11 @@ class Env:
                         templateFilePath = templatePath + '/' + templateFile
                         break
                 if templateFilePath is None:
-                    raise IOError('Env.load_cell_templates: population: %s; templateFile not found: %s' %
+                    raise IOError('Env.load_cell_templates: population: %s; template not found: %s' %
                                   (popName, templateFile))
                 h.load_file(templateFilePath)
                 if rank == 0 and self.verbose:
-                    self.logger.info('load_cell_templates: population: %s; templateFile loaded: %s' % \
+                    self.logger.info('load_cell_templates: population: %s; template loaded: %s' % \
                                 (popName, templateFilePath))
             else:
                 h.find_template(self.pc, h.templatePaths, templateName)

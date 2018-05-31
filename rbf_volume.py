@@ -314,9 +314,14 @@ class RBFVolume(object):
         v = np.array([sv]).reshape(-1,)
         l = np.array([sl]).reshape(-1,)
 
+        
+        assert(len(u) > 0)
+        assert(len(v) > 0)
+        assert(len(l) > 0)
+
         input_axes = [u, v, l]
         if origin_coords is None:
-           origin_coords = np.asarray([ input_axes[i][0] for i in xrange(0,3) ])
+            origin_coords = np.asarray([ input_axes[i][0] for i in xrange(0,3) ])
 
         c = input_axes
 
@@ -329,7 +334,7 @@ class RBFVolume(object):
         aidx.remove(axis)
         
         distances = []
-        coords   = [ [] for i in xrange(0,3) ]
+        coords    = []
 
         origin_axes = [ origin_coords[i] if i == axis else c[i] for i in xrange(0,3) ]
         (origin_pts, origin_coords) = self.ev(*origin_axes, return_coords=True)
@@ -337,11 +342,12 @@ class RBFVolume(object):
         oind = np.lexsort(tuple([ origin_coords[:,i] for i in aidx ]))
         origin_sorted = origin_pts[oind]
 
+        
         for (sgn, axes) in ordered_axes:
 
             npts = axes[axis].shape[0]
 
-            if npts > 1:
+            if npts > 0:
                 (eval_pts, eval_coords) = self.ev(*axes, chunk_size=interp_chunk_size, return_coords=True)
                 coord_idx = np.argsort(eval_coords[:,axis])
                 if sgn < 0:
@@ -355,14 +361,13 @@ class RBFVolume(object):
                 fst_coords = split_pts_coords[0]
                 find = np.lexsort(tuple([ fst_coords[:,i] for i in aidx ]))
                 fst_sorted = fst_point[find]
-                cdist = euclidean_distance(origin_sorted, fst_sorted)
+                cdist = euclidean_distance(origin_sorted, fst_sorted).reshape(-1,1)
                 for i in xrange(0,len(cdist)):
                     if abs(cdist[i] < 1e-3):
                         cdist[i] = 0.
                 distances.append(sgn * cdist)
                 if return_coords:
-                    for i in xrange(0,3):
-                        coords[i].append(fst_coords[find,i])
+                    coords.append(fst_coords[find])
                 for i in xrange(0, npts-1):
                     a = split_pts[i+1]
                     b = split_pts[i]
@@ -372,12 +377,11 @@ class RBFVolume(object):
                     bind = np.lexsort(tuple([ b_coords[:,i] for i in aidx ]))
                     a_sorted = a[aind]
                     b_sorted = b[bind]
-                    dist = euclidean_distance(a_sorted, b_sorted)
+                    dist = euclidean_distance(a_sorted, b_sorted).reshape(-1,1)
                     cdist = cdist + dist
                     distances.append(sgn * cdist)
                     if return_coords:
-                        for i in xrange(0,3):
-                            coords[i].append(a_coords[aind,i])
+                        coords.append(a_coords[aind])
 
                             
         if return_coords:

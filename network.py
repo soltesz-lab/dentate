@@ -336,7 +336,7 @@ def connectcells(env, cleanup=True):
 
                 for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
                     for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
-                        delay = (distance / env.connection_velocity[presyn_name]) + 0.1
+                        delay = (distance / env.connection_velocity[presyn_name]) + h.dt
                         this_nc = synapses.mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
@@ -598,7 +598,7 @@ def mkstim(env):
 def init(env):
     """
     Initializes the network by calling mkcells, mkstim, connectcells, connectgjs.
-    Performs optional load balancing.
+    Optionally performs load balancing.
 
     :param env:
     """
@@ -614,13 +614,6 @@ def init(env):
     env.pc = h.pc
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
-    # polymorphic value template
-    h.load_file(env.hoclibPath + '/templates/Value.hoc')
-    # randomstream template
-    h.load_file(env.hoclibPath + '/templates/ranstream.hoc')
-    # stimulus cell template
-    h.load_file(env.hoclibPath + '/templates/StimCell.hoc')
-    h.xopen(env.hoclibPath + '/lib.hoc')
     h.dt = env.dt
     h.tstop = env.tstop
     if env.optldbal or env.optlptbal:
@@ -633,12 +626,6 @@ def init(env):
     if rank == 0:
         logger.info("*** Creating cells...")
     h.startsw()
-
-    h('objref templatePaths, templatePathValue')
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePathValue = h.Value(1, path)
-        h.templatePaths.append(h.templatePathValue)
 
     env.pc.barrier()
     mkcells(env)
@@ -691,7 +678,7 @@ def init(env):
 def run(env, output=True):
     """
     Runs network simulation. Assumes that procedure `init` has been
-    called with the network configuration proviedd by the `env`
+    called with the network configuration provided by the `env`
     argument.
 
     :param env:

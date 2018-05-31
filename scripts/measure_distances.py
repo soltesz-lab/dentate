@@ -8,7 +8,7 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
-from dentate.geometry import make_volume, get_volume_distances, get_soma_distances
+from dentate.geometry import make_volume, get_volume_distances, get_soma_distances, interp_soma_distances
 from dentate.env import Env
 import dentate.utils as utils
 
@@ -25,17 +25,18 @@ script_name = 'measure_distances.py'
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
-@click.option("--resample", type=int, default=2)
-@click.option("--resolution", type=(int,int,int), default=(25,17,10))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--interpolate", is_flag=True)
 @click.option("--interp-chunk-size", type=int, default=1000)
+@click.option("--alpha-radius", type=float, default=120.)
+@click.option("--resample", type=int, default=2)
+@click.option("--resolution", type=(int,int,int), default=(25,17,10))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, resample, resolution, populations, interpolate, interp_chunk_size, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, populations, interpolate, interp_chunk_size, resample, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -44,6 +45,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     rank = comm.rank
 
     env = Env(comm=comm, configFile=config)
+    output_path = coords_path
 
     soma_coords = {}
 
@@ -78,17 +80,22 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     interp_penalty = 0.1
     interp_basis = 'imq'
     interp_order = 2
-    
-    logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-    ip_volume = make_volume(min_l-0.01, max_l+0.01, \
-                            ures=resolution[0], \
-                            vres=resolution[1], \
-                            lres=resolution[2], \
-                            rotate=rotate)
+
     if rank == 0:
-        if interpolate:
+        logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
+    if interpolate:
+        obs_dist_u = None
+        coeff_dist_u = None
+        obs_dist_v = None
+        coeff_dist_v = None
+        if rank == 0:
+            ip_volume = make_volume(min_l-0.01, max_l+0.01, \
+                                    ures=resolution[0], \
+                                    vres=resolution[1], \
+                                    lres=resolution[2], \
+                                    rotate=rotate)
             logger.info('Computing volume distances...')
-            vol_dist = get_volume_distances(ip_volume, res=resample)
+            vol_dist = get_volume_distances(ip_volume, res=resample, alpha_radius=alpha_radius)
             (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
             logger.info('Computing U volume distance interpolants...')
             ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
@@ -104,17 +111,23 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
             gc.collect()
             logger.info('Broadcasting volume distance interpolants...')
         
-            obs_dist_u = comm.bcast(obs_dist_u, root=0)
-            coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-            obs_dist_v = comm.bcast(obs_dist_v, root=0)
-            coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+        obs_dist_u = comm.bcast(obs_dist_u, root=0)
+        coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
+        obs_dist_v = comm.bcast(obs_dist_v, root=0)
+        coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
 
-            ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                                        penalty=interp_penalty, extrapolate=True)
-            ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                                    penalty=interp_penalty, extrapolate=True)
-
-    output_path = coords_path
+        ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+                                       penalty=interp_penalty, extrapolate=True)
+        ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+                                       penalty=interp_penalty, extrapolate=True)
+    else:
+        ip_volume = make_volume(min_l-0.01, max_l+0.01, \
+                                ures=resolution[0], \
+                                vres=resolution[1], \
+                                lres=resolution[2], \
+                                rotate=rotate)
+        
+                                       
     for population in populations:
 
         if interpolate:

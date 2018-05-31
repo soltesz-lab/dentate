@@ -6,7 +6,7 @@ from dentate import plot, utils
 from dentate.geometry import make_volume, get_volume_distances
 from dentate.env import Env
 
-script_name = 'plot_volume_distancs.py'
+script_name = 'plot_volume_distances.py'
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -15,7 +15,7 @@ script_name = 'plot_volume_distancs.py'
 @click.option("--alpha-radius", type=float, default=100.)
 @click.option("--verbose", "-v", is_flag=True)
 def main(config, resolution, resample, alpha_radius, verbose):
-
+    
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
 
@@ -39,7 +39,7 @@ def main(config, resolution, resample, alpha_radius, verbose):
                             rotate=rotate)
     logger.info('Computing volume distances...')
     
-    vol_dist = get_volume_distances(ip_volume, res=resample, alpha_radius=alpha_radius, verbose=verbose)
+    vol_dist = get_volume_distances(ip_volume, res=resample, alpha_radius=alpha_radius)
     (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
 
     dist_dict = {}
@@ -47,8 +47,8 @@ def main(config, resolution, resample, alpha_radius, verbose):
         dist_dict[i] = { 'U Distance': np.asarray([dist_u[i]], dtype=np.float32), \
                          'V Distance': np.asarray([dist_v[i]], dtype=np.float32) }
     
-    plot.plot_positions ("DG Volume", dist_dict, verbose=verbose)
+    plot.plot_positions ("DG Volume", dist_dict, verbose=verbose, saveFig=True)
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find("plot_volume_distances.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

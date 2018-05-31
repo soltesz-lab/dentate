@@ -395,7 +395,7 @@ def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, s
 
     distance_U = {}
     distance_V = {}
-    for k,v in distances:
+    for k,v in distances.iteritems():
         distance_U[k] = v['U Distance'][0]
         distance_V[k] = v['V Distance'][0]
     

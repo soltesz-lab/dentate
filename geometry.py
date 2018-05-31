@@ -144,7 +144,7 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
 
     logger.info("%i nodes generated" % node_count)
         
-    logger.info('Computing distances...')
+    logger.info('Computing volume distances...')
     ldists_u = []
     ldists_v = []
     obss_u = []
@@ -159,22 +159,22 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
         ldist_v, obs_dist_v = ip_vol.point_distance(sample_U, span_V, sample_L, axis=1, \
                                                     origin_coords=origin_coords, \
                                                     interp_chunk_size=interp_chunk_size)
-        obs_u = np.array([np.concatenate(obs_dist_u[0]), \
-                          np.concatenate(obs_dist_u[1]), \
-                          np.concatenate(obs_dist_u[2])]).T
-        obs_v = np.array([np.concatenate(obs_dist_v[0]), \
-                          np.concatenate(obs_dist_v[1]), \
-                          np.concatenate(obs_dist_v[2])]).T
+        obs_u = np.vstack(obs_dist_u)
+        obs_v = np.vstack(obs_dist_v)
         ldists_u.append(ldist_u)
         ldists_v.append(ldist_v)
         obss_u.append(obs_u)
         obss_v.append(obs_v)
+
+        print 'uvl: ', uvl
+        print 'obs_u: ', obs_u
+        print 'obs_v: ', obs_v
         
     distances_u = np.concatenate(ldists_u).reshape(-1)
     obs_u = np.concatenate(obss_u)
     distances_v = np.concatenate(ldists_v).reshape(-1)
     obs_v = np.concatenate(obss_v)
-    
+
     logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
     logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
 
@@ -183,7 +183,7 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
 
         
 def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False):
-    """Interpolates arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
+    """Interpolates path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
     ----------
@@ -233,7 +233,6 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
         for gid, coords in coords_dict.iteritems():
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
-                uvl_obs.append(np.array([soma_u,soma_v,soma_l]).reshape(1,3))
                 try:
                     assert((limits[1][0] - soma_u + 0.001 >= 0.) and (soma_u - limits[0][0] + 0.001 >= 0.))
                     assert((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
@@ -242,7 +241,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                     raise e
-                uvl_obs.append(np.array([soma_u,soma_v,limits[1][2]]).reshape(1,3))
+                uvl_obs.append(np.array([soma_u,soma_v,limits[1][2]]).ravel())
                 gids.append(gid)
         if len(uvl_obs) > 0:
             uvl_obs_array = np.vstack(uvl_obs)
@@ -252,10 +251,10 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
                 assert(np.all(np.isfinite(distance_u)))
                 assert(np.all(np.isfinite(distance_v)))
             except Exception as e:
-                print 'distance_u: ', distance_u
-                print 'distance_v: ', distance_v
+                logger.error('Invalid distances: distance_u: %f; distance_v: %f', distance_u, distance_v)
                 raise e
-                
+
+            
         for (i,gid) in enumerate(gids):
             local_dist_dict[gid] = (distance_u[i], distance_v[i])
             if rank == 0:
@@ -277,8 +276,8 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
 
 
 
-def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, interp_chunk_size=1000, populations=None, allgather=False):
-    """Computes arc-distances of cell coordinates along the dimensions of an `RBFVolume` instance.
+def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndist=5, interp_chunk_size=1000, populations=None, allgather=False):
+    """Computes path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
     ----------
@@ -313,12 +312,16 @@ def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, int
 
     span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
     origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
-
+    origin_u = origin_coords[0]
+    origin_v = origin_coords[1]
+    origin_l = origin_coords[2]
+    
     soma_distances = {}
     for pop in populations:
         coords_dict = soma_coords[pop]
         if rank == 0:
             logger.info('Computing soma distances for population %s...' % pop)
+            logger.info('origin coordinates: %f %f %f' % (origin_u, origin_v, origin_l))
         count = 0
         local_dist_dict = {}
         limits = population_extents[pop]
@@ -327,7 +330,6 @@ def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, int
         for gid, coords in coords_dict.iteritems():
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
-                uvl_obs.append(np.array([soma_u,soma_v,soma_l]).reshape(1,3))
                 try:
                     assert((limits[1][0] - soma_u + 0.001 >= 0.) and (soma_u - limits[0][0] + 0.001 >= 0.))
                     assert((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
@@ -336,33 +338,47 @@ def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, int
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                     raise e
-                uvl_obs.append(np.array([soma_u,soma_v,limits[1][2]]).reshape(1,3))
+                uvl_obs.append(np.array([soma_u,soma_v,soma_l]).ravel())
                 gids.append(gid)
 
-        distance_u = []
-        distance_v = []
         if len(uvl_obs) > 0:
+
             for (gid, uvl) in itertools.izip(gids, uvl_obs):
+
                 soma_u = uvl[0]
                 soma_v = uvl[1]
                 soma_l = uvl[2]
-
-                origin_u = origin_coords[0]
-                origin_v = origin_coords[1]
-                origin_l = origin_coords[2]
                 
-                usteps = round(abs(soma_u - origin_u) / 0.01)
-                vsteps = round(abs(soma_v - origin_v) / 0.01)
-                uu = np.linspace(origin_u, soma_u, usteps)
-                uv = np.linspace(origin_v, soma_v, 3)
-                vv = np.linspace(origin_v, soma_v, vsteps)
-                vu = np.linspace(origin_u, soma_v, 3)
-                l = origin_coords[2]
-                cdistance_u, coords_u = ip_vol.point_distance(uu, uv, l, axis=0, chunk_size=interp_chunk_size)
-                cdistance_v, coords_v = ip_vol.point_distance(vu, vv, l, axis=1, chunk_size=interp_chunk_size)
-
-                print cdistance_u
-                print cdistance_v
+                usteps = max(round(abs(soma_u - origin_u) / 0.01),1)
+                vsteps = max(round(abs(soma_v - origin_v) / 0.01),1)
+                if origin_u <= soma_u:
+                    start_u = origin_u
+                    stop_u = soma_u
+                else:
+                    start_u = soma_u
+                    stop_u = origin_u 
+                if origin_v <= soma_v:
+                    start_v = origin_v
+                    stop_v = soma_v
+                else:
+                    start_v = soma_v
+                    stop_v = origin_v 
+                    
+                uu = np.linspace(start_u, stop_u, usteps)
+                uv = np.linspace(start_v, stop_v, ndist)
+                vv = np.linspace(start_v, stop_v, vsteps)
+                vu = np.linspace(start_u, stop_u, ndist)
+                l = origin_l
+                    
+                assert(len(uu) > 0)
+                assert(len(uv) > 0)
+                assert(len(vu) > 0)
+                assert(len(vv) > 0)
+                
+                cdistance_u, coords_u = ip_vol.point_distance(uu, uv, l, axis=0, origin_coords=origin_coords, \
+                                                              interp_chunk_size=interp_chunk_size)
+                cdistance_v, coords_v = ip_vol.point_distance(vu, vv, l, axis=1, origin_coords=origin_coords, \
+                                                              interp_chunk_size=interp_chunk_size)
                 
                 try:
                     assert(np.all(np.isfinite(cdistance_u)))
@@ -370,8 +386,8 @@ def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, int
                 except Exception as e:
                     logger.error('Invalid distances: distance_u: %f; distance_v: %f', distance_u, distance_v)
                     raise e
-                distance_u.append(np.mean(cdistance_u[np.where(coords_u[:,0] == uvl[0])]))
-                distance_v.append(np.mean(cdistance_v[np.where(coords_v[:,1] == uvl[1])]))
+                distance_u = np.mean(cdistance_u[-1])
+                distance_v = np.mean(cdistance_v[-1])
                 local_dist_dict[gid] = (distance_u, distance_v)
                 
                 if rank == 0:
