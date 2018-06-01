@@ -4,5 +4,5 @@ mpirun.mpich -np 8 python ./scripts/measure_distances.py \
              --coords-namespace=Coordinates \
              -i GC \
               --coords-path=./datasets/DG_coords_20180530.h5 \
-              --io-size=2 -v --interpolate 
+              --io-size=2 -v
 
