@@ -1,11 +1,13 @@
 
 """Procedures related to gap junction connectivity generation. """
 
-import itertools
+import sys, time, string, math, itertools
 from collections import defaultdict
-import sys, os.path, string, math
-from neuron import h
 import numpy as np
+from mpi4py import MPI
+from neuron import h
+from neuroh5.io import read_population_ranges, read_tree_selection, append_graph
+
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -34,10 +36,38 @@ def coupling_strength(distance, cc):
 ## Connections based on weighted distance
 ## selected = datasample(transpose(1:length(distance)),round(gj_prob(pre_type,post_type)*length(distance)),'Weights',prob,'Replace',false);
 
+def generate_gap_junctions(gj_config, ranstream_gj, gj_probs, gj_distances, gids_a, gids_b,
+                           tree_dict_a, tree_dict_b, gj_dict)
+    k = round(gj_config.prob * len(gj_distances))
+    selected = np.random.choice(np.arange(0, len(gj_distances)), size=k, replace=False, p=gj_probs)
+    count = len(selected)
+    
+    gid_dict = defaultdict(list)
+    for i in selected:
+        gid_a = gids_a[i]
+        gid_b = gids_b[i]
+        gid_a_gjs = gid_dict[gid_a] 
+        gid_a_gjs.append(gid_b)
+
+    for gid_a,gids_b in gid_dict.iteritems():
+        gid_tree_a = tree_dict_a[gid_a]
+        for gid_b in gids_b:
+            sections =
+            positions =
+            conductances = 
+            gj_dict[gid_a] = ( np.asarray(gids_b, dtype=np.uint32),
+                                   { 'Location' : { 'section': np.asarray (sections, dtype=np.uint32),
+                                                    'position': np.asarray (positions, dtype=np.float32) },
+                                     'Coupling' : { 'conductance' : np.asarray (conductances, dtype=np.float32) } } )
+            
+    return count
+
+        
+
 def generate_gj_connections(comm, population_dict, gj_config, connection_prob, forest_path,
                             synapse_seed, connectivity_seed, cluster_seed,
                             synapse_namespace, connectivity_namespace, connectivity_path,
-                            io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
+                            io_size, chunk_size, value_chunk_size, cache_size,
                             dry_run=False):
     
     """Generates gap junction connectivity based on Euclidean-distance-weighted probabilities.
@@ -54,7 +84,6 @@ def generate_gj_connections(comm, population_dict, gj_config, connection_prob, f
     :param chunk_size: HDF5 chunk size for connectivity file (pointer and index datasets)
     :param value_chunk_size: HDF5 chunk size for connectivity file (value datasets)
     :param cache_size: how many cells to read ahead
-    :param write_size: how many cells to write out at the same time
     """
         
     rank = comm.rank
@@ -85,10 +114,11 @@ def generate_gj_connections(comm, population_dict, gj_config, connection_prob, f
     total_count = 0
     gid_count   = 0
     connection_dict = defaultdict(lambda: {})
-    gj_dict = {}
 
-    for (pp, gj_config) in gj_config_dict.iteritems():
+    for (i, (pp, gj_config)) in enumerate(gj_config_dict.iteritems()):
 
+        ranstream_gj.seed(gj_seed + i)
+        
         population_a = pp[0]
         population_b = pp[1]
         
@@ -109,85 +139,53 @@ def generate_gj_connections(comm, population_dict, gj_config, connection_prob, f
             cell_z = coords_dict['Z Coordinate'][0]
             coords_b[gid] = (np.asarray([cell_x, cell_y, cell_z]))
             
-        dist_dict = measure_euclidean_distances(coords_a, coords_b)
+        dist_dict = make_distance_pairs(coords_a, coords_b)
 
-        filtered_dist_dict = filter_by_distance(dist_dict, connection_params)
+        gj_prob_dict = filter_by_prob(dist_dict, gj_config.connection_params)
 
-        gids_a, gids_b = 
+        gj_probs = []
+        gj_distances = []
+        gids_a = []
+        gids_b = []
+        for k, v in gj_prob_dict.iteritems():
+            if k[0] % rank == 0:
+                gids_a.append(k[0])
+                gids_b.append(k[1])
+                gj_probs.append(v[0])
+                gj_distances.append(v[1])
+
+        gj_probs = np.asarray(gj_probs, dtype=np.float32)
+        gj_probs = gj_probs / gj_probs.sum()
+        gj_distances = np.asarray(gj_distances, dtype=np.float32)
+        gids_a = np.asarray(gids_a, dtype=np.uint32)
+        gids_b = np.asarray(gids_b, dtype=np.uint32)
+                
+        tree_dict_a = {}
+        selection_a = set(gids_a)
+        (tree_iter_a, _) = read_tree_selection(forest_path, population_a, list(gids_a))
+        for (gid,tree_dict) in tree_iter_a:
+            tree_dict_a[gid] = tree_dict
+
         
-    for gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, io_size=io_size,
-                                                cache_size=cache_size, comm=comm):
-        last_time = time.time()
-        if gid is None:
-            logger.info('Rank %i gid is None' % rank)
-        else:
-            logger.info('Rank %i received attributes for population: %s, gid: %i' % (rank, destination_population, destination_gid))
-            ranstream_gj.seed(destination_gid + connectivity_seed)
+        tree_dict_b = {}
+        selection_b = set(gids_b)
+        (tree_iter_b, _) = read_tree_selection(forest_path, population_b, list(gids_b))
+        for (gid,tree_dict) in tree_iter_b:
+            tree_dict_b[gid] = tree_dict
 
-            projection_prob_dict = {}
-            for source_population in source_populations:
-                probs, source_gids, distances_u, distances_v = connection_prob.get_prob(destination_gid, source_population)
-                projection_prob_dict[source_population] = (probs, source_gids, distances_u, distances_v)
-                if len(distances_u) > 0:
-                    max_u_distance = np.max(distances_u)
-                    min_u_distance = np.min(distances_u)
-                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
-                else:
-                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
-                    
+        gj_dict = {}
+        count = generate_gap_junctions(ranstream_gj,
+                                       gj_probs, gj_distances, gids_a, gids_b,
+                                       tree_dict_a, tree_dict_b,
+                                       gj_dict)
+        
+        gj_graph_dict = { pp[0]: { pp[1]: gj_dict } }
 
+        if not dry_run:
+            append_graph(connectivity_path, gj_graph_dict, io_size=io_size, comm=comm)
+
+        total_count += count
             
-            count = generate_synaptic_connections(rank,
-                                                  ranstream_syn,
-                                                  ranstream_con,
-                                                  cluster_seed+destination_gid,
-                                                  destination_gid,
-                                                  synapse_dict,
-                                                  population_dict,
-                                                  projection_synapse_dict,
-                                                  projection_prob_dict,
-                                                  connection_dict)
-            total_count += count
-            
-            logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))
-            sys.stdout.flush()
-
-        if gid_count % write_size == 0:
-            last_time = time.time()
-            if len(connection_dict) > 0:
-                projection_dict = { destination_population: connection_dict }
-            else:
-                projection_dict = {}
-            if not dry_run:
-                append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
-            if rank == 0:
-                if connection_dict:
-                    for (prj, prj_dict) in  connection_dict.iteritems():
-                        logger.info("%s: %s" % (prj, str(prj_dict.keys())))
-                    logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
-            projection_dict.clear()
-            connection_dict.clear()
-            gc.collect()
-            
-        gid_count += 1
-
-    last_time = time.time()
-    if len(connection_dict) > 0:
-        projection_dict = { destination_population: connection_dict }
-    else:
-        projection_dict = {}
-    if not dry_run:
-        append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
-    if rank == 0:
-        if connection_dict:
-            for (prj, prj_dict) in  connection_dict.iteritems():
-                logger.info("%s: %s" % (prj, str(prj_dict.keys())))
-                logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
-
     global_count = comm.gather(total_count, root=0)
     if rank == 0:
         logger.info('%i ranks took %i s to generate %i edges' % (comm.size, time.time() - start_time, np.sum(global_count)))
-
-
-
-
