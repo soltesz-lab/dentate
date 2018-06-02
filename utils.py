@@ -141,6 +141,46 @@ def list_index(element, lst):
     except ValueError:
         return None
 
+    
+    
+    
+def make_geometric_graph(x, y, z, edges):
+    """ Builds a NetworkX graph with xyz node coordinates and the node indices
+        of the end nodes.
+
+        Parameters
+        -----------
+        x: ndarray
+            x coordinates of the points
+        y: ndarray
+            y coordinates of the points
+        z: ndarray
+            z coordinates of the points
+        edges: the (2, N) array returned by compute_delaunay_edges()
+            containing node indices of the end nodes. Weights are applied to
+            the edges based on their euclidean length for use by the MST
+            algorithm.
+
+        Returns
+        ---------
+        g: A NetworkX undirected graph
+
+        Notes
+        ------
+        We don't bother putting the coordinates into the NX graph.
+        Instead the graph node is an index to the column.
+    """
+    import networkx as nx
+    xyz = np.array((x, y, z))
+    def euclidean_dist(i, j):
+        d = xyz[:,i] - xyz[:,j]
+        return np.sqrt(np.dot(d, d))
+
+    g = nx.Graph()
+    for i, j in edges:
+        g.add_edge(i, j, weight=euclidean_dist(i, j))
+    return g
+
 
 def random_choice_w_replacement(ranstream,n,p):
     """

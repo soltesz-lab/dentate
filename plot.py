@@ -78,43 +78,6 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, **kwargs):
     return vec
 
 
-def make_geometric_graph(x, y, z, edges):
-    """ Builds a NetworkX graph with xyz node coordinates and the node indices
-        of the end nodes.
-
-        Parameters
-        -----------
-        x: ndarray
-            x coordinates of the points
-        y: ndarray
-            y coordinates of the points
-        z: ndarray
-            z coordinates of the points
-        edges: the (2, N) array returned by compute_delaunay_edges()
-            containing node indices of the end nodes. Weights are applied to
-            the edges based on their euclidean length for use by the MST
-            algorithm.
-
-        Returns
-        ---------
-        g: A NetworkX undirected graph
-
-        Notes
-        ------
-        We don't bother putting the coordinates into the NX graph.
-        Instead the graph node is an index to the column.
-    """
-    import networkx as nx
-    xyz = np.array((x, y, z))
-    def euclidean_dist(i, j):
-        d = xyz[:,i] - xyz[:,j]
-        return np.sqrt(np.dot(d, d))
-
-    g = nx.Graph()
-    for i, j in edges:
-        g.add_edge(i, j, weight=euclidean_dist(i, j))
-    return g
-
 
 def update_bins(bins, binsize, x):
     i = math.floor(x / binsize)
@@ -395,7 +358,7 @@ def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, s
 
     distance_U = {}
     distance_V = {}
-    for k,v in distances.iteritems():
+    for k,v in distances:
         distance_U[k] = v['U Distance'][0]
         distance_V[k] = v['V Distance'][0]
     
@@ -706,7 +669,7 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
         z = zcoords[dend_idxs].reshape(-1,)
 
         # Make a NetworkX graph out of our point and edge data
-        g = make_geometric_graph(x, y, z, edges)
+        g = utils.make_geometric_graph(x, y, z, edges)
 
         # Compute minimum spanning tree using networkx
         # nx.mst returns an edge generator

@@ -10,7 +10,8 @@ from rbf.interpolate import RBFInterpolant
 import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-from dentate import utils
+from dentate import utils, synapses
+from synapses import make_synapse_graph
 from utils import list_index, random_clustered_shuffle, random_choice_w_replacement
 
 ## This logger will inherit its setting from its root logger, dentate,
