@@ -1,8 +1,8 @@
 from collections import defaultdict, Iterable, namedtuple
 import sys, os.path, string, time, gc, math, datetime, numbers, itertools
 import copy, pprint, logging
-import numpy as np
 import yaml
+import numpy as np
 
 
 class IncludeLoader(yaml.Loader):
@@ -300,4 +300,5 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
                                  random_seed=random_seed)
     s = np.argsort(X,axis=0).ravel()
     return y[s].ravel()
+
 
