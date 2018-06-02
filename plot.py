@@ -365,9 +365,6 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
     distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
     distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
 
-    dx = int((np.max(distance_U_array) - np.min(distance_U_array)) / binSize)
-    dy = int((np.max(distance_V_array) - np.min(distance_V_array)) / binSize)
-
     x_min = np.min(distance_U_array)
     x_max = np.max(distance_U_array)
     y_min = np.min(distance_V_array)
@@ -379,18 +376,13 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
         (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
         p = ax.pcolormesh(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T)
     else:
-        data = np.vstack([distance_U_array, distance_V_array]).T
-        x    = np.linspace(x_min, x_max, dx)
-        y    = np.linspace(y_min, y_max, dy)
-        X, Y = np.meshgrid(x, y)
-        data_grid = np.vstack([X.ravel(), Y.ravel()]).T
-        Z    = utils.kde_sklearn(data, data_grid)
-        p    = ax.imshow(Z.reshape(X.shape), origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
+        X, Y, Z    = utils.kde_scipy(distance_U_array, distance_V_array, binSize)
+        p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(p, ax=ax, shrink=0.75, aspect=20)
+    fig.colorbar(p, ax=ax, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):

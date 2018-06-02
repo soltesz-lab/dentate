@@ -301,23 +301,38 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
     s = np.argsort(X,axis=0).ravel()
     return y[s].ravel()
 
-def kde_sklearn(x, x_grid, bandwidth=0.2, **kwargs):
+
+def kde_sklearn(x, y, binSize, bandwidth=1.0, **kwargs):
     """Kernel Density Estimation with Scikit-learn"""
     from sklearn.neighbors import KernelDensity
-    print x.shape
-    print x_grid.shape
-    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
-    kde_skl.fit(x)
-    # score_samples() returns the log-likelihood of the samples
-    log_pdf = kde_skl.score_samples(x_grid)
-    return np.exp(log_pdf)
 
-def kde_scipy(x, x_grid, bandwidth=0.2, **kwargs):
+    # create grid of sample locations
+    xx, yy = np.mgrid[x.min():x.max():binSize, 
+                      y.min():y.max():binSize]
+
+    data_grid = np.vstack([xx.ravel(), yy.ravel()]).T
+    data  = np.vstack([x, y]).T
+    
+    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
+    kde_skl.fit(data)
+
+    # score_samples() returns the log-likelihood of the samples
+    z = np.exp(kde_skl.score_samples(data_grid))
+    return xx, yy, np.reshape(z, xx.shape)
+
+
+def kde_scipy(x, y, binSize, **kwargs):
     """Kernel Density Estimation with Scipy"""
     from scipy.stats import gaussian_kde
-    # scipy weights its bandwidth by the covariance of the
-    # input data.  To make the results comparable to the sklearn method,
-    # we divide the bandwidth by the sample standard deviation here.
-    kde = gaussian_kde(x.T, bw_method=bandwidth / x.std(ddof=1), **kwargs)
-    return kde.evaluate(x_grid.T)
 
+    data  = np.vstack([x, y])
+    kde   = gaussian_kde(data, **kwargs)
+    
+    # create grid of sample locations
+    xx, yy = np.mgrid[x.min():x.max():binSize, 
+                      y.min():y.max():binSize]
+    
+    data_grid = np.vstack([xx.ravel(), yy.ravel()])
+    z    = kde.evaluate(data_grid)
+    
+    return xx, yy, np.reshape(z, xx.shape)
