@@ -3,7 +3,6 @@ import itertools, math, numbers
 from collections import defaultdict
 import numpy as np
 from scipy import signal, interpolate
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
@@ -380,12 +379,12 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
         (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
         p = ax.pcolormesh(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T)
     else:
-        data = [distance_U_array, distance_V_array]
-        dens  = sm.nonparametric.KDEMultivariate(data=data, var_type='cc', bw='normal_reference')
+        data = np.vstack([distance_U_array, distance_V_array]).T
         x    = np.linspace(x_min, x_max, dx)
         y    = np.linspace(y_min, y_max, dy)
         X, Y = np.meshgrid(x, y)
-        Z    = dens.pdf(np.vstack([X.ravel(), Y.ravel()]))
+        data_grid = np.vstack([X.ravel(), Y.ravel()]).T
+        Z    = utils.kde_sklearn(data, data_grid)
         p    = ax.imshow(Z.reshape(X.shape), origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)

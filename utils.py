@@ -301,4 +301,23 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
     s = np.argsort(X,axis=0).ravel()
     return y[s].ravel()
 
+def kde_sklearn(x, x_grid, bandwidth=0.2, **kwargs):
+    """Kernel Density Estimation with Scikit-learn"""
+    from sklearn.neighbors import KernelDensity
+    print x.shape
+    print x_grid.shape
+    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
+    kde_skl.fit(x)
+    # score_samples() returns the log-likelihood of the samples
+    log_pdf = kde_skl.score_samples(x_grid)
+    return np.exp(log_pdf)
+
+def kde_scipy(x, x_grid, bandwidth=0.2, **kwargs):
+    """Kernel Density Estimation with Scipy"""
+    from scipy.stats import gaussian_kde
+    # scipy weights its bandwidth by the covariance of the
+    # input data.  To make the results comparable to the sklearn method,
+    # we divide the bandwidth by the sample standard deviation here.
+    kde = gaussian_kde(x.T, bw_method=bandwidth / x.std(ddof=1), **kwargs)
+    return kde.evaluate(x_grid.T)
 
