@@ -2,7 +2,7 @@
 import itertools, math, numbers
 from collections import defaultdict
 import numpy as np
-from scipy import signal, interpolate
+from scipy import signal, interpolate, stats
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
@@ -344,7 +344,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     return ax
 
 
-def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, verbose = False, pcolormesh = False):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -365,26 +365,34 @@ def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, s
     distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
     distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
 
-    dx = round(np.max(distance_U_array) / binSize)
-    dy = round(np.max(distance_V_array) / binSize)
+    dx = int((np.max(distance_U_array) - np.min(distance_U_array)) / binSize)
+    dy = int((np.max(distance_V_array) - np.min(distance_V_array)) / binSize)
 
     x_min = np.min(distance_U_array)
     x_max = np.max(distance_U_array)
     y_min = np.min(distance_V_array)
     y_max = np.max(distance_V_array)
-
-    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
-
+    
     ax.axis([x_min, x_max, y_min, y_max])
 
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
+    if pcolormesh:
+        (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+        p = ax.pcolormesh(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T)
+    else:
+        data = np.vstack([distance_U_array, distance_V_array])
+        kde  = stats.gaussian_kde(data)
+        x    = np.linspace(x_min, x_max, dx)
+        y    = np.linspace(y_min, y_max, dy)
+        X, Y = np.meshgrid(x, y)
+        Z    = kde.evaluate(np.vstack([X.ravel(), Y.ravel()]))
+        p    = ax.imshow(Z.reshape(X.shape), origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
+                        
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    fig.colorbar(p, ax=ax, shrink=0.75, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):

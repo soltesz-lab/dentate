@@ -365,6 +365,9 @@ class RBFVolume(object):
                 for i in xrange(0,len(cdist)):
                     if abs(cdist[i] < 1e-3):
                         cdist[i] = 0.
+                print 'fst_point = ', fst_sorted
+                print 'origin_point = ', origin_sorted
+                print 'cdist = ', cdist
                 distances.append(sgn * cdist)
                 if return_coords:
                     coords.append(fst_coords[find])
