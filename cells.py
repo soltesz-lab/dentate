@@ -689,7 +689,7 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
             mech_file_path = mech_file_name
         elif os.path.isdir(output_dir):
             mech_file_path = output_dir+'/'+mech_file_name
-    write_to_yaml(mech_file_path, cell.mech_dict)
+    write_to_yaml(mech_file_path, cell.mech_dict, convert_scalars=True)
     print 'Exported mechanism dictionary to %s' % mech_file_path
 
 
