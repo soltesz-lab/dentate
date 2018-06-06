@@ -6,13 +6,6 @@ import btmorph
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
-freq = 100      # Hz, frequency at which AC length constant will be computed
-d_lambda = 0.1  # no segment will be longer than this fraction of the AC length constant
-default_ordered_sec_types = ['soma', 'hillock', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck',
-                             'spine_head']
-default_hoc_sec_lists = {'soma': 'somaidx', 'hillock': 'hilidx', 'ais': 'aisidx', 'axon': 'axonidx',
-                          'basal': 'basalidx', 'apical': 'apicalidx', 'trunk': 'trunkidx', 'tuft': 'tuftidx'}
-
 
 class BiophysCell(object):
     """
@@ -1266,6 +1259,8 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     branch_order = int(branch_order)
     if get_branch_order(cell, node) < branch_order:
         return False
+    if 'custom_origin' in kwargs:
+        rules['origin'] = kwargs['custom_origin']
     return rules
 
 

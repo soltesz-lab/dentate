@@ -1,5 +1,6 @@
 from dentate.neuron_utils import *
-from dentate.cells import get_mech_rules_dict, get_donor, get_distance_to_node, get_param_val_by_distance
+from dentate.cells import get_mech_rules_dict, get_donor, get_distance_to_node, get_param_val_by_distance, \
+    import_mech_dict_from_file, custom_filter_by_branch_order, custom_filter_by_terminal
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -1001,7 +1002,29 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, new_rules, donor, update_targets)
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
+                             update_targets=update_targets)
+
+
+def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False):
+    """
+    Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
+    each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance.
+    Sets membrane mechanism parameters, including gradients and inheritance of parameters from nodes along the path from
+    root. Warning! Do not reset cable after inserting synapses!
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param mech_file_path: str (path)
+    :param from_file: bool
+    """
+    if from_file:
+        import_mech_dict_from_file(cell, mech_file_path)
+    for sec_type in default_ordered_sec_types:
+        if sec_type in cell.mech_dict and sec_type in cell.nodes:
+            if cell.nodes[sec_type] and 'synapses' in cell.mech_dict[sec_type]:
+                for syn_name in cell.mech_dict[sec_type]['synapses']:
+                    update_syn_mech_by_sec_type(cell, env, sec_type, syn_name,
+                                                cell.mech_dict[sec_type]['synapses'][syn_name], update_targets=True)
 
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
