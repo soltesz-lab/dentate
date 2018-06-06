@@ -382,6 +382,7 @@ def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndi
                 except Exception as e:
                     logger.error('Invalid distances: distance_u: %f; distance_v: %f', distance_u, distance_v)
                     raise e
+
                 distance_u = np.mean(cdistance_u[-1])
                 distance_v = np.mean(cdistance_v[-1])
                 local_dist_dict[gid] = (distance_u, distance_v)

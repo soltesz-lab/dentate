@@ -1,5 +1,8 @@
+
 from dentate.neuron_utils import *
-from dentate.cells import get_mech_rules_dict, get_donor, get_distance_to_node, get_param_val_by_distance
+from dentate.cells import get_mech_rules_dict, get_donor, get_distance_to_node, get_param_val_by_distance, 
+    import_mech_dict_from_file, custom_filter_by_branch_order, custom_filter_by_terminal, make_neurotree_graph
+import networkx as nx
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -1001,7 +1004,32 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, new_rules, donor, update_targets)
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
+                             update_targets=update_targets)
+
+
+def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, update_targets=False):
+    """
+    Consults a dictionary specifying parameters of NEURON synaptic mechanisms (point processes) for each type of section
+    in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance. Calls
+    update_syn_mech_by_sec_type to set placeholder values in the syn_mech_attrs_dict of a SynapseAttributes object. If
+    update_targets flag is True, the attributes of any target synaptic point_process and netcon objects that have been
+    inserted will also be updated. Otherwise, they can be updated separately by calling config_syns_from_mech_attrs.
+    :param cell: :class:'BiophysCell'
+    :param env: :class:'Env'
+    :param mech_file_path: str (path)
+    :param from_file: bool
+    :param update_targets: bool
+    """
+    if from_file:
+        import_mech_dict_from_file(cell, mech_file_path)
+    for sec_type in default_ordered_sec_types:
+        if sec_type in cell.mech_dict and sec_type in cell.nodes:
+            if cell.nodes[sec_type] and 'synapses' in cell.mech_dict[sec_type]:
+                for syn_name in cell.mech_dict[sec_type]['synapses']:
+                    update_syn_mech_by_sec_type(cell, env, sec_type, syn_name,
+                                                cell.mech_dict[sec_type]['synapses'][syn_name],
+                                                update_targets=update_targets)
 
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
@@ -1030,15 +1058,68 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
         return None
 
 
-def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seglist, seed,
-                        neurotree_dict=None):
+def make_synapse_graph(syn_dict, neurotree_dict, return_root=False):
+    """
+    Creates a graph of synapses that follows the topological organization of the given neuron.
+    :param syn_dict:
+    :param neurotree_dict:
+    :return: NetworkX.DiGraph
+    """
+    sec_graph = make_neurotree_graph(neurotree_dict)
+
+    syn_ids  = syn_dict['syn_ids']
+    syn_locs = syn_dict['syn_locs']
+    syn_secs = syn_dict['syn_secs']
+
+    sec_syn_dict = defaultdict(list)
+    for syn_id, sec_id, syn_loc in itertools.izip(syn_ids, syn_secs, syn_locs):
+        sec_syn_dict[sec_id].append(syn_id, syn_loc)
+        
+    syn_graph = nx.DiGraph()
+
+    for sec_id, syn_id_locs in sec_syn_dict.iteritems():
+
+        sec_parents = sec_graph.ancestors(sec_id)
+        sec_children = sec_graph.descendants(sec_id)
+
+        assert(len(sec_parents) <= 1)
+        if len(sec_parents) > 0:
+            sec_parent = sec_parents[0]
+        else:
+            sec_parent = None
+
+        syn_id_locs.sort(key=lambda x: x[1])
+            
+        if sec_parent:
+            syn_graph.add_edge(sec_syn_dict[sec_parent][-1], syn_id_locs[0][0])
+
+        for sec_child in sec_children:
+            syn_graph.add_edge(syn_id_locs[-1][0], sec_syn_dict[sec_child][0])
+            
+        for i, j in itertools.izip(syn_id_locs[:-1], syn_id_locs[1:]):
+            syn_graph.add_edge(i[0], j[0])
+
+    if return_root:
+        order = ns.topological_sort(syn_graph)
+        root = order[0]
+    else:
+        root = None
+        
+    if root:
+        return (syn_graph, root)
+    else:
+        return syn_graph
+    
+    
+
+    
+def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict, seed, neurotree_dict=None):
     """
     Computes per-segment density of synapse placement.
     :param syn_type_dict:
     :param layer_dict:
     :param layer_density_dicts:
-    :param sec_index_dict:
-    :param seglist:
+    :param seg_dict:
     :param seed:
     :param neurotree_dict:
     :return:
@@ -1061,52 +1142,51 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, sec_inde
             ran = h.Random(seed)
             ran.normal(density_dict['mean'], density_dict['variance'])
             rans[layer] = ran
-        segdensity = []
-        layers = []
-        for seg in seglist:
-            L = seg.sec.L
-            nseg = seg.sec.nseg
-            if neurotree_dict is not None:
-                secindex = sec_index_dict[seg.sec]
-                secnodes = secnodes_dict[secindex]
-                layer = get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
-            else:
-                layer = -1
-            layers.append(layer)
+        segdensity = defaultdict(list)
+        layers = defaultdict(list)
+        for sec_index, seg_list in seg_dict.iteritems():
+            for seg in seg_list:
+                L = seg.sec.L
+                nseg = seg.sec.nseg
+                if neurotree_dict is not None:
+                    secnodes = secnodes_dict[sec_index]
+                    layer = get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
+                else:
+                    layer = -1
+                layers[sec_index].append(layer)
 
-            ran = None
+                ran = None
 
-            if layer > -1:
-                if rans.has_key(layer):
-                    ran = rans[layer]
+                if layer > -1:
+                    if rans.has_key(layer):
+                        ran = rans[layer]
+                    elif rans.has_key('default'):
+                        ran = rans['default']
+                    else:
+                        ran = None
                 elif rans.has_key('default'):
                     ran = rans['default']
                 else:
                     ran = None
-            elif rans.has_key('default'):
-                ran = rans['default']
-            else:
-                ran = None
-            if ran is not None:
-                dens = ran.repick()
-                segdensity.append(dens)
-            else:
-                segdensity.append(0)
+                if ran is not None:
+                    dens = ran.repick()
+                else:
+                    dens = 0
+                segdensity[sec_index].append(dens)
 
         segdensity_dict[syn_type] = segdensity
         layers_dict[syn_type] = layers
     return (segdensity_dict, layers_dict)
 
 
-def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seglist, seed,
-                       neurotree_dict=None):
+def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seg_dict, seed, neurotree_dict=None):
     """
     Computes per-segment relative counts of synapse placement.
     :param syn_type_dict:
     :param layer_dict:
     :param layer_density_dicts:
     :param sec_index_dict:
-    :param seglist:
+    :param seg_dict:
     :param seed:
     :param neurotree_dict:
     :return:
@@ -1131,49 +1211,49 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
             rans[layer] = ran
         segcounts = []
         layers = []
-        for seg in seglist:
-            L = seg.sec.L
-            nseg = seg.sec.nseg
-            if neurotree_dict is not None:
-                secindex = sec_index_dict[seg.sec]
-                secnodes = secnodes_dict[secindex]
-                layer = get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
-            else:
-                layer = -1
-            layers.append(layer)
+        for sec_index, seg_list in sec_dict.iteritems():
+            for seg in seg_list:
+                L = seg.sec.L
+                nseg = seg.sec.nseg
+                if neurotree_dict is not None:
+                    secnodes = secnodes_dict[sec_index]
+                    layer = get_node_attribute('layer', neurotree_dict, seg.sec, secnodes, seg.x)
+                else:
+                    layer = -1
+                layers.append(layer)
 
-            ran = None
+                ran = None
 
-            if layer > -1:
-                if rans.has_key(layer):
-                    ran = rans[layer]
+                if layer > -1:
+                    if rans.has_key(layer):
+                        ran = rans[layer]
+                    elif rans.has_key('default'):
+                        ran = rans['default']
+                    else:
+                        ran = None
                 elif rans.has_key('default'):
                     ran = rans['default']
                 else:
                     ran = None
-            elif rans.has_key('default'):
-                ran = rans['default']
-            else:
-                ran = None
-            if ran is not None:
-                l = L / nseg
-                dens = ran.repick()
-                rc = dens * l
-                segcount_total += rc
-                segcounts.append(rc)
-            else:
-                segcounts.append(0)
+                if ran is not None:
+                    l = L / nseg
+                    dens = ran.repick()
+                    rc = dens * l
+                    segcount_total += rc
+                    segcounts.append(rc)
+                else:
+                    segcounts.append(0)
 
-        segcounts_dict[syn_type] = segcounts
-        layers_dict[syn_type] = layers
+            segcounts_dict[syn_type] = segcounts
+            layers_dict[syn_type] = layers
     return (segcounts_dict, segcount_total, layers_dict)
 
 
-def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
-                                sec_dict, secidx_dict):
+def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
+                                cell_sec_dict, cell_secidx_dict):
     """
     Computes uniformly-spaced synapse locations.
-    :param seed:
+    :param density_seed:
     :param syn_type_dict:
     :param swc_type_dict:
     :param layer_dict:
@@ -1195,12 +1275,13 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
         sec_index_dict = secidx_dict[sec_name]
         swc_type = swc_type_dict[sec_name]
         seg_list = []
-        sec_obj_index_dict = {}
         L_total = 0
-        (seclst, maxdist) = sec_dict[sec_name]
-        secidxlst = secidx_dict[sec_name]
-        for (sec, secindex) in itertools.izip(seclst, secidxlst):
-            sec_obj_index_dict[sec] = int(secindex)
+        (seclst, maxdist) = cell_sec_dict[sec_name]
+        secidxlst = cell_secidx_dict[sec_name]
+        sec_dict = { int(idx): sec for sec, idx in itertools.izip(seclst, secidxlst) }
+        seg_dict = {}
+        for (sec_index, sec) in sec_dict.iteritems():
+            seg_list = []
             if maxdist is None:
                 for seg in sec:
                     if seg.x < 1.0 and seg.x > 0.0:
@@ -1210,38 +1291,35 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
                     if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
                         seg_list.append(seg)
             L_total += sec.L
+            seg_dict[sec_index] = seg_list
         segcounts_dict, total, layers_dict = \
-            synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed,
+            synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, seg_dict, density_seed,
                                neurotree_dict=neurotree_dict)
 
         sample_size = total
-        cumcount = 0
         for (syn_type_label, _) in layer_density_dict.iteritems():
             syn_type = syn_type_dict[syn_type_label]
             segcounts = segcounts_dict[syn_type]
             layers = layers_dict[syn_type]
-            for i in xrange(0, len(seg_list)):
-                seg = seg_list[i]
-                seg_start = seg.x - (0.5 / seg.sec.nseg)
-                seg_end = seg.x + (0.5 / seg.sec.nseg)
-                seg_range = seg_end - seg_start
-                seg_count = segcounts[i]
-                int_seg_count = math.floor(seg_count)
-                layer = layers[i]
-                syn_count = 0
-                while syn_count < int_seg_count:
-                    syn_loc = seg_start + seg_range * ((syn_count + 1) / math.ceil(seg_count))
-                    assert ((syn_loc <= 1) & (syn_loc >= 0))
-                    if syn_loc < 1.0:
-                        syn_locs.append(syn_loc)
-                        syn_ids.append(syn_index)
-                        syn_secs.append(sec_obj_index_dict[seg.sec])
-                        syn_layers.append(layer)
-                        syn_types.append(syn_type)
-                        swc_types.append(swc_type)
-                        syn_index += 1
-                        syn_count += 1
-                cumcount += syn_count
+            for sec_index, seg_list in seg_dict.iteritems():
+                for seg, layer, seg_count in itertools.izip(seg_list, layers, segcounts):
+                    seg_start = seg.x - (0.5 / seg.sec.nseg)
+                    seg_end = seg.x + (0.5 / seg.sec.nseg)
+                    seg_range = seg_end - seg_start
+                    int_seg_count = math.floor(seg_count)
+                    syn_count = 0
+                    while syn_count < int_seg_count:
+                        syn_loc = seg_start + seg_range * ((syn_count + 1) / math.ceil(seg_count))
+                        assert ((syn_loc <= 1) & (syn_loc >= 0))
+                        if syn_loc < 1.0:
+                            syn_locs.append(syn_loc)
+                            syn_ids.append(syn_index)
+                            syn_secs.append(sec_obj_index_dict[seg.sec])
+                            syn_layers.append(layer)
+                            syn_types.append(syn_type)
+                            swc_types.append(swc_type)
+                            syn_index += 1
+                            syn_count += 1
 
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
@@ -1253,19 +1331,18 @@ def distribute_uniform_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
 
     return syn_dict
 
-
-def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
-                                sec_dict, secidx_dict, verbose):
+def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
+                                cell_sec_dict, cell_secidx_dict, verbose):
     """
     Computes synapse locations according to a Poisson distribution.
-    :param seed:
+    :param density_seed:
     :param syn_type_dict:
     :param swc_type_dict:
     :param layer_dict:
     :param sec_layer_density_dict:
     :param neurotree_dict:
-    :param sec_dict:
-    :param secidx_dict:
+    :param cell_sec_dict:
+    :param cell_secidx_dict:
     :param verbose:
     :return:
     """
@@ -1279,17 +1356,23 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
 
     r = np.random.RandomState()
 
+    (sec_graph, sec_root) = make_neurotree_graph(neurotree_dict, return_root=True)
+
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
 
-        sec_index_dict = secidx_dict[sec_name]
         swc_type = swc_type_dict[sec_name]
-        seg_list = []
-        sec_obj_index_dict = {}
+        seg_dict = {}
         L_total = 0
-        (seclst, maxdist) = sec_dict[sec_name]
-        secidxlst = secidx_dict[sec_name]
-        for (sec, secindex) in itertools.izip(seclst, secidxlst):
-            sec_obj_index_dict[sec] = int(secindex)
+        (seclst, maxdist) = cell_sec_dict[sec_name]
+        secidxlst = cell_secidx_dict[sec_name]
+        sec_dict = { int(idx): sec for sec, idx in itertools.izip(seclst, secidxlst) }
+        sec_subgraph = sec_graph.subgraph(sec_dict.keys())
+        if len(sec_dict) > 1:
+            sec_edges = list(nx.dfs_edges(sec_subgraph))
+        else:
+            sec_edges = [(None, idx) for idx in sec_dict.keys() ]
+        for sec_index, sec in sec_dict.iteritems():
+            seg_list = []
             if maxdist is None:
                 for seg in sec:
                     if seg.x < 1.0 and seg.x > 0.0:
@@ -1298,43 +1381,51 @@ def distribute_poisson_synapses(seed, syn_type_dict, swc_type_dict, layer_dict, 
                 for seg in sec:
                     if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
                         seg_list.append(seg)
+            seg_dict[sec_index] = seg_list
             L_total += sec.L
-        segdensity_dict, layers_dict = \
-            synapse_seg_density(syn_type_dict, layer_dict, layer_density_dict, sec_obj_index_dict, seg_list, seed,
+        seg_density_dict, layers_dict = \
+            synapse_seg_density(syn_type_dict, layer_dict, \
+                                layer_density_dict, \
+                                seg_dict, density_seed, \
                                 neurotree_dict=neurotree_dict)
 
-        cumcount = 0
         for (syn_type_label, _) in layer_density_dict.iteritems():
             syn_type = syn_type_dict[syn_type_label]
-            segdensity = segdensity_dict[syn_type]
+            seg_density = seg_density_dict[syn_type]
             layers = layers_dict[syn_type]
-            for i in xrange(len(seg_list)):
-                seg = seg_list[i]
-                seg_start = seg.x - (0.5 / seg.sec.nseg)
-                seg_end = seg.x + (0.5 / seg.sec.nseg)
-                seg_range = seg_end - seg_start
-                L = seg.sec.L
-                layer = layers[i]
-                density = segdensity[i]
-                syn_count = 0
-                if density > 0.:
-                    beta = 1. / density
-                    interval = r.exponential(beta)
-                    while interval < seg_range * L:
-                        syn_loc = seg_start + interval / L
-                        assert ((syn_loc <= 1) & (syn_loc >= 0))
-                        if syn_loc < 1.0:
-                            syn_locs.append(syn_loc)
-                            syn_ids.append(syn_index)
-                            syn_secs.append(sec_obj_index_dict[seg.sec])
-                            syn_layers.append(layer)
-                            syn_types.append(syn_type)
-                            swc_types.append(swc_type)
-                            syn_index += 1
-                            syn_count += 1
+            end_distance = {}
+            for sec_parent, sec_index in sec_edges:
+                seg_list        = seg_dict[sec_index]
+                sec_seg_layers  = layers[sec_index]
+                sec_seg_density = seg_density[sec_index]
+                start_seg       = seg_list[0]
+                interval        = 0.
+                for seg, layer, density in itertools.izip(seg_list,sec_seg_layers,sec_seg_density):
+                    seg_start = seg.x - (0.5 / seg.sec.nseg)
+                    seg_end   = seg.x + (0.5 / seg.sec.nseg)
+                    L = seg.sec.L
+                    L_seg_start = seg_start * L
+                    L_seg_end   = seg_end * L
+                    if density > 0.:
+                        beta = 1. / density
                         interval += r.exponential(beta)
-                cumcount += syn_count
-
+                        while interval < L_seg_end:
+                            if interval >= L_seg_start:
+                                syn_loc = interval / L
+                                assert ((syn_loc <= 1) and (syn_loc >= seg_start))
+                                if syn_loc < 1.0:
+                                    syn_locs.append(syn_loc)
+                                    syn_ids.append(syn_index)
+                                    syn_secs.append(sec_index)
+                                    syn_layers.append(layer)
+                                    syn_types.append(syn_type)
+                                    swc_types.append(swc_type)
+                                    syn_index += 1
+                            interval += r.exponential(beta)
+                    else:
+                        interval = seg_end * L
+                end_distance[sec_index] = (1.0 - syn_loc) * L
+                        
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
                 'syn_locs': np.asarray(syn_locs, dtype='float32'),

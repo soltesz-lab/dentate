@@ -1,17 +1,12 @@
+import itertools
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
 import btmorph
+import networkx as nx
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
-
-freq = 100      # Hz, frequency at which AC length constant will be computed
-d_lambda = 0.1  # no segment will be longer than this fraction of the AC length constant
-default_ordered_sec_types = ['soma', 'hillock', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck',
-                             'spine_head']
-default_hoc_sec_lists = {'soma': 'somaidx', 'hillock': 'hilidx', 'ais': 'aisidx', 'axon': 'axonidx',
-                          'basal': 'basalidx', 'apical': 'apicalidx', 'trunk': 'trunkidx', 'tuft': 'tuftidx'}
 
 
 class BiophysCell(object):
@@ -689,7 +684,7 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
             mech_file_path = mech_file_name
         elif os.path.isdir(output_dir):
             mech_file_path = output_dir+'/'+mech_file_name
-    write_to_yaml(mech_file_path, cell.mech_dict)
+    write_to_yaml(mech_file_path, cell.mech_dict, convert_scalars=True)
     print 'Exported mechanism dictionary to %s' % mech_file_path
 
 
@@ -1266,6 +1261,8 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     branch_order = int(branch_order)
     if get_branch_order(cell, node) < branch_order:
         return False
+    if 'custom_origin' in kwargs:
+        rules['origin'] = kwargs['custom_origin']
     return rules
 
 
@@ -1304,6 +1301,31 @@ def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
 
 # ------------------- Methods to specify cells from hoc templates and neuroh5 trees ---------------------------------- #
 
+def make_neurotree_graph(neurotree_dict, return_root=True):
+    """
+    Creates a graph of sections that follows the topological organization of the given neuron.
+    :param neurotree_dict:
+    :return: NetworkX.DiGraph
+    """
+
+    sec_nodes = neurotree_dict['section_topology']['nodes']
+    sec_src   = neurotree_dict['section_topology']['src']
+    sec_dst   = neurotree_dict['section_topology']['dst']
+
+    sec_graph = nx.DiGraph()
+    for i, j in itertools.izip(sec_src, sec_dst):
+        sec_graph.add_edge(i, j)
+
+    root=None
+    if return_root:
+        order = nx.topological_sort(sec_graph)
+        root = order[0]
+
+    if root:
+        return (sec_graph, root)
+    else:
+        return sec_graph
+    
 
 def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
     """

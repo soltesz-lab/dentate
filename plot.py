@@ -78,43 +78,6 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, **kwargs):
     return vec
 
 
-def make_geometric_graph(x, y, z, edges):
-    """ Builds a NetworkX graph with xyz node coordinates and the node indices
-        of the end nodes.
-
-        Parameters
-        -----------
-        x: ndarray
-            x coordinates of the points
-        y: ndarray
-            y coordinates of the points
-        z: ndarray
-            z coordinates of the points
-        edges: the (2, N) array returned by compute_delaunay_edges()
-            containing node indices of the end nodes. Weights are applied to
-            the edges based on their euclidean length for use by the MST
-            algorithm.
-
-        Returns
-        ---------
-        g: A NetworkX undirected graph
-
-        Notes
-        ------
-        We don't bother putting the coordinates into the NX graph.
-        Instead the graph node is an index to the column.
-    """
-    import networkx as nx
-    xyz = np.array((x, y, z))
-    def euclidean_dist(i, j):
-        d = xyz[:,i] - xyz[:,j]
-        return np.sqrt(np.dot(d, d))
-
-    g = nx.Graph()
-    for i, j in edges:
-        g.add_edge(i, j, weight=euclidean_dist(i, j))
-    return g
-
 
 def update_bins(bins, binsize, x):
     i = math.floor(x / binsize)
@@ -381,7 +344,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     return ax
 
 
-def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, verbose = False, pcolormesh = False):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -395,33 +358,31 @@ def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, s
 
     distance_U = {}
     distance_V = {}
-    for k,v in distances.iteritems():
+    for k,v in distances:
         distance_U[k] = v['U Distance'][0]
         distance_V[k] = v['V Distance'][0]
     
     distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
     distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
 
-    dx = round(np.max(distance_U_array) / binSize)
-    dy = round(np.max(distance_V_array) / binSize)
-
     x_min = np.min(distance_U_array)
     x_max = np.max(distance_U_array)
     y_min = np.min(distance_V_array)
     y_max = np.max(distance_V_array)
-
-    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
-
+    
     ax.axis([x_min, x_max, y_min, y_max])
 
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
-    
+    if pcolormesh:
+        (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+        p = ax.pcolormesh(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T)
+    else:
+        X, Y, Z    = utils.kde_scipy(distance_U_array, distance_V_array, binSize)
+        p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    fig.colorbar(p, ax=ax, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
@@ -706,7 +667,7 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
         z = zcoords[dend_idxs].reshape(-1,)
 
         # Make a NetworkX graph out of our point and edge data
-        g = make_geometric_graph(x, y, z, edges)
+        g = utils.make_geometric_graph(x, y, z, edges)
 
         # Compute minimum spanning tree using networkx
         # nx.mst returns an edge generator
