@@ -1259,8 +1259,6 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     branch_order = int(branch_order)
     if get_branch_order(cell, node) < branch_order:
         return False
-    if 'custom_origin' in kwargs:
-        rules['origin'] = kwargs['custom_origin']
     return rules
 
 
