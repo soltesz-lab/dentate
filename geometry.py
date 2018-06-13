@@ -208,7 +208,7 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
 
 
         
-def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False):
+def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords, population_extents, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
     """Interpolates path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
