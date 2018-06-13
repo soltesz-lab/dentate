@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
 from matplotlib import gridspec, mlab, rcParams
+from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
@@ -344,7 +346,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     return ax
 
 
-def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, verbose = False, pcolormesh = False):
+def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, verbose = False, graphType ='kde'):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -372,17 +374,42 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
     
     ax.axis([x_min, x_max, y_min, y_max])
 
-    if pcolormesh:
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+    if graphType == 'histogram1d':
+        bins_U = np.linspace(x_min, x_max, dx)
+        bins_V = np.linspace(y_min, y_max, dy)
+        histoCount_U, bin_edges_U = np.histogram(distance_U_array, bins = bins_U)
+        histoCount_V, bin_edges_V = np.histogram(distance_V_array, bins = bins_V)
+        gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+        ax1 = plt.subplot(gs[0])
+        ax1.bar (bin_edges_U[:-1], histoCount_U, linewidth=1.0)
+        ax1.set_title('Position distribution for %s' % (label), fontsize=fontSize)
+        ax2 = plt.subplot(gs[1])
+        ax2.bar (bin_edges_V[:-1], histoCount_V, linewidth=1.0)
+        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of cells', fontsize=fontSize)
+        ax2.set_ylabel('Number of cells', fontsize=fontSize)
+    elif graphType == 'histogram2d':
         (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
-        p = ax.pcolormesh(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T)
-    else:
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    elif graphType == 'kde':
         X, Y, Z    = utils.kde_scipy(distance_U_array, distance_V_array, binSize)
         p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(p, ax=ax, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
@@ -1087,8 +1114,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -1100,8 +1127,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1123,11 +1150,11 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], sigma=sigma)
+        rate_bin_dict = spikedata.spike_inst_rates(subset, spkdict, timeRange=timeRange, sigma=sigma)
         i = 0
         rate_dict = {}
-        for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
-            rates       = np.asarray(rate_bins)
+        for ind, dct in rate_bin_dict.iteritems():
+            rates       = np.asarray(dct['rate'], dtype=np.float32)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
             rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak index': peak_index }
@@ -1160,7 +1187,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
         del(ind_peak_lst)
         
-        rate_matrix = np.matrix(rate_lst)
+        rate_matrix = np.matrix(rate_lst, dtype=np.float32)
         del(rate_lst)
 
         color = color_list[iplot%len(color_list)]
@@ -1168,6 +1195,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
         plt.title (str(subset), fontsize=fontSize)
 
+        print 'rate_matrix.shape = ', rate_matrix.shape
         im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
                         extent=[timeRange[0], timeRange[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
 
@@ -2111,7 +2139,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     fig, axes = plt.subplots(1, len(include), figsize=figSize)
 
     if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id, verbose=verbose)
+        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id)
         (_, _, _, t)  = trajectory
     else:
         t = None

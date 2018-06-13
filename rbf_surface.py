@@ -143,7 +143,7 @@ class RBFSurface(object):
         hrv = np.interp(newvndxs, *nvs)
         return hru, hrv
 
-    def ev(self, su, sv, chunk_size=1000):
+    def ev(self, su, sv, mesh=True, chunk_size=1000):
         """Get point(s) in surface at (su, sv).
 
         Parameters
@@ -155,9 +155,13 @@ class RBFSurface(object):
         Returns an array of shape len(u) x len(v) x 3
         """
 
-        U, V = np.meshgrid(su, sv)
-        uv_s = np.array([U.ravel(),V.ravel()]).T
+        if mesh:
+            U, V = np.meshgrid(su, sv)
+        else:
+            U = su
+            V = sv
 
+        uv_s = np.array([U.ravel(),V.ravel()]).T
         X = self._xsrf(uv_s)
         Y = self._ysrf(uv_s)
         Z = self._zsrf(uv_s,)
@@ -259,7 +263,7 @@ class RBFSurface(object):
         return arr
 
         
-    def axis_distance(self, su, sv, axis=0, interp_chunk_size=1000, axis_origin=None, return_coords=True):
+    def point_distance(self, su, sv, axis=0, interp_chunk_size=1000, axis_origin=None, return_coords=True):
         """Cumulative distance between pairs of (u, v) coordinates.
 
         Parameters
@@ -422,13 +426,13 @@ def test_uv_isospline():
     
     srf.mplot_surface(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
     
-    #mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
-    #mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
+    mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
+    mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
     
     mlab.show()
     
 
-def test_axis_distance():
+def test_point_distance():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
@@ -441,13 +445,13 @@ def test_axis_distance():
 
     U, V = srf._resample_uv(5, 5)
     
-    dist, coords = srf.axis_distance(U, V)
+    dist, coords = srf.point_distance(U, V)
     print dist
     print coords
-    dist, coords = srf.axis_distance(U, V[0])
+    dist, coords = srf.point_distance(U, V[0])
     print dist
     print coords
-    dist, coords = srf.axis_distance(U, V[0], axis_origin=np.median(obs_u))
+    dist, coords = srf.point_distance(U, V[0], axis_origin=np.median(obs_u))
     print dist
     print coords
 
@@ -456,7 +460,7 @@ def test_axis_distance():
     
 if __name__ == '__main__':
     test_uv_isospline()
-#    test_axis_distance()
+#    test_point_distance()
      
 
     

@@ -30,7 +30,7 @@ script_name = 'measure_distances.py'
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--alpha-radius", type=float, default=120.)
 @click.option("--resample", type=int, default=2)
-@click.option("--resolution", type=(int,int,int), default=(25,17,10))
+@click.option("--resolution", type=(int,int,int), default=(28,24,10))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -78,7 +78,7 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
     coeff_dist_v = None
 
     interp_penalty = 0.1
-    interp_basis = 'imq'
+    interp_basis = 'ga'
     interp_order = 2
 
     if rank == 0:
@@ -88,14 +88,25 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
         coeff_dist_u = None
         obs_dist_v = None
         coeff_dist_v = None
+        origin_uvl = None
         if rank == 0:
             ip_volume = make_volume(min_l-0.01, max_l+0.01, \
                                     ures=resolution[0], \
                                     vres=resolution[1], \
                                     lres=resolution[2], \
                                     rotate=rotate)
+
+            span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
+            
+            origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+            origin_u = origin_coords[0]
+            origin_v = origin_coords[1]
+            origin_l = origin_coords[2]
+
+            origin_uvl = np.asarray([origin_u, origin_v, origin_l])
+            
             logger.info('Computing volume distances...')
-            vol_dist = get_volume_distances(ip_volume, res=resample, alpha_radius=alpha_radius)
+            vol_dist = get_volume_distances(ip_volume, rotate=rotate, res=resample, alpha_radius=alpha_radius)
             (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
             logger.info('Computing U volume distance interpolants...')
             ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
@@ -115,6 +126,7 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
         coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
         obs_dist_v = comm.bcast(obs_dist_v, root=0)
         coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+        origin_uvl = comm.bcast(origin_uvl, root=0)
 
         ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty, extrapolate=True)
@@ -126,15 +138,22 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
                                 vres=resolution[1], \
                                 lres=resolution[2], \
                                 rotate=rotate)
-        
+
+        span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
+
+        origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+        origin_u = origin_coords[0]
+        origin_v = origin_coords[1]
+        origin_l = origin_coords[2]
+        origin_uvl = np.asarray([origin_u, origin_v, origin_l])
                                        
     for population in populations:
 
         if interpolate:
-            soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, populations=[population], \
+            soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_uvl, soma_coords, population_extents, populations=[population], \
                                                    interp_chunk_size=interp_chunk_size, allgather=False)
         else:
-            soma_distances = get_soma_distances(comm, ip_volume, soma_coords, population_extents, populations=[population], \
+            soma_distances = get_soma_distances(comm, ip_volume, origin_uvl, soma_coords, population_extents, populations=[population], \
                                                 allgather=False)
             
 

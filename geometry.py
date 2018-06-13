@@ -5,6 +5,7 @@ import sys, time, gc, itertools
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
+import dlib
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -52,10 +53,8 @@ def DG_volume(u, v, l, rotate=None):
 def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30, lres=10):  
     """Creates an RBF volume based on the parametric equations of the dentate volume.
     """
-#    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
-#    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
-    obs_u = np.linspace(-0.02*np.pi, 1.01*np.pi, ures)
-    obs_v = np.linspace(-0.26*np.pi, 1.455*np.pi, vres)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
     obs_l = np.linspace(lmin, lmax, num=lres)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
@@ -69,10 +68,8 @@ def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30,
 def make_surface(obs_l, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30, lres=10):  
     """Creates an RBF surface based on the parametric equations of the dentate volume.
     """
-#    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
-#    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
-    obs_u = np.linspace(-0.02*np.pi, 1.01*np.pi, ures)
-    obs_v = np.linspace(-0.26*np.pi, 1.455*np.pi, vres)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
 
     u, v = np.meshgrid(obs_u, obs_v, indexing='ij')
     xyz = DG_volume (u, v, obs_l, rotate=rotate)
@@ -94,13 +91,15 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_chunk_size=1000):
+def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=120., optiter=200, interp_chunk_size=1000):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
     ----------
     ip_vol : RBFVolume
         An interpolated volume instance of class RBFVolume.
+    rotate : (float,float,float)
+        Rotation angle (optional)
     nsample : int
         Number of points to sample inside the volume.
     Returns
@@ -126,10 +125,10 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
 
     N = nsample*2 # total number of nodes
     node_count = 0
-    itr = 10
+    itr = 20
 
-    logger.info("Generating %i nodes..." % N)
     while node_count < nsample:
+        logger.info("Generating %i nodes (%i iterations)..." % (N, itr))
         # create N quasi-uniformly distributed nodes
         nodes, smpid = menodes(N,vert,smp,itr=itr)
     
@@ -139,17 +138,43 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
         node_count = len(in_nodes)
         itr = int(itr / 2)
 
+    logger.info("%i interior nodes generated (%i iterations)" % (node_count, itr))
+
+    logger.info('Inverse interpolation of UVL coordinates...')
     xyz_coords = in_nodes.reshape(-1,3)
     uvl_coords_interp = ip_vol.inverse(xyz_coords)
+    xyz_coords_interp = ip_vol(uvl_coords_interp[:,0],uvl_coords_interp[:,1],uvl_coords_interp[:,2], mesh=False).reshape(3,-1).T
 
-    logger.info("%i nodes generated" % node_count)
-        
+    xyz_error_interp  = np.abs(np.subtract(xyz_coords, xyz_coords_interp))
+
+    min_extent = [np.min(ip_vol.u), np.min(ip_vol.v), np.min(ip_vol.l)]
+    max_extent = [np.max(ip_vol.u), np.max(ip_vol.v), np.max(ip_vol.l)]
+                      
+
+    logger.info('Interpolation by optimization of UVL coordinates...')
+    all_uvl_coords = []
+    for i in xrange(0, xyz_coords.shape[0]):
+        logger.info("coordinates %i" % i)
+        this_xyz_coords = xyz_coords[i,:]
+        f_uvl_distance = make_uvl_distance(this_xyz_coords,rotate=rotate)
+        uvl_coords_opt,dist = dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
+        xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], rotate=rotate)[0]
+        xyz_error_opt   = np.abs(np.subtract(xyz_coords[i,:], xyz_coords_opt))
+        logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
+        logger.info('xyz_error_interp: %s' % str(xyz_error_interp[i,:]))
+        if np.all (np.less (xyz_error_interp[i,:], xyz_error_opt)):
+            all_uvl_coords.append(uvl_coords_interp[i,:].ravel())
+        else:
+            all_uvl_coords.append(np.asarray(uvl_coords_opt))
+
+    uvl_coords = np.vstack(all_uvl_coords)
+    
     logger.info('Computing volume distances...')
     ldists_u = []
     ldists_v = []
     obss_u = []
     obss_v = []
-    for uvl in uvl_coords_interp:
+    for uvl in uvl_coords:
         sample_U = uvl[0]
         sample_V = uvl[1]
         sample_L = uvl[2]
@@ -171,14 +196,19 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
     distances_v = np.concatenate(ldists_v).reshape(-1)
     obs_v = np.concatenate(obss_v)
 
-    logger.info('U distance min: %f max: %f' % (np.min(distances_u), np.max(distances_u)))
-    logger.info('V distance min: %f max: %f' % (np.min(distances_v), np.max(distances_v)))
+    u_min_ind = np.argmin(distances_u)
+    u_max_ind = np.argmax(distances_u)
+    v_min_ind = np.argmin(distances_v)
+    v_max_ind = np.argmax(distances_v)
+    
+    logger.info('U distance min: %f %s max: %f %s' % (distances_u[u_min_ind], str(obs_u[u_min_ind]), distances_u[u_max_ind], str(obs_u[u_max_ind])))
+    logger.info('V distance min: %f %s max: %f %s' % (distances_v[v_min_ind], str(obs_v[v_min_ind]), distances_v[v_max_ind], str(obs_v[v_max_ind])))
 
     return (distances_u, obs_u, distances_v, obs_v)
 
 
         
-def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False):
+def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords, population_extents, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
     """Interpolates path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -189,7 +219,6 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
         Interpolation function for computing arc distances along the first dimension of the volume.
     ip_dist_v : RBFInterpolant
         Interpolation function for computing arc distances along the second dimension of the volume.
-    ip_volume: optional instance of RBFVolume
     soma_coords : { population_name : coords_dict }
         A dictionary that maps each cell population name to a dictionary of coordinates. The dictionary of coordinates must have the following type:
           coords_dict : { gid : (u, v, l) }
@@ -237,7 +266,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                     raise e
-                uvl_obs.append(np.array([soma_u,soma_v,limits[1][2]]).ravel())
+                uvl_obs.append(np.array([soma_u,soma_v,origin_coords[2]]).ravel())
                 gids.append(gid)
         if len(uvl_obs) > 0:
             uvl_obs_array = np.vstack(uvl_obs)
@@ -272,7 +301,11 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
 
 
 
+<<<<<<< HEAD
 def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndist=2, interp_chunk_size=1000, populations=None, allgather=False):
+=======
+def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_extents, res=3, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
+>>>>>>> 02fa490750c53b3f9833ccdbeb8a0c003e4e5ef4
     """Computes path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -305,12 +338,6 @@ def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndi
 
     if populations is None:
         populations = soma_coords.keys()
-
-    span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
-    origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
-    origin_u = origin_coords[0]
-    origin_v = origin_coords[1]
-    origin_l = origin_coords[2]
     
     soma_distances = {}
     for pop in populations:
