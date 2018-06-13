@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
 from matplotlib import gridspec, mlab, rcParams
+from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
@@ -387,10 +389,16 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
         ax2.bar (bin_edges_V[:-1], histoCount_V, linewidth=1.0)
         ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
         ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of cells', fontsize=fontSize)
+        ax2.set_ylabel('Number of cells', fontsize=fontSize)
     elif graphType == 'histogram2d':
         (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
         X, Y = np.meshgrid(xedges, yedges)
-        p = ax.pcolormesh(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     elif graphType == 'kde':
         X, Y, Z    = utils.kde_scipy(distance_U_array, distance_V_array, binSize)
