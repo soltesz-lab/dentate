@@ -126,7 +126,7 @@ def get_volume_distances (ip_vol, nsample=250, res=3, alpha_radius=120., interp_
 
     N = nsample*2 # total number of nodes
     node_count = 0
-    itr = 1
+    itr = 10
 
     logger.info("Generating %i nodes..." % N)
     while node_count < nsample:
@@ -272,7 +272,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
 
 
 
-def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndist=5, interp_chunk_size=1000, populations=None, allgather=False):
+def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndist=2, interp_chunk_size=1000, populations=None, allgather=False):
     """Computes path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -347,18 +347,10 @@ def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndi
                 
                 usteps = max(round(abs(soma_u - origin_u) / 0.01),1)
                 vsteps = max(round(abs(soma_v - origin_v) / 0.01),1)
-                if origin_u <= soma_u:
-                    start_u = origin_u
-                    stop_u = soma_u
-                else:
-                    start_u = soma_u
-                    stop_u = origin_u 
-                if origin_v <= soma_v:
-                    start_v = origin_v
-                    stop_v = soma_v
-                else:
-                    start_v = soma_v
-                    stop_v = origin_v 
+                start_u = soma_u
+                stop_u  = origin_u 
+                start_v = soma_v
+                stop_v  = origin_v 
                     
                 uu = np.linspace(start_u, stop_u, usteps)
                 uv = np.linspace(start_v, stop_v, ndist)
