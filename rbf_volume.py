@@ -167,7 +167,7 @@ class RBFVolume(object):
         hrl = np.interp(newlndxs, *nls)
         return hru, hrv, hrl
 
-    def ev(self, su, sv, sl, chunk_size=1000, return_coords=False):
+    def ev(self, su, sv, sl, mesh=True, chunk_size=1000, return_coords=False):
         """Get point(s) in volume at (su, sv, sl).
 
         Parameters
@@ -177,12 +177,17 @@ class RBFVolume(object):
 
         Returns
         -------
-        Returns an array of shape len(u) x len(v) x len(l) x 3
+        if option mesh is True: Returns an array of shape len(u) x len(v) x len(l) x 3
         """
 
-        U, V, L = np.meshgrid(su, sv, sl)
+        if mesh:
+            U, V, L = np.meshgrid(su, sv, sl)
+        else:
+            U = su
+            V = sv
+            L = sl
+        
         uvl_coords = np.array([U.ravel(),V.ravel(),L.ravel()]).T
-
         X = self._xvol(uvl_coords, chunk_size=chunk_size)
         Y = self._yvol(uvl_coords, chunk_size=chunk_size)
         Z = self._zvol(uvl_coords, chunk_size=chunk_size)
@@ -432,6 +437,7 @@ class RBFVolume(object):
         # Sample the surface at the new u, v values and plot
         meshpts1 = self.ev(hru, hrv, self.l[-1])
         meshpts2 = self.ev(hru, hrv, self.l[0])
+        
         m1 = mlab.mesh(*meshpts1, **kwargs)
         m2 = mlab.mesh(*meshpts2, **kwargs)
         
@@ -556,8 +562,8 @@ def test_nodes():
     from rbf.geometry import contains
     from alphavol import alpha_shape
     
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 10)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 10)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
     obs_l = np.linspace(-1.0, 1., num=3)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
@@ -589,6 +595,43 @@ def test_nodes():
 
     return in_nodes, vol.inverse(in_nodes)
 
+def test_mplot_surface():
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-1.0, 1., num=3)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
+
+    order = 1
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=order)
+
+    from mayavi import mlab
+
+    vol.mplot_surface(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
+    
+    mlab.show()
+
+
+def test_mplot_volume():
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-1.0, 1., num=3)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
+
+    order = 1
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=order)
+
+    from mayavi import mlab
+
+    vol.mplot_volume(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
+    
+    mlab.show()
+
 def test_uv_isospline():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
@@ -596,7 +639,7 @@ def test_uv_isospline():
     obs_l = np.linspace(-1.0, 1., num=3)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l).reshape(3, u.size)
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
 
     order = [1]
     for ii in xrange(len(order)):
@@ -621,8 +664,8 @@ def test_uv_isospline():
     
     vol.mplot_surface(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
     
-    #mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
-    #mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
+    mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
+    mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
     
     mlab.show()
 
@@ -673,10 +716,12 @@ def test_point_distance():
 
     
 if __name__ == '__main__':
+    test_mplot_surface()
+#    test_mplot_volume()
 #    test_uv_isospline()
 #    test_nodes()
 #    test_tri()
-     test_point_distance()
+#     test_point_distance()
      
 
     
