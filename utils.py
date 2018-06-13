@@ -327,11 +327,18 @@ def kde_scipy(x, y, binSize, **kwargs):
 
     data  = np.vstack([x, y])
     kde   = gaussian_kde(data, **kwargs)
-    
-    # create grid of sample locations
-    xx, yy = np.mgrid[x.min():x.max():binSize, 
-                      y.min():y.max():binSize]
-    
+
+    x_min = np.min(x)
+    x_max = np.max(x)
+    y_min = np.min(y)
+    y_max = np.max(y)
+
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - x_min) / binSize)
+
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, dx), \
+                         np.linspace(y_min, y_max, dy))
+
     data_grid = np.vstack([xx.ravel(), yy.ravel()])
     z    = kde.evaluate(data_grid)
     

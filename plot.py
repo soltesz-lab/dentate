@@ -382,7 +382,7 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(p, ax=ax, aspect=20)
+    fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
@@ -1087,8 +1087,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -1100,8 +1100,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1123,11 +1123,11 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], sigma=sigma)
+        rate_bin_dict = spikedata.spike_inst_rates(subset, spkdict, timeRange=timeRange, sigma=sigma)
         i = 0
         rate_dict = {}
-        for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
-            rates       = np.asarray(rate_bins)
+        for ind, dct in rate_bin_dict.iteritems():
+            rates       = np.asarray(dct['rate'], dtype=np.float32)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
             rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak index': peak_index }
@@ -1160,7 +1160,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
         del(ind_peak_lst)
         
-        rate_matrix = np.matrix(rate_lst)
+        rate_matrix = np.matrix(rate_lst, dtype=np.float32)
         del(rate_lst)
 
         color = color_list[iplot%len(color_list)]
@@ -1168,6 +1168,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
         plt.title (str(subset), fontsize=fontSize)
 
+        print 'rate_matrix.shape = ', rate_matrix.shape
         im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
                         extent=[timeRange[0], timeRange[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
 
@@ -2111,7 +2112,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     fig, axes = plt.subplots(1, len(include), figsize=figSize)
 
     if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id, verbose=verbose)
+        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id)
         (_, _, _, t)  = trajectory
     else:
         t = None

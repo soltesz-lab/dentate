@@ -7,7 +7,7 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP"]
 
-DG_coords_file = "DG_coords_20180602.h5"
+DG_coords_file = "DG_coords_20180612.h5"
 
 DG_GC_coordinate_file  = "DGC_forest_reindex_20180418.h5"
 DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180506.h5"
