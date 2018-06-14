@@ -301,7 +301,11 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
 
 
 
+<<<<<<< HEAD
+def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndist=2, interp_chunk_size=1000, populations=None, allgather=False):
+=======
 def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_extents, res=3, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
+>>>>>>> 02fa490750c53b3f9833ccdbeb8a0c003e4e5ef4
     """Computes path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -370,18 +374,10 @@ def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_exte
                 
                 usteps = max(round(abs(soma_u - origin_u) / 0.01),1)
                 vsteps = max(round(abs(soma_v - origin_v) / 0.01),1)
-                if origin_u <= soma_u:
-                    start_u = origin_u
-                    stop_u = soma_u
-                else:
-                    start_u = soma_u
-                    stop_u = origin_u 
-                if origin_v <= soma_v:
-                    start_v = origin_v
-                    stop_v = soma_v
-                else:
-                    start_v = soma_v
-                    stop_v = origin_v 
+                start_u = soma_u
+                stop_u  = origin_u 
+                start_v = soma_v
+                stop_v  = origin_v 
                     
                 uu = np.linspace(start_u, stop_u, usteps)
                 uv = np.linspace(start_v, stop_v, ndist)

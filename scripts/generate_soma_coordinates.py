@@ -128,7 +128,7 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
 
         N = population_count*2 # total number of nodes
         node_count = 0
-        itr = 1
+        itr = 10
 
         if verbose:
             logger.info("Generating %i nodes..." % N)
