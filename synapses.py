@@ -772,7 +772,7 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
                                               update_targets)
         elif isinstance(mech_content[param_name], list):
             for mech_content_entry in mech_content[param_name]:
-                print mech_content_entry
+                # print mech_content_entry
                 update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry,
                                                   update_targets)
 
