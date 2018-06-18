@@ -7,7 +7,7 @@ import numpy as np
 
 class IncludeLoader(yaml.Loader):
     """
-
+    YAML loader with `!include` handler.
     """
     def __init__(self, stream):
         self._root = os.path.split(stream.name)[0]
