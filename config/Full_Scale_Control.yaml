@@ -15,7 +15,7 @@ Cell Types:
   GC:
     template: DGC
     templateFile: DGC_Template_minimal.hoc
-    mech_file_path: ../../optimize_cells/mechanisms/20180529_DG_GC_mech.yaml
+    mech_file_path: 20180529_DG_GC_mech.yaml
     synapses:
       correct_for_spines: True
       weights: True

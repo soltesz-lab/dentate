@@ -1,0 +1,24 @@
+## HCC synapse density configuration
+apical:
+  excitatory:
+    default:
+      mean: 2.0
+      variance: 0.1
+  inhibitory:
+    default:
+      mean: 0.5
+      variance: 0.1
+basal:
+  excitatory:
+    default:
+      mean: 2.0
+      variance: 0.1
+  inhibitory:
+    default:
+      mean: 0.5
+      variance: 0.1
+soma:
+  inhibitory:
+    default:
+      mean: 10.0
+      variance: 0.1

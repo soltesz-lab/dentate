@@ -1,0 +1,20 @@
+## MC synapse density configuration
+apical:
+  excitatory:
+    default:
+      mean: 1.18
+      variance: 0.1
+  inhibitory:
+    default:
+      mean: 1.0
+      variance: 0.1
+soma:
+  inhibitory:
+    default:
+      mean: 10.0
+      variance: 0.1
+ais:
+  inhibitory:
+    default:
+      mean: 1.0
+      variance: 0.1
