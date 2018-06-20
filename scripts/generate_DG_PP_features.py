@@ -90,7 +90,7 @@ def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_
     feature_type_random = np.random.RandomState(feature_seed_offset - 1)
     
     # every 60 degrees repeats in a hexagonal array
-    modules = range(env.modelConfig['EC']['Grid Cells']['Number of modules'])
+    modules = range(10)
     grid_orientation = [local_random.uniform(0., np.pi / 3.) for i in range(len(modules))]
 
     population_ranges = read_population_ranges(coords_path, comm)[0]
