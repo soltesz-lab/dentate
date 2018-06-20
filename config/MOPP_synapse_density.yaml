@@ -1,4 +1,4 @@
-## HCC synapse density configuration
+## MOPP synapse density configuration
 apical:
   excitatory:
     default:

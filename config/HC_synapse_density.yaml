@@ -11,5 +11,9 @@ apical:
 soma:
   inhibitory:
     default:
-      mean: 10.0
+      mean: 0.1
+      variance: 0.1
+  excitatory:
+    default:
+      mean: 0.8
       variance: 0.1
