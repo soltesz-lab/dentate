@@ -190,7 +190,7 @@ o
 
         populations_dict = env.modelConfig['Definitions']['Populations']
         generate_uv_distance_connections(comm, populations_dict,
-                                         env.connection_generator,
+                                         env.connection_config,
                                          connection_prob, forest_path,
                                          synapse_seed, synapses_namespace, 
                                          connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,

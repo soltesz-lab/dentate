@@ -141,17 +141,18 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param swc_type: SWC location for synapse (soma, axon, apical, basal)
     :param syn_type: synapse type (excitatory, inhibitory, neuromodulatory)
     :param population_dict: mapping of population names to population indices
-    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <syn_layer, swc_type, syn_type, syn_proportion>
+    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <type, layers, swc sections, proportions>
     """
     ivd = { v:k for k,v in population_dict.iteritems() }
     projection_lst = []
     projection_prob_lst = []
-    for k, v in projection_synapse_dict.iteritems():
-        if (syn_type in v[2]) and (swc_type in v[1]):
-            ord_index = list_index(syn_layer, v[0])
+    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in projection_synapse_dict.iteritems():
+        if (syn_type == syn_config_type) and (swc_type in syn_config_sections):
+            ord_index = list_index(swc_type, syn_config_sections)
             if ord_index is not None:
-                projection_lst.append(population_dict[k])
-                projection_prob_lst.append(v[3][ord_index])
+                if syn_layer == syn_config_layers[ord_index]:
+                    projection_lst.append(population_dict[k])
+                    projection_prob_lst.append(syn_config_proportions[ord_index])
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
@@ -253,7 +254,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                      dry_run=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
-    :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
+    :param connection_config: connection configuration object (instance of env.ConnectionConfig)
     :param connection_prob: ConnectionProb instance
     :param forest_path: location of file with neuronal trees and synapse information
     :param synapse_seed: random seed for synapse partitioning
@@ -289,11 +290,13 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         if rank == 0:
             logger.info('%s -> %s:' % (source_population, destination_population))
             logger.info(str(connection_config[destination_population][source_population]))
-                           
-    projection_synapse_dict = {source_population: (connection_config[destination_population][source_population].synapse_layers,
-                                                   set(connection_config[destination_population][source_population].synapse_locations),
-                                                   set(connection_config[destination_population][source_population].synapse_types),
-                                                   connection_config[destination_population][source_population].synapse_proportions)
+
+    projection_config = connection_config[destination_population][source_population]
+    projection_synapse_dict = {source_population:
+                               (projection_config.type,
+                                projection_config.layers,
+                                projection_config.sections,
+                                projection_config.proportions)
                                 for source_population in source_populations}
     total_count = 0
     gid_count   = 0
