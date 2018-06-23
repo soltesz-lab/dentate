@@ -30,13 +30,14 @@ script_name = 'measure_distances.py'
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--alpha-radius", type=float, default=120.)
 @click.option("--resample", type=int, default=2)
-@click.option("--resolution", type=(int,int,int), default=(28,24,10))
+@click.option("--resolution", type=(int,int,int), default=(33,30,10))
+@click.option("--ndist", type=int, default=1)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, populations, interpolate, interp_chunk_size, resample, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, populations, interpolate, interp_chunk_size, resample, resolution, alpha_radius, ndist, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -77,9 +78,9 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
     obs_dist_v = None
     coeff_dist_v = None
 
-    interp_penalty = 0.1
-    interp_basis = 'ga'
-    interp_order = 2
+    interp_penalty = 0.0
+    interp_basis = 'phs2'
+    interp_order = 1
 
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
@@ -151,10 +152,10 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
 
         if interpolate:
             soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_uvl, soma_coords, population_extents, populations=[population], \
-                                                   interp_chunk_size=interp_chunk_size, allgather=False)
+                                                   ndist=ndist, interp_chunk_size=interp_chunk_size, allgather=False)
         else:
             soma_distances = get_soma_distances(comm, ip_volume, origin_uvl, soma_coords, population_extents, populations=[population], \
-                                                allgather=False)
+                                                ndist=ndist, allgather=False)
             
 
         if rank == 0:

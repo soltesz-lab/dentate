@@ -112,8 +112,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
 
     """
 
-    dx = 100
-    dy = 100
+    dx = 50
+    dy = 50
     
     (population_ranges, _) = read_population_ranges(coords_path)
 

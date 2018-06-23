@@ -1332,7 +1332,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     return syn_dict
 
 def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
-                                cell_sec_dict, cell_secidx_dict, verbose):
+                                cell_sec_dict, cell_secidx_dict, verbose=False, traversal_order='bfs'):
     """
     Computes synapse locations according to a Poisson distribution.
     :param density_seed:
@@ -1368,7 +1368,12 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         sec_dict = { int(idx): sec for sec, idx in itertools.izip(seclst, secidxlst) }
         sec_subgraph = sec_graph.subgraph(sec_dict.keys())
         if len(sec_dict) > 1:
-            sec_edges = list(nx.dfs_edges(sec_subgraph))
+            if traversal_order == 'dfs':
+                sec_edges = list(nx.dfs_edges(sec_subgraph))
+            elif traversal_order == 'bfs':
+                sec_edges = list(nx.bfs_edges(sec_subgraph))
+            else:
+                raise ValueError('Unknown traversal order')
         else:
             sec_edges = [(None, idx) for idx in sec_dict.keys() ]
         for sec_index, sec in sec_dict.iteritems():

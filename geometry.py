@@ -50,7 +50,7 @@ def DG_volume(u, v, l, rotate=None):
 
     return xyz
 
-def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30, lres=10):  
+def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, ures=33, vres=30, lres=10):  
     """Creates an RBF volume based on the parametric equations of the dentate volume.
     """
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
@@ -60,12 +60,12 @@ def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30,
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = DG_volume (u, v, l, rotate=rotate)
 
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, basis=basis, order=2)
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, basis=basis, order=order)
 
     return vol
 
 
-def make_surface(obs_l, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30, lres=10):  
+def make_surface(obs_l, rotate=None, basis=rbf.basis.phs3, order=2, ures=33, vres=30, lres=10):  
     """Creates an RBF surface based on the parametric equations of the dentate volume.
     """
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
@@ -74,7 +74,7 @@ def make_surface(obs_l, rotate=None, basis=rbf.basis.phs3, ures=33, vres=30, lre
     u, v = np.meshgrid(obs_u, obs_v, indexing='ij')
     xyz = DG_volume (u, v, obs_l, rotate=rotate)
 
-    srf = RBFSurface(obs_u, obs_v, xyz, basis=basis, order=2)
+    srf = RBFSurface(obs_u, obs_v, xyz, basis=basis, order=order)
 
     return srf
 
@@ -245,6 +245,8 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
     if populations is None:
         populations = soma_coords.keys()
 
+    (origin_u, origin_v, origin_l) = (origin_coords[0], origin_coords[1], origin_coords[2])
+
     soma_distances = {}
     for pop in populations:
         coords_dict = soma_coords[pop]
@@ -253,7 +255,8 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
         count = 0
         local_dist_dict = {}
         limits = population_extents[pop]
-        uvl_obs = []
+        u_obs = []
+        v_obs = []
         gids    = []
         for gid, coords in coords_dict.iteritems():
             if gid % size == rank:
@@ -266,12 +269,28 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
                     logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                     raise e
-                uvl_obs.append(np.array([soma_u,soma_v,origin_coords[2]]).ravel())
+
+                start_u = soma_u
+                stop_u  = origin_u 
+                start_v = soma_v
+                stop_v  = origin_v 
+
+                uv = np.linspace(start_v, stop_v, ndist)
+                vu = np.linspace(start_u, stop_u, ndist)
+                l  = origin_l
+
+                for v in uv:
+                    u_obs.append(np.array([soma_u,v,origin_l]).ravel())
+                for u in vu:
+                    v_obs.append(np.array([u,soma_v,origin_l]).ravel())
                 gids.append(gid)
-        if len(uvl_obs) > 0:
-            uvl_obs_array = np.vstack(uvl_obs)
-            distance_u = ip_dist_u(uvl_obs_array)
-            distance_v = ip_dist_v(uvl_obs_array)
+        if len(u_obs) > 0:
+            u_obs_array = np.vstack(u_obs)
+            v_obs_array = np.vstack(v_obs)
+            distance_u_obs = ip_dist_u(u_obs_array).reshape(-1,ndist)
+            distance_v_obs = ip_dist_v(v_obs_array).reshape(-1,ndist)
+            distance_u = np.mean(distance_u_obs, axis=1)
+            distance_v = np.mean(distance_v_obs, axis=1)
             try:
                 assert(np.all(np.isfinite(distance_u)))
                 assert(np.all(np.isfinite(distance_v)))
@@ -283,10 +302,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
         for (i,gid) in enumerate(gids):
             local_dist_dict[gid] = (distance_u[i], distance_v[i])
             if rank == 0:
-                soma_u = uvl_obs_array[i,0]
-                soma_v = uvl_obs_array[i,1]
-                soma_l = uvl_obs_array[i,2]
-                logger.info('gid %i: coordinates: %f %f %f distances: %f %f' % (gid, soma_u, soma_v, soma_l, distance_u[i], distance_v[i]))
+                logger.info('gid %i: distances: %f %f' % (gid, distance_u[i], distance_v[i]))
         if allgather:
             dist_dicts = comm.allgather(local_dist_dict)
             combined_dist_dict = {}
@@ -301,11 +317,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
 
 
 
-<<<<<<< HEAD
-def get_soma_distances(comm, ip_vol, soma_coords, population_extents, res=3, ndist=2, interp_chunk_size=1000, populations=None, allgather=False):
-=======
 def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_extents, res=3, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
->>>>>>> 02fa490750c53b3f9833ccdbeb8a0c003e4e5ef4
     """Computes path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -338,7 +350,8 @@ def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_exte
 
     if populations is None:
         populations = soma_coords.keys()
-    
+
+    (origin_u, origin_v, origin_l) = (origin_coords[0], origin_coords[1], origin_coords[2])
     soma_distances = {}
     for pop in populations:
         coords_dict = soma_coords[pop]
@@ -383,7 +396,7 @@ def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_exte
                 uv = np.linspace(start_v, stop_v, ndist)
                 vv = np.linspace(start_v, stop_v, vsteps)
                 vu = np.linspace(start_u, stop_u, ndist)
-                l = origin_l
+                l  = origin_l
                     
                 assert(len(uu) > 0)
                 assert(len(uv) > 0)

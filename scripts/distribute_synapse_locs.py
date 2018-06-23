@@ -26,12 +26,13 @@ script_name="distribute_synapse_locs.py"
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--distribution", type=str, default='uniform')
+@click.option("--traversal-order", type=str, default='bfs')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
+def main(config, template_path, output_path, forest_path, populations, distribution, traversal_order, io_size, chunk_size, value_chunk_size,
          cache_size, verbose):
     """
 
@@ -101,16 +102,19 @@ def main(config, template_path, output_path, forest_path, populations, distribut
 
                 if distribution == 'uniform':
                     synapse_dict[gid] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                                              density_dict, morph_dict,
-                                                                                              cell_sec_dict, cell_secidx_dict)
+                                                                             density_dict, morph_dict,
+                                                                             cell_sec_dict, cell_secidx_dict,
+                                                                             traversal_order=traversal_order)
                 elif distribution == 'poisson':
                     if rank == 0:
                         verbose_flag = verbose
                     else:
                         verbose_flag = False
                     synapse_dict[gid] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                                              density_dict, morph_dict,
-                                                                                              cell_sec_dict, cell_secidx_dict, verbose=verbose_flag)
+                                                                             density_dict, morph_dict,
+                                                                             cell_sec_dict, cell_secidx_dict,
+                                                                             traversal_order=traversal_order,
+                                                                             verbose=verbose_flag)
                 else:
                     raise Exception('Unknown distribution type: %s' % distribution)
                     

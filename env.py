@@ -226,7 +226,7 @@ class Env:
 
         self.inputConfig = input_config
 
-    def load_definitions():
+    def load_definitions(self):
         populations_dict = self.modelConfig['Definitions']['Populations']
         self.pop_dict = populations_dict
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
