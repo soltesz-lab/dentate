@@ -172,39 +172,43 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
     logger.info('Computing volume distances...')
     ldists_u = []
     ldists_v = []
-    obss_u = []
-    obss_v = []
+    obss_uv = []
     for uvl in uvl_coords:
         sample_U = uvl[0]
         sample_V = uvl[1]
         sample_L = uvl[2]
-        ldist_u, obs_dist_u = ip_vol.point_distance(span_U, sample_V, sample_L, axis=0, \
-                                                    origin_coords=origin_coords, \
-                                                    interp_chunk_size=interp_chunk_size)
-        ldist_v, obs_dist_v = ip_vol.point_distance(sample_U, span_V, sample_L, axis=1, \
-                                                    origin_coords=origin_coords, \
-                                                    interp_chunk_size=interp_chunk_size)
-        obs_u = np.vstack(obs_dist_u)
-        obs_v = np.vstack(obs_dist_v)
-        ldists_u.append(ldist_u)
-        ldists_v.append(ldist_v)
-        obss_u.append(obs_u)
-        obss_v.append(obs_v)
+        ldist_uu, obs_dist_u = ip_vol.point_distance(span_U, sample_V, sample_L, axis=0, \
+                                                     origin_coords=origin_coords, \
+                                                     interp_chunk_size=interp_chunk_size)
+        ldist_uv, _ = ip_vol.point_distance(span_U, sample_V, sample_L, axis=1, \
+                                            origin_coords=origin_coords, \
+                                            interp_chunk_size=interp_chunk_size)
+        ldist_vv, obs_dist_v = ip_vol.point_distance(sample_U, span_V, sample_L, axis=1, \
+                                                     origin_coords=origin_coords, \
+                                                     interp_chunk_size=interp_chunk_size)
+        ldist_vu, _ = ip_vol.point_distance(sample_U, span_V, sample_L, axis=0, \
+                                            origin_coords=origin_coords, \
+                                            interp_chunk_size=interp_chunk_size)
+        obs_uv = np.vstack([obs_dist_u, obs_dist_v])
+        obss_uv.append(obs_uv)
+        ldists_u.append(ldist_uu)
+        ldists_u.append(ldist_uv)
+        ldists_v.append(ldist_vv)
+        ldists_v.append(ldist_vu)
         
     distances_u = np.concatenate(ldists_u).reshape(-1)
-    obs_u = np.concatenate(obss_u)
     distances_v = np.concatenate(ldists_v).reshape(-1)
-    obs_v = np.concatenate(obss_v)
+    obs_uv = np.concatenate(obss_uv)
 
     u_min_ind = np.argmin(distances_u)
     u_max_ind = np.argmax(distances_u)
     v_min_ind = np.argmin(distances_v)
     v_max_ind = np.argmax(distances_v)
     
-    logger.info('U distance min: %f %s max: %f %s' % (distances_u[u_min_ind], str(obs_u[u_min_ind]), distances_u[u_max_ind], str(obs_u[u_max_ind])))
-    logger.info('V distance min: %f %s max: %f %s' % (distances_v[v_min_ind], str(obs_v[v_min_ind]), distances_v[v_max_ind], str(obs_v[v_max_ind])))
+    logger.info('U distance min: %f %s max: %f %s' % (distances_u[u_min_ind], str(obs_uv[u_min_ind]), distances_u[u_max_ind], str(obs_uv[u_max_ind])))
+    logger.info('V distance min: %f %s max: %f %s' % (distances_v[v_min_ind], str(obs_uv[v_min_ind]), distances_v[v_max_ind], str(obs_uv[v_max_ind])))
 
-    return (distances_u, obs_u, distances_v, obs_v)
+    return (obs_uv, distances_u, distances_v)
 
 
         
