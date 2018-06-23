@@ -388,7 +388,6 @@ class RBFVolume(object):
                     if return_coords:
                         coords.append(a_coords[aind])
 
-                            
         if return_coords:
             return distances, coords
         else:

@@ -79,8 +79,8 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
     coeff_dist_v = None
 
     interp_penalty = 0.0
-    interp_basis = 'phs2'
-    interp_order = 1
+    interp_basis = 'ga'
+    interp_order = 2
 
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))

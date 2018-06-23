@@ -91,7 +91,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=120., optiter=200, interp_chunk_size=1000):
+def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -125,7 +125,7 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
 
     N = nsample*2 # total number of nodes
     node_count = 0
-    itr = 20
+    itr = nodeitr
 
     while node_count < nsample:
         logger.info("Generating %i nodes (%i iterations)..." % (N, itr))
@@ -163,9 +163,10 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
         logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
         logger.info('xyz_error_interp: %s' % str(xyz_error_interp[i,:]))
         if np.all (np.less (xyz_error_interp[i,:], xyz_error_opt)):
-            all_uvl_coords.append(uvl_coords_interp[i,:].ravel())
+            coords = uvl_coords_interp[i,:]
         else:
-            all_uvl_coords.append(np.asarray(uvl_coords_opt))
+            coords = np.asarray(uvl_coords_opt)
+        all_uvl_coords.append(coords.ravel())
 
     uvl_coords = np.vstack(all_uvl_coords)
     

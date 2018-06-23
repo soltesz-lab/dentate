@@ -97,9 +97,9 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     coeff_dist_v = None
     origin_uvl = None
     
-    interp_penalty = 0.1
-    interp_basis = 'phs2'
-    interp_order = 1
+    interp_penalty = 0.0
+    interp_basis = 'ga'
+    interp_order = 2
     vol_res = volume_resolution
 
     if rank == 0:
