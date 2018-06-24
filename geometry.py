@@ -196,9 +196,11 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
         ldists_u.append(ldist_uv)
         ldists_v.append(ldist_vv)
         ldists_v.append(ldist_vu)
-        
-    distances_u = np.concatenate(ldists_u).reshape(-1)
-    distances_v = np.concatenate(ldists_v).reshape(-1)
+
+    ldists_u_flat = [item for sublist in ldists_u for item in sublist]
+    ldists_v_flat = [item for sublist in ldists_v for item in sublist]
+    distances_u = np.concatenate(ldists_u_flat).ravel()
+    distances_v = np.concatenate(ldists_v_flat).ravel()
     obs_uv = np.concatenate(obss_uv)
 
     u_min_ind = np.argmin(distances_u)

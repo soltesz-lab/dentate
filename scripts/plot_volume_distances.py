@@ -39,7 +39,7 @@ def main(config, resolution, resample, alpha_radius, verbose):
                             rotate=rotate)
     logger.info('Computing volume distances...')
     
-    vol_dist = get_volume_distances(ip_volume, res=resample, alpha_radius=alpha_radius, nodeitr=1, nsample=2)
+    vol_dist = get_volume_distances(ip_volume, res=resample, alpha_radius=alpha_radius)
     (obs_uv, dist_u, dist_v) = vol_dist
 
     dist_dict = {}
