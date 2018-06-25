@@ -91,9 +91,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     rotate = env.geometry['Parametric Surface']['Rotation']
         
-    obs_dist_u = None
+    obs_uv = None
     coeff_dist_u = None
-    obs_dist_v = None
     coeff_dist_v = None
     origin_uvl = None
     
@@ -121,26 +120,25 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
             logger.info('Computing volume distances...')
             vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
-            (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
+            (obs_uv, dist_u, dist_v) = vol_dist
             logger.info('Computing U volume distance interpolants...')
-            ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
+            ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty)
             coeff_dist_u = ip_dist_u._coeff
             logger.info('Computing V volume distance interpolants...')
-            ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=interp_order,basis=interp_basis,\
-                                        penalty=interp_penalty)
+            ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
+                                       penalty=interp_penalty)
             coeff_dist_v = ip_dist_v._coeff
             logger.info('Broadcasting volume distance interpolants...')
         
-        obs_dist_u = comm.bcast(obs_dist_u, root=0)
+        obs_uv = comm.bcast(obs_uv, root=0)
         coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-        obs_dist_v = comm.bcast(obs_dist_v, root=0)
         coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
         origin_uvl = comm.bcast(origin_uvl, root=0)
 
-        ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+        ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                     penalty=interp_penalty)
-        ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+        ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
                                     penalty=interp_penalty)
 
     else:

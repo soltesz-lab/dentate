@@ -54,7 +54,8 @@ def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, ures=33,
     """Creates an RBF volume based on the parametric equations of the dentate volume.
     """
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
+    #obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
+    obs_v = np.linspace(-0.25*np.pi, 1.425*np.pi, vres)
     obs_l = np.linspace(lmin, lmax, num=lres)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
@@ -160,6 +161,8 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
         uvl_coords_opt,dist = dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
         xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], rotate=rotate)[0]
         xyz_error_opt   = np.abs(np.subtract(xyz_coords[i,:], xyz_coords_opt))
+        logger.info('uvl_coords_opt: %s' % str(uvl_coords_opt))
+        logger.info('uvl_coords_interp: %s' % str(uvl_coords_interp[i,:]))
         logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
         logger.info('xyz_error_interp: %s' % str(xyz_error_interp[i,:]))
         if np.all (np.less (xyz_error_interp[i,:], xyz_error_opt)):
@@ -190,18 +193,19 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
         ldist_vu, _ = ip_vol.point_distance(sample_U, span_V, sample_L, axis=0, \
                                             origin_coords=origin_coords, \
                                             interp_chunk_size=interp_chunk_size)
-        obs_uv = np.vstack([obs_dist_u, obs_dist_v])
-        obss_uv.append(obs_uv)
+        obss_uv.append(obs_dist_u)
+        obss_uv.append(obs_dist_v)
         ldists_u.append(ldist_uu)
-        ldists_u.append(ldist_uv)
+        ldists_v.append(ldist_uv)
         ldists_v.append(ldist_vv)
-        ldists_v.append(ldist_vu)
+        ldists_u.append(ldist_vu)
 
     ldists_u_flat = [item for sublist in ldists_u for item in sublist]
     ldists_v_flat = [item for sublist in ldists_v for item in sublist]
     distances_u = np.concatenate(ldists_u_flat).ravel()
     distances_v = np.concatenate(ldists_v_flat).ravel()
-    obs_uv = np.concatenate(obss_uv)
+
+    obs_uv = np.vstack(obss_uv)
 
     u_min_ind = np.argmin(distances_u)
     u_max_ind = np.argmax(distances_u)
@@ -302,7 +306,9 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
                 assert(np.all(np.isfinite(distance_u)))
                 assert(np.all(np.isfinite(distance_v)))
             except Exception as e:
-                logger.error('Invalid distances: distance_u: %f; distance_v: %f', distance_u, distance_v)
+                u_nan_idxs = np.where(np.isnan(distance_u))[0]
+                v_nan_idxs = np.where(np.isnan(distance_v))[0]
+                logger.error('Invalid distances: u: %s; v: %s', str(u_obs_array[u_nan_idxs]), str(v_obs_array[v_nan_idxs]))
                 raise e
 
             

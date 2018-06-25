@@ -372,7 +372,7 @@ class RBFVolume(object):
                         cdist[i] = 0.
                 distances.append(sgn * cdist)
                 if return_coords:
-                    coords.append(fst_coords[find])
+                    coords.append(fst_coords[find].ravel())
                 for i in xrange(0, npts-1):
                     a = split_pts[i+1]
                     b = split_pts[i]
@@ -386,7 +386,7 @@ class RBFVolume(object):
                     cdist = cdist + dist
                     distances.append(sgn * cdist)
                     if return_coords:
-                        coords.append(a_coords[aind])
+                        coords.append(a_coords[aind].ravel())
 
         if return_coords:
             return distances, coords

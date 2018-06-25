@@ -73,21 +73,19 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
         del coords
         gc.collect()
 
-    obs_dist_u = None
+    obs_uv = None
     coeff_dist_u = None
-    obs_dist_v = None
     coeff_dist_v = None
 
-    interp_penalty = 0.0
+    interp_penalty = 0.001
     interp_basis = 'ga'
-    interp_order = 2
+    interp_order = 1
 
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
     if interpolate:
-        obs_dist_u = None
+        obs_uv = None
         coeff_dist_u = None
-        obs_dist_v = None
         coeff_dist_v = None
         origin_uvl = None
         if rank == 0:
@@ -99,7 +97,7 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
 
             span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
             
-            origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+            origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)-0.02])
             origin_u = origin_coords[0]
             origin_v = origin_coords[1]
             origin_l = origin_coords[2]
@@ -107,32 +105,35 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
             origin_uvl = np.asarray([origin_u, origin_v, origin_l])
             
             logger.info('Computing volume distances...')
-            vol_dist = get_volume_distances(ip_volume, rotate=rotate, res=resample, alpha_radius=alpha_radius)
-            (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
+            vol_dist = get_volume_distances (ip_volume, rotate=rotate, res=resample, alpha_radius=alpha_radius)
+            (obs_uv, dist_u, dist_v) = vol_dist
+            print 'obs_uv shape: ', obs_uv.shape
+            print 'obs_uv[0:10,:] =: ', obs_uv[0:10,:]
+            print 'dist_u shape: ', dist_u.shape
+
             logger.info('Computing U volume distance interpolants...')
-            ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=interp_order,basis=interp_basis,\
-                                        penalty=interp_penalty, extrapolate=True)
+            ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
+                                       penalty=interp_penalty, extrapolate=False)
             coeff_dist_u = ip_dist_u._coeff
             del dist_u
             gc.collect()
             logger.info('Computing V volume distance interpolants...')
-            ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=interp_order,basis=interp_basis,\
-                                        penalty=interp_penalty, extrapolate=True)
+            ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
+                                       penalty=interp_penalty, extrapolate=False)
             coeff_dist_v = ip_dist_v._coeff
             del dist_v
             gc.collect()
             logger.info('Broadcasting volume distance interpolants...')
         
-        obs_dist_u = comm.bcast(obs_dist_u, root=0)
+        obs_uv = comm.bcast(obs_uv, root=0)
         coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-        obs_dist_v = comm.bcast(obs_dist_v, root=0)
         coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
         origin_uvl = comm.bcast(origin_uvl, root=0)
 
-        ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty, extrapolate=True)
-        ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty, extrapolate=True)
+        ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty, extrapolate=False)
+        ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty, extrapolate=False)
     else:
         ip_volume = make_volume(min_l-0.01, max_l+0.01, \
                                 ures=resolution[0], \
@@ -142,7 +143,7 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
 
         span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
 
-        origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+        origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)-0.02])
         origin_u = origin_coords[0]
         origin_v = origin_coords[1]
         origin_l = origin_coords[2]

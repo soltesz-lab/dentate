@@ -26,7 +26,6 @@ mpirun -np 32 python ./scripts/measure_distances.py \
               --config=./config/Full_Scale_Control.yaml \
               --coords-namespace=Coordinates \
               -i MOPP -i LPP -i MPP -i HC -i HCC -i MC -i NGFC -i IS \
-              --coords-path=$SCRATCH/dentate/Full_Scale_Control//DG_coords_20180507.h5 \
-              --rotate=-35 \
+              --coords-path=$SCRATCH/dentate/Full_Scale_Control//DG_coords_20180521.h5 \
               --io-size=2 -v
 
