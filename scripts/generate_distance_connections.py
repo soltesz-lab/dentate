@@ -96,10 +96,16 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     coeff_dist_v = None
     origin_uvl = None
     
-    interp_penalty = 0.0
-    interp_basis = 'ga'
-    interp_order = 2
     vol_res = volume_resolution
+
+    interp_penalty = 0.001
+    interp_basis = 'ga'
+    interp_order = 1
+
+    ## This parameter is used to expand the range of L and avoid
+    ## situations where the endpoints of L end up outside of the range
+    ## of the distance interpolant
+    safety = 0.01
 
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
@@ -107,14 +113,12 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     if interpolate:
         if rank == 0:
             logger.info('Creating volume...')
-            ip_volume = make_volume(min_l, max_l, ures=resolution[0], vres=resolution[1], lres=resolution[2],\
-                                    rotate=rotate)
+            ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
             span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
 
-            origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
-            origin_u = origin_coords[0]
-            origin_v = origin_coords[1]
-            origin_l = origin_coords[2]
+            origin_u = np.median(span_U)
+            origin_v = np.median(span_V)
+            origin_l = np.max(span_L)-safety
 
             origin_uvl = np.asarray([origin_u, origin_v, origin_l])
 
@@ -150,10 +154,10 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
         span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
 
-        origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
-        origin_u = origin_coords[0]
-        origin_v = origin_coords[1]
-        origin_l = origin_coords[2]
+        origin_u = np.median(span_U)
+        origin_v = np.median(span_V)
+        origin_l = np.max(span_L)-safety
+
         origin_uvl = np.asarray([origin_u, origin_v, origin_l])
 
         

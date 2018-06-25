@@ -50,13 +50,18 @@ def DG_volume(u, v, l, rotate=None):
 
     return xyz
 
-def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, ures=33, vres=30, lres=10):  
+
+def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[33, 30, 10], expand=0.0):  
     """Creates an RBF volume based on the parametric equations of the dentate volume.
     """
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
+    ures = resolution[0]
+    vres = resolution[1]
+    lres = resolution[2]
+    
+    obs_u = np.linspace((-0.016*np.pi) - expand, (1.01*np.pi) + expand, ures)
     #obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
-    obs_v = np.linspace(-0.25*np.pi, 1.425*np.pi, vres)
-    obs_l = np.linspace(lmin, lmax, num=lres)
+    obs_v = np.linspace(-0.25*np.pi - expand, 1.425*np.pi + expand, vres)
+    obs_l = np.linspace(lmin - expand, lmax + expand, num=lres)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = DG_volume (u, v, l, rotate=rotate)
@@ -66,9 +71,12 @@ def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, ures=33,
     return vol
 
 
-def make_surface(obs_l, rotate=None, basis=rbf.basis.phs3, order=2, ures=33, vres=30, lres=10):  
+def make_surface(obs_l, rotate=None, basis=rbf.basis.phs2, order=1, res=[33, 30]):  
     """Creates an RBF surface based on the parametric equations of the dentate volume.
     """
+    ures = resolution[0]
+    vres = resolution[1]
+
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
 
@@ -92,7 +100,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
+def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=300, res=4, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -114,7 +122,8 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
 
     span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
 
-    origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+    if origin_coords is None:
+        origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
     logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
 
     logger.info("Constructing alpha shape...")
@@ -141,6 +150,9 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
 
     logger.info("%i interior nodes generated (%i iterations)" % (node_count, itr))
 
+    u, v, l = np.meshgrid(ip_vol.u, ip_vol.v, ip_vol.l, indexing='ij')
+    boundary_uvl_coords = np.array([u.ravel(),v.ravel(),l.ravel()]).T
+    
     logger.info('Inverse interpolation of UVL coordinates...')
     xyz_coords = in_nodes.reshape(-1,3)
     uvl_coords_interp = ip_vol.inverse(xyz_coords)
@@ -153,7 +165,7 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
                       
 
     logger.info('Interpolation by optimization of UVL coordinates...')
-    all_uvl_coords = []
+    all_node_uvl_coords = []
     for i in xrange(0, xyz_coords.shape[0]):
         logger.info("coordinates %i" % i)
         this_xyz_coords = xyz_coords[i,:]
@@ -169,9 +181,11 @@ def get_volume_distances (ip_vol, rotate=None, nsample=300, res=4, alpha_radius=
             coords = uvl_coords_interp[i,:]
         else:
             coords = np.asarray(uvl_coords_opt)
-        all_uvl_coords.append(coords.ravel())
+        all_node_uvl_coords.append(coords.ravel())
 
-    uvl_coords = np.vstack(all_uvl_coords)
+    node_uvl_coords = np.vstack(all_node_uvl_coords)
+
+    uvl_coords = np.vstack([boundary_uvl_coords, node_uvl_coords])
     
     logger.info('Computing volume distances...')
     ldists_u = []

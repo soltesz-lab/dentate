@@ -81,6 +81,11 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
     interp_basis = 'ga'
     interp_order = 1
 
+    ## This parameter is used to expand the range of L and avoid
+    ## situations where the endpoints of L end up outside of the range
+    ## of the distance interpolant
+    safety = 0.01
+    
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
     if interpolate:
@@ -89,23 +94,20 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
         coeff_dist_v = None
         origin_uvl = None
         if rank == 0:
-            ip_volume = make_volume(min_l-0.01, max_l+0.01, \
-                                    ures=resolution[0], \
-                                    vres=resolution[1], \
-                                    lres=resolution[2], \
+            ip_volume = make_volume(min_l-safety, max_l+safety, \
+                                    resolution=resolution, \
                                     rotate=rotate)
 
             span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
             
-            origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)-0.02])
-            origin_u = origin_coords[0]
-            origin_v = origin_coords[1]
-            origin_l = origin_coords[2]
+            origin_u = np.median(span_U)
+            origin_v = np.median(span_V)
+            origin_l = np.max(span_L)-safety
 
             origin_uvl = np.asarray([origin_u, origin_v, origin_l])
             
             logger.info('Computing volume distances...')
-            vol_dist = get_volume_distances (ip_volume, rotate=rotate, res=resample, alpha_radius=alpha_radius)
+            vol_dist = get_volume_distances (ip_volume, origin_coords=origin_uvl, rotate=rotate, res=resample, alpha_radius=alpha_radius)
             (obs_uv, dist_u, dist_v) = vol_dist
             print 'obs_uv shape: ', obs_uv.shape
             print 'obs_uv[0:10,:] =: ', obs_uv[0:10,:]
@@ -135,18 +137,15 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
         ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
                                    penalty=interp_penalty, extrapolate=False)
     else:
-        ip_volume = make_volume(min_l-0.01, max_l+0.01, \
-                                ures=resolution[0], \
-                                vres=resolution[1], \
-                                lres=resolution[2], \
+        ip_volume = make_volume(min_l-safety, max_l+safety, \
+                                resolution=resolution, \
                                 rotate=rotate)
 
         span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
 
-        origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)-0.02])
-        origin_u = origin_coords[0]
-        origin_v = origin_coords[1]
-        origin_l = origin_coords[2]
+        origin_u = np.median(span_U)
+        origin_v = np.median(span_V)
+        origin_l = np.max(span_L)-safety
         origin_uvl = np.asarray([origin_u, origin_v, origin_l])
                                        
     for population in populations:
