@@ -120,6 +120,9 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=300, 
         The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
     """
 
+    boundary_uvl_coords = np.array([[ip_vol.u[0],ip_vol.v[0],ip_vol.l[0]],
+                                    [ip_vol.u[-1],ip_vol.v[-1],ip_vol.l[-1]]])
+
     span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
 
     if origin_coords is None:
@@ -150,8 +153,6 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=300, 
 
     logger.info("%i interior nodes generated (%i iterations)" % (node_count, itr))
 
-    u, v, l = np.meshgrid(ip_vol.u, ip_vol.v, ip_vol.l, indexing='ij')
-    boundary_uvl_coords = np.array([u.ravel(),v.ravel(),l.ravel()]).T
     
     logger.info('Inverse interpolation of UVL coordinates...')
     xyz_coords = in_nodes.reshape(-1,3)
@@ -184,9 +185,8 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=300, 
         all_node_uvl_coords.append(coords.ravel())
 
     node_uvl_coords = np.vstack(all_node_uvl_coords)
-
     uvl_coords = np.vstack([boundary_uvl_coords, node_uvl_coords])
-    
+
     logger.info('Computing volume distances...')
     ldists_u = []
     ldists_v = []

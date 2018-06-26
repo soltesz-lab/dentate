@@ -79,7 +79,7 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
 
     interp_penalty = 0.001
     interp_basis = 'ga'
-    interp_order = 1
+    interp_order = 2
 
     ## This parameter is used to expand the range of L and avoid
     ## situations where the endpoints of L end up outside of the range
@@ -109,9 +109,6 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
             logger.info('Computing volume distances...')
             vol_dist = get_volume_distances (ip_volume, origin_coords=origin_uvl, rotate=rotate, res=resample, alpha_radius=alpha_radius)
             (obs_uv, dist_u, dist_v) = vol_dist
-            print 'obs_uv shape: ', obs_uv.shape
-            print 'obs_uv[0:10,:] =: ', obs_uv[0:10,:]
-            print 'dist_u shape: ', dist_u.shape
 
             logger.info('Computing U volume distance interpolants...')
             ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
