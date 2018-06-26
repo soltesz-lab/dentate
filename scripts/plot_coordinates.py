@@ -14,8 +14,11 @@ def list_find (f, lst):
     return None
 
 @click.command()
+@click.option("--coords-path", '-c', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--population", '-i', type=str, required=True)
+@click.option("--coords-namespace", required=False, type=str, default='Coordinates')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(verbose):
+def main(coords_path, population, coords_namespace, verbose):
         
     plot.plot_coordinates (coords_path, population, coords_namespace, verbose=verbose)
         
