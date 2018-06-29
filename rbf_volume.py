@@ -297,7 +297,90 @@ class RBFVolume(object):
         return arr
 
         
-    def point_distance(self, su, sv, sl, axis=0, interp_chunk_size=1000, origin_coords=None, return_coords=True):
+    def point_distance(self, su, sv, sl, axis=0, interp_chunk_size=1000, return_coords=True, mesh=True):
+        """Cumulative distance along an axis between pairs of (u, v, l) coordinates.
+
+        Parameters
+        ----------
+        u, v, l : array-like
+
+        axis: axis along which the distance should be computed
+
+        origin_coords: the origin coordinates (the left-most coordinate of each axis if None)
+
+        return_coords: if True, returns the coordinates for which computed distance (default: True)
+
+        Returns
+        -------
+        If the lengths of u and v are at least 2, returns the cumulative length
+        between each u,v pair.
+        """
+        u = np.array([su]).reshape(-1,)
+        v = np.array([sv]).reshape(-1,)
+        l = np.array([sl]).reshape(-1,)
+
+        
+        assert(len(u) > 0)
+        assert(len(v) > 0)
+        assert(len(l) > 0)
+
+        input_axes = [u, v, l]
+
+        c = input_axes
+
+        ordered_axes = [ np.sort(c[i]) if i == axis else c[i] for i in xrange(0,3) ]
+
+        aidx = list(xrange(0,3))
+        aidx.remove(axis)
+        
+        distances = []
+        coords    = []
+
+        npts = ordered_axes[axis].shape[0]
+
+        if npts > 0:
+            if mesh:
+                (eval_pts, eval_coords) = self.ev(*axes, chunk_size=interp_chunk_size, return_coords=True)
+                coord_idx = np.argsort(eval_coords[:,axis])
+                all_pts = (eval_pts.reshape(3, -1).T)[coord_idx,:]
+                all_pts_coords = eval_coords[coord_idx,:]
+                split_pts = np.split(all_pts, npts)
+                split_pts_coords = np.split(all_pts_coords, npts)
+                cdist = np.zeros(split_pts[0].shape)
+                distances.append(cdist)
+                if return_coords:
+                    coords.append(split_pts_coords[0])
+                for i in xrange(0, npts-1):
+                    a = split_pts[i+1]
+                    b = split_pts[i]
+                    a_coords = split_pts_coords[i+1]
+                    b_coords = split_pts_coords[i]
+                    aind = np.lexsort(tuple([ a_coords[:,i] for i in aidx ]))
+                    bind = np.lexsort(tuple([ b_coords[:,i] for i in aidx ]))
+                    a_sorted = a[aind]
+                    b_sorted = b[bind]
+                    dist = euclidean_distance(a_sorted, b_sorted).reshape(-1,1)
+                    cdist = cdist + dist
+                    distances.append(cdist)
+                    if return_coords:
+                        coords.append(a_coords[aind].ravel())
+            else:
+                (eval_pts, eval_coords) = self.ev(*axes, chunk_size=interp_chunk_size, return_coords=True)
+                coord_idx = np.argsort(eval_coords[:,axis])
+                all_pts   = (eval_pts.reshape(3, -1).T)[coord_idx,:]
+                a_sorted  = all_pts[:,1:]
+                b_sorted  = all_pts[:,:-1]
+                dist      = euclidean_distance(a_sorted, b_sorted).reshape(-1,1)
+                distances = np.cumsum(dist)
+                if return_coords:
+                    coords = eval_coords[coord_idx,:]
+                        
+        if return_coords:
+            return distances, coords
+        else:
+            return distances
+
+    def point_distance2(self, su, sv, sl, axis=0, interp_chunk_size=1000, origin_coords=None, return_coords=True):
         """Cumulative distance along an axis between pairs of (u, v, l) coordinates
 
         Parameters
@@ -707,9 +790,6 @@ def test_point_distance():
     dist, coords = vol.point_distance(U, V[0], L)
     print dist
     print coords
-    dist, coords = vol.point_distance(U, V[0], L, axis_origin=np.median(obs_u))
-    print dist
-    print coords
 
     
 
@@ -720,7 +800,7 @@ if __name__ == '__main__':
 #    test_uv_isospline()
 #    test_nodes()
 #    test_tri()
-#     test_point_distance()
+     test_point_distance()
      
 
     
