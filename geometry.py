@@ -100,7 +100,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=250, res=2, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
+def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=25, res=2, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -235,7 +235,7 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=250, 
 
 
         
-def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords, population_extents, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
+def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
     """Interpolates path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -272,8 +272,6 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
     if populations is None:
         populations = soma_coords.keys()
 
-    (origin_u, origin_v, origin_l) = (origin_coords[0], origin_coords[1], origin_coords[2])
-
     soma_distances = {}
     for pop in populations:
         coords_dict = soma_coords[pop]
@@ -297,18 +295,8 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
                                      (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
                     raise e
 
-                start_u = soma_u
-                stop_u  = origin_u 
-                start_v = soma_v
-                stop_v  = origin_v 
-
-                uv = np.linspace(start_v, stop_v, ndist)
-                vu = np.linspace(start_u, stop_u, ndist)
-
-                for v in uv:
-                    u_obs.append(np.array([soma_u,v,soma_l]).ravel())
-                for u in vu:
-                    v_obs.append(np.array([u,soma_v,soma_l]).ravel())
+                u_obs.append(np.array([soma_u,soma_v,soma_l]).ravel())
+                v_obs.append(np.array([soma_u,soma_v,soma_l]).ravel())
                 gids.append(gid)
         if len(u_obs) > 0:
             u_obs_array = np.vstack(u_obs)

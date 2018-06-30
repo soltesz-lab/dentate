@@ -105,13 +105,13 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
             
                 
             logger.info('Computing U volume distance interpolants...')
-            ip_dist_u = RBFInterpolant(obs_uv[::resample],dist_u[::resample],order=interp_order,basis=interp_basis,\
+            ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty, extrapolate=False)
             coeff_dist_u = ip_dist_u._coeff
             del dist_u
             gc.collect()
             logger.info('Computing V volume distance interpolants...')
-            ip_dist_v = RBFInterpolant(obs_uv[::resample],dist_v[::resample],order=interp_order,basis=interp_basis,\
+            ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty, extrapolate=False)
             coeff_dist_v = ip_dist_v._coeff
             del dist_v
@@ -123,9 +123,9 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
         coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
         origin_uvl = comm.bcast(origin_uvl, root=0)
 
-        ip_dist_u = RBFInterpolant(obs_uv[::resample],coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+        ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                    penalty=interp_penalty, extrapolate=False)
-        ip_dist_v = RBFInterpolant(obs_uv[::resample],coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+        ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
                                    penalty=interp_penalty, extrapolate=False)
     else:
         ip_volume = make_volume(min_l-safety, max_l+safety, \
@@ -142,7 +142,7 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
     for population in populations:
 
         if interpolate:
-            soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_uvl, soma_coords, population_extents, populations=[population], \
+            soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, populations=[population], \
                                                    ndist=ndist, interp_chunk_size=interp_chunk_size, allgather=False)
         else:
             soma_distances = get_soma_distances(comm, ip_volume, origin_uvl, soma_coords, population_extents, populations=[population], \
