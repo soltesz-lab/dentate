@@ -1,8 +1,8 @@
+import numpy as np
 from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
-
 
 ConnectionConfig = namedtuple('ConnectionConfig',
                                  ['type',
@@ -136,6 +136,9 @@ class Env:
         else:
             self.geometry = None
 
+        if self.geometry['Parametric Surface'].has_key('Origin'):
+            self.parse_origin_coords()
+            
         self.celltypes = self.modelConfig['Cell Types']
         self.cellAttributeInfo = {}
 
@@ -150,10 +153,10 @@ class Env:
             self.resultsFilePath = "%s_results.h5" % self.modelName
 
         if self.modelConfig.has_key('Definitions'):
-            self.load_definitions()
+            self.parse_definitions()
 
         if self.modelConfig.has_key('Connections'):
-            self.load_connection_config()
+            self.parse_connection_config()
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
@@ -163,7 +166,7 @@ class Env:
             self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
 
         if self.modelConfig.has_key('Input'):
-            self.load_input_config()
+            self.parse_input_config()
 
         self.projection_dict = defaultdict(list)
         if self.datasetPrefix is not None:
@@ -203,7 +206,7 @@ class Env:
             h.load_file(self.hoclibPath + '/templates/StimCell.hoc')
             h.xopen(self.hoclibPath + '/lib.hoc')
 
-    def load_input_config(self):
+    def parse_input_config(self):
         """
 
         :return:
@@ -226,7 +229,28 @@ class Env:
 
         self.inputConfig = input_config
 
-    def load_definitions(self):
+
+    def parse_origin_coords(self):
+        origin_spec = self.geometry['Parametric Surface']['Origin']
+
+        coords = {}
+        for key in ['U','V','L']:
+            spec = origin_spec[key]
+            if isinstance(spec, float):
+                coords[key] = lambda x: spec
+            elif spec == 'median':
+                coords[key] = lambda x: np.median(x)
+            elif spec == 'mean':
+                coords[key] = lambda x: np.mean(x)
+            elif spec == 'min':
+                coords[key] = lambda x: np.min(x)
+            elif spec == 'max':
+                coords[key] = lambda x: np.max(x)
+            else:
+                raise ValueError
+        self.geometry['Parametric Surface']['Origin'] = coords
+
+    def parse_definitions(self):
         populations_dict = self.modelConfig['Definitions']['Populations']
         self.pop_dict = populations_dict
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
@@ -236,7 +260,7 @@ class Env:
         layers_dict      = self.modelConfig['Definitions']['Layers']
         self.layers_dict = layers_dict
         
-    def load_connection_config(self):
+    def parse_connection_config(self):
         """
 
         :return:

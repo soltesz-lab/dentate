@@ -88,15 +88,15 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
     rotate = env.geometry['Parametric Surface']['Rotation']
-        
+    origin = env.geometry['Parametric Surface']['Origin']
+
     obs_uv = None
     coeff_dist_u = None
     coeff_dist_v = None
-    origin_uvl = None
     
     vol_res = volume_resolution
 
-    interp_penalty = 0.001
+    interp_penalty = 0.01
     interp_basis = 'ga'
     interp_order = 1
 
@@ -113,14 +113,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
         span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
 
-        origin_u = np.median(span_U)
-        origin_v = np.median(span_V)
-        origin_l = np.max(span_L)-safety
-
-        origin_uvl = np.asarray([origin_u, origin_v, origin_l])
-        
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
+        vol_dist = get_volume_distances(ip_volume, origin_coords=origin, res=resample, verbose=verbose)
         (obs_uv, dist_u, dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
@@ -135,7 +129,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     obs_uv = comm.bcast(obs_uv, root=0)
     coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-    origin_uvl = comm.bcast(origin_uvl, root=0)
     
     ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                penalty=interp_penalty)
@@ -148,7 +141,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     
     populations = read_population_names(forest_path)
 
-    soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_uvl, soma_coords, population_extents, \
+    soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=True)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']

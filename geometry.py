@@ -23,7 +23,6 @@ logger = utils.get_module_logger(__name__)
 max_u = 11690.
 max_v = 2956.
 
-
 def DG_volume(u, v, l, rotate=None):
     """Parametric equations of the dentate gyrus volume."""
     
@@ -102,7 +101,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=250, alpha_radius=120., optiter=200, nodeitr=20):
+def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, alpha_radius=120., optiter=200, nodeitr=20):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -145,8 +144,11 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=250, 
     resample = 10
     span_U, span_V, span_L  = ip_vol._resample_uvl(resample, resample, resample)
     
-    if origin_coords is None:
+    if origin_spec is None:
         origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+    else:
+        origin_coords = np.asarray([origin_spec['U'](span_U), origin_spec['V'](span_V), origin_spec['L'](span_L)])
+        
     logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
 
     pos, extents = ip_vol.point_position(origin_coords[0],origin_coords[1],origin_coords[2])

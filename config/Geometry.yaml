@@ -1,6 +1,10 @@
 ## Parametric surface extents and other properties
 
 Parametric Surface:
+  Origin:
+    U: median
+    V: median
+    L: max
   Minimum Extent:
     Hilus: [0.03142, -0.7225, -3.95]
     GCL:   [0.03142, -0.7225, -1.95]

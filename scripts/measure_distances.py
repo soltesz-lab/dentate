@@ -51,6 +51,7 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
     if rank == 0:
         logger.info('Reading population coordinates...')
 
+    origin = env.geometry['Parametric Surface']['Origin']
     rotate = env.geometry['Parametric Surface']['Rotation']
     min_l = float('inf')
     max_l = 0.0
@@ -75,7 +76,7 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
     coeff_dist_u = None
     coeff_dist_v = None
 
-    interp_penalty = 0.001
+    interp_penalty = 0.01
     interp_basis = 'ga'
     interp_order = 1
 
@@ -90,14 +91,14 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
     obs_uv = None
     coeff_dist_u = None
     coeff_dist_v = None
-    origin_uvl = None
+
     if rank == 0:
         ip_volume = make_volume(min_l-safety, max_l+safety, \
                                 resolution=resolution, \
                                 rotate=rotate)
 
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances (ip_volume, origin_coords=origin_uvl, rotate=rotate, res=resample, alpha_radius=alpha_radius)
+        vol_dist = get_volume_distances (ip_volume, origin_coords=origin, rotate=rotate, res=resample, alpha_radius=alpha_radius)
         (obs_uv, dist_u, dist_v) = vol_dist
 
         logger.info('Computing U volume distance interpolants...')
@@ -117,7 +118,6 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
     obs_uv = comm.bcast(obs_uv, root=0)
     coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
     coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-    origin_uvl = comm.bcast(origin_uvl, root=0)
     
     ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                penalty=interp_penalty, extrapolate=False)
