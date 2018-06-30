@@ -33,7 +33,6 @@ script_name = 'generate_distance_connections.py'
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
-@click.option("--resample", type=int, default=2)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
@@ -44,7 +43,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resample, resolution, interp_chunk_size, io_size,
+         synapses_namespace, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     utils.config_logging(verbose)
@@ -111,10 +110,9 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     if rank == 0:
         logger.info('Creating volume...')
         ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
-        span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
 
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, origin_coords=origin, res=resample, verbose=verbose)
+        vol_dist = get_volume_distances(ip_volume, origin_spec=origin, verbose=verbose)
         (obs_uv, dist_u, dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\

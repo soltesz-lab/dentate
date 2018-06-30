@@ -28,14 +28,13 @@ script_name = 'measure_distances.py'
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--alpha-radius", type=float, default=120.)
-@click.option("--resample", type=int, default=7)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, populations, interp_chunk_size, resample, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, populations, interp_chunk_size, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -98,7 +97,7 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
                                 rotate=rotate)
 
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances (ip_volume, origin_coords=origin, rotate=rotate, res=resample, alpha_radius=alpha_radius)
+        vol_dist = get_volume_distances (ip_volume, origin_spec=origin, rotate=rotate, alpha_radius=alpha_radius)
         (obs_uv, dist_u, dist_v) = vol_dist
 
         logger.info('Computing U volume distance interpolants...')
