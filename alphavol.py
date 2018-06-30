@@ -7,10 +7,8 @@ from collections import namedtuple
 
 AlphaShape = namedtuple('AlphaShape', ['points', 'simplices', 'bounds'], verbose=False)
 
-
-## Volumes/areas of tetrahedra/triangles
 def volumes(simplices, points):
-    
+    """Volumes/areas of tetrahedra/triangles."""
     A = points[simplices[:,0],:]
     B = np.subtract(points[simplices[:,1],:], A)
     C = np.subtract(points[simplices[:,2],:], A)
@@ -28,9 +26,10 @@ def volumes(simplices, points):
 
     return vol
 
-## Determine circumcenters of polyhedra as described in the following page:
-## http://mathworld.wolfram.com/Circumsphere.html
 def circumcenters(simplices, points):
+    """Determine circumcenters of polyhedra as described in the following page:
+    http://mathworld.wolfram.com/Circumsphere.html
+    """
 
     n     = np.ones((simplices.shape[0],simplices.shape[1],1))
     spts  = points[simplices]
@@ -54,11 +53,9 @@ def circumcenters(simplices, points):
     
     return ((x0, y0, z0), r)
     
-##
-## Returns the facets that are reference only by simplex of the given
-## triangulation.
-##
 def free_boundary(simplices):
+    """Returns the facets that are referenced only by simplex of the given triangulation.
+    """
 
     ## Sort the facet indices in the triangulation
     simplices = np.sort(simplices,axis=1)
@@ -77,26 +74,26 @@ def free_boundary(simplices):
     
 
 def alpha_shape(pts,radius,tri=None):
-    
-## Alpha shape of 2D or 3D point set.
-##   V = ALPHAVOL(X,R) gives the area or volume V of the basic alpha shape
-##    for a 2D or 3D point set. X is a coordinate matrix of size Nx2 or Nx3.
-##
-##   R is the probe radius with default value R = Inf. In the default case
-##   the basic alpha shape (or alpha hull) is the convex hull.
-##
-##   [V,S] = ALPHAVOL(X,R) outputs a structure S with fields:
-##    S.tri - Triangulation of the alpha shape (Mx3 or Mx4)
-##   S.vol - Area or volume of simplices in triangulation (Mx1)
-##   S.rcc - Circumradius of simplices in triangulation (Mx1)
-##   S.bnd - Boundary facets (Px2 or Px3)
+    """Alpha shape of 2D or 3D point set.
+    V = ALPHAVOL(X,R) gives the area or volume V of the basic alpha shape
+    for a 2D or 3D point set. X is a coordinate matrix of size Nx2 or Nx3.
 
-##   Based on MATLAB code by Jonas Lundgren <splinefit@gmail.com>
+   R is the probe radius with default value R = Inf. In the default case
+   the basic alpha shape (or alpha hull) is the convex hull.
+
+   Returns a structure AlphaShape with fields:
+
+   - points    - Triangulation of the alpha shape (Mx3 or Mx4)
+   - simplices - Circumradius of simplices in triangulation (Mx1)
+   - bounds    - Boundary facets (Px2 or Px3)
+
+   Based on MATLAB code by Jonas Lundgren <splinefit@gmail.com>
+   """
 
     if tri is None:
         assert(len(pts) > 0)
     
-## Check coordinates
+    ## Check coordinates
     if tri is None:
         dim = pts.shape[1]
     else:

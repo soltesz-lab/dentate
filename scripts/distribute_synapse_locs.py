@@ -1,4 +1,4 @@
-import sys, os, gc, time, click, logging
+import sys, os, gc, time, click, logging, itertools
 import numpy as np
 from mpi4py import MPI
 from neuron import h
@@ -8,6 +8,7 @@ import dentate
 from dentate.env import Env
 from dentate import cells, synapses, utils
 from utils import list_find
+from collections import defaultdict
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -18,7 +19,33 @@ sys.excepthook = mpi_excepthook
 
 script_name="distribute_synapse_locs.py"
 
+def update_syn_stats(env, syn_stats_dict, syn_dict):
 
+    syn_type_excitatory = env.Synapse_Types['excitatory']
+    syn_type_inhibitory = env.Synapse_Types['inhibitory']
+
+    for (syn_id,syn_sec,syn_type,swc_type,syn_layer) in \
+        itertools.izip(syn_dict['syn_ids'],
+                       syn_dict['syn_secs'],
+                       syn_dict['syn_types'],
+                       syn_dict['swc_types'],
+                       syn_dict['syn_layers']):
+        
+        if syn_type == syn_type_excitatory:
+            syn_type_str = 'excitatory'
+        elif syn_type == syn_type_inhibitory:
+            syn_type_str = 'inhibitory'
+        else:
+            raise ValueError('Unknown synapse type %s' % str(syn_type))
+
+        syn_stats_dict['section'][syn_sec][syn_type_str] += 1
+        syn_stats_dict['layer'][syn_layer][syn_type_str] += 1
+        syn_stats_dict['swc_type'][swc_type][syn_type_str] += 1
+        syn_stats_dict['total'][syn_type_str] += 1
+        
+
+            
+        
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", type=str)
@@ -83,6 +110,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         
     (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
+    syn_stats = {}
     for population in populations:
         logger.info('Rank %i population: %s' % (rank, population))
         count = 0
@@ -91,6 +119,11 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         h.find_template(h.pc, h.templatePaths, template_name)
         template_class = eval('h.%s' % template_name)
         density_dict = env.celltypes[population]['synapses']['density']
+        syn_stats_dict = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                           'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                           'swc_type': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                           'total': { 'excitatory': 0, 'inhibitory': 0 } }
+                           
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             local_time = time.time()
             synapse_dict = {}
@@ -101,23 +134,27 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
                 if distribution == 'uniform':
-                    synapse_dict[gid] = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                             density_dict, morph_dict,
-                                                                             cell_sec_dict, cell_secidx_dict,
-                                                                             traversal_order=traversal_order)
+                    syn_dict = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                                                                    density_dict, morph_dict,
+                                                                    cell_sec_dict, cell_secidx_dict,
+                                                                    traversal_order=traversal_order)
+                    
                 elif distribution == 'poisson':
                     if rank == 0:
                         verbose_flag = verbose
                     else:
                         verbose_flag = False
-                    synapse_dict[gid] = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                             density_dict, morph_dict,
-                                                                             cell_sec_dict, cell_secidx_dict,
-                                                                             traversal_order=traversal_order,
-                                                                             verbose=verbose_flag)
+                    syn_dict = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                                                                    density_dict, morph_dict,
+                                                                    cell_sec_dict, cell_secidx_dict,
+                                                                    traversal_order=traversal_order,
+                                                                    verbose=verbose_flag)
                 else:
                     raise Exception('Unknown distribution type: %s' % distribution)
-                    
+
+                synapse_dict[gid] = syn_dict
+                update_syn_stats (env, syn_stats_dict, syn_dict)
+                                  
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])
                 logger.info('Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid))
@@ -127,12 +164,14 @@ def main(config, template_path, output_path, forest_path, populations, distribut
             append_cell_attributes(output_path, population, synapse_dict,
                                     namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                     value_chunk_size=value_chunk_size, cache_size=cache_size)
+            syn_stats[population] = syn_stats_dict
             del synapse_dict
             gc.collect()
 
         global_count = comm.gather(count, root=0)
         if rank == 0:
             logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
+            logger.info('summary: %s' % str(syn_stats))
         MPI.Finalize()
 
 

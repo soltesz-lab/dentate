@@ -140,7 +140,8 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
             in_nodes = nodes[contains(nodes,vert,smp)]
                               
             node_count = len(in_nodes)
-            itr = int(itr / 2)
+            N = int(1.5*N)
+            
         if verbose:
             logger.info("%i nodes generated" % node_count)
 

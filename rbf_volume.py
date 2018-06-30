@@ -397,6 +397,17 @@ class RBFVolume(object):
     def boundary_distance(self, axis, b1, b2, coords, resolution=0.01):
         """Given U,V,L coordinates returns the distances of the points
         to the U, V boundaries in the corresponding L layer.
+
+        Parameters
+        ----------
+        - axis - axis along which to compute distance
+        - b1, b2 - boundary values
+        - coords - U,V,L coordinates
+        - resolution - discretization resolution in UVL space for distance calculation
+
+        Returns
+        -------
+        - dist1, dist2 - distances to the b1 and b2 boundaries
         """
         ## Distance from b1 boundary to coordinate
         d1   = np.abs(b1 - coords[axis])
@@ -433,6 +444,8 @@ class RBFVolume(object):
 
         Returns
         -------
+        - pos - relative position along U, V axes
+        - extents - maximum extents along U and V for the given L
         """
         u = np.array([su]).reshape(-1,)
         v = np.array([sv]).reshape(-1,)
