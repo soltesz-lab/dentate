@@ -8,7 +8,7 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
-from dentate.geometry import make_volume, get_volume_distances, get_soma_distances, interp_soma_distances
+from dentate.geometry import make_volume, get_volume_distances, interp_soma_distances
 from dentate.env import Env
 import dentate.utils as utils
 
@@ -26,18 +26,16 @@ script_name = 'measure_distances.py'
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
-@click.option("--interpolate", is_flag=True)
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--alpha-radius", type=float, default=120.)
 @click.option("--resample", type=int, default=7)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
-@click.option("--ndist", type=int, default=1)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, populations, interpolate, interp_chunk_size, resample, resolution, alpha_radius, ndist, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, populations, interp_chunk_size, resample, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -88,65 +86,48 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
     
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-    if interpolate:
-        obs_uv = None
-        coeff_dist_u = None
-        coeff_dist_v = None
-        origin_uvl = None
-        if rank == 0:
-            ip_volume = make_volume(min_l-safety, max_l+safety, \
-                                    resolution=resolution, \
-                                    rotate=rotate)
 
-            logger.info('Computing volume distances...')
-            vol_dist = get_volume_distances (ip_volume, origin_coords=origin_uvl, rotate=rotate, res=resample, alpha_radius=alpha_radius)
-            (obs_uv, dist_u, dist_v) = vol_dist
-
-            
-                
-            logger.info('Computing U volume distance interpolants...')
-            ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty, extrapolate=False)
-            coeff_dist_u = ip_dist_u._coeff
-            del dist_u
-            gc.collect()
-            logger.info('Computing V volume distance interpolants...')
-            ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty, extrapolate=False)
-            coeff_dist_v = ip_dist_v._coeff
-            del dist_v
-            gc.collect()
-            logger.info('Broadcasting volume distance interpolants...')
-        
-        obs_uv = comm.bcast(obs_uv, root=0)
-        coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-        coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-        origin_uvl = comm.bcast(origin_uvl, root=0)
-
-        ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty, extrapolate=False)
-        ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty, extrapolate=False)
-    else:
+    obs_uv = None
+    coeff_dist_u = None
+    coeff_dist_v = None
+    origin_uvl = None
+    if rank == 0:
         ip_volume = make_volume(min_l-safety, max_l+safety, \
                                 resolution=resolution, \
                                 rotate=rotate)
 
-        span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
+        logger.info('Computing volume distances...')
+        vol_dist = get_volume_distances (ip_volume, origin_coords=origin_uvl, rotate=rotate, res=resample, alpha_radius=alpha_radius)
+        (obs_uv, dist_u, dist_v) = vol_dist
 
-        origin_u = np.median(span_U)
-        origin_v = np.median(span_V)
-        origin_l = np.max(span_L)-safety
-        origin_uvl = np.asarray([origin_u, origin_v, origin_l])
+        logger.info('Computing U volume distance interpolants...')
+        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty, extrapolate=False)
+        coeff_dist_u = ip_dist_u._coeff
+        del dist_u
+        gc.collect()
+        logger.info('Computing V volume distance interpolants...')
+        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty, extrapolate=False)
+        coeff_dist_v = ip_dist_v._coeff
+        del dist_v
+        gc.collect()
+        logger.info('Broadcasting volume distance interpolants...')
+        
+    obs_uv = comm.bcast(obs_uv, root=0)
+    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
+    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+    origin_uvl = comm.bcast(origin_uvl, root=0)
+    
+    ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+                               penalty=interp_penalty, extrapolate=False)
+    ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+                               penalty=interp_penalty, extrapolate=False)
                                        
     for population in populations:
 
-        if interpolate:
-            soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, populations=[population], \
-                                                   ndist=ndist, interp_chunk_size=interp_chunk_size, allgather=False)
-        else:
-            soma_distances = get_soma_distances(comm, ip_volume, origin_uvl, soma_coords, population_extents, populations=[population], \
-                                                ndist=ndist, allgather=False)
+        soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, populations=[population], \
+                                               interp_chunk_size=interp_chunk_size, allgather=False)
             
 
         if rank == 0:

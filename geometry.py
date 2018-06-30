@@ -25,6 +25,8 @@ max_v = 2956.
 
 
 def DG_volume(u, v, l, rotate=None):
+    """Parametric equations of the dentate gyrus volume."""
+    
     u = np.array([u]).reshape(-1,)
     v = np.array([v]).reshape(-1,)
     l = np.array([l]).reshape(-1,)
@@ -51,9 +53,9 @@ def DG_volume(u, v, l, rotate=None):
     return xyz
 
 
-def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[33, 30, 10], expand=0.0):  
-    """Creates an RBF volume based on the parametric equations of the dentate volume.
-    """
+def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10], expand=0.0):  
+    """Creates an RBF volume based on the parametric equations of the dentate volume."""
+    
     ures = resolution[0]
     vres = resolution[1]
     lres = resolution[2]
@@ -100,17 +102,27 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=25, res=2, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
+def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=250, alpha_radius=120., optiter=200, nodeitr=20):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
     ----------
     ip_vol : RBFVolume
         An interpolated volume instance of class RBFVolume.
+    origin_coords : array(float)
+        Origin point to use for distance computation.
     rotate : (float,float,float)
         Rotation angle (optional)
     nsample : int
         Number of points to sample inside the volume.
+    alpha_radius : float
+        Parameter for creation of alpha volume that encloses the
+        RBFVolume. Smaller values improve the quality of alpha volume,
+        but increase the time for sampling points inside the volume.
+    optiter : int 
+        Number of iterations for optimization that interpolates X,Y,Z coordinates into parameteric U,V,L coordinates.  
+    nodeitr : int 
+        Number of iterations for distributing sampled points inside the volume.
     Returns
     -------
     (Y1, X1, ... , YN, XN) where N is the number of dimensions of the volume.
@@ -118,6 +130,7 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=25, r
         The sampled coordinates.
     Y : array of distances
         The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
+
     """
 
     boundary_uvl_coords = np.array([[ip_vol.u[0],ip_vol.v[0],ip_vol.l[0]],
@@ -129,7 +142,8 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=25, r
                                     [ip_vol.u[-1],ip_vol.v[0],ip_vol.l[-1]],
                                     [ip_vol.u[-1],ip_vol.v[-1],ip_vol.l[-1]]])
 
-    span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
+    resample = 10
+    span_U, span_V, span_L  = ip_vol._resample_uvl(resample, resample, resample)
     
     if origin_coords is None:
         origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
@@ -163,7 +177,7 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=25, r
         in_nodes = nodes[contains(nodes,vert,smp)]
                               
         node_count = len(in_nodes)
-        itr = int(itr / 2)
+        N = int(1.5*N)
 
     logger.info("%i interior nodes generated (%i iterations)" % (node_count, itr))
 
@@ -235,7 +249,7 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=25, r
 
 
         
-def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
+def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, interp_chunk_size=1000, populations=None, allgather=False):
     """Interpolates path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -301,8 +315,8 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
         if len(u_obs) > 0:
             u_obs_array = np.vstack(u_obs)
             v_obs_array = np.vstack(v_obs)
-            distance_u_obs = ip_dist_u(u_obs_array).reshape(-1,ndist)
-            distance_v_obs = ip_dist_v(v_obs_array).reshape(-1,ndist)
+            distance_u_obs = ip_dist_u(u_obs_array).reshape(-1,1)
+            distance_v_obs = ip_dist_v(v_obs_array).reshape(-1,1)
             distance_u = np.mean(distance_u_obs, axis=1)
             distance_v = np.mean(distance_v_obs, axis=1)
             try:
@@ -332,123 +346,6 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
     return soma_distances
 
 
-
-def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_extents, res=3, ndist=1, interp_chunk_size=1000, populations=None, allgather=False):
-    """Computes path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
-
-    Parameters
-    ----------
-    comm : MPIComm
-        mpi4py MPI communicator
-    ip_vol: instance of RBFVolume
-    soma_coords : { population_name : coords_dict }
-        A dictionary that maps each cell population name to a dictionary of coordinates. The dictionary of coordinates must have the following type:
-          coords_dict : { gid : (u, v, l) }
-          where:
-          - gid: cell identifier
-          - u, v, l: floating point coordinates
-    population_extents: { population_name : limits }
-        A dictionary of maximum and minimum population coordinates in u,v,l space
-        Argument limits has the following type:
-         ((min_u, min_v, min_l), (max_u, max_v, max_l))
-    allgather: boolean (default: False)
-       if True, the results are gathered from all ranks and combined
-    Returns
-    -------
-    A dictionary of the form:
-
-      { population: { gid: (distance_U, distance_V } }
-
-    """
-
-    rank = comm.rank
-    size = comm.size
-
-    if populations is None:
-        populations = soma_coords.keys()
-
-    (origin_u, origin_v, origin_l) = (origin_coords[0], origin_coords[1], origin_coords[2])
-    soma_distances = {}
-    for pop in populations:
-        coords_dict = soma_coords[pop]
-        if rank == 0:
-            logger.info('Computing soma distances for population %s...' % pop)
-            logger.info('origin coordinates: %f %f %f' % (origin_u, origin_v, origin_l))
-        count = 0
-        local_dist_dict = {}
-        limits = population_extents[pop]
-        uvl_obs = []
-        gids    = []
-        for gid, coords in coords_dict.iteritems():
-            if gid % size == rank:
-                soma_u, soma_v, soma_l = coords
-                try:
-                    assert((limits[1][0] - soma_u + 0.001 >= 0.) and (soma_u - limits[0][0] + 0.001 >= 0.))
-                    assert((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
-                    assert((limits[1][2] - soma_l + 0.001 >= 0.) and (soma_l - limits[0][2] + 0.001 >= 0.))
-                except Exception as e:
-                    logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
-                                     (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1], limits[0][2], limits[1][2]))
-                    raise e
-                uvl_obs.append(np.array([soma_u,soma_v,soma_l]).ravel())
-                gids.append(gid)
-
-        if len(uvl_obs) > 0:
-
-            for (gid, uvl) in itertools.izip(gids, uvl_obs):
-
-                soma_u = uvl[0]
-                soma_v = uvl[1]
-                soma_l = uvl[2]
-                
-                usteps = max(round(abs(soma_u - origin_u) / 0.01),1)
-                vsteps = max(round(abs(soma_v - origin_v) / 0.01),1)
-                start_u = soma_u
-                stop_u  = origin_u 
-                start_v = soma_v
-                stop_v  = origin_v 
-                    
-                uu = np.linspace(start_u, stop_u, usteps)
-                uv = np.linspace(start_v, stop_v, ndist)
-                vv = np.linspace(start_v, stop_v, vsteps)
-                vu = np.linspace(start_u, stop_u, ndist)
-                    
-                assert(len(uu) > 0)
-                assert(len(uv) > 0)
-                assert(len(vu) > 0)
-                assert(len(vv) > 0)
-                
-                cdistance_u, coords_u = ip_vol.point_distance(uu, uv, soma_l, axis=0, origin_coords=origin_coords, \
-                                                              interp_chunk_size=interp_chunk_size)
-                cdistance_v, coords_v = ip_vol.point_distance(vu, vv, soma_l, axis=1, origin_coords=origin_coords, \
-                                                              interp_chunk_size=interp_chunk_size)
-                
-                try:
-                    assert(np.all(np.isfinite(cdistance_u)))
-                    assert(np.all(np.isfinite(cdistance_v)))
-                except Exception as e:
-                    logger.error('Invalid distances: distance_u: %f; distance_v: %f', distance_u, distance_v)
-                    raise e
-
-                distance_u = np.mean(cdistance_u[-1])
-                distance_v = np.mean(cdistance_v[-1])
-                local_dist_dict[gid] = (distance_u, distance_v)
-                
-                if rank == 0:
-                    logger.info('gid %i: coordinates: %f %f %f distances: %f %f' % \
-                                    (gid, soma_u, soma_v, soma_l, distance_u, distance_v))
-                    
-        if allgather:
-            dist_dicts = comm.allgather(local_dist_dict)
-            combined_dist_dict = {}
-            for dist_dict in dist_dicts:
-                for k, v in dist_dict.iteritems():
-                    combined_dist_dict[k] = v
-            soma_distances[pop] = combined_dist_dict
-        else:
-            soma_distances[pop] = local_dist_dict
-
-    return soma_distances
 
 
 def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=None, populations=None, icp_iter=1000, opt_iter=100):

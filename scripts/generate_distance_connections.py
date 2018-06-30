@@ -35,8 +35,6 @@ script_name = 'generate_distance_connections.py'
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
 @click.option("--resample", type=int, default=2)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
-@click.option("--ndist", type=int, default=1)
-@click.option("--interpolate", is_flag=True, default=True)
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -46,7 +44,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resample, resolution, ndist, interpolate, interp_chunk_size, io_size,
+         synapses_namespace, resample, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     utils.config_logging(verbose)
@@ -110,48 +108,9 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
     
-    if interpolate:
-        if rank == 0:
-            logger.info('Creating volume...')
-            ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
-            span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
-
-            origin_u = np.median(span_U)
-            origin_v = np.median(span_V)
-            origin_l = np.max(span_L)-safety
-
-            origin_uvl = np.asarray([origin_u, origin_v, origin_l])
-
-            logger.info('Computing volume distances...')
-            vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
-            (obs_uv, dist_u, dist_v) = vol_dist
-            logger.info('Computing U volume distance interpolants...')
-            ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty)
-            coeff_dist_u = ip_dist_u._coeff
-            logger.info('Computing V volume distance interpolants...')
-            ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
-                                       penalty=interp_penalty)
-            coeff_dist_v = ip_dist_v._coeff
-            logger.info('Broadcasting volume distance interpolants...')
-        
-        obs_uv = comm.bcast(obs_uv, root=0)
-        coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-        coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-        origin_uvl = comm.bcast(origin_uvl, root=0)
-
-        ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                                    penalty=interp_penalty)
-        ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                                    penalty=interp_penalty)
-
-    else:
-        ip_volume = make_volume(min_l-0.01, max_l+0.01, \
-                                ures=resolution[0], \
-                                vres=resolution[1], \
-                                lres=resolution[2], \
-                                rotate=rotate)
-
+    if rank == 0:
+        logger.info('Creating volume...')
+        ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
         span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
 
         origin_u = np.median(span_U)
@@ -159,19 +118,38 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         origin_l = np.max(span_L)-safety
 
         origin_uvl = np.asarray([origin_u, origin_v, origin_l])
-
         
+        logger.info('Computing volume distances...')
+        vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
+        (obs_uv, dist_u, dist_v) = vol_dist
+        logger.info('Computing U volume distance interpolants...')
+        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty)
+        coeff_dist_u = ip_dist_u._coeff
+        logger.info('Computing V volume distance interpolants...')
+        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty)
+        coeff_dist_v = ip_dist_v._coeff
+        logger.info('Broadcasting volume distance interpolants...')
+        
+    obs_uv = comm.bcast(obs_uv, root=0)
+    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
+    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+    origin_uvl = comm.bcast(origin_uvl, root=0)
+    
+    ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+                               penalty=interp_penalty)
+    ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+                               penalty=interp_penalty)
+
     if rank == 0:
         logger.info('Computing soma distances...')
 
     
     populations = read_population_names(forest_path)
 
-    if interpolate:
-        soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_uvl, soma_coords, population_extents, ndist=ndist, \
-                                               interp_chunk_size=interp_chunk_size, allgather=True)
-    else:
-        soma_distances = get_soma_distances(comm, ip_volume, origin_uvl, soma_coords, population_extents, ndist=ndist, allgather=True)
+    soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_uvl, soma_coords, population_extents, \
+                                           interp_chunk_size=interp_chunk_size, allgather=True)
     
     connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
 
