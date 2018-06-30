@@ -100,7 +100,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=300, res=4, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
+def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=250, res=2, alpha_radius=120., optiter=200, nodeitr=20, interp_chunk_size=1000):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -121,14 +121,28 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=300, 
     """
 
     boundary_uvl_coords = np.array([[ip_vol.u[0],ip_vol.v[0],ip_vol.l[0]],
+                                    [ip_vol.u[0],ip_vol.v[-1],ip_vol.l[0]],
+                                    [ip_vol.u[-1],ip_vol.v[0],ip_vol.l[0]],
+                                    [ip_vol.u[-1],ip_vol.v[-1],ip_vol.l[0]],
+                                    [ip_vol.u[0],ip_vol.v[0],ip_vol.l[-1]],
+                                    [ip_vol.u[0],ip_vol.v[-1],ip_vol.l[-1]],
+                                    [ip_vol.u[-1],ip_vol.v[0],ip_vol.l[-1]],
                                     [ip_vol.u[-1],ip_vol.v[-1],ip_vol.l[-1]]])
 
     span_U, span_V, span_L  = ip_vol._resample_uvl(res, res, res)
-
+    
     if origin_coords is None:
         origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
     logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
 
+    pos, extents = ip_vol.point_position(origin_coords[0],origin_coords[1],origin_coords[2])
+
+    origin_pos = pos[0]
+    origin_extent = extents[0]
+
+    logger.info('Origin position: %f %f extent: %f %f' % (origin_pos[0], origin_pos[1], origin_extent[0], origin_extent[1]))
+    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+    
     logger.info("Constructing alpha shape...")
     tri = ip_vol.create_triangulation()
     alpha = alpha_shape([], alpha_radius, tri=tri)
@@ -190,36 +204,24 @@ def get_volume_distances (ip_vol, origin_coords=None, rotate=None, nsample=300, 
     logger.info('Computing volume distances...')
     ldists_u = []
     ldists_v = []
-    obss_uv = []
+    obs_uvls = []
     for uvl in uvl_coords:
         sample_U = uvl[0]
         sample_V = uvl[1]
         sample_L = uvl[2]
-        ldist_uu, obs_dist_u = ip_vol.point_distance(span_U, sample_V, sample_L, axis=0, \
-                                                     origin_coords=origin_coords, \
-                                                     interp_chunk_size=interp_chunk_size)
-        ldist_uv, _ = ip_vol.point_distance(span_U, sample_V, sample_L, axis=1, \
-                                            origin_coords=origin_coords, \
-                                            interp_chunk_size=interp_chunk_size)
-        ldist_vv, obs_dist_v = ip_vol.point_distance(sample_U, span_V, sample_L, axis=1, \
-                                                     origin_coords=origin_coords, \
-                                                     interp_chunk_size=interp_chunk_size)
-        ldist_vu, _ = ip_vol.point_distance(sample_U, span_V, sample_L, axis=0, \
-                                            origin_coords=origin_coords, \
-                                            interp_chunk_size=interp_chunk_size)
-        obss_uv.append(obs_dist_u)
-        obss_uv.append(obs_dist_v)
-        ldists_u.append(ldist_uu)
-        ldists_v.append(ldist_uv)
-        ldists_v.append(ldist_vv)
-        ldists_u.append(ldist_vu)
+        pos, extent = ip_vol.point_position(sample_U, sample_V, sample_L)
 
-    ldists_u_flat = [item for sublist in ldists_u for item in sublist]
-    ldists_v_flat = [item for sublist in ldists_v for item in sublist]
-    distances_u = np.concatenate(ldists_u_flat).ravel()
-    distances_v = np.concatenate(ldists_v_flat).ravel()
+        uvl_pos = pos[0]
+        uvl_extent = extent[0]
+        
+        obs_uvls.append(uvl)
+        ldists_u.append(uvl_pos[0] * origin_extent[0] - origin_pos_um[0])
+        ldists_v.append(uvl_pos[1] * origin_extent[1] - origin_pos_um[1])
+        
+    distances_u = np.asarray(ldists_u, dtype=np.float32)
+    distances_v = np.asarray(ldists_v, dtype=np.float32)
 
-    obs_uv = np.vstack(obss_uv)
+    obs_uv = np.vstack(obs_uvls)
 
     u_min_ind = np.argmin(distances_u)
     u_max_ind = np.argmax(distances_u)
@@ -302,12 +304,11 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, origin_coords, soma_coords
 
                 uv = np.linspace(start_v, stop_v, ndist)
                 vu = np.linspace(start_u, stop_u, ndist)
-                l  = origin_l
 
                 for v in uv:
-                    u_obs.append(np.array([soma_u,v,origin_l]).ravel())
+                    u_obs.append(np.array([soma_u,v,soma_l]).ravel())
                 for u in vu:
-                    v_obs.append(np.array([u,soma_v,origin_l]).ravel())
+                    v_obs.append(np.array([u,soma_v,soma_l]).ravel())
                 gids.append(gid)
         if len(u_obs) > 0:
             u_obs_array = np.vstack(u_obs)
@@ -423,16 +424,15 @@ def get_soma_distances(comm, ip_vol, origin_coords, soma_coords, population_exte
                 uv = np.linspace(start_v, stop_v, ndist)
                 vv = np.linspace(start_v, stop_v, vsteps)
                 vu = np.linspace(start_u, stop_u, ndist)
-                l  = origin_l
                     
                 assert(len(uu) > 0)
                 assert(len(uv) > 0)
                 assert(len(vu) > 0)
                 assert(len(vv) > 0)
                 
-                cdistance_u, coords_u = ip_vol.point_distance(uu, uv, l, axis=0, origin_coords=origin_coords, \
+                cdistance_u, coords_u = ip_vol.point_distance(uu, uv, soma_l, axis=0, origin_coords=origin_coords, \
                                                               interp_chunk_size=interp_chunk_size)
-                cdistance_v, coords_v = ip_vol.point_distance(vu, vv, l, axis=1, origin_coords=origin_coords, \
+                cdistance_v, coords_v = ip_vol.point_distance(vu, vv, soma_l, axis=1, origin_coords=origin_coords, \
                                                               interp_chunk_size=interp_chunk_size)
                 
                 try:

@@ -10,11 +10,12 @@ script_name = 'plot_volume_distances.py'
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--resolution", type=(int,int), default=(33,10))
-@click.option("--resample", type=int, default=4)
+@click.option("--resolution", type=(int,int,int), default=(33,33,10))
+@click.option("--resample", type=int, default=7)
 @click.option("--alpha-radius", type=float, default=100.)
+@click.option("--graph-type", type=str, default='scatter')
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, resolution, resample, alpha_radius, verbose):
+def main(config, resolution, resample, alpha_radius, graph_type, verbose):
     
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -33,9 +34,7 @@ def main(config, resolution, resample, alpha_radius, verbose):
         
     logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
     ip_volume = make_volume(min_l, max_l, \
-                            ures=resolution[0], \
-                            vres=resolution[0], \
-                            lres=resolution[1], \
+                            resolution=resolution, \
                             rotate=rotate)
     logger.info('Computing volume distances...')
     
@@ -47,7 +46,7 @@ def main(config, resolution, resample, alpha_radius, verbose):
         dist_dict[i] = { 'U Distance': np.asarray([dist_u[i]], dtype=np.float32), \
                          'V Distance': np.asarray([dist_v[i]], dtype=np.float32) }
     
-    plot.plot_positions ("DG Volume", dist_dict.iteritems(), verbose=verbose, saveFig=True)
+    plot.plot_positions ("DG Volume", dist_dict.iteritems(), verbose=verbose, saveFig=True, graphType=graph_type)
         
 
 if __name__ == '__main__':

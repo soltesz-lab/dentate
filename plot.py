@@ -17,6 +17,7 @@ from neuroh5.io import read_population_ranges, read_population_names, read_cell_
 from dentate import utils
 from dentate import spikedata, statedata, stimulus
 from dentate.env import Env
+from dentate.geometry import DG_volume
 
 color_list = ["#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -424,7 +425,7 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
     return ax
 
 
-def plot_coordinates(coords_path, population, namespace, index = 0,
+def plot_coordinates(coords_path, population, namespace, index = 0, graphType = 'scatter', binSize = 0.01, xyz = False,
                         fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot coordinates
@@ -434,9 +435,6 @@ def plot_coordinates(coords_path, population, namespace, index = 0,
     :param population: 
 
     """
-
-    dx = 50
-    dy = 50
     
         
     soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
@@ -447,9 +445,14 @@ def plot_coordinates(coords_path, population, namespace, index = 0,
 
     coord_U = {}
     coord_V = {}
-    for k,v in soma_coords:
-        coord_U[k] = v['U Coordinate'][index]
-        coord_V[k] = v['V Coordinate'][index]
+    if xyz:
+        for k,v in soma_coords:
+            coord_U[k] = v['X Coordinate'][index]
+            coord_V[k] = v['Y Coordinate'][index]
+    else:
+        for k,v in soma_coords:
+            coord_U[k] = v['U Coordinate'][index]
+            coord_V[k] = v['V Coordinate'][index]
     
     coord_U_array = np.asarray([coord_U[k] for k in sorted(coord_U.keys())])
     coord_V_array = np.asarray([coord_V[k] for k in sorted(coord_V.keys())])
@@ -459,11 +462,101 @@ def plot_coordinates(coords_path, population, namespace, index = 0,
     y_min = np.min(coord_V_array)
     y_max = np.max(coord_V_array)
 
-    ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
-    ax.axis([x_min, x_max, y_min, y_max])
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    if graphType == 'scatter':
+        ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
+        ax.axis([x_min, x_max, y_min, y_max])
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(coord_U_array, coord_V_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+
+    if xyz:
+        ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
+        ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+    else:
+        ax.set_xlabel('U coordinate (septal - temporal)', fontsize=fontSize)
+        ax.set_ylabel('V coordinate (supra - infrapyramidal)', fontsize=fontSize)
+        
+    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
     
-    ax.set_xlabel('U coordinate (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('V coordinate (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Coordinates.png' 
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+def plot_projected_coordinates(coords_path, population, namespace, index = 0, graphType = 'scatter', binSize = 10.0, project = 3.1, rotate = None,
+                               fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot coordinates
+
+    :param coords_path:
+    :param namespace: 
+    :param population: 
+
+    """
+    
+        
+    soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
+    
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    coord_X = {}
+    coord_Y = {}
+    for k,v in soma_coords:
+        ucoord = v['U Coordinate'][index]
+        vcoord = v['V Coordinate'][index]
+        xyz = DG_volume (ucoord, vcoord, project, rotate=rotate)
+        coord_X[k] = xyz[0,0]
+        coord_Y[k] = xyz[0,1]
+    
+    coord_X_array = np.asarray([coord_X[k] for k in sorted(coord_X.keys())])
+    coord_Y_array = np.asarray([coord_Y[k] for k in sorted(coord_Y.keys())])
+
+    x_min = np.min(coord_X_array)
+    x_max = np.max(coord_X_array)
+    y_min = np.min(coord_Y_array)
+    y_max = np.max(coord_Y_array)
+
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    if graphType == 'scatter':
+        ax.scatter(coord_X_array, coord_Y_array, alpha=0.1, linewidth=0)
+        ax.axis([x_min, x_max, y_min, y_max])
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(coord_X_array, coord_Y_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+
+    ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
+    ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+        
     ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
     
     if saveFig: 

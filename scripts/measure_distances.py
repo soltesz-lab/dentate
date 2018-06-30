@@ -29,8 +29,8 @@ script_name = 'measure_distances.py'
 @click.option("--interpolate", is_flag=True)
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--alpha-radius", type=float, default=120.)
-@click.option("--resample", type=int, default=2)
-@click.option("--resolution", type=(int,int,int), default=(33,30,10))
+@click.option("--resample", type=int, default=7)
+@click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--ndist", type=int, default=1)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -79,7 +79,7 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
 
     interp_penalty = 0.001
     interp_basis = 'ga'
-    interp_order = 2
+    interp_order = 1
 
     ## This parameter is used to expand the range of L and avoid
     ## situations where the endpoints of L end up outside of the range
@@ -98,26 +98,20 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
                                     resolution=resolution, \
                                     rotate=rotate)
 
-            span_U, span_V, span_L  = ip_volume._resample_uvl(resample, resample, resample)
-            
-            origin_u = np.median(span_U)
-            origin_v = np.median(span_V)
-            origin_l = np.max(span_L)-safety
-
-            origin_uvl = np.asarray([origin_u, origin_v, origin_l])
-            
             logger.info('Computing volume distances...')
             vol_dist = get_volume_distances (ip_volume, origin_coords=origin_uvl, rotate=rotate, res=resample, alpha_radius=alpha_radius)
             (obs_uv, dist_u, dist_v) = vol_dist
 
+            
+                
             logger.info('Computing U volume distance interpolants...')
-            ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
+            ip_dist_u = RBFInterpolant(obs_uv[::resample],dist_u[::resample],order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty, extrapolate=False)
             coeff_dist_u = ip_dist_u._coeff
             del dist_u
             gc.collect()
             logger.info('Computing V volume distance interpolants...')
-            ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
+            ip_dist_v = RBFInterpolant(obs_uv[::resample],dist_v[::resample],order=interp_order,basis=interp_basis,\
                                        penalty=interp_penalty, extrapolate=False)
             coeff_dist_v = ip_dist_v._coeff
             del dist_v
@@ -129,9 +123,9 @@ def main(config, coords_path, coords_namespace, populations, interpolate, interp
         coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
         origin_uvl = comm.bcast(origin_uvl, root=0)
 
-        ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+        ip_dist_u = RBFInterpolant(obs_uv[::resample],coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                    penalty=interp_penalty, extrapolate=False)
-        ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+        ip_dist_v = RBFInterpolant(obs_uv[::resample],coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
                                    penalty=interp_penalty, extrapolate=False)
     else:
         ip_volume = make_volume(min_l-safety, max_l+safety, \

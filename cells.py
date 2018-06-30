@@ -1,8 +1,11 @@
 import itertools
+import networkx as nx
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
-import btmorph
-import networkx as nx
+try:
+    import btmorph
+except Exception:
+    pass
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
