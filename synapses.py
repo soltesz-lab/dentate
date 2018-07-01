@@ -1356,7 +1356,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     r = np.random.RandomState()
 
-    (sec_graph, sec_root) = make_neurotree_graph(neurotree_dict, return_root=True)
+    sec_graph = make_neurotree_graph(neurotree_dict, return_root=False)
 
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
 
@@ -1366,12 +1366,14 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         (seclst, maxdist) = cell_sec_dict[sec_name]
         secidxlst = cell_secidx_dict[sec_name]
         sec_dict = { int(idx): sec for sec, idx in itertools.izip(seclst, secidxlst) }
-        sec_subgraph = sec_graph.subgraph(sec_dict.keys())
         if len(sec_dict) > 1:
+            sec_subgraph = sec_graph.subgraph(sec_dict.keys())
+            sec_order = nx.topological_sort(sec_subgraph)
+            sec_root = next(sec_order)
             if traversal_order == 'dfs':
-                sec_edges = list(nx.dfs_edges(sec_subgraph))
+                sec_edges = list(nx.dfs_edges(sec_subgraph, sec_root))
             elif traversal_order == 'bfs':
-                sec_edges = list(nx.bfs_edges(sec_subgraph))
+                sec_edges = list(nx.bfs_edges(sec_subgraph, sec_root))
             else:
                 raise ValueError('Unknown traversal order')
         else:

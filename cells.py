@@ -1320,9 +1320,9 @@ def make_neurotree_graph(neurotree_dict, return_root=True):
     root=None
     if return_root:
         order = nx.topological_sort(sec_graph)
-        root = order[0]
+        root = next(order)
 
-    if root:
+    if return_root:
         return (sec_graph, root)
     else:
         return sec_graph
