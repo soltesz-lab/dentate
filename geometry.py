@@ -12,7 +12,7 @@ from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume, rotate3d
-from dentate.rbf_surface import RBFSurface, rotate3d
+from dentate.rbf_surface import RBFSurface
 from dentate import utils
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 

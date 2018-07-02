@@ -11,8 +11,8 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
-from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections, get_volume_distances, get_soma_distances, interp_soma_distances
-from dentate.geometry import make_volume
+from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
+from dentate.geometry import make_volume, get_volume_distances, interp_soma_distances
 from dentate.env import Env
 import dentate.utils as utils
 
@@ -93,7 +93,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     coeff_dist_u = None
     coeff_dist_v = None
     
-    vol_res = volume_resolution
+    vol_res = resolution
 
     interp_penalty = 0.01
     interp_basis = 'ga'
@@ -112,7 +112,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
 
         logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, origin_spec=origin, verbose=verbose)
+        vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
         (obs_uv, dist_u, dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
@@ -168,7 +168,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
                                          synapse_seed, synapses_namespace, 
                                          connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
-                                         verbose=verbose, dry_run=dry_run)
+                                         dry_run=dry_run)
     MPI.Finalize()
 
 if __name__ == '__main__':
