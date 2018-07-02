@@ -1,4 +1,4 @@
-import sys, os, gc, time, click, logging, itertools
+import sys, os, gc, string, time, click, logging, itertools
 import numpy as np
 from mpi4py import MPI
 from neuron import h
@@ -42,7 +42,27 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
         syn_stats_dict['layer'][syn_layer][syn_type_str] += 1
         syn_stats_dict['swc_type'][swc_type][syn_type_str] += 1
         syn_stats_dict['total'][syn_type_str] += 1
+
+def syn_summary(comm, syn_stats, global_count, root):
+    res = []
+    for population in syn_stats.keys():
+        pop_syn_stats = syn_stats[population]
+        for part in ['layer', 'swc_type']:
+            syn_stats_dict = pop_syn_stats[part]
+            for part_name in syn_stats_dict.keys():
+                for syn_type in syn_stats_dict[part_name].keys():
+                    global_syn_count = comm.gather(syn_stats_dict[part_name][syn_type], root=root)
+                    if comm.rank == root:
+                        res.append("%s %s %s: mean %s synapses per cell: %f" % (population, part, part_name, syn_type, np.sum(global_syn_count)/global_count))
+        total_syn_stats_dict = pop_syn_stats['total']
+        for syn_type in total_syn_stats_dict.keys():
+            global_syn_count = comm.gather(total_syn_stats_dict[syn_type], root=root)
+            if comm.rank == root:
+                res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, np.sum(global_syn_count)/global_count))
         
+    return string.join(res, '\n')
+
+                
 
             
         
@@ -169,9 +189,10 @@ def main(config, template_path, output_path, forest_path, populations, distribut
             gc.collect()
 
         global_count = comm.gather(count, root=0)
+        summary = syn_summary(comm, syn_stats, np.sum(global_count), root=0)
         if rank == 0:
             logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
-            logger.info('summary: %s' % str(syn_stats))
+            logger.info(summary)
         MPI.Finalize()
 
 

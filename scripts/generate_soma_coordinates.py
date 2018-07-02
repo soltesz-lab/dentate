@@ -77,7 +77,7 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
 
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
-    rotate = env.geometry['Rotation']
+    rotate = env.geometry['Parametric Surface']['Rotation']
 
     population_ranges = read_population_ranges(output_path, comm)[0]
 
@@ -128,7 +128,7 @@ def main(config, types_path, output_path, output_namespace, populations, alpha_r
 
         N = population_count*2 # total number of nodes
         node_count = 0
-        itr = 10
+        itr = 20
 
         if verbose:
             logger.info("Generating %i nodes..." % N)

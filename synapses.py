@@ -1368,14 +1368,17 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         sec_dict = { int(idx): sec for sec, idx in itertools.izip(seclst, secidxlst) }
         if len(sec_dict) > 1:
             sec_subgraph = sec_graph.subgraph(sec_dict.keys())
-            sec_order = nx.topological_sort(sec_subgraph)
-            sec_root = next(sec_order)
-            if traversal_order == 'dfs':
-                sec_edges = list(nx.dfs_edges(sec_subgraph, sec_root))
-            elif traversal_order == 'bfs':
-                sec_edges = list(nx.bfs_edges(sec_subgraph, sec_root))
+            if len(sec_subgraph.edges()) > 0:
+                sec_order = nx.topological_sort(sec_subgraph)
+                sec_root = next(sec_order)
+                if traversal_order == 'dfs':
+                    sec_edges = list(nx.dfs_edges(sec_subgraph, sec_root))
+                elif traversal_order == 'bfs':
+                    sec_edges = list(nx.bfs_edges(sec_subgraph, sec_root))
+                else:
+                    raise ValueError('Unknown traversal order')
             else:
-                raise ValueError('Unknown traversal order')
+                sec_edges = [(None, idx) for idx in sec_dict.keys() ]
         else:
             sec_edges = [(None, idx) for idx in sec_dict.keys() ]
         for sec_index, sec in sec_dict.iteritems():
@@ -1407,6 +1410,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                 sec_seg_density = seg_density[sec_index]
                 start_seg       = seg_list[0]
                 interval        = 0.
+                syn_loc         = 0.
                 for seg, layer, density in itertools.izip(seg_list,sec_seg_layers,sec_seg_density):
                     seg_start = seg.x - (0.5 / seg.sec.nseg)
                     seg_end   = seg.x + (0.5 / seg.sec.nseg)
