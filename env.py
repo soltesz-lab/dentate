@@ -155,7 +155,7 @@ class Env:
         if self.modelConfig.has_key('Definitions'):
             self.parse_definitions()
 
-        if self.modelConfig.has_key('Connections'):
+        if self.modelConfig.has_key('Connection Generator'):
             self.parse_connection_config()
 
         if self.datasetPrefix is not None:

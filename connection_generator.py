@@ -25,7 +25,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, layer_scale, extent):
+    def __init__(self, destination_population, soma_coords, soma_distances, extent):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -74,7 +74,7 @@ class ConnectionProb(object):
 
         destination_distances = self.soma_distances[self.destination_population][destination_gid]
         
-        distances = self.soma_distances([destination_gid])
+        source_distances = self.soma_distances[source_population]
 
         destination_u, destination_v, destination_l  = destination_coords
         destination_distance_u, destination_distance_v = destination_distances
@@ -90,11 +90,11 @@ class ConnectionProb(object):
         max_distance_u = source_width['u'] + source_offset['u']
         max_distance_v = source_width['v'] + source_offset['v']
 
-        for (source_gid, coords) in source_soma_coords.iteritems():
+        for (source_gid, coords) in source_coords.iteritems():
 
             source_u, source_v, source_l = coords
 
-            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
+            source_distance_u, source_distance_v  = source_distances[source_gid]
 
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
@@ -302,8 +302,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     gid_count   = 0
     connection_dict = defaultdict(lambda: {})
     projection_dict = {}
-    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, io_size=io_size,
-                                                            cache_size=cache_size, namespace=synapse_namespace, comm=comm):
+    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, namespace=synapse_namespace, \
+                                                            comm=comm, io_size=io_size, cache_size=cache_size):
         last_time = time.time()
         if destination_gid is None:
             logger.info('Rank %i destination gid is None' % rank)
