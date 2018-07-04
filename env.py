@@ -302,8 +302,23 @@ class Env:
                                      val_proportions, \
                                      val_synparams)
 
+            config_dict = defaultdict(lambda: 0.0)
+            for (key_presyn, conn_config) in connection_dict[key_postsyn].iteritems():
+                for (s,l,p) in itertools.izip(conn_config.sections, \
+                                              conn_config.layers, \
+                                              conn_config.proportions):
+                    config_dict[(conn_config.type, s, l)] += p
+                                              
+            for (k,v) in config_dict.iteritems():
+                try:
+                    assert(v == 1.0)
+                except Exception as e:
+                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' % (key_postsyn, str(k), v))
+                    raise e
+                    
         self.connection_config = connection_dict
 
+        
     def load_celltypes(self):
         """
 

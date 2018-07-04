@@ -242,7 +242,7 @@ Synapses:
       type: inhibitory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.83]
+      proportions: [0.5]
       mechanisms:
         GABA_A:
           tau1: 0.6
@@ -343,7 +343,7 @@ Synapses:
       type: inhibitory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
-      proportions: [0.77, 1.0]
+      proportions: [0.67, 1.0]
       mechanisms:
         GABA_A:
           tau1: 0.22
@@ -637,7 +637,7 @@ Synapses:
       type: inhibitory
       sections: [basal, apical]
       layers: [MML, OML]
-      proportions: [0.86, 0.86]
+      proportions: [1.0, 0.86]
       mechanisms:
         GABA_A:
           tau1: 0.72
@@ -659,7 +659,7 @@ Synapses:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.08, 0.08]
+      proportions: [0.56, 0.08]
       mechanisms:
         GABA_A:
           tau1:  4.2
@@ -675,7 +675,7 @@ Synapses:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.06, 0.06]
+      proportions: [0.44, 0.06]
       mechanisms:
         GABA_A:
           tau1:  4.5
