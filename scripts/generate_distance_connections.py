@@ -12,7 +12,7 @@ from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
 from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
-from dentate.geometry import make_volume, get_volume_distances, interp_soma_distances
+from dentate.geometry import measure_distances
 from dentate.env import Env
 import dentate.utils as utils
 
@@ -58,6 +58,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
 
+    print connection_config['BC']
+    
     if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
             input_file  = h5py.File(coords_path,'r')
@@ -66,22 +68,14 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
             input_file.close()
             output_file.close()
     comm.barrier()
-
+        
+    population_ranges = read_population_ranges(coords_path)[0]
+    populations = population_ranges.keys()
+    
     if rank == 0:
         logger.info('Reading population coordinates...')
-    
-    min_l = float('inf')
-    max_l = 0.0
-    population_ranges = read_population_ranges(coords_path)[0]
-    population_extents = {}
-    for population in population_ranges.keys():
-        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
-        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
-        min_l = min(min_extent[2], min_l)
-        max_l = max(max_extent[2], max_l)
-        population_extents[population] = (min_extent, max_extent)
 
-    for population in population_ranges.keys():
+    for population in populations:
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace)
 
@@ -91,63 +85,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
-    rotate = env.geometry['Parametric Surface']['Rotation']
-    origin = env.geometry['Parametric Surface']['Origin']
-
-    obs_uv = None
-    coeff_dist_u = None
-    coeff_dist_v = None
-    
-    vol_res = resolution
-
-    interp_penalty = 0.01
-    interp_basis = 'ga'
-    interp_order = 1
-
-    ## This parameter is used to expand the range of L and avoid
-    ## situations where the endpoints of L end up outside of the range
-    ## of the distance interpolant
-    safety = 0.01
-
-    if rank == 0:
-        logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-    
-    if rank == 0:
-        logger.info('Creating volume...')
-        ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
-
-        logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
-        (obs_uv, dist_u, dist_v) = vol_dist
-        logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
-        coeff_dist_u = ip_dist_u._coeff
-        logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
-        coeff_dist_v = ip_dist_v._coeff
-        logger.info('Broadcasting volume distance interpolants...')
-        
-    obs_uv = comm.bcast(obs_uv, root=0)
-    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-    
-    ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty)
-    ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty)
-
-    if rank == 0:
-        logger.info('Computing soma distances...')
-
-    
-    populations = read_population_names(forest_path)
-
-    soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
-                                           interp_chunk_size=interp_chunk_size, allgather=True)
-    
-
+    soma_distances = measure_distances(env, comm, soma_coords)
     
     for destination_population in populations:
 

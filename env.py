@@ -286,11 +286,19 @@ class Env:
                 val_synlayers   = syn_dict['layers']
                 val_proportions = syn_dict['proportions']
                 val_synparams   = syn_dict['mechanisms']
+
+                res_type = self.syntypes_dict[val_type]
+                res_synsections = []
+                res_synlayers = []
+                for name in val_synsections:
+                    res_synsections.append(self.swctypes_dict[name])
+                for name in val_synlayers:
+                    res_synlayers.append(self.layers_dict[name])
                 
                 connection_dict[key_postsyn][key_presyn] = \
-                    ConnectionConfig(val_type, \
-                                     val_synsections, \
-                                     val_synlayers, \
+                    ConnectionConfig(res_type, \
+                                     res_synsections, \
+                                     res_synlayers, \
                                      val_proportions, \
                                      val_synparams)
 

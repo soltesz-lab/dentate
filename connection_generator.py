@@ -291,12 +291,12 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             logger.info('%s -> %s:' % (source_population, destination_population))
             logger.info(str(connection_config[destination_population][source_population]))
 
-    projection_config = connection_config[destination_population][source_population]
+    projection_config = connection_config[destination_population]
     projection_synapse_dict = {source_population:
-                               (projection_config.type,
-                                projection_config.layers,
-                                projection_config.sections,
-                                projection_config.proportions)
+                               (projection_config[source_population].type,
+                                projection_config[source_population].layers,
+                                projection_config[source_population].sections,
+                                projection_config[source_population].proportions)
                                 for source_population in source_populations}
     total_count = 0
     gid_count   = 0

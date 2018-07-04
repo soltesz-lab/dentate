@@ -348,6 +348,76 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
     return soma_distances
 
 
+def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000):
+
+    rank = comm.rank
+
+    min_l = float('inf')
+    max_l = 0.0
+    
+    for layer, min_extent in env.geometry['Parametric Surface']['Minimum Extent'].iteritems():
+        min_l = min(min_extent[2], min_l)
+        
+    for layer, max_extent in env.geometry['Parametric Surface']['Maximum Extent'].iteritems():
+        max_l = max(max_extent[2], max_l)
+
+    population_extents = {}
+    for population in soma_coords.keys():
+        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
+        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
+        population_extents[population] = (min_extent, max_extent)
+
+    rotate = env.geometry['Parametric Surface']['Rotation']
+    origin = env.geometry['Parametric Surface']['Origin']
+
+    obs_uv = None
+    coeff_dist_u = None
+    coeff_dist_v = None
+    
+    interp_penalty = 0.01
+    interp_basis = 'ga'
+    interp_order = 1
+
+    if rank == 0:
+        logger.info('Computing soma distances...')
+
+    ## This parameter is used to expand the range of L and avoid
+    ## situations where the endpoints of L end up outside of the range
+    ## of the distance interpolant
+    safety = 0.01
+
+    if rank == 0:
+        logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
+        ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
+
+        logger.info('Computing volume distances...')
+        vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
+        (obs_uv, dist_u, dist_v) = vol_dist
+        logger.info('Computing U volume distance interpolants...')
+        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty)
+        coeff_dist_u = ip_dist_u._coeff
+        logger.info('Computing V volume distance interpolants...')
+        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
+                                   penalty=interp_penalty)
+        coeff_dist_v = ip_dist_v._coeff
+        logger.info('Broadcasting volume distance interpolants...')
+        
+    obs_uv = comm.bcast(obs_uv, root=0)
+    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
+    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+    
+    ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
+                               penalty=interp_penalty)
+    ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
+                               penalty=interp_penalty)
+
+    
+    soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
+                                           interp_chunk_size=interp_chunk_size, allgather=True)
+
+    return soma_distances
+
 
 
 def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=None, populations=None, icp_iter=1000, opt_iter=100):

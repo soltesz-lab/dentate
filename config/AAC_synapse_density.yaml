@@ -31,9 +31,8 @@ basal:
     Hilus:
       mean: 3.6
       variance: 0.1
-  inhibitory:
-    Hilus:
-      mean: 0.23
+    GCL:
+      mean: 3.6
       variance: 0.1
 soma:
   inhibitory:

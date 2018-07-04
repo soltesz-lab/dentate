@@ -8,7 +8,7 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
-from dentate.geometry import make_volume, get_volume_distances, interp_soma_distances
+from dentate.geometry import measure_distances
 from dentate.env import Env
 import dentate.utils as utils
 
@@ -49,19 +49,6 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
 
     if rank == 0:
         logger.info('Reading population coordinates...')
-
-    origin = env.geometry['Parametric Surface']['Origin']
-    rotate = env.geometry['Parametric Surface']['Rotation']
-    min_l = float('inf')
-    max_l = 0.0
-    population_ranges = read_population_ranges(coords_path)[0]
-    population_extents = {}
-    for population in population_ranges.keys():
-        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
-        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
-        min_l = min(min_extent[2], min_l)
-        max_l = max(max_extent[2], max_l)
-        population_extents[population] = (min_extent, max_extent)
         
     for population in populations:
         coords = bcast_cell_attributes(coords_path, population, 0, \
@@ -71,62 +58,9 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
         del coords
         gc.collect()
 
-    obs_uv = None
-    coeff_dist_u = None
-    coeff_dist_v = None
-
-    interp_penalty = 0.01
-    interp_basis = 'ga'
-    interp_order = 1
-
-    ## This parameter is used to expand the range of L and avoid
-    ## situations where the endpoints of L end up outside of the range
-    ## of the distance interpolant
-    safety = 0.01
-    
-    if rank == 0:
-        logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-
-    obs_uv = None
-    coeff_dist_u = None
-    coeff_dist_v = None
-
-    if rank == 0:
-        ip_volume = make_volume(min_l-safety, max_l+safety, \
-                                resolution=resolution, \
-                                rotate=rotate)
-
-        logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances (ip_volume, origin_spec=origin, rotate=rotate, alpha_radius=alpha_radius)
-        (obs_uv, dist_u, dist_v) = vol_dist
-
-        logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty, extrapolate=False)
-        coeff_dist_u = ip_dist_u._coeff
-        del dist_u
-        gc.collect()
-        logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty, extrapolate=False)
-        coeff_dist_v = ip_dist_v._coeff
-        del dist_v
-        gc.collect()
-        logger.info('Broadcasting volume distance interpolants...')
-        
-    obs_uv = comm.bcast(obs_uv, root=0)
-    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-    
-    ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty, extrapolate=False)
-    ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty, extrapolate=False)
+    soma_distances = measure_distances(env, comm, soma_coords, resolution=resolution)
                                        
-    for population in populations:
-
-        soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, populations=[population], \
-                                               interp_chunk_size=interp_chunk_size, allgather=False)
+    for population in soma_distances.keys():
             
 
         if rank == 0:
