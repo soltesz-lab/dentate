@@ -12,7 +12,7 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 from dentate import utils, synapses
 from synapses import make_synapse_graph
-from utils import list_index, random_clustered_shuffle, random_choice_w_replacement
+from utils import list_find_all, random_clustered_shuffle, random_choice_w_replacement
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -148,8 +148,8 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     projection_prob_lst = []
     for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in projection_synapse_dict.iteritems():
         if (syn_type == syn_config_type) and (swc_type in syn_config_sections):
-            ord_index = list_index(swc_type, syn_config_sections)
-            if ord_index is not None:
+            ord_indices = list_find_all(lambda x: x == swc_type, syn_config_sections)
+            for ord_index in ord_indices:
                 if syn_layer == syn_config_layers[ord_index]:
                     projection_lst.append(population_dict[k])
                     projection_prob_lst.append(syn_config_proportions[ord_index])
@@ -162,6 +162,10 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     else:
        projection = None
 
+    if projection is None:
+        logger.error('Projection is none for syn_type = %s syn_layer = %s swc_type = %s' % (str(syn_type), str(syn_layer), str(swc_type)))
+        print projection_synapse_dict
+        
     if projection is not None:
         return ivd[projection]
     else:
@@ -201,9 +205,6 @@ def generate_synaptic_connections(rank,
                                                                synapse_dict['syn_layers']):
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
                                                population_dict, projection_synapse_dict)
-        if projection is None:
-            logger.error('Projection is none for syn_type = %s swc_type = %s syn_layer = %s' % (str(syn_type), str(swc_type), str(syn_layer)))
-            print projection_synapse_dict
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 

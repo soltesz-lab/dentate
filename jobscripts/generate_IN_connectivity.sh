@@ -28,19 +28,19 @@
 # mpirun.mpich -np 1 python ./scripts/generate_distance_connections.py \
 #    --config=./config/Full_Scale_Control.yaml \
 #    --resolution 20 20 10 \
-#    --forest-path=./datasets/BC_forest_syns_20180630.h5 \
-#    --connectivity-path=./datasets/BC_test_connections_20180701.h5 \
+#    --forest-path=./datasets/AAC_forest_syns_20180701.h5 \
+#    --connectivity-path=./datasets/AAC_test_connections_20180701.h5 \
 #    --connectivity-namespace=Connections \
-#    --coords-path=./datasets/DG_coords_20180703.h5 \
+#    --coords-path=./datasets/DG_coords_20180530.h5 \
 #    --coords-namespace="Coordinates" \
 #    --io-size=1 -v
 
-mpirun.mpich -np 1 python ./scripts/generate_distance_connections.py \
+mpirun.mpich -np 8 python ./scripts/generate_distance_connections.py \
    --config=./config/Full_Scale_Control.yaml \
    --resolution 20 20 10 \
-   --forest-path=./datasets/AAC_forest_syns_20180701.h5 \
-   --connectivity-path=./datasets/AAC_test_connections_20180701.h5 \
+   --forest-path=./datasets/BC_forest_syns_20180630.h5 \
+   --connectivity-path=./datasets/BC_test_connections_20180701.h5 \
    --connectivity-namespace=Connections \
-   --coords-path=./datasets/DG_coords_20180530.h5 \
+   --coords-path=./datasets/DG_coords_20180703.h5 \
    --coords-namespace="Coordinates" \
-   --io-size=1 -v
+   --io-size=2 -v

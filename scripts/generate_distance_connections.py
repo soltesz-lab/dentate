@@ -58,8 +58,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     extent      = {}
     soma_coords = {}
 
-    print connection_config['BC']
-    
     if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
             input_file  = h5py.File(coords_path,'r')

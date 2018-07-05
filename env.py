@@ -302,6 +302,7 @@ class Env:
                                      val_proportions, \
                                      val_synparams)
 
+
             config_dict = defaultdict(lambda: 0.0)
             for (key_presyn, conn_config) in connection_dict[key_postsyn].iteritems():
                 for (s,l,p) in itertools.izip(conn_config.sections, \

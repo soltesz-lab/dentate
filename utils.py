@@ -101,6 +101,19 @@ def nested_convert_scalars(data):
     return data
 
 
+def list_index(element, lst):
+    """
+
+    :param element:
+    :param lst:
+    :return:
+    """
+    try:
+        index_element = lst.index(element)
+        return index_element
+    except ValueError:
+        return None
+
 def list_find(f, lst):
     """
 
@@ -117,6 +130,21 @@ def list_find(f, lst):
     return None
 
 
+def list_find_all(f, lst):
+    """
+
+    :param f:
+    :param lst:
+    :return:
+    """
+    i=0
+    res=[]
+    for i, x in enumerate(lst):
+        if f(x):
+            res.append(i)
+    return res
+
+
 def list_argsort(f, seq):
     """
     http://stackoverflow.com/questions/3382352/equivalent-of-numpy-argsort-in-basic-python/3383106#3383106
@@ -127,19 +155,6 @@ def list_argsort(f, seq):
     """
     return [i for i,x in sorted(enumerate(seq), key = lambda x: f(x[1]))]
 
-
-def list_index(element, lst):
-    """
-
-    :param element:
-    :param lst:
-    :return:
-    """
-    try:
-        index_element = lst.index(element)
-        return index_element
-    except ValueError:
-        return None
 
     
     
