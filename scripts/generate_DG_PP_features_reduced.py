@@ -9,6 +9,7 @@ from neuroh5.io import append_cell_attributes
 import dentate
 from dentate.env import Env
 from dentate.stimulus import generate_spatial_offsets
+from dentate.stimulus import generate_spatial_offsets_2
 
 import logging
 logging.basicConfig()
@@ -28,21 +29,23 @@ max_field_width = field_width(1.)
 feature_grid = 0
 feature_place_field = 1
 
-N_MPP = 30000
+N_MPP = 2500
 N_MPP_GRID = int(N_MPP * 0.7)
 N_MPP_PLACE = N_MPP - N_MPP_GRID
 
-N_LPP = int(N_MPP * 1.10)
+N_LPP = 1300 #int(N_MPP * 1.10)
 N_LPP_PLACE = N_LPP 
 N_LPP_GRID = 0
 
 
 
-
 arena_dimension = 100.
 init_scale_factor = 6.0
+init_orientation_jitter = [-10., 10.] #[np.deg2rad(-10.), np.deg2rad(10.)]
+init_lambda_jitter = [-10., 10.]
 resolution = 5.
-modules = np.arange(10)
+nmodules = 10
+modules = np.arange(nmodules)
 
 def init(population='MPP'):
 
@@ -56,8 +59,6 @@ def init(population='MPP'):
     local_random.seed(0)
     feature_type_random = np.random.RandomState(0)
 
-
-
     grid_orientation = [local_random.uniform(0., np.pi/3.) for i in range(len(modules))]
     feature_type_probs = None
     feature_type_values = np.asarray([0, 1])
@@ -70,21 +71,34 @@ def init(population='MPP'):
     feature_types = feature_type_random.choice(feature_type_values, p=feature_type_probs, size=(NCELLS,))
 
     xy_offsets,_,_ = generate_spatial_offsets(NCELLS, arena_dimension=arena_dimension, scale_factor=init_scale_factor, maxit=40)
-    grid_feature_dict = {}
-    place_feature_dict = {}
+    #xy_offsets = generate_spatial_offsets_2(NCELLS, arena_dimension=arena_dimension, scale_factor=init_scale_factor)
 
-    for i in range(NCELLS):
+
+    grid_feature_dict, place_feature_dict = build_cells(NCELLS, population, xy_offsets, init_lambda_jitter, init_orientation_jitter, feature_types, grid_orientation, local_random)
+ 
+    return grid_feature_dict, place_feature_dict, xy_offsets, feature_types, grid_orientation
+
+def build_cells(N, population, xy_offsets, lambda_jitter, orientation_jitter, feature_types, grid_orientation, local_random):
+
+    grid_feature_dict, place_feature_dict = {}, {}
+    for i in range(N):
         local_random.seed(i)
         feature_type = feature_types[i]
         if feature_type == 0: # grid
             this_module = local_random.choice(modules)
             this_grid_spacing = field_width(float(this_module)/float(np.max(modules)))
+            delta_spacing = np.random.uniform(low=lambda_jitter[0], high=lambda_jitter[1], size=(1,))
+            this_grid_spacing_jittered = this_grid_spacing + delta_spacing[0]
             feature_dict = {}
             feature_dict['Population'] = population
             feature_dict['Module'] = np.array([this_module],dtype='int32')
             feature_dict['Grid Spacing'] = np.array([this_grid_spacing], dtype='float32')
+            feature_dict['Jittered Grid Spacing'] = np.array([this_grid_spacing_jittered], dtype='float32')
             this_grid_orientation = grid_orientation[this_module]
+            delta_grid = np.random.uniform(low=orientation_jitter[0],high=orientation_jitter[1],size=(1,))
+            this_grid_orientation_jittered = this_grid_orientation + np.deg2rad(delta_grid[0])
             feature_dict['Grid Orientation'] = np.array([this_grid_orientation], dtype='float32')
+            feature_dict['Jittered Grid Orientation'] = np.array([this_grid_orientation_jittered], dtype='float32')
             x_offset = xy_offsets[i,0]
             y_offset = xy_offsets[i,1]
             feature_dict['X Offset'] = np.array([x_offset],dtype='float32')
@@ -161,7 +175,7 @@ def get_rate(x, y, grid_spacing, orientation, x_offset, y_offset,ctype='grid'):
 def transfer(z, a=0.3, b=-1.5):
     return np.exp(a*(z-b)) - 1 
 
-def module_map(xp, yp, grid_feature_dict, place_feature_dict, population='MPP', module=0):
+def module_map(xp, yp, grid_feature_dict, place_feature_dict, population='MPP', module=0, jittered=True):
     nx, ny = xp.shape
     rate_map_grid, rate_map_place = None, None
     if population == 'MPP':
@@ -178,8 +192,12 @@ def module_map(xp, yp, grid_feature_dict, place_feature_dict, population='MPP', 
     for grid_id in grid_feature_dict.keys():
         grid_cell_info = grid_feature_dict[grid_id]
         if grid_cell_info['Module'][0] == module:
-            this_grid_spacing = grid_cell_info['Grid Spacing']
-            this_grid_orientation = grid_cell_info['Grid Orientation']
+            if jittered:
+                this_grid_spacing = grid_cell_info['Jittered Grid Spacing']
+                this_grid_orientation = grid_cell_info['Jittered Grid Orientation']
+            else:
+                this_grid_spacing = grid_cell_info['Grid Spacing']
+                this_grid_orientation = grid_cell_info['Grid Orientation']
             x_offset, y_offset = grid_cell_info['X Offset'], grid_cell_info['Y Offset']
             cell_map = grid_fill_map(xp, yp, this_grid_spacing, this_grid_orientation, x_offset, y_offset)
             grid_cell_info['Rate Map'] = np.array(cell_map, dtype='float32')
@@ -211,18 +229,18 @@ def to_file(rate_map, fn, module=1):
             f.write(str(rate_map[i,j]) + '\t')
         f.write('\n')
 
-def generate_mesh():
+def generate_mesh(scale_factor=init_scale_factor):
 
-    mega_arena_x_bounds = [-arena_dimension * init_scale_factor/2., arena_dimension * init_scale_factor/2.]
-    mega_arena_y_bounds = [-arena_dimension * init_scale_factor/2., arena_dimension * init_scale_factor/2.]
+    mega_arena_x_bounds = [-arena_dimension * scale_factor/2., arena_dimension * scale_factor/2.]
+    mega_arena_y_bounds = [-arena_dimension * scale_factor/2., arena_dimension * scale_factor/2.]
     mega_arena_x = np.arange(mega_arena_x_bounds[0], mega_arena_x_bounds[1], resolution)
     mega_arena_y = np.arange(mega_arena_y_bounds[0], mega_arena_y_bounds[1], resolution)
     return np.meshgrid(mega_arena_x, mega_arena_y, indexing='ij')
 
-def generate_cells(gen_rate=True):
+def init_generate_populations(gen_rate=True):
     tic = time.time()
-    grid_feature_dict_MPP, place_feature_dict_MPP = init(population='MPP')
-    grid_feature_dict_LPP, place_feature_dict_LPP = init(population='LPP')
+    grid_feature_dict_MPP, place_feature_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP = init(population='MPP')
+    grid_feature_dict_LPP, place_feature_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP = init(population='LPP')
     mega_arena_xp, mega_arena_yp = generate_mesh()
     elapsed = time.time() - tic
     print('Took %f seconds to initialize populations and generate meshgrid' % (elapsed))
@@ -244,9 +262,12 @@ def generate_cells(gen_rate=True):
             fn = 'LPP/ratemap-module-'+str(module)+'-LPP-place.txt'
             to_file(lpp_rm_place,fn,module=module)
 
+    MPP_info = (grid_feature_dict_MPP, place_feature_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP)
+    LPP_info = (grid_feature_dict_LPP, place_feature_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP)
+
     grid_dicts = (grid_feature_dict_MPP, grid_feature_dict_LPP)
     place_dicts = (place_feature_dict_MPP, place_feature_dict_LPP)
-    return grid_dicts, place_dicts, mega_arena_xp, mega_arena_yp
+    return MPP_info, LPP_info, mega_arena_xp, mega_arena_yp
    
 
 def read_file(fn):
@@ -297,6 +318,123 @@ def list_to_file(fn, r):
     f.write('\n')
     f.close()    
 
+def peak_to_trough(cells, modules=modules):
+    response = None
+    keys = cells.keys()
+    for (c,key) in enumerate(keys):
+        cell = cells[key]
+        mod = cell['Module'][0]
+        rate_map = cell['Rate Map Box']
+        if c == 0:
+            nx, ny = rate_map.shape
+            response = np.zeros((len(modules),nx,ny))
+        response[mod,:,:] += rate_map
+    return [(np.max(x) - np.min(x)) for x in response]
+
+def fraction_active(cells, modules=modules, target=0.3):
+    rates = {mod:[] for mod in modules}
+    keys = cells.keys()
+    nx, ny = None, None
+    for (c, key) in enumerate(keys):
+        cell = cells[key]
+        mod = cell['Module'][0]
+        box_map = None
+        if cell.has_key('Rate Map Box'):
+            box_map = cell['Rate Map Box']
+        else:
+            rate_map = cell['Rate Map']
+            nx, ny = rate_map.shape
+            box_map = rate_map[int(nx/2)-10:int(nx/2)+10,int(ny/2)-10:int(ny/2)+10]
+            cell['Rate Map Box'] = box_map
+        nx, ny = box_map.shape
+        rates[mod].append(box_map)
+    
+    frac_active_dict = {(i,i): {k:None for k in modules} for i in range(nx)}
+    diagonal_positions = [ (i,i) for i in range(nx)]
+    for (px, py) in diagonal_positions:
+        for key in rates.keys():
+            module_maps = np.asarray(rates[key])
+            position_rates = module_maps[:,px,py]
+            frac_active = calculate_fraction_active(position_rates)
+            frac_active_dict[(px,py)][key] = frac_active
+    target_fraction_active = {(i,i): {k: target for k in modules} for i in range(nx)}
+
+    diff_fraction_active = {(i,i): {k: np.abs(target_fraction_active[(i,i)][k]-frac_active_dict[(i,i)][k]) for k in modules} for i in range(nx)}
+    
+    module_error = np.array([ 0. for _ in range(len(modules))])
+    for (i,i) in diff_fraction_active.keys():
+        pos_errors = diff_fraction_active[(i,i)]
+        for module in pos_errors.keys():
+            mod_e = pos_errors[module]
+            module_error[module] += mod_e
+    return module_error
+
+
+def calculate_fraction_active(rates, threshold=0.1):
+    max_rate = np.max(rates)
+    normalized_rates = np.divide(rates, max_rate)
+    num_active = len(np.where(normalized_rates > threshold)[0])
+    fraction_active = float(num_active) / len(normalized_rates)
+    return fraction_active               
+            
+
+def cost_func(x, cells):
+    print('here')
+    sf, lj0, lj1, oj0, oj1 = x
+    xp, yp = generate_mesh(scale_factor=sf)
+    nx, ny = xp.shape
+    keys = cells.keys()
+
+    for key in keys:
+        cell = cells[key]
+        cell['Jittered Grid Spacing'] = cell['Grid Spacing'] + np.random.uniform(low=lj0,high=lj1,size=(1,))[0]
+        cell['Jittered Grid Orientation'] = cell['Grid Orientation'] + np.deg2rad(np.random.uniform(low=oj0, high=oj1, size=(1,))[0])
+        orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
+        xf, yf = cell['X Offset'], cell['Y Offset']
+        rate_map = grid_fill_map(xp, yp, spacing, orientation, xf, yf)
+        nx, ny = rate_map.shape
+        cell['Rate Map'] = rate_map 
+        box_map = rate_map[int(nx/2)-10:int(nx/2)+10,int(ny/2)-10:int(ny/2)+10]
+        cell['Rate Map Box'] = box_map
+
+    #peak_trough_evaluation = np.asarray(peak_to_trough(cells, modules=modules))
+    fraction_active_evaluation = fraction_active(cells, modules=modules)
+
+    return np.mean(fraction_active_evaluation)
+
+
+def init_optimize(cache, xp, yp, sf0, lj0, oj0, n_iter=10):
+
+    from scipy.optimize import least_squares
+    from scipy.optimize import minimize
+
+    grid, place, xy_offset, feature_types, orientation = cache
+    target_peak_trough = [ 0.0 for _ in range(len(modules))]
+
+    x0 = (sf0, lj0[0], lj0[1], oj0[0], oj0[1])
+    bounds = ([1., -20., 0.01, -30., 0.01], [50., -0.01, 20., 0.01, 30.])
+    #bounds = ( (1., 500.), (-20., -0.01), (0.01, 20.), (-30., -0.01), (0.01, 30.) )
+    fnc = lambda x: cost_func(x, grid)
+    lsq_output = least_squares(fnc, x0, bounds=bounds, jac='2-point', diff_step=[2.5,2.5,2.5,5.0,5.0], xtol=1.0e-12, ftol=1.0e-12, gtol=1.0e-12, verbose=2, tr_solver='exact')
+    #nm_output = minimize(fnc, x0, method='Nelder-Mead', options={'disp':True}) 
+
+    #print(nm_output.success)
+    #print(nm_output.message)
+    #print(x0)
+    #print(nm_output.x)
+    #print('Before %f' % (fnc(x0)))
+    #print('After %f' % (nm_output.fun[0]))
+
+    
+    print(lsq_output.status)
+    print(lsq_output.nfev)
+    print(x0)
+    print(lsq_output.x)
+    print('Cost: %f' % (lsq_output.cost))
+    print('Before %f' % (fnc(x0)))
+    print('After %f' % (lsq_output.fun[0]))
+
+
 if __name__ == '__main__':
 
     comm = MPI.COMM_WORLD
@@ -309,29 +447,35 @@ if __name__ == '__main__':
     output_h5.close()
     comm.barrier()
 
-    grid_dicts, place_dicts, xp, yp = generate_cells(gen_rate=True)
-    grid_dict_MPP, grid_dict_LPP = grid_dicts
-    place_dict_MPP, place_dict_LPP = place_dicts 
+    MPP_info, LPP_info, xp, yp = init_generate_populations(gen_rate=True)
+    grid_dict_MPP, place_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP = MPP_info
+    grid_dict_LPP, place_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP = LPP_info
+    
+    orientation_jitter_0 = init_orientation_jitter
+    lambda_jitter_0 = init_lambda_jitter
+    scale_factor_0 = init_scale_factor
+
+    init_optimize(MPP_info, xp, yp, scale_factor_0, lambda_jitter_0, orientation_jitter_0)
+
+    #fraction_active(grid_dict_MPP, modules=modules)
+
+    sys.exit(1)
   
     make_hist(grid_dict_MPP, xp, yp, population='MPP',ctype='grid',modules=[0,4,9],xoi=59,yoi=59)
     make_hist(place_dict_MPP, xp, yp, population='MPP',ctype='place',modules=[0,4,9],xoi=59,yoi=59)
     make_hist(grid_dict_LPP, xp, yp, population='LPP',ctype='grid',modules=[0,4,9],xoi=59,yoi=59)
     
 
-    #with open('MPP/EC_grid_cells_MPP.pkl', 'wb') as f:
-    #    pickle.dump(grid_dict_MPP, f)
-    #with open('MPP/EC_grid_cells_LPP.pkl','wb') as f:
-    #    pickle.dump(grid_dict_LPP, f)
-    #with open('LPP/EC_place_cells_MPP.pkl', 'wb') as f:
-    #    pickle.dump(place_dict_MPP, f)
-    #with open('LPP/EC_place_cells_LPP.pkl','wb') as f:
-    #    pickle.dump(place_dict_LPP, f)
+    with open('MPP/EC_grid_cells_MPP.pkl', 'wb') as f:
+        pickle.dump(grid_dict_MPP, f)
+    with open('MPP/EC_grid_cells_LPP.pkl','wb') as f:
+        pickle.dump(grid_dict_LPP, f)
+    with open('LPP/EC_place_cells_MPP.pkl', 'wb') as f:
+        pickle.dump(place_dict_MPP, f)
+    with open('LPP/EC_place_cells_LPP.pkl','wb') as f:
+        pickle.dump(place_dict_LPP, f)
     print('...done')
 
 
     #append_cell_attributes(output_file, 'MPP', grid_features_dict, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-    
-    
- 
-     
     
