@@ -1,4 +1,4 @@
-## BC synapse density configuration
+## AAC synapse density configuration
 apical:
   excitatory:
     OML:
@@ -31,8 +31,9 @@ basal:
     Hilus:
       mean: 3.6
       variance: 0.1
-    GCL:
-      mean: 3.6
+  inhibitory:
+    Hilus:
+      mean: 0.23
       variance: 0.1
 soma:
   inhibitory:

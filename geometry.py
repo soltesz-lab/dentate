@@ -348,7 +348,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
     return soma_distances
 
 
-def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000):
+def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
 
     rank = comm.rank
 
@@ -414,7 +414,7 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
 
     
     soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
-                                           interp_chunk_size=interp_chunk_size, allgather=True)
+                                           interp_chunk_size=interp_chunk_size, allgather=allgather)
 
     return soma_distances
 

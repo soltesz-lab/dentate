@@ -83,9 +83,10 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
-    soma_distances = measure_distances(env, comm, soma_coords)
-    
-    for destination_population in populations:
+    destination_populations = read_population_names(forest_path)
+    soma_distances = measure_distances(env, comm, soma_coords, allgather=True)
+
+    for destination_population in destination_populations:
 
         if rank == 0:
             logger.info('Generating connection probabilities for population %s...' % destination_population)

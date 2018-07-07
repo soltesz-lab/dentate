@@ -16,9 +16,9 @@ def list_find (f, lst):
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--coords-namespace", '-n', type=str, default='Generated Coordinates')
+@click.option("--coords-namespace", '-n', type=str, default='Coordinates')
 @click.option("--population", '-i', type=str, required=True)
-@click.option("--scale", type=float, default=15.0)
+@click.option("--scale", type=float, default=25.0)
 @click.option("--subvol", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(config, coords_path, coords_namespace, population, scale, subvol, verbose):

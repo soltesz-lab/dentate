@@ -640,7 +640,7 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     return ax
 
 
-def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, verbose=False):
+def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=25., subvol=True, verbose=False):
     
     env = Env(configFile=config)
 
@@ -676,7 +676,7 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
         xcoords.append(v['X Coordinate'][0])
         ycoords.append(v['Y Coordinate'][0])
         zcoords.append(v['Z Coordinate'][0])
-        
+
     pts = np.concatenate((np.asarray(xcoords).reshape(-1,1), \
                           np.asarray(ycoords).reshape(-1,1), \
                           np.asarray(zcoords).reshape(-1,1)),axis=1)
@@ -690,20 +690,19 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
         subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
     else:
         vol = make_volume (-3.95, 3.0, rotate=rotate)
-    
-    if verbose:
-        print('Plotting volume...')
 
     from mayavi import mlab
-    if subvol:
-        subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
-    else:
-        vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
     
     if verbose:
         print('Plotting coordinates in volume...')
 
     mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=scale)
+    if verbose:
+        print('Plotting volume...')
+    if subvol:
+        subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
+    else:
+        vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
     
     mlab.show()
 

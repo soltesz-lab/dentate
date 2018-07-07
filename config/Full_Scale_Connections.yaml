@@ -413,8 +413,8 @@ Synapses:
   AAC:
     GC:   
       type: excitatory
-      sections: [basal, basal]
-      layers: [Hilus, GCL]
+      sections: [basal, soma]
+      layers: [Hilus, Hilus]
       proportions: [1.0, 1.0]
       mechanisms:
         AMPA:
@@ -422,6 +422,28 @@ Synapses:
           tau2: 6.2
           e: 0
           weight: 0.0047
+    MPP:
+      type: excitatory
+      sections: [apical]
+      layers: [MML]
+      proportions: [1.0]
+      mechanisms:
+        AMPA:
+          tau1:  0.5
+          tau2: 3.0
+          e:     0
+          weight: 0.0005
+    LPP:
+      type: excitatory
+      sections: [apical]
+      layers: [OML]
+      proportions: [1.0]
+      mechanisms:
+        AMPA:
+          tau1:  0.5
+          tau2: 3.0
+          e:     0
+          weight: 0.0005
     MC:   
       type: excitatory
       sections: [apical]
@@ -444,6 +466,55 @@ Synapses:
           tau2: 4.78
           e: -75
           weight: 0.000664
+    HC:   
+      type: inhibitory
+      sections: [apical, apical]
+      layers: [MML, OML]
+      proportions: [0.96, 0.96]
+      mechanisms:
+        GABA_A:
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
+          weight: 0.00214
+    NGFC: 
+      type: inhibitory
+      sections: [apical, apical]
+      layers: [MML, OML]
+      proportions: [0.02, 0.02]
+      mechanisms:
+        GABA_A:
+          tau1:   4.2
+          tau2: 14.0
+          e:    -75
+          weight: 0.000183
+        GABA_B:
+          tau1:  50.0
+          tau2: 200.0
+          e:   -90
+          weight: 0.000181
+    MOPP: 
+      type: inhibitory
+      sections: [apical, apical]
+      layers: [MML, OML]
+      proportions: [0.02, 0.02]
+      mechanisms:
+        GABA_A:
+          tau1:   4.2
+          tau2: 14.0
+          e:    -75
+          weight: 0.0002
+    IS:
+      type: inhibitory
+      sections: [basal, soma]
+      layers: [Hilus, Hilus]
+      proportions: [1.0, 1.0]
+      mechanisms:
+        GABA_A:
+          tau1: 0.46
+          tau2: 4.43
+          e: -75
+          weight: 0.00214
   HCC:
     MPP:
       type: excitatory
