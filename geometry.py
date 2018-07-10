@@ -60,8 +60,7 @@ def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, resoluti
     lres = resolution[2]
     
     obs_u = np.linspace((-0.016*np.pi) - expand, (1.01*np.pi) + expand, ures)
-    #obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
-    obs_v = np.linspace(-0.25*np.pi - expand, 1.425*np.pi + expand, vres)
+    obs_v = np.linspace(-0.23*np.pi - expand, 1.425*np.pi + expand, vres)
     obs_l = np.linspace(lmin - expand, lmax + expand, num=lres)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')

@@ -640,7 +640,7 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     return ax
 
 
-def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=25., subvol=True, verbose=False):
+def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=True, verbose=False):
     
     env = Env(configFile=config)
 
@@ -652,37 +652,45 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
     pop_min_extent = None
     for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
 
-        layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-        if layer_count > 0:
-            if pop_max_extent is None:
-                pop_max_extent = np.asarray(max_extent)
-            else:
-                pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
-            if pop_min_extent is None:
-                pop_min_extent = np.asarray(min_extent)
-            else:
-                pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+        for population in populations:
+            layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
+            if layer_count > 0:
+                if pop_max_extent is None:
+                    pop_max_extent = np.asarray(max_extent)
+                else:
+                    pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
+                if pop_min_extent is None:
+                    pop_min_extent = np.asarray(min_extent)
+                else:
+                    pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
     
     if verbose:
         print('Reading coordinates...')
 
-    coords = read_cell_attributes(coords_path, population, namespace=coords_namespace)
-
-    
     xcoords = []
     ycoords = []
     zcoords = []
-    for (k,v) in coords:
-        xcoords.append(v['X Coordinate'][0])
-        ycoords.append(v['Y Coordinate'][0])
-        zcoords.append(v['Z Coordinate'][0])
+    for population in populations:
+        coords = read_cell_attributes(coords_path, population, namespace=coords_namespace)
+
+        for (k,v) in coords:
+            xcoords.append(v['X Coordinate'][0])
+            ycoords.append(v['Y Coordinate'][0])
+            zcoords.append(v['Z Coordinate'][0])
 
     pts = np.concatenate((np.asarray(xcoords).reshape(-1,1), \
                           np.asarray(ycoords).reshape(-1,1), \
                           np.asarray(zcoords).reshape(-1,1)),axis=1)
 
+    from mayavi import mlab
+    
     if verbose:
-        print('Creating volume...')
+        print('Plotting coordinates in volume...')
+
+    mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=scale)
+
+    if verbose:
+        print('Constructing volume...')
 
     from dentate.geometry import make_volume
 
@@ -691,14 +699,9 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
     else:
         vol = make_volume (-3.95, 3.0, rotate=rotate)
 
-    from mayavi import mlab
-    
-    if verbose:
-        print('Plotting coordinates in volume...')
-
-    mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=scale)
     if verbose:
         print('Plotting volume...')
+
     if subvol:
         subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
     else:

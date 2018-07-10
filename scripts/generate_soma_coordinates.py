@@ -19,7 +19,45 @@ from alphavol import alpha_shape
 script_name = "generate_soma_coordinates.py"
 logger = get_script_logger(script_name)
 
+def mpi_excepthook(type, value, traceback):
+    """
 
+    :param type:
+    :param value:
+    :param traceback:
+    :return:
+    """
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+
+
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
+
+def random_subset( iterator, K ):
+    result = []
+    N = 0
+
+    for item in iterator:
+        N += 1
+        if len( result ) < K:
+            result.append( item )
+        else:
+            s = int(random.random() * N)
+            if s < K:
+                result[ s ] = item
+
+    return result
+
+def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
+    result = (uvl_coords[0] <= pop_max_extent[0]) and \
+      (uvl_coords[0] >= pop_min_extent[0]) and \
+      (uvl_coords[1] <= pop_max_extent[1]) and \
+      (uvl_coords[1] >= pop_min_extent[1]) and \
+      (uvl_coords[2] <= pop_max_extent[2]) and \
+      (uvl_coords[2] >= pop_min_extent[2])
+    return result
 
 
 @click.command()
@@ -29,8 +67,8 @@ logger = get_script_logger(script_name)
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
-@click.option("--alpha-radius", type=float, default=120.)
-@click.option("--nodeiter", type=int, default=30)
+@click.option("--alpha-radius", type=float, default=150.)
+@click.option("--nodeiter", type=int, default=8)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -100,7 +138,6 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
         xyz_coords = None
         xyz_coords_interp = None
         uvl_coords_interp = None
-        sampled_coords_inds = None
         if rank == 0:
             if verbose:
                 logger.info("Constructing volume...")
@@ -114,7 +151,7 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
             vert = alpha.points
             smp  = np.asarray(alpha.bounds, dtype=np.int64)
 
-            N = population_count*2 # total number of nodes
+            N = int(population_count*2) # total number of nodes
             node_count = 0
 
             if verbose:
@@ -140,23 +177,25 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
             uvl_coords_interp = vol.inverse(xyz_coords)
             xyz_coords_interp = vol(uvl_coords_interp[:,0],uvl_coords_interp[:,1],uvl_coords_interp[:,2],mesh=False).reshape(3,-1).T
 
-            np.random.seed(random_seed)
-            sampled_coords_inds = np.random.choice(xyz_coords.shape[0], int(population_count))
-
             if verbose:
-                logger.info("Broadcasting generated coordinates...")
+                logger.info("Broadcasting generated nodes...")
 
             
         xyz_coords = comm.bcast(xyz_coords, root=0)
         xyz_coords_interp = comm.bcast(xyz_coords_interp, root=0)
         uvl_coords_interp = comm.bcast(uvl_coords_interp, root=0)
-        sampled_coords_inds = comm.bcast(sampled_coords_inds, root=0)
 
         coords = []
         coords_dict = {}
         xyz_error = np.asarray([0.0, 0.0, 0.0])
-        for i, coord_ind in enumerate(sampled_coords_inds):
 
+        if verbose:
+            if rank == 0:
+                logger.info("Computing UVL coordinates...")
+
+        for i in xrange(0,xyz_coords.shape[0]):
+
+            coord_ind = i
             if i % size == rank:
 
                 xyz_error_interp  = np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords_interp[coord_ind,:]))
@@ -166,52 +205,82 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
                 xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], rotate=rotate)[0]
                 xyz_error_opt  = np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords_opt))
 
-                if (np.all (np.less (xyz_error_opt, xyz_error_interp))) and \
-                    (uvl_coords_opt[0] <= pop_max_extent[0]) and \
-                    (uvl_coords_opt[0] >= pop_min_extent[0]) and \
-                    (uvl_coords_opt[1] <= pop_max_extent[1]) and \
-                    (uvl_coords_opt[1] >= pop_min_extent[1]) and \
-                    (uvl_coords_opt[2] <= pop_max_extent[2]) and \
-                    (uvl_coords_opt[2] >= pop_min_extent[2]):
-
-                        uvl_coords  = uvl_coords_opt
-                        xyz_coords1 = xyz_coords_opt
-                else:
+                
+                if uvl_in_bounds(uvl_coords_opt, pop_min_extent, pop_max_extent) and \
+                   np.all (np.less (xyz_error_opt, xyz_error_interp)):
+                    uvl_coords  = uvl_coords_opt
+                    xyz_coords1 = xyz_coords_opt
+                elif uvl_in_bounds(uvl_coords_interp[coord_ind,:], pop_min_extent, pop_max_extent):
                     uvl_coords  = uvl_coords_interp[coord_ind,:].ravel()
                     xyz_coords1 = xyz_coords_interp[coord_ind,:].ravel()
+                else:
+                    uvl_coords = None
+                    xyz_coords1 = None
 
-                xyz_error   = np.add(xyz_error, np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords1)))
+                if uvl_coords is not None:
 
-                if verbose:
-                    logger.info('Rank %i: cell %i: %f %f %f' % (rank, i, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+                    xyz_error   = np.add(xyz_error, np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords1)))
 
-                coords.append((i,(xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
-                                  uvl_coords[0],uvl_coords[1],uvl_coords[2])))
+                    if verbose:
+                        logger.info('Rank %i: cell %i: %f %f %f' % (rank, i, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
 
+                    coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
+                                       uvl_coords[0],uvl_coords[1],uvl_coords[2]))
+                                       
+        
         total_xyz_error = np.zeros((3,))
         comm.Allreduce(xyz_error, total_xyz_error, op=MPI.SUM)
 
-        mean_xyz_error = np.asarray([total_xyz_error[0] / population_count, \
-                                     total_xyz_error[1] / population_count, \
-                                     total_xyz_error[2] / population_count])
-                                
+        coords_count = 0
+        coords_count = np.sum(np.asarray(comm.allgather(len(coords))))
+
+        if verbose:
+            if rank == 0:
+                logger.info('Total %i coordinates generated' % coords_count)
+
+        assert(coords_count >= int(population_count))
+        mean_xyz_error = np.asarray([total_xyz_error[0] / coords_count, \
+                                     total_xyz_error[1] / coords_count, \
+                                     total_xyz_error[2] / coords_count])
+
+        
         if verbose:
             if rank == 0:
                 logger.info("mean XYZ error: %f %f %f " % (mean_xyz_error[0], mean_xyz_error[1], mean_xyz_error[2]))
-                               
-        coords_dict = { population_start+i :  { 'X Coordinate': np.asarray([x_coord],dtype=np.float32),
-                                                'Y Coordinate': np.asarray([y_coord],dtype=np.float32),
-                                                'Z Coordinate': np.asarray([z_coord],dtype=np.float32),
-                                                'U Coordinate': np.asarray([u_coord],dtype=np.float32),
-                                                'V Coordinate': np.asarray([v_coord],dtype=np.float32),
-                                                'L Coordinate': np.asarray([l_coord],dtype=np.float32) }
-                        for (i,(x_coord,y_coord,z_coord,u_coord,v_coord,l_coord)) in coords }
 
-        append_cell_attributes(output_path, population, coords_dict,
-                                namespace=output_namespace,
-                                io_size=io_size, chunk_size=chunk_size,
-                                value_chunk_size=value_chunk_size,comm=comm)
+        if rank == 0:
+            color = 1
+        else:
+            color = 0
 
+        ## comm0 includes only rank 0
+        comm0 = comm.Split(color, 0)
+
+        coords_lst = comm.gather(coords, root=0)
+        if rank == 0:
+            all_coords = []
+            for sublist in coords_lst:
+                for item in sublist:
+                    all_coords.append(item)
+
+            sampled_coords = random_subset(all_coords, int(population_count))
+
+            
+            sampled_coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
+            coords_dict = { population_start+i :  { 'X Coordinate': np.asarray([x_coord],dtype=np.float32),
+                                    'Y Coordinate': np.asarray([y_coord],dtype=np.float32),
+                                    'Z Coordinate': np.asarray([z_coord],dtype=np.float32),
+                                    'U Coordinate': np.asarray([u_coord],dtype=np.float32),
+                                    'V Coordinate': np.asarray([v_coord],dtype=np.float32),
+                                    'L Coordinate': np.asarray([l_coord],dtype=np.float32) }
+                            for (i,(x_coord,y_coord,z_coord,u_coord,v_coord,l_coord)) in enumerate(sampled_coords) }
+
+            append_cell_attributes(output_path, population, coords_dict,
+                                    namespace=output_namespace,
+                                    io_size=io_size, chunk_size=chunk_size,
+                                    value_chunk_size=value_chunk_size,comm=comm0)
+
+        comm.Barrier()
         
 
 if __name__ == '__main__':
