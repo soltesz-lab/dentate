@@ -1,41 +1,19 @@
-import itertools
-from collections import defaultdict
-import sys, os.path, string
-import numpy as np
-import math
+from dentate.utils import *
+try:
+    from mpi4py import MPI  # Must come before importing NEURON
+except Exception:
+    pass
+from neuron import h
 
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = get_module_logger(__name__)
 
 freq = 100      # Hz, frequency at which AC length constant will be computed
 d_lambda = 0.1  # no segment will be longer than this fraction of the AC length constant
-
-
-def lambda_f(sec, f=freq):
-    """
-    Calculates the AC length constant for the given section at the frequency f
-    Used to determine the number of segments per hoc section to achieve the desired spatial and temporal resolution
-    :param sec : :class:'h.Section'
-    :param f : int
-    :return : int
-    """
-    diam = np.mean([seg.diam for seg in sec])
-    Ra = sec.Ra
-    cm = np.mean([seg.cm for seg in sec])
-    return 1e5*math.sqrt(diam/(4.*math.pi*f*Ra*cm))
-
-
-def d_lambda_nseg(sec, lam=d_lambda, f=freq):
-    """
-    The AC length constant for this section and the user-defined fraction is used to determine the maximum size of each
-    segment to achieve the d esired spatial and temporal resolution. This method returns the number of segments to set
-    the nseg parameter for this section. For tapered cylindrical sections, the diam parameter will need to be
-    reinitialized after nseg changes.
-    :param sec : :class:'h.Section'
-    :param lam : int
-    :param f : int
-    :return : int
-    """
-    L = sec.L
-    return int((L/(lam*lambda_f(sec, f))+0.9)/2)*2+1
+default_ordered_sec_types = ['soma', 'hillock', 'ais', 'axon', 'basal', 'trunk', 'apical', 'tuft', 'spine_neck',
+                             'spine_head']
+default_hoc_sec_lists = {'soma': 'somaidx', 'hillock': 'hilidx', 'ais': 'aisidx', 'axon': 'axonidx',
+                          'basal': 'basalidx', 'apical': 'apicalidx', 'trunk': 'trunkidx', 'tuft': 'tuftidx'}
 
 
 def hoc_results_to_python(hoc_results):
@@ -60,13 +38,19 @@ def write_results(results, filepath, header):
 
     
 def simulate(h, v_init, prelength, mainlength):
+    """
+
+    :param h:
+    :param v_init:
+    :param prelength:
+    :param mainlength:
+    """
     h.cvode_active (1)
     h.finitialize(v_init)
     h.tstop = prelength+mainlength
     h.fadvance()
     h.continuerun(h.tstop)
 
-    
 
 ## Adds a network connection to a single synapse point process
 ##    pc: ParallelContext
@@ -80,7 +64,7 @@ def mknetcon(pc, nclist, srcgid, dstgid, syn, weight, delay):
     nc.delay = delay
     nclist.append(nc)
 
-#New version of the function , used with dentate.cells
+#New version of the function, used with dentate.cells
 def mk_netcon(pc, srcgid, dstgid, syn, weight, delay):
     nc = pc.gid_connect(srcgid, syn)
     nc.weight[0] = weight
@@ -98,7 +82,7 @@ def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
         cell = pc.gid2cell(dstgid)
 	mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
 
-#New version of the function , used with dentate.cells
+#New version of the function, used with dentate.cells
 def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
     assert (pc.gid_exists(dstgid))
     if (pc.gid_exists(dstgid)):
@@ -107,32 +91,21 @@ def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
     return nc
 
 
-## A variant of ParallelNetManager.nc_append that 1) takes in a
-## synaptic point process as an argument (as opposed to the index of a
-## synapse in cell.synlist) and 2) chooses the synaptic
-## weight from a predefined vector of synaptic weights for this
-## connection type
-def nc_appendsyn_wgtvector(pc, nclist, srcgid, dstgid, syn, weights, delay):
-    assert (pc.gid_exists(dstgid))
-    cell = pc.gid2cell(dstgid)
-    widx = int(dstgid % weights.size())
-    mknetcon(pc, nclist, srcgid, dstgid, syn, weights.x[widx]/1000.0, delay)
-
-#New version of the function , used with dentate.cells
-def mk_nc_syn_wgtvector(pc, srcgid, dstgid, syn, weights, delay):
-    assert (pc.gid_exists(dstgid))
-    cell = pc.gid2cell(dstgid)
-    widx = int(dstgid % weights.size())
-    nc = mk_netcon(pc, srcgid, dstgid, syn, weights.x[widx] / 1000.0, delay)
-    return nc
-
 ## Create gap junctions
 def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
-    
+    """
+    Create gap junctions
+    :param pc:
+    :param gjlist:
+    :param gid:
+    :param secidx:
+    :param sgid:
+    :param dgid:
+    :param w:
+    :return:
+    """
     cell = pc.gid2cell(gid)
-    
-    ##printf ("host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d dgid = %d\n", pc.id, gid, branch, sec, w, sgid, dgid)
-    
+
     sec = cell.sections[secidx]
     seg = sec(0.5)
     gj = ggap(seg)

@@ -1,0 +1,46 @@
+## BC synapse density configuration
+apical:
+  excitatory:
+    OML:
+      mean: 1.43
+      variance: 0.1
+    MML:
+      mean: 4.3
+      variance: 0.1
+    IML:
+      mean: 4.3
+      variance: 0.1
+    Hilus:
+      mean: 3.6
+      variance: 0.1
+  inhibitory:
+    OML:
+      mean: 0.28
+      variance: 0.1
+    MML:
+      mean: 0.16
+      variance: 0.1
+    IML:
+      mean: 0.16
+      variance: 0.1
+    Hilus:
+      mean: 0.23
+      variance: 0.1
+basal:
+  excitatory:
+    Hilus:
+      mean: 3.6
+      variance: 0.1
+  inhibitory:
+    Hilus:
+      mean: 0.23
+      variance: 0.1
+soma:
+  inhibitory:
+    default:
+      mean: 0.18
+      variance: 0.1
+  excitatory:
+    default:
+      mean: 0.4
+      variance: 0.1

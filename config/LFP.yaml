@@ -1,3 +1,4 @@
+## Configuration for virtual local field potential recordings
 Electrode 0:
   rho: 333.0
   position: [-1205.5, 2700.3, -211.7]

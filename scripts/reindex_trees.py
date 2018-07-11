@@ -1,15 +1,10 @@
-import sys, random
+import sys, random, click, logging
 from mpi4py import MPI
 import numpy as np
 from neuroh5.io import read_population_ranges, append_cell_trees, append_cell_attributes, bcast_cell_attributes, NeuroH5TreeGen
 from dentate.utils import *
-import pprint
-import click
-import logging
-logging.basicConfig()
 
 script_name = 'reindex_trees.py'
-logger = logging.getLogger(script_name)
 
 
 @click.command()
@@ -35,11 +30,12 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     :param value_chunk_size: int
     :param verbose: bool
     """
+    
+    config_logging(verbose)
+    logger = get_script_logger(script_name)
+
     comm = MPI.COMM_WORLD
     rank = comm.rank
-
-    if verbose:
-        logger.setLevel(logging.INFO)
 
     if io_size == -1:
         io_size = comm.size

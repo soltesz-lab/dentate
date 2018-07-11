@@ -30,7 +30,7 @@ set -x
 ibrun -np 864 python ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
        --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20180411.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180428.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180502.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20180427.h5 \
        --coords-namespace=Coordinates \

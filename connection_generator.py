@@ -1,9 +1,7 @@
 
-##
-## Classes and procedures related to neuronal connectivity generation.
-##
+"""Classes and procedures related to neuronal connectivity generation. """
 
-import sys, time, gc, numbers, itertools
+import sys, time, gc, itertools
 from collections import defaultdict
 import numpy as np
 from scipy.stats import norm
@@ -12,134 +10,13 @@ from rbf.interpolate import RBFInterpolant
 import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-import click, logging
-import dentate.utils
-logger = logging.getLogger(__name__)
+from dentate import utils, synapses
+from synapses import make_synapse_graph
+from utils import list_find_all, random_clustered_shuffle, random_choice_w_replacement
 
-def list_index (element, lst):
-    try:
-        index_element = lst.index(element)
-        return index_element
-    except ValueError:
-        return None
-
-
-def random_choice_w_replacement(ranstream,n,p):
-    return ranstream.multinomial(n,p.ravel())
-
-def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum()
-
-
-def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_std=1.0,
-                         center_ids=None, center_box=(-10.0, 10.0), random_seed=None):
-    """Generate isotropic Gaussian blobs for clustering.
-
-    Parameters
-    ----------
-    centers : int or array of shape [n_centers, n_features]
-        The number of centers to generate, or the fixed center locations.
-    n_samples_per_center : int array
-        Number of points for each cluster.
-    n_features : int, optional (default=2)
-        The number of features for each sample.
-    cluster_std : float or sequence of floats, optional (default=1.0)
-        The standard deviation of the clusters.
-    center_ids : array of integer center ids, if None then centers will be numbered 0 .. n_centers-1
-    center_box : pair of floats (min, max), optional (default=(-10.0, 10.0))
-        The bounding box for each cluster center when centers are
-        generated at random.
-    random_seed : int or None, optional (default=None)
-        If int, random_seed is the seed used by the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-    Returns
-    -------
-    X : array of shape [n_samples, n_features]
-        The generated samples.
-    y : array of shape [n_samples]
-        The integer labels for cluster membership of each sample.
-    Examples
-    --------
-    >>> X, y = make_random_clusters (centers=6, n_samples_per_center=np.array([1,3,10,15,7,9]), n_features=1, \
-                                     center_ids=np.array([10,13,21,25,27,29]).reshape(-1,1), cluster_std=1.0, \
-                                     center_box=(-10.0, 10.0))
-    >>> print(X.shape)
-    (45, 1)
-    >>> y
-    array([10, 13, 13, 13, ..., 29, 29, 29])
-    """
-    rng = np.random.RandomState(random_seed)
-
-    if isinstance(centers, numbers.Integral):
-        centers = np.sort(rng.uniform(center_box[0], center_box[1], \
-                                      size=(centers, n_features)), axis=0)
-    else:
-        assert(isinstance(centers, np.ndarray))
-        n_features = centers.shape[1]
-
-    if center_ids is None:
-        center_ids = np.arange(0, centers.shape[0])
-        
-    if isinstance(cluster_std, numbers.Real):
-        cluster_std = np.ones(len(centers)) * cluster_std
-
-    X = []
-    y = []
-
-    n_centers = centers.shape[0]
-
-    for i, (cid, n, std) in enumerate(itertools.izip(center_ids, n_samples_per_center, cluster_std)):
-        if n > 0:
-            X.append(centers[i] + rng.normal(scale=std, size=(n, n_features)))
-            y += [cid] * n
-
-    X = np.concatenate(X)
-    y = np.array(y)
-
-    return X, y
-
-
-def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, cluster_std=1.0, center_box=(-1.0, 1.0), random_seed=None):
-    """Generates a Gaussian random clustering given a number of cluster
-    centers, samples per each center, optional integer center ids, and
-    cluster standard deviation.
-
-    Parameters
-    ----------
-    centers : int or array of shape [n_centers]
-        The number of centers to generate, or the fixed center locations.
-    n_samples_per_center : int array
-        Number of points for each cluster.
-    cluster_std : float or sequence of floats, optional (default=1.0)
-        The standard deviation of the clusters.
-    center_ids : array of integer center ids, if None then centers will be numbered 0 .. n_centers-1
-    random_seed : int or None, optional (default=None)
-        If int, random_seed is the seed used by the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-
-    >>> x = random_clustered_shuffle(centers=6,center_ids=np.array([10,13,21,25,27,29]).reshape(-1,1), \
-                                     n_samples_per_center=np.array([1,3,10,15,7,9]))
-    >>> array([10, 13, 13, 25, 13, 29, 21, 25, 27, 21, 27, 29, 25, 25, 25, 21, 29,
-               27, 25, 21, 29, 25, 25, 25, 25, 29, 21, 25, 21, 29, 29, 29, 21, 25,
-               29, 21, 27, 27, 21, 27, 25, 21, 25, 27, 25])
-    """
-
-    if isinstance(centers, numbers.Integral):
-        n_centers = centers
-    else:
-        assert(isinstance(centers, np.ndarray))
-        n_centers = len(centers)
-    
-    X, y = make_random_clusters (centers, n_samples_per_center, n_features=1, \
-                                 center_ids=center_ids, cluster_std=cluster_std, center_box=center_box, \
-                                 random_seed=random_seed)
-    s = np.argsort(X,axis=0).ravel()
-    return y[s].ravel()
-
-
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = utils.get_module_logger(__name__)
     
 class ConnectionProb(object):
     """An object of this class will instantiate functions that describe
@@ -148,7 +25,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, extent, sigma, res=5):
+    def __init__(self, destination_population, soma_coords, soma_distances, extent):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -171,17 +48,18 @@ class ConnectionProb(object):
                 extent_offset = extent[source_population]['offset']
             else:
                 extent_offset = None
-            self.width[source_population] = {'u': extent_width[0], 'v': extent_width[1]}
-            self.scale_factor[source_population] = { axis: self.width[source_population][axis] for axis in self.width[source_population] }
+            self.width[source_population] = {'u': float(extent_width[0]), 'v': float(extent_width[1])}
+            self.scale_factor[source_population] = { axis: self.width[source_population][axis] / 3. for axis in self.width[source_population] }
+            logger.info('population %s: u width: %f v width: %f u scale_factor: %f v scale_factor: %f' % (source_population, self.width[source_population]['u'], self.width[source_population]['v'], \
+                                                                                     self.scale_factor[source_population]['u'], self.scale_factor[source_population]['v']))
             if extent_offset is None:
                 self.offset[source_population] = {'u': 0., 'v': 0.}
             else:
-                self.offset[source_population] = {'u': extent_offset[0], 'v': extent_offset[1]}
+                self.offset[source_population] = {'u': float(extent_offset[0]), 'v': float(extent_offset[1])}
             self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v: \
-                                                       (norm.pdf(np.abs(distance_u - self.offset[source_population]['u']) / self.scale_factor[source_population]['u'], scale=sigma) * \
-                                                        norm.pdf(np.abs(distance_v - self.offset[source_population]['v']) / self.scale_factor[source_population]['v'], scale=sigma)), \
+                                                       (norm.pdf(np.abs(distance_u) - self.offset[source_population]['u'], scale=self.scale_factor[source_population]['u']) * \
+                                                        norm.pdf(np.abs(distance_v) - self.offset[source_population]['v'], scale=self.scale_factor[source_population]['v'])), \
                                                         otypes=[float]))(source_population)
-
     
     def filter_by_distance(self, destination_gid, source_population):
         """
@@ -192,10 +70,11 @@ class ConnectionProb(object):
         :return: tuple of array of int
         """
         destination_coords = self.soma_coords[self.destination_population][destination_gid]
+        source_coords = self.soma_coords[source_population]
+
         destination_distances = self.soma_distances[self.destination_population][destination_gid]
         
-        source_soma_coords = self.soma_coords[source_population]
-        source_soma_distances = self.soma_distances[source_population]
+        source_distances = self.soma_distances[source_population]
 
         destination_u, destination_v, destination_l  = destination_coords
         destination_distance_u, destination_distance_v = destination_distances
@@ -206,20 +85,22 @@ class ConnectionProb(object):
         source_v_lst   = []
         source_gid_lst = []
 
-        for (source_gid, coords) in source_soma_coords.iteritems():
+        source_width = self.width[source_population]
+        source_offset = self.offset[source_population]
+        max_distance_u = source_width['u'] + source_offset['u']
+        max_distance_v = source_width['v'] + source_offset['v']
+
+        for (source_gid, coords) in source_coords.iteritems():
 
             source_u, source_v, source_l = coords
 
-            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
+            source_distance_u, source_distance_v  = source_distances[source_gid]
 
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
             
-            source_width = self.width[source_population]
-            source_offset = self.offset[source_population]
-                #print 'source_gid: %u destination u = %f destination v = %f source u = %f source v = %f source_distance_u = %f source_distance_v = %g' % (source_gid, destination_u, destination_v, source_u, source_v, source_distance_u, source_distance_v)
-            if ((distance_u <= source_width['u'] / 2. + source_offset['u']) &
-                (distance_v <= source_width['v'] / 2. + source_offset['v'])):
+            if (((max_distance_u - distance_u) >= 0.0) and ((max_distance_v - distance_v) >= 0.0)):
+                logger.info('%s: source_gid: %u destination u = %f destination v = %f source u = %f source v = %f distance_u = %f distance_v = %f max_distance_u = %f max_distance_v = %f distance_u - max_distance_u = %f' % (source_population, source_gid, destination_u, destination_v, source_u, source_v, distance_u, distance_v, max_distance_u, max_distance_v, distance_u - max_distance_u))
                 source_u_lst.append(source_u)
                 source_v_lst.append(source_v)
                 distance_u_lst.append(distance_u)
@@ -235,7 +116,6 @@ class ConnectionProb(object):
         probabilities and an array of corresponding source gids.
         :param destination_gid: int
         :param source: string
-        :param plot: bool
         :return: array of float, array of int
         """
         destination_u, destination_v, source_u, source_v, distance_u, distance_v, source_gid = self.filter_by_distance(destination_gid, source)
@@ -243,71 +123,11 @@ class ConnectionProb(object):
         psum = np.sum(p)
         assert((p >= 0.).all() and (p <= 1.).all())
         if psum > 0.:
-            pn = softmax(p)
+            pn = p / p.sum()
         else:
             pn = p
         return pn.ravel(), source_gid.ravel(), distance_u.ravel(), distance_v.ravel()
 
-
-def get_volume_distances (ip_vol, res=2, step=1, verbose=False):
-    if verbose:
-        logger.setLevel(logging.INFO)
-
-    if verbose:
-        logger.info('Resampling volume...')
-    U, V, L = ip_vol._resample_uvl(res, res, res)
-
-    if verbose:
-        logger.info('Computing U distances...')
-    ldist_u, obs_dist_u = ip_vol.point_distance(U, V, L, axis=0)
-
-    obs_uvl = np.array([np.concatenate(obs_dist_u[0]), \
-                        np.concatenate(obs_dist_u[1]), \
-                        np.concatenate(obs_dist_u[2])]).T
-    sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
-    obs_u = obs_uvl[sample_inds,:]
-    distances_u = np.concatenate(ldist_u)[sample_inds]
-        
-    if verbose:
-        logger.info('Computing V distances...')
-    ldist_v, obs_dist_v = ip_vol.point_distance(U, V, L, axis=1)
-    obs_uvl = np.array([np.concatenate(obs_dist_v[0]), \
-                        np.concatenate(obs_dist_v[1]), \
-                        np.concatenate(obs_dist_v[2])]).T
-    sample_inds = np.arange(0, obs_uvl.shape[0]-1, step)
-    obs_v = obs_uvl[sample_inds,:]    
-    distances_v = np.concatenate(ldist_v)[sample_inds]
-
-    return (distances_u, obs_u, distances_v, obs_v)
-
-
-
-        
-def get_soma_distances(comm, dist_u, dist_v, soma_coords, combined=False):
-    rank = comm.rank
-    size = comm.size
-
-    soma_distances = {}
-    for pop, coords_dict in soma_coords.iteritems():
-        local_dist_dict = {}
-        for gid, coords in coords_dict.iteritems():
-            if gid % size == rank:
-                soma_u, soma_v, soma_l = coords
-                uvl_obs = np.array([soma_u,soma_v,soma_l]).reshape(1,3)
-                distance_u = dist_u(uvl_obs)
-                distance_v = dist_v(uvl_obs)
-                local_dist_dict[gid] = (distance_u, distance_v)
-        if combined:
-            dist_dicts = comm.allgather(local_dist_dict)
-            combined_dist_dict = {}
-            for dist_dict in dist_dicts:
-                for k, v in dist_dict.iteritems():
-                    combined_dist_dict[k] = v
-            soma_distances[pop] = combined_dist_dict
-        else:
-            soma_distances[pop] = local_dist_dict
-
-    return soma_distances
 
 
 
@@ -321,17 +141,18 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param swc_type: SWC location for synapse (soma, axon, apical, basal)
     :param syn_type: synapse type (excitatory, inhibitory, neuromodulatory)
     :param population_dict: mapping of population names to population indices
-    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <syn_layer, swc_type, syn_type, syn_proportion>
+    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <type, layers, swc sections, proportions>
     """
     ivd = { v:k for k,v in population_dict.iteritems() }
     projection_lst = []
     projection_prob_lst = []
-    for k, v in projection_synapse_dict.iteritems():
-        if (syn_type in v[2]) and (swc_type in v[1]):
-            ord_index = list_index(syn_layer, v[0])
-            if ord_index is not None:
-                projection_lst.append(population_dict[k])
-                projection_prob_lst.append(v[3][ord_index])
+    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in projection_synapse_dict.iteritems():
+        if (syn_type == syn_config_type) and (swc_type in syn_config_sections):
+            ord_indices = list_find_all(lambda x: x == swc_type, syn_config_sections)
+            for ord_index in ord_indices:
+                if syn_layer == syn_config_layers[ord_index]:
+                    projection_lst.append(population_dict[k])
+                    projection_prob_lst.append(syn_config_proportions[ord_index])
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
@@ -341,6 +162,10 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     else:
        projection = None
 
+    if projection is None:
+        logger.error('Projection is none for syn_type = %s syn_layer = %s swc_type = %s' % (str(syn_type), str(syn_layer), str(swc_type)))
+        print projection_synapse_dict
+        
     if projection is not None:
         return ivd[projection]
     else:
@@ -380,9 +205,6 @@ def generate_synaptic_connections(rank,
                                                                synapse_dict['syn_layers']):
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
                                                population_dict, projection_synapse_dict)
-        if projection is None:
-            logger.error('Projection is none for syn_type = %s swc_type = %s syn_layer = %s' % (str(syn_type), str(swc_type), str(syn_layer)))
-            print projection_synapse_dict
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
@@ -427,19 +249,19 @@ def generate_synaptic_connections(rank,
 
 
 def generate_uv_distance_connections(comm, population_dict, connection_config, connection_prob, forest_path,
-                                     synapse_seed, synapse_namespace, 
-                                     connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
+                                     synapse_seed, connectivity_seed, cluster_seed,
+                                     synapse_namespace, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
-                                     verbose=False, dry_run=False):
+                                     dry_run=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
-    :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
+    :param connection_config: connection configuration object (instance of env.ConnectionConfig)
     :param connection_prob: ConnectionProb instance
     :param forest_path: location of file with neuronal trees and synapse information
     :param synapse_seed: random seed for synapse partitioning
-    :param synapse_namespace: namespace of synapse properties
     :param connectivity_seed: random seed for connectivity generation
     :param cluster_seed: random seed for determining connectivity clustering for repeated connections from the same source
+    :param synapse_namespace: namespace of synapse properties
     :param connectivity_namespace: namespace of connectivity attributes
     :param io_size: number of I/O ranks to use for parallel connectivity append
     :param chunk_size: HDF5 chunk size for connectivity file (pointer and index datasets)
@@ -447,8 +269,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     :param cache_size: how many cells to read ahead
     :param write_size: how many cells to write out at the same time
     """
-    if verbose:
-        logger.setLevel(logging.INFO)
         
     rank = comm.rank
 
@@ -471,18 +291,20 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         if rank == 0:
             logger.info('%s -> %s:' % (source_population, destination_population))
             logger.info(str(connection_config[destination_population][source_population]))
-                           
-    projection_synapse_dict = {source_population: (connection_config[destination_population][source_population].synapse_layers,
-                                                   set(connection_config[destination_population][source_population].synapse_locations),
-                                                   set(connection_config[destination_population][source_population].synapse_types),
-                                                   connection_config[destination_population][source_population].synapse_proportions)
+
+    projection_config = connection_config[destination_population]
+    projection_synapse_dict = {source_population:
+                               (projection_config[source_population].type,
+                                projection_config[source_population].layers,
+                                projection_config[source_population].sections,
+                                projection_config[source_population].proportions)
                                 for source_population in source_populations}
     total_count = 0
     gid_count   = 0
     connection_dict = defaultdict(lambda: {})
     projection_dict = {}
-    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, io_size=io_size,
-                                                            cache_size=cache_size, namespace=synapse_namespace, comm=comm):
+    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, namespace=synapse_namespace, \
+                                                            comm=comm, io_size=io_size, cache_size=cache_size):
         last_time = time.time()
         if destination_gid is None:
             logger.info('Rank %i destination gid is None' % rank)
