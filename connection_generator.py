@@ -57,8 +57,8 @@ class ConnectionProb(object):
             else:
                 self.offset[source_population] = {'u': float(extent_offset[0]), 'v': float(extent_offset[1])}
             self.p_dist[source_population] = (lambda source_population: np.vectorize(lambda distance_u, distance_v: \
-                                                       (norm.pdf(np.abs(distance_u - self.offset[source_population]['u']), scale=self.scale_factor[source_population]['u']) * \
-                                                        norm.pdf(np.abs(distance_v - self.offset[source_population]['v']), scale=self.scale_factor[source_population]['v'])), \
+                                                       (norm.pdf(np.abs(distance_u) - self.offset[source_population]['u'], scale=self.scale_factor[source_population]['u']) * \
+                                                        norm.pdf(np.abs(distance_v) - self.offset[source_population]['v'], scale=self.scale_factor[source_population]['v'])), \
                                                         otypes=[float]))(source_population)
     
     def filter_by_distance(self, destination_gid, source_population):

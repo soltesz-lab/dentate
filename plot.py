@@ -141,8 +141,9 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
-    distance_U = np.asarray([ soma_distances[v][0] for v in range(0,len(degrees)) ])
-    distance_V = np.asarray([ soma_distances[v][1] for v in range(0,len(degrees)) ])
+    gids = sorted(soma_distances.keys())
+    distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
+    distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
 
     if normed:
         (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
@@ -232,7 +233,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
         if destination_gid is not None:
             (source_indexes, attr_dict) = rest
             for source_gid in source_indexes:
-                dist_u = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) 
+                dist_u = destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]
                 dist = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) + \
                        abs(destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid])
                 if verbose:
@@ -396,7 +397,7 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
         (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
         X, Y = np.meshgrid(xedges, yedges)
         Hint = H[:-1, :-1]
-        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        levels = MaxNLocator(nbins=150).tick_values(Hint.min(), Hint.max())
         cmap = plt.get_cmap('jet')
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
         p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
