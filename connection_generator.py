@@ -100,7 +100,8 @@ class ConnectionProb(object):
             distance_v = abs(destination_distance_v - source_distance_v)
             
             if (((max_distance_u - distance_u) >= 0.0) and ((max_distance_v - distance_v) >= 0.0)):
-                logger.info('%s: source_gid: %u destination u = %f destination v = %f source u = %f source v = %f distance_u = %f distance_v = %f max_distance_u = %f max_distance_v = %f distance_u - max_distance_u = %f' % (source_population, source_gid, destination_u, destination_v, source_u, source_v, distance_u, distance_v, max_distance_u, max_distance_v, distance_u - max_distance_u))
+                if rank == 0:
+                    logger.info('%s: source_gid: %u destination u = %f destination v = %f source u = %f source v = %f distance_u = %f distance_v = %f max_distance_u = %f max_distance_v = %f distance_u - max_distance_u = %f' % (source_population, source_gid, destination_u, destination_v, source_u, source_v, distance_u, distance_v, max_distance_u, max_distance_v, distance_u - max_distance_u))
                 source_u_lst.append(source_u)
                 source_v_lst.append(source_v)
                 distance_u_lst.append(distance_u)
