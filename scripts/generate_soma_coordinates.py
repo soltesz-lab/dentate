@@ -67,7 +67,7 @@ def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
-@click.option("--alpha-radius", type=float, default=150.)
+@click.option("--alpha-radius", type=float, default=210.)
 @click.option("--nodeiter", type=int, default=8)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)

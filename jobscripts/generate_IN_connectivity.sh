@@ -28,9 +28,9 @@
 mpirun.mpich -np 8 python ./scripts/generate_distance_connections.py \
    --config=./config/Full_Scale_Control.yaml \
    --forest-path=./datasets/BC_forest_syns_20180630.h5 \
-   --connectivity-path=./datasets/BC_test_connections_20180709.h5 \
+   --connectivity-path=./datasets/BC_test_connections_20180710.h5 \
    --connectivity-namespace=Connections \
-   --coords-path=./datasets/DG_coords_20180709.h5 \
+   --coords-path=./datasets/DG_coords_20180710.h5 \
    --coords-namespace="Coordinates" \
    --io-size=2 -v
 

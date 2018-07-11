@@ -100,7 +100,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, alpha_radius=120., optiter=200, nodeitr=20):
+def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, alpha_radius=210., optiter=200, nodeitr=20):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters

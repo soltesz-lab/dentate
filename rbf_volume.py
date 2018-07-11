@@ -681,6 +681,8 @@ def test_nodes():
 
     return in_nodes, vol.inverse(in_nodes)
 
+
+
 def test_mplot_surface():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
@@ -834,11 +836,55 @@ def test_point_position():
     
     print vol.point_position(np.median(U), np.median(V), np.max(L))
     print vol.point_position(1.0, np.median(V), np.max(L))
+
+    
+def test_alphavol():
+    from alphavol import alpha_shape
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-1.0, 1., num=3)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    tri = vol.create_triangulation()
+    alpha = alpha_shape([], 210., tri=tri)
+
+    vert = alpha.points
+    smp  = np.asarray(alpha.bounds, dtype=np.int64)
+
+    edges = np.vstack([np.column_stack([smp[:,0],smp[:,1]]), \
+                       np.column_stack([smp[:,1],smp[:,2]])])
+
+    x = vert[:,0]
+    y = vert[:,1]
+    z = vert[:,2]
+
+    start_idx = edges[:,0]
+    end_idx = edges[:,1]
+    
+    from mayavi import mlab
+    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
+    mlab.quiver3d(x[start_idx],
+                  y[start_idx],
+                  z[start_idx],
+                  x[end_idx] - x[start_idx],
+                  y[end_idx] - y[start_idx],
+                  z[end_idx] - z[start_idx],
+                  mode='2ddash',
+                  scale_factor=1)
+    
+    
+    mlab.show()
     
 
     
 if __name__ == '__main__':
-    test_point_position()
+    test_alphavol()
+#    test_point_position()
 #    test_point_distance_mesh()
 #    test_point_distance()
 #    test_mplot_surface()

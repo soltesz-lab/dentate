@@ -12,7 +12,7 @@ script_name = 'plot_volume_distances.py'
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--resolution", type=(int,int,int), default=(33,33,10))
 @click.option("--resample", type=int, default=7)
-@click.option("--alpha-radius", type=float, default=100.)
+@click.option("--alpha-radius", type=float, default=210.)
 @click.option("--graph-type", type=str, default='scatter')
 @click.option("--verbose", "-v", is_flag=True)
 def main(config, resolution, resample, alpha_radius, graph_type, verbose):
