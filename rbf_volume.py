@@ -837,6 +837,31 @@ def test_point_position():
     print vol.point_position(np.median(U), np.median(V), np.max(L))
     print vol.point_position(1.0, np.median(V), np.max(L))
 
+def test_precision():
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 25)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 25)
+    obs_l = np.linspace(-1.0, 1., num=10)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    test_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 250)
+    test_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 250)
+    test_l = np.linspace(-1.0, 1., num=10)
+
+    u, v, l = np.meshgrid(test_u, test_v, test_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
+
+    interp_xyz = vol(u, v, l, mesh=False).reshape(3, u.size).T
+
+    error = xyz - interp_xyz
+    print ('Min error: %f' % np.min(error))
+    print ('Max error: %f' % np.max(error))
+    print ('Mean error: %f' % np.mean(error))
+    
     
 def test_alphavol():
     from alphavol import alpha_shape
@@ -883,7 +908,8 @@ def test_alphavol():
 
     
 if __name__ == '__main__':
-    test_alphavol()
+    test_precision()
+#    test_alphavol()
 #    test_point_position()
 #    test_point_distance_mesh()
 #    test_point_distance()
