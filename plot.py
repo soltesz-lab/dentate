@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
 from matplotlib import gridspec, mlab, rcParams
+from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
@@ -15,6 +17,7 @@ from neuroh5.io import read_population_ranges, read_population_names, read_cell_
 from dentate import utils
 from dentate import spikedata, statedata, stimulus
 from dentate.env import Env
+from dentate.geometry import DG_volume
 
 color_list = ["#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -78,43 +81,6 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, **kwargs):
     return vec
 
 
-def make_geometric_graph(x, y, z, edges):
-    """ Builds a NetworkX graph with xyz node coordinates and the node indices
-        of the end nodes.
-
-        Parameters
-        -----------
-        x: ndarray
-            x coordinates of the points
-        y: ndarray
-            y coordinates of the points
-        z: ndarray
-            z coordinates of the points
-        edges: the (2, N) array returned by compute_delaunay_edges()
-            containing node indices of the end nodes. Weights are applied to
-            the edges based on their euclidean length for use by the MST
-            algorithm.
-
-        Returns
-        ---------
-        g: A NetworkX undirected graph
-
-        Notes
-        ------
-        We don't bother putting the coordinates into the NX graph.
-        Instead the graph node is an index to the column.
-    """
-    import networkx as nx
-    xyz = np.array((x, y, z))
-    def euclidean_dist(i, j):
-        d = xyz[:,i] - xyz[:,j]
-        return np.sqrt(np.dot(d, d))
-
-    g = nx.Graph()
-    for i, j in edges:
-        g.add_edge(i, j, weight=euclidean_dist(i, j))
-    return g
-
 
 def update_bins(bins, binsize, x):
     i = math.floor(x / binsize)
@@ -147,8 +113,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
 
     """
 
-    dx = 100
-    dy = 100
+    dx = 50
+    dy = 50
     
     (population_ranges, _) = read_population_ranges(coords_path)
 
@@ -381,7 +347,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     return ax
 
 
-def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, verbose = False, graphType ='kde'):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -402,26 +368,49 @@ def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, s
     distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
     distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
 
-    dx = round(np.max(distance_U_array) / binSize)
-    dy = round(np.max(distance_V_array) / binSize)
-
     x_min = np.min(distance_U_array)
     x_max = np.max(distance_U_array)
     y_min = np.min(distance_V_array)
     y_max = np.max(distance_V_array)
-
-    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
-
+    
     ax.axis([x_min, x_max, y_min, y_max])
 
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
-    
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+    if graphType == 'histogram1d':
+        bins_U = np.linspace(x_min, x_max, dx)
+        bins_V = np.linspace(y_min, y_max, dy)
+        histoCount_U, bin_edges_U = np.histogram(distance_U_array, bins = bins_U)
+        histoCount_V, bin_edges_V = np.histogram(distance_V_array, bins = bins_V)
+        gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+        ax1 = plt.subplot(gs[0])
+        ax1.bar (bin_edges_U[:-1], histoCount_U, linewidth=1.0)
+        ax1.set_title('Position distribution for %s' % (label), fontsize=fontSize)
+        ax2 = plt.subplot(gs[1])
+        ax2.bar (bin_edges_V[:-1], histoCount_V, linewidth=1.0)
+        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of cells', fontsize=fontSize)
+        ax2.set_ylabel('Number of cells', fontsize=fontSize)
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    elif graphType == 'kde':
+        X, Y, Z    = utils.kde_scipy(distance_U_array, distance_V_array, binSize)
+        p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
@@ -436,7 +425,7 @@ def plot_positions(label, distances, binSize=25., fontSize=14, showFig = True, s
     return ax
 
 
-def plot_coordinates(coords_path, population, namespace, index = 0,
+def plot_coordinates(coords_path, population, namespace, index = 0, graphType = 'scatter', binSize = 0.01, xyz = False,
                         fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot coordinates
@@ -446,9 +435,6 @@ def plot_coordinates(coords_path, population, namespace, index = 0,
     :param population: 
 
     """
-
-    dx = 50
-    dy = 50
     
         
     soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
@@ -459,9 +445,14 @@ def plot_coordinates(coords_path, population, namespace, index = 0,
 
     coord_U = {}
     coord_V = {}
-    for k,v in soma_coords:
-        coord_U[k] = v['U Coordinate'][index]
-        coord_V[k] = v['V Coordinate'][index]
+    if xyz:
+        for k,v in soma_coords:
+            coord_U[k] = v['X Coordinate'][index]
+            coord_V[k] = v['Y Coordinate'][index]
+    else:
+        for k,v in soma_coords:
+            coord_U[k] = v['U Coordinate'][index]
+            coord_V[k] = v['V Coordinate'][index]
     
     coord_U_array = np.asarray([coord_U[k] for k in sorted(coord_U.keys())])
     coord_V_array = np.asarray([coord_V[k] for k in sorted(coord_V.keys())])
@@ -471,11 +462,101 @@ def plot_coordinates(coords_path, population, namespace, index = 0,
     y_min = np.min(coord_V_array)
     y_max = np.max(coord_V_array)
 
-    ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
-    ax.axis([x_min, x_max, y_min, y_max])
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    if graphType == 'scatter':
+        ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
+        ax.axis([x_min, x_max, y_min, y_max])
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(coord_U_array, coord_V_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+
+    if xyz:
+        ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
+        ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+    else:
+        ax.set_xlabel('U coordinate (septal - temporal)', fontsize=fontSize)
+        ax.set_ylabel('V coordinate (supra - infrapyramidal)', fontsize=fontSize)
+        
+    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
     
-    ax.set_xlabel('U coordinate (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('V coordinate (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Coordinates.png' 
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+def plot_projected_coordinates(coords_path, population, namespace, index = 0, graphType = 'scatter', binSize = 10.0, project = 3.1, rotate = None,
+                               fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot coordinates
+
+    :param coords_path:
+    :param namespace: 
+    :param population: 
+
+    """
+    
+        
+    soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
+    
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    coord_X = {}
+    coord_Y = {}
+    for k,v in soma_coords:
+        ucoord = v['U Coordinate'][index]
+        vcoord = v['V Coordinate'][index]
+        xyz = DG_volume (ucoord, vcoord, project, rotate=rotate)
+        coord_X[k] = xyz[0,0]
+        coord_Y[k] = xyz[0,1]
+    
+    coord_X_array = np.asarray([coord_X[k] for k in sorted(coord_X.keys())])
+    coord_Y_array = np.asarray([coord_Y[k] for k in sorted(coord_Y.keys())])
+
+    x_min = np.min(coord_X_array)
+    x_max = np.max(coord_X_array)
+    y_min = np.min(coord_Y_array)
+    y_max = np.max(coord_Y_array)
+
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    if graphType == 'scatter':
+        ax.scatter(coord_X_array, coord_Y_array, alpha=0.1, linewidth=0)
+        ax.axis([x_min, x_max, y_min, y_max])
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(coord_X_array, coord_Y_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+
+    ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
+    ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+        
     ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
     
     if saveFig: 
@@ -559,7 +640,7 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     return ax
 
 
-def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, verbose=False):
+def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=True, verbose=False):
     
     env = Env(configFile=config)
 
@@ -571,37 +652,45 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
     pop_min_extent = None
     for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
 
-        layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-        if layer_count > 0:
-            if pop_max_extent is None:
-                pop_max_extent = np.asarray(max_extent)
-            else:
-                pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
-            if pop_min_extent is None:
-                pop_min_extent = np.asarray(min_extent)
-            else:
-                pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+        for population in populations:
+            layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
+            if layer_count > 0:
+                if pop_max_extent is None:
+                    pop_max_extent = np.asarray(max_extent)
+                else:
+                    pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
+                if pop_min_extent is None:
+                    pop_min_extent = np.asarray(min_extent)
+                else:
+                    pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
     
     if verbose:
         print('Reading coordinates...')
 
-    coords = read_cell_attributes(coords_path, population, namespace=coords_namespace)
-
-    
     xcoords = []
     ycoords = []
     zcoords = []
-    for (k,v) in coords:
-        xcoords.append(v['X Coordinate'][0])
-        ycoords.append(v['Y Coordinate'][0])
-        zcoords.append(v['Z Coordinate'][0])
-        
+    for population in populations:
+        coords = read_cell_attributes(coords_path, population, namespace=coords_namespace)
+
+        for (k,v) in coords:
+            xcoords.append(v['X Coordinate'][0])
+            ycoords.append(v['Y Coordinate'][0])
+            zcoords.append(v['Z Coordinate'][0])
+
     pts = np.concatenate((np.asarray(xcoords).reshape(-1,1), \
                           np.asarray(ycoords).reshape(-1,1), \
                           np.asarray(zcoords).reshape(-1,1)),axis=1)
 
+    from mayavi import mlab
+    
     if verbose:
-        print('Creating volume...')
+        print('Plotting coordinates in volume...')
+
+    mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=scale)
+
+    if verbose:
+        print('Constructing volume...')
 
     from dentate.geometry import make_volume
 
@@ -609,20 +698,14 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
         subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
     else:
         vol = make_volume (-3.95, 3.0, rotate=rotate)
-    
+
     if verbose:
         print('Plotting volume...')
 
-    from mayavi import mlab
     if subvol:
         subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
     else:
         vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
-    
-    if verbose:
-        print('Plotting coordinates in volume...')
-
-    mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=scale)
     
     mlab.show()
 
@@ -706,7 +789,7 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
         z = zcoords[dend_idxs].reshape(-1,)
 
         # Make a NetworkX graph out of our point and edge data
-        g = make_geometric_graph(x, y, z, edges)
+        g = utils.make_geometric_graph(x, y, z, edges)
 
         # Compute minimum spanning tree using networkx
         # nx.mst returns an edge generator
@@ -1126,8 +1209,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -1139,8 +1222,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1162,11 +1245,11 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], sigma=sigma)
+        rate_bin_dict = spikedata.spike_inst_rates(subset, spkdict, timeRange=timeRange, sigma=sigma)
         i = 0
         rate_dict = {}
-        for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
-            rates       = np.asarray(rate_bins)
+        for ind, dct in rate_bin_dict.iteritems():
+            rates       = np.asarray(dct['rate'], dtype=np.float32)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
             rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak index': peak_index }
@@ -1199,7 +1282,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
         del(ind_peak_lst)
         
-        rate_matrix = np.matrix(rate_lst)
+        rate_matrix = np.matrix(rate_lst, dtype=np.float32)
         del(rate_lst)
 
         color = color_list[iplot%len(color_list)]
@@ -1207,6 +1290,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
         plt.title (str(subset), fontsize=fontSize)
 
+        print 'rate_matrix.shape = ', rate_matrix.shape
         im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
                         extent=[timeRange[0], timeRange[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
 
@@ -2150,7 +2234,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     fig, axes = plt.subplots(1, len(include), figsize=figSize)
 
     if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id, verbose=verbose)
+        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id)
         (_, _, _, t)  = trajectory
     else:
         t = None

@@ -1,7 +1,8 @@
 """
 Dentate Gyrus network initialization routines.
 """
-__author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
+__author__ = 'See AUTHORS.md'
+
 from dentate.neuron_utils import *
 import dentate.cells as cells
 import dentate.synapses as synapses
@@ -335,7 +336,7 @@ def connectcells(env, cleanup=True):
 
                 for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
                     for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
-                        delay = (distance / env.connection_velocity[presyn_name]) + 0.1
+                        delay = (distance / env.connection_velocity[presyn_name]) + h.dt
                         this_nc = synapses.mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
@@ -597,24 +598,15 @@ def mkstim(env):
 def init(env):
     """
     Initializes the network by calling mkcells, mkstim, connectcells, connectgjs.
-    Performs optional load balancing.
+    Optionally performs load balancing.
 
     :param env:
     """
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
-    h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
+    h('objref pc, nclist, nc, nil')
     h('strdef datasetPath')
     h('numCells = 0')
-    h('totalNumCells = 0')
-    h('max_walltime_hrs = 0')
-    h('mkcellstime = 0')
-    h('mkstimtime = 0')
-    h('connectcellstime = 0')
-    h('connectgjstime = 0')
-    h('initializetime = 0')
-    h('setuptime = 0')
-    h('results_write_time = 0')
     h.nclist = h.List()
     h.datasetPath = env.datasetPath
     #  new ParallelContext object
@@ -622,13 +614,6 @@ def init(env):
     env.pc = h.pc
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
-    # polymorphic value template
-    h.load_file(env.hoclibPath + '/templates/Value.hoc')
-    # randomstream template
-    h.load_file(env.hoclibPath + '/templates/ranstream.hoc')
-    # stimulus cell template
-    h.load_file(env.hoclibPath + '/templates/StimCell.hoc')
-    h.xopen(env.hoclibPath + '/lib.hoc')
     h.dt = env.dt
     h.tstop = env.tstop
     if env.optldbal or env.optlptbal:
@@ -641,12 +626,6 @@ def init(env):
     if rank == 0:
         logger.info("*** Creating cells...")
     h.startsw()
-
-    h('objref templatePaths, templatePathValue')
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePathValue = h.Value(1, path)
-        h.templatePaths.append(h.templatePathValue)
 
     env.pc.barrier()
     mkcells(env)
@@ -670,7 +649,7 @@ def init(env):
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
     h.startsw()
-    #connectgjs(env)
+    connectgjs(env)
     env.pc.setup_transfer()
     env.pc.set_maxstep(10.0)
     env.connectgjstime = h.stopsw()
@@ -683,16 +662,9 @@ def init(env):
                     dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
                     maxEDist=lfp_config_dict['maxEDist'],
                     seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
-    h.max_walltime_hrs   = env.max_walltime_hrs
-    h.results_write_time = env.results_write_time
-    h.mkcellstime        = env.mkcellstime
-    h.mkstimtime         = env.mkstimtime
-    h.connectcellstime   = env.connectcellstime
-    h.connectgjstime     = env.connectgjstime
-    h.initializetime     = h.stopsw()
-    h.setuptime          = h.mkcellstime + h.mkstimtime + h.connectcellstime + h.connectgjstime + h.initializetime
-    env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time)
-    h.startsw()
+    setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + h.stopsw()
+    max_setup_time       = self.pc.allreduce(setup_time, 2) ## maximum value
+    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
@@ -701,13 +673,12 @@ def init(env):
         ld_bal(env)
         if env.optlptbal:
             lpt_bal(env)
-    h.setuptime = h.setuptime + h.stopsw()
 
 
 def run(env, output=True):
     """
     Runs network simulation. Assumes that procedure `init` has been
-    called with the network configuration proviedd by the `env`
+    called with the network configuration provided by the `env`
     argument.
 
     :param env:

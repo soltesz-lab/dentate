@@ -1,13 +1,13 @@
 from collections import defaultdict, Iterable, namedtuple
 import sys, os.path, string, time, gc, math, datetime, numbers, itertools
 import copy, pprint, logging
-import numpy as np
 import yaml
+import numpy as np
 
 
 class IncludeLoader(yaml.Loader):
     """
-
+    YAML loader with `!include` handler.
     """
     def __init__(self, stream):
         self._root = os.path.split(stream.name)[0]
@@ -101,6 +101,19 @@ def nested_convert_scalars(data):
     return data
 
 
+def list_index(element, lst):
+    """
+
+    :param element:
+    :param lst:
+    :return:
+    """
+    try:
+        index_element = lst.index(element)
+        return index_element
+    except ValueError:
+        return None
+
 def list_find(f, lst):
     """
 
@@ -117,6 +130,21 @@ def list_find(f, lst):
     return None
 
 
+def list_find_all(f, lst):
+    """
+
+    :param f:
+    :param lst:
+    :return:
+    """
+    i=0
+    res=[]
+    for i, x in enumerate(lst):
+        if f(x):
+            res.append(i)
+    return res
+
+
 def list_argsort(f, seq):
     """
     http://stackoverflow.com/questions/3382352/equivalent-of-numpy-argsort-in-basic-python/3383106#3383106
@@ -128,18 +156,45 @@ def list_argsort(f, seq):
     return [i for i,x in sorted(enumerate(seq), key = lambda x: f(x[1]))]
 
 
-def list_index(element, lst):
-    """
+    
+    
+    
+def make_geometric_graph(x, y, z, edges):
+    """ Builds a NetworkX graph with xyz node coordinates and the node indices
+        of the end nodes.
 
-    :param element:
-    :param lst:
-    :return:
+        Parameters
+        -----------
+        x: ndarray
+            x coordinates of the points
+        y: ndarray
+            y coordinates of the points
+        z: ndarray
+            z coordinates of the points
+        edges: the (2, N) array returned by compute_delaunay_edges()
+            containing node indices of the end nodes. Weights are applied to
+            the edges based on their euclidean length for use by the MST
+            algorithm.
+
+        Returns
+        ---------
+        g: A NetworkX undirected graph
+
+        Notes
+        ------
+        We don't bother putting the coordinates into the NX graph.
+        Instead the graph node is an index to the column.
     """
-    try:
-        index_element = lst.index(element)
-        return index_element
-    except ValueError:
-        return None
+    import networkx as nx
+    xyz = np.array((x, y, z))
+    def euclidean_dist(i, j):
+        d = xyz[:,i] - xyz[:,j]
+        return np.sqrt(np.dot(d, d))
+
+    g = nx.Graph()
+    for i, j in edges:
+        g.add_edge(i, j, weight=euclidean_dist(i, j))
+    return g
 
 
 def random_choice_w_replacement(ranstream,n,p):
@@ -261,3 +316,45 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
     s = np.argsort(X,axis=0).ravel()
     return y[s].ravel()
 
+
+def kde_sklearn(x, y, binSize, bandwidth=1.0, **kwargs):
+    """Kernel Density Estimation with Scikit-learn"""
+    from sklearn.neighbors import KernelDensity
+
+    # create grid of sample locations
+    xx, yy = np.mgrid[x.min():x.max():binSize, 
+                      y.min():y.max():binSize]
+
+    data_grid = np.vstack([xx.ravel(), yy.ravel()]).T
+    data  = np.vstack([x, y]).T
+    
+    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
+    kde_skl.fit(data)
+
+    # score_samples() returns the log-likelihood of the samples
+    z = np.exp(kde_skl.score_samples(data_grid))
+    return xx, yy, np.reshape(z, xx.shape)
+
+
+def kde_scipy(x, y, binSize, **kwargs):
+    """Kernel Density Estimation with Scipy"""
+    from scipy.stats import gaussian_kde
+
+    data  = np.vstack([x, y])
+    kde   = gaussian_kde(data, **kwargs)
+
+    x_min = np.min(x)
+    x_max = np.max(x)
+    y_min = np.min(y)
+    y_max = np.max(y)
+
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - x_min) / binSize)
+
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, dx), \
+                         np.linspace(y_min, y_max, dy))
+
+    data_grid = np.vstack([xx.ravel(), yy.ravel()])
+    z    = kde.evaluate(data_grid)
+    
+    return xx, yy, np.reshape(z, xx.shape)

@@ -11,8 +11,8 @@ import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
 import dentate
-from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections, get_volume_distances, get_soma_distances
-from dentate.geometry import make_volume
+from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
+from dentate.geometry import measure_distances
 from dentate.env import Env
 import dentate.utils as utils
 
@@ -33,8 +33,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
-@click.option("--resample", type=int, default=2)
-@click.option("--resolution", type=int, default=15)
+@click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -44,7 +43,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resample, resolution, interp_chunk_size, io_size,
+         synapses_namespace, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     utils.config_logging(verbose)
@@ -54,7 +53,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     rank = comm.rank
 
     env = Env(comm=comm, configFile=config)
-
+    connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapses']
+    connection_config = env.connection_config
     extent      = {}
     soma_coords = {}
 
@@ -66,18 +66,14 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
             input_file.close()
             output_file.close()
     comm.barrier()
-
+        
+    population_ranges = read_population_ranges(coords_path)[0]
+    populations = population_ranges.keys()
+    
     if rank == 0:
         logger.info('Reading population coordinates...')
-    
-    min_l = float('inf')
-    max_l = 0.0
-    population_ranges = read_population_ranges(coords_path)[0]
-    for population in population_ranges.keys():
-        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
-        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
-        min_l = min(min_extent[2], min_l)
-        max_l = max(max_extent[2], max_l)
+
+    for population in populations:
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace)
 
@@ -87,54 +83,10 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
-    rotate = env.geometry['Parametric Surface']['Rotation']
-        
-    obs_dist_u = None
-    coeff_dist_u = None
-    obs_dist_v = None
-    coeff_dist_v = None
+    destination_populations = read_population_names(forest_path)
+    soma_distances = measure_distances(env, comm, soma_coords, allgather=True)
 
-    interp_penalty = 0.15
-    interp_basis = 'imq'
-    vol_res = volume_resolution
-    
-    if rank == 0:
-        logger.info('Creating volume...')
-        ip_volume = make_volume(min_l, max_l, ures=resolution, vres=resolution, lres=resolution,\
-                                rotate=rotate)
-        logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, res=resample, verbose=verbose)
-        (dist_u, obs_dist_u, dist_v, obs_dist_v) = vol_dist
-        logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_dist_u,dist_u,order=1,basis=interp_basis,\
-                                       penalty=interp_penalty,extrapolate=False)
-        coeff_dist_u = ip_dist_u._coeff
-        logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_dist_v,dist_v,order=1,basis=interp_basis,\
-                                       penalty=interp_penalty,extrapolate=False)
-        coeff_dist_v = ip_dist_v._coeff
-        logger.info('Broadcasting volume distance interpolants...')
-        
-    obs_dist_u = comm.bcast(obs_dist_u, root=0)
-    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-    obs_dist_v = comm.bcast(obs_dist_v, root=0)
-    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
-
-    ip_dist_u = RBFInterpolant(obs_dist_u,coeff=coeff_dist_u,order=1,basis=interp_basis,\
-                                   penalty=interp_penalty,extrapolate=False)
-    ip_dist_v = RBFInterpolant(obs_dist_v,coeff=coeff_dist_v,order=1,basis=interp_basis,\
-                                   penalty=interp_penalty,extrapolate=False)
-
-    if rank == 0:
-        logger.info('Computing soma distances...')
-    soma_distances = get_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
-                                        allgather=True, interp_chunk_size=interp_chunk_size, verbose=verbose)
-    
-    connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapse Types']
-
-    populations = read_population_names(forest_path)
-    
-    for destination_population in populations:
+    for destination_population in destination_populations:
 
         if rank == 0:
             logger.info('Generating connection probabilities for population %s...' % destination_population)
@@ -152,12 +104,12 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
         populations_dict = env.modelConfig['Definitions']['Populations']
         generate_uv_distance_connections(comm, populations_dict,
-                                         env.connection_generator,
+                                         connection_config,
                                          connection_prob, forest_path,
-                                         synapse_seed, synapses_namespace, 
-                                         connectivity_seed, cluster_seed, connectivity_namespace, connectivity_path,
+                                         synapse_seed, connectivity_seed, cluster_seed,
+                                         synapses_namespace, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
-                                         verbose=verbose, dry_run=dry_run)
+                                         dry_run=dry_run)
     MPI.Finalize()
 
 if __name__ == '__main__':

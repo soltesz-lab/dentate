@@ -1,6 +1,11 @@
+import itertools
+import networkx as nx
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
-import btmorph
+try:
+    import btmorph
+except Exception:
+    pass
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -1297,6 +1302,31 @@ def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
 
 # ------------------- Methods to specify cells from hoc templates and neuroh5 trees ---------------------------------- #
 
+def make_neurotree_graph(neurotree_dict, return_root=True):
+    """
+    Creates a graph of sections that follows the topological organization of the given neuron.
+    :param neurotree_dict:
+    :return: NetworkX.DiGraph
+    """
+
+    sec_nodes = neurotree_dict['section_topology']['nodes']
+    sec_src   = neurotree_dict['section_topology']['src']
+    sec_dst   = neurotree_dict['section_topology']['dst']
+
+    sec_graph = nx.DiGraph()
+    for i, j in itertools.izip(sec_src, sec_dst):
+        sec_graph.add_edge(i, j)
+
+    root=None
+    if return_root:
+        order = nx.topological_sort(sec_graph)
+        root = next(order)
+
+    if return_root:
+        return (sec_graph, root)
+    else:
+        return sec_graph
+    
 
 def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
     """

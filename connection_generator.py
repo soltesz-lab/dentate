@@ -1,7 +1,5 @@
 
-##
-## Classes and procedures related to neuronal connectivity generation.
-##
+"""Classes and procedures related to neuronal connectivity generation. """
 
 import sys, time, gc, itertools
 from collections import defaultdict
@@ -12,8 +10,9 @@ from rbf.interpolate import RBFInterpolant
 import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-from dentate import utils
-from utils import list_index, random_clustered_shuffle, random_choice_w_replacement
+from dentate import utils, synapses
+from synapses import make_synapse_graph
+from utils import list_find_all, random_clustered_shuffle, random_choice_w_replacement
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -26,7 +25,7 @@ class ConnectionProb(object):
     probabilities across all possible source neurons, given the soma
     coordinates of a destination (post-synaptic) neuron.
     """
-    def __init__(self, destination_population, soma_coords, soma_distances, layer_scale, extent):
+    def __init__(self, destination_population, soma_coords, soma_distances, extent):
         """
         Warning: This method does not produce an absolute probability. It must be normalized so that the total area
         (volume) under the distribution is 1 before sampling.
@@ -75,7 +74,7 @@ class ConnectionProb(object):
 
         destination_distances = self.soma_distances[self.destination_population][destination_gid]
         
-        distances = self.soma_distances([destination_gid])
+        source_distances = self.soma_distances[source_population]
 
         destination_u, destination_v, destination_l  = destination_coords
         destination_distance_u, destination_distance_v = destination_distances
@@ -91,11 +90,11 @@ class ConnectionProb(object):
         max_distance_u = source_width['u'] + source_offset['u']
         max_distance_v = source_width['v'] + source_offset['v']
 
-        for (source_gid, coords) in source_soma_coords.iteritems():
+        for (source_gid, coords) in source_coords.iteritems():
 
             source_u, source_v, source_l = coords
 
-            source_distance_u, source_distance_v  = source_soma_distances[source_gid]
+            source_distance_u, source_distance_v  = source_distances[source_gid]
 
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
@@ -142,17 +141,18 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param swc_type: SWC location for synapse (soma, axon, apical, basal)
     :param syn_type: synapse type (excitatory, inhibitory, neuromodulatory)
     :param population_dict: mapping of population names to population indices
-    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <syn_layer, swc_type, syn_type, syn_proportion>
+    :param projection_synapse_dict: mapping of projection names to a tuple of the form: <type, layers, swc sections, proportions>
     """
     ivd = { v:k for k,v in population_dict.iteritems() }
     projection_lst = []
     projection_prob_lst = []
-    for k, v in projection_synapse_dict.iteritems():
-        if (syn_type in v[2]) and (swc_type in v[1]):
-            ord_index = list_index(syn_layer, v[0])
-            if ord_index is not None:
-                projection_lst.append(population_dict[k])
-                projection_prob_lst.append(v[3][ord_index])
+    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in projection_synapse_dict.iteritems():
+        if (syn_type == syn_config_type) and (swc_type in syn_config_sections):
+            ord_indices = list_find_all(lambda x: x == swc_type, syn_config_sections)
+            for ord_index in ord_indices:
+                if syn_layer == syn_config_layers[ord_index]:
+                    projection_lst.append(population_dict[k])
+                    projection_prob_lst.append(syn_config_proportions[ord_index])
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
@@ -162,6 +162,10 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     else:
        projection = None
 
+    if projection is None:
+        logger.error('Projection is none for syn_type = %s syn_layer = %s swc_type = %s' % (str(syn_type), str(syn_layer), str(swc_type)))
+        print projection_synapse_dict
+        
     if projection is not None:
         return ivd[projection]
     else:
@@ -201,9 +205,6 @@ def generate_synaptic_connections(rank,
                                                                synapse_dict['syn_layers']):
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
                                                population_dict, projection_synapse_dict)
-        if projection is None:
-            logger.error('Projection is none for syn_type = %s swc_type = %s syn_layer = %s' % (str(syn_type), str(swc_type), str(syn_layer)))
-            print projection_synapse_dict
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
@@ -254,7 +255,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                      dry_run=False):
     """Generates connectivity based on U, V distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
-    :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
+    :param connection_config: connection configuration object (instance of env.ConnectionConfig)
     :param connection_prob: ConnectionProb instance
     :param forest_path: location of file with neuronal trees and synapse information
     :param synapse_seed: random seed for synapse partitioning
@@ -290,18 +291,20 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         if rank == 0:
             logger.info('%s -> %s:' % (source_population, destination_population))
             logger.info(str(connection_config[destination_population][source_population]))
-                           
-    projection_synapse_dict = {source_population: (connection_config[destination_population][source_population].synapse_layers,
-                                                   set(connection_config[destination_population][source_population].synapse_locations),
-                                                   set(connection_config[destination_population][source_population].synapse_types),
-                                                   connection_config[destination_population][source_population].synapse_proportions)
+
+    projection_config = connection_config[destination_population]
+    projection_synapse_dict = {source_population:
+                               (projection_config[source_population].type,
+                                projection_config[source_population].layers,
+                                projection_config[source_population].sections,
+                                projection_config[source_population].proportions)
                                 for source_population in source_populations}
     total_count = 0
     gid_count   = 0
     connection_dict = defaultdict(lambda: {})
     projection_dict = {}
-    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, io_size=io_size,
-                                                            cache_size=cache_size, namespace=synapse_namespace, comm=comm):
+    for destination_gid, synapse_dict in NeuroH5CellAttrGen(forest_path, destination_population, namespace=synapse_namespace, \
+                                                            comm=comm, io_size=io_size, cache_size=cache_size):
         last_time = time.time()
         if destination_gid is None:
             logger.info('Rank %i destination gid is None' % rank)

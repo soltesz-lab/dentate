@@ -1,6 +1,10 @@
 ## Parametric surface extents and other properties
 
 Parametric Surface:
+  Origin:
+    U: median
+    V: median
+    L: max
   Minimum Extent:
     Hilus: [0.03142, -0.7225, -3.95]
     GCL:   [0.03142, -0.7225, -1.95]
@@ -36,7 +40,7 @@ Cell Layers:
     AAC: [3.1730, 4.4767, 1.]
     BC: [3.1730, 4.4767, 1.]
     MOPP: [3.1730, 4.4767, 3.1]
-    HCC: [3.0787, 4.4767, 0.]
+    HCC: [3.0787, 4.4767, 1.]
     HC: [3.0787, 4.4767, -1.95]
     IS: [3.0787, 4.4767, -1.95]
 Cell Layer Counts:

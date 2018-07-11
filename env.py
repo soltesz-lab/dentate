@@ -1,15 +1,15 @@
+import numpy as np
 from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
 
-
-ConnectionGenerator = namedtuple('ConnectionGenerator',
-                                 ['synapse_types',
-                                  'synapse_locations',
-                                  'synapse_layers',
-                                  'synapse_proportions',
-                                  'synapse_parameters'])
+ConnectionConfig = namedtuple('ConnectionConfig',
+                                 ['type',
+                                  'sections',
+                                  'layers',
+                                  'proportions',
+                                  'mechanisms'])
 
 
 class Env:
@@ -136,6 +136,9 @@ class Env:
         else:
             self.geometry = None
 
+        if self.geometry['Parametric Surface'].has_key('Origin'):
+            self.parse_origin_coords()
+            
         self.celltypes = self.modelConfig['Cell Types']
         self.cellAttributeInfo = {}
 
@@ -149,8 +152,11 @@ class Env:
         else:
             self.resultsFilePath = "%s_results.h5" % self.modelName
 
+        if self.modelConfig.has_key('Definitions'):
+            self.parse_definitions()
+
         if self.modelConfig.has_key('Connection Generator'):
-            self.load_connection_generator()
+            self.parse_connection_config()
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
@@ -160,7 +166,7 @@ class Env:
             self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
 
         if self.modelConfig.has_key('Input'):
-            self.load_input_config()
+            self.parse_input_config()
 
         self.projection_dict = defaultdict(list)
         if self.datasetPrefix is not None:
@@ -193,7 +199,14 @@ class Env:
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
 
-    def load_input_config(self):
+        if self.hoclibPath:
+            # polymorphic hoc value template
+            h.load_file(self.hoclibPath + '/templates/Value.hoc')
+            # stimulus cell template
+            h.load_file(self.hoclibPath + '/templates/StimCell.hoc')
+            h.xopen(self.hoclibPath + '/lib.hoc')
+
+    def parse_input_config(self):
         """
 
         :return:
@@ -216,45 +229,97 @@ class Env:
 
         self.inputConfig = input_config
 
-    def load_connection_generator(self):
-        """
 
-        :return:
-        """
+    def parse_origin_coords(self):
+        origin_spec = self.geometry['Parametric Surface']['Origin']
+
+        coords = {}
+        for key in ['U','V','L']:
+            spec = origin_spec[key]
+            if isinstance(spec, float):
+                coords[key] = lambda x: spec
+            elif spec == 'median':
+                coords[key] = lambda x: np.median(x)
+            elif spec == 'mean':
+                coords[key] = lambda x: np.mean(x)
+            elif spec == 'min':
+                coords[key] = lambda x: np.min(x)
+            elif spec == 'max':
+                coords[key] = lambda x: np.max(x)
+            else:
+                raise ValueError
+        self.geometry['Parametric Surface']['Origin'] = coords
+
+    def parse_definitions(self):
         populations_dict = self.modelConfig['Definitions']['Populations']
         self.pop_dict = populations_dict
         syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
         self.syntypes_dict = syntypes_dict
         swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
+        self.swctypes_dict = swctypes_dict
         layers_dict      = self.modelConfig['Definitions']['Layers']
-        synapse_parameters = self.modelConfig['Connection Generator']['Synapse Parameters']
-        synapse_types    = self.modelConfig['Connection Generator']['Synapse Types']
-        synapse_locs     = self.modelConfig['Connection Generator']['Synapse Locations']
-        synapse_layers   = self.modelConfig['Connection Generator']['Synapse Layers']
-        synapse_proportions   = self.modelConfig['Connection Generator']['Synapse Proportions']
-        self.connection_velocity = self.modelConfig['Connection Generator']['Connection Velocity']
-        syn_mech_names = self.modelConfig['Connection Generator']['Synapse Mechanisms']
-        syn_param_rules = self.modelConfig['Connection Generator']['Synapse Parameter Rules']
-        self.synapse_attributes = SynapseAttributes(syn_mech_names, syn_param_rules)
-        connection_generator_dict = {}
+        self.layers_dict = layers_dict
         
-        for (key_postsyn, val_syntypes) in synapse_types.iteritems():
-            connection_generator_dict[key_postsyn]  = {}
+    def parse_connection_config(self):
+        """
+
+        :return:
+        """
+        connection_config = self.modelConfig['Connection Generator']
+        
+        self.connection_velocity = connection_config['Connection Velocity']
+
+        syn_mech_names  = connection_config['Synapse Mechanisms']
+        syn_param_rules = connection_config['Synapse Parameter Rules']
+
+        self.synapse_attributes = SynapseAttributes(syn_mech_names, syn_param_rules)
+
+        synapse_config = connection_config['Synapses']
+        connection_dict = {}
+        
+        for (key_postsyn, val_syntypes) in synapse_config.iteritems():
+            connection_dict[key_postsyn]  = {}
             
-            for (key_presyn, val_syntypes) in val_syntypes.iteritems():
-                val_synlocs     = synapse_locs[key_postsyn][key_presyn]
-                val_synlayers   = synapse_layers[key_postsyn][key_presyn]
-                val_proportions = synapse_proportions[key_postsyn][key_presyn]
-                val_synparams   = synapse_parameters[key_postsyn][key_presyn]
-                val_syntypes1  = [syntypes_dict[val_syntype] for val_syntype in val_syntypes]
-                val_synlocs1   = [swctypes_dict[val_synloc] for val_synloc in val_synlocs]
-                val_synlayers1 = [layers_dict[val_synlayer] for val_synlayer in val_synlayers]
+            for (key_presyn, syn_dict) in val_syntypes.iteritems():
+                val_type        = syn_dict['type']
+                val_synsections = syn_dict['sections']
+                val_synlayers   = syn_dict['layers']
+                val_proportions = syn_dict['proportions']
+                val_synparams   = syn_dict['mechanisms']
+
+                res_type = self.syntypes_dict[val_type]
+                res_synsections = []
+                res_synlayers = []
+                for name in val_synsections:
+                    res_synsections.append(self.swctypes_dict[name])
+                for name in val_synlayers:
+                    res_synlayers.append(self.layers_dict[name])
                 
-                connection_generator_dict[key_postsyn][key_presyn] = \
-                    ConnectionGenerator(val_syntypes1, val_synlocs1, val_synlayers1, val_proportions, val_synparams)
+                connection_dict[key_postsyn][key_presyn] = \
+                    ConnectionConfig(res_type, \
+                                     res_synsections, \
+                                     res_synlayers, \
+                                     val_proportions, \
+                                     val_synparams)
 
-        self.connection_generator = connection_generator_dict
 
+            config_dict = defaultdict(lambda: 0.0)
+            for (key_presyn, conn_config) in connection_dict[key_postsyn].iteritems():
+                for (s,l,p) in itertools.izip(conn_config.sections, \
+                                              conn_config.layers, \
+                                              conn_config.proportions):
+                    config_dict[(conn_config.type, s, l)] += p
+                                              
+            for (k,v) in config_dict.iteritems():
+                try:
+                    assert(v == 1.0)
+                except Exception as e:
+                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' % (key_postsyn, str(k), v))
+                    raise e
+                    
+        self.connection_config = connection_dict
+
+        
     def load_celltypes(self):
         """
 
@@ -293,6 +358,13 @@ class Env:
         if not self.celltypes.has_key(popName):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
+
+        h('objref templatePaths, templatePathValue')
+        h.templatePaths = h.List()
+        for path in env.templatePaths:
+            h.templatePathValue = h.Value(1, path)
+            h.templatePaths.append(h.templatePathValue)
+
         if not hasattr(h, templateName):
             if 'templateFile' in self.celltypes[popName]:
                 templateFile = self.celltypes[popName]['templateFile']
@@ -302,11 +374,11 @@ class Env:
                         templateFilePath = templatePath + '/' + templateFile
                         break
                 if templateFilePath is None:
-                    raise IOError('Env.load_cell_templates: population: %s; templateFile not found: %s' %
+                    raise IOError('Env.load_cell_templates: population: %s; template not found: %s' %
                                   (popName, templateFile))
                 h.load_file(templateFilePath)
                 if rank == 0 and self.verbose:
-                    self.logger.info('load_cell_templates: population: %s; templateFile loaded: %s' % \
+                    self.logger.info('load_cell_templates: population: %s; template loaded: %s' % \
                                 (popName, templateFilePath))
             else:
                 h.find_template(self.pc, h.templatePaths, templateName)

@@ -143,7 +143,7 @@ class RBFSurface(object):
         hrv = np.interp(newvndxs, *nvs)
         return hru, hrv
 
-    def ev(self, su, sv, chunk_size=1000):
+    def ev(self, su, sv, mesh=True, chunk_size=1000):
         """Get point(s) in surface at (su, sv).
 
         Parameters
@@ -155,9 +155,13 @@ class RBFSurface(object):
         Returns an array of shape len(u) x len(v) x 3
         """
 
-        U, V = np.meshgrid(su, sv)
-        uv_s = np.array([U.ravel(),V.ravel()]).T
+        if mesh:
+            U, V = np.meshgrid(su, sv)
+        else:
+            U = su
+            V = sv
 
+        uv_s = np.array([U.ravel(),V.ravel()]).T
         X = self._xsrf(uv_s)
         Y = self._ysrf(uv_s)
         Z = self._zsrf(uv_s,)
@@ -422,8 +426,8 @@ def test_uv_isospline():
     
     srf.mplot_surface(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
     
-    #mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
-    #mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
+    mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
+    mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
     
     mlab.show()
     

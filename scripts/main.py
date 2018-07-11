@@ -1,7 +1,10 @@
+#!/usr/bin/env python
 """
-Dentate Gyrus model initialization script
+Dentate Gyrus model simulation script.
+
+
 """
-__author__ = 'Ivan Raikov, Aaron D. Milstein, Grace Ng'
+
 import sys, click, os
 from mpi4py import MPI
 import numpy as np
@@ -27,27 +30,32 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
-@click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-paths", type=str, default='../templates')
+@click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False),
+                  help="path to model configuration file")
+@click.option("--template-paths", type=str, default='templates', help="colon-separated list of paths to directories containing hoc cell templates")
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='..')
-@click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--results-id", type=str, required=False, default='')
-@click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--io-size", type=int, default=0)
-@click.option("--vrecord-fraction", type=float, default=0.001)
-@click.option("--coredat", is_flag=True)
-@click.option("--tstop", type=int, default=1)
-@click.option("--v-init", type=float, default=-75.0)
-@click.option("--stimulus-onset", type=float, default=1.0)
-@click.option("--max-walltime-hours", type=float, default=1.0)
-@click.option("--results-write-time", type=float, default=360.0)
-@click.option("--dt", type=float, default=0.025)
-@click.option("--ldbal", is_flag=True)
-@click.option("--lptbal", is_flag=True)
-@click.option('--verbose', '-v', is_flag=True)
-@click.option('--dry-run', is_flag=True)
+              default='..', help='path to directory containing required hoc libraries')
+@click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+                  help='path to directory containing required neuroh5 data files')
+@click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+                  help='path to directory where output files will be written')
+@click.option("--results-id", type=str, required=False, default='',
+                  help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
+@click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
+                  help='name of file specifying assignment of cell gids to MPI ranks')
+@click.option("--io-size", type=int, default=0, help='the number of MPI ranks to be used for I/O operations')
+@click.option("--vrecord-fraction", type=float, default=0.001, help='fraction of cells to record intracellular voltage from')
+@click.option("--coredat", is_flag=True, help='Save CoreNEURON data')
+@click.option("--tstop", type=int, default=1, help='physical time to simulate (ms)')
+@click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
+@click.option("--stimulus-onset", type=float, default=1.0, help='starting time of stimulus (ms)')
+@click.option("--max-walltime-hours", type=float, default=1.0, help='maximum wall time (hours)')
+@click.option("--results-write-time", type=float, default=360.0, help='time to write out results at end of simulation')
+@click.option("--dt", type=float, default=0.025, help='')
+@click.option("--ldbal", is_flag=True, help='estimate load balance based on cell complexity')
+@click.option("--lptbal", is_flag=True, help='optimize load balancing assignment with LPT algorithm')
+@click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
+@click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id, node_rank_file, io_size,
          vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt, ldbal,
          lptbal, verbose, dry_run):

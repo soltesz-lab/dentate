@@ -14,4 +14,5 @@ Intracellular Voltage Sample:      20.0e+6 ## Selecting cells to sample intracel
 Local Field Potential:             30.0e+6 ## Selecting cells to sample extracellular voltage from
 Input Features:                    40.0e+6 ## Input features
 Input Spiketrains:                 50.0e+6 ## Input spike trains
+Soma Locations:                    60.0e+6 ## Soma locations
 

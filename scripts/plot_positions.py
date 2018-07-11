@@ -18,12 +18,14 @@ def list_find (f, lst):
 @click.option("--coords-path", '-c', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", '-d', type=str, default='Arc Distances')
 @click.option("--population", '-i', type=str, required=True)
+@click.option("--graph-type", type=str, default='kde')
+@click.option("--bin-size", type=float, default=50.0)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(coords_path, distances_namespace, population, verbose):
+def main(coords_path, distances_namespace, population, graph_type, bin_size, verbose):
 
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
     
-    plot.plot_positions (population, soma_distances, verbose=verbose)
+    plot.plot_positions (population, soma_distances, binSize=bin_size, verbose=verbose, graphType=graph_type, saveFig=True)
         
 
 if __name__ == '__main__':

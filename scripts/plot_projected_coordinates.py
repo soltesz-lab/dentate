@@ -18,12 +18,13 @@ def list_find (f, lst):
 @click.option("--population", '-i', type=str, required=True)
 @click.option("--coords-namespace", required=False, type=str, default='Coordinates')
 @click.option("--graph-type", type=str, default='scatter')
-@click.option("--xyz", type=bool, default=False, is_flag=True)
+@click.option("--project", type=float, default=3.1)
+@click.option("--rotate", type=float)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(coords_path, population, coords_namespace, graph_type, xyz, verbose):
+def main(coords_path, population, coords_namespace, graph_type, project, rotate, verbose):
         
-    plot.plot_coordinates (coords_path, population, coords_namespace, graphType=graph_type, xyz=xyz, verbose=verbose)
+    plot.plot_projected_coordinates (coords_path, population, coords_namespace, graphType=graph_type, project=project, rotate=rotate, verbose=verbose)
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("plot_coordinates.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find("plot_projected_coordinates.py") != -1,sys.argv)+1):])
