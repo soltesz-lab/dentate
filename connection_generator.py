@@ -320,9 +320,11 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 if len(distances_u) > 0:
                     max_u_distance = np.max(distances_u)
                     min_u_distance = np.min(distances_u)
-                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
+                    if rank == 0:
+                        logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
                 else:
-                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
+                    if rank == 0:
+                        logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
                     
 
             
