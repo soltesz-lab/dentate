@@ -361,6 +361,10 @@ class QuickSim(object):
             h.CVode().active(1)
             h.CVode().atol(self.cvode_atol)
             h.CVode().use_daspk(int(self.daspk))
+            if self.daspk:
+                #  Converts stop behavior to a warning when an initialization condition of IDA is not met
+                eps = h.CVode().dae_init_dteps()
+                h.CVode().dae_init_dteps(eps, 1)
         else:
             h.CVode().active(0)
         self._cvode = state
