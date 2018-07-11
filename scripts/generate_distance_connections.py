@@ -33,6 +33,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
+@click.option("--distances-namespace", type=str, default='Arc Distances')
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
@@ -43,7 +44,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, resolution, interp_chunk_size, io_size,
+         synapses_namespace, distances_namespace, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     utils.config_logging(verbose)
@@ -65,25 +66,34 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
             input_file.close()
             output_file.close()
     comm.barrier()
-        
+
+    
     population_ranges = read_population_ranges(coords_path)[0]
     populations = population_ranges.keys()
     
     if rank == 0:
         logger.info('Reading population coordinates...')
 
+    soma_distances = {}
     for population in populations:
-        coords = bcast_cell_attributes(coords_path, population, 0, \
-                                       namespace=coords_namespace)
+        coords_iter = bcast_cell_attributes(coords_path, population, 0, namespace=coords_namespace)
+        distances_iter = bcast_cell_attributes(coords_path, population, 0, namespace=distances_namespace)
 
-        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0], v['L Coordinate'][0]) for (k,v) in coords }
-        del coords
+        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0], v['L Coordinate'][0]) for (k,v) in coords_iter }
+
+        distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances_iter }
+
+        if len(distances) > 0:
+            soma_distances[population] = distances
+        
         gc.collect()
         extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
                                'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
     destination_populations = read_population_names(forest_path)
-    soma_distances = measure_distances(env, comm, soma_coords, allgather=True)
+
+    if len(soma_distances) == 0:
+        soma_distances = measure_distances(env, comm, soma_coords, allgather=True)
 
     for destination_population in destination_populations:
 
