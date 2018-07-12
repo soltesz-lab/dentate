@@ -247,7 +247,7 @@ def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, un
         raise KeyError('insert_syns_from_mech_attrs: problem locating BiophysCell with gid: %i' % gid)
     cell = env.biophys_cells[postsyn_name][gid]
     syn_attrs = env.synapse_attributes
-    syn_params = env.connection_generator[postsyn_name][presyn_name].synapse_parameters
+    syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
 
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
     syn_id_attr_index_map = syn_attrs.syn_id_attr_index_map[gid]
@@ -326,7 +326,7 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
             raise KeyError('config_syns_from_mech_attrs: insert: problem locating BiophysCell with gid: %i' % gid)
         insert_syn_ids = defaultdict(list)
         for presyn_name in source_syn_ids:
-            syn_names = env.connection_generator[postsyn_name][presyn_name].synapse_parameters.keys()
+            syn_names = env.connection_config[postsyn_name][presyn_name].mechanisms.keys()
             for syn_id in source_syn_ids[presyn_name]:
                 for syn_name in syn_names:
                     if not syn_attrs.has_netcon(gid, syn_id, syn_name):
@@ -339,7 +339,7 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
     syn_count = 0
     syns_set = set()
     for presyn_name in source_syn_ids:
-        syn_names = env.connection_generator[postsyn_name][presyn_name].synapse_parameters.keys()
+        syn_names = env.connection_config[postsyn_name][presyn_name].mechanisms.keys()
         for syn_id in source_syn_ids[presyn_name]:
             for syn_name in syn_names:
                 mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
