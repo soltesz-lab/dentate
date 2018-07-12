@@ -30,13 +30,15 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
-@click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False),
-                  help="path to model configuration file")
-@click.option("--template-paths", type=str, default='templates', help="colon-separated list of paths to directories containing hoc cell templates")
+@click.option("--config-file", required=True, type=str, help='model configuration file name')
+@click.option("--template-paths", type=str, default='templates', 
+              help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='..', help='path to directory containing required hoc libraries')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
                   help='path to directory containing required neuroh5 data files')
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              default='../config', help='path to directory containing network and cell mechanism config files')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
                   help='path to directory where output files will be written')
 @click.option("--results-id", type=str, required=False, default='',
@@ -56,14 +58,15 @@ sys.excepthook = mpi_excepthook
 @click.option("--lptbal", is_flag=True, help='optimize load balancing assignment with LPT algorithm')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
-def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id, node_rank_file, io_size,
-         vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours, results_write_time, dt, ldbal,
-         lptbal, verbose, dry_run):
+def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, results_path, results_id, 
+         node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours, 
+         results_write_time, dt, ldbal, lptbal, verbose, dry_run):
     """
-    :param config_file: str; model configuration file
+    :param config_file: str; model configuration file name
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
     :param hoc_lib_path: str; path to directory containing required hoc libraries
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param config_prefix: str; path to directory containing network and cell mechanism config files
     :param results_path: str; path to directory to export output files
     :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
     :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
@@ -83,10 +86,9 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, results_path
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, results_path, results_id,
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, results_path, results_id,
               node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
               results_write_time, dt, ldbal, lptbal, verbose)
-
     network.init(env)
     if not dry_run:
         network.run(env)
