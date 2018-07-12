@@ -102,7 +102,7 @@ def finalize_bins(bins, binsize):
 
 
 def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                        metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                        binSize = 50., metric='Indegree', normed = False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -112,9 +112,6 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     :param destination_pop: 
 
     """
-
-    dx = 50
-    dy = 50
     
     (population_ranges, _) = read_population_ranges(coords_path)
 
@@ -138,41 +135,63 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     if verbose:
         print 'read distances (%i elements)' % len(soma_distances.keys())
     
-    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
-    ax = plt.gca()
 
     gids = sorted(soma_distances.keys())
     distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
     distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
-
-    if normed:
-        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
-        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
-        H = np.zeros(H1.shape)
-        nz = np.where(H2 > 0.0)
-        H[nz] = np.divide(H1[nz], H2[nz])
-        H[nz] = np.divide(H[nz], np.max(H[nz]))
-    else:
-        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees)
-        
-    if verbose:
-        print 'Plotting in-degree distribution...'
 
     x_min = np.min(distance_U)
     x_max = np.max(distance_U)
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
 
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
     ax.axis([x_min, x_max, y_min, y_max])
 
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
+    if graphType == 'histogram1d':
+        bins_U = np.linspace(x_min, x_max, dx)
+        bins_V = np.linspace(y_min, y_max, dy)
+        histoCount_U, bin_edges_U = np.histogram(distance_U, bins = bins_U, weights=degrees)
+        histoCount_V, bin_edges_V = np.histogram(distance_V, bins = bins_V, weights=degrees)
+        gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+        ax1 = plt.subplot(gs[0])
+        ax1.bar (bin_edges_U[:-1], histoCount_U, linewidth=1.0)
+        ax1.set_title('Vertex metric distribution for %s' % (destination), fontsize=fontSize)
+        ax2 = plt.subplot(gs[1])
+        ax2.bar (bin_edges_V[:-1], histoCount_V, linewidth=1.0)
+        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of edges', fontsize=fontSize)
+        ax2.set_ylabel('Number of edges', fontsize=fontSize)
+    elif graphType == 'histogram2d':
+        if normed:
+            (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
+            (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+            H = np.zeros(H1.shape)
+            nz = np.where(H2 > 0.0)
+            H[nz] = np.divide(H1[nz], H2[nz])
+            H[nz] = np.divide(H[nz], np.max(H[nz]))
+        else:
+            (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees)
+
+        X, Y = np.meshgrid(xedges, yedges)
+        pcm = ax.pcolormesh(X, Y, H.T)
+        fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+        
+    if verbose:
+        print 'Plotting in-degree distribution...'
+
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('%s distribution for destination: %s sources: %s' % (metric, destination, ', '.join(sources)), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):

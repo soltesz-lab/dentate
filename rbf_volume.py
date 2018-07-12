@@ -866,9 +866,9 @@ def test_precision():
 def test_alphavol():
     from alphavol import alpha_shape
     
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
-    obs_l = np.linspace(-1.0, 1., num=10)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-1.0, 1., num=3)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l).reshape(3, u.size).T
@@ -876,7 +876,7 @@ def test_alphavol():
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
     tri = vol.create_triangulation()
-    alpha = alpha_shape([], 210., tri=tri)
+    alpha = alpha_shape([], 120., tri=tri)
 
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)
@@ -908,8 +908,8 @@ def test_alphavol():
 
     
 if __name__ == '__main__':
-    test_precision()
-#    test_alphavol()
+#    test_precision()
+    test_alphavol()
 #    test_point_position()
 #    test_point_distance_mesh()
 #    test_point_distance()

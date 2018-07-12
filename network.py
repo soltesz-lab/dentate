@@ -377,16 +377,12 @@ def connectgjs(env):
     datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
 
     gapjunctions = env.gapjunctions
-    if env.gapjunctionsFile is None:
-        gapjunctionsFilePath = None
-    else:
-        gapjunctionsFilePath = os.path.join(datasetPath,env.gapjunctionsFile)
+    gapjunctionsFilePath = env.gapjunctionsFilePath 
 
-    if gapjunctions is not None:
+    if gapjunctionsFilePath is not None:
 
         h('objref gjlist')
         h.gjlist = h.List()
-        datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
         (graph, a) = bcast_graph(gapjunctionsFilePath,attributes=True,comm=env.comm)
 
         ggid = 2e6

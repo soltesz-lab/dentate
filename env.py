@@ -11,6 +11,13 @@ ConnectionConfig = namedtuple('ConnectionConfig',
                                   'proportions',
                                   'mechanisms'])
 
+GapjunctionConfig = namedtuple('GapjunctionConfig',
+                                 ['sections',
+                                  'connection_probabilities',
+                                  'connection_parameters',
+                                  'coupling_coefficients',
+                                  'coupling_parameters'])
+
 
 class Env:
     """
@@ -166,6 +173,7 @@ class Env:
 
         if self.modelConfig.has_key('Connection Generator'):
             self.parse_connection_config()
+            self.parse_gapjunction_config()
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
@@ -173,6 +181,10 @@ class Env:
             self.load_celltypes()
             self.connectivityFilePath = os.path.join(self.datasetPath, self.modelConfig['Connection Data'])
             self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
+            if self.modelConfig.has_key('Gap Junction Data'):
+                self.gapjunctionFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
+            else:
+                self.gapjunctionFilePath = None
 
         if self.modelConfig.has_key('Input'):
             self.parse_input_config()
@@ -328,6 +340,69 @@ class Env:
                     
         self.connection_config = connection_dict
 
+    def parse_gapjunction_config(self):
+        """
+
+        :return:
+        """
+        connection_config = self.modelConfig['Connection Generator']
+        if connection_config.has_key('Gap Junctions'):
+            gj_config = connection_config['Gap Junctions']
+
+            gj_sections = gj_config['Locations']
+            sections = {}
+            for pair, sec_names in gj_sections.iteritems():
+                sec_idxs = []
+                for sec_name in sec_names:
+                    sec_idxs.append(self.swctypes_dict[sec_name])
+                sections[pair] = sec_idxs
+
+            gj_connection_probs = gj_config['Connection Probabilities']
+            connection_probs = {}
+            for pair, prob in gj_connection_probs.iteritems():
+                connection_probs[pair] = float(prob)
+
+            gj_connection_probs = gj_config['Connection Probabilities']
+            connection_probs = {}
+            for pair, prob in gj_connection_probs.iteritems():
+                connection_probs[pair] = float(prob)
+
+            connection_weights_x = []
+            connection_weights_y = []
+            gj_connection_weights = gj_config['Connection Weights']
+            for x in sorted(gj_connection_weights.keys()):
+                connection_weights_x.append(x)
+                connection_weights_y.append(gj_connection_weights[x])
+
+            connection_params = np.polyfit(np.asarray(connection_weights_x), \
+                                           np.asarray(connection_weights_y), \
+                                           3)
+
+            gj_coupling_coeffs = gj_config['Coupling Coefficients']
+            coupling_coeffs = {}
+            for pair, coeff in gj_coupling_coeffs.iteritems():
+                coupling_coeffs[pair] = float(coeff)
+
+            coupling_weights_x = []
+            coupling_weights_y = []
+            gj_coupling_weights = gj_config['Coupling Weights']
+            for x in sorted(gj_coupling_weights.keys()):
+                coupling_weights_x.append(x)
+                coupling_weights_y.append(gj_coupling_weights[x])
+
+            coupling_params = np.polyfit(np.asarray(coupling_weights_x), \
+                                         np.asarray(coupling_weights_y), \
+                                         3)
+                
+            self.gapjunctions = GapjunctionConfig(sections, \
+                                                  connection_probs, \
+                                                  connection_params, \
+                                                  coupling_coeffs, \
+                                                  coupling_params)
+        else:
+            self.gapjunctions = None
+        
+        
         
     def load_celltypes(self):
         """

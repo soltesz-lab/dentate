@@ -47,8 +47,8 @@ class ConnectionProb(object):
             if extent[source_population].has_key('offset'):
                 extent_offset = extent[source_population]['offset']
             else:
-                extent_offset = None
-            self.width[source_population] = {'u': float(extent_width[0]), 'v': float(extent_width[1])}
+                extent_offset = (0., 0.)
+            self.width[source_population] = {'u': float(extent_width[0]) - float(extent_offset[0]), 'v': float(extent_width[1]) - float(extent_offset[1])}
             self.scale_factor[source_population] = { axis: self.width[source_population][axis] / 3. for axis in self.width[source_population] }
             logger.info('population %s: u width: %f v width: %f u scale_factor: %f v scale_factor: %f' % (source_population, self.width[source_population]['u'], self.width[source_population]['v'], \
                                                                                      self.scale_factor[source_population]['u'], self.scale_factor[source_population]['v']))
