@@ -6,3 +6,4 @@ mpirun.mpich -np 8 python ./scripts/measure_distances.py \
               --coords-path=./datasets/DG_coords_20180710.h5 \
               --io-size=2 -v 
 
+
