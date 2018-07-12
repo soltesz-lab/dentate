@@ -20,7 +20,7 @@ class SimTimeEvent:
         if (int(pc.id()) == 0):
             print "dt = %g" % h.dt
             print "tstop = %g" % h.tstop
-            self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
+        self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
 
     def simstatus(self):
         wt = h.startsw()
