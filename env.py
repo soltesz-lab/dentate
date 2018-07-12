@@ -3,6 +3,7 @@ from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
+from neuron import h
 
 ConnectionConfig = namedtuple('ConnectionConfig',
                                  ['type',
@@ -58,7 +59,9 @@ class Env:
         self.biophys_cells = defaultdict(dict)
 
         self.comm = comm
-
+        if comm is not None:
+            self.pc = h.ParallelContext()
+        
         self.colsep = ' '  # column separator for text data files
         self.bufsize = 100000  # buffer size for text data files
 

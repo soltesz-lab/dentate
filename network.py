@@ -607,9 +607,6 @@ def init(env):
     h('numCells = 0')
     h.nclist = h.List()
     h.datasetPath = env.datasetPath
-    #  new ParallelContext object
-    h.pc   = h.ParallelContext()
-    env.pc = h.pc
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     h.dt = env.dt
@@ -660,6 +657,8 @@ def init(env):
                     dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
                     maxEDist=lfp_config_dict['maxEDist'],
                     seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
+    if rank == 0:
+        logger.info("*** LFP objects instantiated")
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + h.stopsw()
     max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time, max_setup_time)
