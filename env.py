@@ -182,9 +182,9 @@ class Env:
             self.connectivityFilePath = os.path.join(self.datasetPath, self.modelConfig['Connection Data'])
             self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
             if self.modelConfig.has_key('Gap Junction Data'):
-                self.gapjunctionFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
+                self.gapjunctionsFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
             else:
-                self.gapjunctionFilePath = None
+                self.gapjunctionsFilePath = None
 
         if self.modelConfig.has_key('Input'):
             self.parse_input_config()
