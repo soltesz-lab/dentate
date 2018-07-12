@@ -238,7 +238,6 @@ class Env:
 
         self.inputConfig = input_config
 
-
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']
 
@@ -328,7 +327,6 @@ class Env:
                     
         self.connection_config = connection_dict
 
-        
     def load_celltypes(self):
         """
 

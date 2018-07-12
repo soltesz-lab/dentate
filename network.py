@@ -665,7 +665,7 @@ def init(env):
                     maxEDist=lfp_config_dict['maxEDist'],
                     seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + h.stopsw()
-    max_setup_time       = self.pc.allreduce(setup_time, 2) ## maximum value
+    max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
