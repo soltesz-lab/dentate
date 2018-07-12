@@ -263,8 +263,8 @@ def connectcells(env, cleanup=True):
                 if first_gid is None:
                     first_gid = gid
                 for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'AMPA')
-                    if syn_name == 'weight':
+                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'SatAMPA')
+                    if syn_name in ['weight', 'AMPA']:
                         target_syn_name = 'SatAMPA'
                     else:
                         target_syn_name = syn_name
