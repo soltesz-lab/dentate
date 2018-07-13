@@ -17,15 +17,16 @@ class Env:
     Network model configuration.
     """
     def __init__(self, comm=None, configFile=None, templatePaths=None, hoclibPath=None, datasetPrefix=None,
-                 resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0, coredat=False,
-                 tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0, dt=0.025,
-                 ldbal=False, lptbal=False, verbose=False, **kwargs):
+                 configPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0,
+                 coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0,
+                 dt=0.025, ldbal=False, lptbal=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
-        :param configFile: str; model configuration file
+        :param configFile: str; model configuration file name
         :param templatePaths: str; colon-separated list of paths to directories containing hoc cell templates
         :param hoclibPath: str; path to directory containing required hoc libraries
         :param datasetPrefix: str; path to directory containing required neuroh5 data files
+        :param configPrefix: str; path to directory containing network and cell mechanism config files
         :param resultsPath: str; path to directory to export output files
         :param resultsId: str; label for neuroh5 namespaces to write spike and voltage trace data
         :param nodeRankFile: str; name of file specifying assignment of node gids to MPI ranks
@@ -120,8 +121,16 @@ class Env:
                     dval[int(a[0])] = int(a[1])
                 self.nodeRanks = dval
 
+        self.configPrefix = configPrefix
+
         if configFile is not None:
-            with open(configFile) as fp:
+            if configPrefix is not None:
+                configFilePath = self.configPrefix + '/' + configFile
+            else:
+                configFilePath = configFile
+            if not os.path.isfile(configFilePath):
+                raise RuntimeError("missing configuration file")
+            with open(configFilePath) as fp:
                 self.modelConfig = yaml.load(fp, IncludeLoader)
         else:
             raise RuntimeError("missing configuration file")
@@ -229,7 +238,6 @@ class Env:
 
         self.inputConfig = input_config
 
-
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']
 
@@ -319,7 +327,6 @@ class Env:
                     
         self.connection_config = connection_dict
 
-        
     def load_celltypes(self):
         """
 
@@ -361,7 +368,7 @@ class Env:
 
         h('objref templatePaths, templatePathValue')
         h.templatePaths = h.List()
-        for path in env.templatePaths:
+        for path in self.templatePaths:
             h.templatePathValue = h.Value(1, path)
             h.templatePaths.append(h.templatePathValue)
 

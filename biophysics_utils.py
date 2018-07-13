@@ -361,6 +361,10 @@ class QuickSim(object):
             h.CVode().active(1)
             h.CVode().atol(self.cvode_atol)
             h.CVode().use_daspk(int(self.daspk))
+            if self.daspk:
+                #  Converts stop behavior to a warning when an initialization condition of IDA is not met
+                eps = h.CVode().dae_init_dteps()
+                h.CVode().dae_init_dteps(eps, 1)
         else:
             h.CVode().active(0)
         self._cvode = state
@@ -459,33 +463,38 @@ def get_biophys_cell(env, gid, pop_name):
 @click.command()
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
-@click.option("--config-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default='../dentate/config/Small_Scale_Control_log_normal_weights.yaml')
+@click.option("--config-file", required=True, type=str,
+              default='Small_Scale_Control_log_normal_weights.yaml')
 @click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:../dentate/templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='/mnt/s')  # '/mnt/s')  # '../dentate/datasets'
-@click.option("--mech-file-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False),
-              default='mechanisms/20180529_DG_GC_mech.yaml')
+              default='../dentate/datasets')
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              default='../dentate/config')
+@click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
 @click.option('--verbose', '-v', is_flag=True)
-def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, mech_file_path, verbose):
+def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
+         verbose):
     """
 
-    :param gid:
-    :param pop_name:
-    :param config_file:
-    :param template_paths:
-    :param hoc_lib_path:
-    :param dataset_prefix:
-    :param verbose
+    :param gid: int
+    :param pop_name: str
+    :param config_file: str; model configuration file name
+    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+    :param hoc_lib_path: str; path to directory containing required hoc libraries
+    :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param config_prefix: str; path to directory containing network and cell mechanism config files
+    :param mech_file: str; cell mechanism config file name
+    :param verbose: bool
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, verbose=verbose)
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_env(env)
 
     cell = get_biophys_cell(env, gid, pop_name)
+    mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())
 
     init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, correct_cm=True,

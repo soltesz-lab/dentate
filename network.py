@@ -233,8 +233,8 @@ def connectcells(env, cleanup=True):
         else:
             weights_namespace = 'Weights'
 
-        if env.celltypes[postsyn_name].has_key('mech_file_path'):
-            mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
+        if env.celltypes[postsyn_name].has_key('mech_file'):
+            mech_file_path = env.configPrefix + '/' + env.celltypes[postsyn_name]['mech_file']
         else:
             mech_file_path = None
 
@@ -263,14 +263,16 @@ def connectcells(env, cleanup=True):
                 if first_gid is None:
                     first_gid = gid
                 for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'AMPA')
-                    if syn_name == 'weight':
-                        syn_name = 'AMPA'
-                    syn_attrs.load_syn_weights(gid, syn_name, cell_weights_dict[gid]['syn_id'],
+                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'SatAMPA')
+                    if syn_name in ['weight', 'AMPA']:
+                        target_syn_name = 'SatAMPA'
+                    else:
+                        target_syn_name = syn_name
+                    syn_attrs.load_syn_weights(gid, target_syn_name, cell_weights_dict[gid]['syn_id'],
                                                cell_weights_dict[gid][syn_name])
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connectcells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
+                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
         del cell_attributes_dict
 
         first_gid = None
@@ -310,7 +312,7 @@ def connectcells(env, cleanup=True):
 
             edge_iter = graph[postsyn_name][presyn_name]
 
-            syn_params_dict = env.connection_generator[postsyn_name][presyn_name].synapse_parameters
+            syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
             syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
             distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
@@ -663,7 +665,7 @@ def init(env):
                     maxEDist=lfp_config_dict['maxEDist'],
                     seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + h.stopsw()
-    max_setup_time       = self.pc.allreduce(setup_time, 2) ## maximum value
+    max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()

@@ -1,4 +1,4 @@
-from function_lib import *
+from dentate.scripts.function_lib import *
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, read_population_ranges
 import click
@@ -81,8 +81,8 @@ def main(config, weights_path, weights_namespace, connectivity_path, connectivit
         
     edge_iter = graph[postsyn_name][presyn_name]
 
-    connection_dict = env.connection_generator[postsyn_name][presyn_name].connection_properties
-    kinetics_dict = env.connection_generator[postsyn_name][presyn_name].synapse_kinetics
+    connection_dict = env.connection_config[postsyn_name][presyn_name].connection_properties
+    kinetics_dict = env.connection_config[postsyn_name][presyn_name].synapse_kinetics
 
     syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
     distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']

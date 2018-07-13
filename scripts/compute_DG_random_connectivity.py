@@ -171,7 +171,7 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
 
     env = Env(comm=comm, configFile=config)
 
-    connection_config = env.connection_generator    
+    connection_config = env.connection_config    
     proportions = connection_config.synapse_proportions
     layers      = connection_config.synapse_layers
     syn_types   = connection_config.synapse_types
