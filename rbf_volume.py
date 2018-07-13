@@ -521,8 +521,8 @@ class RBFVolume(object):
         # the original ones.
         hru, hrv = self._resample_uv(ures, vres)
         # Sample the surface at the new u, v values and plot
-        meshpts1 = self.ev(hru, hrv, self.l[-1])
-        meshpts2 = self.ev(hru, hrv, self.l[0])
+        meshpts1 = self.ev(hru, hrv, np.max(self.l))
+        meshpts2 = self.ev(hru, hrv, np.min(self.l))
         
         m1 = mlab.mesh(*meshpts1, **kwargs)
         m2 = mlab.mesh(*meshpts2, **kwargs)
@@ -876,7 +876,7 @@ def test_alphavol():
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
     tri = vol.create_triangulation()
-    alpha = alpha_shape([], 120., tri=tri)
+    alpha = alpha_shape([], 300., tri=tri)
 
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)

@@ -660,7 +660,7 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     return ax
 
 
-def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=True, verbose=False):
+def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=False, verbose=False):
     
     env = Env(configFile=config)
 
