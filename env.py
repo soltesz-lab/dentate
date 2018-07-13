@@ -253,7 +253,6 @@ class Env:
 
         self.inputConfig = input_config
 
-
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']
 
@@ -404,8 +403,6 @@ class Env:
                                                   coupling_params)
         else:
             self.gapjunctions = None
-        
-        
         
     def load_celltypes(self):
         """
