@@ -206,7 +206,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     return ax
 
 
-def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source,
+
+def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source, 
                         bin_size=20.0, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex distribution with respect to septo-temporal distance
@@ -244,15 +245,19 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
     dist_bins = {}
     dist_u_bins = {}
+    dist_v_bins = {}
     count = 0
     min_dist = float('inf')
     max_dist = 0.0
     max_dist_u = 0.0
+    max_dist_v = 0.0
+
     for (destination_gid,rest) in g:
         if destination_gid is not None:
             (source_indexes, attr_dict) = rest
             for source_gid in source_indexes:
                 dist_u = destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]
+                dist_v = destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid]
                 dist = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) + \
                        abs(destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid])
                 if verbose:
@@ -262,23 +267,126 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
                 min_dist = min(min_dist, dist)
                 max_dist = max(max_dist, dist)
                 max_dist_u = max(max_dist_u, dist_u)
+                max_dist_v = max(max_dist_v, dist_v)
                 update_bins(dist_bins, bin_size, dist)
                 update_bins(dist_u_bins, bin_size, dist_u)
-            count = count + 1
+                update_bins(dist_v_bins, bin_size, dist_v)
+                count = count + 1
     dist_histoCount, dist_bin_edges = finalize_bins(dist_bins, bin_size)
     dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins, bin_size)
+    dist_v_histoCount, dist_v_bin_edges = finalize_bins(dist_v_bins, bin_size)
     if verbose:
-        print 'min dist = %f; max dist = %f; max dist u = %f' % (min_dist, max_dist, max_dist_u)
+        print 'min dist = %f; max dist = %f; max dist u = %f; max dist v = %f' % (min_dist, max_dist, max_dist_u, max_dist_v)
+    
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fontSize)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2)
     ax1.bar(dist_bin_edges, dist_histoCount, width=bin_size)
+    ax1.set_xlabel('Total distance (um)', fontsize=fontSize)
+    ax1.set_ylabel('Number of connections', fontsize=fontSize)
+        
     ax2.bar(dist_u_bin_edges, dist_u_histoCount, width=bin_size)
+    ax2.set_xlabel('Septal - temporal (um)', fontsize=fontSize)
+    
+    ax3.bar(dist_v_bin_edges, dist_v_histoCount, width=bin_size)
+    ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fontSize)
 
     if saveFig: 
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = '%s to %s.png' % (source, destination)
+            filename = 'Connection distance %s to %s.png' % (source, destination)
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+
+        
+        
+def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, 
+                            bin_size=20.0, fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot vertex distribution with respect to septo-temporal distance for a single postsynaptic cell
+
+    :param connectivity_path:
+    :param coords_path:
+    :param distances_namespace: 
+    :param destination_gid: 
+    :param destination: 
+    :param source: 
+
+    """
+    
+    (population_ranges, _) = read_population_ranges(coords_path)
+
+    destination_start = population_ranges[destination][0]
+    destination_count = population_ranges[destination][1]
+
+    source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
+    destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+
+    source_soma_distance_U = {}
+    source_soma_distance_V = {}
+    destination_soma_distance_U = {}
+    destination_soma_distance_V = {}
+    for k,v in source_soma_distances:
+        source_soma_distance_U[k] = v['U Distance'][0]
+        source_soma_distance_V[k] = v['V Distance'][0]
+    for k,v in destination_soma_distances:
+        destination_soma_distance_U[k] = v['U Distance'][0]
+        destination_soma_distance_V[k] = v['V Distance'][0]
+
+    del(source_soma_distances)
+    del(destination_soma_distances)
+                
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
+
+    source_dist_u = []
+    source_dist_v = []
+    for (this_destination_gid,rest) in g:
+        if this_destination_gid == destination_gid:
+            (source_indexes, attr_dict) = rest
+            for source_gid in source_indexes:
+                dist_u = source_soma_distance_U[source_gid]
+                dist_v = source_soma_distance_V[source_gid]
+                source_dist_u.append(dist_u)
+                source_dist_v.append(dist_v)
+
+            break
+
+    source_dist_u_array = np.asarray(source_dist_u)
+    source_dist_v_array = np.asarray(source_dist_v)
+
+    x_min = np.min(source_dist_u_array)
+    x_max = np.max(source_dist_u_array)
+    y_min = np.min(source_dist_v_array)
+    y_max = np.max(source_dist_v_array)
+
+    dx = (x_max - x_min) / bin_size
+    dy = (y_max - y_min) / bin_size
+
+    (H, xedges, yedges) = np.histogram2d(source_dist_u_array, \
+                                         source_dist_v_array, \
+                                         bins=[dx, dy])
+
+    X, Y = np.meshgrid(xedges, yedges)
+
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    ax.plot(destination_soma_distance_U[destination_gid], \
+            destination_soma_distance_V[destination_gid], \
+            'r+', markersize=12, mew=5)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    ax.set_aspect('equal')
+        
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = 'Connection distance %s to %s gid %i.png' % (source, destination, destination_gid)
             plt.savefig(filename)
 
     if showFig:
