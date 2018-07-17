@@ -584,7 +584,7 @@ class RBFVolume(object):
         return fig
 
 
-    def create_triangulation(self, ures=8, vres=8, **kwargs):
+    def create_triangulation(self, ures=10, vres=10, **kwargs):
         """Compute the triangulation of the volume using scipy's
         `delaunay` function
 
@@ -851,7 +851,7 @@ def test_alphavol():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-1.95, 0.0, num=3)
+    obs_l = np.linspace(-2.5, -1.5, num=3)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l).reshape(3, u.size).T
