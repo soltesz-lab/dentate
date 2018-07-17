@@ -2,7 +2,7 @@
 Based on code from bspline_surface.py
 """
 
-import math
+import math, pickle
 import numpy as np
 from collections import namedtuple
 import rbf
@@ -84,7 +84,7 @@ def cartesian_product(arrays, out=None):
 
 
 class RBFVolume(object):
-    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3):
+    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3, vol_coeffs=None):
         """Parametric (u,v,l) 3D volume approximation.
 
         Parameters
@@ -98,17 +98,43 @@ class RBFVolume(object):
         basis: RBF basis function
         """
 
-        self._create_vol(u, v, l, xyz, order=order, basis=basis)
+        if vol_coeffs is None:
+            self._create_vol(u, v, l, xyz, order=order, basis=basis)
+        else:
+            self._create_vol_from_coeffs(u, v, l, xyz, vol_coeffs, order=order, basis=basis)
 
         self.u  = u
         self.v  = v
         self.l  = l
+        self.xyz = xyz
         self.order = order
 
         self.tri = None
         self.facets = None
         self.facet_counts = None
+
+    @classmethod
+    def load(cls, filename):
         
+        f = open(filename, "rb")
+        s = pickle.load(f)
+        f.close()
+
+        return cls(**s)
+
+    def save(self, filename, basis_name):
+
+        vol_coeffs = ( self._xvol._coeff, self._yvol._coeff, self._zvol._coeff, \
+                       self._uvol._coeff, self._vvol._coeff, self._lvol._coeff )
+        
+        s = { 'u': self.u, 'v': self.v, 'l': self.l, 'xyz': self.xyz, 'order': self.order, \
+              'basis': basis_name, 'vol_coeffs': vol_coeffs }
+        
+        f = open(filename, "wb")
+        pickle.dump(s, f)
+        f.close()
+
+    
     def __call__(self, *args, **kwargs):
         """Convenience to allow evaluation of a RBFVolume
         instance via `foo(0, 0, 0)` instead of `foo.ev(0, 0, 0)`.
@@ -128,6 +154,29 @@ class RBFVolume(object):
         uvol = RBFInterpolant(xyz,uvl_obs[:,0],**kwargs)
         vvol = RBFInterpolant(xyz,uvl_obs[:,1],**kwargs)
         lvol = RBFInterpolant(xyz,uvl_obs[:,2],**kwargs)
+
+        self._xvol = xvol
+        self._yvol = yvol
+        self._zvol = zvol
+        self._uvol = uvol
+        self._vvol = vvol
+        self._lvol = lvol
+
+
+    def _create_vol_from_coeffs(self, obs_u, obs_v, obs_l, xyz, vol_coeffs, **kwargs):
+
+        coeff_x, coeff_y, coeff_z, coeff_u, coeff_v, coeff_l = vol_coeffs
+
+        u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+        uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
+
+        xvol = RBFInterpolant(uvl_obs,coeff=coeff_x,**kwargs)
+        yvol = RBFInterpolant(uvl_obs,coeff=coeff_y,**kwargs)
+        zvol = RBFInterpolant(uvl_obs,coeff=coeff_z,**kwargs)
+
+        uvol = RBFInterpolant(xyz,coeff=coeff_u,**kwargs)
+        vvol = RBFInterpolant(xyz,coeff=coeff_v,**kwargs)
+        lvol = RBFInterpolant(xyz,coeff=coeff_l,**kwargs)
 
         self._xvol = xvol
         self._yvol = yvol
@@ -1009,6 +1058,26 @@ def test_tri():
     
     return vol, tri
 
+def test_load():
+
+    max_u = 11690.
+    max_v = 2956.
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
+    obs_l = np.linspace(-1.0, 1., num=5)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l)
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    vol.save('vol.p', 'phs3')
+    vol_from_file = RBFVolume.load('vol.p')
+
+    print(vol(0.5, 0.5, 0.5))
+    print(vol_from_file(0.5, 0.5, 0.5))
+    
     
 if __name__ == '__main__':
 #    test_precision()
@@ -1019,5 +1088,6 @@ if __name__ == '__main__':
 #    test_mplot_volume()
 #    test_uv_isospline()
 #    test_nodes()
-    test_alphavol()
+#    test_alphavol()
 #    test_tri()
+     test_load()
