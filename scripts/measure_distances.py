@@ -27,7 +27,7 @@ script_name = 'measure_distances.py'
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--interp-chunk-size", type=int, default=1000)
-@click.option("--alpha-radius", type=float, default=210.)
+@click.option("--alpha-radius", type=float, default=120.)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)

@@ -358,3 +358,4 @@ def kde_scipy(x, y, binSize, **kwargs):
     z    = kde.evaluate(data_grid)
     
     return xx, yy, np.reshape(z, xx.shape)
+

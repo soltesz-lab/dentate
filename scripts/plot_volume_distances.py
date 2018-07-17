@@ -12,7 +12,7 @@ script_name = 'plot_volume_distances.py'
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--resolution", type=(int,int,int), default=(33,33,10))
 @click.option("--resample", type=int, default=7)
-@click.option("--alpha-radius", type=float, default=210.)
+@click.option("--alpha-radius", type=float, default=120.)
 @click.option("--graph-type", type=str, default='scatter')
 @click.option("--verbose", "-v", is_flag=True)
 def main(config, resolution, resample, alpha_radius, graph_type, verbose):
@@ -24,16 +24,26 @@ def main(config, resolution, resample, alpha_radius, graph_type, verbose):
 
     layers = env.layers
     rotate = env.geometry['Parametric Surface']['Rotation']
+    min_u = float('inf')
+    max_u = 0.0
+    min_v = float('inf')
+    max_v = 0.0
     min_l = float('inf')
     max_l = 0.0
     for layer in layers.keys():
         min_extent = env.geometry['Parametric Surface']['Minimum Extent'][layer]
         max_extent = env.geometry['Parametric Surface']['Maximum Extent'][layer]
+        min_u = min(min_extent[0], min_u)
+        max_u = max(max_extent[0], max_u)
+        min_v = min(min_extent[1], min_v)
+        max_v = max(max_extent[1], max_v)
         min_l = min(min_extent[2], min_l)
         max_l = max(max_extent[2], max_l)
         
     logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-    ip_volume = make_volume(min_l, max_l, \
+    ip_volume = make_volume((min_u, max_u), \
+                            (min_v, max_v), \
+                            (min_l, max_l), \
                             resolution=resolution, \
                             rotate=rotate)
     logger.info('Computing volume distances...')

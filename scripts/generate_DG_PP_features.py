@@ -5,7 +5,6 @@ from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_populati
 import h5py
 import dentate
 from dentate.env import Env
-from dentate.geometry import DG_volume, make_volume, make_uvl_distance
 from dentate.utils import list_find, list_argsort, get_script_logger
 from dentate.stimulus import generate_spatial_offsets
 

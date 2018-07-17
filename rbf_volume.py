@@ -584,7 +584,7 @@ class RBFVolume(object):
         return fig
 
 
-    def create_triangulation(self, ures=2, vres=2, **kwargs):
+    def create_triangulation(self, ures=8, vres=8, **kwargs):
         """Compute the triangulation of the volume using scipy's
         `delaunay` function
 
@@ -613,9 +613,10 @@ class RBFVolume(object):
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
         hru, hrv = self._resample_uv(ures, vres)
-        volpts = self.ev(hru, hrv, self.l).reshape(3, -1).T
-
-        tri = Delaunay(volpts)
+        hrl = np.asarray([np.min(self.l), np.max(self.l)])
+        
+        volpts = self.ev(hru, hrv, hrl).reshape(3, -1).T
+        tri = Delaunay(volpts, **kwargs)
         self.tri = tri
         
         return tri
@@ -756,24 +757,6 @@ def test_uv_isospline():
     mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
     
     mlab.show()
-
-def test_tri():
-
-    max_u = 11690.
-    max_v = 2956.
-    
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-1.0, 1., num=3)
-
-    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l).reshape(3, u.size)
-
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
-
-    tri = vol.create_triangulation()
-    
-    return vol, tri
     
 
 def test_point_distance_mesh():
@@ -868,15 +851,18 @@ def test_alphavol():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-1.0, 1., num=3)
+    obs_l = np.linspace(-1.95, 0.0, num=3)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l).reshape(3, u.size).T
 
+    print ('Constructing volume...')
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
+    print ('Constructing volume triangulation...')
     tri = vol.create_triangulation()
-    alpha = alpha_shape([], 300., tri=tri)
+    print ('Constructing alpha shape...')
+    alpha = alpha_shape([], 120., tri=tri)
 
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)
@@ -906,10 +892,27 @@ def test_alphavol():
     mlab.show()
     
 
+def test_tri():
+
+    max_u = 11690.
+    max_v = 2956.
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
+    obs_l = np.linspace(-1.0, 1., num=3)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size)
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    tri = vol.create_triangulation()
+    
+    return vol, tri
+
     
 if __name__ == '__main__':
 #    test_precision()
-    test_alphavol()
 #    test_point_position()
 #    test_point_distance_mesh()
 #    test_point_distance()
@@ -917,9 +920,5 @@ if __name__ == '__main__':
 #    test_mplot_volume()
 #    test_uv_isospline()
 #    test_nodes()
+    test_alphavol()
 #    test_tri()
-     
-
-    
-    
-    

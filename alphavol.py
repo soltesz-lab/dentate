@@ -109,7 +109,7 @@ def alpha_shape(pts,radius,tri=None):
 
     ## Delaunay triangulation
     if tri is None:
-        tri = Delaunay(pts)
+        tri = Delaunay(pts,qhull_options="QJ")
 
     
     ## Check for zero volume tetrahedra since
