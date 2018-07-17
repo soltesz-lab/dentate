@@ -1,5 +1,5 @@
 
-import itertools
+import itertools, math, numbers
 from collections import defaultdict
 import numpy as np
 from scipy import signal, interpolate
@@ -7,14 +7,17 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.tri as tri
 from matplotlib import gridspec, mlab, rcParams
+from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpi4py import MPI
 import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, read_trees
-import dentate
+from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
+from dentate import utils
 from dentate import spikedata, statedata, stimulus
 from dentate.env import Env
+from dentate.geometry import DG_volume
 
 color_list = ["#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -78,46 +81,28 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, **kwargs):
     return vec
 
 
-def make_geometric_graph(x, y, z, edges):
-    """ Builds a NetworkX graph with xyz node coordinates and the node indices
-        of the end nodes.
 
-        Parameters
-        -----------
-        x: ndarray
-            x coordinates of the points
-        y: ndarray
-            y coordinates of the points
-        z: ndarray
-            z coordinates of the points
-        edges: the (2, N) array returned by compute_delaunay_edges()
-            containing node indices of the end nodes. Weights are applied to
-            the edges based on their euclidean length for use by the MST
-            algorithm.
+def update_bins(bins, binsize, x):
+    i = math.floor(x / binsize)
+    if i in bins:
+        bins[i] += 1
+    else:
+        bins[i] = 1
 
-        Returns
-        ---------
-        g: A NetworkX undirected graph
-
-        Notes
-        ------
-        We don't bother putting the coordinates into the NX graph.
-        Instead the graph node is an index to the column.
-    """
-    import networkx as nx
-    xyz = np.array((x, y, z))
-    def euclidean_dist(i, j):
-        d = xyz[:,i] - xyz[:,j]
-        return np.sqrt(np.dot(d, d))
-
-    g = nx.Graph()
-    for i, j in edges:
-        g.add_edge(i, j, weight=euclidean_dist(i, j))
-    return g
+        
+def finalize_bins(bins, binsize):
+    imin = int(min(bins.keys()))
+    imax = int(max(bins.keys()))
+    a = [0] * (imax - imin + 1)
+    b = [binsize * k for k in range(imin, imax + 1)]
+    for i in range(imin, imax + 1):
+        if i in bins:
+            a[i - imin] = bins[i]
+    return np.asarray(a), np.asarray(b)
 
 
 def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                        metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                        binSize = 50., metric='Indegree', normed = False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -127,9 +112,6 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     :param destination_pop: 
 
     """
-
-    dx = 100
-    dy = 100
     
     (population_ranges, _) = read_population_ranges(coords_path)
 
@@ -153,33 +135,63 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     if verbose:
         print 'read distances (%i elements)' % len(soma_distances.keys())
     
-    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
-    ax = plt.gca()
 
-    distance_U = np.asarray([ soma_distances[v][0] for v in range(0,len(degrees)) ])
-    distance_V = np.asarray([ soma_distances[v][1] for v in range(0,len(degrees)) ])
-
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
-     # size of each bin in x and y dimensions
-        
-    if verbose:
-        print 'Plotting in-degree distribution...'
+    gids = sorted(soma_distances.keys())
+    distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
+    distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
 
     x_min = np.min(distance_U)
     x_max = np.max(distance_U)
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
 
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
     ax.axis([x_min, x_max, y_min, y_max])
 
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
+    if graphType == 'histogram1d':
+        bins_U = np.linspace(x_min, x_max, dx)
+        bins_V = np.linspace(y_min, y_max, dy)
+        histoCount_U, bin_edges_U = np.histogram(distance_U, bins = bins_U, weights=degrees)
+        histoCount_V, bin_edges_V = np.histogram(distance_V, bins = bins_V, weights=degrees)
+        gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+        ax1 = plt.subplot(gs[0])
+        ax1.bar (bin_edges_U[:-1], histoCount_U, linewidth=1.0)
+        ax1.set_title('Vertex metric distribution for %s' % (destination), fontsize=fontSize)
+        ax2 = plt.subplot(gs[1])
+        ax2.bar (bin_edges_V[:-1], histoCount_V, linewidth=1.0)
+        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of edges', fontsize=fontSize)
+        ax2.set_ylabel('Number of edges', fontsize=fontSize)
+    elif graphType == 'histogram2d':
+        if normed:
+            (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
+            (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+            H = np.zeros(H1.shape)
+            nz = np.where(H2 > 0.0)
+            H[nz] = np.divide(H1[nz], H2[nz])
+            H[nz] = np.divide(H[nz], np.max(H[nz]))
+        else:
+            (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees)
+
+        X, Y = np.meshgrid(xedges, yedges)
+        pcm = ax.pcolormesh(X, Y, H.T)
+        fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+        
+    if verbose:
+        print 'Plotting in-degree distribution...'
+
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('%s distribution for destination: %s sources: %s' % (metric, destination, ', '.join(sources)), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
@@ -194,8 +206,89 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     return ax
 
 
+def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source,
+                        bin_size=20.0, fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot vertex distribution with respect to septo-temporal distance
+
+    :param connectivity_path:
+    :param coords_path:
+    :param distances_namespace: 
+    :param destination: 
+    :param source: 
+
+    """
+    
+    (population_ranges, _) = read_population_ranges(coords_path)
+
+    destination_start = population_ranges[destination][0]
+    destination_count = population_ranges[destination][1]
+
+    source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
+    destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+
+    source_soma_distance_U = {}
+    source_soma_distance_V = {}
+    destination_soma_distance_U = {}
+    destination_soma_distance_V = {}
+    for k,v in source_soma_distances:
+        source_soma_distance_U[k] = v['U Distance'][0]
+        source_soma_distance_V[k] = v['V Distance'][0]
+    for k,v in destination_soma_distances:
+        destination_soma_distance_U[k] = v['U Distance'][0]
+        destination_soma_distance_V[k] = v['V Distance'][0]
+
+    del(source_soma_distances)
+    del(destination_soma_distances)
+                
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
+    dist_bins = {}
+    dist_u_bins = {}
+    count = 0
+    min_dist = float('inf')
+    max_dist = 0.0
+    max_dist_u = 0.0
+    for (destination_gid,rest) in g:
+        if destination_gid is not None:
+            (source_indexes, attr_dict) = rest
+            for source_gid in source_indexes:
+                dist_u = destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]
+                dist = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) + \
+                       abs(destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid])
+                if verbose:
+                    print '%i: dist_u = %f' % (destination_gid, destination_soma_distance_U[destination_gid])
+                    print '%i: dist_u = %f' % (source_gid, source_soma_distance_U[source_gid])
+                    print '%i: %i -> %i: dist = %f; dist_u = %f' % (count, source_gid, destination_gid, dist, dist_u)
+                min_dist = min(min_dist, dist)
+                max_dist = max(max_dist, dist)
+                max_dist_u = max(max_dist_u, dist_u)
+                update_bins(dist_bins, bin_size, dist)
+                update_bins(dist_u_bins, bin_size, dist_u)
+            count = count + 1
+    dist_histoCount, dist_bin_edges = finalize_bins(dist_bins, bin_size)
+    dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins, bin_size)
+    if verbose:
+        print 'min dist = %f; max dist = %f; max dist u = %f' % (min_dist, max_dist, max_dist_u)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.bar(dist_bin_edges, dist_histoCount, width=bin_size)
+    ax2.bar(dist_u_bin_edges, dist_u_histoCount, width=bin_size)
+
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = '%s to %s.png' % (source, destination)
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+
+    
+
 def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
-                       metric='dendrite_length', fontSize=14, showFig = True, saveFig = False, verbose = False):
+                       metric='dendrite_length', metric_index=0, percentile=None, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
 
@@ -213,7 +306,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
         
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
     
-    tree_metrics = { k: v[metric][0] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
+    tree_metrics = { k: v[metric][metric_index] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
         
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -226,6 +319,18 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     
     sorted_keys = sorted(tree_metrics.keys())
     tree_metrics_array = np.array([tree_metrics[k] for k in sorted_keys])
+    tree_metric_stats = (np.min(tree_metrics_array), np.max(tree_metrics_array), np.mean(tree_metrics_array))
+    print ('min: %f max: %f mean: %f' % (tree_metric_stats))
+
+    if percentile is not None:
+        percentile_value = np.percentile(tree_metrics_array, percentile)
+        print '%f percentile value: %f' % (percentile, percentile_value)
+        sample = np.where(tree_metrics_array >= percentile_value)
+        tree_metrics_array = tree_metrics_array[sample]
+        sorted_keys = np.asarray(sorted_keys)[sample]
+        print sorted_keys
+        
+    
     distance_U_array = np.array([distance_U[k] for k in sorted_keys])
     distance_V_array = np.array([distance_V[k] for k in sorted_keys])
 
@@ -235,7 +340,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     y_max = np.max(distance_V_array)
 
     (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, \
-                                         bins=[dx, dy], weights=tree_metrics_array, normed=True)
+                                         bins=[dx, dy], weights=tree_metrics_array)
 
 
     ax.axis([x_min, x_max, y_min, y_max])
@@ -262,30 +367,21 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     return ax
 
 
-def plot_positions(coords_path, population, distances_namespace='Arc Distances', 
-                    fontSize=14, showFig = True, saveFig = False, verbose = False):
+def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, verbose = False, graphType ='kde'):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
-    :param coords_path:
-    :param distances_namespace: 
-    :param population: 
+    :param label: 
+    :param distances: 
 
     """
-
-    dx = 50
-    dy = 50
-    
-        
-    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
-    
         
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
     distance_U = {}
     distance_V = {}
-    for k,v in soma_distances:
+    for k,v in distances:
         distance_U[k] = v['U Distance'][0]
         distance_V[k] = v['V Distance'][0]
     
@@ -296,26 +392,198 @@ def plot_positions(coords_path, population, distances_namespace='Arc Distances',
     x_max = np.max(distance_U_array)
     y_min = np.min(distance_V_array)
     y_max = np.max(distance_V_array)
-
-    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
-
-
+    
     ax.axis([x_min, x_max, y_min, y_max])
 
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
-    
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+    if graphType == 'histogram1d':
+        bins_U = np.linspace(x_min, x_max, dx)
+        bins_V = np.linspace(y_min, y_max, dy)
+        histoCount_U, bin_edges_U = np.histogram(distance_U_array, bins = bins_U)
+        histoCount_V, bin_edges_V = np.histogram(distance_V_array, bins = bins_V)
+        gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+        ax1 = plt.subplot(gs[0])
+        ax1.bar (bin_edges_U[:-1], histoCount_U, linewidth=1.0)
+        ax1.set_title('Position distribution for %s' % (label), fontsize=fontSize)
+        ax2 = plt.subplot(gs[1])
+        ax2.bar (bin_edges_V[:-1], histoCount_V, linewidth=1.0)
+        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of cells', fontsize=fontSize)
+        ax2.set_ylabel('Number of cells', fontsize=fontSize)
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=150).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    elif graphType == 'kde':
+        X, Y, Z    = utils.kde_scipy(distance_U_array, distance_V_array, binSize)
+        p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('Position distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = population+' Positions.png' 
+            filename = label+' Positions.png' 
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+
+def plot_coordinates(coords_path, population, namespace, index = 0, graphType = 'scatter', binSize = 0.01, xyz = False,
+                        fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot coordinates
+
+    :param coords_path:
+    :param namespace: 
+    :param population: 
+
+    """
+    
+        
+    soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
+    
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    coord_U = {}
+    coord_V = {}
+    if xyz:
+        for k,v in soma_coords:
+            coord_U[k] = v['X Coordinate'][index]
+            coord_V[k] = v['Y Coordinate'][index]
+    else:
+        for k,v in soma_coords:
+            coord_U[k] = v['U Coordinate'][index]
+            coord_V[k] = v['V Coordinate'][index]
+    
+    coord_U_array = np.asarray([coord_U[k] for k in sorted(coord_U.keys())])
+    coord_V_array = np.asarray([coord_V[k] for k in sorted(coord_V.keys())])
+
+    x_min = np.min(coord_U_array)
+    x_max = np.max(coord_U_array)
+    y_min = np.min(coord_V_array)
+    y_max = np.max(coord_V_array)
+
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    if graphType == 'scatter':
+        ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
+        ax.axis([x_min, x_max, y_min, y_max])
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(coord_U_array, coord_V_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+
+    if xyz:
+        ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
+        ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+    else:
+        ax.set_xlabel('U coordinate (septal - temporal)', fontsize=fontSize)
+        ax.set_ylabel('V coordinate (supra - infrapyramidal)', fontsize=fontSize)
+        
+    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Coordinates.png' 
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+    
+    return ax
+
+def plot_projected_coordinates(coords_path, population, namespace, index = 0, graphType = 'scatter', binSize = 10.0, project = 3.1, rotate = None,
+                               fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot coordinates
+
+    :param coords_path:
+    :param namespace: 
+    :param population: 
+
+    """
+    
+        
+    soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
+    
+        
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+
+    coord_X = {}
+    coord_Y = {}
+    for k,v in soma_coords:
+        ucoord = v['U Coordinate'][index]
+        vcoord = v['V Coordinate'][index]
+        xyz = DG_volume (ucoord, vcoord, project, rotate=rotate)
+        coord_X[k] = xyz[0,0]
+        coord_Y[k] = xyz[0,1]
+    
+    coord_X_array = np.asarray([coord_X[k] for k in sorted(coord_X.keys())])
+    coord_Y_array = np.asarray([coord_Y[k] for k in sorted(coord_Y.keys())])
+
+    x_min = np.min(coord_X_array)
+    x_max = np.max(coord_X_array)
+    y_min = np.min(coord_Y_array)
+    y_max = np.max(coord_Y_array)
+
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    if graphType == 'scatter':
+        ax.scatter(coord_X_array, coord_Y_array, alpha=0.1, linewidth=0)
+        ax.axis([x_min, x_max, y_min, y_max])
+    elif graphType == 'histogram2d':
+        (H, xedges, yedges) = np.histogram2d(coord_X_array, coord_Y_array, bins=[dx, dy])
+        X, Y = np.meshgrid(xedges, yedges)
+        Hint = H[:-1, :-1]
+        levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
+        cmap = plt.get_cmap('jet')
+        norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+        p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
+        fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+
+    ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
+    ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+        
+    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
+    
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = population+' Coordinates.png' 
             plt.savefig(filename)
 
     if showFig:
@@ -392,10 +660,11 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     return ax
 
 
-def plot_coords_in_volume(population, coords_path, coords_namespace, config, scale=15., subvol=True, rotate=None, verbose=False):
+def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=False, verbose=False):
     
     env = Env(configFile=config)
 
+    rotate = env.geometry['Parametric Surface']['Rotation']
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
 
@@ -403,66 +672,70 @@ def plot_coords_in_volume(population, coords_path, coords_namespace, config, sca
     pop_min_extent = None
     for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
 
-        layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-        if layer_count > 0:
-            if pop_max_extent is None:
-                pop_max_extent = np.asarray(max_extent)
-            else:
-                pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
-            if pop_min_extent is None:
-                pop_min_extent = np.asarray(min_extent)
-            else:
-                pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+        for population in populations:
+            layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
+            if layer_count > 0:
+                if pop_max_extent is None:
+                    pop_max_extent = np.asarray(max_extent)
+                else:
+                    pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
+                if pop_min_extent is None:
+                    pop_min_extent = np.asarray(min_extent)
+                else:
+                    pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
     
     if verbose:
         print('Reading coordinates...')
 
-    coords = read_cell_attributes(coords_path, population, namespace=coords_namespace)
-
-    
     xcoords = []
     ycoords = []
     zcoords = []
-    for (k,v) in coords:
-        xcoords.append(v['X Coordinate'][0])
-        ycoords.append(v['Y Coordinate'][0])
-        zcoords.append(v['Z Coordinate'][0])
-        
+    for population in populations:
+        coords = read_cell_attributes(coords_path, population, namespace=coords_namespace)
+
+        for (k,v) in coords:
+            xcoords.append(v['X Coordinate'][0])
+            ycoords.append(v['Y Coordinate'][0])
+            zcoords.append(v['Z Coordinate'][0])
+
     pts = np.concatenate((np.asarray(xcoords).reshape(-1,1), \
                           np.asarray(ycoords).reshape(-1,1), \
                           np.asarray(zcoords).reshape(-1,1)),axis=1)
 
-    if verbose:
-        print('Creating volume...')
-
-    import DG_volume
-
-    if subvol:
-        subvol = DG_volume.make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
-    else:
-        vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
-    
-    if verbose:
-        print('Plotting volume...')
-
     from mayavi import mlab
-    if subvol:
-        subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
-    else:
-        vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
     
     if verbose:
         print('Plotting coordinates in volume...')
 
     mlab.points3d(*pts.T, color=(1, 1, 0), scale_factor=scale)
+
+    if verbose:
+        print('Constructing volume...')
+
+    from dentate.geometry import make_volume
+
+    if subvol:
+        subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+    else:
+        vol = make_volume (-3.95, 3.0, rotate=rotate)
+
+    if verbose:
+        print('Plotting volume...')
+
+    if subvol:
+        subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
+    else:
+        vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
     
     mlab.show()
 
 
     
-def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05, subvol=True, rotate=None, verbose=False):
+def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05, subvol=True, verbose=False):
     
     env = Env(configFile=config)
+
+    rotate = env.geometry['Parametric Surface']['Rotation']
 
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
@@ -481,18 +754,11 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
                 pop_min_extent = np.asarray(min_extent)
             else:
                 pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
-    
 
-    if verbose:
-        print('Creating volume...')
+    (population_ranges, _) = read_population_ranges(forest_path)
 
-    import DG_volume
-
-    if subvol:
-        subvol = DG_volume.make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
-    else:
-        vol = DG_volume.make_volume (-3.95, 3.0, rotate=rotate)
-    
+    population_start = population_ranges[population][0]
+    population_count = population_ranges[population][1]
 
     import networkx as nx
     from mayavi import mlab
@@ -500,62 +766,73 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
     if verbose:
         print('Plotting trees in volume...')
 
-    (trees, _) = read_trees(forest_path, population)
-    print trees
-    for (_,tree_dict) in trees:
+    #(trees, _) = NeuroH5TreeGen(forest_path, population)
+    if isinstance(sample, numbers.Real):
+        s = np.random.random_sample((population_count,))
+        selection = np.where(s <= sample) + population_start
+    else:
+        selection = list(sample)
 
-        s = np.random.random_sample()
-        if s <= sample:
-            xcoords = tree_dict['x']
-            ycoords = tree_dict['y']
-            zcoords = tree_dict['z']
-            swc_type = tree_dict['swc_type']
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection)
+    for (gid,tree_dict) in tree_iter:
 
-            secnodes = tree_dict['section_topology']['nodes']
-            src      = tree_dict['section_topology']['src']
-            dst      = tree_dict['section_topology']['dst']
+        if verbose:
+            print('%i' % gid)
+        xcoords = tree_dict['x']
+        ycoords = tree_dict['y']
+        zcoords = tree_dict['z']
+        swc_type = tree_dict['swc_type']
+        layer    = tree_dict['layer']
+        secnodes = tree_dict['section_topology']['nodes']
+        src      = tree_dict['section_topology']['src']
+        dst      = tree_dict['section_topology']['dst']
 
-            dend_idxs = np.where(swc_type == 4)[0]
-            dend_idx_set = set(dend_idxs.flat)
+        dend_idxs = np.where(swc_type == 4)[0]
+        dend_idx_set = set(dend_idxs.flat)
 
-            edges = []
-            for sec, nodes in secnodes.iteritems():
-                for i in xrange(1, len(nodes)):
-                    srcnode = nodes[i-1]
-                    dstnode = nodes[i]
-                    if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                        edges.append((srcnode, dstnode))
-            for (s,d) in itertools.izip(src,dst):
-                srcnode = secnodes[s][-1]
-                dstnode = secnodes[d][0]
+        edges = []
+        for sec, nodes in secnodes.iteritems():
+            for i in xrange(1, len(nodes)):
+                srcnode = nodes[i-1]
+                dstnode = nodes[i]
                 if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
                     edges.append((srcnode, dstnode))
+        for (s,d) in itertools.izip(src,dst):
+            srcnode = secnodes[s][-1]
+            dstnode = secnodes[d][0]
+            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                edges.append((srcnode, dstnode))
 
+                
+        x = xcoords[dend_idxs].reshape(-1,)
+        y = ycoords[dend_idxs].reshape(-1,)
+        z = zcoords[dend_idxs].reshape(-1,)
 
-            x = xcoords[dend_idxs].reshape(-1,)
-            y = ycoords[dend_idxs].reshape(-1,)
-            z = zcoords[dend_idxs].reshape(-1,)
+        # Make a NetworkX graph out of our point and edge data
+        g = utils.make_geometric_graph(x, y, z, edges)
 
-            # Make a NetworkX graph out of our point and edge data
-            g = make_geometric_graph(x, y, z, edges)
+        # Compute minimum spanning tree using networkx
+        # nx.mst returns an edge generator
+        edges = nx.minimum_spanning_tree(g).edges(data=True)
+        start_idx, end_idx, _ = np.array(list(edges)).T
+        start_idx = start_idx.astype(np.int)
+        end_idx   = end_idx.astype(np.int)
+        
+        # Plot this with Mayavi
+        plot_graph(x, y, z, start_idx, end_idx, edge_scalars=z[start_idx], \
+                       opacity=0.8, colormap='summer', line_width=width)
 
-            # Compute minimum spanning tree using networkx
-            # nx.mst returns an edge generator
-            edges = nx.minimum_spanning_tree(g).edges(data=True)
-            start_idx, end_idx, _ = np.array(list(edges)).T
-            start_idx = start_idx.astype(np.int)
-            end_idx   = end_idx.astype(np.int)
-
-            # Plot this with Mayavi
-            plot_graph(x, y, z, start_idx, end_idx,
-                        edge_scalars=z[start_idx],
-                        opacity=0.8,
-                        colormap='summer',
-                        line_width=width)
-        else:
-            g = None
-            edges = []
             
+    if verbose:
+        print('Creating volume...')
+
+    from dentate.geometry import make_volume
+
+    if subvol:
+        subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+    else:
+        vol = make_volume (-3.95, 3.0, rotate=rotate)
+
     if verbose:
         print('Plotting volume...')
     if subvol:
@@ -952,8 +1229,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
     comm = MPI.COMM_WORLD
 
-    (population_ranges, N) = read_population_ranges(comm, input_path)
-    population_names  = read_population_names(comm, input_path)
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
 
     pop_num_cells = {}
     for k in population_names:
@@ -965,8 +1242,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (comm, input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, verbose=verbose)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable,
+                                           timeRange=timeRange)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -988,11 +1265,11 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     spkrate_dict = {}
     for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], sigma=sigma)
+        rate_bin_dict = spikedata.spike_inst_rates(subset, spkdict, timeRange=timeRange, sigma=sigma)
         i = 0
         rate_dict = {}
-        for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
-            rates       = np.asarray(rate_bins)
+        for ind, dct in rate_bin_dict.iteritems():
+            rates       = np.asarray(dct['rate'], dtype=np.float32)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
             rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak index': peak_index }
@@ -1025,7 +1302,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
         del(ind_peak_lst)
         
-        rate_matrix = np.matrix(rate_lst)
+        rate_matrix = np.matrix(rate_lst, dtype=np.float32)
         del(rate_lst)
 
         color = color_list[iplot%len(color_list)]
@@ -1033,6 +1310,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
         plt.title (str(subset), fontsize=fontSize)
 
+        print 'rate_matrix.shape = ', rate_matrix.shape
         im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
                         extent=[timeRange[0], timeRange[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
 
@@ -1976,7 +2254,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     fig, axes = plt.subplots(1, len(include), figsize=figSize)
 
     if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id, verbose=verbose)
+        trajectory = stimulus.read_trajectory (comm, input_path, trajectory_id)
         (_, _, _, t)  = trajectory
     else:
         t = None
@@ -1985,12 +2263,12 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     for iplot, population in enumerate(include):
         rate_lst = []
         if verbose:
-            print 'Reading vector stimulus data for population %s...' % population 
+            print 'Reading vector stimulus data from namespace %s for population %s...' % (namespace_id, population )
         for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, namespace_id, population):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
 
-        M = max(M, len(rate))
+        M = max(M, len(rate_lst))
         N = len(rate_lst)
         rate_matrix = np.matrix(rate_lst)
         del(rate_lst)

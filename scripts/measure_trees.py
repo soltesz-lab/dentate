@@ -1,21 +1,24 @@
-import os
-import itertools
+import sys, os, time, itertools, click, logging
+from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
 from neuron import h
-from dentate.utils import *
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 import h5py
 import dentate
 from dentate.env import Env
 import dentate.cells as cells
 import dentate.synapses as synapses
-import click
-import logging
-logging.basicConfig()
+from dentate.utils import list_find, get_script_logger
+
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 script_name="measure_trees.py"
-logger = logging.getLogger(script_name)
 
 
 @click.command()
@@ -42,8 +45,8 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
     :param cache_size:
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
         
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -90,16 +93,30 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
             if gid is not None:
                 logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
+                secnodes_dict = morph_dict['section_topology']['nodes']
 
-                dendrite_area = 0.
-                dendrite_length = 0.
-                for sec in itertools.chain(cell.apical, cell.basal):
-                    dendrite_length = dendrite_length + sec.L
-                    for seg in sec.allseg():
-                        dendrite_area = dendrite_area + h.area(seg.x)
+                apicalidx = set(cell.apicalidx)
+                basalidx  = set(cell.basalidx)
+                
+                dendrite_area_dict = { k+1: 0.0 for k in xrange(0, 4) }
+                dendrite_length_dict = { k+1: 0.0 for k in xrange(0, 4) }
+                for (i, sec) in enumerate(cell.sections):
+                    if (i in apicalidx) or (i in basalidx):
+                        secnodes = secnodes_dict[i]
+                        prev_layer = None
+                        for seg in sec.allseg():
+                            L     = seg.sec.L
+                            nseg  = seg.sec.nseg
+                            seg_l = L/nseg
+                            seg_area = h.area(seg.x)
+                            layer = cells.get_node_attribute('layer', morph_dict, seg.sec, secnodes, seg.x)
+                            layer = layer if layer > 0 else (prev_layer if prev_layer is not None else 1)
+                            prev_layer = layer
+                            dendrite_length_dict[layer] += seg_l
+                            dendrite_area_dict[layer] += seg_area
 
-                measures_dict[gid] = { 'dendrite_area': np.asarray([dendrite_area], dtype=np.float32), \
-                                       'dendrite_length': np.asarray([dendrite_length], dtype=np.float32) }
+                measures_dict[gid] = { 'dendrite_area': np.asarray([ dendrite_area_dict[k] for k in sorted(dendrite_area_dict.keys()) ], dtype=np.float32), \
+                                       'dendrite_length': np.asarray([ dendrite_length_dict[k] for k in sorted(dendrite_length_dict.keys()) ], dtype=np.float32) }
                     
                 del cell
                 count += 1
@@ -108,6 +125,7 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
         append_cell_attributes(output_path, population, measures_dict,
                                namespace='Tree Measurements', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                value_chunk_size=value_chunk_size, cache_size=cache_size)
+    MPI.Finalize()
 
 
 

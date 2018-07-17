@@ -15,12 +15,14 @@ script_name = 'plot_vertex_metrics.py'
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--normed", type=bool, default=False, is_flag=True)
-@click.option("--metric", type=str, default='Indegree')
+@click.option("--metric", '-m', type=str, default='Indegree')
+@click.option("--graph-type", type=str, default='histogram2d')
+@click.option("--bin-size", type=float, default=50.)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, normed, metric, font_size, verbose):
+def main(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, normed, metric, graph_type, bin_size, font_size, verbose):
     plot.plot_vertex_metrics (connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace,
-                                destination, sources, metric=metric, normed=normed, fontSize=font_size,
+                                destination, sources, metric=metric, normed=normed, fontSize=font_size, binSize=bin_size, graphType=graph_type,
                                 saveFig=True, verbose=verbose)
 
 if __name__ == '__main__':

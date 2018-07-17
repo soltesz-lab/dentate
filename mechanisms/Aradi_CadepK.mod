@@ -2,7 +2,7 @@
 
 
 NEURON {
-	SUFFIX CadepK
+	SUFFIX CadepK_orig
 	USEION ca READ ica
 	USEION k READ ek WRITE ik
 	RANGE gbkbar, gskbar, gbar, i, ask, bsk, gsk, gbk, isk, ibk

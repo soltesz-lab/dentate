@@ -1,17 +1,15 @@
 
-import sys, os, time, gc
+import sys, os, time, gc, click, logging
+from collections import defaultdict
+from itertools import izip_longest, izip
+import numpy as np
 from mpi4py import MPI
 import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
 from dentate import stimulus, utils
-import numpy as np
-from collections import defaultdict
-import click
-from itertools import izip_longest, izip
-import logging
-logging.basicConfig()
+
 
 
 """
@@ -27,7 +25,6 @@ TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the 
 """
 
 script_name = 'generate_structured_weights_as_cell_attr.py'
-logger = logging.getLogger(script_name)
 
 local_random = np.random.RandomState()
 
@@ -75,8 +72,8 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     :param dry_run:  bool
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank

@@ -1,18 +1,14 @@
-import sys, os, time, gc, itertools
+
+import sys, os, time, gc, itertools, random, click, logging
 from mpi4py import MPI
 import numpy as np
 import dlib
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
-from dentate.DG_volume import DG_volume, make_volume, make_uvl_distance
+from dentate.geometry import DG_volume, make_volume, make_uvl_distance
 from dentate.env import Env
-from dentate.utils import list_find, list_argsort
-import random
-import click  # CLI argument processing
-import logging
-logging.basicConfig()
+from dentate.utils import list_find, list_argsort, config_logging, get_script_logger
 
 script_name = 'interpolate_forest_soma_locations.py'
-logger = logging.getLogger(script_name)
 
 def list_concat(a, b, datatype):
     return a+b
@@ -26,14 +22,14 @@ concatOp = MPI.Op.Create(list_concat, commute=True)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
-@click.option("--rotate", type=float)
 @click.option("--reltol", type=float, default=10.)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, forest_path, coords_path, populations, rotate, reltol, optiter, io_size, verbose):
-    if verbose:
-        logger.setLevel(logging.INFO)
+def main(config, forest_path, coords_path, populations, reltol, optiter, io_size, verbose):
+
+    config_logging(verbose)
+    logger = get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank  
@@ -64,6 +60,8 @@ def main(config, forest_path, coords_path, populations, rotate, reltol, optiter,
 
     ## comm0 includes only rank 0
     comm0 = comm.Split(color, 0)
+
+    rotate = env.geometry['Rotation']
     
     for population in populations:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]

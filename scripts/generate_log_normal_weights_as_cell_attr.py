@@ -1,17 +1,14 @@
 
-import sys, os, time, gc
+import sys, os, time, gc, click, logging
+from collections import defaultdict
+from itertools import izip, izip_longest
+import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
+import h5py
 import dentate
 from dentate.env import Env
-from dentate.utils import list_find
-import numpy as np
-import h5py
-from collections import defaultdict
-import click
-from itertools import izip, izip_longest
-import logging
-logging.basicConfig()
+from dentate import utils
 
 
 """
@@ -27,7 +24,7 @@ TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the 
 """
 
 script_name = 'generate_log_normal_weights_as_cell_attr.py'
-logger = logging.getLogger(script_name)
+logger = get_script_logger(script_name)
 
 local_random = np.random.RandomState()
 
@@ -40,6 +37,7 @@ sigma = 0.35
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--weights-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--weights-namespace", type=str, default='Log-Normal Weights')
+@click.option("--weights-name", type=str, default='AMPA')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
@@ -50,7 +48,7 @@ sigma = 0.35
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, weights_path, weights_namespace, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
+def main(config, weights_path, weights_namespace, weights_name, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
     """
 
     :param weights_path: str
@@ -64,8 +62,8 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
     :param dry_run:  bool
     """
 
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -126,7 +124,7 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
                     syn_weight_map[this_syn_id] = this_weight
             weights_dict[destination_gid] = \
                 {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
-                 'weight': np.array(syn_weight_map.values()).astype('float32', copy=False)}
+                 weights_name: np.array(syn_weight_map.values()).astype('float32', copy=False)}
             logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
                         '%.2f s' % (rank, destination, destination_gid, len(syn_weight_map), len(source_weights),
                                     time.time() - local_time))
@@ -158,4 +156,4 @@ def main(config, weights_path, weights_namespace, connections_path, destination,
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

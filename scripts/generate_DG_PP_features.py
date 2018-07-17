@@ -1,18 +1,15 @@
-import sys, os, time, gc
+import sys, os, time, gc, random, click, logging
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
 import dentate
 from dentate.env import Env
-from dentate.DG_volume import DG_volume, make_volume, make_uvl_distance
-from dentate.utils import list_find, list_argsort
+from dentate.geometry import DG_volume, make_volume, make_uvl_distance
+from dentate.utils import list_find, list_argsort, get_script_logger
 from dentate.stimulus import generate_spatial_offsets
-import random, click, logging
-logging.basicConfig()
 
 script_name = 'generate_DG_PP_features.py'
-logger = logging.getLogger(script_name)
 
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
@@ -57,8 +54,8 @@ def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_
     :param write_size:
     :param dry_run:
     """
-    if verbose:
-        logger.setLevel(logging.INFO)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -93,7 +90,7 @@ def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_
     feature_type_random = np.random.RandomState(feature_seed_offset - 1)
     
     # every 60 degrees repeats in a hexagonal array
-    modules = range(env.modelConfig['EC']['Grid Cells']['Number of modules'])
+    modules = range(10)
     grid_orientation = [local_random.uniform(0., np.pi / 3.) for i in range(len(modules))]
 
     population_ranges = read_population_ranges(coords_path, comm)[0]

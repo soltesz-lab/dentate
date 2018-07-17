@@ -2,7 +2,7 @@
 
 
 NEURON {
-	SUFFIX Ca
+	SUFFIX Ca_orig
 	USEION ca WRITE ica
 	RANGE gtcabar, gncabar, glcabar, gtca, gnca, glca
 	RANGE ainf, taua, binf, taub, e_ca, gbar, i
