@@ -108,8 +108,9 @@ def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
 
     sec = cell.sections[secidx]
     seg = sec(0.5)
-    gj = ggap(seg)
-    pc.source_var(seg._ref_v, sgid)
+    gj = h.ggap(seg)
+
+    pc.source_var(seg._ref_v, sgid, sec=sec)
     pc.target_var(gj, gj._ref_vgap, dgid)
     
     gjlist.append(gj)
