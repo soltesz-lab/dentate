@@ -84,7 +84,7 @@ def cartesian_product(arrays, out=None):
 
 
 class RBFVolume(object):
-    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs2):
+    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3):
         """Parametric (u,v,l) 3D volume approximation.
 
         Parameters
@@ -694,9 +694,8 @@ class RBFVolume(object):
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
         hru, hrv = self._resample_uv(ures, vres)
-        hrl = np.asarray([np.min(self.l), np.max(self.l)])
         
-        volpts = self.ev(hru, hrv, hrl).reshape(3, -1).T
+        volpts = self.ev(hru, hrv, self.l).reshape(3, -1).T
         tri = Delaunay(volpts, **kwargs)
         self.tri = tri
         
@@ -718,12 +717,30 @@ class RBFVolume(object):
 
 
 
-def test_surface(u, v, l):
+def test_surface(u, v, l, rotate=None):
     import numpy as np
+
+    if rotate is not None:
+        for i in xrange(0, 3):
+            if rotate[i] != 0.:
+                a = float(np.deg2rad(rotate[i]))
+                rot = rotate3d([ 1 if i == j else 0 for j in xrange(0,3) ], a)
+    else:
+        rot = None
+
     x = np.array(-500.* np.cos(u) * (5.3 - np.sin(u) + (1. + 0.138 * l) * np.cos(v)))
     y = np.array(750. * np.sin(u) * (5.5 - 2. * np.sin(u) + (0.9 + 0.114*l) * np.cos(v)))
     z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi-u)))
-    return np.array([x, y, z])
+
+    pts = np.array([x, y, z]).reshape(3, u.size)
+
+    if rot is not None:
+        xyz = np.dot(rot, pts).T
+    else:
+        xyz = pts.T
+
+    return xyz
+
 
 def test_nodes():
     from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -932,16 +949,17 @@ def test_alphavol():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-2.5, -1.5, num=3)
+    obs_l = np.linspace(-3.95, 3.2, num=3)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l).reshape(3, u.size).T
+    xyz = test_surface (u, v, l, rotate=[-35., 0., 0.])
 
     print ('Constructing volume...')
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
     print ('Constructing volume triangulation...')
-    tri = vol.create_triangulation()
+    tri = vol.create_triangulation(ures=4,vres=4)
+
     print ('Constructing alpha shape...')
     alpha = alpha_shape([], 120., tri=tri)
 
