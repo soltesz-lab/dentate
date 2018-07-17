@@ -136,6 +136,86 @@ class RBFVolume(object):
         self._vvol = vvol
         self._lvol = lvol
 
+
+  
+    def _resample_distance_strategy(self):
+        from scipy.spatial import cKDTree
+
+        u, v, l = self.u, self.v, self.l
+        um, vm, lm = np.meshgrid(u,v,l,indexing='ij')
+        uvl = np.array([um.ravel(), vm.ravel(), lm.ravel()]).T
+        x, y, z = self._xvol(uvl), self._yvol(uvl), self._zvol(uvl)
+        xyz = np.asarray([x,y,z],dtype='float32').T
+        tree = cKDTree(xyz)
+
+        distance_dictionary = {}
+        distances = []
+        N = xyz.shape[0]
+        min_distance, min_index = 1.0e9, -1
+        for n in range(N):
+            d, i = tree.query(xyz[n],k=2)
+            d, i = d[-1], i[-1]
+            distance_dictionary[tuple(xyz[n])] = [d,n,i]
+            distances.append(d)
+            if d < min_distance:
+                min_distance, min_index = d, (n,i)
+
+        f = open('distances_curv.txt','w')
+        for distance in distances:
+            f.write(str(distance) + '\n')
+        f.close() 
+
+        f = open('add_points.txt','w')
+        for n in range(N):
+            ndistance, self_index, neighbor_index = distance_dictionary[tuple(xyz[n])]
+            nearest_neighbor = xyz[neighbor_index]
+            rel = np.abs(ndistance - min_distance) / min_distance
+            points_to_add = 2 ** (rel + 2)
+            distance_dictionary[tuple(xyz[n])].append(points_to_add)
+            f.write(str(int(points_to_add)) + '\n')
+        f.close()
+
+        def sample_from_sphere(R,xyz):
+           phi = np.random.uniform(0, 2.*np.pi)
+           costheta = np.random.uniform(-1,1)
+           u = np.random.uniform(0,1)
+           theta = np.arccos(costheta)
+           r = sphere_radius * (u ** (1. / 3.))
+           xnew, ynew, znew = xyz[0] + r * np.sin(theta) * np.cos(phi), xyz[1] + r * np.sin(theta) * np.sin(phi), xyz[2] + r * np.cos(theta)
+ 
+           xyz_new = np.asarray([xnew, ynew, znew], dtype='float32').reshape(1,3)
+           u, v, l = self._uvol(xyz_new), self._vvol(xyz_new), self._lvol(xyz_new)
+           u, v, l = u[0], v[0], l[0]
+           if (u < np.min(self.u) or u > np.max(self.u)):
+               return None, None
+           if (v < np.min(self.v) or v > np.max(self.v)):
+               return None, None
+           if (l < np.min(self.l) or l > np.max(self.l)):
+               return None, None
+           return xyz_new, np.array([u,v,l],dtype='float32').reshape(1,3)
+
+        for xyz_key in distance_dictionary.keys():
+            ndistance, _, _, points_to_add = distance_dictionary[xyz_key]
+            
+            sphere_centroid, sphere_radius = xyz_key, ndistance / 2.
+            for i in range(int(points_to_add)):
+                xyz_new = None
+                while xyz_new is None:
+                    xyz_new, uvl_new = sample_from_sphere(sphere_radius, sphere_centroid)
+                xyz = np.concatenate((xyz, xyz_new))
+                uvl = np.concatenate((uvl, uvl_new))
+
+        f = open('distance_curv_added.txt','w')
+        tree_added = cKDTree(xyz)
+        
+        N2 = xyz.shape[0]
+        for n in range(N2):
+            d, i = tree_added.query(xyz[n],k=2)
+            d, i = d[-1], i[-1] 
+            f.write(str(d) + '\n')
+        f.close()
+        return xyz, uvl
+
     def _resample_uv(self, ures, vres):
         """Helper function to re-sample to u and v parameters
         at the specified resolution
@@ -394,6 +474,7 @@ class RBFVolume(object):
         else:
             return distances
 
+        
     def boundary_distance(self, axis, b1, b2, coords, resolution=0.01):
         """Given U,V,L coordinates returns the distances of the points
         to the U, V boundaries in the corresponding L layer.

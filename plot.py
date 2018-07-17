@@ -786,9 +786,11 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
         if layer_max_extent is None:
             layer_max_extent = np.asarray(max_extent)
         else:
-            layer_max_extent = np.minimum(layer_max_extent, np.asarray(max_extent))
-                    
+            layer_max_extent = np.maximum(layer_max_extent, np.asarray(max_extent))
+
     if verbose:
+        print("Layer minimum extents: %s" % (str(layer_min_extent)))
+        print("Layer maximum extents: %s" % (str(layer_max_extent)))
         print('Reading coordinates...')
 
     pop_min_extent = None
@@ -835,11 +837,13 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
         subvol = make_volume ((pop_min_extent[0], pop_max_extent[0]), \
                               (pop_min_extent[1], pop_max_extent[1]), \
                               (pop_min_extent[2], pop_max_extent[2]), \
+                              resolution=[20, 20, 3], \
                               rotate=rotate)
     else:
         vol = make_volume ((layer_min_extent[0], layer_max_extent[0]), \
                            (layer_min_extent[1], layer_max_extent[1]), \
                            (layer_min_extent[2], layer_max_extent[2]), \
+                           resolution=[20, 20, 3], \
                            rotate=rotate)
 
     if verbose:
@@ -860,23 +864,27 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
 
     rotate = env.geometry['Parametric Surface']['Rotation']
 
+    pop_min_extent = np.asarray(env.geometry['Cell Layers']['Minimum Extent'][population])
+    pop_max_extent = np.asarray(env.geometry['Cell Layers']['Maximum Extent'][population])
+
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
-
-    pop_max_extent = None
-    pop_min_extent = None
+    layer_min_extent = None
+    layer_max_extent = None
     for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+        if layer_min_extent is None:
+            layer_min_extent = np.asarray(min_extent)
+        else:
+            layer_min_extent = np.minimum(layer_min_extent, np.asarray(min_extent))
+        if layer_max_extent is None:
+            layer_max_extent = np.asarray(max_extent)
+        else:
+            layer_max_extent = np.maximum(layer_max_extent, np.asarray(max_extent))
 
-        layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-        if layer_count > 0:
-            if pop_max_extent is None:
-                pop_max_extent = np.asarray(max_extent)
-            else:
-                pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
-            if pop_min_extent is None:
-                pop_min_extent = np.asarray(min_extent)
-            else:
-                pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+    if verbose:
+        print("Layer minimum extents: %s" % (str(layer_min_extent)))
+        print("Layer maximum extents: %s" % (str(layer_max_extent)))
+        print('Reading coordinates...')
 
     (population_ranges, _) = read_population_ranges(forest_path)
 

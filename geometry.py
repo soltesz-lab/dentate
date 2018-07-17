@@ -5,7 +5,7 @@ import sys, time, gc, itertools
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
-import dlib
+#import dlib
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -56,23 +56,32 @@ def DG_volume(u, v, l, rotate=None):
     return xyz
 
 
-def make_volume(extent_u, extent_v, extent_l, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10]):  
-    """Creates an RBF volume based on the parametric equations of the dentate volume."""
-    
-    ures = resolution[0]
-    vres = resolution[1]
-    lres = resolution[2]
-    
+def DG_meshgrid(extent_u, extent_v, extent_l, resolution=[30, 30, 10], rotate=None, return_uvl=False):
+    ures, vres, lres = resolution
+
     obs_u = np.linspace(extent_u[0], extent_u[1], num=ures)
     obs_v = np.linspace(extent_v[0], extent_v[1], num=vres)
     obs_l = np.linspace(extent_l[0], extent_l[1], num=lres)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = DG_volume (u, v, l, rotate=rotate)
+    xyz = DG_volume(u, v, l, rotate=rotate)
+    
+    if return_uvl:
+        return xyz, obs_u, obs_v, obs_l
+    else:
+        return xyz
 
+def make_volume(extent_u, extent_v, extent_l, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10], return_xyz=False):  
+    """Creates an RBF volume based on the parametric equations of the dentate volume."""
+    
+    xyz, obs_u, obs_v, obs_l = DG_meshgrid(extent_u, extent_v, extent_l,\
+                                           rotate=rotate, resolution=resolution, return_uvl=True)
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, basis=basis, order=order)
 
-    return vol
+    if return_xyz:
+        return vol, xyz
+    else:
+        return vol
 
 
 def make_surface(extent_u, extent_v, obs_l, rotate=None, basis=rbf.basis.phs2, order=1, res=[33, 30]):  
