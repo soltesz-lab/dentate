@@ -665,7 +665,7 @@ class RBFVolume(object):
         return fig
 
 
-    def create_triangulation(self, ures=10, vres=10, **kwargs):
+    def create_triangulation(self, ures=4, vres=4, lres=1, **kwargs):
         """Compute the triangulation of the volume using scipy's
         `delaunay` function
 
@@ -693,9 +693,9 @@ class RBFVolume(object):
         
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
-        hru, hrv = self._resample_uv(ures, vres)
+        hru, hrv, hrl = self._resample_uvl(ures, vres, lres)
         
-        volpts = self.ev(hru, hrv, self.l).reshape(3, -1).T
+        volpts = self.ev(hru, hrv, hrl).reshape(3, -1).T
         tri = Delaunay(volpts, **kwargs)
         self.tri = tri
         
@@ -949,7 +949,7 @@ def test_alphavol():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-3.95, 3.2, num=3)
+    obs_l = np.linspace(-3.95, 3.2, num=10)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l, rotate=[-35., 0., 0.])
@@ -958,7 +958,7 @@ def test_alphavol():
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
     print ('Constructing volume triangulation...')
-    tri = vol.create_triangulation(ures=4,vres=4)
+    tri = vol.create_triangulation()
 
     print ('Constructing alpha shape...')
     alpha = alpha_shape([], 120., tri=tri)
@@ -998,7 +998,7 @@ def test_tri():
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
-    obs_l = np.linspace(-1.0, 1., num=3)
+    obs_l = np.linspace(-1.0, 1., num=5)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l).reshape(3, u.size)
