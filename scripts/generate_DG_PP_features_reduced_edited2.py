@@ -1,4 +1,3 @@
-
 import sys, os, time, random
 import numpy as np
 import pickle
@@ -13,7 +12,7 @@ from dentate.stimulus import generate_spatial_offsets
 import logging
 logging.basicConfig()
 
-script_name = 'generate_DG_PP_features_reduced.py'
+script_name = 'generate_DG_PP_features_reduced_edited2.py'
 logger = logging.getLogger(script_name)
 
 io_size=-1
@@ -69,15 +68,13 @@ def init(population='MPP'):
      
     feature_types = feature_type_random.choice(feature_type_values, p=feature_type_probs, size=(NCELLS,))
 
-    scaled_xy_offsets, xy_offsets , _ ,_ = generate_spatial_offsets(NCELLS, arena_dimension=arena_dimension, scale_factor=init_scale_factor, maxit=40)
-    #xy_offsets = generate_spatial_offsets_2(NCELLS, arena_dimension=arena_dimension, scale_factor=init_scale_factor)
+    scaled_xy_offsets, xy_offsets,_,_ = generate_spatial_offsets(NCELLS, arena_dimension=arena_dimension, scale_factor=init_scale_factor, maxit=40)
 
-
-    grid_feature_dict, place_feature_dict = build_cells(NCELLS, population, xy_offsets, scaled_xy_offsets, init_lambda_jitter, init_orientation_jitter, feature_types, grid_orientation, local_random)
+    grid_feature_dict, place_feature_dict = build_cells(NCELLS, population, scaled_xy_offsets, xy_offsets, init_lambda_jitter, init_orientation_jitter, feature_types, grid_orientation, local_random)
  
     return grid_feature_dict, place_feature_dict, xy_offsets, feature_types, grid_orientation
 
-def build_cells(N, population, xy_offsets, scaled_xy_offsets, lambda_jitter, orientation_jitter, feature_types, grid_orientation, local_random):
+def build_cells(N, population, scaled_xy_offsets, xy_offsets, lambda_jitter, orientation_jitter, feature_types, grid_orientation, local_random):
 
     grid_feature_dict, place_feature_dict = {}, {}
     for i in range(N):
@@ -102,10 +99,10 @@ def build_cells(N, population, xy_offsets, scaled_xy_offsets, lambda_jitter, ori
             y_offset = scaled_xy_offsets[i,1]
             feature_dict['X Offset'] = np.array([x_offset],dtype='float32')
             feature_dict['Y Offset'] = np.array([y_offset],dtype='float32')
-            x_offset_reduced = xy_offsets[i,0]
-            y_offset_reduced = xy_offsets[i,1]
-            feature_dict['X Offset Reduced'] = np.array([x_offset_reduced],dtype='float32')
-            feature_dict['Y Offset Reduced'] = np.array([y_offset_reduced],dtype='float32')
+            x_offset = xy_offsets[i,0]
+            y_offset = xy_offsets[i,1]
+            feature_dict['X Offset Reduced'] = np.array([x_offset],dtype='float32')
+            feature_dict['Y Offset Reduced'] = np.array([y_offset],dtype='float32')
             grid_feature_dict[i] = feature_dict
         elif feature_type == 1: #place
             feature_dict = {}
@@ -118,10 +115,10 @@ def build_cells(N, population, xy_offsets, scaled_xy_offsets, lambda_jitter, ori
             y_offset = scaled_xy_offsets[i,1]
             feature_dict['X Offset'] = np.array([x_offset], dtype='float32')
             feature_dict['Y Offset'] = np.array([y_offset], dtype='float32')
-            x_offset_reduced = xy_offsets[i,0]
-            y_offset_reduced = xy_offsets[i,1]
-            feature_dict['X Offset Reduced'] = np.array([x_offset_reduced],dtype='float32')
-            feature_dict['Y Offset Reduced'] = np.array([y_offset_reduced],dtype='float32')
+            x_offset = xy_offsets[i,0]
+            y_offset = xy_offsets[i,1]
+            feature_dict['X Offset Reduced'] = np.array([x_offset], dtype='float32')
+            feature_dict['Y Offset Reduced'] = np.array([y_offset], dtype='float32')
             place_feature_dict[i] = feature_dict
 
     return grid_feature_dict, place_feature_dict
@@ -326,47 +323,40 @@ def list_to_file(fn, r):
     f.close()    
 
 def peak_to_trough(module_cells, modules=modules):
-    module_evaluations = np.asarray([0.0 for _ in np.arange(nmodules)],dtype='float32')
+    evaluations = [0.0 for _ in np.arange(nmodules)]
     for mod in module_cells.keys():
         cells = module_cells[mod]
         module_rate_map = None
-        for (c,cell) in enumerate(cells):
+        for (c, cell) in enumerate(cells):
             rate_map = cell['Rate Map Box']
             if c == 0:
                 nx, ny = rate_map.shape
                 module_rate_map = np.zeros((nx, ny))
             module_rate_map += rate_map
-        module_evaluations[mod] = float(np.max(module_rate_map)) / float(np.min(module_rate_map))
-    return module_evaluations
-            
+        evaluations[mod] = float(np.max(module_rate_map)) / float(np.min(module_rate_map))
+    return evaluations
 
 def fraction_active(module_cells, modules=modules, target=0.3):
-
-    rates = {mod: [] for mod in modules}
+    rates = {mod:[] for mod in modules}
     for mod in module_cells.keys():
         cells = module_cells[mod]
         for cell in cells:
-            if not cell.has_key('Rate Map Box'):
-                rate_map = cell['Rate Map']
-                nx, ny = rate_map.shape
-                cell['Rate Map Box'] = rate_map[int(nx/2)-10:int(nx/2)+10,int(ny/2)-10:int(ny/2)+10]
             rates[mod].append(cell['Rate Map Box'])
-
-
-    nx = 1
+   
+    nx = 1 
     frac_active_dict = {(i,i): {k:None for k in modules} for i in range(nx)}
     diagonal_positions = [ (i,i) for (i,i) in frac_active_dict.keys()]
     for (px, py) in diagonal_positions:
-        for mod in rates.keys():
-            module_maps = np.asarray(rates[mod])
+        for key in rates.keys():
+            module_maps = np.asarray(rates[key])
             position_rates = module_maps[:,px,py]
             frac_active = calculate_fraction_active(position_rates)
-            frac_active_dict[(px,py)][mod] = frac_active
+            frac_active_dict[(px,py)][key] = frac_active
     target_fraction_active = {(i,i): {k: target for k in modules} for (i,i) in frac_active_dict.keys()}
 
     diff_fraction_active = {(i,i): {k: np.abs(target_fraction_active[(i,i)][k]-frac_active_dict[(i,i)][k]) for k in modules} for (i,i) in frac_active_dict.keys()}
     
-    module_error = np.array([ 0. for _ in np.arange(nmodules)])
+    module_error = np.array([ 0. for _ in range(len(modules))])
     for (i,i) in diff_fraction_active.keys():
         pos_errors = diff_fraction_active[(i,i)]
         for module in pos_errors.keys():
@@ -383,25 +373,25 @@ def calculate_fraction_active(rates, threshold=0.1):
     return fraction_active               
             
 
-def cost_func(x, module_cells):
+def cost_func(x, cell_modules):
     sf = x
-    for mod in module_cells.keys():
+    for mod in cell_modules.keys():
         xp, yp = generate_mesh(scale_factor=sf[mod])
-        cells = module_cells[mod]
+        cells = cell_modules[mod]
         for cell in cells:
-            orientation, spacing = cell['Jittered Grid Orientation'][0], cell['Jittered Grid Spacing'][0]
-            xf, yf = cell['X Offset Reduced'][0], cell['Y Offset Reduced'][0]
-            xf_scaled, yf_scaled = xf*sf[mod], yf*sf[mod]
-            cell['X Offset'] = np.array([xf_scaled], dtype='float32')
-            cell['Y Offset'] = np.array([yf_scaled], dtype='float32')
-            rate_map = grid_fill_map(xp, yp ,spacing, orientation, xf*sf[mod], yf*sf[mod])
+            orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
+            xf, yf = cell['X Offset Reduced'], cell['Y Offset Reduced']
+            xf_scaled, yf_scaled = xf * sf[mod], yf * sf[mod]
+            cell['X Offset'], cell['Y Offset'] = xf_scaled, yf_scaled
+            rate_map = grid_fill_map(xp, yp, spacing, orientation, xf_scaled, yf_scaled)
             nx, ny = rate_map.shape
             cell['Rate Map'] = rate_map
-            box_map = rate_map[int(nx/2)-10:int(nx/2)+10, int(ny/2)-10:int(ny/2)+10]
-            cell['Rate Map Box'] = box_map
-    peak_trough_evaluation = np.asarray(peak_to_trough(module_cells, modules=modules), dtype='float32')
-    fraction_active_evaluation = fraction_active(module_cells, modules=modules)
-    return fraction_active_evaluation + peak_trough_evaluation
+            cell['Rate Map Box'] = rate_map[int(nx/2)-10:int(nx/2)+10,int(ny/2)-10:int(ny/2)+10]
+
+    peak_trough_evaluation = peak_to_trough(cell_modules, modules=modules)
+    fraction_active_evaluation = fraction_active(cell_modules, modules=modules)
+
+    return peak_trough_evaluation + fraction_active_evaluation
 
 
 def init_optimize(cache, xp, yp, sf0):
@@ -410,14 +400,14 @@ def init_optimize(cache, xp, yp, sf0):
     from scipy.optimize import minimize
 
     grid, place, xy_offset, feature_types, orientation = cache
-    MPP_grid_module = generate_module_dictionary(grid)
-    MPP_place_module = generate_module_dictionary(place)
+    grid_modules = generate_module_dictionary(grid)
+    place_modules = generate_module_dictionary(place)
 
-    x0 = tuple([sf for sf in sf0])
+    x0 = sf0
     bounds = ([1. for _ in x0], [50. for _ in x0])
     #bounds = ( (1., 500.), (-20., -0.01), (0.01, 20.), (-30., -0.01), (0.01, 30.) )
-    fnc = lambda x: cost_func(x, MPP_grid_module)
-    lsq_output = least_squares(fnc, x0, bounds=bounds, jac='2-point', diff_step=2.5*np.ones(nmodules), xtol=1.0e-12, ftol=1.0e-12, gtol=1.0e-12, verbose=2, tr_solver='exact')
+    fnc = lambda x: cost_func(x, grid_modules)
+    lsq_output = least_squares(fnc, x0, bounds=bounds, jac='2-point', diff_step=np.ones(nmodules)*2.5, xtol=1.0e-12, ftol=1.0e-12, gtol=1.0e-12, verbose=2, tr_solver='exact')
     #nm_output = minimize(fnc, x0, method='Nelder-Mead', options={'disp':True}) 
 
     #print(nm_output.success)
@@ -437,12 +427,12 @@ def init_optimize(cache, xp, yp, sf0):
     print('After %f' % (lsq_output.fun[0]))
 
 def generate_module_dictionary(cells):
-    module_dictionary = {k: [] for k in np.arange(nmodules)}
+    mod = {k:[] for k in np.arange(nmodules)}
     for key in cells.keys():
         cell = cells[key]
-        mod = cell['Module'][0]
-        module_dictionary[mod].append(cell)
-    return module_dictionary
+        curr_mod = cell['Module'][0]
+        mod[curr_mod].append(cell)
+    return mod
 
 
 if __name__ == '__main__':
@@ -463,10 +453,7 @@ if __name__ == '__main__':
     
     scale_factor_0 = init_scale_factor * np.ones(nmodules)
     init_optimize(MPP_info, xp, yp, scale_factor_0)
-
-    #fraction_active(grid_dict_MPP, modules=modules)
-
-    #sys.exit(1)
+    sys.exit(1)
   
     make_hist(grid_dict_MPP, xp, yp, population='MPP',ctype='grid',modules=[0,4,9],xoi=59,yoi=59)
     make_hist(place_dict_MPP, xp, yp, population='MPP',ctype='place',modules=[0,4,9],xoi=59,yoi=59)
