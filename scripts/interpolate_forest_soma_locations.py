@@ -75,7 +75,10 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
 
         if rank == 0:
             logger.info('Constructing volume...')
-        ip_volume = make_volume(min_extent[2], max_extent[2], rotate=rotate)
+        ip_volume = make_volume((min_extent[0], max_extent[0]), \
+                                (min_extent[1], max_extent[1]), \
+                                (min_extent[2], max_extent[2]), \
+                                rotate=rotate)
 
         if rank == 0:
             logger.info('Interpolating forest coordinates...')

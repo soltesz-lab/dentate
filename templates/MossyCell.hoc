@@ -170,7 +170,10 @@ proc topol() {
 
 proc biophys() { local ndends, ndendsec
     
-    forsec all {Ra=100}
+    forsec all {
+        Ra=100
+        cm=0.5
+    }
     
     soma { distance() }
     
@@ -196,24 +199,22 @@ proc biophys() { local ndends, ndendsec
     forsec soma {
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=0.32  //original 0.030 to .055 
-	gkfbar_ichan2=0.0005  //original 0.015
+	gkfbar_ichan2=0.025  //original 0.015
 	gl_ichan2 = 0.000011
-        cm=1
     }
     
     forsec apical {
         for (x,0) {
             insert ichan2
-            if (distance(x) <= 25) {
-	        gnatbar_ichan2=0.15  //original 0.015
-	        gkfbar_ichan2=0.0005
-	        gl_ichan2 = 0.000044
-	        cm=1.4
+            if (distance(x) <= 100) {
+	        gnatbar_ichan2=0.16  //original 0.015
+	        gkfbar_ichan2=0.015
+	        gl_ichan2 = 0.000022
+	        gkbar_cagk=0.008
             } else {
 	        gnatbar_ichan2=0.0
 	        gkfbar_ichan2=0.00
-	        gl_ichan2 = 0.000044
-	        cm=1.4
+	        gl_ichan2 = 0.000001
             }
         }
     }
