@@ -5,7 +5,6 @@ import sys, time, gc, itertools
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
-#import dlib
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -143,7 +142,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
         The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
 
     """
-
+    import dlib
     boundary_uvl_coords = np.array([[ip_vol.u[0],ip_vol.v[0],ip_vol.l[0]],
                                     [ip_vol.u[0],ip_vol.v[-1],ip_vol.l[0]],
                                     [ip_vol.u[-1],ip_vol.v[0],ip_vol.l[0]],
