@@ -540,9 +540,9 @@ Synapses:
           weight: 0.0005
     GC:   
       type: excitatory
-      sections: [soma, basal, apical]
-      layers: [Hilus, Hilus, Hilus]
-      proportions: [0.68, 0.68, 0.68]
+      sections: [soma, basal, apical, apical]
+      layers: [Hilus, Hilus, Hilus, GCL]
+      proportions: [0.68, 0.68, 0.68, 1.0]
       mechanisms:
         AMPA:
           tau1: 0.3
@@ -562,9 +562,9 @@ Synapses:
           weight: 0.0023
     HCC:  
       type: inhibitory
-      sections: [basal, apical]
-      layers: [Hilus, IML]
-      proportions: [0.3, 1.0]
+      sections: [basal, apical, apical]
+      layers: [Hilus, GCL, IML]
+      proportions: [0.3, 1.0, 1.0]
       mechanisms:
         GABA_A:
           tau1: 0.72
