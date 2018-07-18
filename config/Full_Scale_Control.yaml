@@ -37,7 +37,8 @@ Cell Types:
       density: !include AAC_synapse_density.yaml
   HCC:
     template: HICAPCell
-    synapses: !include HCC_synapse_density.yaml
+    synapses:
+      density: !include HCC_synapse_density.yaml
   NGFC:
     template: NGFCell
     synapses:
