@@ -9,7 +9,7 @@ from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 from dentate.env import Env
-from dentate import utils, neuron_utils, cells
+from dentate import utils, neuron_utils, cells, synapses
 
     
 def passive_test (templateClass, tree, v_init):
@@ -331,7 +331,7 @@ def synapse_group_rate_test (label, syntype, cell, w, rate, v_init):
     f.close()
     
 
-def synapse_test(templateClass, tree, synapses, v_init, env):
+def synapse_test(templateClass, tree, synapses, v_init, env, unique=True):
     
     cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
 
@@ -346,6 +346,10 @@ def synapse_test(templateClass, tree, synapses, v_init, env):
     synapse_kinetics[env.Synapse_Types['inhibitory']] = env.celltypes['BC']['synapses']['kinetics']['BC']
     
     utils.mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapse_kinetics,env)
+
+    edge_syn_obj_dict = \
+      synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                      0, add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
     print int(cell.syntypes.o(env.Synapse_Types['inhibitory']).count()), " inhibitory synapses"
     print int(cell.syntypes.o(env.Synapse_Types['excitatory']).count()), " excitatory synapses"

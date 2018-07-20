@@ -15,10 +15,10 @@ DG_IN_coordinate_file  = "dentate_generated_coords_20180305.h5"
 DG_EXT_coordinate_file = "dentate_generated_coords_20180305.h5"
 
 DG_GC_forest_file = "DGC_forest_20180425.h5"
-DG_IN_forest_file = "DG_IN_forest_syns_20180411.h5"
+DG_IN_forest_file = "DG_IN_forest_syns_20180717.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_compressed_20180425.h5"
-DG_IN_forest_syns_file = "DG_IN_forest_syns_20180411.h5"
+DG_IN_forest_syns_file = "DG_IN_forest_syns_20180717.h5"
 
 DG_IN_connectivity_file = "DG_IN_connections_20180427.h5"
 DG_GC_connectivity_file = "DG_GC_connections_compressed_20180428.h5"
