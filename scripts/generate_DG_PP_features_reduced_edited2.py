@@ -189,45 +189,63 @@ def list_to_file(fn, r):
     f.close()    
 
 def peak_to_trough(module_cells, modules=modules):
-    evaluations = np.asarray([0.0 for _ in np.arange(nmodules)],dtype='float32')
+    minmax_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)],dtype='float32')
+    mean_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
+    var_evaluations = np.asarray([0.0 for _ in np.arange(nmodules)], dtype='float32')
+
     for mod in module_cells.keys():
         cells = module_cells[mod]
         module_rate_map = None
         for (c, cell) in enumerate(cells):
-            rate_map = cell['Rate Map Box']
+            rate_map = cell['Rate Map']
             if c == 0:
                 nx, ny = rate_map.shape
                 module_rate_map = np.zeros((nx, ny))
             module_rate_map += rate_map
-        evaluations[mod] = float(np.max(module_rate_map)) / float(np.min(module_rate_map))
-    return evaluations - 1.
+        minmax_evaluations[mod] = float(np.max(module_rate_map)) / float(np.min(module_rate_map))
+
+        #nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
+        #coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+        #rate_ratio = np.asarray([ [np.divide(float(module_rate_map[i,j]), float(module_rate_map[i2,j2])) for (i2,j2) in coords] for (i,j) in coords], dtype='float32')
+        #rate_ratio = rate_ratio - np.identity(len(coords))
+        #rate_ratio = rate_ratio[rate_ratio > 0.0].reshape(-1,)
+        #mean_evaluations[mod] = 1.0 #np.mean(rate_ratio)
+        #var_evaluations[mod]  = np.var(rate_ratio)
+        
+                
+
+    return minmax_evaluations - 1., mean_evaluations - 1., var_evaluations
 
 def fraction_active(module_cells, modules=modules, target=0.3):
     rates = {mod:[] for mod in modules}
     for mod in module_cells.keys():
         cells = module_cells[mod]
         for cell in cells:
-            rates[mod].append(cell['Rate Map Box'])
-   
-    nx = 1 
-    frac_active_dict = {(i,i): {k:None for k in modules} for i in range(nx)}
-    diagonal_positions = [ (i,i) for (i,i) in frac_active_dict.keys()]
+            rate_map = cell['Rate Map']
+            nx, ny = rate_map.shape
+            rates[mod].append(rate_map)
+    nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
+    coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+    frac_active_dict = {(i,j): {k:None for k in modules} for (i,j) in coords}
+    diagonal_positions = [ (i,j) for (i,j) in frac_active_dict.keys()]
     for (px, py) in diagonal_positions:
         for key in rates.keys():
             module_maps = np.asarray(rates[key])
             position_rates = module_maps[:,px,py]
             frac_active = calculate_fraction_active(position_rates)
             frac_active_dict[(px,py)][key] = frac_active
-    target_fraction_active = {(i,i): {k: target for k in modules} for (i,i) in frac_active_dict.keys()}
+    target_fraction_active = {(i,j): {k: target for k in modules} for (i,j) in frac_active_dict.keys()}
 
-    diff_fraction_active = {(i,i): {k: np.abs(target_fraction_active[(i,i)][k]-frac_active_dict[(i,i)][k]) for k in modules} for (i,i) in frac_active_dict.keys()}
+    diff_fraction_active = {(i,j): {k: np.abs(target_fraction_active[(i,j)][k]-frac_active_dict[(i,j)][k]) for k in modules} for (i,j) in frac_active_dict.keys()}
     
     module_error = np.array([ 0. for _ in range(len(modules))])
-    for (i,i) in diff_fraction_active.keys():
-        pos_errors = diff_fraction_active[(i,i)]
+    for (i,j) in diff_fraction_active.keys():
+        pos_errors = diff_fraction_active[(i,j)]
         for module in pos_errors.keys():
             mod_e = pos_errors[module]
             module_error[module] += mod_e
+    for i in range(len(module_error)):
+        module_error[i] /= len(coords)
     return module_error
 
 
@@ -240,39 +258,46 @@ def calculate_fraction_active(rates, threshold=0.1):
             
 
 
-def cost_func(x, cell_modules):
+def cost_func(x, cell_modules, mesh):
     sf = x
+    xp, yp = mesh
     for mod in cell_modules.keys():
-        xp, yp = generate_mesh(scale_factor=sf[mod])
         cells = cell_modules[mod]
         for (c,cell) in enumerate(cells):
             orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
-            xf, yf = cell['X Offset Reduced'], cell['Y Offset Reduced']
+            xf, yf = cell['X Offset'][0], cell['Y Offset'][0]
             xf_scaled, yf_scaled = xf * sf[mod], yf * sf[mod]
-            cell['X Offset'], cell['Y Offset'] = xf_scaled, yf_scaled
+            cell['X Offset Scaled'], cell['Y Offset Scaled'] = xf_scaled, yf_scaled
             rate_map = grid_fill_map(xp, yp, spacing, orientation, xf_scaled, yf_scaled)
             nx, ny = rate_map.shape
             cell['Rate Map'] = rate_map
-            cell['Rate Map Box'] = rate_map[int(nx/2)-10:int(nx/2)+10,int(ny/2)-10:int(ny/2)+10]
-            #if mod == 0 and c == 0: 
-            #    print(cell['Rate Map Box'])
 
-    peak_trough_evaluation = peak_to_trough(cell_modules, modules=modules)
+    tic = time.time()
+    minmax_evaluations, mean_ratio_evaluations, var_ratio_evaluations = peak_to_trough(cell_modules, modules=modules)
+    minmax_sum = np.sum(minmax_evaluations)
+    mean_ratio_sum = np.sum(mean_ratio_evaluations)
+    var_ratio_sum = np.sum(var_ratio_evaluations)
+    cost_peak_trough = (minmax_sum ** 2 + mean_ratio_sum ** 2 + var_ratio_sum ** 2)
+ 
     fraction_active_evaluation = fraction_active(cell_modules, modules=modules)
-
-    peak_cost = np.sum(peak_trough_evaluation)
     frac_active_cost = np.sum(fraction_active_evaluation)
-    cost_value.append(0.5*(peak_cost ** 2 + frac_active_cost ** 2))
-    return 0.5 * (peak_cost ** 2 + frac_active_cost ** 2)#[peak_cost, frac_active_cost]
+    cost_frac_active = frac_active_cost ** 2
+
+    total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
+    elapsed = time.time() - tic
+    print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
+    cost_value.append(total_cost)
+    return total_cost
 
 class OptimizationRoutine(object):
-    def __init__(self, cells):
+    def __init__(self, cells, mesh):
         self.cells = cells
+        self.mesh = mesh
 
     def optimize(self, x0, bounds=None, verbose=False):
         if bounds is None:
             bounds = [(1., 50.) for _ in x0]
-        fnc = lambda x: cost_func(x, self.cells)
+        fnc = lambda x: cost_func(x, self.cells, self.mesh)
         minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':1.0, 'maxiter':10})
         bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True)
 
@@ -282,7 +307,7 @@ class OptimizationRoutine(object):
             print(fnc(x0))
             print(fnc(bh_output.x))
 
-class Initialization(object):
+class Cell_Generator(object):
     def __init__(self, jitter_orientation=True, jitter_spacing=True):
         self.jitter_orientation = jitter_orientation
         self.jitter_spacing = jitter_spacing
@@ -407,6 +432,8 @@ class Initialization(object):
             this_module = cell['Module'][0]
             x_offset_scaled = cell['X Offset'][0] * scale_factors[this_module]
             y_offset_scaled = cell['Y Offset'][0] * scale_factors[this_module]
+            cell['X Offset Scaled'] = np.array([x_offset_scaled], dtype='float32')
+            cell['& Offset Scaled'] = np.array([y_offset_scaled], dtype='float32')
             if cell_type == 'grid':
                 grid_spacing, grid_orientation = None, None
                 if jittered_spacing:
@@ -423,25 +450,30 @@ class Initialization(object):
                 place_width = cell['Field Width'][0]
                 cell['Rate Map'] = place_fill_map(self.xp, self.yp, place_width, place_orientation, x_offset_scaled, y_offset_scaled)
 
-def main(init_scale_factor):
+def main(init_scale_factor, verbose=True):
     tic = time.time()
-    cell_corpus = Initialization(jitter_orientation=True, jitter_spacing=True)
+    cell_corpus = Cell_Generator(jitter_orientation=True, jitter_spacing=True)
     cell_corpus.full_init()
     elapsed = time.time() - tic
-    print('%d cells generated in %f seconds' % ((N_LPP+N_MPP), elapsed))
+    if verbose:
+        print('%d cells generated in %f seconds' % ((N_LPP+N_MPP), elapsed))
 
     T = init_scale_factor.shape[1]
     generated_cells = {}
     for t in range(T):
         corpus_copy = deepcopy(cell_corpus)
         scale_factor0 = init_scale_factor[:,t]
+        if verbose:
+            print(t, scale_factor0)
         tic = time.time()
         corpus_copy.calculate_rate_maps(scale_factor0)
         elapsed = time.time() - tic
-        print('Rate maps for %d cells calculated in %f seconds' % (len(corpus_copy.mpp_grid.keys()), elapsed))
+        if verbose:
+            print('Rate maps for %d cells calculated in %f seconds' % (len(corpus_copy.mpp_grid.keys()), elapsed))
         module_mpp_grid = generate_module_dictionary(corpus_copy.mpp_grid)
-        opt = OptimizationRoutine(module_mpp_grid)
-        opt.optimize(scale_factor0, bounds=None, verbose=True)
+        mesh = (corpus_copy.xp, corpus_copy.yp)
+        opt = OptimizationRoutine(module_mpp_grid, mesh)
+        opt.optimize(scale_factor0, bounds=None, verbose=verbose)
         generated_cells[t] = module_mpp_grid
         
        
@@ -467,7 +499,9 @@ if __name__ == '__main__':
     #comm.barrier
 
     low, high = 1, 51
-    nrandom_start = int(sys.argv[1])
+    nrandom_start = 1
+    if len(sys.argv) == 2:
+        nrandom_start = int(sys.argv[1])
     init_scale_factor = np.random.randint(low,high,(nmodules,nrandom_start))
     main(init_scale_factor)
     sys.exit(1)
