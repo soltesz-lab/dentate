@@ -16,8 +16,10 @@ GapjunctionConfig = namedtuple('GapjunctionConfig',
                                  ['sections',
                                   'connection_probabilities',
                                   'connection_parameters',
+                                  'connection_bounds',
                                   'coupling_coefficients',
-                                  'coupling_parameters'])
+                                  'coupling_parameters',
+                                  'coupling_bounds'])
 
 
 class Env:
@@ -379,7 +381,9 @@ class Env:
             connection_params = np.polyfit(np.asarray(connection_weights_x), \
                                            np.asarray(connection_weights_y), \
                                            3)
-
+            connection_bounds = [np.min(connection_weights_x), \
+                                 np.max(connection_weights_x)]
+            
             gj_coupling_coeffs = gj_config['Coupling Coefficients']
             coupling_coeffs = {}
             for pair, coeff in gj_coupling_coeffs.iteritems():
@@ -395,12 +399,16 @@ class Env:
             coupling_params = np.polyfit(np.asarray(coupling_weights_x), \
                                          np.asarray(coupling_weights_y), \
                                          3)
+            coupling_bounds = [np.min(coupling_weights_x), \
+                               np.max(coupling_weights_x)]
                 
             self.gapjunctions = GapjunctionConfig(sections, \
                                                   connection_probs, \
                                                   connection_params, \
+                                                  connection_bounds, \
                                                   coupling_coeffs, \
-                                                  coupling_params)
+                                                  coupling_params,
+                                                  coupling_bounds)
         else:
             self.gapjunctions = None
         
