@@ -1,6 +1,11 @@
 import sys, os, time, random
 import numpy as np
 import pickle
+from copy import deepcopy
+
+from scipy.optimize import minimize
+from scipy.optimize import basinhopping
+
 
 from mpi4py import MPI
 import h5py
@@ -37,91 +42,15 @@ N_LPP_GRID = 0
 
 
 
+cost_value = []
 arena_dimension = 100.
-init_scale_factor = 6.0
+init_scale_factor = 10.0
 init_orientation_jitter = [-10., 10.] #[np.deg2rad(-10.), np.deg2rad(10.)]
 init_lambda_jitter = [-10., 10.]
 resolution = 5.
 nmodules = 10
 modules = np.arange(nmodules)
 
-def init(population='MPP'):
-
-    NCELLS, NPLACE, NGRID = None, None, None
-    if population == 'MPP':
-        NCELLS = N_MPP
-    elif population == 'LPP':
-        NCELLS = N_LPP
-
-    local_random = random.Random()
-    local_random.seed(0)
-    feature_type_random = np.random.RandomState(0)
-
-    grid_orientation = [local_random.uniform(0., np.pi/3.) for i in range(len(modules))]
-    feature_type_probs = None
-    feature_type_values = np.asarray([0, 1])
-    if population == 'MPP':
-        feature_type_probs = np.asarray([0.3, 0.7])
-    elif population =='LPP':
-        feature_type_probs = np.asarray([0.0, 1.0])
-  
-     
-    feature_types = feature_type_random.choice(feature_type_values, p=feature_type_probs, size=(NCELLS,))
-
-    scaled_xy_offsets, xy_offsets,_,_ = generate_spatial_offsets(NCELLS, arena_dimension=arena_dimension, scale_factor=init_scale_factor, maxit=40)
-
-    grid_feature_dict, place_feature_dict = build_cells(NCELLS, population, scaled_xy_offsets, xy_offsets, init_lambda_jitter, init_orientation_jitter, feature_types, grid_orientation, local_random)
- 
-    return grid_feature_dict, place_feature_dict, xy_offsets, feature_types, grid_orientation
-
-def build_cells(N, population, scaled_xy_offsets, xy_offsets, lambda_jitter, orientation_jitter, feature_types, grid_orientation, local_random):
-
-    grid_feature_dict, place_feature_dict = {}, {}
-    for i in range(N):
-        local_random.seed(i)
-        feature_type = feature_types[i]
-        if feature_type == 0: # grid
-            this_module = local_random.choice(modules)
-            this_grid_spacing = field_width(float(this_module)/float(np.max(modules)))
-            delta_spacing = np.random.uniform(low=lambda_jitter[0], high=lambda_jitter[1], size=(1,))
-            this_grid_spacing_jittered = this_grid_spacing + delta_spacing[0]
-            feature_dict = {}
-            feature_dict['Population'] = population
-            feature_dict['Module'] = np.array([this_module],dtype='int32')
-            feature_dict['Grid Spacing'] = np.array([this_grid_spacing], dtype='float32')
-            feature_dict['Jittered Grid Spacing'] = np.array([this_grid_spacing_jittered], dtype='float32')
-            this_grid_orientation = grid_orientation[this_module]
-            delta_grid = np.random.uniform(low=orientation_jitter[0],high=orientation_jitter[1],size=(1,))
-            this_grid_orientation_jittered = this_grid_orientation + np.deg2rad(delta_grid[0])
-            feature_dict['Grid Orientation'] = np.array([this_grid_orientation], dtype='float32')
-            feature_dict['Jittered Grid Orientation'] = np.array([this_grid_orientation_jittered], dtype='float32')
-            x_offset = scaled_xy_offsets[i,0]
-            y_offset = scaled_xy_offsets[i,1]
-            feature_dict['X Offset'] = np.array([x_offset],dtype='float32')
-            feature_dict['Y Offset'] = np.array([y_offset],dtype='float32')
-            x_offset = xy_offsets[i,0]
-            y_offset = xy_offsets[i,1]
-            feature_dict['X Offset Reduced'] = np.array([x_offset],dtype='float32')
-            feature_dict['Y Offset Reduced'] = np.array([y_offset],dtype='float32')
-            grid_feature_dict[i] = feature_dict
-        elif feature_type == 1: #place
-            feature_dict = {}
-            feature_dict['Population'] = population
-            this_module = local_random.choice(modules)
-            feature_dict['Module'] = np.array([this_module],dtype='int32')
-            this_field_width = field_width(local_random.random())
-            feature_dict['Field Width'] = np.array([this_field_width],dtype='float32')
-            x_offset = scaled_xy_offsets[i,0]
-            y_offset = scaled_xy_offsets[i,1]
-            feature_dict['X Offset'] = np.array([x_offset], dtype='float32')
-            feature_dict['Y Offset'] = np.array([y_offset], dtype='float32')
-            x_offset = xy_offsets[i,0]
-            y_offset = xy_offsets[i,1]
-            feature_dict['X Offset Reduced'] = np.array([x_offset], dtype='float32')
-            feature_dict['Y Offset Reduced'] = np.array([y_offset], dtype='float32')
-            place_feature_dict[i] = feature_dict
-
-    return grid_feature_dict, place_feature_dict
 
 def dcheck(x,y,xi,yi,spacing):
     radius = spacing / 2.
@@ -134,25 +63,18 @@ def place_fill_map(xp, yp, spacing, orientation, xf, yf):
 
     nx, ny = xp.shape
     rate_map = np.zeros((nx, ny))
-    rate_map = get_rate_2(xp,yp, spacing, orientation, xf, yf, ctype='place')
-    #for i in range(nx):
-    #    for j in range(ny):
-    #        rx, ry = xp[i,j], yp[i,j]
-    #        rate_map[i,j] = get_rate(rx, ry, spacing, orientation, xf, yf,ctype='place')
+    rate_map = get_rate(xp,yp, spacing, orientation, xf, yf, ctype='place')
     return rate_map
 
 
 def grid_fill_map(xp, yp, spacing, orientation, xf, yf):
+
     nx, ny = xp.shape
     rate_map = np.zeros((nx, ny))
-    rate_map = get_rate_2(xp, yp, spacing, orientation, xf, yf, ctype='grid')
-    #for i in range(nx):
-    #    for j in range(ny):
-    #        rx, ry = xp[i,j], yp[i,j]
-    #        rate_map[i,j] = get_rate(rx, ry, spacing, orientation, xf, yf, ctype='grid')
+    rate_map = get_rate(xp, yp, spacing, orientation, xf, yf, ctype='grid')
     return rate_map
 
-def get_rate_2(x, y, grid_spacing, orientation, x_offset, y_offset,ctype='grid'):
+def get_rate(x, y, grid_spacing, orientation, x_offset, y_offset,ctype='grid'):
     mask = None
     if ctype == 'place':
          mask = dcheck(x,y,x_offset, y_offset, grid_spacing)
@@ -165,65 +87,9 @@ def get_rate_2(x, y, grid_spacing, orientation, x_offset, y_offset,ctype='grid')
         return rate_map * mask
     return rate_map
 
-
-def get_rate(x, y, grid_spacing, orientation, x_offset, y_offset,ctype='grid'):
-    if ctype == 'place':
-        if not dcheck(x,y,x_offset, y_offset, grid_spacing):
-            return 0.0
-    theta_k = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
-    inner_sum = 0.0
-    for k in range(len(theta_k)):
-        inner_sum += np.cos( ((4 * np.pi) / (np.sqrt(3)*grid_spacing)) * (np.cos(theta_k[k]) * (x - x_offset) + (np.sin(theta_k[k]) * (y - y_offset))))
-    return transfer(inner_sum)
-
 def transfer(z, a=0.3, b=-1.5):
     return np.exp(a*(z-b)) - 1 
 
-def module_map(xp, yp, grid_feature_dict, place_feature_dict, population='MPP', module=0, jittered=True):
-    nx, ny = xp.shape
-    rate_map_grid, rate_map_place = None, None
-    if population == 'MPP':
-        ngrid, nplace = N_MPP_GRID, N_MPP_PLACE
-    elif population == 'LPP':
-        ngrid, nplace = N_LPP_GRID, N_LPP_PLACE
-
-    rate_map_grid = np.zeros((nx, ny))
-    rate_map_place = np.zeros((nx, ny))
-
-    tic = time.time()
-    print('...calculating rate map for all grid and place cells...')
-    count = 0
-    for grid_id in grid_feature_dict.keys():
-        grid_cell_info = grid_feature_dict[grid_id]
-        if grid_cell_info['Module'][0] == module:
-            if jittered:
-                this_grid_spacing = grid_cell_info['Jittered Grid Spacing']
-                this_grid_orientation = grid_cell_info['Jittered Grid Orientation']
-            else:
-                this_grid_spacing = grid_cell_info['Grid Spacing']
-                this_grid_orientation = grid_cell_info['Grid Orientation']
-            x_offset, y_offset = grid_cell_info['X Offset'], grid_cell_info['Y Offset']
-            cell_map = grid_fill_map(xp, yp, this_grid_spacing, this_grid_orientation, x_offset, y_offset)
-            grid_cell_info['Rate Map'] = np.array(cell_map, dtype='float32')
-            rate_map_grid += cell_map
-            count += 1
-
-
-    count = 0
-    for place_id in place_feature_dict.keys():
-        place_cell_info = place_feature_dict[place_id]
-        if place_cell_info['Module'][0] == module:
-            this_place_width = place_cell_info['Field Width']
-            this_place_orientation = 0.0
-            x_offset, y_offset = place_cell_info['X Offset'], place_cell_info['Y Offset']
-            cell_map = place_fill_map(xp, yp, this_place_width, this_place_orientation, x_offset, y_offset)
-            place_cell_info['Rate Map'] = np.array(cell_map, dtype='float32')
-            rate_map_place += cell_map
-            
-
-    elapsed = time.time() - tic
-    print('...that took %f seconds...' % (elapsed))
-    return (rate_map_grid, rate_map_place)
 
 def to_file(rate_map, fn, module=1):
     nx, ny = rate_map.shape
@@ -241,7 +107,7 @@ def generate_mesh(scale_factor=init_scale_factor):
     mega_arena_y = np.arange(mega_arena_y_bounds[0], mega_arena_y_bounds[1], resolution)
     return np.meshgrid(mega_arena_x, mega_arena_y, indexing='ij')
 
-def init_generate_populations(gen_rate=True):
+def init_generate_populations(gen_rate=True, scale_factor=6.*np.ones(nmodules)):
     tic = time.time()
     grid_feature_dict_MPP, place_feature_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP = init(population='MPP')
     grid_feature_dict_LPP, place_feature_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP = init(population='LPP')
@@ -323,45 +189,63 @@ def list_to_file(fn, r):
     f.close()    
 
 def peak_to_trough(module_cells, modules=modules):
-    evaluations = [0.0 for _ in np.arange(nmodules)]
+    minmax_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)],dtype='float32')
+    mean_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
+    var_evaluations = np.asarray([0.0 for _ in np.arange(nmodules)], dtype='float32')
+
     for mod in module_cells.keys():
         cells = module_cells[mod]
         module_rate_map = None
         for (c, cell) in enumerate(cells):
-            rate_map = cell['Rate Map Box']
+            rate_map = cell['Rate Map']
             if c == 0:
                 nx, ny = rate_map.shape
                 module_rate_map = np.zeros((nx, ny))
             module_rate_map += rate_map
-        evaluations[mod] = float(np.max(module_rate_map)) / float(np.min(module_rate_map))
-    return evaluations
+        minmax_evaluations[mod] = float(np.max(module_rate_map)) / float(np.min(module_rate_map))
+
+        #nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
+        #coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+        #rate_ratio = np.asarray([ [np.divide(float(module_rate_map[i,j]), float(module_rate_map[i2,j2])) for (i2,j2) in coords] for (i,j) in coords], dtype='float32')
+        #rate_ratio = rate_ratio - np.identity(len(coords))
+        #rate_ratio = rate_ratio[rate_ratio > 0.0].reshape(-1,)
+        #mean_evaluations[mod] = 1.0 #np.mean(rate_ratio)
+        #var_evaluations[mod]  = np.var(rate_ratio)
+        
+                
+
+    return minmax_evaluations - 1., mean_evaluations - 1., var_evaluations
 
 def fraction_active(module_cells, modules=modules, target=0.3):
     rates = {mod:[] for mod in modules}
     for mod in module_cells.keys():
         cells = module_cells[mod]
         for cell in cells:
-            rates[mod].append(cell['Rate Map Box'])
-   
-    nx = 1 
-    frac_active_dict = {(i,i): {k:None for k in modules} for i in range(nx)}
-    diagonal_positions = [ (i,i) for (i,i) in frac_active_dict.keys()]
+            rate_map = cell['Rate Map']
+            nx, ny = rate_map.shape
+            rates[mod].append(rate_map)
+    nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
+    coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+    frac_active_dict = {(i,j): {k:None for k in modules} for (i,j) in coords}
+    diagonal_positions = [ (i,j) for (i,j) in frac_active_dict.keys()]
     for (px, py) in diagonal_positions:
         for key in rates.keys():
             module_maps = np.asarray(rates[key])
             position_rates = module_maps[:,px,py]
             frac_active = calculate_fraction_active(position_rates)
             frac_active_dict[(px,py)][key] = frac_active
-    target_fraction_active = {(i,i): {k: target for k in modules} for (i,i) in frac_active_dict.keys()}
+    target_fraction_active = {(i,j): {k: target for k in modules} for (i,j) in frac_active_dict.keys()}
 
-    diff_fraction_active = {(i,i): {k: np.abs(target_fraction_active[(i,i)][k]-frac_active_dict[(i,i)][k]) for k in modules} for (i,i) in frac_active_dict.keys()}
+    diff_fraction_active = {(i,j): {k: np.abs(target_fraction_active[(i,j)][k]-frac_active_dict[(i,j)][k]) for k in modules} for (i,j) in frac_active_dict.keys()}
     
     module_error = np.array([ 0. for _ in range(len(modules))])
-    for (i,i) in diff_fraction_active.keys():
-        pos_errors = diff_fraction_active[(i,i)]
+    for (i,j) in diff_fraction_active.keys():
+        pos_errors = diff_fraction_active[(i,j)]
         for module in pos_errors.keys():
             mod_e = pos_errors[module]
             module_error[module] += mod_e
+    for i in range(len(module_error)):
+        module_error[i] /= len(coords)
     return module_error
 
 
@@ -373,58 +257,226 @@ def calculate_fraction_active(rates, threshold=0.1):
     return fraction_active               
             
 
-def cost_func(x, cell_modules):
+
+def cost_func(x, cell_modules, mesh):
     sf = x
+    xp, yp = mesh
     for mod in cell_modules.keys():
-        xp, yp = generate_mesh(scale_factor=sf[mod])
         cells = cell_modules[mod]
-        for cell in cells:
+        for (c,cell) in enumerate(cells):
             orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
-            xf, yf = cell['X Offset Reduced'], cell['Y Offset Reduced']
+            xf, yf = cell['X Offset'][0], cell['Y Offset'][0]
             xf_scaled, yf_scaled = xf * sf[mod], yf * sf[mod]
-            cell['X Offset'], cell['Y Offset'] = xf_scaled, yf_scaled
+            cell['X Offset Scaled'], cell['Y Offset Scaled'] = xf_scaled, yf_scaled
             rate_map = grid_fill_map(xp, yp, spacing, orientation, xf_scaled, yf_scaled)
             nx, ny = rate_map.shape
             cell['Rate Map'] = rate_map
-            cell['Rate Map Box'] = rate_map[int(nx/2)-10:int(nx/2)+10,int(ny/2)-10:int(ny/2)+10]
 
-    peak_trough_evaluation = peak_to_trough(cell_modules, modules=modules)
+    tic = time.time()
+    minmax_evaluations, mean_ratio_evaluations, var_ratio_evaluations = peak_to_trough(cell_modules, modules=modules)
+    minmax_sum = np.sum(minmax_evaluations)
+    mean_ratio_sum = np.sum(mean_ratio_evaluations)
+    var_ratio_sum = np.sum(var_ratio_evaluations)
+    cost_peak_trough = (minmax_sum ** 2 + mean_ratio_sum ** 2 + var_ratio_sum ** 2)
+ 
     fraction_active_evaluation = fraction_active(cell_modules, modules=modules)
+    frac_active_cost = np.sum(fraction_active_evaluation)
+    cost_frac_active = frac_active_cost ** 2
 
-    return peak_trough_evaluation + fraction_active_evaluation
+    total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
+    elapsed = time.time() - tic
+    print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
+    cost_value.append(total_cost)
+    return total_cost
 
+class OptimizationRoutine(object):
+    def __init__(self, cells, mesh):
+        self.cells = cells
+        self.mesh = mesh
 
-def init_optimize(cache, xp, yp, sf0):
+    def optimize(self, x0, bounds=None, verbose=False):
+        if bounds is None:
+            bounds = [(1., 50.) for _ in x0]
+        fnc = lambda x: cost_func(x, self.cells, self.mesh)
+        minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':1.0, 'maxiter':10})
+        bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True)
 
-    from scipy.optimize import least_squares
-    from scipy.optimize import minimize
+        if verbose:
+            print(x0)
+            print(bh_output.x)
+            print(fnc(x0))
+            print(fnc(bh_output.x))
 
-    grid, place, xy_offset, feature_types, orientation = cache
-    grid_modules = generate_module_dictionary(grid)
-    place_modules = generate_module_dictionary(place)
+class Cell_Generator(object):
+    def __init__(self, jitter_orientation=True, jitter_spacing=True):
+        self.jitter_orientation = jitter_orientation
+        self.jitter_spacing = jitter_spacing
+        self.xp, self.yp = generate_mesh(scale_factor=1.0)
 
-    x0 = sf0
-    bounds = ([1. for _ in x0], [50. for _ in x0])
-    #bounds = ( (1., 500.), (-20., -0.01), (0.01, 20.), (-30., -0.01), (0.01, 30.) )
-    fnc = lambda x: cost_func(x, grid_modules)
-    lsq_output = least_squares(fnc, x0, bounds=bounds, jac='2-point', diff_step=np.ones(nmodules)*2.5, xtol=1.0e-12, ftol=1.0e-12, gtol=1.0e-12, verbose=2, tr_solver='exact')
-    #nm_output = minimize(fnc, x0, method='Nelder-Mead', options={'disp':True}) 
+        self.local_random = random.Random()
+        self.local_random.seed(0)
+        self.feature_type_random = np.random.RandomState(0)
 
-    #print(nm_output.success)
-    #print(nm_output.message)
-    #print(x0)
-    #print(nm_output.x)
-    #print('Before %f' % (fnc(x0)))
-    #print('After %f' % (nm_output.fun[0]))
+        self.mpp_grid  =  None
+        self.mpp_place =  None
+        self.lpp_grid  =  None
+        self.lpp_place =  None
 
-    
-    print(lsq_output.status)
-    print(lsq_output.nfev)
-    print(x0)
-    print(lsq_output.x)
-    print('Cost: %f' % (lsq_output.cost))
-    print('Before %f' % (fnc(x0)))
-    print('After %f' % (lsq_output.fun[0]))
+    def full_init(self):
+        self.initialize_cells(population='MPP')
+        self.initialize_cells(population='LPP')
+        self.generate_xy_offsets()
+        #self.calculate_rate_maps(jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+
+    def initialize_cells(self, population='MPP'):
+        grid_orientation = [self.local_random.uniform(0., np.pi/3.) for i in range(nmodules)]
+        feature_type_values = np.asarray([0, 1])
+        if population == 'MPP':
+            NCELLS = N_MPP
+            feature_type_probs = np.asarray([0.3, 0.7])
+        elif population == 'LPP':
+            NCELLS = N_LPP
+            feature_type_probs = np.asarray([0.0, 1.0])
+        feature_types = self.feature_type_random.choice(feature_type_values,p=feature_type_probs, size=(NCELLS,))
+
+        if population == 'MPP':
+            self.mpp_grid, self.mpp_place = self._build_cells(NCELLS, population, feature_types, grid_orientation)
+        elif population == 'LPP':
+            self.lpp_grid, self.lpp_place = self._build_cells(NCELLS, population, feature_types, grid_orientation)
+
+    def _build_cells(self, N, pop, feature_types, grid_orientation):
+        grid_feature_dict, place_feature_dict = {}, {}
+        for i in range(N):
+            feature_type = feature_types[i]
+            if feature_type == 0: # Grid cell
+                this_module = self.local_random.choice(modules)
+                orientation = grid_orientation[this_module]
+                spacing = field_width(float(this_module)/float(np.max(modules)))
+                grid_feature_dict[i] = self._build_grid_cell(pop, orientation, spacing, this_module)
+            elif feature_type == 1:
+                this_module = self.local_random.choice(modules)
+                cell_field_width = field_width(self.local_random.random())
+                place_feature_dict[i] = self._build_place_cell(pop, cell_field_width, this_module)
+        return grid_feature_dict, place_feature_dict
+
+    def _build_place_cell(self, pop, cell_field_width, module):
+        cell = {}
+        cell['Population'] = pop
+        cell['Module'] = np.array([module], dtype='int32')
+        cell['Field Width'] = np.array([cell_field_width], dtype='float32')
+        return cell
+
+    def _build_grid_cell(self, pop, orientation, spacing, module):
+        cell = {}
+        cell['Population'] = pop
+        cell['Module'] = np.array([module],dtype='int32')
+        cell['Grid Spacing'] = np.array([spacing],dtype='float32')
+        cell['Grid Orientation'] = np.array([orientation],dtype='float32')
+        if self.jitter_orientation:
+            delta_orientation = self.local_random.uniform(init_orientation_jitter[0], init_orientation_jitter[1])
+            cell['Jittered Grid Orientation'] = np.array([cell['Grid Orientation'][0] + delta_orientation], dtype='float32')
+        if self.jitter_spacing: 
+            delta_spacing = self.local_random.uniform(init_lambda_jitter[0], init_lambda_jitter[1])
+            cell['Jittered Grid Spacing'] = np.array([cell['Grid Spacing'][0] + delta_spacing], dtype='float32')
+        return cell
+
+    def generate_xy_offsets(self):
+        N = 0
+        present = [False, False, False, False]
+        if self.mpp_grid is not None:
+            N += len(self.mpp_grid.keys())
+            present[0] = True
+        if self.mpp_place is not None:
+            N += len(self.mpp_place.keys())
+            present[1] = True
+        if self.lpp_grid is not None:
+            N += len(self.lpp_grid.keys())
+            present[2] = True
+        if self.lpp_place is not None:
+            N += len(self.lpp_place.keys())
+            present[3] = True
+
+        _, xy_offsets, _, _ = generate_spatial_offsets(N, arena_dimension=arena_dimension, scale_factor=1.0)
+        counter = 0
+        if present[0]:
+            counter = self._generate_xy_offsets(self.mpp_grid, xy_offsets, counter)
+        if present[1]:
+            counter = self._generate_xy_offsets(self.mpp_place, xy_offsets, counter)
+        if present[2]:
+            counter = self._generate_xy_offsets(self.lpp_grid, xy_offsets, counter)
+        if present[3]:
+            counter = self._generate_xy_offsets(self.lpp_place, xy_offsets, counter)
+ 
+    def _generate_xy_offsets(self, cells, xy_offsets, counter):
+        for key in cells.keys():
+            cell = cells[key]
+            cell['X Offset'] = np.array([xy_offsets[counter,0]], dtype='float32')
+            cell['Y Offset'] = np.array([xy_offsets[counter,0]], dtype='float32')
+            counter += 1
+        return counter
+
+    def calculate_rate_maps(self, scale_factors):
+        if self.mpp_grid is not None:
+            self._calculate_rate_maps(self.mpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+        if self.mpp_place is not None:
+            self._calculate_rate_maps(self.mpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+        if self.lpp_grid is not None:
+            self._calculate_rate_maps(self.lpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+        if self.lpp_place is not None:
+            self._calculate_rate_maps(self.lpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+
+    def _calculate_rate_maps(self,cells, scale_factors, cell_type='grid', jittered_orientation=False, jittered_spacing=False):
+        for key in cells.keys():
+            cell = cells[key]
+            x_offset, y_offset = None, None
+            this_module = cell['Module'][0]
+            x_offset_scaled = cell['X Offset'][0] * scale_factors[this_module]
+            y_offset_scaled = cell['Y Offset'][0] * scale_factors[this_module]
+            cell['X Offset Scaled'] = np.array([x_offset_scaled], dtype='float32')
+            cell['& Offset Scaled'] = np.array([y_offset_scaled], dtype='float32')
+            if cell_type == 'grid':
+                grid_spacing, grid_orientation = None, None
+                if jittered_spacing:
+                    grid_spacing = cell['Jittered Grid Spacing'][0]
+                else:
+                    grid_spacing = cell['Grid Spacing'][0]
+                if jittered_orientation:
+                    grid_orientation = cell['Jittered Grid Orientation'][0]
+                else:
+                    grid_orientation = cell['Grid Orientation'][0]
+                cell['Rate Map'] = grid_fill_map(self.xp, self.yp, grid_spacing, grid_orientation, x_offset_scaled, y_offset_scaled)
+            elif cell_type == 'place':
+                place_orientation = 0.0
+                place_width = cell['Field Width'][0]
+                cell['Rate Map'] = place_fill_map(self.xp, self.yp, place_width, place_orientation, x_offset_scaled, y_offset_scaled)
+
+def main(init_scale_factor, verbose=True):
+    tic = time.time()
+    cell_corpus = Cell_Generator(jitter_orientation=True, jitter_spacing=True)
+    cell_corpus.full_init()
+    elapsed = time.time() - tic
+    if verbose:
+        print('%d cells generated in %f seconds' % ((N_LPP+N_MPP), elapsed))
+
+    T = init_scale_factor.shape[1]
+    generated_cells = {}
+    for t in range(T):
+        corpus_copy = deepcopy(cell_corpus)
+        scale_factor0 = init_scale_factor[:,t]
+        if verbose:
+            print(t, scale_factor0)
+        tic = time.time()
+        corpus_copy.calculate_rate_maps(scale_factor0)
+        elapsed = time.time() - tic
+        if verbose:
+            print('Rate maps for %d cells calculated in %f seconds' % (len(corpus_copy.mpp_grid.keys()), elapsed))
+        module_mpp_grid = generate_module_dictionary(corpus_copy.mpp_grid)
+        mesh = (corpus_copy.xp, corpus_copy.yp)
+        opt = OptimizationRoutine(module_mpp_grid, mesh)
+        opt.optimize(scale_factor0, bounds=None, verbose=verbose)
+        generated_cells[t] = module_mpp_grid
+        
+       
 
 def generate_module_dictionary(cells):
     mod = {k:[] for k in np.arange(nmodules)}
@@ -433,7 +485,6 @@ def generate_module_dictionary(cells):
         curr_mod = cell['Module'][0]
         mod[curr_mod].append(cell)
     return mod
-
 
 if __name__ == '__main__':
 
@@ -445,15 +496,32 @@ if __name__ == '__main__':
     #output_file = 'EC_grid_cells.h5'
     #output_h5 = h5py.File(output_file, 'w')
     #output_h5.close()
-    #comm.barrier()
+    #comm.barrier
+
+    low, high = 1, 51
+    nrandom_start = 1
+    if len(sys.argv) == 2:
+        nrandom_start = int(sys.argv[1])
+    init_scale_factor = np.random.randint(low,high,(nmodules,nrandom_start))
+    main(init_scale_factor)
+    sys.exit(1)
 
     MPP_info, LPP_info, xp, yp = init_generate_populations(gen_rate=True)
     grid_dict_MPP, place_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP = MPP_info
     grid_dict_LPP, place_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP = LPP_info
     
     scale_factor_0 = init_scale_factor * np.ones(nmodules)
-    init_optimize(MPP_info, xp, yp, scale_factor_0)
+    grid_modules = init_optimize(MPP_info, xp, yp, scale_factor_0)
+    #grid_dict_MPP = generate_cell_dictionary(grid_modules)
+    with open('MPP/EC_grid_cells_module_MPP.pkl', 'wb') as f:
+        pickle.dump(grid_modules, f)
+
+    f = open('cost_eval.txt','w')
+    for cost in cost_value:
+        f.write(str(cost) + '\n')
+    f.close()
     sys.exit(1)
+    
   
     make_hist(grid_dict_MPP, xp, yp, population='MPP',ctype='grid',modules=[0,4,9],xoi=59,yoi=59)
     make_hist(place_dict_MPP, xp, yp, population='MPP',ctype='place',modules=[0,4,9],xoi=59,yoi=59)
