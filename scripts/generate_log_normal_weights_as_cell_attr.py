@@ -10,8 +10,12 @@ import dentate
 from dentate.env import Env
 from dentate import utils
 
-
-logger = get_script_logger(os.path.basename(__file__))
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 local_random = np.random.RandomState()
 
@@ -50,7 +54,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     """
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(script_name)
+    logger = utils.get_script_logger(os.path.basename(__file__))
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -60,7 +64,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        logger.info('%s: %i ranks have been allocated' % (script_name, comm.size))
+        logger.info('%i ranks have been allocated' % comm.size)
 
     if (not dry_run) and (rank==0):
         if not os.path.isfile(weights_path):
