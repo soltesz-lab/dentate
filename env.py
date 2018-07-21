@@ -14,7 +14,7 @@ ConnectionConfig = namedtuple('ConnectionConfig',
 
 GapjunctionConfig = namedtuple('GapjunctionConfig',
                                  ['sections',
-                                  'connection_probabilities',
+                                  'connection_probability',
                                   'connection_parameters',
                                   'connection_bounds',
                                   'coupling_coefficients',
@@ -355,16 +355,20 @@ class Env:
 
             gj_sections = gj_config['Locations']
             sections = {}
-            for pair, sec_names in gj_sections.iteritems():
-                sec_idxs = []
-                for sec_name in sec_names:
-                    sec_idxs.append(self.swctypes_dict[sec_name])
-                sections[pair] = sec_idxs
+            for pop_a, pop_dict in gj_sections.iteritems():
+                for pop_b, sec_names in pop_dict.iteritems():
+                    pair = (pop_a, pop_b)
+                    sec_idxs = []
+                    for sec_name in sec_names:
+                        sec_idxs.append(self.swctypes_dict[sec_name])
+                    sections[pair] = sec_idxs
 
             gj_connection_probs = gj_config['Connection Probabilities']
             connection_probs = {}
-            for pair, prob in gj_connection_probs.iteritems():
-                connection_probs[pair] = float(prob)
+            for pop_a, pop_dict in gj_connection_probs.iteritems():
+                for pop_b, prob in pop_dict.iteritems():
+                    pair = (pop_a, pop_b)
+                    connection_probs[pair] = float(prob)
 
             connection_weights_x = []
             connection_weights_y = []
@@ -381,32 +385,35 @@ class Env:
             
             gj_coupling_coeffs = gj_config['Coupling Coefficients']
             coupling_coeffs = {}
-            for pair, coeff in gj_coupling_coeffs.iteritems():
-                coupling_coeffs[pair] = float(coeff)
+            for pop_a, pop_dict in gj_coupling_coeffs.iteritems():
+                for pop_b, coeff in pop_dict.iteritems():
+                    pair = (pop_a, pop_b)
+                    coupling_coeffs[pair] = float(coeff)
 
             gj_coupling_weights = gj_config['Coupling Weights']
-            for pair, weights in gj_coupling_weights.iteritems():
-                coupling_weights_x = []
-                coupling_weights_y = []
-                for x in sorted(weights.keys()):
-                    coupling_weights_x.append(x)
-                    coupling_weights_y.append(gj_coupling_weights[x])
+            coupling_weights_x = []
+            coupling_weights_y = []
+            for x in sorted(gj_coupling_weights.keys()):
+                coupling_weights_x.append(x)
+                coupling_weights_y.append(gj_coupling_weights[x])
 
-                coupling_params = np.polyfit(np.asarray(coupling_weights_x), \
-                                            np.asarray(coupling_weights_y), \
-                                            3)
-                coupling_bounds = [np.min(coupling_weights_x), \
-                                   np.max(coupling_weights_x)]
-                coupling_params[pair] = coupling_params
-                coupling_bounds[pair] = coupling_bounds
-                
-            self.gapjunctions = GapjunctionConfig(sections, \
-                                                  connection_probs, \
-                                                  connection_params, \
-                                                  connection_bounds, \
-                                                  coupling_coeffs, \
-                                                  coupling_params,
-                                                  coupling_bounds)
+            coupling_params = np.polyfit(np.asarray(coupling_weights_x), \
+                                         np.asarray(coupling_weights_y), \
+                                         3)
+            coupling_bounds = [np.min(coupling_weights_x), \
+                               np.max(coupling_weights_x)]
+            coupling_params = coupling_params
+            coupling_bounds = coupling_bounds
+
+            self.gapjunctions = {}
+            for pair, sec_idxs in sections.iteritems():
+                self.gapjunctions[pair] = GapjunctionConfig(sec_idxs, \
+                                                            connection_probs[pair], \
+                                                            connection_params, \
+                                                            connection_bounds, \
+                                                            coupling_coeffs[pair], \
+                                                            coupling_params, \
+                                                            coupling_bounds)
         else:
             self.gapjunctions = None
         

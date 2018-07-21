@@ -137,7 +137,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         (population_start, _) = pop_ranges[population]
         template_name = env.celltypes[population]['template']
         h.find_template(h.pc, h.templatePaths, template_name)
-        template_class = eval('h.%s' % template_name)
+        template_class = getattr(h, env.celltypes[popName]['template'])
         density_dict = env.celltypes[population]['synapses']['density']
         syn_stats_dict = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
