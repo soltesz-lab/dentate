@@ -801,7 +801,7 @@ Gap Junctions:
       HC: [apical, basal]
     IS:
       IS: [apical, basal]
-      HC: [apical, basal]
+      HC: [basal]
     NGFC:
       NGFC: [apical]
     MOPP:

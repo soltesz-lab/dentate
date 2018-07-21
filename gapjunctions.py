@@ -31,13 +31,22 @@ def filter_by_distance(gids_a, coords_a, gids_b, coords_b, bounds, params):
     res = coords_tree_a.query_ball_tree(coords_tree_b, bounds[1])
 
     res_dict = {}
-    for i, nn in enumerate(res):
+    for i, nns in enumerate(res):
         gid_a = gids_a[i]
-        nngids  = np.asarray([ gids_b[j] for j in nn ], dtype=np.int32)
-        nndists = np.asarray([ euclidean(coords_a[i], coords_b[j]) for j in nn ], dtype=np.float32)
-        nnprobs = np.asarray([ np.polyval(params,d) for d in nndists ], dtype=np.float32)
-        res_dict[gid_a] = (nngids, nndists, nnprobs)
-
+        nngids = []
+        nndists = []
+        nnprobs = []
+        for nn in nns:
+            nndist = euclidean(coords_a[i], coords_b[nn])
+            if nndist > 0.0:
+                nndists.append(nndist)
+                nnprobs.append(np.polyval(params,nndist))
+                nngids.append(gids_b[nn])
+        if len(nngids) > 0:
+            res_dict[gid_a] = (np.asarray(nngids, dtype=np.uint32), \
+                               np.asarray(nndists, dtype=np.float32), \
+                               np.asarray(nnprobs, dtype=np.float32))
+        
     return res_dict
 
 def distance_to_root(root, sec, loc):
@@ -66,7 +75,7 @@ def choose_gj_locations(ranstream_gj, cell_a, cell_b):
     if ((len(apical_sections_a) > 0) and
         (len(basal_sections_a) > 0) and
         (len(apical_sections_b) > 0) and
-        (len(basal_sections_a) > 0)):
+        (len(basal_sections_b) > 0)):
         
         sec_type = ranstream_gj.random_sample()
         if sec_type > 0.5:
@@ -104,7 +113,7 @@ def generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params, ra
     k = int(round(connection_prob * len(gj_distances)))
     selected = ranstream_gj.choice(np.arange(0, len(gj_distances)), size=k, replace=False, p=gj_probs)
     count = len(selected)
-    
+
     gid_dict = defaultdict(list)
     for i in selected:
         gid_a = gids_a[i]
