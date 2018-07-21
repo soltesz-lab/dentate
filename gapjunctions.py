@@ -111,15 +111,15 @@ def generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params, ra
         gid_b = gids_b[i]
         gid_dict[gid_a].append(gid_b)
 
-    sections_a   = []
-    positions_a  = []
-    sections_b   = []
-    positions_b  = []
-    couplings_a  = []
-    couplings_b  = []
     
     for gid_a,gids_b in gid_dict.iteritems():
-        print gid_a
+        sections_a   = []
+        positions_a  = []
+        sections_b   = []
+        positions_b  = []
+        couplings_a  = []
+        couplings_b  = []
+        
         cell_a = cell_dict_a[gid_a]
         
         for gid_b in gids_b:
@@ -149,8 +149,8 @@ def generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params, ra
                                                 'Source position': np.asarray (positions_a, dtype=np.float32),
                                                 'Target section':  np.asarray (sections_b, dtype=np.uint32),
                                                 'Target position':  np.asarray (positions_b, dtype=np.float32) },
-                                'Coupling strength' : { 'Source' : np.asarray (coupling_a, dtype=np.float32),
-                                                        'Target' : np.asarray (coupling_b, dtype=np.float32) } } )
+                                'Coupling strength' : { 'Source' : np.asarray (couplings_a, dtype=np.float32),
+                                                        'Target' : np.asarray (couplings_b, dtype=np.float32) } } )
 
     
     return count
@@ -280,8 +280,6 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
                                        cell_dict_a, cell_dict_b,
                                        gj_dict)
 
-        print ('count: %i' % count)
-        print gj_dict
         gj_graph_dict = { pp[0]: { pp[1]: gj_dict } }
 
         if not dry_run:
