@@ -10,24 +10,22 @@ from scipy.optimize import basinhopping
 from mpi4py import MPI
 import h5py
 from neuroh5.io import append_cell_attributes, read_population_ranges
-#import dentate#
+import dentate
 #from dentate.env import Env
-#from dentate.stimulus import generate_spatial_offsets
-from features_helper import generate_spatial_offsets
+from dentate.stimulus import generate_spatial_offsets
 
 import logging
 logging.basicConfig()
 
-script_name = 'generate_DG_PP_features_reduced_edited2.py'
+script_name = 'generate_DG_PP_features_reduced_h5support.py'
 logger = logging.getLogger(script_name)
 
 io_size=-1
 chunk_size=1000
 value_chunk_size=1000
-#coords_path = 'test.h5'
+
 temp_coords_path = 'EC_grid_cells_temp.h5'
 coords_path='EC_grid_cells.h5'
-
 
 field_width_params = [35.0, 0.32]
 field_width = lambda x : 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
@@ -336,11 +334,11 @@ class Cell_Population(object):
 
         self.population_ranges = read_population_ranges(coords_path, self.comm)[0]
 
-    def full_init(self, scale_factors=1.0*np.ones(nmodules), save_temp=True):
+    def full_init(self, scale_factors=1.0*np.ones(nmodules), full_map=False, save_temp=True):
         self.initialize_cells(population='MPP')
         self.initialize_cells(population='LPP')
         self.generate_xy_offsets()
-        self.calculate_rate_maps(scale_factors)
+        self.calculate_rate_maps(scale_factors, full_map=full_map)
         if save_temp:
             append_cell_attributes(temp_coords_path, 'MPP', self.mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
@@ -435,21 +433,27 @@ class Cell_Population(object):
             counter += 1
         return counter
 
-    def calculate_rate_maps(self, scale_factors):
+    def calculate_rate_maps(self, scale_factors, full_map=False):
         if self.mpp_grid is not None:
-            self._calculate_rate_maps(self.mpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+            self._calculate_rate_maps(self.mpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
         if self.mpp_place is not None:
-            self._calculate_rate_maps(self.mpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+            self._calculate_rate_maps(self.mpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
         if self.lpp_grid is not None:
-            self._calculate_rate_maps(self.lpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+            self._calculate_rate_maps(self.lpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
         if self.lpp_place is not None:
-            self._calculate_rate_maps(self.lpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
+            self._calculate_rate_maps(self.lpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
 
-    def _calculate_rate_maps(self,cells, scale_factors, cell_type='grid', jittered_orientation=False, jittered_spacing=False):
+    def _calculate_rate_maps(self,cells, scale_factors, cell_type='grid', jittered_orientation=False, jittered_spacing=False, full_map=False):
+
+        module_map = {k: None for k in np.arange(nmodules)}
         for key in cells.keys():
             cell = cells[key]
             x_offset, y_offset = None, None
             this_module = cell['Module'][0]
+            if module_map[this_module] is None:
+                module_map[this_module] = generate_mesh(scale_factor=scale_factors[this_module])
+            xp,  yp = module_map[this_module]
+                
             x_offset_scaled = cell['X Offset'][0] * scale_factors[this_module]
             y_offset_scaled = cell['Y Offset'][0] * scale_factors[this_module]
             cell['X Offset Scaled'] = np.array([x_offset_scaled], dtype='float32')
@@ -464,6 +468,12 @@ class Cell_Population(object):
                     grid_orientation = cell['Jittered Grid Orientation'][0]
                 else:
                     grid_orientation = cell['Grid Orientation'][0]
+                if full_map:
+                    full_rate_map = grid_fill_map(xp, yp, grid_spacing, grid_orientation, x_offset_scaled, y_offset_scaled).reshape(-1,)
+                    cell['Full Rate Map'] = full_rate_map.astype('float32')
+                    cell['Full Nx'] = np.array([xp.shape[0]], dtype='int32')
+                    cell['Full Ny'] = np.array([xp.shape[1]], dtype='int32')
+
                 rate_map = grid_fill_map(self.xp, self.yp, grid_spacing, grid_orientation, x_offset_scaled, y_offset_scaled).reshape(-1,)
                 cell['Rate Map'] = rate_map.astype('float32')
                 cell['Nx'] = np.asarray([self.xp.shape[0]], dtype='int32')
@@ -475,6 +485,7 @@ class Cell_Population(object):
                 cell['Rate Map'] = rate_map.astype('float32')
                 cell['Nx'] = np.array([self.xp.shape[0]], dtype='int32')
                 cell['Ny'] = np.array([self.xp.shape[1]], dtype='int32')
+        print('done..')
 
 def main(comm, init_scale_factor, verbose=True):
     tic = time.time()
@@ -512,7 +523,7 @@ def main_hardcoded(comm, fn):
     f.close()
     print(scale_factors)
     cell_corpus = Cell_Population(comm, jitter_orientation=True, jitter_spacing=True)
-    cell_corpus.full_init(scale_factors=scale_factors)
+    cell_corpus.full_init(scale_factors=scale_factors, full_map=False)
 
     mpp_module_grid = gid_to_module_dictionary(cell_corpus.mpp_grid)
     xp, yp = cell_corpus.xp, cell_corpus.yp
