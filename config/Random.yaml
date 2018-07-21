@@ -15,4 +15,5 @@ Local Field Potential:             30.0e+6 ## Selecting cells to sample extracel
 Input Features:                    40.0e+6 ## Input features
 Input Spiketrains:                 50.0e+6 ## Input spike trains
 Soma Locations:                    60.0e+6 ## Soma locations
+Gap Junctions:                     70.0e+6 ## Soma locations
 

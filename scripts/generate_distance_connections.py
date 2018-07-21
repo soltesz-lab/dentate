@@ -2,7 +2,7 @@
 ## Generates distance-weighted random connectivity between the specified populations.
 ##
 
-import sys, os, gc, click, logging
+import sys, os, os.path, gc, click, logging
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
 import h5py
@@ -23,7 +23,6 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
-script_name = 'generate_distance_connections.py'
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -31,7 +30,7 @@ script_name = 'generate_distance_connections.py'
 @click.option("--connectivity-path", required=True, type=click.Path())
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--coords-namespace", type=str, default='Sorted Coordinates')
+@click.option("--coords-namespace", type=str, default='Coordinates')
 @click.option("--synapses-namespace", type=str, default='Synapse Attributes')
 @click.option("--distances-namespace", type=str, default='Arc Distances')
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
@@ -48,7 +47,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(script_name)
+    logger = utils.get_script_logger(os.path.basename(__file__))
     
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -106,7 +105,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         
         connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
         cluster_seed = int(env.modelConfig['Random Seeds']['Connectivity Clustering'])
-        connectivity_namespace = 'Connections'
 
         if rank == 0:
             logger.info('Generating connections for population %s...' % destination_population)
@@ -122,5 +120,5 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     MPI.Finalize()
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
 

@@ -11,20 +11,7 @@ from dentate.env import Env
 from dentate import utils
 
 
-"""
-stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
-weights_path: contains namespace with initial weights ('Weights'), applied plasticity rule and writes new weights to
- 'Structured Weights' namespace
-connections_path: contains existing mapping of syn_id to source_gid
-
-10% of GCs will have a subset of weights modified according to a slow time-scale plasticity rule, the rest inherit the
-    unaltered initial log-normal weights
-    
-TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the previous weight distribution.
-"""
-
-script_name = 'generate_log_normal_weights_as_cell_attr.py'
-logger = get_script_logger(script_name)
+logger = get_script_logger(os.path.basename(__file__))
 
 local_random = np.random.RandomState()
 
@@ -156,4 +143,5 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+
