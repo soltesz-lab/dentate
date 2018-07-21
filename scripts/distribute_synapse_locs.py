@@ -17,7 +17,7 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
-script_name="distribute_synapse_locs.py"
+
 
 def update_syn_stats(env, syn_stats_dict, syn_dict):
 
@@ -95,7 +95,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
     """
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(script_name)
+    logger = utils.get_script_logger(os.path.basename(__file__))
         
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -197,4 +197,5 @@ def main(config, template_path, output_path, forest_path, populations, distribut
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+

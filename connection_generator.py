@@ -276,7 +276,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
-    sys.stdout.flush()
 
     start_time = time.time()
 
@@ -341,7 +340,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             total_count += count
             
             logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))
-            sys.stdout.flush()
 
         if gid_count % write_size == 0:
             last_time = time.time()

@@ -24,17 +24,6 @@ logger = utils.get_module_logger(__name__)
 ## Basal_weights       = [25;75;125;175]*linear_coeff(1) + linear_coeff(2);
 
 
-## Distance-dependent probability (based on Otsuka)
-def connection_prob (distance):
-    connection_params[0] + (connection_params[1] - connection_params[0]) / (1 + 10. ** ((connection_params[2] - distance) * connection_params[3]))
-
-    
-## Scale gap junction strength based on polynomial fit to Amitai distance-dependence
-def coupling_strength(distance, cc):
-    weights = cc_params[0] * distance ** 2. + cc_params[1] * distance + cc_params[2]
-    weights = weights / np.max(weights)
-    return cc / np.mean(weights) * weights
-
 ## Connections based on weighted distance
 ## selected = datasample(transpose(1:length(distance)),round(gj_prob(pre_type,post_type)*length(distance)),'Weights',prob,'Replace',false);
 
@@ -169,22 +158,16 @@ def generate_gap_junctions(gj_config, ranstream_gj, gids_a, gids_b, gj_probs, gj
 
         
 
-def generate_gj_connections(comm, population_dict, gj_config, connection_prob, forest_path,
-                            synapse_seed, connectivity_seed, cluster_seed,
-                            synapse_namespace, connectivity_namespace, connectivity_path,
+def generate_gj_connections(comm, gj_config_dict, gj_seed, connectivity_namespace, connectivity_path,
                             io_size, chunk_size, value_chunk_size, cache_size,
                             dry_run=False):
     
     """Generates gap junction connectivity based on Euclidean-distance-weighted probabilities.
     :param comm: mpi4py MPI communicator
-    :param connection_config: connection configuration object (instance of env.ConnectionGenerator)
-    :param connection_prob: ConnectionProb instance
-    :param forest_path: location of file with neuronal trees and synapse information
-    :param synapse_seed: random seed for synapse partitioning
-    :param connectivity_seed: random seed for connectivity generation
-    :param cluster_seed: random seed for determining connectivity clustering for repeated connections from the same source
-    :param synapse_namespace: namespace of synapse properties
-    :param connectivity_namespace: namespace of connectivity attributes
+    :param gj_config: connection configuration object (instance of env.GapjunctionConfig)
+    :param gj_seed: random seed for determining gap junction connectivity
+    :param connectivity_namespace: namespace of gap junction connectivity attributes
+    :param connectivity_path: path to gap junction connectivity file
     :param io_size: number of I/O ranks to use for parallel connectivity append
     :param chunk_size: HDF5 chunk size for connectivity file (pointer and index datasets)
     :param value_chunk_size: HDF5 chunk size for connectivity file (value datasets)
@@ -197,11 +180,11 @@ def generate_gj_connections(comm, population_dict, gj_config, connection_prob, f
         io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
-    sys.stdout.flush()
+
 
     start_time = time.time()
 
-    ranstream_gj = np.random.RandomState()
+    ranstream_gj = np.random.RandomState(gj_seed)
 
     population_pairs = gj_config['Connection Probabilities'].keys()
     cc_params = np.asarray(gj_config['Coupling Parameters'])
@@ -211,14 +194,8 @@ def generate_gj_connections(comm, population_dict, gj_config, connection_prob, f
         if rank == 0:
             logger.info('%s <-> %s:' % (pp[0], pp[1]))
                            
-    gj_config_dict = { pp: (connection_config[destination_population][source_population].synapse_layers,
-                                set(connection_config[destination_population][source_population].synapse_locations),
-                                set(connection_config[destination_population][source_population].synapse_types),
-                                connection_config[destination_population][source_population].synapse_proportions)
-                    for pp in population_pairs }
     total_count = 0
     gid_count   = 0
-    connection_dict = defaultdict(lambda: {})
 
     for (i, (pp, gj_config)) in enumerate(gj_config_dict.iteritems()):
 

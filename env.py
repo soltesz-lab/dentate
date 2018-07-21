@@ -366,11 +366,6 @@ class Env:
             for pair, prob in gj_connection_probs.iteritems():
                 connection_probs[pair] = float(prob)
 
-            gj_connection_probs = gj_config['Connection Probabilities']
-            connection_probs = {}
-            for pair, prob in gj_connection_probs.iteritems():
-                connection_probs[pair] = float(prob)
-
             connection_weights_x = []
             connection_weights_y = []
             gj_connection_weights = gj_config['Connection Weights']
@@ -389,18 +384,21 @@ class Env:
             for pair, coeff in gj_coupling_coeffs.iteritems():
                 coupling_coeffs[pair] = float(coeff)
 
-            coupling_weights_x = []
-            coupling_weights_y = []
             gj_coupling_weights = gj_config['Coupling Weights']
-            for x in sorted(gj_coupling_weights.keys()):
-                coupling_weights_x.append(x)
-                coupling_weights_y.append(gj_coupling_weights[x])
+            for pair, weights in gj_coupling_weights.iteritems():
+                coupling_weights_x = []
+                coupling_weights_y = []
+                for x in sorted(weights.keys()):
+                    coupling_weights_x.append(x)
+                    coupling_weights_y.append(gj_coupling_weights[x])
 
-            coupling_params = np.polyfit(np.asarray(coupling_weights_x), \
-                                         np.asarray(coupling_weights_y), \
-                                         3)
-            coupling_bounds = [np.min(coupling_weights_x), \
-                               np.max(coupling_weights_x)]
+                coupling_params = np.polyfit(np.asarray(coupling_weights_x), \
+                                            np.asarray(coupling_weights_y), \
+                                            3)
+                coupling_bounds = [np.min(coupling_weights_x), \
+                                   np.max(coupling_weights_x)]
+                coupling_params[pair] = coupling_params
+                coupling_bounds[pair] = coupling_bounds
                 
             self.gapjunctions = GapjunctionConfig(sections, \
                                                   connection_probs, \
