@@ -43,7 +43,8 @@ def h5_concat_dataset(dset, data):
 @click.command()
 @click.option("--config", '-c', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", default='dentate_h5types.h5', type=click.Path(exists=False, file_okay=True, dir_okay=False))
-def main(config, output_path):
+@click.option('--gap-junctions', is_flag=True)
+def main(config, output_path, gap_junctions):
 
     env = Env(configFile=config)
 
@@ -57,9 +58,14 @@ def main(config, output_path):
     populations.sort(key=lambda x: x[1])
 
     projections = []
-    for post, connection_dict in env.connection_config.items():
-        for pre, _ in connection_dict.items():
-            projections.append((env.pop_dict[pre], env.pop_dict[post]))
+    if gap_junctions:
+        for post, connection_dict in env.gapjunctions.items():
+            for pre, _ in connection_dict.items():
+                projections.append((env.pop_dict[pre], env.pop_dict[post]))
+    else:
+        for post, connection_dict in env.connection_config.items():
+            for pre, _ in connection_dict.items():
+                projections.append((env.pop_dict[pre], env.pop_dict[post]))
     
     # create an HDF5 enumerated type for the population label
     mapping = { name: idx for name, idx in env.pop_dict.items() }
