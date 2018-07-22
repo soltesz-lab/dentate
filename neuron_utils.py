@@ -92,7 +92,7 @@ def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
 
 
 ## Create gap junctions
-def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
+def mkgap(pc, gjlist, gid, secpos, secidx, sgid, dgid, w):
     """
     Create gap junctions
     :param pc:
@@ -107,7 +107,7 @@ def mkgap(pc, gjlist, gid, secidx, sgid, dgid, w):
     cell = pc.gid2cell(gid)
 
     sec = cell.sections[secidx]
-    seg = sec(0.5)
+    seg = sec(secpos)
     gj = h.ggap(seg)
 
     pc.source_var(seg._ref_v, sgid, sec=sec)
