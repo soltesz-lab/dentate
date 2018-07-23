@@ -1,4 +1,4 @@
-import sys, os, time, random
+import sys, os, time, random, click, logging, shutil
 import numpy as np
 import pickle
 from copy import deepcopy
@@ -6,26 +6,20 @@ from copy import deepcopy
 from scipy.optimize import minimize
 from scipy.optimize import basinhopping
 
-
 from mpi4py import MPI
 import h5py
-from neuroh5.io import append_cell_attributes, read_population_ranges
+from neuroh5.io import append_cell_attributes, read_population_ranges, read_cell_attributes
 import dentate
-#from dentate.env import Env
+from dentate.utils import list_find
 from dentate.stimulus import generate_spatial_offsets
 
-import logging
-logging.basicConfig()
-
 script_name = 'generate_DG_PP_features_reduced_h5support.py'
+logging.basicConfig()
 logger = logging.getLogger(script_name)
 
 io_size=-1
 chunk_size=1000
 value_chunk_size=1000
-
-temp_coords_path = 'EC_grid_cells_temp.h5'
-coords_path='EC_grid_cells.h5'
 
 field_width_params = [35.0, 0.32]
 field_width = lambda x : 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
@@ -42,9 +36,6 @@ N_LPP = 1300 #int(N_MPP * 1.10)
 N_LPP_PLACE = N_LPP 
 N_LPP_GRID = 0
 
-
-
-cost_value = []
 arena_dimension = 100.
 init_scale_factor = 10.0
 init_orientation_jitter = [-10., 10.] #[np.deg2rad(-10.), np.deg2rad(10.)]
@@ -52,6 +43,8 @@ init_lambda_jitter = [-10., 10.]
 resolution = 5.
 nmodules = 10
 modules = np.arange(nmodules)
+
+param_list, cost_evals = [], []
 
 
 def dcheck(x,y,xi,yi,spacing):
@@ -218,7 +211,7 @@ def peak_to_trough(module_cells, modules=modules):
 
     return minmax_evaluations - 1., mean_evaluations - 1., var_evaluations
 
-def fraction_active(module_cells, modules=modules, target=0.5):
+def fraction_active(module_cells, modules=modules, target=0.30):
     rates = {mod:[] for mod in modules}
     for mod in module_cells.keys():
         cells = module_cells[mod]
@@ -265,6 +258,7 @@ def calculate_fraction_active(rates, threshold=0.1):
 
 def cost_func(x, cell_modules, mesh):
     sf = x
+    param_list.append(sf)
     xp, yp = mesh
     for mod in cell_modules.keys():
         cells = cell_modules[mod]
@@ -293,9 +287,9 @@ def cost_func(x, cell_modules, mesh):
     cost_frac_active = frac_active_mean_cost ** 2 + frac_active_var_cost ** 2
 
     total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
+    cost_evals.append(total_cost)
     elapsed = time.time() - tic
     print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
-    cost_value.append(total_cost)
     return total_cost
 
 class OptimizationRoutine(object):
@@ -304,21 +298,24 @@ class OptimizationRoutine(object):
         self.mesh = mesh
 
     def optimize(self, x0, bounds=None, verbose=False):
+        param_list, cost_evals = [], []
         if bounds is None:
             bounds = [(1., 50.) for _ in x0]
         fnc = lambda x: cost_func(x, self.cells, self.mesh)
-        minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':1.0, 'maxiter':10})
-        bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True)
+        minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':1.0, 'maxiter':3})
+        bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True, niter=3)
 
         if verbose:
             print(x0)
             print(bh_output.x)
             print(fnc(x0))
             print(fnc(bh_output.x))
+        return param_list, cost_evals
 
 class Cell_Population(object):
-    def __init__(self, comm, jitter_orientation=True, jitter_spacing=True):
+    def __init__(self, comm, coords_path, jitter_orientation=True, jitter_spacing=True):
         self.comm = comm
+        self.coords_path = coords_path
         self.jitter_orientation = jitter_orientation
         self.jitter_spacing = jitter_spacing
         self.xp, self.yp = generate_mesh(scale_factor=1.0)
@@ -332,15 +329,13 @@ class Cell_Population(object):
         self.lpp_grid  =  None
         self.lpp_place =  None
 
-        self.population_ranges = read_population_ranges(coords_path, self.comm)[0]
+        self.population_ranges = read_population_ranges(self.coords_path, self.comm)[0]
 
-    def full_init(self, scale_factors=1.0*np.ones(nmodules), full_map=False, save_temp=True):
+    def full_init(self, scale_factors=1.0*np.ones(nmodules), full_map=False):
         self.initialize_cells(population='MPP')
         self.initialize_cells(population='LPP')
         self.generate_xy_offsets()
         self.calculate_rate_maps(scale_factors, full_map=full_map)
-        if save_temp:
-            append_cell_attributes(temp_coords_path, 'MPP', self.mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
     def initialize_cells(self, population='MPP'):
         self.population_start, self.population_count = self.population_ranges[population]
@@ -485,50 +480,104 @@ class Cell_Population(object):
                 cell['Rate Map'] = rate_map.astype('float32')
                 cell['Nx'] = np.array([self.xp.shape[0]], dtype='int32')
                 cell['Ny'] = np.array([self.xp.shape[1]], dtype='int32')
-        print('done..')
 
-def main(comm, init_scale_factor, verbose=True):
+@click.command()
+@click.option("--optimize", '-o', is_flag=True, required=True)
+@click.option("--input-path", default=None, required=False, type=click.Path(file_okay=True, dir_okay=True))
+@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
+@click.option("--output-path", required=False, type=click.Path(file_okay=True, dir_okay=True))
+@click.option("--iterations", type=int, required=False, default=10)
+@click.option("--verbose", "-v", is_flag=True, default=False)
+@click.option("--lbound", type=float, required=False, default=1.)
+@click.option("--ubound", type=float, required=False, default=50.)
+
+def main(optimize, input_path, coords_path, output_path, lbound, ubound, iterations, verbose):
+    comm = MPI.COMM_WORLD
     tic = time.time()
-    cell_corpus = Cell_Population(comm, jitter_orientation=True, jitter_spacing=True)
-    cell_corpus.full_init()
-    elapsed = time.time() - tic
-    if verbose:
-        print('%d cells generated in %f seconds' % ((N_LPP+N_MPP), elapsed))
+    if optimize:
+        mpp_grid = None
+        if input_path is not None:
+            mpp_grid = {}
+            neuroh5_cells = read_cell_attributes(input_path, "MPP", namespace="Grid Input Features")
+            for (gid, cell_attr) in neuroh5_cells:
+                mpp_grid[gid] = cell_attr
+            if verbose:
+                print('Data read in for %d cells..' % (len(mpp_grid.keys())))
+        else:
+            cell_corpus = Cell_Population(comm, coords_path)
+            cell_corpus.full_init()
+            mpp_grid = cell_corpus.mpp_grid
+            append_cell_attributes('temp-'+output_path, 'MPP', mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            if verbose:
+                print('Cells initialized')
+        main_optimization(comm, output_path, mpp_grid, lbound, ubound, iterations, verbose)
 
-    T = init_scale_factor.shape[1]
-    generated_cells = {}
-    for t in range(T):
-        corpus_copy = deepcopy(cell_corpus)
+    else:
+        if input_path is not None:
+            mpp_grid = {}
+            neuroh5_cells = read_cell_attributes(input_path, "MPP", namespace="Grid Input Features")
+            for (gid, cell_attr) in neuroh5_cells:
+                mpp_grid[gid] = cell_attr
+            if verbose:
+                print('Data read in for %d cells..' % (len(mpp_grid.keys())))
+        else:
+            cell_corpus = Cell_Population(comm, coords_path)
+            cell_corpus.full_init()
+            mpp_grid = cell_corpus.mpp_grid
+            append_cell_attributes('temp_'+output_path, 'MPP', mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            if verbose:
+                print('Cells initialized')
+            main_hardcoded(comm, output_path, mpp_grid)
+            elapsed = time.time() - tic
+            if verbose:
+                print('Completed in %f seconds...' % elapsed)
+
+
+def main_optimization(comm, output_path, cells, lbound, ubound, iterations, verbose):
+    init_scale_factor = np.random.randint(lbound, ubound+1, (nmodules, iterations))
+    for t in range(iterations):
+        cell_copy = deepcopy(cells)
         scale_factor0 = init_scale_factor[:,t]
         if verbose:
             print(t, scale_factor0)
         tic = time.time()
         elapsed = time.time() - tic
-        if verbose:
-            print('Rate maps for %d cells calculated in %f seconds' % (len(corpus_copy.mpp_grid.keys()), elapsed))
-        module_mpp_grid = gid_to_module_dictionary(corpus_copy.mpp_grid)
-        mesh = (corpus_copy.xp, corpus_copy.yp)
+        module_mpp_grid = gid_to_module_dictionary(cell_copy)
+        mesh = generate_mesh(scale_factor=1.0)
+        bounds = [(lbound, ubound) for sf in scale_factor0]
         opt = OptimizationRoutine(module_mpp_grid, mesh)
-        opt.optimize(scale_factor0, bounds=None, verbose=verbose)
-        generated_cells[t] = module_mpp_grid
-        mpp_grid = module_to_gid_dictionary(module_mpp_grid)
-        append_cell_attributes(coords_path, 'MPP', mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        params, costs = opt.optimize(scale_factor0, bounds=bounds, verbose=verbose)
+        list_to_file(params, 'iteration-'+str(t+1)+'-param.txt')        
+        list_to_file(costs.reshape(-1,1), 'iteration-'+str(t+1)+'-costs.txt')        
 
-def main_hardcoded(comm, fn):
+        mpp_grid = module_to_gid_dictionary(module_mpp_grid)
+        fn = 'iteration-'+str(t+1)+'-'+output_path
+        shutil.copyfile('dentate_h5types.h5', fn)
+        append_cell_attributes('iteration-'+str(t+1)+'-'+output_path, 'MPP', mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+
+def main_hardcoded(comm, output_path, cells, sf_fn='optimal_sf.txt'):
     scale_factors = []
-    f = open(fn, 'r')
+    f = open(sf_fn, 'r')
     for line in f.readlines():
         line = line.strip('\n')
         scale_factors.append(int(line))
     f.close()
     print(scale_factors)
-    cell_corpus = Cell_Population(comm, jitter_orientation=True, jitter_spacing=True)
-    cell_corpus.full_init(scale_factors=scale_factors, full_map=False)
 
-    mpp_module_grid = gid_to_module_dictionary(cell_corpus.mpp_grid)
-    xp, yp = cell_corpus.xp, cell_corpus.yp
+    mpp_module_grid = gid_to_module_dictionary(cells)
+    xp, yp = generate_mesh(scale_factor=1.0) 
     cost = cost_func(scale_factors, mpp_module_grid, (xp, yp))
+    mpp_grid = module_to_gid_dictionary(mpp_module_grid)
+    append_cell_attributes(output_path, 'MPP', mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
+def list_to_file(data, fn):
+    f = open(fn, 'w')
+    N, D = data.shape
+    for n in range(N):
+        for d in range(D):
+            f.write(str(data[n,d]) + '\t')
+        f.write('\n')
+    f.close()
 
 def neuroh5_test(comm, output_file='test.h5'):
     cell_corpus = Cell_Population(comm, jitter_orientation=True, jitter_spacing=True)
@@ -559,25 +608,8 @@ def module_to_gid_dictionary(module_cells):
     return gid_dictionary
 if __name__ == '__main__':
 
-    comm = MPI.COMM_WORLD
-    rank = comm.rank
-    #env = Env(comm=comm,configFile=sys.argv[1])
-    if io_size == -1:
-        io_size = comm.size
-    comm.barrier
-
-    #neuroh5_test(comm)
-
-    low, high = 1, 51
-    nrandom_start = 1
-    if len(sys.argv) >= 2:
-        nrandom_start = int(sys.argv[1])
-    if nrandom_start == -1:
-        main_hardcoded(comm, str(sys.argv[2]))
-        sys.exit(1)
-    init_scale_factor = np.random.randint(low,high,(nmodules,nrandom_start))
-    main(comm, init_scale_factor)
-    sys.exit(1)
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
+    sys.exit(1)    
 
     MPP_info, LPP_info, xp, yp = init_generate_populations(gen_rate=True)
     grid_dict_MPP, place_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP = MPP_info
