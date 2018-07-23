@@ -290,19 +290,23 @@ def cost_func(x, cell_modules, mesh):
     cost_evals.append(total_cost)
     elapsed = time.time() - tic
     print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
+    print(sf)
+    print('---------------------')
     return total_cost
 
 class OptimizationRoutine(object):
-    def __init__(self, cells, mesh):
+    def __init__(self, cells, mesh, lbound, ubound):
         self.cells = cells
         self.mesh = mesh
+        self.lbound = lbound
+        self.ubound = ubound
 
     def optimize(self, x0, bounds=None, verbose=False):
         param_list, cost_evals = [], []
         if bounds is None:
-            bounds = [(1., 50.) for _ in x0]
+            bounds = [(lbound, ubound) for _ in x0]
         fnc = lambda x: cost_func(x, self.cells, self.mesh)
-        minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':1.0, 'maxiter':3})
+        minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':2.0, 'maxiter':3, 'ftol':1.0e-2})
         bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True, niter=3)
 
         if verbose:
@@ -545,7 +549,7 @@ def main_optimization(comm, output_path, cells, lbound, ubound, iterations, verb
         module_mpp_grid = gid_to_module_dictionary(cell_copy)
         mesh = generate_mesh(scale_factor=1.0)
         bounds = [(lbound, ubound) for sf in scale_factor0]
-        opt = OptimizationRoutine(module_mpp_grid, mesh)
+        opt = OptimizationRoutine(module_mpp_grid, mesh, lbound, ubound)
         params, costs = opt.optimize(scale_factor0, bounds=bounds, verbose=verbose)
         list_to_file(params, 'iteration-'+str(t+1)+'-param.txt')        
         list_to_file(costs.reshape(-1,1), 'iteration-'+str(t+1)+'-costs.txt')        
