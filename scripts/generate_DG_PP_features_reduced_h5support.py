@@ -375,9 +375,9 @@ class OptimizationRoutine(object):
         return bh_output.x, np.asarray(param_list, dtype='float32'), np.asarray(cost_evals, dtype='float32')
 
 class Cell_Population(object):
-    def __init__(self, comm, coords_path, jitter_orientation=True, jitter_spacing=True):
+    def __init__(self, comm, types_path, jitter_orientation=True, jitter_spacing=True):
         self.comm = comm
-        self.coords_path = coords_path
+        self.types_path = types_path
         self.jitter_orientation = jitter_orientation
         self.jitter_spacing = jitter_spacing
         self.xp, self.yp = generate_mesh(scale_factor=1.0)
@@ -393,7 +393,7 @@ class Cell_Population(object):
         self.lpp_grid  =  None
         self.lpp_place =  None
 
-        self.population_ranges = read_population_ranges(self.coords_path, self.comm)[0]
+        self.population_ranges = read_population_ranges(self.types_path, self.comm)[0]
 
     def full_init(self, scale_factors=1.0*np.ones(nmodules), full_map=False):
         self.initialize_cells(population='MPP')
@@ -587,14 +587,14 @@ def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'
 @click.option("--optimize", '-o', is_flag=True, required=True)
 @click.option("--centroid", '-c', is_flag=True, required=False)
 @click.option("--input-path", default=None, required=False, type=click.Path(file_okay=True, dir_okay=True))
-@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
+@click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
 @click.option("--output-path", required=False, type=click.Path(file_okay=True, dir_okay=True))
 @click.option("--iterations", type=int, required=False, default=10)
 @click.option("--verbose", "-v", is_flag=True, default=False)
 @click.option("--lbound", type=float, required=False, default=1.)
 @click.option("--ubound", type=float, required=False, default=50.)
 
-def main(optimize, centroid, input_path, coords_path, output_path, lbound, ubound, iterations, verbose):
+def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound, iterations, verbose):
     comm = MPI.COMM_WORLD
     tic = time.time()
     mpp_grid, mpp_place = None, None
@@ -614,13 +614,13 @@ def main(optimize, centroid, input_path, coords_path, output_path, lbound, uboun
             if verbose:
                 print('Data read in for %d cells..' % N)
         else:
-            cell_corpus = Cell_Population(comm, coords_path)
+            cell_corpus = Cell_Population(comm, types_path)
             cell_corpus.full_init()
             mpp_grid = cell_corpus.mpp_grid
             mpp_place = cell_corpus.mpp_place
 
-            save_h5(comm, 'grid-temp-'+output_path, mpp_grid, 'MPP', 'Grid Input Features')
-            save_h5(comm, 'place-temp-'+output_path, mpp_place, 'MPP', 'Place Input Features')
+            save_h5(comm, 'grid-temp-'+output_path, mpp_grid, 'MPP', 'Grid Input Features', types_path)
+            save_h5(comm, 'place-temp-'+output_path, mpp_place, 'MPP', 'Place Input Features', types_path)
             N = len(mpp_grid.keys()) + len(mpp_place.keys())
             if verbose:
                 print('%d cells initialized' % N)
@@ -643,7 +643,7 @@ def main(optimize, centroid, input_path, coords_path, output_path, lbound, uboun
             if verbose:
                 print('Data read in for %d cells..' % N)
         else:
-            cell_corpus = Cell_Population(comm, coords_path)
+            cell_corpus = Cell_Population(comm, types_path)
             cell_corpus.full_init()
             mpp_grid = cell_corpus.mpp_grid
             mpp_place = cell_corpus.mpp_place
