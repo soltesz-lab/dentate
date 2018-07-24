@@ -299,14 +299,35 @@ def module_merge(x, y):
         z[xkey] = xcells + ycells
     return z
         
+def translate_cells(cell_modules, x_translate, y_translate, scale_factors):
+    for mod in cell_modules.keys():
+        cells = cell_modules[mod] 
+        curr_xt = x_translate[mod]
+        curr_yt = y_translate[mod] 
+        for cell in cells:
+            xf, yf = cell['X Offset'][0] + curr_xt, cell['Y Offset'][0] + curr_yt
+            cell['X Offset'] = np.array([xf], dtype='float32')
+            cell['Y Offset'] = np.array([yf], dtype='float32')
+           
+            xf_scaled, yf_scaled = xf * scale_factors[mod], yf * scale_factors[mod]
+            cell['X Offset Scaled'] = np.array([xf_scaled], dtype='float32')
+            cell['Y Offset Scaled'] = np.array([yf_scaled], dtype='float32')
 
-def cost_func(x, grid_modules, place_modules, mesh):
-    cost_prepare_grid(x, grid_modules, mesh)
-    cost_prepare_place(x, place_modules, mesh)
-    cell_modules = module_merge(grid_modules, place_modules)
+def cost_func(x, grid, place, mesh, centroid):
+    param_list.append(x)
+    if centroid:
+        cell_modules = module_merge(grid, place)
+        prev_x_centroids, prev_y_centroids = calculate_module_centroids(cell_modules)
+        curr_x_centroids, curr_y_centroids = x[nmodules:2*nmodules], x[2*nmodules:3*nmodules]
+        x_translate = [curr_x_centroids[i] - prev_x_centroids[i] for i in range(len(prev_x_centroids))]
+        y_translate = [curr_y_centroids[i] - prev_y_centroids[i] for i in range(len(prev_y_centroids))]
+        if not(all(x == 0.0 for x in x_translate) and all(y == 0.0 for y in y_translate)):
+            translate_cells(grid, x_translate, y_translate, x[0:nmodules])
+            translate_cells(place, x_translate, y_translate, x[0:nmodules])
 
-    sf = x
-    param_list.append(sf)
+    cost_prepare_grid(x[0:nmodules], grid, mesh)
+    cost_prepare_place(x[0:nmodules], place, mesh)
+    cell_modules = module_merge(grid, place)
 
     tic = time.time()
     minmax_ratio_evaluations, mean_ratio_evaluations, var_ratio_evaluations = peak_to_trough(cell_modules, modules=modules)
@@ -324,7 +345,7 @@ def cost_func(x, grid_modules, place_modules, mesh):
     cost_evals.append(total_cost)
     elapsed = time.time() - tic
     print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
-    print(sf)
+    print(x)
     print('---------------------')
     return total_cost
 
@@ -336,11 +357,10 @@ class OptimizationRoutine(object):
         self.lbound = lbound
         self.ubound = ubound
 
-    def optimize(self, x0, bounds=None, verbose=False):
-        param_list, cost_evals = [], []
+    def optimize(self, x0, centroid=False, bounds=None, verbose=False):
         if bounds is None:
             bounds = [(lbound, ubound) for _ in x0]
-        fnc = lambda x: cost_func(x, self.grid, self.place, self.mesh)
+        fnc = lambda x: cost_func(x, self.grid, self.place, self.mesh, centroid)
         minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':2.0, 'maxiter':3, 'ftol':1.0e-2})
         bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True, niter=3)
 
@@ -360,8 +380,8 @@ class Cell_Population(object):
         self.xp, self.yp = generate_mesh(scale_factor=1.0)
 
         self.local_random = random.Random()
-        self.local_random.seed(0)
-        self.feature_type_random = np.random.RandomState(0)
+        self.local_random.seed(64)
+        self.feature_type_random = np.random.RandomState(64)
 
         self.mpp_grid  =  None
         self.mpp_place =  None
@@ -520,12 +540,29 @@ class Cell_Population(object):
                 cell['Nx'] = np.array([self.xp.shape[0]], dtype='int32')
                 cell['Ny'] = np.array([self.xp.shape[1]], dtype='int32')
 
+def calculate_module_centroids(cell_modules):
+    module_x_centroids = [0.0 for _ in np.arange(nmodules)]
+    module_y_centroids = [0.0 for _ in np.arange(nmodules)]
+    for mod in cell_modules.keys():
+        cells = cell_modules[mod] 
+        curr_x, curr_y = [], []
+        for cell in cells:
+            xf, yf = cell['X Offset'][0], cell['Y Offset'][0]
+            curr_x.append(xf)
+            curr_y.append(yf)
+        curr_x, curr_y = np.asarray(xf, dtype='float32'), np.asarray(yf, dtype='float32')
+        mean_x, mean_y = np.mean(curr_x), np.mean(curr_y)
+        module_x_centroids[mod], module_y_centroids[mod] = mean_x, mean_y
+    return module_x_centroids, module_y_centroids
+    
+
 def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'):
     shutil.copyfile(template, fn)
     append_cell_attributes(fn, population, data, namespace=namespace, comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
 @click.command()
 @click.option("--optimize", '-o', is_flag=True, required=True)
+@click.option("--centroid", '-c', is_flag=True, required=False)
 @click.option("--input-path", default=None, required=False, type=click.Path(file_okay=True, dir_okay=True))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
 @click.option("--output-path", required=False, type=click.Path(file_okay=True, dir_okay=True))
@@ -534,7 +571,7 @@ def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'
 @click.option("--lbound", type=float, required=False, default=1.)
 @click.option("--ubound", type=float, required=False, default=50.)
 
-def main(optimize, input_path, coords_path, output_path, lbound, ubound, iterations, verbose):
+def main(optimize, centroid, input_path, coords_path, output_path, lbound, ubound, iterations, verbose):
     comm = MPI.COMM_WORLD
     tic = time.time()
     mpp_grid, mpp_place = None, None
@@ -565,7 +602,7 @@ def main(optimize, input_path, coords_path, output_path, lbound, ubound, iterati
             if verbose:
                 print('%d cells initialized' % N)
         cells = (mpp_grid, mpp_place)     
-        main_optimization(comm, output_path, cells, lbound, ubound, iterations, verbose)
+        main_optimization(comm, output_path, cells, lbound, ubound, centroid, iterations, verbose)
 
     else:
         if input_path is not None:
@@ -600,23 +637,53 @@ def main(optimize, input_path, coords_path, output_path, lbound, ubound, iterati
             print('Completed in %f seconds...' % elapsed)
 
 
-def main_optimization(comm, output_path, cells, lbound, ubound, iterations, verbose):
+def main_optimization(comm, output_path, cells, lbound, ubound, centroid, iterations, verbose):
     grid, place = cells
-    init_scale_factor = np.random.randint(lbound, ubound+1, (nmodules, iterations))
+    partition_border = np.linspace(lbound, ubound, nmodules+1)
+    init_parameters = np.zeros((iterations, nmodules))
+    for i in range(partition_border.shape[0]-1):
+        mod_lb = partition_border[i]
+        mod_ub = partition_border[i+1]
+        init_parameters[:,i] = np.random.randint(mod_lb, mod_ub, iterations)
+       
+    #init_scale_factors = np.random.randint(lbound, ubound+1, (iterations, nmodules))
+    centroid_xbounds, centroid_ybounds = None, None
     for t in range(iterations):
+        cost_evals, params_list = [], []
         grid_copy = deepcopy(grid)
         place_copy = deepcopy(place)
-        scale_factor0 = init_scale_factor[:,t]
-        if verbose:
-            print(t, scale_factor0)
+
+        scale_factor0 = init_parameters[t,:]
         tic = time.time()
         elapsed = time.time() - tic
         grid_module = gid_to_module_dictionary(grid)
         place_module = gid_to_module_dictionary(place)
-        mesh = generate_mesh(scale_factor=1.0)
+
         bounds = [(lbound, ubound) for sf in scale_factor0]
+        if centroid and t == 0:
+            xp, yp = generate_mesh(scale_factor=1.0)
+            xp_lb, xp_ub = np.min(xp), np.max(xp) + resolution
+            yp_lb, yp_ub = np.min(yp), np.max(yp) + resolution
+            centroid_xbounds = [(xp_lb, xp_ub) for sf in scale_factor0]
+            centroid_ybounds = [(yp_lb, yp_ub) for sf in scale_factor0]
+        if centroid_xbounds is not None and centroid_ybounds is not None:
+            bounds += centroid_xbounds
+            bounds += centroid_ybounds
+
+        mesh = generate_mesh(scale_factor=1.0)
+        param0 = None
+        if centroid:
+            cell_modules = module_merge(grid_module, place_module)
+            module_x_centroids, module_y_centroids = calculate_module_centroids(cell_modules)
+            x_centroid0 = [x for x in module_x_centroids]
+            y_centroid0 = [y for y in module_y_centroids]
+            param0 = np.concatenate((scale_factor0,x_centroid0,y_centroid0))
+        else:
+            param0 = scale_factor0
+        if verbose:
+            print(t, param0)
         opt = OptimizationRoutine(grid_module, place_module, mesh, lbound, ubound)
-        params, costs = opt.optimize(scale_factor0, bounds=bounds, verbose=verbose)
+        params, costs = opt.optimize(param0, centroid=centroid, bounds=bounds, verbose=verbose)
         list_to_file(params, 'iteration-'+str(t+1)+'-param.txt')        
         list_to_file(costs, 'iteration-'+str(t+1)+'-costs.txt')        
 
@@ -683,8 +750,3 @@ def module_to_gid_dictionary(module_cells):
     return gid_dictionary
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
-    
-  
-
-
-    
