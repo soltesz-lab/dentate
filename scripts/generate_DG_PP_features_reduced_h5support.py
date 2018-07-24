@@ -283,8 +283,8 @@ def cost_prepare_place(x, cell_modules, mesh):
             place_orientation = 0.0
             xf, yf = cell['X Offset'], cell['Y Offset']
             xf_scaled, yf_scaled = xf * sf[mod], yf * sf[mod]
-            cell['X Offset Scaled'] = np.array([xf_scaled], dtype='float32')
-            cell['Y Offset Scaled'] = np.array([yf_scaled], dtype='float32')
+            cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
+            cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
             rate_map = np.zeros((xp.shape[0], xp.shape[1]))
             for n in range(nfields):
                 rate_map += place_fill_map(xp, yp, place_width[n], place_orientation, xf_scaled[n], yf_scaled[n])
@@ -308,13 +308,13 @@ def translate_cells(cell_modules, x_translate, y_translate, scale_factors):
         curr_xt = x_translate[mod]
         curr_yt = y_translate[mod] 
         for cell in cells:
-            xf, yf = cell['X Offset'][0] + curr_xt, cell['Y Offset'][0] + curr_yt
-            cell['X Offset'] = np.array([xf], dtype='float32')
-            cell['Y Offset'] = np.array([yf], dtype='float32')
+            xf, yf = cell['X Offset'] + curr_xt, cell['Y Offset'] + curr_yt
+            cell['X Offset'] = np.asarray(xf, dtype='float32')
+            cell['Y Offset'] = np.asarray(yf, dtype='float32')
            
             xf_scaled, yf_scaled = xf * scale_factors[mod], yf * scale_factors[mod]
-            cell['X Offset Scaled'] = np.array([xf_scaled], dtype='float32')
-            cell['Y Offset Scaled'] = np.array([yf_scaled], dtype='float32')
+            cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
+            cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
 
 def cost_func(x, grid, place, mesh, centroid):
     param_list.append(x)
@@ -569,9 +569,10 @@ def calculate_module_centroids(cell_modules):
         cells = cell_modules[mod] 
         curr_x, curr_y = [], []
         for cell in cells:
-            xf, yf = cell['X Offset'][0], cell['Y Offset'][0]
-            curr_x.append(xf)
-            curr_y.append(yf)
+            xf, yf = cell['X Offset'], cell['Y Offset']
+            for n in range(xf.shape[0]):
+                curr_x.append(xf[n])
+                curr_y.append(yf[n])
         curr_x, curr_y = np.asarray(xf, dtype='float32'), np.asarray(yf, dtype='float32')
         mean_x, mean_y = np.mean(curr_x), np.mean(curr_y)
         module_x_centroids[mod], module_y_centroids[mod] = mean_x, mean_y
@@ -743,12 +744,10 @@ def main_hardcoded(comm, output_path, cells, sf_fn='optimal_sf.txt'):
     place_module = gid_to_module_dictionary(place)
     xp, yp = generate_mesh(scale_factor=1.0) 
     cost = cost_func(scale_factors, grid_module, place_module, (xp, yp), False)
-
     grid_post_optimization = module_to_gid_dictionary(grid_module)
     save_h5(comm, 'grid-'+output_path, grid_post_optimization, 'MPP', 'Grid Input Features')
     place_post_optimization = module_to_gid_dictionary(place_module)
     save_h5(comm, 'place-'+output_path, place_post_optimization, 'MPP', 'Place Input Features')
-
 def list_to_file(data, fn):
     data = np.asmatrix(data)
     f = open(fn, 'w')
