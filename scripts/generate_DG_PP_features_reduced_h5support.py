@@ -580,7 +580,12 @@ def calculate_module_centroids(cell_modules):
     
 
 def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'):
-    shutil.copyfile(template, fn)
+    if not os.path.isfile(fn):
+        input_file  = h5py.File(template,'r')
+        output_file = h5py.File(fn,'w')
+        input_file.copy('/H5Types',output_file)
+        input_file.close()
+        output_file.close()
     append_cell_attributes(fn, population, data, namespace=namespace, comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
 @click.command()
@@ -619,13 +624,15 @@ def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound
             mpp_grid = cell_corpus.mpp_grid
             mpp_place = cell_corpus.mpp_place
 
-            save_h5(comm, 'grid-temp-'+output_path, mpp_grid, 'MPP', 'Grid Input Features', types_path)
-            save_h5(comm, 'place-temp-'+output_path, mpp_place, 'MPP', 'Place Input Features', types_path)
+            grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-temp-%s' % os.path.basename(output_path)))
+            place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-temp-%s' % os.path.basename(output_path)))
+            save_h5(comm, grid_temp_fn, mpp_grid, 'MPP', 'Grid Input Features', template=types_path)
+            save_h5(comm, grid_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
             N = len(mpp_grid.keys()) + len(mpp_place.keys())
             if verbose:
                 print('%d cells initialized' % N)
         cells = (mpp_grid, mpp_place)     
-        main_optimization(comm, output_path, cells, lbound, ubound, centroid, iterations, verbose)
+        main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, iterations, verbose)
 
     else:
         if input_path is not None:
@@ -647,9 +654,11 @@ def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound
             cell_corpus.full_init()
             mpp_grid = cell_corpus.mpp_grid
             mpp_place = cell_corpus.mpp_place
-             
-            save_h5(comm, 'grid-temp-'+output_path, mpp_grid, 'MPP', 'Grid Input Features')
-            save_h5(comm, 'place-temp-'+output_path, mpp_place, 'MPP', 'Place Input Features')
+
+            grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-temp-%s' % os.path.basename(output_path)))
+            place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-temp-%s' % os.path.basename(output_path)))
+            save_h5(comm, grid_temp_fn, mpp_grid, 'MPP', 'Grid Input Features', template=types_path)
+            save_h5(comm, grid_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
             N = len(mpp_grid.keys()) + len(mpp_place.keys())
             if verbose:
                 print('%d cells initialized' % N)
@@ -666,7 +675,7 @@ def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound
         f.close()
 
 
-def main_optimization(comm, output_path, cells, lbound, ubound, centroid, iterations, verbose):
+def main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, iterations, verbose):
     grid, place = cells
     partition_border = np.linspace(lbound, ubound, nmodules+1)
     init_parameters = np.zeros((iterations, nmodules))
@@ -728,8 +737,11 @@ def main_optimization(comm, output_path, cells, lbound, ubound, centroid, iterat
         grid_post_optimization = module_to_gid_dictionary(grid_module)
         place_post_optimization = module_to_gid_dictionary(place_module)
 
-        save_h5(comm, 'grid-iteration-'+str(t+1)+'-'+output_path, grid_post_optimization, 'MPP', 'Grid Input Features')
-        save_h5(comm, 'place-iteration-'+str(t+1)+'-'+output_path, place_post_optimization, 'MPP', 'Place Input Features')
+        grid_iteration_fn = os.path.join(os.path.dirname(output_path), ('grid-iteration-%i-%s' % (t+1, os.path.basename(output_path))))
+        place_iteration_fn = os.path.join(os.path.dirname(output_path), ('place-iteration-%i-%s' % (t+1, os.path.basename(output_path))))
+
+        save_h5(comm, grid_iteration_fn, grid_post_optimization, 'MPP', 'Grid Input Features', template=types_path)
+        save_h5(comm, place_iteration_fn, place_post_optimization, 'MPP', 'Place Input Features', template=types_path)
 
 def main_hardcoded(comm, output_path, cells, sf_fn='optimal_sf.txt'):
     scale_factors = []

@@ -155,9 +155,9 @@ def generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params, ra
         if len(gids_b) > 0:
             gj_dict[gid_a] = ( np.asarray(gids_b, dtype=np.uint32),
                                 { 'Location' : { 'Source section':  np.asarray (sections_a, dtype=np.uint32),
-                                                'Source position': np.asarray (positions_a, dtype=np.float32),
-                                                'Destination section':  np.asarray (sections_b, dtype=np.uint32),
-                                                'Destination position':  np.asarray (positions_b, dtype=np.float32) },
+                                                 'Source position': np.asarray (positions_a, dtype=np.float32),
+                                                 'Destination section':  np.asarray (sections_b, dtype=np.uint32),
+                                                 'Destination position':  np.asarray (positions_b, dtype=np.float32) },
                                 'Coupling strength' : { 'Source' : np.asarray (couplings_a, dtype=np.float32),
                                                         'Destination' : np.asarray (couplings_b, dtype=np.float32) } } )
 
