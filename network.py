@@ -391,36 +391,42 @@ def connectgjs(env):
                 logger.info("*** Creating gap junctions %s" % name)
             prj = graph[name]
             attrmap = a[name]
-            weight_attr_idx = attrmap['Weight']+1
-            dstbranch_attr_idx = attrmap['Destination Branch']+1
-            dstsec_attr_idx = attrmap['Destination Section']+1
-            srcbranch_attr_idx = attrmap['Source Branch']+1
-            srcsec_attr_idx = attrmap['Source Section']+1
+            cc_src_idx = attrmap['Coupling strength']['Source']
+            cc_dst_idx = attrmap['Coupling strength']['Destination']
+            dstsec_idx = attrmap['Location']['Destination Section']
+            dstpos_idx = attrmap['Location']['Destination Position']
+            srcsec_idx = attrmap['Location']['Source Section']
+            srcpos_idx = attrmap['Location']['Source Position']
+
             for destination in sorted(prj.keys()):
                 edges = prj[destination]
                 sources      = edges[0]
-                weights      = edges[weight_attr_idx]
-                dstbranches  = edges[dstbranch_attr_idx]
-                dstsecs      = edges[dstsec_attr_idx]
-                srcbranches  = edges[srcbranch_attr_idx]
-                srcsecs      = edges[srcsec_attr_idx]
+                srcweights   = edges[1]['Coupling strength'][cc_src_idx]
+                dstweights   = edges[1]['Coupling strength'][cc_dst_idx]
+                dstposs      = edges[1]['Location'][dstpos_idx]
+                dstsecs      = edges[1]['Location'][dstsec_idx]
+                srcposs      = edges[1]['Location'][srcpos_idx]
+                srcsecs      = edges[1]['Location'][srcsec_idx]
                 for i in range(0,len(sources)):
                     source    = sources[i]
-                    srcbranch = srcbranches[i]
+                    srcpos    = srcposs[i]
                     srcsec    = srcsecs[i]
-                    dstbranch = dstbranches[i]
+                    dstpos    = dstposs[i]
                     dstsec    = dstsecs[i]
-                    weight    = weights[i]
+                    srcwgt    = srcweights[i]
+                    dstwgt    = dstweights[i]
                     if env.pc.gid_exists(source):
-                        mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
-                        logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
-                                    'sgid = %d dgid = %d\n' %
-                                    (rank, source, srcbranch, srcsec, weight, ggid, ggid+1))
+                        mkgap(env.pc, h.gjlist, source, srcpos, srcsec, ggid, ggid+1, srcwgt)
+                        if rank == 0:
+                            logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
+                                        'sgid = %d dgid = %d\n' %
+                                        (rank, source, srcbranch, srcsec, weight, ggid, ggid+1))
                     if env.pc.gid_exists(destination):
-                        mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
-                        logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
-                                    'dgid = %d\n' %
-                                    (rank, destination, dstbranch, dstsec, weight, ggid+1, ggid))
+                        mkgap(env.pc, h.gjlist, destination, dstpos, dstsec, ggid+1, ggid, dstwgt)
+                        if rank == 0:
+                           logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
+                                       'dgid = %d\n' %
+                                       (rank, destination, dstbranch, dstsec, weight, ggid+1, ggid))
                     ggid = ggid+2
 
             del graph[name]
@@ -635,7 +641,14 @@ def init(env):
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     h.startsw()
+    connectgjs(env)
+    env.pc.setup_transfer()
+    env.pc.set_maxstep(10.0)
     env.pc.barrier()
+    env.connectgjstime = h.stopsw()
+    if rank == 0:
+        logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
+    h.startsw()
     connectcells(env)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
@@ -643,13 +656,6 @@ def init(env):
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
-    h.startsw()
-    connectgjs(env)
-    env.pc.setup_transfer()
-    env.pc.set_maxstep(10.0)
-    env.connectgjstime = h.stopsw()
-    if rank == 0:
-        logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
     h.startsw()
     for lfp_label,lfp_config_dict in env.lfpConfig.iteritems():
         env.lfp[lfp_label] = \
