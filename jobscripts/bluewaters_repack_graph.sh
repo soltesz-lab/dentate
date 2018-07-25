@@ -23,7 +23,7 @@ set -x
 cd $PBS_O_WORKDIR
 
 export prefix=/projects/sciteam/baef/Full_Scale_Control
-export input=$prefix/dentate_Full_Scale_GC_20170501.h5
+export input=$prefix/
 #export copy=$prefix/DGC_forest_syns_020217_copy.h5
 export output=$prefix/dentate_Full_Scale_GC_20170501_compressed.h5
 
