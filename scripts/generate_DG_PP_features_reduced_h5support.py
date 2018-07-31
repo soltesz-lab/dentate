@@ -294,13 +294,7 @@ def cost_prepare_place(x, cell_modules, mesh):
             cell['Ny'] = np.array([ny], dtype='int32')
 
 def module_merge(x, y):
-    z = {k: [] for k in np.arange(nmodules)}
-    xkeys = x.keys()
-    for xkey in xkeys:
-        xcells = x[xkey]
-        ycells = y[xkey]
-        z[xkey] = xcells + ycells
-    return z
+    return {k: x[k] + y[k] for k in x.keys()}
         
 def translate_cells(cell_modules, x_translate, y_translate, scale_factors):
     for mod in cell_modules.keys():
@@ -469,19 +463,14 @@ class Cell_Population(object):
         return cell
 
     def generate_xy_offsets(self):
-        #N = 0
         present = [False, False, False, False]
         if self.mpp_grid is not None:
-        #    N += len(self.mpp_grid.keys())
             present[0] = True
         if self.mpp_place is not None:
-        #    N += len(self.mpp_place.keys())
             present[1] = True
         if self.lpp_grid is not None:
-        #    N += len(self.lpp_grid.keys())
             present[2] = True
         if self.lpp_place is not None:
-        #    N += len(self.lpp_place.keys())
             present[3] = True
 
         _, xy_offsets, _, _ = generate_spatial_offsets(self.total_offsets, arena_dimension=arena_dimension, scale_factor=1.0)
@@ -601,10 +590,11 @@ def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'
 
 def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound, iterations, verbose):
     comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
     tic = time.time()
     mpp_grid, mpp_place = None, None
     if optimize:
-        if input_path is not None:
+        if input_path is not None and rank == 0:
             mpp_grid = {}
             neuroh5_mpp_grid = read_cell_attributes('grid-'+input_path, "MPP", namespace="Grid Input Features")
             for (gid, cell_attr) in neuroh5_mpp_grid:
@@ -617,8 +607,8 @@ def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound
 
             N = len(mpp_grid.keys()) + len(mpp_place.keys())
             if verbose:
-                print('Data read in for %d cells..' % N)
-        else:
+                print('Rank %d read in data for %d cells..' % (rank, N))
+        elif input_path is None and rank == 0:
             cell_corpus = Cell_Population(comm, types_path)
             cell_corpus.full_init()
             mpp_grid = cell_corpus.mpp_grid
@@ -630,8 +620,11 @@ def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound
             save_h5(comm, grid_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
             N = len(mpp_grid.keys()) + len(mpp_place.keys())
             if verbose:
-                print('%d cells initialized' % N)
+                print('Rank %d initialized %d cells' % (rank, N))
         cells = (mpp_grid, mpp_place)     
+        #print('rank %d hit barrier' % rank)
+        #comm.Barrier()
+        #print('rank %d released from barrier' % rank)
         main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, iterations, verbose)
 
     else:
