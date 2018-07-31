@@ -412,7 +412,7 @@ def connectgjs(env):
                     dstsec    = dstsecs[i]
                     weight    = weights[i]
                     if env.pc.gid_exists(source):
-                        mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, weight)
+                        mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, srcweight)
                         logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
                                     'sgid = %d dgid = %d\n' %
                                     (rank, source, srcbranch, srcsec, weight, ggid, ggid+1))
