@@ -30,8 +30,7 @@ def main(spike_events_path, spike_events_namespace, populations, max_spikes, spi
         populations = ['eachPop']
         
     plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, popRates=True,
-                            spikeHist='subplot', maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True,
-                            verbose=verbose)
+                            spikeHist='subplot', maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True)
     
 
 if __name__ == '__main__':
