@@ -548,7 +548,7 @@ Synapses:
           tau1: 0.3
           tau2: 6.2
           e: 0
-        weight: 0.0047
+          weight: 0.0047
     MC:   
       type: excitatory
       sections: [soma, basal, apical, apical]

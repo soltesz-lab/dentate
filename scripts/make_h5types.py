@@ -59,9 +59,8 @@ def main(config, output_path, gap_junctions):
 
     projections = []
     if gap_junctions:
-        for post, connection_dict in env.gapjunctions.items():
-            for pre, _ in connection_dict.items():
-                projections.append((env.pop_dict[pre], env.pop_dict[post]))
+        for (post, pre), connection_dict in env.gapjunctions.items():
+            projections.append((env.pop_dict[pre], env.pop_dict[post]))
     else:
         for post, connection_dict in env.connection_config.items():
             for pre, _ in connection_dict.items():
@@ -71,7 +70,7 @@ def main(config, output_path, gap_junctions):
     mapping = { name: idx for name, idx in env.pop_dict.items() }
     dt_population_labels = h5py.special_dtype(enum=(np.uint16, mapping))
 
-    with h5py.File(output_path, "a", libver="latest") as h5:
+    with h5py.File(output_path, "a") as h5:
 
 
         h5[path_population_labels] = dt_population_labels

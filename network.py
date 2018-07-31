@@ -300,6 +300,7 @@ def connectcells(env, cleanup=True):
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
+            logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
             if env.nodeRanks is None:
                 (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.IOsize,
                                                 projections=[(presyn_name, postsyn_name)],
@@ -309,42 +310,52 @@ def connectcells(env, cleanup=True):
                                                 node_rank_map=env.nodeRanks,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
-
+            logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
+            logger.info('Rank %i: Projection %s -> %s attributes: %s' % (rank, presyn_name, postsyn_name, str(a)))
             edge_iter = graph[postsyn_name][presyn_name]
 
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-            syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
-            distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+            attr_dict = a[postsyn_name][presyn_name]
 
-            for (postsyn_gid, edges) in edge_iter:
+            if (attr_dict.has_key('Synapses') and \
+                attr_dict['Synapses'].has_key('syn_id') and \
+                attr_dict.has_key('Connections') and \
+                attr_dict['Connections'].has_key('distance')):
 
-                postsyn_cell = env.pc.gid2cell(postsyn_gid)
-                presyn_gids = edges[0]
-                edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
-                edge_dists = edges[1]['Connections'][distance_attr_index]
+               syn_id_attr_index = attr_dict['Synapses']['syn_id']
+               distance_attr_index = attr_dict['Connections']['distance']
 
-                syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
+               for (postsyn_gid, edges) in edge_iter:
 
-                edge_syn_obj_dict = \
-                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
-                           env.edge_count[postsyn_name][presyn_name],
-                           add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+                   postsyn_cell = env.pc.gid2cell(postsyn_gid)
+                   presyn_gids = edges[0]
+                   edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
+                   edge_dists = edges[1]['Connections'][distance_attr_index]
 
-                if rank == 0:
-                    if env.edge_count[postsyn_name][presyn_name] == 0:
-                        for sec in list(postsyn_cell.all):
-                            h.psection(sec=sec)
+                   syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
-                for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
-                    for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
-                        delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                        this_nc = synapses.mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
-                        syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
-                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
+                   edge_syn_obj_dict = \
+                       synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                                       env.edge_count[postsyn_name][presyn_name],
+                                       add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
-                env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
+                   if rank == 0:
+                       if env.edge_count[postsyn_name][presyn_name] == 0:
+                           for sec in list(postsyn_cell.all):
+                               h.psection(sec=sec)
+
+                   for presyn_gid, edge_syn_id, distance in itertools.izip(presyn_gids, edge_syn_ids, edge_dists):
+                       for syn_name, syn in edge_syn_obj_dict[edge_syn_id].iteritems():
+                           delay = (distance / env.connection_velocity[presyn_name]) + h.dt
+                           this_nc = synapses.mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
+                           syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
+                           synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
+
+                   env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
+            else:
+                logger.warning('Projection %s -> %s does not have edge attributes Synapses and Connections' % (presyn_name, postsyn_name))
 
         first_gid = None
         # this is a pre-built list to survive change in len during iteration
@@ -391,36 +402,42 @@ def connectgjs(env):
                 logger.info("*** Creating gap junctions %s" % name)
             prj = graph[name]
             attrmap = a[name]
-            weight_attr_idx = attrmap['Weight']+1
-            dstbranch_attr_idx = attrmap['Destination Branch']+1
-            dstsec_attr_idx = attrmap['Destination Section']+1
-            srcbranch_attr_idx = attrmap['Source Branch']+1
-            srcsec_attr_idx = attrmap['Source Section']+1
+            cc_src_idx = attrmap['Coupling strength']['Source']
+            cc_dst_idx = attrmap['Coupling strength']['Destination']
+            dstsec_idx = attrmap['Location']['Destination Section']
+            dstpos_idx = attrmap['Location']['Destination Position']
+            srcsec_idx = attrmap['Location']['Source Section']
+            srcpos_idx = attrmap['Location']['Source Position']
+
             for destination in sorted(prj.keys()):
                 edges = prj[destination]
                 sources      = edges[0]
-                weights      = edges[weight_attr_idx]
-                dstbranches  = edges[dstbranch_attr_idx]
-                dstsecs      = edges[dstsec_attr_idx]
-                srcbranches  = edges[srcbranch_attr_idx]
-                srcsecs      = edges[srcsec_attr_idx]
+                srcweights   = edges[1]['Coupling strength'][cc_src_idx]
+                dstweights   = edges[1]['Coupling strength'][cc_dst_idx]
+                dstposs      = edges[1]['Location'][dstpos_idx]
+                dstsecs      = edges[1]['Location'][dstsec_idx]
+                srcposs      = edges[1]['Location'][srcpos_idx]
+                srcsecs      = edges[1]['Location'][srcsec_idx]
                 for i in range(0,len(sources)):
                     source    = sources[i]
-                    srcbranch = srcbranches[i]
+                    srcpos    = srcposs[i]
                     srcsec    = srcsecs[i]
-                    dstbranch = dstbranches[i]
+                    dstpos    = dstposs[i]
                     dstsec    = dstsecs[i]
-                    weight    = weights[i]
+                    srcwgt    = srcweights[i]
+                    dstwgt    = dstweights[i]
                     if env.pc.gid_exists(source):
-                        mkgap(env.pc, h.gjlist, source, srcbranch, srcsec, ggid, ggid+1, srcweight)
-                        logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
-                                    'sgid = %d dgid = %d\n' %
-                                    (rank, source, srcbranch, srcsec, weight, ggid, ggid+1))
+                        mkgap(env.pc, h.gjlist, source, srcpos, srcsec, ggid, ggid+1, srcwgt)
+                        if rank == 0:
+                            logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
+                                        'sgid = %d dgid = %d\n' %
+                                        (rank, source, srcbranch, srcsec, weight, ggid, ggid+1))
                     if env.pc.gid_exists(destination):
-                        mkgap(env.pc, h.gjlist, destination, dstbranch, dstsec, ggid+1, ggid, weight)
-                        logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
-                                    'dgid = %d\n' %
-                                    (rank, destination, dstbranch, dstsec, weight, ggid+1, ggid))
+                        mkgap(env.pc, h.gjlist, destination, dstpos, dstsec, ggid+1, ggid, dstwgt)
+                        if rank == 0:
+                           logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
+                                       'dgid = %d\n' %
+                                       (rank, destination, dstbranch, dstsec, weight, ggid+1, ggid))
                     ggid = ggid+2
 
             del graph[name]
@@ -635,7 +652,14 @@ def init(env):
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     h.startsw()
+    connectgjs(env)
+    env.pc.setup_transfer()
+    env.pc.set_maxstep(10.0)
     env.pc.barrier()
+    env.connectgjstime = h.stopsw()
+    if rank == 0:
+        logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
+    h.startsw()
     connectcells(env)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
@@ -643,13 +667,6 @@ def init(env):
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
-    h.startsw()
-    connectgjs(env)
-    env.pc.setup_transfer()
-    env.pc.set_maxstep(10.0)
-    env.connectgjstime = h.stopsw()
-    if rank == 0:
-        logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
     h.startsw()
     for lfp_label,lfp_config_dict in env.lfpConfig.iteritems():
         env.lfp[lfp_label] = \

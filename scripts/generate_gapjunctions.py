@@ -25,6 +25,7 @@ sys.excepthook = mpi_excepthook
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", type=str, default='templates')
+@click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-path", required=True, type=click.Path())
 @click.option("--connectivity-namespace", type=str, default='Gap Junctions')
@@ -37,7 +38,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, template_path, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
+def main(config, template_path, types_path, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
          io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     utils.config_logging(verbose)
@@ -63,7 +64,7 @@ def main(config, template_path, forest_path, connectivity_path, connectivity_nam
 
     if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
-            input_file  = h5py.File(coords_path,'r')
+            input_file  = h5py.File(types_path,'r')
             output_file = h5py.File(connectivity_path,'w')
             input_file.copy('/H5Types',output_file)
             input_file.close()

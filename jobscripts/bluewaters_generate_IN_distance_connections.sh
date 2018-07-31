@@ -1,7 +1,7 @@
 #!/bin/bash
-#PBS -l nodes=128:ppn=16:xe
-#PBS -q normal
-#PBS -l walltime=3:00:00
+#PBS -l nodes=232:ppn=16:xe
+#PBS -q high
+#PBS -l walltime=2:00:00
 #PBS -e ./results/generate_IN_distance_connections.$PBS_JOBID.err
 #PBS -o ./results/generate_IN_distance_connections.$PBS_JOBID.out
 #PBS -N generate_IN_distance_connections
@@ -17,7 +17,7 @@ module load bwpy-mpi
 
 
 export ATP_ENABLED=1 
-export PYTHONPATH=$HOME/model:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export SCRATCH=/projects/sciteam/baqc
 
@@ -27,12 +27,11 @@ set -x
 cd $PBS_O_WORKDIR
 
 
-aprun -n 2048 -b -- bwpy-environ -- python ./scripts/generate_distance_connections.py \
+aprun -n 3712 -b -- bwpy-environ -- python2.7 ./scripts/generate_distance_connections.py \
        --config=./config/Full_Scale_Control.yaml \
-       --forest-path=$SCRATCH/Full_Scale_Control/DG_IN_forest_syns_20180304.h5 \
-       --connectivity-path=$SCRATCH/Full_Scale_Control/DG_IN_connections_20180328.h5 \
+       --forest-path=$SCRATCH/Full_Scale_Control/DG_IN_forest_syns_20180717.h5 \
+       --connectivity-path=$SCRATCH/Full_Scale_Control/DG_IN_connections_20180721.h5 \
        --connectivity-namespace=Connections \
-       --coords-path=$SCRATCH/Full_Scale_Control/DG_cells_20180305.h5 \
+       --coords-path=$SCRATCH/Full_Scale_Control/DG_coords_20180717.h5 \
        --coords-namespace=Coordinates \
-       --resample-volume=2 \
        --io-size=128 --cache-size=1 --write-size=25 -v
