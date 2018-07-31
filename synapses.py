@@ -222,8 +222,9 @@ def organize_syn_ids_by_source(gid, env, syn_ids=None):
 
     for syn_id in syn_ids:
         source_id = syn_id_attr_dict['syn_sources'][syn_id_attr_index_map[syn_id]]
-        source_name = source_names[source_id]
-        source_syn_ids[source_name].append(syn_id)
+        if source_names.has_key(source_id):
+            source_name = source_names[source_id]
+            source_syn_ids[source_name].append(syn_id)
     return source_syn_ids
 
 
