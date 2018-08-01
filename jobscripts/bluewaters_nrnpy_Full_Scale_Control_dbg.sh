@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=2048:ppn=16:xe
+#PBS -l nodes=512:ppn=16:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
@@ -44,9 +44,9 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ##export PMI_NO_FORK=1
 ##export PMI_NO_PREINITIALIZE=1
 
-aprun -n 32768 -b -- bwpy-environ -- \
-    python2.7 main.py  \
-    --config-file=config/Full_Scale_Control_20180417.yaml  \
+aprun -n 8192 -b -- bwpy-environ -- \
+    python2.7 ./scripts/main.py  \
+    --config-file=Full_Scale_Control.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \

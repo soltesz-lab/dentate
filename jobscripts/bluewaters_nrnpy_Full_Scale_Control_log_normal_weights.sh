@@ -45,8 +45,8 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ##export PMI_NO_PREINITIALIZE=1
 
 aprun -n 32768 -b -- bwpy-environ -- \
-    python2.7 main.py  \
-    --config-file=config/Full_Scale_Control_log_normal_weights.yaml  \
+    python2.7 ./scripts/main.py  \
+    --config-file=Full_Scale_Control_log_normal_weights.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014 \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
