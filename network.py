@@ -406,8 +406,6 @@ def connect_cell_selection(env, cleanup=True):
         if postsyn_name not in pop_names:
             continue
 
-        gid_ranges = [ s[1] + env.celltypes[pop_name]['start'] if s[0] == pop_name ]
-
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if synapse_config.has_key('correct_for_spines'):
             correct_for_spines = synapse_config['correct_for_spines']
@@ -772,7 +770,7 @@ def make_cell_selection(env):
         v_sample_set = set([])
         env.v_dict[pop_name] = {}
 
-        gid_range = [ s[1] + env.celltypes[pop_name]['start'] if s[0] == pop_name ]
+        gid_range = [ s[1] + env.celltypes[pop_name]['start'] for s in env.cell_selection if s[0] == pop_name ]
         for gid in gid_range:
             v_sample_set.add(gid)
 
