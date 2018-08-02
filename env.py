@@ -29,7 +29,8 @@ class Env:
     def __init__(self, comm=None, configFile=None, templatePaths=None, hoclibPath=None, datasetPrefix=None,
                  configPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0,
-                 dt=0.025, ldbal=False, lptbal=False, verbose=False, **kwargs):
+                 dt=0.025, ldbal=False, lptbal=False, cell_selection=None, spike_input_path=None, spike_input_ns=None,
+                 verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param configFile: str; model configuration file name
@@ -123,6 +124,13 @@ class Env:
         # Save CoreNEURON data
         self.coredat = coredat
 
+        # Cell selection for simulations of subsets of the network
+        self.cell_selection = cell_selection
+        
+        # Spike input path
+        self.spike_input_path = spike_input_path
+        self.spike_input_ns = spike_input_ns
+        
         self.nodeRanks = None
         if nodeRankFile:
             with open(nodeRankFile) as fp:
