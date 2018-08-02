@@ -346,7 +346,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 projection_dict = { destination_population: connection_dict }
             else:
                 projection_dict = {}
-            print('rank %i: projection dict: ' % rank, projection_dict)
             if not dry_run:
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
