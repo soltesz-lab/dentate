@@ -145,7 +145,7 @@ func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
 }
 
 proc geom_nseg() {
-  	forsec all { nseg = int((L/(0.1*lambda_f(100))+.9)/2)*2 + 1  }
+  	forsec all { nseg = int((L/(0.1*lambda_f(200))+.9)/2)*2 + 1  }
 }
 
 proc topol() {
@@ -200,21 +200,23 @@ proc biophys() { local ndends, ndendsec
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=0.32  //original 0.030 to .055 
 	gkfbar_ichan2=0.025  //original 0.015
-	gl_ichan2 = 0.000011
+	gl_ichan2 = 0.00002
     }
     
     forsec apical {
         for (x,0) {
             insert ichan2
-            if (distance(x) <= 100) {
+            if (distance(x) <= 200) {
 	        gnatbar_ichan2=0.16  //original 0.015
 	        gkfbar_ichan2=0.015
-	        gl_ichan2 = 0.000022
+	        gl_ichan2 = 0.00002
 	        gkbar_cagk=0.008
             } else {
 	        gnatbar_ichan2=0.0
 	        gkfbar_ichan2=0.00
 	        gl_ichan2 = 0.000001
+	        gkbar_gskch=0.004
+	        gkbar_cagk=0.0025
             }
         }
     }
@@ -227,7 +229,7 @@ proc biophys() { local ndends, ndendsec
         elca = 130
 	ehyf = -40
         ehys = -40
-	el_ichan2 =-59
+	el_ichan2 =-55
         cao_ccanl=2 
     }
     
