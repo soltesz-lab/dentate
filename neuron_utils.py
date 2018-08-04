@@ -106,7 +106,7 @@ def mkgap(pc, gjlist, gid, secpos, secidx, sgid, dgid, w):
     """
     cell = pc.gid2cell(gid)
 
-    sec = cell.sections[secidx]
+    sec = list(cell.sections)[secidx]
     seg = sec(secpos)
     gj = h.ggap(seg)
 
