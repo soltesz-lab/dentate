@@ -627,7 +627,7 @@ def make_cell(env, gid, cell):
     env.pc.set_gid2node(gid, rank)
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
-    nc = model_cell.connect2target(h.nil)
+    nc = cell.connect2target(h.nil)
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -933,14 +933,13 @@ def init(env):
     if rank == 0:
         logger.info("*** Creating cells...")
     h.startsw()
-
     env.pc.barrier()
     if env.cell_selection is None:
         make_cells(env)
     else:
         make_cell_selection(env)
-    env.mkcellstime = h.stopsw()
     env.pc.barrier()
+    env.mkcellstime = h.stopsw()
     if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
     logger.info("*** Rank %i created %i cells" % (rank, len(env.cells)))
