@@ -409,7 +409,7 @@ Synapses:
           tau1: 0.46
           tau2: 4.43
           e: -75
-          weight: 0.00214
+          weight: 0.003
   AAC:
     GC:   
       type: excitatory

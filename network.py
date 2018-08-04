@@ -572,54 +572,58 @@ def connect_gjs(env):
 
         h('objref gjlist')
         h.gjlist = h.List()
-        (graph, a) = bcast_graph(gapjunctionsFilePath,attributes=True,comm=env.comm)
+        (graph, a) = bcast_graph(gapjunctionsFilePath,\
+                                 namespaces=['Coupling strength','Location'],\
+                                 comm=env.comm)
 
         ggid = 2e6
         for name in gapjunctions.keys():
             if rank == 0:
-                logger.info("*** Creating gap junctions %s" % name)
-            prj = graph[name]
-            attrmap = a[name]
+                logger.info("*** Creating gap junctions %s" % str(name))
+            prj = graph[name[0]][name[1]]
+            attrmap = a[(name[1],name[0])]
             cc_src_idx = attrmap['Coupling strength']['Source']
             cc_dst_idx = attrmap['Coupling strength']['Destination']
-            dstsec_idx = attrmap['Location']['Destination Section']
-            dstpos_idx = attrmap['Location']['Destination Position']
-            srcsec_idx = attrmap['Location']['Source Section']
-            srcpos_idx = attrmap['Location']['Source Position']
+            dstsec_idx = attrmap['Location']['Destination section']
+            dstpos_idx = attrmap['Location']['Destination position']
+            srcsec_idx = attrmap['Location']['Source section']
+            srcpos_idx = attrmap['Location']['Source position']
 
-            for destination in sorted(prj.keys()):
-                edges = prj[destination]
-                sources      = edges[0]
-                srcweights   = edges[1]['Coupling strength'][cc_src_idx]
-                dstweights   = edges[1]['Coupling strength'][cc_dst_idx]
-                dstposs      = edges[1]['Location'][dstpos_idx]
-                dstsecs      = edges[1]['Location'][dstsec_idx]
-                srcposs      = edges[1]['Location'][srcpos_idx]
-                srcsecs      = edges[1]['Location'][srcsec_idx]
-                for i in range(0,len(sources)):
-                    source    = sources[i]
+            for src in sorted(prj.keys()):
+                edges        = prj[src]
+                destinations = edges[0]
+                cc_dict      = edges[1]['Coupling strength']
+                loc_dict     = edges[1]['Location']
+                srcweights   = cc_dict[cc_src_idx]
+                dstweights   = cc_dict[cc_dst_idx]
+                dstposs      = loc_dict[dstpos_idx]
+                dstsecs      = loc_dict[dstsec_idx]
+                srcposs      = loc_dict[srcpos_idx]
+                srcsecs      = loc_dict[srcsec_idx]
+                for i in range(0,len(destinations)):
+                    dst       = destinations[i]
                     srcpos    = srcposs[i]
                     srcsec    = srcsecs[i]
                     dstpos    = dstposs[i]
                     dstsec    = dstsecs[i]
                     srcwgt    = srcweights[i]
                     dstwgt    = dstweights[i]
-                    if env.pc.gid_exists(source):
-                        mkgap(env.pc, h.gjlist, source, srcpos, srcsec, ggid, ggid+1, srcwgt)
+                    if env.pc.gid_exists(src):
                         if rank == 0:
-                            logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g '
+                            logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                         'sgid = %d dgid = %d\n' %
-                                        (rank, source, srcbranch, srcsec, weight, ggid, ggid+1))
-                    if env.pc.gid_exists(destination):
-                        mkgap(env.pc, h.gjlist, destination, dstpos, dstsec, ggid+1, ggid, dstwgt)
+                                        (rank, src, srcsec, weight, ggid, ggid+1))
+                        mkgap(env.pc, h.gjlist, src, srcpos, srcsec, ggid, ggid+1, srcwgt)
+                    if env.pc.gid_exists(dst):
                         if rank == 0:
-                           logger.info('host %d: gap junction: gid = %d branch = %d sec = %d coupling = %g sgid = %d '
-                                       'dgid = %d\n' %
-                                       (rank, destination, dstbranch, dstsec, weight, ggid+1, ggid))
+                           logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
+                                       'sgid = %d dgid = %d\n' %
+                                       (rank, dst, dstsec, weight, ggid+1, ggid))
+                        mkgap(env.pc, h.gjlist, dst, dstpos, dstsec, ggid+1, ggid, dstwgt)
                     ggid = ggid+2
 
-            del graph[name]
-
+            del graph[name[0]][name[1]]
+            
 def make_cell(env, gid, cell):
     rank = env.comm.rank
     env.gidlist.append(gid)
@@ -627,7 +631,7 @@ def make_cell(env, gid, cell):
     env.pc.set_gid2node(gid, rank)
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
-    nc = model_cell.connect2target(h.nil)
+    nc = cell.connect2target(h.nil)
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -933,14 +937,13 @@ def init(env):
     if rank == 0:
         logger.info("*** Creating cells...")
     h.startsw()
-
     env.pc.barrier()
     if env.cell_selection is None:
         make_cells(env)
     else:
         make_cell_selection(env)
-    env.mkcellstime = h.stopsw()
     env.pc.barrier()
+    env.mkcellstime = h.stopsw()
     if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
     logger.info("*** Rank %i created %i cells" % (rank, len(env.cells)))
