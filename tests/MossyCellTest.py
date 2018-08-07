@@ -7,15 +7,15 @@ import itertools
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_tree_selection
+from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 import dentate
 from dentate.env import Env
 from dentate import neuron_utils, utils, cells
 
     
-def passive_test (templateClass, tree, v_init):
+def passive_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -62,12 +62,12 @@ def passive_test (templateClass, tree, v_init):
 
     f.close()
 
-def ap_rate_test (templateClass, tree, v_init):
+def ap_rate_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     h.dt = 0.025
 
-    prelength = 1000.0
+    prelength = 2000.0
     mainlength = 2000.0
 
     tstop = prelength+mainlength
@@ -162,13 +162,101 @@ def ap_rate_test (templateClass, tree, v_init):
     f.close()
     
 
+def synapse_group_test (label, syntype, cell, w, v_holding, v_init):
+    
+    vv = h.Vector()
+    vv.append(0,0,0,0,0,0)
+
+    soma = list(cell.soma)[0]
+    se = h.SEClamp(soma(0.5))
+
+    if syntype == 0:
+        v = cell.syntest_exc(cell.syntypes.o(syntype),se,w,v_holding,v_init)
+    else:
+        v = cell.syntest_inh(cell.syntypes.o(syntype),se,w,v_holding,v_init)
+        
+    vv = vv.add(v)
+    
+    amp     = vv.x[0]
+    t_10_90 = vv.x[1]
+    t_20_80 = vv.x[2]
+    t_all   = vv.x[3]
+    t_50    = vv.x[4]
+    t_decay = vv.x[5]
+
+    f=open("MossyCell_%s_synapse_results.dat" % label,'w')
+
+    f.write("%s synapses: \n" % label)
+    f.write("  Amplitude %f\n" % amp)
+    f.write("  10-90 Rise Time %f\n" % t_10_90)
+    f.write("  20-80 Rise Time %f\n" % t_20_80)
+    f.write("  Decay Time Constant %f\n" % t_decay)
+
+    f.close()
+
+
+def synapse_group_rate_test (label, syntype, cell, w, rate, v_init):
+
+    res = cell.syntest_rate(cell.syntypes.o(syntype),w,rate,v_init)
+
+    tlog = res.o(0)
+    vlog = res.o(1)
+    
+    f=open("MossyCell_%s_synapse_rate.dat" % label,'w')
+
+    for i in xrange(0, int(tlog.size())):
+        f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
+
+    f.close()
+    
+
+def synapse_test(template_class, tree, synapses, v_init, env, unique=True):
+    
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
+
+    syn_ids      = synapses['syn_ids']
+    syn_types    = synapses['syn_types']
+    swc_types    = synapses['swc_types']
+    syn_locs     = synapses['syn_locs']
+    syn_sections = synapses['syn_secs']
+
+    synapse_kinetics = {}
+    synapse_kinetics[env.Synapse_Types['excitatory']] = env.celltypes['MC']['synapses']['kinetics']['GC']
+    synapse_kinetics[env.Synapse_Types['inhibitory']] = env.celltypes['MC']['synapses']['kinetics']['BC']
+
+    syn_params_dict = env.connection_config[postsyn_name]['MC'].mechanisms
+
+    utils.mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapse_kinetics,env)
+
+    edge_syn_obj_dict = \
+      synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                      env.edge_count[postsyn_name][presyn_name],
+                      add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+
+    edge_syn_obj_dict = \
+      synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                      0, add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+
+    print int(cell.syntypes.o(env.Synapse_Types['inhibitory']).count()), " inhibitory synapses"
+    print int(cell.syntypes.o(env.Synapse_Types['excitatory']).count()), " excitatory synapses"
+    
+    synapse_group_test("Inhibitory", 1, cell, 0.0033, -70, 0)
+    synapse_group_test("Excitatory", 0, cell, 0.006, 0, v_init)
+
+    synapse_group_rate_test("Inhibitory", 1, cell, 0.0033, 150, v_init)
+    synapse_group_rate_test("Excitatory", 0, cell, 0.006, 150, v_init)
+
+    
 @click.command()
+@click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def main(template_path,forest_path):
+@click.option("--synapses-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def main(config_path,template_path,forest_path,synapses_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+    env = Env(comm=comm, configFile=config_path, templatePaths=template_path)
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
@@ -176,16 +264,29 @@ def main(template_path,forest_path):
     h.xopen ("./tests/rn.hoc")
     h.xopen(template_path+'/MossyCell.hoc')
     h.pc = h.ParallelContext()
-    
+
+    v_init = -75.0
     popName = "MC"
-    (trees,_) = read_tree_selection (forest_path, popName, [1000000], comm=comm)
-    
+    gid = 1000000
+    (trees,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
+    if synapses_path is not None:
+        synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], "Synapse Attributes", comm=comm)
+    else:
+        synapses_dict = None
+
     gid, tree = trees.next()
+    if synapses_dict is not None:
+        (_, synapses) = synapses_dict.next()
+    else:
+        synapses = None
 
-    templateClass = getattr(h, "MossyCell")
+    template_class = getattr(h, "MossyCell")
 
-    passive_test(templateClass,tree,-60)
-    ap_rate_test(templateClass,tree,-60)
+    passive_test(template_class, tree, v_init)
+    ap_rate_test(template_class, tree, v_init)
+
+    if synapses is not None:
+        synapse_test(template_class, tree, synapses, v_init, env)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("MossyCellTest.py") != -1,sys.argv)+1):])
