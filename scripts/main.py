@@ -88,7 +88,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, results_path, results_id,
               node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
-              results_write_time, dt, ldbal, lptbal, verbose)
+              results_write_time, dt, ldbal, lptbal, verbose=verbose)
     network.init(env)
     if not dry_run:
         network.run(env)

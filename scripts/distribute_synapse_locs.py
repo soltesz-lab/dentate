@@ -1,4 +1,5 @@
 import sys, os, gc, string, time, click, logging, itertools
+from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
 from neuron import h
@@ -7,8 +8,7 @@ import h5py
 import dentate
 from dentate.env import Env
 from dentate import cells, synapses, utils
-from utils import list_find
-from collections import defaultdict
+from dentate.utils import list_find
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
