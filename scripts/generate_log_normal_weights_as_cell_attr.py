@@ -75,7 +75,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
             output_file.close()
     comm.barrier()
 
-    seed_offset = int(env.modelConfig['Random Seeds']['PP Log-Normal Weights 1'])
+    seed_offset = int(env.modelConfig['Random Seeds']['GC Log-Normal Weights 1'])
 
     pop_ranges, pop_size = read_population_ranges(connections_path, comm=comm)
 
@@ -98,7 +98,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
         syn_weight_map = {}
         destination_gid = attr_gen_package[0][0]
         if not all([attr_gen_items[0] == destination_gid for attr_gen_items in attr_gen_package]):
-            raise Exception('Rank: %i; destination: %s; destination_gid not matched across multiple attribute generators: %s' %
+            raise Exception('Rank: %i; destination: %s; destination_gid %i not matched across multiple attribute generators: %s' %
                             (rank, destination, destination_gid,
                              str([attr_gen_items[0] for attr_gen_items in attr_gen_package])))
         if destination_gid is not None:
