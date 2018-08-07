@@ -24,6 +24,11 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
     syn_type_excitatory = env.Synapse_Types['excitatory']
     syn_type_inhibitory = env.Synapse_Types['inhibitory']
 
+    this_syn_stats_dict = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                            'swc_type': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                            'total': { 'excitatory': 0, 'inhibitory': 0 } }
+
     for (syn_id,syn_sec,syn_type,swc_type,syn_layer) in \
         itertools.izip(syn_dict['syn_ids'],
                        syn_dict['syn_secs'],
@@ -43,7 +48,14 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
         syn_stats_dict['swc_type'][swc_type][syn_type_str] += 1
         syn_stats_dict['total'][syn_type_str] += 1
 
-def syn_summary(comm, syn_stats, global_count, root):
+        this_syn_stats_dict['section'][syn_sec][syn_type_str] += 1
+        this_syn_stats_dict['layer'][syn_layer][syn_type_str] += 1
+        this_syn_stats_dict['swc_type'][swc_type][syn_type_str] += 1
+        this_syn_stats_dict['total'][syn_type_str] += 1
+
+    return this_syn_stats_dict
+
+def global_syn_summary(comm, syn_stats, global_count, root):
     res = []
     for population in syn_stats.keys():
         pop_syn_stats = syn_stats[population]
@@ -60,6 +72,15 @@ def syn_summary(comm, syn_stats, global_count, root):
             if comm.rank == root:
                 res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, np.sum(global_syn_count)/global_count))
         
+    return string.join(res, '\n')
+
+def local_syn_summary(syn_stats_dict):
+    res = []
+    for part_name in ['layer','swc_type']:
+        for part_type in syn_stats_dict[part_name].keys():
+            syn_count_dict = syn_stats_dict[part_name][part_type]
+            for syn_type, syn_count in syn_count_dict.iteritems():
+                res.append("%s %i: %s synapses: %i" % (part_name, part_type, syn_type, syn_count))
     return string.join(res, '\n')
 
                 
@@ -173,11 +194,12 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                     raise Exception('Unknown distribution type: %s' % distribution)
 
                 synapse_dict[gid] = syn_dict
-                update_syn_stats (env, syn_stats_dict, syn_dict)
+                this_syn_stats = update_syn_stats (env, syn_stats_dict, syn_dict)
                                   
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])
                 logger.info('Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid))
+                logger.info('%s gid %i synapses: %s' % (population, gid, local_syn_summary(this_syn_stats)))
                 count += 1
             else:
                 logger.info('Rank %i gid is None' % rank)
@@ -189,7 +211,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
             gc.collect()
 
         global_count = comm.gather(count, root=0)
-        summary = syn_summary(comm, syn_stats, np.sum(global_count), root=0)
+        summary = global_syn_summary(comm, syn_stats, np.sum(global_count), root=0)
         if rank == 0:
             logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
             logger.info(summary)

@@ -94,7 +94,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
 
     trajectory_namespace = 'Trajectory %s' % str(stimulus_id)
 
-    seed_offset = int(env.modelConfig['Random Seeds']['PP Structured Weights'])
+    seed_offset = int(env.modelConfig['Random Seeds']['GC Structured Weights'])
 
     input_config = env.inputConfig[stimulus_id]
     arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
