@@ -79,8 +79,9 @@ def syn_summary(comm, syn_stats, global_count, root):
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
 @click.option("--verbose", "-v", is_flag=True)
+@click.option("--dry-run", is_flag=True)
 def main(config, template_path, output_path, forest_path, populations, distribution, traversal_order, io_size, chunk_size, value_chunk_size,
-         cache_size, verbose):
+         cache_size, verbose, dry_run):
     """
 
     :param config:
@@ -119,14 +120,15 @@ def main(config, template_path, output_path, forest_path, populations, distribut
     if output_path is None:
         output_path = forest_path
 
-    if rank==0:
-        if not os.path.isfile(output_path):
-            input_file  = h5py.File(forest_path,'r')
-            output_file = h5py.File(output_path,'w')
-            input_file.copy('/H5Types',output_file)
-            input_file.close()
-            output_file.close()
-    comm.barrier()
+    if not dry_run:
+        if rank==0:
+            if not os.path.isfile(output_path):
+                input_file  = h5py.File(forest_path,'r')
+                output_file = h5py.File(output_path,'w')
+                input_file.copy('/H5Types',output_file)
+                input_file.close()
+                output_file.close()
+        comm.barrier()
         
     (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
@@ -160,15 +162,10 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                                                                     traversal_order=traversal_order)
                     
                 elif distribution == 'poisson':
-                    if rank == 0:
-                        verbose_flag = verbose
-                    else:
-                        verbose_flag = False
                     syn_dict = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                     density_dict, morph_dict,
                                                                     cell_sec_dict, cell_secidx_dict,
-                                                                    traversal_order=traversal_order,
-                                                                    verbose=verbose_flag)
+                                                                    traversal_order=traversal_order)
                 else:
                     raise Exception('Unknown distribution type: %s' % distribution)
 
@@ -181,9 +178,10 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                 count += 1
             else:
                 logger.info('Rank %i gid is None' % rank)
-            append_cell_attributes(output_path, population, synapse_dict,
-                                    namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
-                                    value_chunk_size=value_chunk_size, cache_size=cache_size)
+            if not dry_run:
+                append_cell_attributes(output_path, population, synapse_dict,
+                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
+                                       value_chunk_size=value_chunk_size, cache_size=cache_size)
             syn_stats[population] = syn_stats_dict
             del synapse_dict
             gc.collect()

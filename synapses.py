@@ -1333,7 +1333,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     return syn_dict
 
 def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
-                                cell_sec_dict, cell_secidx_dict, verbose=False, traversal_order='bfs'):
+                                cell_sec_dict, cell_secidx_dict, traversal_order='bfs'):
     """
     Computes synapse locations according to a Poisson distribution.
     :param density_seed:
@@ -1437,7 +1437,13 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                     else:
                         interval = seg_end * L
                 end_distance[sec_index] = (1.0 - syn_loc) * L
-                        
+
+    print layer_dict.values()
+    layer_set = set(syn_layers)
+    if layer_set != set(layer_dict.values()):
+        logger.warning('incomplete synapse layer set: %s' % str(layer_set))
+        logger.warning(str(sec_graph))
+        logger.warning(str(sec_edges))
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
                 'syn_locs': np.asarray(syn_locs, dtype='float32'),
