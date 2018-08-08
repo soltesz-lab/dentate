@@ -55,6 +55,7 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
 
     return this_syn_stats_dict
 
+
 def global_syn_summary(comm, syn_stats, global_count, root):
     res = []
     for population in syn_stats.keys():
@@ -83,6 +84,23 @@ def local_syn_summary(syn_stats_dict):
                 res.append("%s %i: %s synapses: %i" % (part_name, part_type, syn_type, syn_count))
     return string.join(res, '\n')
 
+
+def check_syns(gid, morph_dict, syn_stats_dict, layer_set_dict, env, logger):
+
+    layer_stats = syn_stats_dict['layer']
+
+    warning_flag = False
+    for syn_type, layer_set in layer_set_dict.iteritems():
+        for layer in layer_set:
+            if layer_stats.has_key(layer):
+                if layer_stats[layer][syn_type] <= 0:
+                    warning_flag = True
+            else:
+                warning_flag = True
+    if warning_flag:
+        logger.warning('Rank %d: incomplete synapse layer set for cell %d:' % (env.comm.Get_rank(), gid))
+        logger.warning(str(dict(layer_stats.iteritems())))
+        logger.warning(str(morph_dict))
                 
 
             
@@ -162,6 +180,15 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         h.find_template(h.pc, h.templatePaths, template_name)
         template_class = getattr(h, env.celltypes[population]['template'])
         density_dict = env.celltypes[population]['synapses']['density']
+        layer_set_dict = defaultdict(set)
+        for sec_name, sec_dict in density_dict.iteritems():
+            for syn_type, syn_dict in sec_dict.iteritems():
+                for layer_name in syn_dict.keys():
+                    if layer_name != 'default':
+                        layer = env.layers[layer_name]
+                        layer_set_dict[syn_type].add(layer)
+        print 'layer_set_dict: ', layer_set_dict
+        
         syn_stats_dict = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'swc_type': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
@@ -192,7 +219,8 @@ def main(config, template_path, output_path, forest_path, populations, distribut
 
                 synapse_dict[gid] = syn_dict
                 this_syn_stats = update_syn_stats (env, syn_stats_dict, syn_dict)
-                                  
+                check_syns(gid, morph_dict, this_syn_stats, layer_set_dict, env, logger)
+                
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])
                 logger.info('Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid))

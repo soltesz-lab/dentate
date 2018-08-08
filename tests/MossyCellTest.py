@@ -293,7 +293,7 @@ def synapse_test(syn_label, template_class, gid, tree, synapses, v_init, env, un
     synapse_group_test(env, syn_label, gid, cell, syn_obj_dict, syn_params_dict, 10, v_holding, v_init)
     synapse_group_test(env, syn_label, gid, cell, syn_obj_dict, syn_params_dict, 100, v_holding, v_init)
 
-    rate = 10
+    rate = 30
     synapse_group_rate_test(env, syn_label, gid, cell, syn_obj_dict, syn_params_dict, 1, rate, v_init)
     synapse_group_rate_test(env, syn_label, gid, cell, syn_obj_dict, syn_params_dict, 10, rate, v_init)
 

@@ -1250,6 +1250,7 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
     return (segcounts_dict, segcount_total, layers_dict)
 
 
+
 def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
                                 cell_sec_dict, cell_secidx_dict):
     """
@@ -1361,6 +1362,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
 
+        sec_layer_set = set([])
         swc_type = swc_type_dict[sec_name]
         seg_dict = {}
         L_total = 0
@@ -1430,6 +1432,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                     syn_ids.append(syn_index)
                                     syn_secs.append(sec_index)
                                     syn_layers.append(layer)
+                                    sec_layer_set.add(layer)
                                     syn_types.append(syn_type)
                                     swc_types.append(swc_type)
                                     syn_index += 1
@@ -1437,13 +1440,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                     else:
                         interval = seg_end * L
                 end_distance[sec_index] = (1.0 - syn_loc) * L
-
-    print layer_dict.values()
-    layer_set = set(syn_layers)
-    if layer_set != set(layer_dict.values()):
-        logger.warning('incomplete synapse layer set: %s' % str(layer_set))
-        logger.warning(str(sec_graph))
-        logger.warning(str(sec_edges))
+            
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
                 'syn_locs': np.asarray(syn_locs, dtype='float32'),
