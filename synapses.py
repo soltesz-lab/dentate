@@ -459,7 +459,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 failed = False
             else:
                 i = rules[mech_name]['netcon_params'][param]
-                if nc.wcnt() >= i:
+                if int(nc.wcnt()) >= i:
                     nc.weight[i] = val
                     failed = False
         if failed:
@@ -559,10 +559,10 @@ def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shar
                 env.syns_set[gid].add(syn)
             syn_obj_dict[syn_id][syn_name] = syn
 
-    if rank == 0 and edge_count == 0:
-        sec = syns_dict.iterkeys().next()
-        logger.info('syns_dict[%s]:' % sec.hname())
-        logger.info('%s' % pprint.pformat(syns_dict[sec]))
+    #if rank == 0 and edge_count == 0:
+    #    sec = syns_dict.iterkeys().next()
+    #    logger.info('syns_dict[%s]:' % sec.hname())
+    #    logger.info('%s' % pprint.pformat(syns_dict[sec]))
 
     return syn_obj_dict
 
