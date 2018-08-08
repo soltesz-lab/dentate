@@ -34,15 +34,15 @@ echo python is `which python`
 
 set -x
 
-srun -n 8192 python main.py \
- --config-file=config/Full_Scale_Control.yaml  \
+srun -n 8192 python ./scripts/main.py \
+ --config-file=Full_Scale_Control.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014 \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \
  --io-size=256 \
  --tstop=2500 \
  --v-init=-75 \
- --stimulus-onset=150.0 \
+ --stimulus-onset=50.0 \
  --max-walltime-hours=5.4 \
  --results-write-time=250 \
  --verbose
