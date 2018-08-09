@@ -196,7 +196,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             local_time = time.time()
             synapse_dict = {}
-            if gid == 148975:
+            if gid is not None:
                 logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None)}
