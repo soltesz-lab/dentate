@@ -1273,6 +1273,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     swc_types = []
     syn_index = 0
 
+    segcounts_per_sec = {}
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
         sec_index_dict = secidx_dict[sec_name]
         swc_type = swc_type_dict[sec_name]
@@ -1297,7 +1298,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         segcounts_dict, total, layers_dict = \
             synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, seg_dict, density_seed,
                                neurotree_dict=neurotree_dict)
-
+        segcounts_per_sec[sec_name] = segcounts_dict
         sample_size = total
         for (syn_type_label, _) in layer_density_dict.iteritems():
             syn_type = syn_type_dict[syn_type_label]
@@ -1331,7 +1332,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                 'syn_types': np.asarray(syn_types, dtype='uint8'),
                 'swc_types': np.asarray(swc_types, dtype='uint8')}
 
-    return syn_dict
+    return (syn_dict, segcounts_per_dict)
 
 def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
                                 cell_sec_dict, cell_secidx_dict, traversal_order='bfs'):
@@ -1360,9 +1361,9 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     sec_graph = make_neurotree_graph(neurotree_dict, return_root=False)
 
+    seg_density_per_sec = {}
     for (sec_name, layer_density_dict) in sec_layer_density_dict.iteritems():
 
-        sec_layer_set = set([])
         swc_type = swc_type_dict[sec_name]
         seg_dict = {}
         L_total = 0
@@ -1380,6 +1381,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                     sec_edges = list(nx.bfs_edges(sec_subgraph, sec_root))
                 else:
                     raise ValueError('Unknown traversal order')
+                sec_edges.insert(0,(None, sec_root))
             else:
                 sec_edges = [(None, idx) for idx in sec_dict.keys() ]
         else:
@@ -1401,7 +1403,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                 layer_density_dict, \
                                 seg_dict, density_seed, \
                                 neurotree_dict=neurotree_dict)
-
+        seg_density_per_sec[sec_name] = seg_density_dict
         for (syn_type_label, _) in layer_density_dict.iteritems():
             syn_type = syn_type_dict[syn_type_label]
             seg_density = seg_density_dict[syn_type]
@@ -1432,7 +1434,6 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                     syn_ids.append(syn_index)
                                     syn_secs.append(sec_index)
                                     syn_layers.append(layer)
-                                    sec_layer_set.add(layer)
                                     syn_types.append(syn_type)
                                     swc_types.append(swc_type)
                                     syn_index += 1
@@ -1449,4 +1450,4 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                 'syn_types': np.asarray(syn_types, dtype='uint8'),
                 'swc_types': np.asarray(swc_types, dtype='uint8')}
 
-    return syn_dict
+    return (syn_dict, seg_density_per_sec)

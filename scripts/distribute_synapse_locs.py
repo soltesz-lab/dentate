@@ -85,7 +85,7 @@ def local_syn_summary(syn_stats_dict):
     return string.join(res, '\n')
 
 
-def check_syns(gid, morph_dict, syn_stats_dict, layer_set_dict, env, logger):
+def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_dict, env, logger):
 
     layer_stats = syn_stats_dict['layer']
 
@@ -98,9 +98,9 @@ def check_syns(gid, morph_dict, syn_stats_dict, layer_set_dict, env, logger):
             else:
                 warning_flag = True
     if warning_flag:
-        logger.warning('Rank %d: incomplete synapse layer set for cell %d:' % (env.comm.Get_rank(), gid))
-        logger.warning(str(dict(layer_stats.iteritems())))
-        logger.warning(str(morph_dict))
+        logger.warning('Rank %d: incomplete synapse layer set for cell %d: %s' % (env.comm.Get_rank(), gid, str(dict(layer_stats.iteritems()))))
+        logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
+        logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
                 
 
             
@@ -187,7 +187,6 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                     if layer_name != 'default':
                         layer = env.layers[layer_name]
                         layer_set_dict[syn_type].add(layer)
-        print 'layer_set_dict: ', layer_set_dict
         
         syn_stats_dict = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
@@ -197,20 +196,20 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             local_time = time.time()
             synapse_dict = {}
-            if gid is not None:
+            if gid == 148975:
                 logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
                 if distribution == 'uniform':
-                    syn_dict = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                    syn_dict, seg_density_per_sec = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                     density_dict, morph_dict,
                                                                     cell_sec_dict, cell_secidx_dict,
                                                                     traversal_order=traversal_order)
                     
                 elif distribution == 'poisson':
-                    syn_dict = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                    syn_dict, seg_density_per_sec = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                     density_dict, morph_dict,
                                                                     cell_sec_dict, cell_secidx_dict,
                                                                     traversal_order=traversal_order)
@@ -219,7 +218,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
 
                 synapse_dict[gid] = syn_dict
                 this_syn_stats = update_syn_stats (env, syn_stats_dict, syn_dict)
-                check_syns(gid, morph_dict, this_syn_stats, layer_set_dict, env, logger)
+                check_syns(gid, morph_dict, this_syn_stats, seg_density_per_sec, layer_set_dict, env, logger)
                 
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])
