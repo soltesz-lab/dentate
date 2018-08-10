@@ -5,7 +5,7 @@ from neuroh5.io import read_population_ranges, read_population_names, bcast_cell
 import h5py
 import numpy as np
 import dentate
-from dentate.geometry import make_volume, icp_transform
+from dentate.geometry import icp_transform
 from dentate.env import Env
 import dentate.utils as utils
 

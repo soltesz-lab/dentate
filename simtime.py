@@ -1,3 +1,4 @@
+"""Routines to keep track of simulation computation time and terminate the simulation if not enough time has been allocated."""
 
 
 from neuron import h
@@ -20,7 +21,7 @@ class SimTimeEvent:
         if (int(pc.id()) == 0):
             print "dt = %g" % h.dt
             print "tstop = %g" % h.tstop
-            self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
+        self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
 
     def simstatus(self):
         wt = h.startsw()
@@ -53,7 +54,7 @@ class SimTimeEvent:
             if (int(self.pc.id()) == 0): 
                 print "*** remaining computation time is %g s and remaining simulation time is %g ms" % (tsimrem, trem)
                 print "*** estimated computation time to completion is %g s" % max_tsimneeded
-
+            ## if not enough time, reduce tstop and perform collective operations to set minimum (earliest) tstop across all ranks
             if (max_tsimneeded > min_tsimrem):
                 tstop1 = int((tsimrem - self.results_write_time)/(self.tcma/self.dt_checksimtime)) + h.t
                 min_tstop = self.pc.allreduce(tstop1, 3) ## minimum value

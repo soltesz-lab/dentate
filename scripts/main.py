@@ -10,7 +10,7 @@ from mpi4py import MPI
 import numpy as np
 import dentate.network as network
 from dentate.env import Env
-
+from dentate.utils import list_find
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -34,11 +34,11 @@ sys.excepthook = mpi_excepthook
 @click.option("--template-paths", type=str, default='templates', 
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='..', help='path to directory containing required hoc libraries')
+              default='.', help='path to directory containing required hoc libraries')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
                   help='path to directory containing required neuroh5 data files')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../config', help='path to directory containing network and cell mechanism config files')
+              default='config', help='path to directory containing network and cell mechanism config files')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
                   help='path to directory where output files will be written')
 @click.option("--results-id", type=str, required=False, default='',
@@ -95,4 +95,4 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(sys.argv.index(os.path.basename(__file__))+1):])
+    main(args=sys.argv[(list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

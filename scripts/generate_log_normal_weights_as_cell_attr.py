@@ -10,21 +10,12 @@ import dentate
 from dentate.env import Env
 from dentate import utils
 
-
-"""
-stimulus_path: contains namespace with 1D spatial rate map attribute ('rate')
-weights_path: contains namespace with initial weights ('Weights'), applied plasticity rule and writes new weights to
- 'Structured Weights' namespace
-connections_path: contains existing mapping of syn_id to source_gid
-
-10% of GCs will have a subset of weights modified according to a slow time-scale plasticity rule, the rest inherit the
-    unaltered initial log-normal weights
-    
-TODO: Rather than choosing peak_locs randomly, have the peak_locs depend on the previous weight distribution.
-"""
-
-script_name = 'generate_log_normal_weights_as_cell_attr.py'
-logger = get_script_logger(script_name)
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 local_random = np.random.RandomState()
 
@@ -63,7 +54,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     """
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(script_name)
+    logger = utils.get_script_logger(os.path.basename(__file__))
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -73,7 +64,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        logger.info('%s: %i ranks have been allocated' % (script_name, comm.size))
+        logger.info('%i ranks have been allocated' % comm.size)
 
     if (not dry_run) and (rank==0):
         if not os.path.isfile(weights_path):
@@ -156,4 +147,5 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+

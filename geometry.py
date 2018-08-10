@@ -5,7 +5,6 @@ import sys, time, gc, itertools
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
-import dlib
 import rbf, rbf.basis
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -22,6 +21,10 @@ logger = utils.get_module_logger(__name__)
 
 max_u = 11690.
 max_v = 2956.
+
+DG_u_extent = (-0.016*np.pi, 1.01*np.pi)
+DG_v_extent = (-0.23*np.pi, 1.425*np.pi)
+DG_l_extent = (-3.95, 3.1)
 
 def DG_volume(u, v, l, rotate=None):
     """Parametric equations of the dentate gyrus volume."""
@@ -52,33 +55,42 @@ def DG_volume(u, v, l, rotate=None):
     return xyz
 
 
-def make_volume(lmin, lmax, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10], expand=0.0):  
-    """Creates an RBF volume based on the parametric equations of the dentate volume."""
-    
-    ures = resolution[0]
-    vres = resolution[1]
-    lres = resolution[2]
-    
-    obs_u = np.linspace((-0.016*np.pi) - expand, (1.01*np.pi) + expand, ures)
-    obs_v = np.linspace(-0.23*np.pi - expand, 1.425*np.pi + expand, vres)
-    obs_l = np.linspace(lmin - expand, lmax + expand, num=lres)
+def DG_meshgrid(extent_u, extent_v, extent_l, resolution=[30, 30, 10], rotate=None, return_uvl=False):
+    ures, vres, lres = resolution
+
+    obs_u = np.linspace(extent_u[0], extent_u[1], num=ures)
+    obs_v = np.linspace(extent_v[0], extent_v[1], num=vres)
+    obs_l = np.linspace(extent_l[0], extent_l[1], num=lres)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = DG_volume (u, v, l, rotate=rotate)
+    xyz = DG_volume(u, v, l, rotate=rotate)
+    
+    if return_uvl:
+        return xyz, obs_u, obs_v, obs_l
+    else:
+        return xyz
 
+def make_volume(extent_u, extent_v, extent_l, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10], return_xyz=False):  
+    """Creates an RBF volume based on the parametric equations of the dentate volume."""
+    
+    xyz, obs_u, obs_v, obs_l = DG_meshgrid(extent_u, extent_v, extent_l,\
+                                           rotate=rotate, resolution=resolution, return_uvl=True)
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, basis=basis, order=order)
 
-    return vol
+    if return_xyz:
+        return vol, xyz
+    else:
+        return vol
 
 
-def make_surface(obs_l, rotate=None, basis=rbf.basis.phs2, order=1, res=[33, 30]):  
+def make_surface(extent_u, extent_v, obs_l, rotate=None, basis=rbf.basis.phs2, order=1, res=[33, 30]):  
     """Creates an RBF surface based on the parametric equations of the dentate volume.
     """
     ures = resolution[0]
     vres = resolution[1]
 
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, ures)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, vres)
+    obs_u = np.linspace(extent_u[0], extent_u[1], num=ures)
+    obs_v = np.linspace(extent_v[0], extent_v[1], num=vres)
 
     u, v = np.meshgrid(obs_u, obs_v, indexing='ij')
     xyz = DG_volume (u, v, obs_l, rotate=rotate)
@@ -100,7 +112,7 @@ def make_uvl_distance(xyz_coords,rotate=None):
       return f
 
 
-def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, alpha_radius=210., optiter=200, nodeitr=20):
+def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, alpha_radius=120., optiter=200, nodeitr=20):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -130,7 +142,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
         The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
 
     """
-
+    import dlib
     boundary_uvl_coords = np.array([[ip_vol.u[0],ip_vol.v[0],ip_vol.l[0]],
                                     [ip_vol.u[0],ip_vol.v[-1],ip_vol.l[0]],
                                     [ip_vol.u[-1],ip_vol.v[0],ip_vol.l[0]],
@@ -351,13 +363,23 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
 
     rank = comm.rank
 
+    min_u = float('inf')
+    max_u = 0.0
+
+    min_v = float('inf')
+    max_v = 0.0
+
     min_l = float('inf')
     max_l = 0.0
     
     for layer, min_extent in env.geometry['Parametric Surface']['Minimum Extent'].iteritems():
+        min_u = min(min_extent[0], min_u)
+        min_v = min(min_extent[1], min_v)
         min_l = min(min_extent[2], min_l)
         
     for layer, max_extent in env.geometry['Parametric Surface']['Maximum Extent'].iteritems():
+        max_u = max(max_extent[0], max_u)
+        max_v = max(max_extent[1], max_v)
         max_l = max(max_extent[2], max_l)
 
     population_extents = {}
@@ -387,7 +409,10 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
 
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-        ip_volume = make_volume(min_l-safety, max_l+safety, resolution=resolution, rotate=rotate)
+        ip_volume = make_volume((min_u-safety, max_u+safety), \
+                                (min_v-safety, max_v+safety), \
+                                (min_l-safety, max_l+safety), \
+                                resolution=resolution, rotate=rotate)
 
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, origin_spec=origin)

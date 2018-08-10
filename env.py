@@ -3,6 +3,7 @@ from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
+from neuron import h
 
 ConnectionConfig = namedtuple('ConnectionConfig',
                                  ['type',
@@ -10,6 +11,15 @@ ConnectionConfig = namedtuple('ConnectionConfig',
                                   'layers',
                                   'proportions',
                                   'mechanisms'])
+
+GapjunctionConfig = namedtuple('GapjunctionConfig',
+                                 ['sections',
+                                  'connection_probability',
+                                  'connection_parameters',
+                                  'connection_bounds',
+                                  'coupling_coefficients',
+                                  'coupling_parameters',
+                                  'coupling_bounds'])
 
 
 class Env:
@@ -51,7 +61,9 @@ class Env:
         self.biophys_cells = defaultdict(dict)
 
         self.comm = comm
-
+        if comm is not None:
+            self.pc = h.ParallelContext()
+        
         self.colsep = ' '  # column separator for text data files
         self.bufsize = 100000  # buffer size for text data files
 
@@ -166,6 +178,7 @@ class Env:
 
         if self.modelConfig.has_key('Connection Generator'):
             self.parse_connection_config()
+            self.parse_gapjunction_config()
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
@@ -173,6 +186,10 @@ class Env:
             self.load_celltypes()
             self.connectivityFilePath = os.path.join(self.datasetPath, self.modelConfig['Connection Data'])
             self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
+            if self.modelConfig.has_key('Gap Junction Data'):
+                self.gapjunctionsFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
+            else:
+                self.gapjunctionsFilePath = None
 
         if self.modelConfig.has_key('Input'):
             self.parse_input_config()
@@ -327,6 +344,79 @@ class Env:
                     
         self.connection_config = connection_dict
 
+    def parse_gapjunction_config(self):
+        """
+
+        :return:
+        """
+        connection_config = self.modelConfig['Connection Generator']
+        if connection_config.has_key('Gap Junctions'):
+            gj_config = connection_config['Gap Junctions']
+
+            gj_sections = gj_config['Locations']
+            sections = {}
+            for pop_a, pop_dict in gj_sections.iteritems():
+                for pop_b, sec_names in pop_dict.iteritems():
+                    pair = (pop_a, pop_b)
+                    sec_idxs = []
+                    for sec_name in sec_names:
+                        sec_idxs.append(self.swctypes_dict[sec_name])
+                    sections[pair] = sec_idxs
+
+            gj_connection_probs = gj_config['Connection Probabilities']
+            connection_probs = {}
+            for pop_a, pop_dict in gj_connection_probs.iteritems():
+                for pop_b, prob in pop_dict.iteritems():
+                    pair = (pop_a, pop_b)
+                    connection_probs[pair] = float(prob)
+
+            connection_weights_x = []
+            connection_weights_y = []
+            gj_connection_weights = gj_config['Connection Weights']
+            for x in sorted(gj_connection_weights.keys()):
+                connection_weights_x.append(x)
+                connection_weights_y.append(gj_connection_weights[x])
+
+            connection_params = np.polyfit(np.asarray(connection_weights_x), \
+                                           np.asarray(connection_weights_y), \
+                                           3)
+            connection_bounds = [np.min(connection_weights_x), \
+                                 np.max(connection_weights_x)]
+            
+            gj_coupling_coeffs = gj_config['Coupling Coefficients']
+            coupling_coeffs = {}
+            for pop_a, pop_dict in gj_coupling_coeffs.iteritems():
+                for pop_b, coeff in pop_dict.iteritems():
+                    pair = (pop_a, pop_b)
+                    coupling_coeffs[pair] = float(coeff)
+
+            gj_coupling_weights = gj_config['Coupling Weights']
+            coupling_weights_x = []
+            coupling_weights_y = []
+            for x in sorted(gj_coupling_weights.keys()):
+                coupling_weights_x.append(x)
+                coupling_weights_y.append(gj_coupling_weights[x])
+
+            coupling_params = np.polyfit(np.asarray(coupling_weights_x), \
+                                         np.asarray(coupling_weights_y), \
+                                         3)
+            coupling_bounds = [np.min(coupling_weights_x), \
+                               np.max(coupling_weights_x)]
+            coupling_params = coupling_params
+            coupling_bounds = coupling_bounds
+
+            self.gapjunctions = {}
+            for pair, sec_idxs in sections.iteritems():
+                self.gapjunctions[pair] = GapjunctionConfig(sec_idxs, \
+                                                            connection_probs[pair], \
+                                                            connection_params, \
+                                                            connection_bounds, \
+                                                            coupling_coeffs[pair], \
+                                                            coupling_params, \
+                                                            coupling_bounds)
+        else:
+            self.gapjunctions = None
+        
     def load_celltypes(self):
         """
 

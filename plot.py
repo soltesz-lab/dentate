@@ -102,7 +102,7 @@ def finalize_bins(bins, binsize):
 
 
 def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                        metric='Indegree', normed = False, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                        binSize = 50., metric='Indegree', normed = False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -112,9 +112,6 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     :param destination_pop: 
 
     """
-
-    dx = 50
-    dy = 50
     
     (population_ranges, _) = read_population_ranges(coords_path)
 
@@ -138,41 +135,63 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     if verbose:
         print 'read distances (%i elements)' % len(soma_distances.keys())
     
-    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
-    ax = plt.gca()
 
     gids = sorted(soma_distances.keys())
     distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
     distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
-
-    if normed:
-        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
-        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
-        H = np.zeros(H1.shape)
-        nz = np.where(H2 > 0.0)
-        H[nz] = np.divide(H1[nz], H2[nz])
-        H[nz] = np.divide(H[nz], np.max(H[nz]))
-    else:
-        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees)
-        
-    if verbose:
-        print 'Plotting in-degree distribution...'
 
     x_min = np.min(distance_U)
     x_max = np.max(distance_U)
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
 
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
     ax.axis([x_min, x_max, y_min, y_max])
 
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
+    if graphType == 'histogram1d':
+        bins_U = np.linspace(x_min, x_max, dx)
+        bins_V = np.linspace(y_min, y_max, dy)
+        histoCount_U, bin_edges_U = np.histogram(distance_U, bins = bins_U, weights=degrees)
+        histoCount_V, bin_edges_V = np.histogram(distance_V, bins = bins_V, weights=degrees)
+        gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+        ax1 = plt.subplot(gs[0])
+        ax1.bar (bin_edges_U[:-1], histoCount_U, linewidth=1.0)
+        ax1.set_title('Vertex metric distribution for %s' % (destination), fontsize=fontSize)
+        ax2 = plt.subplot(gs[1])
+        ax2.bar (bin_edges_V[:-1], histoCount_V, linewidth=1.0)
+        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of edges', fontsize=fontSize)
+        ax2.set_ylabel('Number of edges', fontsize=fontSize)
+    elif graphType == 'histogram2d':
+        if normed:
+            (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
+            (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+            H = np.zeros(H1.shape)
+            nz = np.where(H2 > 0.0)
+            H[nz] = np.divide(H1[nz], H2[nz])
+            H[nz] = np.divide(H[nz], np.max(H[nz]))
+        else:
+            (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees)
+
+        X, Y = np.meshgrid(xedges, yedges)
+        pcm = ax.pcolormesh(X, Y, H.T)
+        fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    else:
+        raise ValueError('Unknown graph type %s' % graphType)
+        
+    if verbose:
+        print 'Plotting in-degree distribution...'
+
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
     ax.set_title('%s distribution for destination: %s sources: %s' % (metric, destination, ', '.join(sources)), fontsize=fontSize)
     ax.set_aspect('equal')
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if saveFig: 
         if isinstance(saveFig, basestring):
@@ -187,7 +206,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     return ax
 
 
-def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source,
+
+def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source, 
                         bin_size=20.0, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex distribution with respect to septo-temporal distance
@@ -225,15 +245,19 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
     dist_bins = {}
     dist_u_bins = {}
+    dist_v_bins = {}
     count = 0
     min_dist = float('inf')
     max_dist = 0.0
     max_dist_u = 0.0
+    max_dist_v = 0.0
+
     for (destination_gid,rest) in g:
         if destination_gid is not None:
             (source_indexes, attr_dict) = rest
             for source_gid in source_indexes:
                 dist_u = destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]
+                dist_v = destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid]
                 dist = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) + \
                        abs(destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid])
                 if verbose:
@@ -243,23 +267,126 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
                 min_dist = min(min_dist, dist)
                 max_dist = max(max_dist, dist)
                 max_dist_u = max(max_dist_u, dist_u)
+                max_dist_v = max(max_dist_v, dist_v)
                 update_bins(dist_bins, bin_size, dist)
                 update_bins(dist_u_bins, bin_size, dist_u)
-            count = count + 1
+                update_bins(dist_v_bins, bin_size, dist_v)
+                count = count + 1
     dist_histoCount, dist_bin_edges = finalize_bins(dist_bins, bin_size)
     dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins, bin_size)
+    dist_v_histoCount, dist_v_bin_edges = finalize_bins(dist_v_bins, bin_size)
     if verbose:
-        print 'min dist = %f; max dist = %f; max dist u = %f' % (min_dist, max_dist, max_dist_u)
+        print 'min dist = %f; max dist = %f; max dist u = %f; max dist v = %f' % (min_dist, max_dist, max_dist_u, max_dist_v)
+    
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fontSize)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2)
     ax1.bar(dist_bin_edges, dist_histoCount, width=bin_size)
+    ax1.set_xlabel('Total distance (um)', fontsize=fontSize)
+    ax1.set_ylabel('Number of connections', fontsize=fontSize)
+        
     ax2.bar(dist_u_bin_edges, dist_u_histoCount, width=bin_size)
+    ax2.set_xlabel('Septal - temporal (um)', fontsize=fontSize)
+    
+    ax3.bar(dist_v_bin_edges, dist_v_histoCount, width=bin_size)
+    ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fontSize)
 
     if saveFig: 
         if isinstance(saveFig, basestring):
             filename = saveFig
         else:
-            filename = '%s to %s.png' % (source, destination)
+            filename = 'Connection distance %s to %s.png' % (source, destination)
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+
+        
+        
+def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, 
+                            bin_size=20.0, fontSize=14, showFig = True, saveFig = False, verbose = False):
+    """
+    Plot vertex distribution with respect to septo-temporal distance for a single postsynaptic cell
+
+    :param connectivity_path:
+    :param coords_path:
+    :param distances_namespace: 
+    :param destination_gid: 
+    :param destination: 
+    :param source: 
+
+    """
+    
+    (population_ranges, _) = read_population_ranges(coords_path)
+
+    destination_start = population_ranges[destination][0]
+    destination_count = population_ranges[destination][1]
+
+    source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
+    destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+
+    source_soma_distance_U = {}
+    source_soma_distance_V = {}
+    destination_soma_distance_U = {}
+    destination_soma_distance_V = {}
+    for k,v in source_soma_distances:
+        source_soma_distance_U[k] = v['U Distance'][0]
+        source_soma_distance_V[k] = v['V Distance'][0]
+    for k,v in destination_soma_distances:
+        destination_soma_distance_U[k] = v['U Distance'][0]
+        destination_soma_distance_V[k] = v['V Distance'][0]
+
+    del(source_soma_distances)
+    del(destination_soma_distances)
+                
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
+
+    source_dist_u = []
+    source_dist_v = []
+    for (this_destination_gid,rest) in g:
+        if this_destination_gid == destination_gid:
+            (source_indexes, attr_dict) = rest
+            for source_gid in source_indexes:
+                dist_u = source_soma_distance_U[source_gid]
+                dist_v = source_soma_distance_V[source_gid]
+                source_dist_u.append(dist_u)
+                source_dist_v.append(dist_v)
+
+            break
+
+    source_dist_u_array = np.asarray(source_dist_u)
+    source_dist_v_array = np.asarray(source_dist_v)
+
+    x_min = np.min(source_dist_u_array)
+    x_max = np.max(source_dist_u_array)
+    y_min = np.min(source_dist_v_array)
+    y_max = np.max(source_dist_v_array)
+
+    dx = (x_max - x_min) / bin_size
+    dy = (y_max - y_min) / bin_size
+
+    (H, xedges, yedges) = np.histogram2d(source_dist_u_array, \
+                                         source_dist_v_array, \
+                                         bins=[dx, dy])
+
+    X, Y = np.meshgrid(xedges, yedges)
+
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    ax.plot(destination_soma_distance_U[destination_gid], \
+            destination_soma_distance_V[destination_gid], \
+            'r+', markersize=12, mew=5)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    ax.set_aspect('equal')
+        
+    if saveFig: 
+        if isinstance(saveFig, basestring):
+            filename = saveFig
+        else:
+            filename = 'Connection distance %s to %s gid %i.png' % (source, destination, destination_gid)
             plt.savefig(filename)
 
     if showFig:
@@ -641,7 +768,7 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     return ax
 
 
-def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=True, verbose=False):
+def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=False, verbose=False):
     
     env = Env(configFile=config)
 
@@ -649,24 +776,25 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
 
-    pop_max_extent = None
-    pop_min_extent = None
+    layer_min_extent = None
+    layer_max_extent = None
     for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+        if layer_min_extent is None:
+            layer_min_extent = np.asarray(min_extent)
+        else:
+            layer_min_extent = np.minimum(layer_min_extent, np.asarray(min_extent))
+        if layer_max_extent is None:
+            layer_max_extent = np.asarray(max_extent)
+        else:
+            layer_max_extent = np.maximum(layer_max_extent, np.asarray(max_extent))
 
-        for population in populations:
-            layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-            if layer_count > 0:
-                if pop_max_extent is None:
-                    pop_max_extent = np.asarray(max_extent)
-                else:
-                    pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
-                if pop_min_extent is None:
-                    pop_min_extent = np.asarray(min_extent)
-                else:
-                    pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
-    
     if verbose:
+        print("Layer minimum extents: %s" % (str(layer_min_extent)))
+        print("Layer maximum extents: %s" % (str(layer_max_extent)))
         print('Reading coordinates...')
+
+    pop_min_extent = None
+    pop_max_extent = None
 
     xcoords = []
     ycoords = []
@@ -678,6 +806,16 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
             xcoords.append(v['X Coordinate'][0])
             ycoords.append(v['Y Coordinate'][0])
             zcoords.append(v['Z Coordinate'][0])
+
+        if pop_min_extent is None:
+            pop_min_extent = np.asarray(env.geometry['Cell Layers']['Minimum Extent'][population])
+        else:
+            pop_min_extent = np.minimum(pop_min_extent, np.asarray(env.geometry['Cell Layers']['Minimum Extent'][population]))
+
+        if pop_max_extent is None:
+            pop_max_extent = np.asarray(env.geometry['Cell Layers']['Maximum Extent'][population])
+        else:
+            pop_max_extent = np.minimum(pop_max_extent, np.asarray(env.geometry['Cell Layers']['Maximum Extent'][population]))
 
     pts = np.concatenate((np.asarray(xcoords).reshape(-1,1), \
                           np.asarray(ycoords).reshape(-1,1), \
@@ -696,9 +834,17 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
     from dentate.geometry import make_volume
 
     if subvol:
-        subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+        subvol = make_volume ((pop_min_extent[0], pop_max_extent[0]), \
+                              (pop_min_extent[1], pop_max_extent[1]), \
+                              (pop_min_extent[2], pop_max_extent[2]), \
+                              resolution=[20, 20, 3], \
+                              rotate=rotate)
     else:
-        vol = make_volume (-3.95, 3.0, rotate=rotate)
+        vol = make_volume ((layer_min_extent[0], layer_max_extent[0]), \
+                           (layer_min_extent[1], layer_max_extent[1]), \
+                           (layer_min_extent[2], layer_max_extent[2]), \
+                           resolution=[20, 20, 3], \
+                           rotate=rotate)
 
     if verbose:
         print('Plotting volume...')
@@ -718,23 +864,27 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
 
     rotate = env.geometry['Parametric Surface']['Rotation']
 
+    pop_min_extent = np.asarray(env.geometry['Cell Layers']['Minimum Extent'][population])
+    pop_max_extent = np.asarray(env.geometry['Cell Layers']['Maximum Extent'][population])
+
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
-
-    pop_max_extent = None
-    pop_min_extent = None
+    layer_min_extent = None
+    layer_max_extent = None
     for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+        if layer_min_extent is None:
+            layer_min_extent = np.asarray(min_extent)
+        else:
+            layer_min_extent = np.minimum(layer_min_extent, np.asarray(min_extent))
+        if layer_max_extent is None:
+            layer_max_extent = np.asarray(max_extent)
+        else:
+            layer_max_extent = np.maximum(layer_max_extent, np.asarray(max_extent))
 
-        layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-        if layer_count > 0:
-            if pop_max_extent is None:
-                pop_max_extent = np.asarray(max_extent)
-            else:
-                pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
-            if pop_min_extent is None:
-                pop_min_extent = np.asarray(min_extent)
-            else:
-                pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+    if verbose:
+        print("Layer minimum extents: %s" % (str(layer_min_extent)))
+        print("Layer maximum extents: %s" % (str(layer_max_extent)))
+        print('Reading coordinates...')
 
     (population_ranges, _) = read_population_ranges(forest_path)
 
@@ -810,9 +960,16 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
     from dentate.geometry import make_volume
 
     if subvol:
-        subvol = make_volume (pop_min_extent[2], pop_max_extent[2], rotate=rotate)
+        subvol = make_volume ((pop_min_extent[0], pop_max_extent[0]), \
+                              (pop_min_extent[1], pop_max_extent[1]), \
+                              (pop_min_extent[2], pop_max_extent[2]), \
+                              rotate=rotate)
+
     else:
-        vol = make_volume (-3.95, 3.0, rotate=rotate)
+        subvol = make_volume ((layer_min_extent[0], layer_max_extent[0]), \
+                              (layer_min_extent[1], layer_max_extent[1]), \
+                              (layer_min_extent[2], layer_max_extent[2]), \
+                              rotate=rotate)
 
     if verbose:
         print('Plotting volume...')
@@ -1036,7 +1193,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable, timeRange=timeRange, verbose=verbose)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable, timeRange=timeRange)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']

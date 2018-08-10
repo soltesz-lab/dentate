@@ -13,9 +13,9 @@ from dentate.env import Env
 from dentate import neuron_utils, utils, cells
 
     
-def passive_test (tree, v_init):
+def passive_test (templateClass, tree, v_init):
 
-    cell = cells.make_neurotree_cell (h.MossyCell, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -62,9 +62,9 @@ def passive_test (tree, v_init):
 
     f.close()
 
-def ap_rate_test (tree, v_init):
+def ap_rate_test (templateClass, tree, v_init):
 
-    cell = cells.make_neurotree_cell (h.MossyCell, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
@@ -182,8 +182,10 @@ def main(template_path,forest_path):
     
     gid, tree = trees.next()
 
-    passive_test(tree,-60)
-    ap_rate_test(tree,-60)
+    templateClass = getattr(h, "MossyCell")
+
+    passive_test(templateClass,tree,-60)
+    ap_rate_test(templateClass,tree,-60)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("MossyCellTest.py") != -1,sys.argv)+1):])

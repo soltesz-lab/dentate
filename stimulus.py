@@ -23,13 +23,13 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
     # scale/translate the nodes to encompass the arena
     nodes -= 0.5
-    nodes *= scale_factor * arena_dimension
+    scaled_nodes = (nodes * scale_factor * arena_dimension)
     
     # evenly disperse the nodes over the domain using maxit iterative steps
     for i in range(maxit):
-        nodes = disperse(nodes,vert,smp)
-
-    return (nodes,vert,smp)
+        scaled_nodes = disperse(scaled_nodes,vert,smp)
+    nodes = scaled_nodes / scale_factor
+    return (scaled_nodes, nodes,vert,smp)
 
 
 

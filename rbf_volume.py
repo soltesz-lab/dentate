@@ -2,7 +2,7 @@
 Based on code from bspline_surface.py
 """
 
-import math
+import math, pickle
 import numpy as np
 from collections import namedtuple
 import rbf
@@ -84,7 +84,7 @@ def cartesian_product(arrays, out=None):
 
 
 class RBFVolume(object):
-    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs2):
+    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3, vol_coeffs=None):
         """Parametric (u,v,l) 3D volume approximation.
 
         Parameters
@@ -98,17 +98,43 @@ class RBFVolume(object):
         basis: RBF basis function
         """
 
-        self._create_vol(u, v, l, xyz, order=order, basis=basis)
+        if vol_coeffs is None:
+            self._create_vol(u, v, l, xyz, order=order, basis=basis)
+        else:
+            self._create_vol_from_coeffs(u, v, l, xyz, vol_coeffs, order=order, basis=basis)
 
         self.u  = u
         self.v  = v
         self.l  = l
+        self.xyz = xyz
         self.order = order
 
         self.tri = None
         self.facets = None
         self.facet_counts = None
+
+    @classmethod
+    def load(cls, filename):
         
+        f = open(filename, "rb")
+        s = pickle.load(f)
+        f.close()
+
+        return cls(**s)
+
+    def save(self, filename, basis_name):
+
+        vol_coeffs = ( self._xvol._coeff, self._yvol._coeff, self._zvol._coeff, \
+                       self._uvol._coeff, self._vvol._coeff, self._lvol._coeff )
+        
+        s = { 'u': self.u, 'v': self.v, 'l': self.l, 'xyz': self.xyz, 'order': self.order, \
+              'basis': basis_name, 'vol_coeffs': vol_coeffs }
+        
+        f = open(filename, "wb")
+        pickle.dump(s, f)
+        f.close()
+
+    
     def __call__(self, *args, **kwargs):
         """Convenience to allow evaluation of a RBFVolume
         instance via `foo(0, 0, 0)` instead of `foo.ev(0, 0, 0)`.
@@ -135,6 +161,109 @@ class RBFVolume(object):
         self._uvol = uvol
         self._vvol = vvol
         self._lvol = lvol
+
+
+    def _create_vol_from_coeffs(self, obs_u, obs_v, obs_l, xyz, vol_coeffs, **kwargs):
+
+        coeff_x, coeff_y, coeff_z, coeff_u, coeff_v, coeff_l = vol_coeffs
+
+        u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+        uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
+
+        xvol = RBFInterpolant(uvl_obs,coeff=coeff_x,**kwargs)
+        yvol = RBFInterpolant(uvl_obs,coeff=coeff_y,**kwargs)
+        zvol = RBFInterpolant(uvl_obs,coeff=coeff_z,**kwargs)
+
+        uvol = RBFInterpolant(xyz,coeff=coeff_u,**kwargs)
+        vvol = RBFInterpolant(xyz,coeff=coeff_v,**kwargs)
+        lvol = RBFInterpolant(xyz,coeff=coeff_l,**kwargs)
+
+        self._xvol = xvol
+        self._yvol = yvol
+        self._zvol = zvol
+        self._uvol = uvol
+        self._vvol = vvol
+        self._lvol = lvol
+
+
+  
+    def _resample_distance_strategy(self):
+        from scipy.spatial import cKDTree
+
+        u, v, l = self.u, self.v, self.l
+        um, vm, lm = np.meshgrid(u,v,l,indexing='ij')
+        uvl = np.array([um.ravel(), vm.ravel(), lm.ravel()]).T
+        x, y, z = self._xvol(uvl), self._yvol(uvl), self._zvol(uvl)
+        xyz = np.asarray([x,y,z],dtype='float32').T
+        tree = cKDTree(xyz)
+
+        distance_dictionary = {}
+        distances = []
+        N = xyz.shape[0]
+        min_distance, min_index = 1.0e9, -1
+        for n in range(N):
+            d, i = tree.query(xyz[n],k=2)
+            d, i = d[-1], i[-1]
+            distance_dictionary[tuple(xyz[n])] = [d,n,i]
+            distances.append(d)
+            if d < min_distance:
+                min_distance, min_index = d, (n,i)
+
+        f = open('distances_curv.txt','w')
+        for distance in distances:
+            f.write(str(distance) + '\n')
+        f.close() 
+
+        f = open('add_points.txt','w')
+        for n in range(N):
+            ndistance, self_index, neighbor_index = distance_dictionary[tuple(xyz[n])]
+            nearest_neighbor = xyz[neighbor_index]
+            rel = np.abs(ndistance - min_distance) / min_distance
+            points_to_add = 2 ** (rel + 2)
+            distance_dictionary[tuple(xyz[n])].append(points_to_add)
+            f.write(str(int(points_to_add)) + '\n')
+        f.close()
+
+        def sample_from_sphere(R,xyz):
+           phi = np.random.uniform(0, 2.*np.pi)
+           costheta = np.random.uniform(-1,1)
+           u = np.random.uniform(0,1)
+           theta = np.arccos(costheta)
+           r = sphere_radius * (u ** (1. / 3.))
+           xnew, ynew, znew = xyz[0] + r * np.sin(theta) * np.cos(phi), xyz[1] + r * np.sin(theta) * np.sin(phi), xyz[2] + r * np.cos(theta)
+ 
+           xyz_new = np.asarray([xnew, ynew, znew], dtype='float32').reshape(1,3)
+           u, v, l = self._uvol(xyz_new), self._vvol(xyz_new), self._lvol(xyz_new)
+           u, v, l = u[0], v[0], l[0]
+           if (u < np.min(self.u) or u > np.max(self.u)):
+               return None, None
+           if (v < np.min(self.v) or v > np.max(self.v)):
+               return None, None
+           if (l < np.min(self.l) or l > np.max(self.l)):
+               return None, None
+           return xyz_new, np.array([u,v,l],dtype='float32').reshape(1,3)
+
+        for xyz_key in distance_dictionary.keys():
+            ndistance, _, _, points_to_add = distance_dictionary[xyz_key]
+            
+            sphere_centroid, sphere_radius = xyz_key, ndistance / 2.
+            for i in range(int(points_to_add)):
+                xyz_new = None
+                while xyz_new is None:
+                    xyz_new, uvl_new = sample_from_sphere(sphere_radius, sphere_centroid)
+                xyz = np.concatenate((xyz, xyz_new))
+                uvl = np.concatenate((uvl, uvl_new))
+
+        f = open('distance_curv_added.txt','w')
+        tree_added = cKDTree(xyz)
+        
+        N2 = xyz.shape[0]
+        for n in range(N2):
+            d, i = tree_added.query(xyz[n],k=2)
+            d, i = d[-1], i[-1] 
+            f.write(str(d) + '\n')
+        f.close()
+        return xyz, uvl
 
     def _resample_uv(self, ures, vres):
         """Helper function to re-sample to u and v parameters
@@ -394,6 +523,7 @@ class RBFVolume(object):
         else:
             return distances
 
+        
     def boundary_distance(self, axis, b1, b2, coords, resolution=0.01):
         """Given U,V,L coordinates returns the distances of the points
         to the U, V boundaries in the corresponding L layer.
@@ -521,8 +651,8 @@ class RBFVolume(object):
         # the original ones.
         hru, hrv = self._resample_uv(ures, vres)
         # Sample the surface at the new u, v values and plot
-        meshpts1 = self.ev(hru, hrv, self.l[-1])
-        meshpts2 = self.ev(hru, hrv, self.l[0])
+        meshpts1 = self.ev(hru, hrv, np.max(self.l))
+        meshpts2 = self.ev(hru, hrv, np.min(self.l))
         
         m1 = mlab.mesh(*meshpts1, **kwargs)
         m2 = mlab.mesh(*meshpts2, **kwargs)
@@ -584,7 +714,7 @@ class RBFVolume(object):
         return fig
 
 
-    def create_triangulation(self, ures=2, vres=2, **kwargs):
+    def create_triangulation(self, ures=4, vres=4, lres=1, **kwargs):
         """Compute the triangulation of the volume using scipy's
         `delaunay` function
 
@@ -612,10 +742,10 @@ class RBFVolume(object):
         
         # Make new u and v values of (possibly) higher resolution
         # the original ones.
-        hru, hrv = self._resample_uv(ures, vres)
-        volpts = self.ev(hru, hrv, self.l).reshape(3, -1).T
-
-        tri = Delaunay(volpts)
+        hru, hrv, hrl = self._resample_uvl(ures, vres, lres)
+        
+        volpts = self.ev(hru, hrv, hrl).reshape(3, -1).T
+        tri = Delaunay(volpts, **kwargs)
         self.tri = tri
         
         return tri
@@ -636,12 +766,30 @@ class RBFVolume(object):
 
 
 
-def test_surface(u, v, l):
+def test_surface(u, v, l, rotate=None):
     import numpy as np
+
+    if rotate is not None:
+        for i in xrange(0, 3):
+            if rotate[i] != 0.:
+                a = float(np.deg2rad(rotate[i]))
+                rot = rotate3d([ 1 if i == j else 0 for j in xrange(0,3) ], a)
+    else:
+        rot = None
+
     x = np.array(-500.* np.cos(u) * (5.3 - np.sin(u) + (1. + 0.138 * l) * np.cos(v)))
     y = np.array(750. * np.sin(u) * (5.5 - 2. * np.sin(u) + (0.9 + 0.114*l) * np.cos(v)))
     z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi-u)))
-    return np.array([x, y, z])
+
+    pts = np.array([x, y, z]).reshape(3, u.size)
+
+    if rot is not None:
+        xyz = np.dot(rot, pts).T
+    else:
+        xyz = pts.T
+
+    return xyz
+
 
 def test_nodes():
     from rbf.nodes import snap_to_boundary,disperse,menodes
@@ -756,24 +904,6 @@ def test_uv_isospline():
     mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
     
     mlab.show()
-
-def test_tri():
-
-    max_u = 11690.
-    max_v = 2956.
-    
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-1.0, 1., num=3)
-
-    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l).reshape(3, u.size)
-
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
-
-    tri = vol.create_triangulation()
-    
-    return vol, tri
     
 
 def test_point_distance_mesh():
@@ -837,12 +967,10 @@ def test_point_position():
     print vol.point_position(np.median(U), np.median(V), np.max(L))
     print vol.point_position(1.0, np.median(V), np.max(L))
 
+def test_precision():
     
-def test_alphavol():
-    from alphavol import alpha_shape
-    
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 25)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 25)
     obs_l = np.linspace(-1.0, 1., num=10)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
@@ -850,8 +978,39 @@ def test_alphavol():
 
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
+    test_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 250)
+    test_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 250)
+    test_l = np.linspace(-1.0, 1., num=10)
+
+    u, v, l = np.meshgrid(test_u, test_v, test_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size).T
+
+    interp_xyz = vol(u, v, l, mesh=False).reshape(3, u.size).T
+
+    error = xyz - interp_xyz
+    print ('Min error: %f' % np.min(error))
+    print ('Max error: %f' % np.max(error))
+    print ('Mean error: %f' % np.mean(error))
+    
+    
+def test_alphavol():
+    from alphavol import alpha_shape
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-3.95, 3.2, num=10)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l, rotate=[-35., 0., 0.])
+
+    print ('Constructing volume...')
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    print ('Constructing volume triangulation...')
     tri = vol.create_triangulation()
-    alpha = alpha_shape([], 210., tri=tri)
+
+    print ('Constructing alpha shape...')
+    alpha = alpha_shape([], 120., tri=tri)
 
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)
@@ -881,9 +1040,47 @@ def test_alphavol():
     mlab.show()
     
 
+def test_tri():
+
+    max_u = 11690.
+    max_v = 2956.
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
+    obs_l = np.linspace(-1.0, 1., num=5)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size)
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    tri = vol.create_triangulation()
+    
+    return vol, tri
+
+def test_load():
+
+    max_u = 11690.
+    max_v = 2956.
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
+    obs_l = np.linspace(-1.0, 1., num=5)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l)
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    vol.save('vol.p', 'phs3')
+    vol_from_file = RBFVolume.load('vol.p')
+
+    print(vol(0.5, 0.5, 0.5))
+    print(vol_from_file(0.5, 0.5, 0.5))
+    
     
 if __name__ == '__main__':
-    test_alphavol()
+#    test_precision()
 #    test_point_position()
 #    test_point_distance_mesh()
 #    test_point_distance()
@@ -891,9 +1088,6 @@ if __name__ == '__main__':
 #    test_mplot_volume()
 #    test_uv_isospline()
 #    test_nodes()
+#    test_alphavol()
 #    test_tri()
-     
-
-    
-    
-    
+     test_load()

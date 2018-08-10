@@ -288,6 +288,9 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         if (swc_type == 3) {
             basalidx.append(s)
         }
+        if (swc_type == 1) {
+            somaidx.append(s)
+        }
     }
     
     create sections[nDends+1]

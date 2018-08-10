@@ -47,8 +47,8 @@ class ConnectionProb(object):
             if extent[source_population].has_key('offset'):
                 extent_offset = extent[source_population]['offset']
             else:
-                extent_offset = None
-            self.width[source_population] = {'u': float(extent_width[0]), 'v': float(extent_width[1])}
+                extent_offset = (0., 0.)
+            self.width[source_population] = {'u': (float(extent_width[0]) / 2.0) - float(extent_offset[0]), 'v': (float(extent_width[1]) / 2.0) - float(extent_offset[1])}
             self.scale_factor[source_population] = { axis: self.width[source_population][axis] / 3. for axis in self.width[source_population] }
             logger.info('population %s: u width: %f v width: %f u scale_factor: %f v scale_factor: %f' % (source_population, self.width[source_population]['u'], self.width[source_population]['v'], \
                                                                                      self.scale_factor[source_population]['u'], self.scale_factor[source_population]['v']))
@@ -99,8 +99,8 @@ class ConnectionProb(object):
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
             
-            if (((max_distance_u - distance_u) >= 0.0) and ((max_distance_v - distance_v) >= 0.0)):
-                logger.info('%s: source_gid: %u destination u = %f destination v = %f source u = %f source v = %f distance_u = %f distance_v = %f max_distance_u = %f max_distance_v = %f distance_u - max_distance_u = %f' % (source_population, source_gid, destination_u, destination_v, source_u, source_v, distance_u, distance_v, max_distance_u, max_distance_v, distance_u - max_distance_u))
+            if ((distance_u > 0.0) and (distance_v > 0.0) and
+                ((max_distance_u - distance_u) > 0.0) and ((max_distance_v - distance_v) > 0.0)):
                 source_u_lst.append(source_u)
                 source_v_lst.append(source_v)
                 distance_u_lst.append(distance_u)
@@ -276,7 +276,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
-    sys.stdout.flush()
 
     start_time = time.time()
 
@@ -320,12 +319,13 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 if len(distances_u) > 0:
                     max_u_distance = np.max(distances_u)
                     min_u_distance = np.min(distances_u)
-                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
+                    if rank == 0:
+                        logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i; max U distance: %f min U distance: %f' % (rank, len(source_gids), source_population, destination_population, destination_gid, max_u_distance, min_u_distance))
                 else:
-                    logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
+                    if rank == 0:
+                        logger.info('Rank %i has %d possible sources from population %s for destination: %s, gid: %i' % (rank, len(source_gids), source_population, destination_population, destination_gid))
                     
 
-            
             count = generate_synaptic_connections(rank,
                                                   ranstream_syn,
                                                   ranstream_con,
@@ -339,7 +339,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             total_count += count
             
             logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))
-            sys.stdout.flush()
 
         if gid_count % write_size == 0:
             last_time = time.time()
@@ -347,6 +346,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 projection_dict = { destination_population: connection_dict }
             else:
                 projection_dict = {}
+            print('rank %i: projection dict: ' % rank, projection_dict)
             if not dry_run:
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:

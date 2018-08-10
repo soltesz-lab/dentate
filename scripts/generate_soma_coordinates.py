@@ -52,11 +52,11 @@ def random_subset( iterator, K ):
 
 def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
     result = (uvl_coords[0] <= pop_max_extent[0]) and \
-      (uvl_coords[0] >= pop_min_extent[0]) and \
-      (uvl_coords[1] <= pop_max_extent[1]) and \
-      (uvl_coords[1] >= pop_min_extent[1]) and \
-      (uvl_coords[2] <= pop_max_extent[2]) and \
-      (uvl_coords[2] >= pop_min_extent[2])
+      (uvl_coords[0] > pop_min_extent[0]) and \
+      (uvl_coords[1] < pop_max_extent[1]) and \
+      (uvl_coords[1] > pop_min_extent[1]) and \
+      (uvl_coords[2] < pop_max_extent[2]) and \
+      (uvl_coords[2] > pop_min_extent[2])
     return result
 
 
@@ -66,9 +66,9 @@ def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--resolution", type=(int,int,int), default=(30,30,10))
-@click.option("--alpha-radius", type=float, default=210.)
-@click.option("--nodeiter", type=int, default=8)
+@click.option("--resolution", type=(int,int,int), default=(20,20,10))
+@click.option("--alpha-radius", type=float, default=120.)
+@click.option("--nodeiter", type=int, default=10)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -100,8 +100,8 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
 
     env = Env(comm=comm, configFile=config)
 
-    min_extents = env.geometry['Parametric Surface']['Minimum Extent']
-    max_extents = env.geometry['Parametric Surface']['Maximum Extent']
+    layer_min_extents = env.geometry['Parametric Surface']['Minimum Extent']
+    layer_max_extents = env.geometry['Parametric Surface']['Maximum Extent']
     rotate = env.geometry['Parametric Surface']['Rotation']
 
     random_seed = int(env.modelConfig['Random Seeds']['Soma Locations'])
@@ -115,21 +115,8 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
 
         (population_start, population_count) = population_ranges[population]
 
-
-        pop_max_extent = None
-        pop_min_extent = None
-        for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
-
-            layer_count = env.geometry['Cell Layer Counts'][population][layer_name]
-            if layer_count > 0:
-                if pop_max_extent is None:
-                    pop_max_extent = np.asarray(max_extent)
-                else:
-                    pop_max_extent = np.maximum(pop_max_extent, np.asarray(max_extent))
-                if pop_min_extent is None:
-                    pop_min_extent = np.asarray(min_extent)
-                else:
-                    pop_min_extent = np.minimum(pop_min_extent, np.asarray(min_extent))
+        pop_min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
+        pop_max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
 
         if verbose and (rank == 0):
             logger.info('min extent: %f %f %f' % (pop_min_extent[0],pop_min_extent[1],pop_min_extent[2]))
@@ -141,11 +128,18 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
         if rank == 0:
             if verbose:
                 logger.info("Constructing volume...")
-            vol = make_volume(pop_min_extent[2], pop_max_extent[2], rotate=rotate, resolution=resolution)
+                
+            vol = make_volume((pop_min_extent[0], pop_max_extent[0]), \
+                              (pop_min_extent[1], pop_max_extent[1]), \
+                              (pop_min_extent[2], pop_max_extent[2]), \
+                              rotate=rotate, resolution=resolution)
             
             if verbose:
-                logger.info("Constructing alpha shape...")
+                logger.info("Constructing volume triangulation...")
             tri = vol.create_triangulation()
+
+            if verbose:
+                logger.info("Constructing alpha shape...")
             alpha = alpha_shape([], alpha_radius, tri=tri)
     
             vert = alpha.points
@@ -156,6 +150,10 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
 
             if verbose:
                 logger.info("Generating %i nodes..." % N)
+
+            if verbose:
+                rbf_logger = logging.Logger.manager.loggerDict['rbf.nodes']
+                rbf_logger.setLevel(logging.DEBUG)
 
             while node_count < population_count:
                 # create N quasi-uniformly distributed nodes
@@ -201,7 +199,7 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
                 xyz_error_interp  = np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords_interp[coord_ind,:]))
 
                 f_uvl_distance = make_uvl_distance(xyz_coords[coord_ind,:],rotate=rotate)
-                uvl_coords_opt,dist = dlib.find_min_global(f_uvl_distance, pop_min_extent.tolist(), pop_max_extent.tolist(), optiter)
+                uvl_coords_opt,dist = dlib.find_min_global(f_uvl_distance, pop_min_extent, pop_max_extent, optiter)
                 xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], rotate=rotate)[0]
                 xyz_error_opt  = np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords_opt))
 
@@ -238,7 +236,6 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
             if rank == 0:
                 logger.info('Total %i coordinates generated' % coords_count)
 
-        assert(coords_count >= int(population_count))
         mean_xyz_error = np.asarray([total_xyz_error[0] / coords_count, \
                                      total_xyz_error[1] / coords_count, \
                                      total_xyz_error[2] / coords_count])
@@ -263,7 +260,21 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
                 for item in sublist:
                     all_coords.append(item)
 
-            sampled_coords = random_subset(all_coords, int(population_count))
+
+            if coords_count < population_count:
+                logger.warning("Generating additional %i coordinates " % (population_count - len(all_coords)))
+
+                safety = 0.01
+                sampled_coords = all_coords
+                for i in xrange(population_count - len(all_coords)):
+                    coord_u = np.random.uniform(pop_min_extent[0] + safety, pop_max_extent[0] - safety)
+                    coord_v = np.random.uniform(pop_min_extent[1] + safety, pop_max_extent[1] - safety)
+                    coord_l = np.random.uniform(pop_min_extent[2] + safety, pop_max_extent[2] - safety)
+                    xyz_coords = DG_volume(coord_u, coord_v, coord_l, rotate=rotate).ravel()
+                    sampled_coords.append((xyz_coords[0],xyz_coords[1],xyz_coords[2],\
+                                           coord_u, coord_v, coord_l))
+            else:
+                sampled_coords = random_subset(all_coords, int(population_count))
 
             
             sampled_coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
@@ -284,4 +295,4 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
