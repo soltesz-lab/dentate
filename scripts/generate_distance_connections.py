@@ -53,7 +53,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     rank = comm.rank
 
     env = Env(comm=comm, configFile=config)
-    connectivity_synapse_types = env.modelConfig['Connection Generator']['Synapses']
     connection_config = env.connection_config
     extent      = {}
     soma_coords = {}
@@ -93,7 +92,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
         connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
 
-        synapse_seed        = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
+        synapse_seed = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         
         connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
         cluster_seed = int(env.modelConfig['Random Seeds']['Connectivity Clustering'])

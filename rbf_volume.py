@@ -841,9 +841,9 @@ def test_point_position():
 def test_alphavol():
     from alphavol import alpha_shape
     
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-1.0, 1., num=3)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
+    obs_l = np.linspace(-1.0, 1., num=10)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = test_surface (u, v, l).reshape(3, u.size).T
