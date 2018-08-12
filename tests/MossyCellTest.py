@@ -1,21 +1,20 @@
 
 
-import sys, os
-import os.path
+import sys, os, random, os.path, itertools
 import click
-import itertools
 import numpy as np
+from collections import defaultdict
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
-from neuroh5.io import read_tree_selection
+from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 import dentate
 from dentate.env import Env
 from dentate import neuron_utils, utils, cells
-
+from dentate.synapses import mksyns, mknetcon, config_syn, add_unique_synapse, add_shared_synapse
     
-def passive_test (templateClass, tree, v_init):
+def passive_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -62,12 +61,12 @@ def passive_test (templateClass, tree, v_init):
 
     f.close()
 
-def ap_rate_test (templateClass, tree, v_init):
+def ap_rate_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     h.dt = 0.025
 
-    prelength = 1000.0
+    prelength = 2000.0
     mainlength = 2000.0
 
     tstop = prelength+mainlength
@@ -88,7 +87,7 @@ def ap_rate_test (templateClass, tree, v_init):
     h.Vlog.record (soma(0.5)._ref_v)
 
     h.spikelog = h.Vector()
-    nc = h.NetCon(soma(0.5)._ref_v, h.nil)
+    nc = cell.connect2target(h.nil)
     nc.threshold = -40.0
     nc.record(h.spikelog)
     
@@ -162,13 +161,186 @@ def ap_rate_test (templateClass, tree, v_init):
     f.close()
     
 
+def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, v_holding, v_init, tstart = 200.):
+
+    syn_attrs = env.synapse_attributes
+    
+    vv = h.Vector()
+    vv.append(0,0,0,0,0,0)
+
+    ranstream = np.random.RandomState(0)
+
+    syn_ids = syn_obj_dict.keys()
+
+    if len(syn_ids) == 0:
+        return
+    
+    selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
+    selected_ids = [ syn_ids[i] for i in selected ]
+
+    for syn_name in syn_params_dict.keys():
+        synlst = []
+        for syn_id in selected_ids:
+            synlst.append(syn_obj_dict[syn_id][syn_name])
+            
+        print ('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
+
+        ns = h.NetStim()
+        ns.interval = 1000
+        ns.number = 1
+        ns.start  = 200
+        ns.noise  = 0
+        
+        nclst = []
+        for syn_id, syn in itertools.izip(selected_ids, synlst):
+            this_nc = h.NetCon(ns,syn)
+            syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
+            config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                    mech_names=syn_attrs.syn_mech_names, nc=this_nc,
+                    **syn_params_dict[syn_name])
+            nclst.append(this_nc)
+
+        if syn_name == 'SatAMPA':
+            v = cell.syntest_exc(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'AMPA':
+            v = cell.syntest_exc(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'SatGABA':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'GABA':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'SatGABA_A':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'GABA_A':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'SatGABA_B':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'GABA_B':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"MossyCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        else:
+            raise RuntimeError('Unknown synapse mechanism type %s' % syn_name)
+        vv = vv.add(v)
+    
+        amp     = vv.x[0]
+        t_10_90 = vv.x[1]
+        t_20_80 = vv.x[2]
+        t_all   = vv.x[3]
+        t_50    = vv.x[4]
+        t_decay = vv.x[5]
+
+        f=open("MossyCell_%s_%s_synapse_results_%i.dat" % (presyn_name, syn_name, group_size), 'w')
+
+        f.write("%s synapses: \n" % syn_name)
+        f.write("  Amplitude %f\n" % amp)
+        f.write("  10-90 Rise Time %f\n" % t_10_90)
+        f.write("  20-80 Rise Time %f\n" % t_20_80)
+        f.write("  Decay Time Constant %f\n" % t_decay)
+        
+        f.close()
+
+
+def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, rate, v_init, tstart = 200.):
+
+    syn_attrs = env.synapse_attributes
+    ranstream = np.random.RandomState(0)
+
+    syn_ids = syn_obj_dict.keys()
+
+    if len(syn_ids) == 0:
+        return
+
+    selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
+    selected_ids = [ syn_ids[i] for i in selected ]
+
+    for syn_name in syn_params_dict.keys():
+        
+        synlst = []
+        for syn_id in selected_ids:
+            synlst.append(syn_obj_dict[syn_id][syn_name])
+    
+        print ('synapse_group_rate_test: %s %s synapses: %i out of %i ' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
+    
+        ns = h.NetStim()
+        ns.interval = 1000./rate
+        ns.number = rate
+        ns.start  = 200
+        ns.noise  = 0
+        
+        nclst = []
+        for i, syn_id in enumerate(syn_obj_dict.keys()):
+            for syn_name, syn in syn_obj_dict[syn_id].iteritems():
+                this_nc = h.NetCon(ns,syn)
+                syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
+                config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                            mech_names=syn_attrs.syn_mech_names, nc=this_nc,
+                            **syn_params_dict[syn_name])
+                nclst.append(this_nc)
+
+        res = cell.syntest_rate(tstart,rate,v_init)
+
+        tlog = res.o(0)
+        vlog = res.o(1)
+        
+        f=open("MossyCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
+        
+        for i in xrange(0, int(tlog.size())):
+            f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
+            
+        f.close()
+    
+
+def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
+    
+    postsyn_name = 'MC'
+    presyn_names = ['GC', 'MC', 'HC', 'BC', 'AAC', 'HCC']
+    
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
+
+    all_syn_ids = synapses['syn_ids']
+    all_syn_layers = synapses['syn_layers']
+
+    print ('Total %i %s synapses' % (len(all_syn_ids), postsyn_name))
+    env.cells.append(cell)
+    env.pc.set_gid2node(gid, env.comm.rank)
+
+    syn_attrs = env.synapse_attributes
+    syn_attrs.load_syn_id_attrs(gid, synapses)
+    
+    
+    for presyn_name in presyn_names:
+
+        syn_ids = []
+        layers = env.connection_config[postsyn_name][presyn_name].layers
+        proportions = env.connection_config[postsyn_name][presyn_name].proportions
+        for syn_id, syn_layer in itertools.izip(all_syn_ids, all_syn_layers):
+            i = utils.list_index(syn_layer, layers) 
+            if i is not None:
+                if random.random() <= proportions[i]:
+                    syn_ids.append(syn_id)
+        
+        syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
+        syn_obj_dict = mksyns(gid, cell, syn_ids, syn_params_dict, env, 0,
+                        add_synapse=add_unique_synapse if unique else add_shared_synapse)
+
+        v_holding = -60
+        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, v_holding, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, v_holding, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 100, v_holding, v_init)
+        
+        rate = 30
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate, v_init)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate, v_init)
+ 
+    
 @click.command()
+@click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def main(template_path,forest_path):
+@click.option("--synapses-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def main(config_path,template_path,forest_path,synapses_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+    env = Env(comm=comm, configFile=config_path, templatePaths=template_path)
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
@@ -176,16 +348,28 @@ def main(template_path,forest_path):
     h.xopen ("./tests/rn.hoc")
     h.xopen(template_path+'/MossyCell.hoc')
     h.pc = h.ParallelContext()
-    
+
+    v_init = -75.0
     popName = "MC"
-    (trees,_) = read_tree_selection (forest_path, popName, [1000000], comm=comm)
-    
+    gid = 1000000
+    (trees,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
+    if synapses_path is not None:
+        synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], "Synapse Attributes", comm=comm)
+    else:
+        synapses_dict = None
+
     gid, tree = trees.next()
+    if synapses_dict is not None:
+        (_, synapses) = synapses_dict.next()
+    else:
+        synapses = None
 
-    templateClass = getattr(h, "MossyCell")
+    template_class = getattr(h, "MossyCell")
 
-    passive_test(templateClass,tree,-60)
-    ap_rate_test(templateClass,tree,-60)
+    if (synapses is not None):
+        synapse_test(template_class, gid, tree, synapses, v_init, env)
+#    passive_test(template_class, tree, v_init)
+#    ap_rate_test(template_class, tree, v_init)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("MossyCellTest.py") != -1,sys.argv)+1):])
