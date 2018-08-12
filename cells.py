@@ -47,7 +47,14 @@ class BiophysCell(object):
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
             if self.axon:
-                self.spike_detector = connect2target(self, self.axon[-1].sec)
+                axon_seg_locs = [seg.x for seg in self.axon[0].sec]
+                if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=axon_seg_locs[-1]) < 100.:
+                    self.spike_detector = connect2target(self, self.axon[-1].sec, loc=1.)
+                else:
+                    for loc in axon_seg_locs:
+                        if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=loc) >= 100.:
+                            self.spike_detector = connect2target(self, self.axon[-1].sec, loc=loc)
+                            break
             elif self.soma:
                 self.spike_detector = connect2target(self, self.soma[0].sec)
             if self.mech_file_path is not None:
