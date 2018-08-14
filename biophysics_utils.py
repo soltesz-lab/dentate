@@ -428,44 +428,44 @@ def configure_env(env):
         h.templatePaths.append(h.templatePathValue)
 
 
-def get_biophys_cell(env, gid, pop_name, load_syn_attrs=True, load_edge_attrs=True):
+def get_biophys_cell(env, gid, pop_name):
     """
     TODO: Use Connections: distance attribute to compute and load netcon delays
     TODO: Consult env for weights namespaces, load_syn_weights
     :param env:
     :param gid:
     :param pop_name:
-    :param load_syn_attrs: bool
-    :param load_edge_attrs: bool
     :return:
     """
     hoc_cell = make_hoc_cell(env, gid, pop_name)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
+    target_gid_offset = env.celltypes[pop_name]['start']
     syn_attrs = env.synapse_attributes
-    if load_syn_attrs:
-        try:
-            if pop_name not in syn_attrs.select_cell_attr_index_map:
-                syn_attrs.select_cell_attr_index_map[pop_name] = \
-                    get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
-            syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
-                                                                    syn_attrs.select_cell_attr_index_map[pop_name],
-                                                                    pop_name, 'Synapse Attributes'))
-        except Exception:
-            raise RuntimeError('get_biophys_cell: problem loading synapse attributes')
+    try:
+        if pop_name not in syn_attrs.select_cell_attr_index_map:
+            syn_attrs.select_cell_attr_index_map[pop_name] = \
+                get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
+        syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
+                                                                syn_attrs.select_cell_attr_index_map[pop_name],
+                                                                pop_name, 'Synapse Attributes', target_gid_offset))
+    except Exception:
+        print 'get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid)
 
-    if load_edge_attrs:
-        try:
-            for source_name in env.projection_dict[pop_name]:
-                if source_name not in syn_attrs.select_edge_attr_index_map[pop_name]:
-                    syn_attrs.select_edge_attr_index_map[pop_name][source_name] = \
-                        get_edge_attributes_index_map(env.comm, env.connectivityFilePath, source_name, pop_name)
-                source_indexes, edge_attr_dict = \
-                    select_edge_attributes(gid, env.comm, env.connectivityFilePath,
-                                           syn_attrs.select_edge_attr_index_map[pop_name][source_name], source_name,
-                                           pop_name, ['Synapses'])
-                syn_attrs.load_edge_attrs(gid, source_name, edge_attr_dict['Synapses']['syn_id'], env)
-        except Exception:
-            raise RuntimeError('get_biophys_cell: problem loading connection attributes')
+    try:
+        if len(env.projection_dict[pop_name]) == 0:
+            raise Exception
+        for source_name in env.projection_dict[pop_name]:
+            if source_name not in syn_attrs.select_edge_attr_index_map[pop_name]:
+                syn_attrs.select_edge_attr_index_map[pop_name][source_name] = \
+                    get_edge_attributes_index_map(env.comm, env.connectivityFilePath, source_name, pop_name)
+            source_gid_offset = env.celltypes[source_name]['start']
+            source_indexes, edge_attr_dict = \
+                select_edge_attributes(gid, env.comm, env.connectivityFilePath,
+                                       syn_attrs.select_edge_attr_index_map[pop_name][source_name], source_name,
+                                       pop_name, ['Synapses'], source_gid_offset, target_gid_offset)
+            syn_attrs.load_edge_attrs(gid, source_name, edge_attr_dict['Synapses']['syn_id'], env)
+    except Exception:
+        print 'get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid)
     env.biophys_cells[pop_name][gid] = cell
     return cell
 
@@ -483,9 +483,10 @@ def get_biophys_cell(env, gid, pop_name, load_syn_attrs=True, load_edge_attrs=Tr
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate/config')
 @click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
+@click.option("--correct-for-spines", type=bool, default=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
-         verbose):
+         correct_for_spines, verbose):
     """
 
     :param gid: int
@@ -496,6 +497,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files
     :param mech_file: str; cell mechanism config file name
+    :param correct_for_spines: bool
     :param verbose: bool
     """
     comm = MPI.COMM_WORLD
@@ -506,9 +508,9 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     cell = get_biophys_cell(env, gid, pop_name)
     mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())
-
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, correct_cm=True,
-                    correct_g_pas=True, env=env)
+    
+    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
+                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
     config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
 

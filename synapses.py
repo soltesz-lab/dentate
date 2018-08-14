@@ -98,8 +98,8 @@ class SynapseAttributes(object):
         :param syn_name: str
         :return: bool
         """
-        if (self.syn_mech_attr_dict[gid][syn_id].has_key(syn_name) and
-                self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('netcon')):
+        if syn_id in self.syn_mech_attr_dict[gid] and syn_name in self.syn_mech_attr_dict[gid][syn_id] and \
+                'netcon' in self.syn_mech_attr_dict[gid][syn_id][syn_name]:
             return True
         else:
             return False
@@ -135,7 +135,8 @@ class SynapseAttributes(object):
         :param syn_name: str
         :return: bool
         """
-        if self.syn_mech_attr_dict[gid][syn_id][syn_name].has_key('attrs') and \
+        if syn_id in self.syn_mech_attr_dict[gid] and syn_name in self.syn_mech_attr_dict[gid][syn_id] and \
+                'attrs' in self.syn_mech_attr_dict[gid][syn_id][syn_name] and \
                 len(self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs']) > 0:
             return True
         else:
