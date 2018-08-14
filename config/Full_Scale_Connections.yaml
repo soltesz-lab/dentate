@@ -58,7 +58,7 @@ Axon Width:
   LPP:  [1500., 3000.]
   MC:   [5000., 5000.]
   NGFC: [2000., 2000.]
-  AAC:  [1700., 1100.]
+  AAC:  [2000., 1000.]
   BC:   [1700., 1000.]
   HCC:  [2600., 2600.]
   HC:   [4000., 4000.]
@@ -88,7 +88,7 @@ Synapses:
           tau1: 0.5
           tau2: 5.5
           e: 0
-          weight: 0.0016
+          weight: 0.002
     LPP:
       type: excitatory
       sections: [apical]
@@ -99,7 +99,7 @@ Synapses:
           tau1: 0.5
           tau2: 5.5
           e: 0
-          weight: 0.0018
+          weight: 0.0022
     MC:   
       type: excitatory
       sections: [apical]
@@ -110,7 +110,7 @@ Synapses:
           tau1: 0.5
           tau2: 5.5
           e: 0
-          weight: 0.00019
+          weight: 0.00075
     AAC:
       type: inhibitory
       sections: [ais]
@@ -193,7 +193,7 @@ Synapses:
           tau1: 0.5
           tau2: 6.2
           e: 0
-          weight: 0.0015
+          weight: 0.012
     MC:   
       type: excitatory
       sections: [apical]
@@ -204,7 +204,7 @@ Synapses:
           tau1: 0.45
           tau2: 2.2
           e: 0
-          weight: 0.0005
+          weight: 0.005
     HC:   
       type: inhibitory
       sections: [apical]
@@ -226,7 +226,7 @@ Synapses:
           tau1: 0.3
           tau2: 3.3
           e: -75
-          weight: 0.0015
+          weight: 0.003
     AAC:  
       type: inhibitory
       sections: [ais]
@@ -409,7 +409,7 @@ Synapses:
           tau1: 0.46
           tau2: 4.43
           e: -75
-          weight: 0.00214
+          weight: 0.003
   AAC:
     GC:   
       type: excitatory
@@ -476,7 +476,7 @@ Synapses:
           tau1: 0.46
           tau2: 4.43
           e: -75
-          weight: 0.00214
+          weight: 0.003
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -514,7 +514,7 @@ Synapses:
           tau1: 0.46
           tau2: 4.43
           e: -75
-          weight: 0.00214
+          weight: 0.003
   HCC:
     MPP:
       type: excitatory
