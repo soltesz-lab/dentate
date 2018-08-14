@@ -100,6 +100,7 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
                 warning_flag = True
     if warning_flag:
         logger.warning('Rank %d: incomplete synapse layer set for cell %d: %s' % (env.comm.Get_rank(), gid, str(dict(layer_stats.iteritems()))))
+        logger.info('layer_set_dict: %s' % (str(dict(layer_set_dict.iteritems()))))
         logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
         logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
     for syn_type, swc_set in swc_set_dict.iteritems():
@@ -111,6 +112,7 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
                 warning_flag = True
     if warning_flag:
         logger.warning('Rank %d: incomplete synapse swc type set for cell %d: %s' % (env.comm.Get_rank(), gid, str(dict(swc_stats.iteritems()))))
+        logger.info('swc_set_dict: %s' % (str(dict(swc_set_dict.iteritems()))))
         logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
         logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
                 
