@@ -58,7 +58,7 @@ Axon Width:
   LPP:  [1500., 3000.]
   MC:   [5000., 5000.]
   NGFC: [2000., 2000.]
-  AAC:  [1700., 1100.]
+  AAC:  [2000., 1000.]
   BC:   [1700., 1000.]
   HCC:  [2600., 2600.]
   HC:   [4000., 4000.]
@@ -204,7 +204,7 @@ Synapses:
           tau1: 0.45
           tau2: 2.2
           e: 0
-          weight: 0.006
+          weight: 0.005
     HC:   
       type: inhibitory
       sections: [apical]
@@ -226,7 +226,7 @@ Synapses:
           tau1: 0.3
           tau2: 3.3
           e: -75
-          weight: 0.0015
+          weight: 0.003
     AAC:  
       type: inhibitory
       sections: [ais]

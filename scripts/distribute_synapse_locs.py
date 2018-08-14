@@ -85,9 +85,10 @@ def local_syn_summary(syn_stats_dict):
     return string.join(res, '\n')
 
 
-def check_syns(gid, morph_dict, syn_stats_dict, layer_set_dict, env, logger):
+def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_dict, swc_set_dict, env, logger):
 
     layer_stats = syn_stats_dict['layer']
+    swc_stats = syn_stats_dict['swc_type']
 
     warning_flag = False
     for syn_type, layer_set in layer_set_dict.iteritems():
@@ -98,9 +99,20 @@ def check_syns(gid, morph_dict, syn_stats_dict, layer_set_dict, env, logger):
             else:
                 warning_flag = True
     if warning_flag:
-        logger.warning('Rank %d: incomplete synapse layer set for cell %d:' % (env.comm.Get_rank(), gid))
-        logger.warning(str(dict(layer_stats.iteritems())))
-        logger.warning(str(morph_dict))
+        logger.warning('Rank %d: incomplete synapse layer set for cell %d: %s' % (env.comm.Get_rank(), gid, str(dict(layer_stats.iteritems()))))
+        logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
+        logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
+    for syn_type, swc_set in swc_set_dict.iteritems():
+        for swc_type in swc_set:
+            if swc_stats.has_key(swc_type):
+                if swc_stats[swc_type][syn_type] <= 0:
+                    warning_flag = True
+            else:
+                warning_flag = True
+    if warning_flag:
+        logger.warning('Rank %d: incomplete synapse swc type set for cell %d: %s' % (env.comm.Get_rank(), gid, str(dict(swc_stats.iteritems()))))
+        logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
+        logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
                 
 
             
@@ -181,13 +193,14 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         template_class = getattr(h, env.celltypes[population]['template'])
         density_dict = env.celltypes[population]['synapses']['density']
         layer_set_dict = defaultdict(set)
+        swc_set_dict = defaultdict(set)
         for sec_name, sec_dict in density_dict.iteritems():
             for syn_type, syn_dict in sec_dict.iteritems():
+                swc_set_dict[syn_type].add(env.SWC_Types[sec_name])
                 for layer_name in syn_dict.keys():
                     if layer_name != 'default':
                         layer = env.layers[layer_name]
                         layer_set_dict[syn_type].add(layer)
-        print 'layer_set_dict: ', layer_set_dict
         
         syn_stats_dict = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
@@ -204,13 +217,13 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
                 if distribution == 'uniform':
-                    syn_dict = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                    syn_dict, seg_density_per_sec = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                     density_dict, morph_dict,
                                                                     cell_sec_dict, cell_secidx_dict,
                                                                     traversal_order=traversal_order)
                     
                 elif distribution == 'poisson':
-                    syn_dict = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
+                    syn_dict, seg_density_per_sec = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
                                                                     density_dict, morph_dict,
                                                                     cell_sec_dict, cell_secidx_dict,
                                                                     traversal_order=traversal_order)
@@ -219,7 +232,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
 
                 synapse_dict[gid] = syn_dict
                 this_syn_stats = update_syn_stats (env, syn_stats_dict, syn_dict)
-                check_syns(gid, morph_dict, this_syn_stats, layer_set_dict, env, logger)
+                check_syns(gid, morph_dict, this_syn_stats, seg_density_per_sec, layer_set_dict, swc_set_dict, env, logger)
                 
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])

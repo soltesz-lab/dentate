@@ -27,7 +27,7 @@ aprun -n 2048 -b -- bwpy-environ -- python2.7 ./scripts/distribute_synapse_locs.
     --config=./config/Full_Scale_Control.yaml \
     --template-path=$HOME/model/dgc/Mateos-Aparicio2014 --populations=GC \
     --forest-path=$SCRATCH/Full_Scale_Control/DGC_forest_20180425.h5 \
-    --output-path=$SCRATCH/Full_Scale_Control/DGC_forest_syns_20180807.h5 \
-    --io-size=256 --cache-size=$((8 * 1024 * 1024)) \
+    --output-path=$SCRATCH/Full_Scale_Control/DGC_forest_syns_20180812.h5 \
+    --io-size=256 --cache-size=50 \
     --chunk-size=50000 --value-chunk-size=200000 -v
 
