@@ -1374,15 +1374,17 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         if len(sec_dict) > 1:
             sec_subgraph = sec_graph.subgraph(sec_dict.keys())
             if len(sec_subgraph.edges()) > 0:
-                sec_order = nx.topological_sort(sec_subgraph)
-                sec_root = next(sec_order)
-                if traversal_order == 'dfs':
-                    sec_edges = list(nx.dfs_edges(sec_subgraph, sec_root))
-                elif traversal_order == 'bfs':
-                    sec_edges = list(nx.bfs_edges(sec_subgraph, sec_root))
-                else:
-                    raise ValueError('Unknown traversal order')
-                sec_edges.insert(0,(None, sec_root))
+                sec_roots = [ n for n,d in sec_subgraph.in_degree() if d==0 ] 
+                sec_edges = []
+                for sec_root in sec_roots:
+                    if traversal_order == 'dfs':
+                        sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
+                    elif traversal_order == 'bfs':
+                        sec_edges.append(list(nx.bfs_edges(sec_subgraph, sec_root)))
+                    else:
+                        raise ValueError('Unknown traversal order')
+                    sec_edges.append([(None, sec_root)])
+                sec_edges = [val for sublist in sec_edges for val in sublist]
             else:
                 sec_edges = [(None, idx) for idx in sec_dict.keys() ]
         else:
