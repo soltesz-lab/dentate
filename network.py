@@ -338,7 +338,8 @@ def connectcells(env, cleanup=True):
                    edge_syn_obj_dict = \
                        synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
                                        env.edge_count[postsyn_name][presyn_name],
-                                       add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+                                       add_synapse=synapses.add_unique_synapse if unique else
+                                                                                  synapses.add_shared_synapse)
 
                    if rank == 0:
                        if env.edge_count[postsyn_name][presyn_name] == 0:

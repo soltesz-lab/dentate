@@ -440,7 +440,9 @@ def get_biophys_cell(env, gid, pop_name, load_syn_attrs=True, load_edge_attrs=Tr
     :return:
     """
     hoc_cell = make_hoc_cell(env, gid, pop_name)
+    print 'getting here'
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
+    pop_gid_offset = env.celltypes[pop_name]['start']
     syn_attrs = env.synapse_attributes
     if load_syn_attrs:
         try:
@@ -449,7 +451,7 @@ def get_biophys_cell(env, gid, pop_name, load_syn_attrs=True, load_edge_attrs=Tr
                     get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
             syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
                                                                     syn_attrs.select_cell_attr_index_map[pop_name],
-                                                                    pop_name, 'Synapse Attributes'))
+                                                                    pop_name, 'Synapse Attributes', pop_gid_offset))
         except Exception:
             raise RuntimeError('get_biophys_cell: problem loading synapse attributes')
 
@@ -471,10 +473,10 @@ def get_biophys_cell(env, gid, pop_name, load_syn_attrs=True, load_edge_attrs=Tr
 
 
 @click.command()
-@click.option("--gid", required=True, type=int, default=0)
-@click.option("--pop-name", required=True, type=str, default='GC')
+@click.option("--gid", required=True, type=int, default=1000000)
+@click.option("--pop-name", required=True, type=str, default='MC')
 @click.option("--config-file", required=True, type=str,
-              default='Small_Scale_Control_log_normal_weights.yaml')
+              default='Small_Scale_Control_tune_MC.yaml')
 @click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:../dentate/templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate')
@@ -503,14 +505,13 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_env(env)
 
-    cell = get_biophys_cell(env, gid, pop_name)
-    mech_file_path = config_prefix + '/' + mech_file
+    cell = get_biophys_cell(env, gid, pop_name, load_syn_attrs=False, load_edge_attrs=False)
+    # mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())
-
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, correct_cm=True,
-                    correct_g_pas=True, env=env)
-    init_syn_mech_attrs(cell, env)
-    config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+    
+    #init_biophysics(cell, reset_cable=True, from_file=True, correct_cm=False, correct_g_pas=False, env=env)
+    # init_syn_mech_attrs(cell, env)
+    # config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
 
 
 if __name__ == '__main__':
