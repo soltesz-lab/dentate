@@ -372,6 +372,35 @@ class QuickSim(object):
     cvode = property(get_cvode, set_cvode)
 
 
+def report_topology(cell, env, node=None):
+    """
+    Traverse a cell and report topology and number of synapses.
+    :param cell:
+    :param env:
+    :param node:
+    """
+    if node is None:
+       node = cell.tree.root
+    syn_attrs = env.synapse_attributes
+    if node.index in syn_attrs.sec_index_map[cell.gid]:
+        num_exc_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
+                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
+                                                              syn_types=[env.syntypes_dict['excitatory']]))
+        num_inh_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
+                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
+                                                              syn_types=[env.syntypes_dict['inhibitory']]))
+    else:
+        num_exc_syns = 0
+        num_inh_syns = 0
+    report = 'node: %s, L: %.1f, diam: %.2f, children: %i, exc_syns: %i, inh_syns: %i' % \
+             (node.name, node.sec.L, node.sec.diam, len(node.children), num_exc_syns, num_inh_syns)
+    if node.parent is not None:
+        report += ', parent: %s' % node.parent.name
+    print report
+    for child in node.children:
+        report_topology(cell, env, child)
+
+
 def make_hoc_cell(env, gid, population):
     """
 
@@ -513,6 +542,8 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
     config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+    if verbose:
+        report_topology(cell, env)
 
 
 if __name__ == '__main__':
