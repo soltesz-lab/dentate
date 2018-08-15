@@ -1170,7 +1170,10 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
                 else:
                     ran = None
                 if ran is not None:
-                    dens = ran.repick()
+                    while True:
+                        dens = ran.repick()
+                        if dens > 0.0:
+                            break
                 else:
                     dens = 0
                 segdensity[sec_index].append(dens)
@@ -1367,6 +1370,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         swc_type = swc_type_dict[sec_name]
         seg_dict = {}
         L_total = 0
+
         (seclst, maxdist) = cell_sec_dict[sec_name]
         secidxlst = cell_secidx_dict[sec_name]
         sec_dict = { int(idx): sec for sec, idx in itertools.izip(seclst, secidxlst) }
@@ -1426,7 +1430,14 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                     L_seg_end   = seg_end * L
                     if density > 0.:
                         beta = 1. / density
-                        interval += r.exponential(beta)
+                        if interval > 0.:
+                            sample = r.exponential(beta)
+                        else:
+                            while True:
+                                sample = r.exponential(beta)
+                                if (sample >= L_seg_start) and (sample < L_seg_end):
+                                    break
+                        interval += sample
                         while interval < L_seg_end:
                             if interval >= L_seg_start:
                                 syn_loc = interval / L
