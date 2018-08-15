@@ -186,7 +186,7 @@ class Env:
 
         if self.modelConfig.has_key('Connection Generator'):
             self.parse_connection_config()
-            self.parse_gapjunction_config()
+            # self.parse_gapjunction_config()
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
