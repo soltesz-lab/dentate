@@ -52,10 +52,16 @@ def passive_test (template_class, tree, v_init):
     vtau0  = vrest - amp23
     tau0   = h.tlog.x[int(h.Vlog.indwhere ("<=", vtau0))] - prelength
 
+    f=open("MossyCell_passive_trace.dat",'w')
+    for i in xrange(0, int(h.tlog.size())):
+        f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
+    f.close()
+
     f=open("MossyCell_passive_results.dat",'w')
     
     f.write ("DC input resistance: %g MOhm\n" % h.rn(cell))
     f.write ("vmin: %g mV\n" % vmin)
+    f.write ("vmax: %g mV\n" % vmax)
     f.write ("vtau0: %g mV\n" % vtau0)
     f.write ("tau0: %g ms\n" % tau0)
 
@@ -95,13 +101,13 @@ def ap_rate_test (template_class, tree, v_init):
 
 
     it = 1
-    ## Increase the injected current until at least 40 spikes occur
+    ## Increase the injected current until at least 50 spikes occur
     ## or up to 5 steps
-    while (h.spikelog.size() < 40):
+    while (h.spikelog.size() < 50):
 
         neuron_utils.simulate(h, v_init, prelength,mainlength)
         
-        if ((h.spikelog.size() < 40) & (it < 5)):
+        if ((h.spikelog.size() < 50) & (it < 5)):
             print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
             stim1.amp = stim1.amp + 0.1
             h.spikelog.clear()
@@ -316,8 +322,10 @@ def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
 
     all_syn_ids = synapses['syn_ids']
     all_syn_layers = synapses['syn_layers']
+    all_syn_sections = synapses['syn_secs']
 
     print ('Total %i %s synapses' % (len(all_syn_ids), postsyn_name))
+
     env.cells.append(cell)
     env.pc.set_gid2node(gid, env.comm.rank)
 
@@ -368,7 +376,6 @@ def main(config_path,template_path,forest_path,synapses_path):
     h.xopen(template_path+'/MossyCell.hoc')
     h.pc = h.ParallelContext()
 
-    v_init = -75.0
     popName = "MC"
     gid = 1000000
     (trees,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
@@ -385,8 +392,11 @@ def main(config_path,template_path,forest_path,synapses_path):
 
     template_class = getattr(h, "MossyCell")
 
-    if (synapses is not None):
-        synapse_test(template_class, gid, tree, synapses, v_init, env)
+    v_init = -75.0
+    #if (synapses is not None):
+    #    synapse_test(template_class, gid, tree, synapses, v_init, env)
+
+    v_init = -60
     passive_test(template_class, tree, v_init)
     ap_rate_test(template_class, tree, v_init)
 
