@@ -3,7 +3,6 @@
 apical:
   excitatory:
     default:
-      ##mean: 2.83
       mean: 2.83
       variance: 0.1
   inhibitory:

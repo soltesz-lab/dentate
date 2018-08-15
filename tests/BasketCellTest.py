@@ -341,6 +341,7 @@ def synapse_test(templateClass, tree, synapses, v_init, env, unique=True):
     syn_locs     = synapses['syn_locs']
     syn_sections = synapses['syn_secs']
 
+    print 'synapse sections: ',set(syn_sections)
     synapse_kinetics = {}
     synapse_kinetics[env.Synapse_Types['excitatory']] = env.celltypes['BC']['synapses']['kinetics']['MPP']
     synapse_kinetics[env.Synapse_Types['inhibitory']] = env.celltypes['BC']['synapses']['kinetics']['BC']
@@ -365,8 +366,9 @@ def synapse_test(templateClass, tree, synapses, v_init, env, unique=True):
 @click.command()
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--synapses-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def main(template_path,forest_path,config_path):
+def main(template_path,forest_path,synapses_path,config_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -383,7 +385,7 @@ def main(template_path,forest_path,config_path):
     popName = "BC"
     gid = 1039000
     (trees_dict,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
-    synapses_dict = read_cell_attribute_selection (forest_path, popName, [gid], "Synapse Attributes", comm=comm)
+    synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], "Synapse Attributes", comm=comm)
 
     (_, tree) = trees_dict.next()
     (_, synapses) = synapses_dict.next()

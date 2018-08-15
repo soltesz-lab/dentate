@@ -145,17 +145,16 @@ func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
     
     /*
     printf("lambda_f: n3d() = %d\n", n3d())
-    if (n3d() <= 3) {
+    if (n3d() <= 4) {
         for i=0, n3d()-1 {
             x = x3d(i)
-            y = x3d(i)
-            z = x3d(i)
+            y = y3d(i)
+            z = z3d(i)
             d = diam3d(i)
-            printf("lambda_f: i = %d x = %g y = %g z = %g\n", i, x3d(i), y3d(i), z3d(i))
+            printf("lambda_f: i = %d x = %g y = %g z = %g d = %g\n", i, x, y, z, d)
         }
     }
     */
-    
     if (n3d() < 2) {
         return 1e5*sqrt(diam/(4*PI*$1*Ra*cm))
     }
@@ -174,8 +173,13 @@ func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
     return L/lam
 }
 
-proc geom_nseg() {
-  	forsec all { nseg = int((L/(0.1*lambda_f(200))+.9)/2)*2 + 1  }
+proc geom_nseg() { local freq, d_lambda
+    
+    freq = 200 // Hz, frequency at which AC length constant will be computed
+    d_lambda = 0.1
+    
+    forsec all { nseg = int((L/(d_lambda*lambda_f(freq))+0.9)/2)*2 + 1 }
+
 }
 
 proc topol() {
@@ -202,19 +206,19 @@ proc biophys() { local ndends, ndendsec
     
     forsec all {
         Ra=100
-        cm=0.5
+        cm=1.0
     }
     
     soma { distance() }
     
     forsec all {
 	insert ccanl
-	catau_ccanl = 1
+	catau_ccanl = 2
 	caiinf_ccanl = 5.e-6
 	insert borgka
 	gkabar_borgka=0.0001
 	insert nca  // HAV-N- Ca channel
-	gncabar_nca=0.00008  // check to modify- original 0.004
+	gncabar_nca=0.0008  // check to modify- original 0.004
 	insert lca 
 	glcabar_lca=0.0006
 	insert gskch
@@ -222,15 +226,15 @@ proc biophys() { local ndends, ndendsec
 	insert cagk
 	gkbar_cagk=0.0165
 	insert hyperde3
-	ghyfbar_hyperde3=0.000005
-	ghysbar_hyperde3=0.000005
+	ghyfbar_hyperde3=0.0001
+	ghysbar_hyperde3=0.0001
     }
     
     forsec soma {
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=0.32  //original 0.030 to .055 
 	gkfbar_ichan2=0.025  //original 0.015
-	gl_ichan2 = 0.00002
+	gl_ichan2 = 0.00001
     }
     
     forsec apical {
@@ -238,15 +242,21 @@ proc biophys() { local ndends, ndendsec
             insert ichan2
             if (distance(x) <= 200) {
 	        gnatbar_ichan2=0.16  //original 0.015
-	        gkfbar_ichan2=0.015
+	        gkfbar_ichan2=0.008
 	        gl_ichan2 = 0.00002
+	        gkbar_gskch=0.008
 	        gkbar_cagk=0.008
             } else {
 	        gnatbar_ichan2=0.0
 	        gkfbar_ichan2=0.00
-	        gl_ichan2 = 0.000001
-	        gkbar_gskch=0.004
-	        gkbar_cagk=0.0025
+	        gl_ichan2 = 0.00005
+	        gkbar_gskch=0.00
+	        gkbar_cagk=0.00
+	        ghyfbar_hyperde3=0.0
+	        ghysbar_hyperde3=0.0
+	        gkabar_borgka=0.0
+	        glcabar_lca=0.0
+	        gncabar_nca=0.0
             }
         }
     }
@@ -259,7 +269,7 @@ proc biophys() { local ndends, ndendsec
         elca = 130
 	ehyf = -40
         ehys = -40
-	el_ichan2 =-55
+	el_ichan2 =-59
         cao_ccanl=2 
     }
     forsec apical {
@@ -270,7 +280,7 @@ proc biophys() { local ndends, ndendsec
         elca = 130
 	ehyf = -40
         ehys = -40
-	el_ichan2 =-55
+	el_ichan2 =-59
         cao_ccanl=2 
     }
     
