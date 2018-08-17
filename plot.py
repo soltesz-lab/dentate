@@ -208,7 +208,7 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
 
 
 def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source, 
-                        bin_size=20.0, fontSize=14, showFig = True, saveFig = False, verbose = False):
+                        bin_size=20.0, cache_size=50, fontSize=14, showFig = True, saveFig = False, verbose = False):
     """
     Plot vertex distribution with respect to septo-temporal distance
 
@@ -242,7 +242,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     del(source_soma_distances)
     del(destination_soma_distances)
                 
-    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size)
     dist_bins = {}
     dist_u_bins = {}
     dist_v_bins = {}

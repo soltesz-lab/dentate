@@ -1339,7 +1339,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     return (syn_dict, segcounts_per_dict)
 
 def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
-                                cell_sec_dict, cell_secidx_dict, traversal_order='bfs'):
+                                cell_sec_dict, cell_secidx_dict):
     """
     Computes synapse locations according to a Poisson distribution.
     :param density_seed:
@@ -1361,7 +1361,6 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     swc_types = []
     syn_index = 0
 
-    r = np.random.RandomState()
 
     sec_graph = make_neurotree_graph(neurotree_dict, return_root=False)
 
@@ -1381,12 +1380,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                 sec_roots = [ n for n,d in sec_subgraph.in_degree() if d==0 ] 
                 sec_edges = []
                 for sec_root in sec_roots:
-                    if traversal_order == 'dfs':
-                        sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
-                    elif traversal_order == 'bfs':
-                        sec_edges.append(list(nx.bfs_edges(sec_subgraph, sec_root)))
-                    else:
-                        raise ValueError('Unknown traversal order')
+                    sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
                     sec_edges.append([(None, sec_root)])
                 sec_edges = [val for sublist in sec_edges for val in sublist]
             else:
@@ -1412,6 +1406,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                 neurotree_dict=neurotree_dict)
         seg_density_per_sec[sec_name] = seg_density_dict
         for (syn_type_label, _) in layer_density_dict.iteritems():
+            r = np.random.RandomState()
             syn_type = syn_type_dict[syn_type_label]
             seg_density = seg_density_dict[syn_type]
             layers = layers_dict[syn_type]
