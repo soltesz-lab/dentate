@@ -3,9 +3,12 @@ import sys, time, gc
 import numpy as np
 import h5py
 from neuroh5.io import read_cell_attributes, read_population_ranges
-import rbf
-from rbf.nodes import disperse
-from rbf.halton import halton
+try:
+    import rbf
+    from rbf.nodes import disperse
+    from rbf.halton import halton
+except ImportError as e:
+    print 'dentate.stimulus: problem importing rbf module:', e
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
