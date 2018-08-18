@@ -31,7 +31,7 @@ def write_results(results, filepath, header):
     f = open(filepath,'w')
     f.write(header+'\n')
     for item in results:
-        for (gid, vect) in item.iteritems():
+        for (gid, vect) in item.items():
             f.write (str(gid)+"\t")
             f.write (("\t".join(['{:0.3f}'.format(i) for i in vect])) + "\n")
     f.close()
@@ -80,7 +80,7 @@ def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
     assert (pc.gid_exists(dstgid))
     if (pc.gid_exists(dstgid)):
         cell = pc.gid2cell(dstgid)
-	mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
+    mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
 
 #New version of the function, used with dentate.cells
 def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):

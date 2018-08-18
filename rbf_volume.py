@@ -633,7 +633,7 @@ class RBFVolume(object):
         from mayavi import mlab
         from matplotlib.colors import ColorConverter
 
-        if not kwargs.has_key('color'):
+        if not 'color' in kwargs:
             # Generate random color
             cvec = np.random.rand(3)
             cvec /= math.sqrt(cvec.dot(cvec))
@@ -686,7 +686,7 @@ class RBFVolume(object):
         from mayavi import mlab
         from matplotlib.colors import ColorConverter
 
-        if not kwargs.has_key('color'):
+        if not 'color' in kwargs:
             # Generate random color
             cvec = np.random.rand(3)
             cvec /= math.sqrt(cvec.dot(cvec))

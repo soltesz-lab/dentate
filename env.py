@@ -1,6 +1,7 @@
+import os
 import numpy as np
-from dentate.utils import *
-from dentate.neuron_utils import *
+from collections import namedtuple, defaultdict
+from utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
 from neuron import h
@@ -160,12 +161,12 @@ class Env:
         self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
         self.feature_types = defs['Input Features']
-        if self.modelConfig.has_key('Geometry'):
+        if 'Geometry' in self.modelConfig:
             self.geometry = self.modelConfig['Geometry']
         else:
             self.geometry = None
 
-        if self.geometry['Parametric Surface'].has_key('Origin'):
+        if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
             
         self.celltypes = self.modelConfig['Cell Types']
@@ -181,10 +182,10 @@ class Env:
         else:
             self.resultsFilePath = "%s_results.h5" % self.modelName
 
-        if self.modelConfig.has_key('Definitions'):
+        if 'Definitions' in self.modelConfig:
             self.parse_definitions()
 
-        if self.modelConfig.has_key('Connection Generator'):
+        if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             # self.parse_gapjunction_config()
 
@@ -194,12 +195,12 @@ class Env:
             self.load_celltypes()
             self.connectivityFilePath = os.path.join(self.datasetPath, self.modelConfig['Connection Data'])
             self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
-            if self.modelConfig.has_key('Gap Junction Data'):
+            if 'Gap Junction Data' in self.modelConfig:
                 self.gapjunctionsFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
             else:
                 self.gapjunctionsFilePath = None
 
-        if self.modelConfig.has_key('Input'):
+        if 'Input' in self.modelConfig:
             self.parse_input_config()
 
         self.projection_dict = defaultdict(list)
@@ -208,8 +209,8 @@ class Env:
                 self.projection_dict[dst].append(src)
 
         self.lfpConfig = {}
-        if self.modelConfig.has_key('LFP'):
-            for label, config in self.modelConfig['LFP'].iteritems():
+        if 'LFP' in self.modelConfig:
+            for label, config in self.modelConfig['LFP'].items():
                 self.lfpConfig[label] = {'position': tuple(config['position']),
                                          'maxEDist': config['maxEDist'],
                                          'fraction': config['fraction'],
@@ -249,13 +250,13 @@ class Env:
         input_dict = self.modelConfig['Input']
         input_config = {}
         
-        for (id,dvals) in input_dict.iteritems():
+        for (id,dvals) in input_dict.items():
             config_dict = {}
             config_dict['trajectory'] = dvals['trajectory']
             feature_type_dict = {}
-            for (pop,pdvals) in dvals['feature type'].iteritems():
+            for (pop,pdvals) in dvals['feature type'].items():
                 pop_feature_type_dict = {}
-                for (feature_type_name,feature_type_fraction) in pdvals.iteritems():
+                for (feature_type_name,feature_type_fraction) in pdvals.items():
                     pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)
                 feature_type_dict[pop] = pop_feature_type_dict
             config_dict['feature type'] = feature_type_dict
@@ -310,10 +311,10 @@ class Env:
         synapse_config = connection_config['Synapses']
         connection_dict = {}
         
-        for (key_postsyn, val_syntypes) in synapse_config.iteritems():
+        for (key_postsyn, val_syntypes) in synapse_config.items():
             connection_dict[key_postsyn]  = {}
             
-            for (key_presyn, syn_dict) in val_syntypes.iteritems():
+            for (key_presyn, syn_dict) in val_syntypes.items():
                 val_type        = syn_dict['type']
                 val_synsections = syn_dict['sections']
                 val_synlayers   = syn_dict['layers']
@@ -337,15 +338,15 @@ class Env:
 
 
             config_dict = defaultdict(lambda: 0.0)
-            for (key_presyn, conn_config) in connection_dict[key_postsyn].iteritems():
-                for (s,l,p) in itertools.izip(conn_config.sections, \
-                                              conn_config.layers, \
-                                              conn_config.proportions):
+            for (key_presyn, conn_config) in connection_dict[key_postsyn].items():
+                for (s,l,p) in zip(conn_config.sections, \
+                                   conn_config.layers, \
+                                   conn_config.proportions):
                     config_dict[(conn_config.type, s, l)] += p
                                               
-            for (k,v) in config_dict.iteritems():
+            for (k,v) in config_dict.items():
                 try:
-                    assert(v == 1.0)
+                    assert(np.isclose(v, 1.0))
                 except Exception as e:
                     logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' % (key_postsyn, str(k), v))
                     raise e
@@ -358,13 +359,13 @@ class Env:
         :return:
         """
         connection_config = self.modelConfig['Connection Generator']
-        if connection_config.has_key('Gap Junctions'):
+        if 'Gap Junctions' in connection_config:
             gj_config = connection_config['Gap Junctions']
 
             gj_sections = gj_config['Locations']
             sections = {}
-            for pop_a, pop_dict in gj_sections.iteritems():
-                for pop_b, sec_names in pop_dict.iteritems():
+            for pop_a, pop_dict in gj_sections.items():
+                for pop_b, sec_names in pop_dict.items():
                     pair = (pop_a, pop_b)
                     sec_idxs = []
                     for sec_name in sec_names:
@@ -373,8 +374,8 @@ class Env:
 
             gj_connection_probs = gj_config['Connection Probabilities']
             connection_probs = {}
-            for pop_a, pop_dict in gj_connection_probs.iteritems():
-                for pop_b, prob in pop_dict.iteritems():
+            for pop_a, pop_dict in gj_connection_probs.items():
+                for pop_b, prob in pop_dict.items():
                     pair = (pop_a, pop_b)
                     connection_probs[pair] = float(prob)
 
@@ -393,8 +394,8 @@ class Env:
             
             gj_coupling_coeffs = gj_config['Coupling Coefficients']
             coupling_coeffs = {}
-            for pop_a, pop_dict in gj_coupling_coeffs.iteritems():
-                for pop_b, coeff in pop_dict.iteritems():
+            for pop_a, pop_dict in gj_coupling_coeffs.items():
+                for pop_b, coeff in pop_dict.items():
                     pair = (pop_a, pop_b)
                     coupling_coeffs[pair] = float(coeff)
 
@@ -414,7 +415,7 @@ class Env:
             coupling_bounds = coupling_bounds
 
             self.gapjunctions = {}
-            for pair, sec_idxs in sections.iteritems():
+            for pair, sec_idxs in sections.items():
                 self.gapjunctions[pair] = GapjunctionConfig(sec_idxs, \
                                                             connection_probs[pair], \
                                                             connection_params, \
@@ -460,7 +461,7 @@ class Env:
         :param popName: str
         """
         rank = self.comm.Get_rank()
-        if not self.celltypes.has_key(popName):
+        if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
 

@@ -44,7 +44,7 @@ class ConnectionProb(object):
         
         for source_population in extent:
             extent_width  = extent[source_population]['width']
-            if extent[source_population].has_key('offset'):
+            if 'offset' in extent[source_population]:
                 extent_offset = extent[source_population]['offset']
             else:
                 extent_offset = (0., 0.)
@@ -90,7 +90,7 @@ class ConnectionProb(object):
         max_distance_u = source_width['u'] + source_offset['u']
         max_distance_v = source_width['v'] + source_offset['v']
 
-        for (source_gid, coords) in source_coords.iteritems():
+        for (source_gid, coords) in source_coords.items():
 
             source_u, source_v, source_l = coords
 
@@ -143,10 +143,10 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param population_dict: mapping of population names to population indices
     :param projection_synapse_dict: mapping of projection names to a tuple of the form: <type, layers, swc sections, proportions>
     """
-    ivd = { v:k for k,v in population_dict.iteritems() }
+    ivd = { v:k for k,v in population_dict.items() }
     projection_lst = []
     projection_prob_lst = []
-    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in projection_synapse_dict.iteritems():
+    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in projection_synapse_dict.items():
         if (syn_type == syn_config_type) and (swc_type in syn_config_sections):
             ord_indices = list_find_all(lambda x: x == swc_type, syn_config_sections)
             for ord_index in ord_indices:
@@ -199,29 +199,29 @@ def generate_synaptic_connections(rank,
     """
     ## assign each synapse to a projection
     synapse_prj_partition = defaultdict(list)
-    for (syn_id,syn_type,swc_type,syn_layer) in itertools.izip(synapse_dict['syn_ids'],
-                                                               synapse_dict['syn_types'],
-                                                               synapse_dict['swc_types'],
-                                                               synapse_dict['syn_layers']):
+    for (syn_id,syn_type,swc_type,syn_layer) in zip(synapse_dict['syn_ids'],
+                                                    synapse_dict['syn_types'],
+                                                    synapse_dict['swc_types'],
+                                                    synapse_dict['syn_layers']):
         projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
                                                population_dict, projection_synapse_dict)
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
     for projection in projection_synapse_dict.keys():
-        if not synapse_prj_partition.has_key(projection):
+        if not (projection in synapse_prj_partition):
             logger.warning('Rank %i: gid %i: projection: %s has an empty synapse list; swc types are %s layers are %s' % (rank, destination_gid, projection, str(set(synapse_dict['swc_types'].flat)), str(set(synapse_dict['syn_layers'].flat))))
-            assert(synapse_prj_partition.has_key(projection))
+            assert(projection in synapse_prj_partition)
 
     ## Choose source connections based on distance-weighted probability
     count = 0
-    for projection, syn_ids in synapse_prj_partition.iteritems():
+    for projection, syn_ids in synapse_prj_partition.items():
         count += len(syn_ids)
         source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection]
         distance_dict = { source_gid: distance_u+distance_v \
-                          for (source_gid,distance_u,distance_v) in itertools.izip(source_gids, \
-                                                                                   distances_u, \
-                                                                                   distances_v) }
+                          for (source_gid,distance_u,distance_v) in zip(source_gids, \
+                                                                        distances_u, \
+                                                                        distances_v) }
         gid_dict = connection_dict[projection]
         if len(source_gids) > 0:
             source_gid_counts = random_choice(ranstream_con,len(syn_ids),source_probs)
@@ -350,7 +350,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
-                    for (prj, prj_dict) in  connection_dict.iteritems():
+                    for (prj, prj_dict) in  connection_dict.items():
                         logger.info("%s: %s" % (prj, str(prj_dict.keys())))
                     logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
             projection_dict.clear()
@@ -368,7 +368,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
     if rank == 0:
         if connection_dict:
-            for (prj, prj_dict) in  connection_dict.iteritems():
+            for (prj, prj_dict) in  connection_dict.items():
                 logger.info("%s: %s" % (prj, str(prj_dict.keys())))
                 logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
 

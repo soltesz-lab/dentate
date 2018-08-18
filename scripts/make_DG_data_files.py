@@ -1,5 +1,4 @@
 import h5py
-import itertools
 
 h5types_file = 'dentate_h5types.h5'
 
@@ -118,7 +117,7 @@ with h5py.File(DG_cells_file) as f:
     grp = f["Populations"]
 
     for p in DG_populations:
-        if forest_files.has_key(p):
+        if p in forest_files:
             forest_file = forest_files[p]
             forest_syns_file = forest_syns_files[p]
             grp[p]["Trees"] = h5py.ExternalLink(forest_file,"/Populations/%s/Trees" % p)

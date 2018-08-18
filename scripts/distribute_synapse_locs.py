@@ -93,7 +93,7 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
     warning_flag = False
     for syn_type, layer_set in layer_set_dict.iteritems():
         for layer in layer_set:
-            if layer_stats.has_key(layer):
+            if layer in layer_stats:
                 if layer_stats[layer][syn_type] <= 0:
                     warning_flag = True
             else:
@@ -105,7 +105,7 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
         logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
     for syn_type, swc_set in swc_set_dict.iteritems():
         for swc_type in swc_set:
-            if swc_stats.has_key(swc_type):
+            if swc_type in swc_stats:
                 if swc_stats[swc_type][syn_type] <= 0:
                     warning_flag = True
             else:

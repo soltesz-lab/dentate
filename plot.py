@@ -728,7 +728,7 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     distance_U = {}
     distance_V = {}
     for k,v in soma_distances:
-        if cell_reindex_dict.has_key(k):
+        if k in cell_reindex_dict:
             distance_U[k] = v['U Distance'][0]
             distance_V[k] = v['V Distance'][0]
         
@@ -778,7 +778,7 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
     layer_min_extent = None
     layer_max_extent = None
-    for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+    for ((layer_name,max_extent),(_,min_extent)) in zip(max_extents.items(),min_extents.items()):
         if layer_min_extent is None:
             layer_min_extent = np.asarray(min_extent)
         else:
@@ -871,7 +871,7 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
     max_extents = env.geometry['Parametric Surface']['Maximum Extent']
     layer_min_extent = None
     layer_max_extent = None
-    for ((layer_name,max_extent),(_,min_extent)) in itertools.izip(max_extents.iteritems(),min_extents.iteritems()):
+    for ((layer_name,max_extent),(_,min_extent)) in zip(max_extents.items(),min_extents.items()):
         if layer_min_extent is None:
             layer_min_extent = np.asarray(min_extent)
         else:
@@ -922,13 +922,13 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
         dend_idx_set = set(dend_idxs.flat)
 
         edges = []
-        for sec, nodes in secnodes.iteritems():
+        for sec, nodes in secnodes.items():
             for i in xrange(1, len(nodes)):
                 srcnode = nodes[i-1]
                 dstnode = nodes[i]
                 if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
                     edges.append((srcnode, dstnode))
-        for (s,d) in itertools.izip(src,dst):
+        for (s,d) in zip(src,dst):
             srcnode = secnodes[s][-1]
             dstnode = secnodes[d][0]
             if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
@@ -1094,9 +1094,9 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
     
     fig, ax1 = plt.subplots(figsize=figSize,sharex='all',sharey='all')
         
-    for (pop_name, pop_states) in states.iteritems():
+    for (pop_name, pop_states) in states.items():
         
-        for (gid, cell_states) in pop_states.iteritems():
+        for (gid, cell_states) in pop_states.items():
 
             if verbose:
                 print('Creating state plot for gid %i...' % gid)
@@ -1239,7 +1239,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
     
     if spikeHist is None:
 
-        for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (spkpoplst, spkindlst, spktlst):
+        for (pop_name, pop_spkinds, pop_spkts) in zip (spkpoplst, spkindlst, spktlst):
 
             if maxSpikes is not None:
                 if int(maxSpikes) < len(pop_spkinds):
@@ -1263,7 +1263,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
         gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
         ax1=plt.subplot(gs[0])
         
-        for (pop_name, pop_spkinds, pop_spkts) in itertools.izip (spkpoplst, spkindlst, spktlst):
+        for (pop_name, pop_spkinds, pop_spkts) in zip (spkpoplst, spkindlst, spktlst):
 
             if maxSpikes is not None:
                 if int(maxSpikes) < len(pop_spkinds):
@@ -1401,12 +1401,12 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
     time_bins  = np.arange(timeRange[0], timeRange[1], spikeRateBin)
 
     spkrate_dict = {}
-    for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+    for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
         rate_bin_dict = spikedata.spike_inst_rates(subset, spkdict, timeRange=timeRange, sigma=sigma)
         i = 0
         rate_dict = {}
-        for ind, dct in rate_bin_dict.iteritems():
+        for ind, dct in rate_bin_dict.items():
             rates       = np.asarray(dct['rate'], dtype=np.float32)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
@@ -1428,7 +1428,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
         pop_rates = spkrate_dict[subset]
         
         peak_lst = []
-        for ind, rate_dict in pop_rates.iteritems():
+        for ind, rate_dict in pop_rates.items():
             rate       = rate_dict['rate']
             peak_index = rate_dict['peak index']
             peak_lst.append(peak_index)
@@ -1561,12 +1561,12 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
     
     hist_dict = {}
     if quantity == 'rate':
-        for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+        for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
             rate_bin_dict = spikedata.spike_bin_rates(spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1])
             del(spkdict)
             bin_dict      = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
-            for (ind, (counts, rates)) in rate_bin_dict.iteritems():
+            for (ind, (counts, rates)) in rate_bin_dict.items():
                 for ibin in xrange(0, time_bins.size):
                     if counts[ibin-1] > 0:
                         d = bin_dict[ibin]
@@ -1577,12 +1577,12 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             if verbose:
                 print('Calculated spike rates for %i cells in population %s' % (len(rate_bin_dict), subset))
     else:
-        for subset, spkinds, spkts in itertools.izip(spkpoplst, spkindlst, spktlst):
+        for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             del(spkdict)
             bin_dict      = defaultdict(lambda: {'counts':0, 'active': 0})
-            for (ind, counts) in count_bin_dict.iteritems():
+            for (ind, counts) in count_bin_dict.items():
                 for ibin in xrange(0, time_bins.size):
                     if counts[ibin-1] > 0:
                         d = bin_dict[ibin]
@@ -1879,7 +1879,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         max_count     = np.zeros(bins.size-1)
         max_rate      = np.zeros(bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
-        for ind, (count_bins, rate_bins) in rate_bin_dict.iteritems():
+        for ind, (count_bins, rate_bins) in rate_bin_dict.items():
             counts     = count_bins
             rates      = rate_bins
             for ibin in xrange(1, bins.size+1):

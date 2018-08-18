@@ -47,7 +47,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
                     if cellind is not None:
                         tlst = []
                         vlst = []
-                        for (t,v) in itertools.izip(vals[timeVariable], vals[variable]):
+                        for (t,v) in zip(vals[timeVariable], vals[variable]):
                             tlst.append(t)
                             vlst.append(v)
                         state_dict[cellind] = (np.asarray(tlst,dtype=np.float32), np.asarray(vlst,dtype=np.float32))
@@ -56,7 +56,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
                     if (cellind is not None) and (cellind in unitNo):
                         tlst = []
                         vlst = []
-                        for (t,v) in itertools.izip(vals[timeVariable], vals[variable]):
+                        for (t,v) in zip(vals[timeVariable], vals[variable]):
                             tlst.append(t)
                             vlst.append(v)
                         state_dict[cellind] = (np.asarray(tlst,dtype=np.float32), np.asarray(vlst,dtype=np.float32))
@@ -67,7 +67,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
                     if cellind is not None:
                         tlst = []
                         vlst = []
-                        for (t,v) in itertools.izip(vals[timeVariable], vals[variable]):
+                        for (t,v) in zip(vals[timeVariable], vals[variable]):
                             if timeRange[0] <= t <= timeRange[1]:
                                 tlst.append(t)
                                 vlst.append(v)
@@ -78,7 +78,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
                         if cellind in unitNo:
                             tlst = []
                             vlst = []
-                            for (t,v) in itertools.izip(vals[timeVariable], vals[variable]):
+                            for (t,v) in zip(vals[timeVariable], vals[variable]):
                                 if timeRange[0] <= t <= timeRange[1]:
                                     tlst.append(t)
                                     vlst.append(v)

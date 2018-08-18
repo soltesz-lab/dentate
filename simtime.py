@@ -1,7 +1,10 @@
 """Routines to keep track of simulation computation time and terminate the simulation if not enough time has been allocated."""
 
-
 from neuron import h
+from dentate import utils
+
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = utils.get_module_logger(__name__)
 
 class SimTimeEvent:
 
@@ -19,15 +22,15 @@ class SimTimeEvent:
         self.dt_checksimtime = dt_checksimtime
         self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
         if (int(pc.id()) == 0):
-            print "dt = %g" % h.dt
-            print "tstop = %g" % h.tstop
+            logger.info("dt = %g" % h.dt)
+            logger.info("tstop = %g" % h.tstop)
         self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
 
     def simstatus(self):
         wt = h.startsw()
         if h.t > 0.:
             if (int(self.pc.id()) == 0):
-                print "*** rank 0 computation time at t=%g ms was %g s" % (h.t, wt-self.walltime_status)
+                logger.info("*** rank 0 computation time at t=%g ms was %g s" % (h.t, wt-self.walltime_status))
         else:
             init_time = wt-self.walltime_status
             max_init_time = self.pc.allreduce(init_time, 2) ## maximum value
@@ -52,14 +55,14 @@ class SimTimeEvent:
             tsimneeded = (trem/self.dt_checksimtime)*self.tcma+self.results_write_time
             max_tsimneeded = self.pc.allreduce(tsimneeded, 2) ## maximum value
             if (int(self.pc.id()) == 0): 
-                print "*** remaining computation time is %g s and remaining simulation time is %g ms" % (tsimrem, trem)
-                print "*** estimated computation time to completion is %g s" % max_tsimneeded
+                logger.info("*** remaining computation time is %g s and remaining simulation time is %g ms" % (tsimrem, trem))
+                logger.info("*** estimated computation time to completion is %g s" % max_tsimneeded)
             ## if not enough time, reduce tstop and perform collective operations to set minimum (earliest) tstop across all ranks
             if (max_tsimneeded > min_tsimrem):
                 tstop1 = int((tsimrem - self.results_write_time)/(self.tcma/self.dt_checksimtime)) + h.t
                 min_tstop = self.pc.allreduce(tstop1, 3) ## minimum value
                 if (int(self.pc.id()) == 0):
-                        print "*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms" % (h.tstop, min_tstop)
+                        logger.info("*** not enough time to complete %g ms simulation, simulation will likely stop around %g ms" % (h.tstop, min_tstop))
                 if (min_tstop <= h.t):
                     h.tstop = h.t + h.dt
                 else:

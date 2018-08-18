@@ -448,7 +448,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
     """
     sec_type_map = {}
-    for sec_type, sec_index_list in default_hoc_sec_lists.iteritems():
+    for sec_type, sec_index_list in default_hoc_sec_lists.items():
         if hasattr(hoc_cell, sec_type):
             sec_list = list(getattr(hoc_cell, sec_type))
             if hasattr(hoc_cell, sec_index_list):
@@ -464,8 +464,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     try:
         root_node = append_section(cell, 'soma', root_index, root_sec)
     except Exception as e:
-        raise KeyError, 'import_morphology_from_hoc: problem locating soma section to act as root\n%s' % e, \
-            sys.exc_info()[2]
+        raise KeyError('import_morphology_from_hoc: problem locating soma section to act as root\n%s' % e)
     append_child_sections(cell, root_node, root_sec.children(), sec_type_map)
 
 
@@ -504,19 +503,17 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
-def init_nseg(sec, spatial_res=0, verbose=False):
+def init_nseg(sec, spatial_res=0):
     """
     Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
     whenever basic cable properties Ra or cm are changed. The spatial resolution parameter increases the number of
     segments per section by a factor of an exponent of 3.
     :param sec: :class:'h.Section'
     :param spatial_res: int
-    :param verbose: bool
     """
     sugg_nseg = d_lambda_nseg(sec)
     sugg_nseg *= 3 ** spatial_res
-    if verbose:
-        print 'init_nseg: changed %s.nseg %i --> %i' % (sec.hname(), sec.nseg, sugg_nseg)
+    logger.info('init_nseg: changed %s.nseg %i --> %i' % (sec.hname(), sec.nseg, sugg_nseg))
     sec.nseg = int(sugg_nseg)
 
 
@@ -695,7 +692,7 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
         elif os.path.isdir(output_dir):
             mech_file_path = output_dir+'/'+mech_file_name
     write_to_yaml(mech_file_path, cell.mech_dict, convert_scalars=True)
-    print 'Exported mechanism dictionary to %s' % mech_file_path
+    logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
 
 def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False,
@@ -776,7 +773,7 @@ def count_spines_per_seg(node, env, gid):
         node.content['spine_count'] = [0] * node.sec.nseg
 
 
-def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas, verbose=False):
+def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in this
     dendritic section proportional to the number of excitatory synapses contained in the section.
@@ -784,7 +781,6 @@ def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas, verbose=False):
     :param env: :class:'Env'
     :param gid: int
     :param soma_g_pas: float
-    :param verbose: bool
     """
     SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
     if len(node.spine_count) != node.sec.nseg:
@@ -796,18 +792,16 @@ def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas, verbose=False):
         g_pas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
                                  (SA_seg * node.sec(segment.x).g_pas)
         node.sec(segment.x).g_pas *= g_pas_correction_factor
-        if verbose:
-            print 'g_pas_correction_factor for %s seg %i: %.3f' % (node.name, i, g_pas_correction_factor)
+        logger.info('g_pas_correction_factor for %s seg %i: %.3f' % (node.name, i, g_pas_correction_factor))
 
 
-def correct_node_for_spines_cm(node, env, gid, verbose=False):
+def correct_node_for_spines_cm(node, env, gid):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
     dendritic section proportional to the number of excitatory synapses contained in the section.
     :param node: :class:'SHocNode'
     :param env:  :class:'Env'
     :param gid: int
-    :param verbose: bool
     """
     # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
     # capacitance and time constant:
@@ -820,8 +814,7 @@ def correct_node_for_spines_cm(node, env, gid, verbose=False):
         num_spines = node.spine_count[i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
-        if verbose:
-            print 'cm_correction_factor for %s seg %i: %.3f' % (node.name, i, cm_correction_factor)
+        logger.info('cm_correction_factor for %s seg %i: %.3f' % (node.name, i, cm_correction_factor))
 
 
 def correct_cell_for_spines_g_pas(cell, env):
@@ -849,7 +842,7 @@ def correct_cell_for_spines_cm(cell, env):
             for node in cell.nodes[sec_type]:
                 correct_node_for_spines_cm(node, env, cell.gid)
                 if loop == 0:
-                    init_nseg(node.sec)  # , verbose=True)
+                    init_nseg(node.sec)  
                     node.reinit_diam()
         loop += 1
     init_biophysics(cell, env, reset_cable=False)
@@ -916,7 +909,7 @@ def get_mech_rules_dict(cell, **rules):
 
 def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                       xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                      append=False, verbose=False):
+                      append=False):
     """
     Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
     dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
@@ -939,7 +932,6 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     :param outside: float
     :param custom: dict
     :param append: bool
-    :param verbose: bool
     """
     if sec_type not in cell.nodes:
         raise ValueError('modify_mech_param: sec_type: %s not in cell' % sec_type)
@@ -990,15 +982,15 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
                 try:
                     update_mechanism_by_node(cell, node, mech_name, mech_content)
                 except (AttributeError, NameError, ValueError, KeyError, RuntimeError, IOError) as e:
-                    raise RuntimeError, e, sys.exc_info()[2]
+                    raise RuntimeError('%s\n%s' %(str(e), str(sys.exc_info()[2])))
     except RuntimeError as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         if param_name is not None:
-            raise RuntimeError, 'modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s\n%s' % \
-                               (mech_name, param_name, node.name, e), sys.exc_info()[2]
+            raise RuntimeError('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s\n%s' % \
+                               (mech_name, param_name, node.name, e))
         else:
-            raise RuntimeError, 'modify_mech_param: problem modifying mechanism: %s in node: %s\n%s' % \
-                                (mech_name, node.name, e), sys.exc_info()[2]
+            raise RuntimeError('modify_mech_param: problem modifying mechanism: %s in node: %s\n%s' % \
+                                   (mech_name, node.name, e))
 
 
 def update_mechanism_by_node(cell, node, mech_name, mech_content):
@@ -1113,8 +1105,8 @@ def inherit_mech_param(donor, mech_name, param_name):
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
     except (AttributeError, NameError, KeyError, ValueError, RuntimeError, IOError) as e:
-        raise RuntimeError, 'inherit_mech_param: problem inheriting mechanism: %s parameter: %s from ' \
-                            'sec_type: %s\n%s' % (mech_name, param_name, donor.type, e), sys.exc_info()[2]
+        raise RuntimeError('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from ' \
+                               'sec_type: %s\n%s' % (mech_name, param_name, donor.type, e))
 
 
 def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=None):
@@ -1321,7 +1313,7 @@ def make_neurotree_graph(neurotree_dict, return_root=True):
     sec_dst   = neurotree_dict['section_topology']['dst']
 
     sec_graph = nx.DiGraph()
-    for i, j in itertools.izip(sec_src, sec_dst):
+    for i, j in zip(sec_src, sec_dst):
         sec_graph.add_edge(i, j)
 
     root=None
