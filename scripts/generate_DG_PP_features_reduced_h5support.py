@@ -11,12 +11,12 @@ from mpi4py import MPI
 import h5py
 from neuroh5.io import append_cell_attributes, read_population_ranges, read_cell_attributes
 import dentate
-from dentate.utils import list_find
+from dentate.env import Env
+import dentate.utils as utils
+from dentate.utils import list_find, list_argsort, get_script_logger
 from dentate.stimulus import generate_spatial_offsets
 
 script_name = 'generate_DG_PP_features_reduced_h5support.py'
-logging.basicConfig()
-logger = logging.getLogger(script_name)
 
 io_size=-1
 chunk_size=1000
@@ -328,15 +328,16 @@ class OptimizationRoutine(object):
 class Cell_Population(object):
     def __init__(self, comm, types_path, jitter_orientation=True, jitter_spacing=True, seed=64):
         self.comm = comm
+        self.seed = seed
         self.types_path = types_path
         self.jitter_orientation = jitter_orientation
         self.jitter_spacing = jitter_spacing
         self.xp, self.yp = generate_mesh(scale_factor=1.0)
 
         self.local_random = random.Random()
-        self.local_random.seed(seed)
-        self.feature_type_random = np.random.RandomState(seed)
-        self.place_field_random = np.random.RandomState(seed)
+        self.local_random.seed(self.seed - 1)
+        self.feature_type_random = np.random.RandomState(self.seed - 1)
+        self.place_field_random = np.random.RandomState(self.seed - 1)
         self.total_offsets = 0
 
         self.mpp_grid  =  None
@@ -375,6 +376,7 @@ class Cell_Population(object):
         field_set = np.asarray([1,2,3])
         for i in range(N):
             gid = self.population_start + i
+            self.local_random.seed(gid + self.seed)
             feature_type = feature_types[i]
             if feature_type == 0: # Grid cell
                 this_module = self.local_random.choice(modules)
@@ -394,6 +396,7 @@ class Cell_Population(object):
 
     def _build_place_cell(self, gid, cell_field_width, module):
 
+        self.place_field_random.seed(gid + self.seed)
         cell = {}
         cell['Num Fields'] = np.array([len(cell_field_width)], dtype='uint8')
         nplace_fields.append(len(cell_field_width))
@@ -472,16 +475,20 @@ def calculate_module_centroids(cell_modules):
     return module_x_centroids, module_y_centroids
     
 
-def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'):
+def create_h5(comm, fn, template='dentate_h5types.h5'):
     if not os.path.isfile(fn):
         input_file  = h5py.File(template,'r')
         output_file = h5py.File(fn,'w')
         input_file.copy('/H5Types',output_file)
         input_file.close()
         output_file.close()
+    comm.barrier()
+
+def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'):
+    create_h5(comm, fn)
     append_cell_attributes(fn, population, data, namespace=namespace, comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
-def read_input_path(comm, types_path, input_path, verbose): 
+def read_input_path(comm, feature_seed_offset, types_path, input_path, verbose): 
     rank = comm.Get_rank()
     mpp_grid, mpp_place = {}, {}
     tic = time.time()
@@ -493,7 +500,7 @@ def read_input_path(comm, types_path, input_path, verbose):
         for (gid, cell_attr) in neuroh5_mpp_place:
             mpp_place[gid] = cell_attr
     else:
-        cell_corpus = Cell_Population(comm, types_path, seed=rank)
+        cell_corpus = Cell_Population(comm, types_path, seed=feature_seed_offset)
         cell_corpus.full_init()
         mpp_grid = cell_corpus.mpp_grid
         mpp_place = cell_corpus.mpp_place
@@ -510,21 +517,29 @@ def read_input_path(comm, types_path, input_path, verbose):
 @click.option("--centroid", '-c', is_flag=True, required=False)
 @click.option("--input-path", default=None, required=False, type=click.Path(file_okay=True, dir_okay=True))
 @click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=False, type=click.Path(file_okay=True, dir_okay=True))
 @click.option("--verbose", "-v", is_flag=True, default=False)
 @click.option("--lbound", type=float, required=False, default=1.)
 @click.option("--ubound", type=float, required=False, default=50.)
 
-def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound, verbose):
+def main(optimize, centroid, input_path, types_path, config, output_path, lbound, ubound, verbose):
 
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(script_name)
     tic = time.time()
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    mpp_grid, mpp_place = read_input_path(comm, types_path, input_path, verbose)
-    comm.Barrier()
 
-    grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-rank-%d-temp-%s' % (rank,os.path.basename(output_path))))
-    place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-rank-%d-temp-%s' % (rank,os.path.basename(output_path))))
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    env = Env(comm=comm, configFile=config)
+    feature_seed_offset = int(env.modelConfig['Random Seeds']['Input Features'])
+
+    mpp_grid, mpp_place = read_input_path(comm, feature_seed_offset, types_path, input_path, verbose)
+    comm.barrier()
+
+    logger.info('Saving temp...') 
+    grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-temp-%s' % (os.path.basename(output_path))))
+    place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-temp-%s' % (os.path.basename(output_path))))
     save_h5(comm, grid_temp_fn, mpp_grid, 'MPP', 'Grid Input Features', template=types_path)
     save_h5(comm, place_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
 
@@ -625,8 +640,8 @@ def main_hardcoded(comm, output_path, cells, scale_factors):
     grid_post_optimization = module_to_gid_dictionary(grid_module)
     place_post_optimization = module_to_gid_dictionary(place_module)
 
-    grid_fn = os.path.join(os.path.dirname(output_path), ('grid-rank-%d-%s' % (rank, os.path.basename(output_path))))
-    place_fn = os.path.join(os.path.dirname(output_path), ('place-rank-%d-%s' % (rank, os.path.basename(output_path))))
+    grid_fn = os.path.join(os.path.dirname(output_path), ('grid-%s' % (os.path.basename(output_path))))
+    place_fn = os.path.join(os.path.dirname(output_path), ('place-%s' % (os.path.basename(output_path))))
     
     save_h5(comm, grid_fn, grid_post_optimization, 'MPP', 'Grid Input Features')
     save_h5(comm, place_fn, place_post_optimization, 'MPP', 'Place Input Features')
