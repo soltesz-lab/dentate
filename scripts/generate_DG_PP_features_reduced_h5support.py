@@ -1,6 +1,7 @@
 import sys, os, time, random, click, logging, shutil
 import numpy as np
 import pickle
+from pprint import pprint
 from copy import deepcopy
 
 from scipy.optimize import minimize
@@ -102,50 +103,6 @@ def generate_mesh(scale_factor=init_scale_factor):
     mega_arena_y = np.arange(mega_arena_y_bounds[0], mega_arena_y_bounds[1], resolution)
     return np.meshgrid(mega_arena_x, mega_arena_y, indexing='ij')
 
-def init_generate_populations(gen_rate=True, scale_factor=6.*np.ones(nmodules)):
-    tic = time.time()
-    grid_feature_dict_MPP, place_feature_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP = init(population='MPP')
-    grid_feature_dict_LPP, place_feature_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP = init(population='LPP')
-    mega_arena_xp, mega_arena_yp = generate_mesh()
-    elapsed = time.time() - tic
-    print('Took %f seconds to initialize populations and generate meshgrid' % (elapsed))
- 
- 
-    if gen_rate:
-        for module in modules:
-            mpp_rm_grid, mpp_rm_place = module_map(mega_arena_xp, mega_arena_yp, grid_feature_dict_MPP, place_feature_dict_MPP, module=module, population='MPP')
-
-            fn = 'MPP/ratemap-module-'+str(module)+'-MPP-grid.txt'
-            to_file(mpp_rm_grid,fn,module=module)
-            fn = 'MPP/ratemap-module-'+str(module)+'-MPP-place.txt'
-            to_file(mpp_rm_place,fn,module=module)
-
-            lpp_rm_grid, lpp_rm_place = module_map(mega_arena_xp, mega_arena_yp, grid_feature_dict_LPP, place_feature_dict_LPP, module=module, population='LPP')
-
-            fn = 'LPP/ratemap-module-'+str(module)+'-LPP-grid.txt'
-            to_file(lpp_rm_grid,fn,module=module)
-            fn = 'LPP/ratemap-module-'+str(module)+'-LPP-place.txt'
-            to_file(lpp_rm_place,fn,module=module)
-
-    MPP_info = (grid_feature_dict_MPP, place_feature_dict_MPP, xy_offsets_MPP, feature_types_MPP, orientation_MPP)
-    LPP_info = (grid_feature_dict_LPP, place_feature_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP)
-
-    grid_dicts = (grid_feature_dict_MPP, grid_feature_dict_LPP)
-    place_dicts = (place_feature_dict_MPP, place_feature_dict_LPP)
-    return MPP_info, LPP_info, mega_arena_xp, mega_arena_yp
-   
-
-def read_file(fn):
-    rate_map = []
-    f = open(fn, 'r')
-    for line in f.readlines():
-        line = line.strip('\n').split('\t')
-        curr_rates = []
-        for val in line[0:-1]:
-            curr_rates.append(float(val))
-        rate_map.append(curr_rates)
-    return np.asarray(rate_map)
-
 def rate_histogram(features_dict, xp, yp, xoi, yoi, ctype='grid', module=0):
     r = []
     for idx in features_dict.keys():
@@ -186,30 +143,23 @@ def list_to_file(fn, r):
 def peak_to_trough(module_cells, modules=modules):
     minmax_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)],dtype='float32')
     mean_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
-    var_evaluations = np.asarray([0.0 for _ in np.arange(nmodules)], dtype='float32')
+    var_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
 
     for mod in module_cells.keys():
         cells = module_cells[mod]
-        module_rate_map = None
+        module_rate_map = []
         for (c,cell) in enumerate(cells):
             nx, ny = cell['Nx'][0], cell['Ny'][0]
             rate_map = cell['Rate Map'].reshape(nx, ny)
-            if c == 0:
-                module_rate_map = np.zeros((nx, ny))
-            module_rate_map += rate_map
-        minmax_evaluations[mod] = float(np.max(module_rate_map)) / float(np.min(module_rate_map))
-
-        #nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
-        #coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
-        #rate_ratio = np.asarray([ [np.divide(float(module_rate_map[i,j]), float(module_rate_map[i2,j2])) for (i2,j2) in coords] for (i,j) in coords], dtype='float32')
-        #rate_ratio = rate_ratio - np.identity(len(coords))
-        #rate_ratio = rate_ratio[rate_ratio > 0.0].reshape(-1,)
-        #mean_evaluations[mod] = 1.0 #np.mean(rate_ratio)
-        #var_evaluations[mod]  = np.var(rate_ratio)
+            module_rate_map.append(rate_map)
+        summed_map = np.sum(module_rate_map,axis=0)
+        variance_map = np.var(module_rate_map,axis=0)
         
+        minmax_evaluations[mod] = np.divide(float(np.max(summed_map)), float(np.min(summed_map)))
+        var_evaluations[mod] = np.divide(float(np.max(variance_map)), float(np.min(variance_map)))
                 
 
-    return minmax_evaluations - 1., mean_evaluations - 1., var_evaluations
+    return minmax_evaluations - 1., mean_evaluations - 1., var_evaluations - 1.
 
 def fraction_active(module_cells, modules=modules, target=0.30):
     rates = {mod:[] for mod in modules}
@@ -252,7 +202,7 @@ def calculate_fraction_active(rates, threshold=0.1):
     max_rate = np.max(rates)
     normalized_rates = np.divide(rates, max_rate)
     num_active = len(np.where(normalized_rates > threshold)[0])
-    fraction_active = float(num_active) / len(normalized_rates)
+    fraction_active = np.divide(float(num_active), len(normalized_rates))
     return fraction_active               
             
 def cost_prepare_grid(x, cell_modules, mesh):
@@ -324,7 +274,7 @@ def cost_func(x, grid, place, mesh, centroid, rank):
             translate_cells(place, x_translate, y_translate, x[0:nmodules])
 
     cost_prepare_grid(x[0:nmodules], grid, mesh)
-    #cost_prepare_place(x[0:nmodules], place, mesh)
+    cost_prepare_place(x[0:nmodules], place, mesh)
     cell_modules = module_merge(grid, place)
     if rank == 0:
         tic = time.time()
@@ -347,7 +297,7 @@ def cost_func(x, grid, place, mesh, centroid, rank):
         elapsed = 0.0
     print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
     print('Fraction active contribution: %f' % cost_frac_active)
-    print('Peak-trough contribution: %f' % cost_peak_trough)
+    print('Peak-trough contribution: (%f,%f,%f)' % (minmax_ratio_sum ** 2, mean_ratio_sum ** 2, var_ratio_sum ** 2))
     print(x)
     print('---------------------')
     return total_cost
@@ -376,7 +326,7 @@ class OptimizationRoutine(object):
         return bh_output.x, np.asarray(param_list, dtype='float32'), np.asarray(cost_evals, dtype='float32')
 
 class Cell_Population(object):
-    def __init__(self, comm, types_path, jitter_orientation=True, jitter_spacing=True):
+    def __init__(self, comm, types_path, jitter_orientation=True, jitter_spacing=True, seed=64):
         self.comm = comm
         self.types_path = types_path
         self.jitter_orientation = jitter_orientation
@@ -384,9 +334,9 @@ class Cell_Population(object):
         self.xp, self.yp = generate_mesh(scale_factor=1.0)
 
         self.local_random = random.Random()
-        self.local_random.seed(64)
-        self.feature_type_random = np.random.RandomState(64)
-        self.place_field_random = np.random.RandomState(64)
+        self.local_random.seed(seed)
+        self.feature_type_random = np.random.RandomState(seed)
+        self.place_field_random = np.random.RandomState(seed)
         self.total_offsets = 0
 
         self.mpp_grid  =  None
@@ -400,7 +350,6 @@ class Cell_Population(object):
         self.initialize_cells(population='MPP')
         self.initialize_cells(population='LPP')
         self.generate_xy_offsets()
-        self.calculate_rate_maps(scale_factors, full_map=full_map)
 
     def initialize_cells(self, population='MPP'):
         self.population_start, self.population_count = self.population_ranges[population]
@@ -451,7 +400,9 @@ class Cell_Population(object):
         cell['gid'] = np.array([gid], dtype='int32')
         cell['Population'] = np.array([1], dtype='uint8')
         cell['Module'] = np.array([module], dtype='uint8')
-        cell['Field Width'] = np.asarray(cell_field_width, dtype='float32')
+        cell['Field Width'] = np.array(cell_field_width, dtype='float32')
+        cell['Nx'] = np.array([self.xp.shape[0]], dtype='int32')
+        cell['Ny'] = np.array([self.xp.shape[1]], dtype='int32')
         return cell
 
     def _build_grid_cell(self, gid, orientation, spacing, module):
@@ -461,6 +412,8 @@ class Cell_Population(object):
         cell['Module'] = np.array([module],dtype='uint8')
         cell['Grid Spacing'] = np.array([spacing],dtype='float32')
         cell['Grid Orientation'] = np.array([orientation],dtype='float32')
+        cell['Nx'] = np.array([self.xp.shape[0]], dtype='int32')
+        cell['Ny'] = np.array([self.xp.shape[1]], dtype='int32')
         if self.jitter_orientation:
             delta_orientation = self.local_random.uniform(init_orientation_jitter[0], init_orientation_jitter[1])
             cell['Jittered Grid Orientation'] = np.array([cell['Grid Orientation'][0] + delta_orientation], dtype='float32')
@@ -502,65 +455,6 @@ class Cell_Population(object):
             counter += nfields
         return counter
 
-    def calculate_rate_maps(self, scale_factors, full_map=False):
-        if self.mpp_grid is not None:
-            self._calculate_rate_maps(self.mpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
-        if self.mpp_place is not None:
-            self._calculate_rate_maps(self.mpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
-        if self.lpp_grid is not None:
-            self._calculate_rate_maps(self.lpp_grid, scale_factors, cell_type='grid', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
-        if self.lpp_place is not None:
-            self._calculate_rate_maps(self.lpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing, full_map=full_map)
-
-    def _calculate_rate_maps(self,cells, scale_factors, cell_type='grid', jittered_orientation=False, jittered_spacing=False, full_map=False):
-
-        module_map = {k: None for k in np.arange(nmodules)}
-        for key in cells.keys():
-            cell = cells[key]
-            x_offset, y_offset = None, None
-            this_module = cell['Module'][0]
-            if module_map[this_module] is None:
-                module_map[this_module] = generate_mesh(scale_factor=scale_factors[this_module])
-            xp,  yp = module_map[this_module]
-            
-            if cell_type == 'grid':    
-                x_offset_scaled = cell['X Offset'] * scale_factors[this_module]
-                y_offset_scaled = cell['Y Offset'] * scale_factors[this_module]
-                cell['X Offset Scaled'] = np.asarray(x_offset_scaled, dtype='float32')
-                cell['Y Offset Scaled'] = np.asarray(y_offset_scaled, dtype='float32')
-
-                grid_spacing, grid_orientation = None, None
-                if jittered_spacing:
-                    grid_spacing = cell['Jittered Grid Spacing'][0]
-                else:
-                    grid_spacing = cell['Grid Spacing'][0]
-                if jittered_orientation:
-                    grid_orientation = cell['Jittered Grid Orientation'][0]
-                else:
-                    grid_orientation = cell['Grid Orientation'][0]
-                if full_map:
-                    full_rate_map = grid_fill_map(xp, yp, grid_spacing, grid_orientation, x_offset_scaled, y_offset_scaled).reshape(-1,)
-                    cell['Full Rate Map'] = full_rate_map.astype('float32')
-                    cell['Full Nx'] = np.array([xp.shape[0]], dtype='int32')
-                    cell['Full Ny'] = np.array([xp.shape[1]], dtype='int32')
-
-                rate_map = grid_fill_map(self.xp, self.yp, grid_spacing, grid_orientation, x_offset_scaled, y_offset_scaled).reshape(-1,)
-                cell['Rate Map'] = rate_map.astype('float32')
-                cell['Nx'] = np.asarray([self.xp.shape[0]], dtype='int32')
-                cell['Ny'] = np.asarray([self.xp.shape[1]], dtype='int32')
-            elif cell_type == 'place':
-                x_offset_scaled = cell['X Offset']
-                y_offset_scaled = cell['Y Offset']
-                rate_map = np.zeros((xp.shape[0], xp.shape[1]))
-                place_orientation = 0.0
-                place_width = cell['Field Width']
-                for n in range(place_width.shape[0]):
-                    rate_map += place_fill_map(self.xp, self.yp, place_width[n], place_orientation, x_offset_scaled[n], y_offset_scaled[n])
-                rate_map = rate_map.reshape(-1,)
-                cell['Rate Map'] = rate_map.astype('float32')
-                cell['Nx'] = np.array([self.xp.shape[0]], dtype='int32')
-                cell['Ny'] = np.array([self.xp.shape[1]], dtype='int32')
-
 def calculate_module_centroids(cell_modules):
     module_x_centroids = [0.0 for _ in np.arange(nmodules)]
     module_y_centroids = [0.0 for _ in np.arange(nmodules)]
@@ -587,6 +481,30 @@ def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'
         output_file.close()
     append_cell_attributes(fn, population, data, namespace=namespace, comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
+def read_input_path(comm, types_path, input_path, verbose): 
+    rank = comm.Get_rank()
+    mpp_grid, mpp_place = {}, {}
+    tic = time.time()
+    if input_path is not None:
+        neuroh5_mpp_grid = read_cell_attributes('grid-'+input_path, 'MPP', namespace='Grid Input Features')
+        for (gid, cell_attr) in neuroh5_mpp_grid:
+            mpp_grid[gid] = cell_attr
+        neuroh5_mpp_place = read_cell_attributes('place-'+input_path, 'MPP', namespace='Place Input Features')
+        for (gid, cell_attr) in neuroh5_mpp_place:
+            mpp_place[gid] = cell_attr
+    else:
+        cell_corpus = Cell_Population(comm, types_path, seed=rank)
+        cell_corpus.full_init()
+        mpp_grid = cell_corpus.mpp_grid
+        mpp_place = cell_corpus.mpp_place
+        
+
+    if verbose:
+        elapsed = time.time() - tic
+        N = len(mpp_place.keys()) + len(mpp_grid.keys())
+        print('%d cells initialized on rank %d in %f seconds' % (N,rank,elapsed))
+    return mpp_grid, mpp_place
+
 @click.command()
 @click.option("--optimize", '-o', is_flag=True, required=True)
 @click.option("--centroid", '-c', is_flag=True, required=False)
@@ -598,84 +516,34 @@ def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'
 @click.option("--ubound", type=float, required=False, default=50.)
 
 def main(optimize, centroid, input_path, types_path, output_path, lbound, ubound, verbose):
+
     tic = time.time()
-    mpp_grid, mpp_place = None, None
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    mpp_grid, mpp_place = read_input_path(comm, types_path, input_path, verbose)
+    comm.Barrier()
+
+    grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-rank-%d-temp-%s' % (rank,os.path.basename(output_path))))
+    place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-rank-%d-temp-%s' % (rank,os.path.basename(output_path))))
+    save_h5(comm, grid_temp_fn, mpp_grid, 'MPP', 'Grid Input Features', template=types_path)
+    save_h5(comm, place_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
+
+    cells = (mpp_grid, mpp_place)
     if optimize:
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        print('Rank %d reporting' % rank)
-        if input_path is not None:
-            mpp_grid = {}
-            neuroh5_mpp_grid = read_cell_attributes('grid-'+input_path, "MPP", namespace="Grid Input Features")
-            for (gid, cell_attr) in neuroh5_mpp_grid:
-                mpp_grid[gid] = cell_attr
-
-            mpp_place = {}
-            neuroh5_mpp_place = read_cell_attributes('place-'+input_path, "MPP", namespace="Place Input Features")
-            for (gid, cell_attr) in neuroh5_mpp_place:
-                mpp_place[gid] = cell_attr
-
-            N = len(mpp_grid.keys()) + len(mpp_place.keys())
-            if verbose:
-                print('Rank %d read in data for %d cells..' % (rank, N))
-        elif input_path is None:
-            cell_corpus = Cell_Population(comm, types_path)
-            cell_corpus.full_init()
-            mpp_grid = cell_corpus.mpp_grid
-            mpp_place = cell_corpus.mpp_place
-
-            grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-temp-%s' % os.path.basename(output_path)))
-            place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-temp-%s' % os.path.basename(output_path)))
-            save_h5(comm, grid_temp_fn, mpp_grid, 'MPP', 'Grid Input Features', template=types_path)
-            save_h5(comm, place_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
-            N = len(mpp_grid.keys()) + len(mpp_place.keys())
-            if verbose:
-                print('Rank %d initialized %d cells' % (rank, N))
-        cells = (mpp_grid, mpp_place)
-        main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, verbose)
+        main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, verbose )
         elapsed = time.time() - tic
-        print('Took %f seconds' % elapsed)
-
+        if verbose:
+            print('Took %f seconds' % elapsed)
     else:
-        if input_path is not None:
-            mpp_grid = {}
-            neuroh5_mpp_grid = read_cell_attributes('grid-'+input_path, "MPP", namespace="Grid Input Features")
-            for (gid, cell_attr) in neuroh5_mpp_grid:
-                mpp_grid[gid] = cell_attr
-
-            mpp_place = {} 
-            neuroh5_mpp_place = read_cell_attributes('place-'+input_path, "MPP", namespace="Place Input Features")
-            for (gid, cell_attr) in neuroh5_mpp_place:
-                mpp_place[gid] = cell_attr
-
-            N = len(mpp_grid.keys()) + len(mpp_place.keys())
-            if verbose:
-                print('Data read in for %d cells..' % N)
-        else:
-            cell_corpus = Cell_Population(comm, types_path)
-            cell_corpus.full_init()
-            mpp_grid = cell_corpus.mpp_grid
-            mpp_place = cell_corpus.mpp_place
-
-            grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-temp-%s' % os.path.basename(output_path)))
-            place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-temp-%s' % os.path.basename(output_path)))
-            save_h5(comm, grid_temp_fn, mpp_grid, 'MPP', 'Grid Input Features', template=types_path)
-            save_h5(comm, grid_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
-            N = len(mpp_grid.keys()) + len(mpp_place.keys())
-            if verbose:
-                print('%d cells initialized' % N)
-        cells = (mpp_grid, mpp_place)
-        main_hardcoded(comm, output_path, cells)
+        scale_factors = []
+        f = open('optimal_sf.txt', 'r')
+        for line in f.readlines():
+            line = line.strip('\n')
+            scale_factors.append(int(line))
+        main_hardcoded(comm, output_path, cells, scale_factors)
         elapsed = time.time() - tic
         if verbose:
             print('Completed in %f seconds...' % elapsed)
-            print(len(nplace_fields))
-
-        f = open('nplace_fields.txt','w')
-        for n in nplace_fields:
-            f.write(str(n) + '\n')
-        f.close()
-
 
 def main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, verbose):
     grid, place = cells
@@ -745,23 +613,34 @@ def main_optimization(comm, types_path, output_path, cells, lbound, ubound, cent
     save_h5(comm, grid_iteration_fn, grid_post_optimization, 'MPP', 'Grid Input Features', template=types_path)
     save_h5(comm, place_iteration_fn, place_post_optimization, 'MPP', 'Place Input Features', template=types_path)
 
-def main_hardcoded(comm, output_path, cells, sf_fn='optimal_sf.txt'):
-    scale_factors = []
-    f = open(sf_fn, 'r')
-    for line in f.readlines():
-        line = line.strip('\n')
-        scale_factors.append(int(line))
-    f.close()
-
+def main_hardcoded(comm, output_path, cells, scale_factors):
+    rank = comm.Get_rank()
     grid, place = cells
     grid_module = gid_to_module_dictionary(grid)
     place_module = gid_to_module_dictionary(place)
+    #scale_cells_in_module(grid_module, scale_factors)
+    #scale_cells_in_module(place_module, scale_factors)
     xp, yp = generate_mesh(scale_factor=1.0) 
-    cost = cost_func(scale_factors, grid_module, place_module, (xp, yp), False)
+    cost = cost_func(scale_factors, grid_module, place_module, (xp, yp), False, rank)
     grid_post_optimization = module_to_gid_dictionary(grid_module)
-    save_h5(comm, 'grid-'+output_path, grid_post_optimization, 'MPP', 'Grid Input Features')
     place_post_optimization = module_to_gid_dictionary(place_module)
-    save_h5(comm, 'place-'+output_path, place_post_optimization, 'MPP', 'Place Input Features')
+
+    grid_fn = os.path.join(os.path.dirname(output_path), ('grid-rank-%d-%s' % (rank, os.path.basename(output_path))))
+    place_fn = os.path.join(os.path.dirname(output_path), ('place-rank-%d-%s' % (rank, os.path.basename(output_path))))
+    
+    save_h5(comm, grid_fn, grid_post_optimization, 'MPP', 'Grid Input Features')
+    save_h5(comm, place_fn, place_post_optimization, 'MPP', 'Place Input Features')
+
+def scale_cells_in_module(cell_modules, scale_factors):
+    for module in cell_modules.keys():
+        cells = cell_modules[module]
+        scale_factor = scale_factors[module]
+        for cell in cells:
+            x_offset_scaled = cell['X Offset'] * scale_factor
+            y_offset_scaled = cell['Y Offset'] * scale_factor
+            cell['X Offset Scaled'] = np.asarray(x_offset_scaled, dtype='float32')
+            cell['Y Offset Scaled'] = np.asarray(y_offset_scaled, dtype='float32')
+        
 def list_to_file(data, fn):
     data = np.asmatrix(data)
     f = open(fn, 'w')
@@ -771,17 +650,6 @@ def list_to_file(data, fn):
             f.write(str(data[n,d]) + '\t')
         f.write('\n')
     f.close()
-
-def neuroh5_test(comm, output_file='test.h5'):
-    cell_corpus = Cell_Population(comm, jitter_orientation=True, jitter_spacing=True)
-    cell_corpus.full_init()
-    mpp_grid = cell_corpus.mpp_grid
-    keys = mpp_grid.keys()
-    tic = time.time()
-    print('Appending to h5 file')
-    append_cell_attributes(output_file, 'MPP', mpp_grid, namespace='Grid Input Features', comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-    elapsed = time.time() - tic
-    print('Append complete in %f seconds' % elapsed)
 
 def gid_to_module_dictionary(cells):
     mod = {k:[] for k in np.arange(nmodules)}
