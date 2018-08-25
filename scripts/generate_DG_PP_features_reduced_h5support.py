@@ -140,57 +140,47 @@ def list_to_file(fn, r):
     f.write('\n')
     f.close()    
 
-def peak_to_trough(module_cells,mods=[]):
-    minmax_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)],dtype='float32')
-    mean_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
-    var_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
-
-    for mod in module_cells.keys():
-        cells = module_cells[mod]
-        module_rate_map = []
-        for (c,cell) in enumerate(cells):
-            nx, ny = cell['Nx'][0], cell['Ny'][0]
-            rate_map = cell['Rate Map'].reshape(nx, ny)
-            module_rate_map.append(rate_map)
-        summed_map = np.sum(module_rate_map,axis=0)
-        variance_map = np.var(module_rate_map,axis=0)
+def peak_to_trough(cells):
+    minmax_evaluation, mean_evaluation, var_evaluation = 1.0, 1.0, 1.0
+    rate_maps = []
+    for (c,cell) in enumerate(cells):
+        nx, ny = cell['Nx'][0], cell['Ny'][0]
+        rate_map = cell['Rate Map'].reshape(nx, ny)
+        rate_maps.append(rate_map)
+    rate_maps = np.asarray(rate_maps, dtype='float32')
+    summed_map = np.sum(rate_maps,axis=0)
+    variance_map = np.var(rate_maps,axis=0)
         
-        minmax_evaluations[mod] = np.divide(float(np.max(summed_map)), float(np.min(summed_map)))
-        var_evaluations[mod] = np.divide(float(np.max(variance_map)), float(np.min(variance_map)))
+    minmax_evaluation = np.divide(float(np.max(summed_map)), float(np.min(summed_map)))
+    var_evaluation = np.divide(float(np.max(variance_map)), float(np.min(variance_map)))
                 
+    return minmax_evaluation - 1., mean_evaluation - 1., var_evaluation - 1.
 
-    return minmax_evaluations - 1., mean_evaluations - 1., var_evaluations - 1.
-
-def fraction_active(module_cells, mods=[], target=0.15):
-    rates = {mod:[] for mod in mods}
-    for mod in mods:
-        cells = module_cells[mod]
-        for cell in cells:
-            nx, ny = cell['Nx'][0], cell['Ny'][0]
-            rate_map = cell['Rate Map'].reshape(nx, ny)
-            rates[mod].append(rate_map)
-        rates[mod] = np.asarray(rates[mod])
+def fraction_active(cells, target=0.15):
+    rates = []
+    for cell in cells:
+        nx, ny = cell['Nx'][0], cell['Ny'][0]
+        rate_map = cell['Rate Map'].reshape(nx, ny)
+        rates.append(rate_map)
+    rates = np.asarray(rates, dtype='float32')
     nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
     coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
-    frac_active_dict = {(i,j): {k: [] for k in mods} for (i,j) in coords}
-    factive = lambda px, py, rate: calculate_fraction_active(rates[rate][:,px,py])
-    frac_active_dict = {(px,py): {rate: factive(px, py, rate) for rate in rates.keys()} for (px,py) in frac_active_dict.keys()} 
-    target_fraction_active = {(i,j): {k: target for k in mods} for (i,j) in frac_active_dict.keys()}
-    diff_fraction_active = {(i,j): {k: np.abs(target_fraction_active[(i,j)][k]-frac_active_dict[(i,j)][k]) for k in modules} for (i,j) in frac_active_dict.keys()}
+    frac_active_dict = {(i,j): [] for (i,j) in coords}
     
-    module_error = {mod: [] for mod in mods}
+    factive = lambda px, py: calculate_fraction_active(rates[:,px,py])
+    frac_active_dict = {(px,py): factive(px, py) for (px,py) in frac_active_dict.keys()} 
+    target_fraction_active = {(i,j): target for (i,j) in frac_active_dict.keys()}
+    diff_fraction_active = {(i,j): np.abs(target_fraction_active[(i,j)]-frac_active_dict[(i,j)]) for (i,j) in frac_active_dict.keys()}
+    
+    errors = []
+    error_sum, error_mean, error_var = 0.0, 0.0, 0.0    
     for (i,j) in diff_fraction_active.keys():
-        pos_errors = diff_fraction_active[(i,j)]
-        for mod in pos_errors.keys():
-            mod_e = pos_errors[mod]
-            module_error[mod].append(mod_e)
-    module_mean = {mod: 0.0 for mod in mods}
-    module_var  = {mod: 0.0 for mod in mods}
-    for mod in module_error.keys():
-        curr_errors = np.asarray(module_error[mod])
-        module_mean[mod] = np.mean(curr_errors)
-        module_var[mod] = np.var(curr_errors)
-    return module_mean, module_var
+        errors.append(diff_fraction_active[(i,j)])
+    errors     = np.asarray(errors, dtype='float32')
+    error_sum  = np.sum(errors)
+    error_mean = np.mean(errors)
+    error_var  = np.var(errors)
+    return error_sum, error_mean, error_var
 
 
 def calculate_fraction_active(rates, threshold=0.1):
@@ -200,43 +190,39 @@ def calculate_fraction_active(rates, threshold=0.1):
     fraction_active = np.divide(float(num_active), len(normalized_rates))
     return fraction_active               
             
-def cost_prepare_grid(x, cell_modules, mesh, mods):
-    sf = x
+def cost_prepare_grid(x, cells, mesh):
     xp, yp = mesh
-    for mod in mods:
-        cells = cell_modules[mod]
-        for (c,cell) in enumerate(cells):
-            orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
-            xf, yf = cell['X Offset'][0], cell['Y Offset'][0]
-            xf_scaled, yf_scaled = xf * sf[mod], yf * sf[mod]
-            cell['X Offset Scaled'] = np.array([xf_scaled], dtype='float32')
-            cell['Y Offset Scaled'] = np.array([yf_scaled], dtype='float32')
-            rate_map = grid_fill_map(xp, yp, spacing, orientation, xf_scaled, yf_scaled)
-            nx, ny = rate_map.shape
-            cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
-            cell['Nx'] = np.array([nx], dtype='int32')
-            cell['Ny'] = np.array([ny], dtype='int32')
+    scale = x
+    for (c,cell) in enumerate(cells):
+        orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
+        xf, yf = cell['X Offset'][0], cell['Y Offset'][0]
+        xf_scaled, yf_scaled = xf * scale, yf * scale
+        cell['X Offset Scaled'] = np.array([xf_scaled], dtype='float32')
+        cell['Y Offset Scaled'] = np.array([yf_scaled], dtype='float32')
+        rate_map = grid_fill_map(xp, yp, spacing, orientation, xf_scaled, yf_scaled)
+        nx, ny = rate_map.shape
+        cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
+        cell['Nx'] = np.array([nx], dtype='int32')
+        cell['Ny'] = np.array([ny], dtype='int32')
 
-def cost_prepare_place(x, cell_modules, mesh, mods):
+def cost_prepare_place(x, cells, mesh):
     xp, yp = mesh
-    for mod in mods:
-        cells = cell_modules[mod]
-        for (c, cell) in enumerate(cells):
-            nfields = cell['Num Fields'][0]
-            place_width = cell['Field Width']
-            place_orientation = 0.0
-            xf, yf = cell['X Offset'], cell['Y Offset']
-            scale = sf[mod]
-            xf_scaled, yf_scaled = xf * scale, yf * scale
-            cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
-            cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
-            rate_map = np.zeros((xp.shape[0], xp.shape[1]))
-            for n in range(nfields):
-                rate_map += place_fill_map(xp, yp, place_width[n], place_orientation, xf_scaled[n], yf_scaled[n])
-            nx, ny = rate_map.shape
-            cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
-            cell['Nx'] = np.array([nx], dtype='int32')
-            cell['Ny'] = np.array([ny], dtype='int32')
+    scale = x
+    for (c, cell) in enumerate(cells):
+        nfields = cell['Num Fields'][0]
+        place_width = cell['Field Width']
+        place_orientation = 0.0
+        xf, yf = cell['X Offset'], cell['Y Offset']
+        xf_scaled, yf_scaled = xf * scale, yf * scale
+        cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
+        cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
+        rate_map = np.zeros((xp.shape[0], xp.shape[1]))
+        for n in range(nfields):
+            rate_map += place_fill_map(xp, yp, place_width[n], place_orientation, xf_scaled[n], yf_scaled[n])
+        nx, ny = rate_map.shape
+        cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
+        cell['Nx'] = np.array([nx], dtype='int32')
+        cell['Ny'] = np.array([ny], dtype='int32')
 
 def module_merge(x, y):
     return {k: x[k] + y[k] for k in x.keys()}
@@ -255,7 +241,7 @@ def translate_cells(cell_modules, x_translate, y_translate, scale_factors):
             cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
             cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
 
-def cost_func(x, cells, ctype, mesh, centroid, mods, logger):
+def cost_func(x, cells, ctype, mesh, centroid, mod, logger):
     param_list.append(x)
     if centroid:
         cell_modules = module_merge(grid, place)
@@ -267,68 +253,57 @@ def cost_func(x, cells, ctype, mesh, centroid, mods, logger):
             translate_cells(grid, x_translate, y_translate, x[0:nmodules])
             translate_cells(place, x_translate, y_translate, x[0:nmodules])
 
-    if ctype == 'grid':
-        cost_prepare_grid(x,cells,mesh,mods)
-    elif ctype == 'place':
-        cost_prepare_place(x,cells,mesh,mods)
-    #cell_modules = module_merge(grid, place)
-    #tic = time.time()
-    #minmax_ratio_evaluations, mean_ratio_evaluations, var_ratio_evaluations = peak_to_trough(cells, mods=mods)
-    #elapsed = time.time() - tic
-    #logger.info('Peak-trough calculations took %f seconds' % elapsed)
-    #minmax_ratio_sum = np.sum(minmax_ratio_evaluations)
-    #mean_ratio_sum = np.sum(mean_ratio_evaluations)
-    #var_ratio_sum = np.sum(var_ratio_evaluations)
-    #cost_peak_trough = (minmax_ratio_sum ** 2 + mean_ratio_sum ** 2 + var_ratio_sum ** 2)
- 
     tic = time.time()
-    fraction_active_mean_evaluation, fraction_active_var_evaluation = fraction_active(cells, mods=mods)
-    elapsed = time.time() - tic
-    logger.info('Fraction active calculations took %f seconds' % elapsed)
-    print(fraction_active_mean_evaluation)
-    sys.exit(1)
-    #frac_active_mean_cost = np.sum(fraction_active_mean_evaluation)
-    #frac_active_var_cost = np.sum(fraction_active_var_evaluation)
-    #cost_frac_active = frac_active_mean_cost ** 2 + frac_active_var_cost ** 2
+    if ctype == 'grid':
+        cost_prepare_grid(x,cells,mesh)
+    elif ctype == 'place':
+        cost_prepare_place(x,cells,mesh)
+    peak_to_trough_tic = time.time()
+    minmax_ratio_error, mean_ratio_error, var_ratio_error = peak_to_trough(cells)
+    peak_to_trough_elapsed = time.time() - peak_to_trough_tic
+    cost_peak_trough = minmax_ratio_error ** 2 + var_ratio_error ** 2
+    #logger.info('Peak to trough error calculated in %f seconds. Error contributions are (%f,%f,%f)' % (peak_to_trough_elapsed, minmax_ratio_error, mean_ratio_error, var_ratio_error))
 
-    #total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
-    cost_evals.append(total_cost)
-    if rank == 0:
-        elapsed = time.time() - tic
-    else:
-        elapsed = 0.0
-    print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
-    print('Fraction active contribution: (%f,%f)' % (frac_active_mean_cost ** 2, frac_active_var_cost ** 2))
-    print('Peak-trough contribution: (%f,%f,%f)' % (minmax_ratio_sum ** 2, mean_ratio_sum ** 2, var_ratio_sum ** 2))
-    print(x)
-    print('---------------------')
+    fraction_active_tic = time.time()
+    fraction_active_sum_error, fraction_active_mean_error, fraction_active_var_error = fraction_active(cells)
+    fraction_active_elapsed = time.time() - fraction_active_tic
+    #cost_frac_active = fraction_active_sum_error ** 2 + fraction_active_mean_error ** 2 + fraction_active_var_error ** 2
+    cost_frac_active = fraction_active_mean_error ** 2 + fraction_active_var_error ** 2
+ 
+    #logger.info('Fraction active error calculated in %f seconds. Error contributions are (%f,%f,%f)' % (fraction_active_elapsed, fraction_active_sum_error, fraction_active_mean_error, fraction_active_var_error))
+
+    total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
+    elapsed = time.time() - tic
+    #print('Module %d with scale factor %f has associated cost of %f. This was calculated in %f seconds' % (mod, x, total_cost, elapsed))
     return total_cost
 
 class OptimizationRoutine(object):
-    def __init__(self, comm, logger, cells, ctype, mesh, mods, lbound, ubound):
+    def __init__(self, comm, logger, cells, ctype, mesh, mod, lbound, ubound):
         self.comm    = comm
         self.logger  = logger
         self.cells   = cells
         self.ctype   = ctype
         self.mesh    = mesh
-        self.mods    = modules
+        self.mod    = mod
         self.lbound  = lbound
         self.ubound  = ubound
 
     def optimize(self, x0, centroid=False, bounds=None, verbose=False):
         if bounds is None:
-            bounds = [(lbound, ubound) for _ in x0]
+            bounds = [(self.lbound, self.ubound)]
         rank = self.comm.rank
-        fnc = lambda x: cost_func(x, self.cells, self.ctype, self.mesh, centroid, self.mods, self.logger)
-        minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':2.0, 'maxiter':3, 'ftol':1.0e-2})
-        bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True, niter=3)
-
-        if verbose:
-            print(x0)
-            print(bh_output.x)
-            print(fnc(x0))
-            print(fnc(bh_output.x))
-        return bh_output.x, np.asarray(param_list, dtype='float32'), np.asarray(cost_evals, dtype='float32')
+        fnc = lambda x: cost_func(x, self.cells, self.ctype, self.mesh, centroid, self.mod, self.logger)
+        #minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':2.0, 'maxiter':5, 'maxls': 25})
+        bh_output = basinhopping(fnc, x0, minimizer_kwargs=None, stepsize=10.0,T=2.0,disp=True,niter=5)
+        bfgs_output = minimize(fnc, bh_output.x[0], method='L-BFGS-B', bounds=bounds, options={'disp':True, 'eps':2.0, 'maxiter':5, 'maxls':50})
+        
+        #if verbose:
+        #    print(x0)
+        #    print(bh_output.x)
+        #    print(fnc(x0))
+        #    print(fnc(bh_output.x))
+        return (x0, fnc(x0)), (bfgs_output.x[0], fnc(bfgs_output.x[0]))
+        #return bh_output.x, np.asarray(param_list, dtype='float32'), np.asarray(cost_evals, dtype='float32')
 
 class Cell_Population(object):
     def __init__(self, comm, types_path, jitter_orientation=True, jitter_spacing=True, seed=64):
@@ -576,55 +551,64 @@ def main_optimization(comm, logger, types_path, output_path, cells, lbound, ubou
     size = comm.size
     rank_to_module = None
     if rank == 0:
-        partition_border = np.linspace(lbound, ubound, nmodules+1)
-        init_parameters = np.zeros((nmodules,))
-        for i in range(partition_border.shape[0]-1):
-            mod_lb = partition_border[i]
-            mod_ub = partition_border[i+1]
-            init_parameters[i] = np.random.randint(mod_lb, mod_ub)
+        #partition_border = np.linspace(lbound, ubound, nmodules+1)
+        #init_parameters = np.zeros((nmodules,))
+        #for i in range(partition_border.shape[0]-1):
+        #    mod_lb = partition_border[i]
+        #    mod_ub = partition_border[i+1]
+        #    init_parameters[i] = np.random.randint(mod_lb, mod_ub)
+        init_parameters = np.random.randint(lbound,ubound,(nmodules,))
+        print(init_parameters)
         rank_to_module = [ [] for _ in np.arange(size)]
         #rank_to_module = {rank: [] for rank in np.arange(size)}
         for i in range(0, size):
             for j in range(i, nmodules, size):
                 rank_to_module[i].append((j,init_parameters[j]))
     processing_information = comm.scatter(rank_to_module, root=0)
-    processing_information = {mod:x for (x, mod) in processing_information}
+    mesh   = generate_mesh(scale_factor=1.0)
     bounds = [(lbound, ubound) for _ in processing_information]
-    x0   = processing_infomration.values()
 
-    centroid_xbounds, centroid_ybounds = None, None
     cost_evals, params_list = [], []
     mpp_grid_copy  = deepcopy(mpp_grid)
     mpp_place_copy = deepcopy(mpp_place)
     lpp_place_copy = deepcopy(lpp_place) 
 
-    mpp_grid_module  = gid_to_module_dictionary(mpp_grid)
-    mpp_place_module = gid_to_module_dictionary(mpp_place)
-    lpp_place_module = gid_to_module_dictionary(lpp_place) 
-    if centroid:
-        xp, yp = generate_mesh(scale_factor=1.0)
-        xp_lb, xp_ub = np.min(xp), np.max(xp) + resolution
-        yp_lb, yp_ub = np.min(yp), np.max(yp) + resolution
-        centroid_xbounds = [(xp_lb, xp_ub) for sf in scale_factor0]
-        centroid_ybounds = [(yp_lb, yp_ub) for sf in scale_factor0]
-    if centroid_xbounds is not None and centroid_ybounds is not None:
-        bounds += centroid_xbounds
-        bounds += centroid_ybounds
-    mesh = generate_mesh(scale_factor=1.0)
-    param0 = None
-    if centroid:
-        cell_modules = module_merge(grid_module, place_module)
-        module_x_centroids, module_y_centroids = calculate_module_centroids(cell_modules)
-        x_centroid0 = [x for x in module_x_centroids]
-        y_centroid0 = [y for y in module_y_centroids]
-        param0 = np.concatenate((scale_factor0,x_centroid0,y_centroid0))
+    mpp_grid_modules  = gid_to_module_dictionary(mpp_grid)
+    mpp_place_modules = gid_to_module_dictionary(mpp_place)
+    lpp_place_modules = gid_to_module_dictionary(lpp_place) 
 
-    opt_tic = time.time()
-    logger.info('Performing optimization for MPP grid cells...')
-    opt = OptimizationRoutine(comm, logger, mpp_grid_module, 'grid', mesh, processing_information, lbound, ubound)
-    opt_elapsed = time.time() - opt_tic
-    logger.info('Optimization took %f seconds' % opt_elapsed)
-    best_x, params, costs = opt.optimize(x0, centroid=centroid, bounds=bounds, verbose=verbose)
+    #centroid_xbounds, centroid_ybounds = None, None
+    #if centroid:
+    #    xp, yp = generate_mesh(scale_factor=1.0)
+    #    xp_lb, xp_ub = np.min(xp), np.max(xp) + resolution
+    #    yp_lb, yp_ub = np.min(yp), np.max(yp) + resolution
+    #    centroid_xbounds = [(xp_lb, xp_ub) for sf in scale_factor0]
+    #    centroid_ybounds = [(yp_lb, yp_ub) for sf in scale_factor0]
+    #if centroid_xbounds is not None and centroid_ybounds is not None:
+    #    bounds += centroid_xbounds
+    #    bounds += centroid_ybounds
+    #param0 = None
+    #if centroid:
+    #    cell_modules = module_merge(grid_module, place_module)
+    #    module_x_centroids, module_y_centroids = calculate_module_centroids(cell_modules)
+    #    x_centroid0 = [x for x in module_x_centroids]
+    #    y_centroid0 = [y for y in module_y_centroids]
+    #    param0 = np.concatenate((scale_factor0,x_centroid0,y_centroid0))
+
+    module_x_final = {}
+    for (mod, x0) in processing_information:
+        mpp_grid_module = mpp_grid_modules[mod]
+        cache           = (mpp_grid_module, 'grid', mesh, x0, mod, lbound, ubound)
+        (x_init, cost_x_init), (x_final, cost_x_final) = optimize(comm, logger, verbose, cache)
+        module_x_final[mod] = (x_init, cost_x_init, x_final, cost_x_final)
+        if verbose:
+            logger.info('Module %d final statistics: (x0, f(x0)):(%f, %f). (xf, f(xf)): (%f, %f)' % (mod, x_init, cost_x_init, x_final, cost_x_final))
+    module_x_final = comm.gather(module_x_final,root=0)
+    if rank == 0:
+        pprint(module_x_final)
+    sys.exit(1)
+
+
     list_to_file(params, 'iteration-'+str(rank+1)+'-param.txt')        
     list_to_file(costs, 'iteration-'+str(rank+1)+'-costs.txt')        
     if centroid:
@@ -644,6 +628,19 @@ def main_optimization(comm, logger, types_path, output_path, cells, lbound, ubou
     #place_iteration_fn = os.path.join(os.path.dirname(output_path), ('place-iteration-%i-%s' % (rank+1, os.path.basename(output_path))))
     save_h5(comm, grid_iteration_fn, grid_post_optimization, 'MPP', 'Grid Input Features', template=types_path)
     #save_h5(comm, place_iteration_fn, place_post_optimization, 'MPP', 'Place Input Features', template=types_path)
+
+def optimize(comm, logger, verbose, cache, centroid=False):
+    cells, ctype, mesh, x0, mod, lbound, ubound = cache
+    tic = time.time()
+    if ctype == 'grid':
+        logger.info('Performing optimization for grid cells module %d' % mod)
+    elif ctype == 'place':
+        logger.info('Performing optimization for place cells module %d' % mod)
+    opt = OptimizationRoutine(comm, logger, cells, ctype, mesh, mod, lbound, ubound)
+    optimize_results = opt.optimize(x0, centroid=centroid, bounds=None, verbose=verbose)
+    elapsed = time.time() - tic
+    logger.info('Optimization over module %d took %f seconds' % (mod, elapsed))
+    return optimize_results
 
 def main_hardcoded(comm, logger, output_path, cells, scale_factors):
     rank = comm.Get_rank()
