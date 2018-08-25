@@ -30,10 +30,10 @@ feature_grid = 0
 feature_place_field = 1
 
 N_MPP = 38000
-N_MPP_GRID = int(N_MPP * 0.7)
+N_MPP_GRID = int(N_MPP * 0.3)
 N_MPP_PLACE = N_MPP - N_MPP_GRID
 
-N_LPP = 1300 #int(N_MPP * 1.10)
+N_LPP = 34000
 N_LPP_PLACE = N_LPP 
 N_LPP_GRID = 0
 
@@ -140,7 +140,7 @@ def list_to_file(fn, r):
     f.write('\n')
     f.close()    
 
-def peak_to_trough(module_cells, modules=modules):
+def peak_to_trough(module_cells,mods=[]):
     minmax_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)],dtype='float32')
     mean_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
     var_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
@@ -161,40 +161,35 @@ def peak_to_trough(module_cells, modules=modules):
 
     return minmax_evaluations - 1., mean_evaluations - 1., var_evaluations - 1.
 
-def fraction_active(module_cells, modules=modules, target=0.30):
-    rates = {mod:[] for mod in modules}
-    for mod in module_cells.keys():
+def fraction_active(module_cells, mods=[], target=0.15):
+    rates = {mod:[] for mod in mods}
+    for mod in mods:
         cells = module_cells[mod]
         for cell in cells:
             nx, ny = cell['Nx'][0], cell['Ny'][0]
             rate_map = cell['Rate Map'].reshape(nx, ny)
             rates[mod].append(rate_map)
+        rates[mod] = np.asarray(rates[mod])
     nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
     coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
-    frac_active_dict = {(i,j): {k:None for k in modules} for (i,j) in coords}
-    diagonal_positions = [ (i,j) for (i,j) in frac_active_dict.keys()]
-    for (px, py) in diagonal_positions:
-        for key in rates.keys():
-            module_maps = np.asarray(rates[key])
-            position_rates = module_maps[:,px,py]
-            frac_active = calculate_fraction_active(position_rates)
-            frac_active_dict[(px,py)][key] = frac_active
-    target_fraction_active = {(i,j): {k: target for k in modules} for (i,j) in frac_active_dict.keys()}
+    frac_active_dict = {(i,j): {k: [] for k in mods} for (i,j) in coords}
+    factive = lambda px, py, rate: calculate_fraction_active(rates[rate][:,px,py])
+    frac_active_dict = {(px,py): {rate: factive(px, py, rate) for rate in rates.keys()} for (px,py) in frac_active_dict.keys()} 
+    target_fraction_active = {(i,j): {k: target for k in mods} for (i,j) in frac_active_dict.keys()}
     diff_fraction_active = {(i,j): {k: np.abs(target_fraction_active[(i,j)][k]-frac_active_dict[(i,j)][k]) for k in modules} for (i,j) in frac_active_dict.keys()}
     
-    module_error = [ [] for _ in range(len(modules))]
+    module_error = {mod: [] for mod in mods}
     for (i,j) in diff_fraction_active.keys():
         pos_errors = diff_fraction_active[(i,j)]
-        for module in pos_errors.keys():
-            mod_e = pos_errors[module]
-            module_error[module].append(mod_e)
-    module_error = np.asarray(module_error, dtype='float32')
-    module_mean = np.array([ 0.0 for _ in range(len(modules))])
-    module_var = np.array([ 0.0 for _ in range(len(modules))])
-
-    for i in range(len(module_error)):
-        module_mean[i] = np.mean(module_error[i])
-        module_var[i] = np.var(module_error[i])
+        for mod in pos_errors.keys():
+            mod_e = pos_errors[mod]
+            module_error[mod].append(mod_e)
+    module_mean = {mod: 0.0 for mod in mods}
+    module_var  = {mod: 0.0 for mod in mods}
+    for mod in module_error.keys():
+        curr_errors = np.asarray(module_error[mod])
+        module_mean[mod] = np.mean(curr_errors)
+        module_var[mod] = np.var(curr_errors)
     return module_mean, module_var
 
 
@@ -205,10 +200,10 @@ def calculate_fraction_active(rates, threshold=0.1):
     fraction_active = np.divide(float(num_active), len(normalized_rates))
     return fraction_active               
             
-def cost_prepare_grid(x, cell_modules, mesh):
+def cost_prepare_grid(x, cell_modules, mesh, mods):
     sf = x
     xp, yp = mesh
-    for mod in cell_modules.keys():
+    for mod in mods:
         cells = cell_modules[mod]
         for (c,cell) in enumerate(cells):
             orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
@@ -222,10 +217,9 @@ def cost_prepare_grid(x, cell_modules, mesh):
             cell['Nx'] = np.array([nx], dtype='int32')
             cell['Ny'] = np.array([ny], dtype='int32')
 
-def cost_prepare_place(x, cell_modules, mesh):
-    sf = x
+def cost_prepare_place(x, cell_modules, mesh, mods):
     xp, yp = mesh
-    for mod in cell_modules.keys():
+    for mod in mods:
         cells = cell_modules[mod]
         for (c, cell) in enumerate(cells):
             nfields = cell['Num Fields'][0]
@@ -261,7 +255,7 @@ def translate_cells(cell_modules, x_translate, y_translate, scale_factors):
             cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
             cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
 
-def cost_func(x, grid, place, mesh, centroid, rank):
+def cost_func(x, cells, ctype, mesh, centroid, mods, logger):
     param_list.append(x)
     if centroid:
         cell_modules = module_merge(grid, place)
@@ -273,48 +267,59 @@ def cost_func(x, grid, place, mesh, centroid, rank):
             translate_cells(grid, x_translate, y_translate, x[0:nmodules])
             translate_cells(place, x_translate, y_translate, x[0:nmodules])
 
-    cost_prepare_grid(x[0:nmodules], grid, mesh)
-    cost_prepare_place(x[0:nmodules], place, mesh)
-    cell_modules = module_merge(grid, place)
-    if rank == 0:
-        tic = time.time()
-    minmax_ratio_evaluations, mean_ratio_evaluations, var_ratio_evaluations = peak_to_trough(cell_modules, modules=modules)
-    minmax_ratio_sum = np.sum(minmax_ratio_evaluations)
-    mean_ratio_sum = np.sum(mean_ratio_evaluations)
-    var_ratio_sum = np.sum(var_ratio_evaluations)
-    cost_peak_trough = (minmax_ratio_sum ** 2 + mean_ratio_sum ** 2 + var_ratio_sum ** 2)
+    if ctype == 'grid':
+        cost_prepare_grid(x,cells,mesh,mods)
+    elif ctype == 'place':
+        cost_prepare_place(x,cells,mesh,mods)
+    #cell_modules = module_merge(grid, place)
+    #tic = time.time()
+    #minmax_ratio_evaluations, mean_ratio_evaluations, var_ratio_evaluations = peak_to_trough(cells, mods=mods)
+    #elapsed = time.time() - tic
+    #logger.info('Peak-trough calculations took %f seconds' % elapsed)
+    #minmax_ratio_sum = np.sum(minmax_ratio_evaluations)
+    #mean_ratio_sum = np.sum(mean_ratio_evaluations)
+    #var_ratio_sum = np.sum(var_ratio_evaluations)
+    #cost_peak_trough = (minmax_ratio_sum ** 2 + mean_ratio_sum ** 2 + var_ratio_sum ** 2)
  
-    fraction_active_mean_evaluation, fraction_active_var_evaluation = fraction_active(cell_modules, modules=modules)
-    frac_active_mean_cost = np.sum(fraction_active_mean_evaluation)
-    frac_active_var_cost = np.sum(fraction_active_var_evaluation)
-    cost_frac_active = frac_active_mean_cost ** 2 + frac_active_var_cost ** 2
+    tic = time.time()
+    fraction_active_mean_evaluation, fraction_active_var_evaluation = fraction_active(cells, mods=mods)
+    elapsed = time.time() - tic
+    logger.info('Fraction active calculations took %f seconds' % elapsed)
+    print(fraction_active_mean_evaluation)
+    sys.exit(1)
+    #frac_active_mean_cost = np.sum(fraction_active_mean_evaluation)
+    #frac_active_var_cost = np.sum(fraction_active_var_evaluation)
+    #cost_frac_active = frac_active_mean_cost ** 2 + frac_active_var_cost ** 2
 
-    total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
+    #total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
     cost_evals.append(total_cost)
     if rank == 0:
         elapsed = time.time() - tic
     else:
         elapsed = 0.0
     print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
-    print('Fraction active contribution: %f' % cost_frac_active)
+    print('Fraction active contribution: (%f,%f)' % (frac_active_mean_cost ** 2, frac_active_var_cost ** 2))
     print('Peak-trough contribution: (%f,%f,%f)' % (minmax_ratio_sum ** 2, mean_ratio_sum ** 2, var_ratio_sum ** 2))
     print(x)
     print('---------------------')
     return total_cost
 
 class OptimizationRoutine(object):
-    def __init__(self, comm, grid, place, mesh, lbound, ubound):
-        self.comm = comm
-        self.grid = grid
-        self.place = place
-        self.mesh = mesh
-        self.lbound = lbound
-        self.ubound = ubound
+    def __init__(self, comm, logger, cells, ctype, mesh, mods, lbound, ubound):
+        self.comm    = comm
+        self.logger  = logger
+        self.cells   = cells
+        self.ctype   = ctype
+        self.mesh    = mesh
+        self.mods    = modules
+        self.lbound  = lbound
+        self.ubound  = ubound
 
     def optimize(self, x0, centroid=False, bounds=None, verbose=False):
         if bounds is None:
             bounds = [(lbound, ubound) for _ in x0]
-        fnc = lambda x: cost_func(x, self.grid, self.place, self.mesh, centroid, self.comm.Get_rank())
+        rank = self.comm.rank
+        fnc = lambda x: cost_func(x, self.cells, self.ctype, self.mesh, centroid, self.mods, self.logger)
         minimizer_kwargs = dict(method='L-BFGS-B', bounds=bounds, options={'disp':True,'eps':2.0, 'maxiter':3, 'ftol':1.0e-2})
         bh_output = basinhopping(fnc, x0, minimizer_kwargs=minimizer_kwargs, stepsize=10.0, T=2.0,disp=True, niter=3)
 
@@ -491,6 +496,7 @@ def save_h5(comm, fn, data, population, namespace, template='dentate_h5types.h5'
 def read_input_path(comm, feature_seed_offset, types_path, input_path, verbose): 
     rank = comm.Get_rank()
     mpp_grid, mpp_place = {}, {}
+    lpp_grid, lpp_place = {}, {}
     tic = time.time()
     if input_path is not None:
         neuroh5_mpp_grid = read_cell_attributes('grid-'+input_path, 'MPP', namespace='Grid Input Features')
@@ -502,15 +508,15 @@ def read_input_path(comm, feature_seed_offset, types_path, input_path, verbose):
     else:
         cell_corpus = Cell_Population(comm, types_path, seed=feature_seed_offset)
         cell_corpus.full_init()
-        mpp_grid = cell_corpus.mpp_grid
+        mpp_grid  = cell_corpus.mpp_grid
         mpp_place = cell_corpus.mpp_place
-        
-
+        lpp_grid  = cell_corpus.lpp_grid
+        lpp_place = cell_corpus.lpp_place
     if verbose:
         elapsed = time.time() - tic
-        N = len(mpp_place.keys()) + len(mpp_grid.keys())
+        N = len(mpp_place.keys()) + len(mpp_grid.keys()) + len(lpp_place.keys()) + len(lpp_grid.keys())
         print('%d cells initialized on rank %d in %f seconds' % (N,rank,elapsed))
-    return mpp_grid, mpp_place
+    return mpp_grid, mpp_place, lpp_grid, lpp_place
 
 @click.command()
 @click.option("--optimize", '-o', is_flag=True, required=True)
@@ -534,18 +540,20 @@ def main(optimize, centroid, input_path, types_path, config, output_path, lbound
     env = Env(comm=comm, configFile=config)
     feature_seed_offset = int(env.modelConfig['Random Seeds']['Input Features'])
 
-    mpp_grid, mpp_place = read_input_path(comm, feature_seed_offset, types_path, input_path, verbose)
+    mpp_grid, mpp_place, lpp_grid, lpp_place = read_input_path(comm, feature_seed_offset, types_path, input_path, verbose)
     comm.barrier()
 
     logger.info('Saving temp...') 
     grid_temp_fn = os.path.join(os.path.dirname(output_path), ('grid-temp-%s' % (os.path.basename(output_path))))
     place_temp_fn = os.path.join(os.path.dirname(output_path), ('place-temp-%s' % (os.path.basename(output_path))))
     save_h5(comm, grid_temp_fn, mpp_grid, 'MPP', 'Grid Input Features', template=types_path)
+    save_h5(comm, grid_temp_fn, lpp_grid, 'LPP', 'Grid Input Features', template=types_path)
     save_h5(comm, place_temp_fn, mpp_place, 'MPP', 'Place Input Features', template=types_path)
+    save_h5(comm, place_temp_fn, lpp_place, 'LPP', 'Place Input Features', template=types_path)
 
-    cells = (mpp_grid, mpp_place)
+    cells = (mpp_grid, mpp_place, lpp_grid, lpp_place)
     if optimize:
-        main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, verbose )
+        main_optimization(comm, logger, types_path, output_path, cells, lbound, ubound, centroid, verbose)
         elapsed = time.time() - tic
         if verbose:
             print('Took %f seconds' % elapsed)
@@ -555,36 +563,44 @@ def main(optimize, centroid, input_path, types_path, config, output_path, lbound
         for line in f.readlines():
             line = line.strip('\n')
             scale_factors.append(int(line))
-        main_hardcoded(comm, output_path, cells, scale_factors)
+        main_hardcoded(comm, logger, output_path, cells, scale_factors)
         elapsed = time.time() - tic
         if verbose:
             print('Completed in %f seconds...' % elapsed)
 
-def main_optimization(comm, types_path, output_path, cells, lbound, ubound, centroid, verbose):
-    grid, place = cells
+def main_optimization(comm, logger, types_path, output_path, cells, lbound, ubound, centroid, verbose):
+    mpp_grid, mpp_place, lpp_grid, lpp_place = cells
+    assert(lpp_grid == {})
     init_parameters = None
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    if (rank == 0):
+    rank = comm.rank
+    size = comm.size
+    rank_to_module = None
+    if rank == 0:
         partition_border = np.linspace(lbound, ubound, nmodules+1)
-        init_parameters = np.zeros((size, nmodules))
+        init_parameters = np.zeros((nmodules,))
         for i in range(partition_border.shape[0]-1):
             mod_lb = partition_border[i]
             mod_ub = partition_border[i+1]
-            init_parameters[:,i] = np.random.randint(mod_lb, mod_ub, size)
-    init_parameters = comm.scatter(init_parameters, root=0)
-    #init_scale_factors = np.random.randint(lbound, ubound+1, (iterations, nmodules))
+            init_parameters[i] = np.random.randint(mod_lb, mod_ub)
+        rank_to_module = [ [] for _ in np.arange(size)]
+        #rank_to_module = {rank: [] for rank in np.arange(size)}
+        for i in range(0, size):
+            for j in range(i, nmodules, size):
+                rank_to_module[i].append((j,init_parameters[j]))
+    processing_information = comm.scatter(rank_to_module, root=0)
+    processing_information = {mod:x for (x, mod) in processing_information}
+    bounds = [(lbound, ubound) for _ in processing_information]
+    x0   = processing_infomration.values()
 
     centroid_xbounds, centroid_ybounds = None, None
     cost_evals, params_list = [], []
-    grid_copy = deepcopy(grid)
-    place_copy = deepcopy(place)
-    #scale_factor0 = init_parameters[t,:]
-    scale_factor0 = init_parameters
+    mpp_grid_copy  = deepcopy(mpp_grid)
+    mpp_place_copy = deepcopy(mpp_place)
+    lpp_place_copy = deepcopy(lpp_place) 
 
-    grid_module = gid_to_module_dictionary(grid)
-    place_module = gid_to_module_dictionary(place)
-    bounds = [(lbound, ubound) for sf in scale_factor0]
+    mpp_grid_module  = gid_to_module_dictionary(mpp_grid)
+    mpp_place_module = gid_to_module_dictionary(mpp_place)
+    lpp_place_module = gid_to_module_dictionary(lpp_place) 
     if centroid:
         xp, yp = generate_mesh(scale_factor=1.0)
         xp_lb, xp_ub = np.min(xp), np.max(xp) + resolution
@@ -602,12 +618,13 @@ def main_optimization(comm, types_path, output_path, cells, lbound, ubound, cent
         x_centroid0 = [x for x in module_x_centroids]
         y_centroid0 = [y for y in module_y_centroids]
         param0 = np.concatenate((scale_factor0,x_centroid0,y_centroid0))
-    else:
-        param0 = scale_factor0
-    if verbose:
-        print(rank, param0)
-    opt = OptimizationRoutine(comm, grid_module, place_module, mesh, lbound, ubound)
-    best_x, params, costs = opt.optimize(param0, centroid=centroid, bounds=bounds, verbose=verbose)
+
+    opt_tic = time.time()
+    logger.info('Performing optimization for MPP grid cells...')
+    opt = OptimizationRoutine(comm, logger, mpp_grid_module, 'grid', mesh, processing_information, lbound, ubound)
+    opt_elapsed = time.time() - opt_tic
+    logger.info('Optimization took %f seconds' % opt_elapsed)
+    best_x, params, costs = opt.optimize(x0, centroid=centroid, bounds=bounds, verbose=verbose)
     list_to_file(params, 'iteration-'+str(rank+1)+'-param.txt')        
     list_to_file(costs, 'iteration-'+str(rank+1)+'-costs.txt')        
     if centroid:
@@ -624,21 +641,25 @@ def main_optimization(comm, types_path, output_path, cells, lbound, ubound, cent
     place_post_optimization = module_to_gid_dictionary(place_module)
 
     grid_iteration_fn = os.path.join(os.path.dirname(output_path), ('grid-iteration-%i-%s' % (rank+1, os.path.basename(output_path))))
-    place_iteration_fn = os.path.join(os.path.dirname(output_path), ('place-iteration-%i-%s' % (rank+1, os.path.basename(output_path))))
+    #place_iteration_fn = os.path.join(os.path.dirname(output_path), ('place-iteration-%i-%s' % (rank+1, os.path.basename(output_path))))
     save_h5(comm, grid_iteration_fn, grid_post_optimization, 'MPP', 'Grid Input Features', template=types_path)
-    save_h5(comm, place_iteration_fn, place_post_optimization, 'MPP', 'Place Input Features', template=types_path)
+    #save_h5(comm, place_iteration_fn, place_post_optimization, 'MPP', 'Place Input Features', template=types_path)
 
-def main_hardcoded(comm, output_path, cells, scale_factors):
+def main_hardcoded(comm, logger, output_path, cells, scale_factors):
     rank = comm.Get_rank()
-    grid, place = cells
-    grid_module = gid_to_module_dictionary(grid)
-    place_module = gid_to_module_dictionary(place)
+    mpp_grid, mpp_place, lpp_grid, lpp_place = cells
+    mpp_grid_module  = gid_to_module_dictionary(mpp_grid)
+    mpp_place_module = gid_to_module_dictionary(mpp_place)
+    lpp_place_module = gid_to_module_dictionary(lpp_place)
     #scale_cells_in_module(grid_module, scale_factors)
     #scale_cells_in_module(place_module, scale_factors)
     xp, yp = generate_mesh(scale_factor=1.0) 
-    cost = cost_func(scale_factors, grid_module, place_module, (xp, yp), False, rank)
-    grid_post_optimization = module_to_gid_dictionary(grid_module)
-    place_post_optimization = module_to_gid_dictionary(place_module)
+    logger.info('Cost function evaluation for grid cells...')
+    cost = cost_func(scale_factors, mpp_grid_module, 'grid', (xp, yp), False, rank, logger)
+    logger.info('Cost function evaluation for place cells...')
+    cost = cost_func(scale_factors, mpp_place_module, 'place', (xp, yp), False, rank, logger)
+    grid_post_optimization  = module_to_gid_dictionary(mpp_grid_module)
+    place_post_optimization = module_to_gid_dictionary(mpp_place_module)
 
     grid_fn = os.path.join(os.path.dirname(output_path), ('grid-%s' % (os.path.basename(output_path))))
     place_fn = os.path.join(os.path.dirname(output_path), ('place-%s' % (os.path.basename(output_path))))
