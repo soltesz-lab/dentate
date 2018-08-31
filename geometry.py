@@ -310,7 +310,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
         u_obs = []
         v_obs = []
         gids    = []
-        for gid, coords in coords_dict.iteritems():
+        for gid, coords in coords_dict.items():
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
                 try:
@@ -350,7 +350,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
             dist_dicts = comm.allgather(local_dist_dict)
             combined_dist_dict = {}
             for dist_dict in dist_dicts:
-                for k, v in dist_dict.iteritems():
+                for k, v in dist_dict.items():
                     combined_dist_dict[k] = v
             soma_distances[pop] = combined_dist_dict
         else:
@@ -372,12 +372,12 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
     min_l = float('inf')
     max_l = 0.0
     
-    for layer, min_extent in env.geometry['Parametric Surface']['Minimum Extent'].iteritems():
+    for layer, min_extent in env.geometry['Parametric Surface']['Minimum Extent'].items():
         min_u = min(min_extent[0], min_u)
         min_v = min(min_extent[1], min_v)
         min_l = min(min_extent[2], min_l)
         
-    for layer, max_extent in env.geometry['Parametric Surface']['Maximum Extent'].iteritems():
+    for layer, max_extent in env.geometry['Parametric Surface']['Maximum Extent'].items():
         max_u = max(max_extent[0], max_u)
         max_v = max(max_extent[1], max_v)
         max_l = max(max_extent[2], max_l)
@@ -479,7 +479,7 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
         limits = population_extents[pop]
         xyz_coords = []
         gids = []
-        for gid, coords in coords_dict.iteritems():
+        for gid, coords in coords_dict.items():
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
                 xyz_coords.append(DG_volume(soma_u, soma_v, soma_l, rotate=rotate))
@@ -501,7 +501,7 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
             interp_err = np.zeros((len(gids),))
             converged, transf, estimate, fitness = icp.icp(cloud_in, cloud_prj, max_iter=icp_iter)
             logger.info('Transformation of population %s has converged: ' % (pop) + str(converged) + ' score: %f' % (fitness) )
-            for i, gid in itertools.izip(xrange(0, estimate.size), gids):
+            for i, gid in zip(xrange(0, estimate.size), gids):
                 k_xyz_coords = estimate[i]
                 k_est_xyz_coords[i,:] = est_xyz_coords
                 f_uvl_distance = make_uvl_distance(est_xyz_coords,rotate=rotate)

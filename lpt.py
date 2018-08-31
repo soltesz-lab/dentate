@@ -1,4 +1,8 @@
+from dentate import utils
 import heapq
+
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = utils.get_module_logger(__name__)
 
 ## Code by Michael Hines from the discussion thread
 ## https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
@@ -40,11 +44,11 @@ def statistics(parts):
   loadbal = 1.0
   if max_part_cx > 0.:
     loadbal = avg_part_cx/max_part_cx
-  print "*** loadbal=%g total_cx=%g npart=%d ncx=%d max_part_cx=%g max_cx=%g"%(loadbal,total_cx,npart,ncx,max_part_cx, max_cx)
+  logger.info("*** loadbal=%g total_cx=%g npart=%d ncx=%d max_part_cx=%g max_cx=%g"%(loadbal,total_cx,npart,ncx,max_part_cx, max_cx))
 
 if __name__ == '__main__':
   for cx in ([(i, i) for i in range(10)],[]):
-    print len(cx), ' complexity items ', cx
+    logger.info('%i complexity items %s' % (len(cx), cx))
     pinfo = lpt(cx, 3)
-    print len(pinfo), ' lpt partitions ', pinfo
-    print statistics(pinfo)
+    logger.info('%i lpt partitions %s' % (len(pinfo), str(pinfo)))
+    statistics(pinfo)

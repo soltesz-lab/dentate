@@ -68,7 +68,7 @@ proc init() { // arguments are id, gid
     }
     subsets()
     geom_nseg()
-    biophys()
+    // biophys()
     
     syns = new List()
     syntypes = new List()
@@ -145,16 +145,17 @@ func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
     
     /*
     printf("lambda_f: n3d() = %d\n", n3d())
-    if (n3d() <= 4) {
+    if (n3d() <= 3) {
         for i=0, n3d()-1 {
             x = x3d(i)
-            y = y3d(i)
-            z = z3d(i)
+            y = x3d(i)
+            z = x3d(i)
             d = diam3d(i)
-            printf("lambda_f: i = %d x = %g y = %g z = %g d = %g\n", i, x, y, z, d)
+            printf("lambda_f: i = %d x = %g y = %g z = %g\n", i, x3d(i), y3d(i), z3d(i))
         }
     }
     */
+    
     if (n3d() < 2) {
         return 1e5*sqrt(diam/(4*PI*$1*Ra*cm))
     }
@@ -173,13 +174,8 @@ func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
     return L/lam
 }
 
-proc geom_nseg() { local freq, d_lambda
-    
-    freq = 200 // Hz, frequency at which AC length constant will be computed
-    d_lambda = 0.1
-    
-    forsec all { nseg = int((L/(d_lambda*lambda_f(freq))+0.9)/2)*2 + 1 }
-
+proc geom_nseg() {
+  	forsec all { nseg = int((L/(0.1*lambda_f(200))+.9)/2)*2 + 1  }
 }
 
 proc topol() {
@@ -201,105 +197,6 @@ proc topol() {
     }
 }    
 
-
-proc biophys() { local ndends, ndendsec
-    
-    forsec all {
-        Ra=100
-        cm=1.0
-    }
-    
-    soma { distance() }
-    
-    forsec all {
-	insert ccanl
-	catau_ccanl = 2
-	caiinf_ccanl = 5.e-6
-	insert borgka
-	gkabar_borgka=0.0001
-	insert nca  // HAV-N- Ca channel
-	gncabar_nca=0.0008  // check to modify- original 0.004
-	insert lca 
-	glcabar_lca=0.0006
-	insert gskch
-	gskbar_gskch=0.016
-	insert cagk
-	gkbar_cagk=0.0165
-	insert hyperde3
-	ghyfbar_hyperde3=0.0001
-	ghysbar_hyperde3=0.0001
-    }
-    
-    forsec soma {
-        insert ichan2  //ildikos ichan
-	gnatbar_ichan2=0.32  //original 0.030 to .055 
-	gkfbar_ichan2=0.025  //original 0.015
-	gl_ichan2 = 0.00001
-    }
-    
-    forsec apical {
-        for (x,0) {
-            insert ichan2
-            if (distance(x) <= 200) {
-	        gnatbar_ichan2=0.16  //original 0.015
-	        gkfbar_ichan2=0.008
-	        gl_ichan2 = 0.00002
-	        gkbar_gskch=0.008
-	        gkbar_cagk=0.008
-            } else {
-	        gnatbar_ichan2=0.0
-	        gkfbar_ichan2=0.00
-	        gl_ichan2 = 0.00005
-	        gkbar_gskch=0.00
-	        gkbar_cagk=0.00
-	        ghyfbar_hyperde3=0.0
-	        ghysbar_hyperde3=0.0
-	        gkabar_borgka=0.0
-	        glcabar_lca=0.0
-	        gncabar_nca=0.0
-            }
-        }
-    }
-    
-    forsec soma {
-        enat = 55
-        ekf  = -90
-        ek   = -90
-        esk  = -90
-        elca = 130
-	ehyf = -40
-        ehys = -40
-	el_ichan2 =-59
-        cao_ccanl=2 
-    }
-    forsec apical {
-        enat = 55
-        ekf  = -90
-        ek   = -90
-        esk  = -90
-        elca = 130
-	ehyf = -40
-        ehys = -40
-	el_ichan2 =-59
-        cao_ccanl=2 
-    }
-    
-    //objref fl
-    // a noise source that emulates fluctuating synaptic conductances
-    // the conductances are sampled from a Gaussian distribution
-    // where negative values were replaced with 0
-    //soma fl = new Gfluct3(0.5)
-    //fl.h = 0.1
-    //fl.on = 1
-
-    //rs = new RandomStream(gid, 0, 3)
-    // set the stream to generate a gaussian distribution with mean 0 and variance 1
-    //rs.r.normal(0, 1)
-    // use the random Gaussian distribution stream in the Gfluct2 mechanism
-    //fl.noiseFromRandom(rs.r)
-    //fl.noiseFromRandom123(gid, 0, 3)
-    
-}
 
 proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
     

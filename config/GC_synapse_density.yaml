@@ -28,5 +28,5 @@ soma:
 ais:
   inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
     default: # layer
-      mean: 0.6
-      variance: 0.05
+      mean: 1.0
+      variance: 0.01

@@ -38,7 +38,7 @@ basal:
 soma:
   inhibitory:
     default:
-      mean: 0.18
+      mean: 0.2
       variance: 0.1
   excitatory:
     default:

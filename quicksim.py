@@ -1,7 +1,8 @@
 """
 Tools for pulling individual neurons out of the dentate network simulation environment for single-cell tuning.
 """
-__author__ = 'Grace Ng, Aaron D. Milstein, Ivan Raikov'
+__author__ = 'See AUTHORS.md'
+
 import click
 from nested.utils import *
 from dentate.neuron_utils import *
@@ -260,7 +261,7 @@ class QuickSim(object):
         if len(self.recs) == 0:
             return
         fig, axes = plt.subplots()
-        for name, rec_dict in self.recs.iteritems():
+        for name, rec_dict in self.recs.items():
             description = str(rec_dict['description'])
             axes.plot(self.tvec, rec_dict['vec'],
                       label='%s: %s(%.2f) %s' % (name, rec_dict['node'].name, rec_dict['loc'], description))
@@ -306,7 +307,7 @@ class QuickSim(object):
                 target[str(simiter)].attrs[parameter] = self.parameters[parameter]
             if len(self.stims) > 0:
                 target[str(simiter)].create_group('stims')
-                for name, stim_dict in self.stims.iteritems():
+                for name, stim_dict in self.stims.items():
                     stim = target[str(simiter)]['stims'].create_dataset(name, compression='gzip', data=stim_dict['vec'])
                     cell = stim_dict['cell']
                     stim.attrs['cell'] = cell.gid
@@ -324,7 +325,7 @@ class QuickSim(object):
                     stim.attrs['dur'] = stim_dict['stim'].dur
                     stim.attrs['description'] = stim_dict['description']
             target[str(simiter)].create_group('recs')
-            for name, rec_dict in self.recs.iteritems():
+            for name, rec_dict in self.recs.items():
                 rec = target[str(simiter)]['recs'].create_dataset(name, compression='gzip', data=rec_dict['vec'])
                 cell = rec_dict['cell']
                 rec.attrs['cell'] = cell.gid
@@ -372,93 +373,6 @@ class QuickSim(object):
     cvode = property(get_cvode, set_cvode)
 
 
-def make_hoc_cell(env, gid, population):
-    """
-
-    :param env:
-    :param gid:
-    :param population:
-    :return:
-    """
-    popName = population
-    datasetPath = env.datasetPath
-    dataFilePath = env.dataFilePath
-    env.load_cell_template(popName)
-    templateClass = getattr(h, env.celltypes[popName]['template'])
-
-    if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
-        tree = select_tree_attributes(gid, env.comm, dataFilePath, popName)
-        i = h.numCells
-        hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
-                                             dataset_path=datasetPath)
-        h.numCells = h.numCells + 1
-    else:
-        raise Exception('make_hoc_cell: data file: %s does not contain morphology for population: %s, gid: %i' %
-                        dataFilePath, popName, gid)
-    return hoc_cell
-
-
-def configure_env(env):
-    """
-
-    :param env: :class:'Env'
-    """
-    h.load_file("nrngui.hoc")
-    h.load_file("loadbal.hoc")
-    h('objref fi_status, fi_checksimtime, pc, nclist, nc, nil')
-    h('strdef datasetPath')
-    h('numCells = 0')
-    h('totalNumCells = 0')
-    h.nclist = h.List()
-    h.datasetPath = env.datasetPath
-    h.pc = h.ParallelContext()
-    env.pc = h.pc
-    ## polymorphic value template
-    h.load_file(env.hoclibPath + '/templates/Value.hoc')
-    ## randomstream template
-    h.load_file(env.hoclibPath + '/templates/ranstream.hoc')
-    ## stimulus cell template
-    h.load_file(env.hoclibPath + '/templates/StimCell.hoc')
-    h.xopen(env.hoclibPath + '/lib.hoc')
-
-    h('objref templatePaths, templatePathValue')
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePathValue = h.Value(1, path)
-        h.templatePaths.append(h.templatePathValue)
-
-
-def get_biophys_cell(env, gid, pop_name):
-    """
-    TODO: Use Connections: distance attribute to compute and load netcon delays
-    TODO: Consult env for weights namespaces, load_syn_weights
-    :param env:
-    :param gid:
-    :param pop_name:
-    :return:
-    """
-    hoc_cell = make_hoc_cell(env, gid, pop_name)
-    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
-    syn_attrs = env.synapse_attributes
-    if pop_name not in syn_attrs.select_cell_attr_index_map:
-        syn_attrs.select_cell_attr_index_map[pop_name] = \
-            get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
-    syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
-                                                            syn_attrs.select_cell_attr_index_map[pop_name], pop_name,
-                                                            'Synapse Attributes'))
-
-    for source_name in env.projection_dict[pop_name]:
-        if source_name not in syn_attrs.select_edge_attr_index_map[pop_name]:
-            syn_attrs.select_edge_attr_index_map[pop_name][source_name] = \
-                get_edge_attributes_index_map(env.comm, env.connectivityFilePath, source_name, pop_name)
-        source_indexes, edge_attr_dict = \
-            select_edge_attributes(gid, env.comm, env.connectivityFilePath,
-                                   syn_attrs.select_edge_attr_index_map[pop_name][source_name], source_name, pop_name,
-                                   ['Synapses'])
-        syn_attrs.load_edge_attrs(gid, source_name, edge_attr_dict['Synapses']['syn_id'], env)
-    env.biophys_cells[pop_name][gid] = cell
-    return cell
-
 
 @click.command()
 @click.option("--gid", required=True, type=int, default=0)
@@ -473,9 +387,10 @@ def get_biophys_cell(env, gid, pop_name):
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate/config')
 @click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
+@click.option("--correct-for-spines", type=bool, default=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
-         verbose):
+         correct_for_spines, verbose):
     """
 
     :param gid: int
@@ -486,21 +401,24 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files
     :param mech_file: str; cell mechanism config file name
+    :param correct_for_spines: bool
     :param verbose: bool
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
-    configure_env(env)
+    configure_hoc_env(env)
 
     cell = get_biophys_cell(env, gid, pop_name)
     mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())
-
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, correct_cm=True,
-                    correct_g_pas=True, env=env)
+    
+    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
+                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
     config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+    if verbose:
+        report_topology(cell, env)
 
 
 if __name__ == '__main__':

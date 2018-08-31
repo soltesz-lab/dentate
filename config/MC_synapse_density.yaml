@@ -16,5 +16,5 @@ soma:
 ais:
   inhibitory:
     default:
-      mean: 1.0
-      variance: 0.1
+      mean: 0.6
+      variance: 0.01
