@@ -1398,16 +1398,13 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
 
     if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
         if neurotree_dict:
-            i = h.numCells
-            hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
-                                               dataset_path=datasetPath)
+            hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, dataset_path=datasetPath)
         else:
-            raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provded' %
+            raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             dataFilePath, popName, gid)
     else:
         hoc_cell = template_class(local_id, gid, datasetPath)
         
-    h.numCells = h.numCells + 1
     return hoc_cell
 
 

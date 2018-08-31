@@ -694,7 +694,6 @@ def make_cells(env):
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
-            h.numCells = 0
             for i, (gid, tree) in enumerate(trees):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
@@ -726,7 +725,6 @@ def make_cells(env):
 
             coords = cell_attributes_dict['Coordinates']
 
-            h.numCells = 0
             for i, (gid, cell_coords_dict) in enumerate(coords):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
@@ -782,7 +780,6 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
-            h.numCells = 0
             i = 0
             for (gid, tree) in trees:
                 if rank == 0:
@@ -809,7 +806,6 @@ def make_cell_selection(env):
                     v_vec.record(soma(0.5)._ref_v)
                     env.v_dict[pop_name][gid] = v_vec
                 i = i + 1
-                h.numCells = h.numCells + 1
             if rank == 0:
                 logger.info("*** Created %i cells" % i)
 
@@ -822,7 +818,6 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
-            h.numCells = 0
             i = 0
             for (gid, cell_coords_dict) in cell_attributes_iter:
                 if rank == 0:
@@ -845,7 +840,6 @@ def make_cell_selection(env):
                 # Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 i = i + 1
-                h.numCells = h.numCells + 1
         h.define_shape()
 
 

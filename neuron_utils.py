@@ -113,7 +113,6 @@ def configure_hoc_env(env):
     h.load_file("loadbal.hoc")
     h('objref pc, nc, nil')
     h('strdef datasetPath')
-    h('numCells = 0')
     h.datasetPath = env.datasetPath
     h.pc = h.ParallelContext()
     env.pc = h.pc
