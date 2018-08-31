@@ -51,7 +51,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     max_l = 0.0
     population_ranges = read_population_ranges(coords_path)[0]
     population_extents = {}
-    for population in population_ranges.keys():
+    for population in list(population_ranges.keys()):
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
         max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
         min_l = min(min_extent[2], min_l)

@@ -18,7 +18,7 @@ default_hoc_sec_lists = {'soma': 'somaidx', 'hillock': 'hilidx', 'ais': 'aisidx'
 
 def hoc_results_to_python(hoc_results):
     results_dict = {}
-    for i in xrange(0, int(hoc_results.count())):
+    for i in range(0, int(hoc_results.count())):
         vect   = hoc_results.o(i)
         gid    = int(vect.x[0])
         pyvect = vect.to_python()

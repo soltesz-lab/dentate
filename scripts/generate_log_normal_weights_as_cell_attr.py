@@ -1,7 +1,7 @@
 
 import sys, os, time, gc, click, logging
 from collections import defaultdict
-from itertools import izip, izip_longest
+from itertools import zip_longest
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
@@ -89,7 +89,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
                                                         comm=comm))
 
     weights_dict = {}
-    for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
+    for itercount, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
         local_time = time.time()
         source_syn_map = defaultdict(list)
         source_weights = None
@@ -104,7 +104,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
         if destination_gid is not None:
             local_random.seed(int(destination_gid + seed_offset))
             for this_destination_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
-                for j in xrange(len(source_gid_array)):
+                for j in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[j]
                     this_syn_id = conn_attr_dict['Synapses']['syn_id'][j]
                     source_syn_map[this_source_gid].append(this_syn_id)
@@ -114,8 +114,8 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
                 for this_syn_id in source_syn_map[this_source_gid]:
                     syn_weight_map[this_syn_id] = this_weight
             weights_dict[destination_gid] = \
-                {'syn_id': np.array(syn_weight_map.keys()).astype('uint32', copy=False),
-                 weights_name: np.array(syn_weight_map.values()).astype('float32', copy=False)}
+                {'syn_id': np.array(list(syn_weight_map.keys())).astype('uint32', copy=False),
+                 weights_name: np.array(list(syn_weight_map.values())).astype('float32', copy=False)}
             logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
                         '%.2f s' % (rank, destination, destination_gid, len(syn_weight_map), len(source_weights),
                                     time.time() - local_time))

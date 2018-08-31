@@ -45,7 +45,7 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     prediction_namespace = prediction_namespace+' '+str(trajectory_id)
@@ -56,7 +56,7 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
     attr_gen = NeuroH5CellAttrGen(comm, features_path, target_population, io_size=io_size,
                                 cache_size=cache_size, namespace=prediction_namespace)
     if debug:
-        attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+        attr_gen_wrapper = (next(attr_gen) for i in range(2))
     else:
         attr_gen_wrapper = attr_gen
     for gid, response_dict in attr_gen_wrapper:
@@ -72,8 +72,8 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
             peak_index = np.where(response == np.max(response))[0][0]
             response_attr_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
             response_attr_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')
-            print 'Rank %i: took %.2f s to append compute prediction attributes for %s gid %i' % \
-                  (rank, time.time() - local_time, target_population, gid)
+            print('Rank %i: took %.2f s to append compute prediction attributes for %s gid %i' % \
+                  (rank, time.time() - local_time, target_population, gid))
             count += 1
         if not debug:
             append_cell_attributes(comm, features_path, target_population, response_attr_dict,
@@ -86,8 +86,8 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print '%i ranks took %.2f s to compute selectivity parameters for %i %s cells' % \
-              (comm.size, time.time() - start_time, np.sum(global_count), target_population)
+        print('%i ranks took %.2f s to compute selectivity parameters for %i %s cells' % \
+              (comm.size, time.time() - start_time, np.sum(global_count), target_population))
 
 
 if __name__ == '__main__':

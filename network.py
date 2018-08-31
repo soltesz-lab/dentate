@@ -66,7 +66,7 @@ def lpt_bal(env):
     gidvec = env.gidlist
     # gather gidvec, cxvec to rank 0
     src = [None] * nhosts
-    src[0] = zip(cxvec.to_python(), gidvec)
+    src[0] = list(zip(cxvec.to_python(), gidvec))
     dest = env.pc.py_alltoall(src)
     del src
 
@@ -112,7 +112,7 @@ def spikeout(env, output_path, t_vec, id_vec):
     :return:
     """
     binlst  = []
-    typelst = env.celltypes.keys()
+    typelst = list(env.celltypes.keys())
     for k in typelst:
         binlst.append(env.celltypes[k]['start'])
 
@@ -140,7 +140,7 @@ def spikeout(env, output_path, t_vec, id_vec):
                     spkdict[id]['t'].append(t)
                 else:
                     spkdict[id]= {'t': [t]}
-            for j in spkdict.keys():
+            for j in list(spkdict.keys()):
                 spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
         pop_name = types[i]
         write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
@@ -162,9 +162,9 @@ def vout(env, output_path, t_vec, v_dict):
     else:
         namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
 
-    for pop_name, gid_v_dict in v_dict.items():
+    for pop_name, gid_v_dict in list(v_dict.items()):
         attr_dict  = {gid: {'v': np.array(vs, dtype=np.float32), 't': t_vec}
-                      for (gid, vs) in gid_v_dict.items()}
+                      for (gid, vs) in list(gid_v_dict.items())}
         write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
 
 
@@ -234,7 +234,7 @@ def connect_cells(env, cleanup=True):
         logger.info('*** Connectivity file path is %s' % connectivityFilePath)
         logger.info('*** Reading projections: ')
 
-    for (postsyn_name, presyn_names) in env.projection_dict.items():
+    for (postsyn_name, presyn_names) in list(env.projection_dict.items()):
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -371,7 +371,7 @@ def connect_cells(env, cleanup=True):
                                h.psection(sec=sec)
 
                    for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
-                       for syn_name, syn in edge_syn_obj_dict[edge_syn_id].items():
+                       for syn_name, syn in list(edge_syn_obj_dict[edge_syn_id].items()):
                            delay = (distance / env.connection_velocity[presyn_name]) + h.dt
                            this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                            syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
@@ -385,7 +385,7 @@ def connect_cells(env, cleanup=True):
         first_gid = None
         # this is a pre-built list to survive change in len during iteration
         local_time = time.time()
-        for gid in cell_synapses_dict.keys():
+        for gid in list(cell_synapses_dict.keys()):
             if first_gid is None:
                 first_gid = gid
                 this_verbose = True
@@ -424,7 +424,7 @@ def connect_cell_selection(env, cleanup=True):
 
     vecstim_selection = defaultdict(list)
     
-    for (postsyn_name, presyn_names) in env.projection_dict.items():
+    for (postsyn_name, presyn_names) in list(env.projection_dict.items()):
 
         if postsyn_name not in pop_names:
             continue
@@ -548,7 +548,7 @@ def connect_cell_selection(env, cleanup=True):
 
                 for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
                     vecstim_selection[presyn_name].add(presyn_gid)
-                    for syn_name, syn in edge_syn_obj_dict[edge_syn_id].items():
+                    for syn_name, syn in list(edge_syn_obj_dict[edge_syn_id].items()):
                         delay = (distance / env.connection_velocity[presyn_name]) + h.dt
                         this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
@@ -560,7 +560,7 @@ def connect_cell_selection(env, cleanup=True):
         first_gid = None
         # this is a pre-built list to survive change in len during iteration
         local_time = time.time()
-        for gid in cell_synapses_dict.keys():
+        for gid in list(cell_synapses_dict.keys()):
             if first_gid is None:
                 first_gid = gid
                 this_verbose = True
@@ -598,7 +598,7 @@ def connect_gjs(env):
                                  comm=env.comm)
 
         ggid = 2e6
-        for name in gapjunctions.keys():
+        for name in list(gapjunctions.keys()):
             if rank == 0:
                 logger.info("*** Creating gap junctions %s" % str(name))
             prj = graph[name[0]][name[1]]
@@ -665,8 +665,7 @@ def make_cells(env):
 
     datasetPath = env.datasetPath
     dataFilePath = env.dataFilePath
-    pop_names = env.celltypes.keys()
-    pop_names.sort()
+    pop_names = sorted(env.celltypes.keys())
 
     for pop_name in pop_names:
         if rank == 0:
@@ -677,8 +676,8 @@ def make_cells(env):
         env.v_sample_dict[pop_name] = v_sample_set
         env.v_dict[pop_name] = {}
         
-        for gid in xrange(env.celltypes[pop_name]['start'],
-                          env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
+        for gid in range(env.celltypes[pop_name]['start'],
+                         env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
             if ranstream_v_sample.uniform() <= env.vrecordFraction:
                 v_sample_set.add(gid)
 
@@ -858,7 +857,7 @@ def make_stimulus(env,vecstim_selection):
     datasetPath = env.datasetPath
     inputFilePath = env.dataFilePath
 
-    pop_names = env.celltypes.keys()
+    pop_names = list(env.celltypes.keys())
     pop_names.sort()
     for pop_name in pop_names:
         if 'Vector Stimulus' in env.celltypes[pop_name]:
@@ -890,7 +889,7 @@ def make_stimulus(env,vecstim_selection):
 
     if vecstim_selection is not None:
         assert(env.spike_input_path is not None)
-        for pop_name, gid_range in vecstim_selection.items():
+        for pop_name, gid_range in list(vecstim_selection.items()):
             cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range),
                                                         namespace=env.spike_input_ns,
                                                         comm=env.comm, io_size=env.IOsize)
@@ -958,7 +957,7 @@ def init(env):
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     h.startsw()
     if env.cell_selection is None:
-        for lfp_label,lfp_config_dict in env.lfpConfig.items():
+        for lfp_label,lfp_config_dict in list(env.lfpConfig.items()):
             env.lfp[lfp_label] = \
               lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], rho=lfp_config_dict['rho'],
                         dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
@@ -1015,7 +1014,7 @@ def run(env, output=True):
         env.pc.barrier()
         if rank == 0:
             logger.info("*** Writing local field potential data")
-            for lfp in env.lfp.itervalues():
+            for lfp in env.lfp.values():
                 lfpout(env, env.resultsFilePath, lfp)
 
     comptime = env.pc.step_time()

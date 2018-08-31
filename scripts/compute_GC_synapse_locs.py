@@ -34,7 +34,7 @@ def main(forest_path, io_size, chunk_size, value_chunk_size):
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     population = 'GC'
@@ -45,17 +45,17 @@ def main(forest_path, io_size, chunk_size, value_chunk_size):
         # mismatched_section_dict = {}
         synapse_dict = {}
         if gid is not None:
-            print  'Rank %i gid: %i' % (rank, gid)
+            print('Rank %i gid: %i' % (rank, gid))
             cell = DG_GC(neurotree_dict=morph_dict, gid=gid, full_spines=False)
             # this_mismatched_sections = cell.get_mismatched_neurotree_sections()
             # if this_mismatched_sections is not None:
             #    mismatched_section_dict[gid] = this_mismatched_sections
             synapse_dict[gid] = cell.export_neurotree_synapse_attributes()
             del cell
-            print 'Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid)
+            print('Rank %i took %i s to compute syn_locs for %s gid: %i' % (rank, time.time() - local_time, population, gid))
             count += 1
         else:
-            print  'Rank %i gid is None' % rank
+            print('Rank %i gid is None' % rank)
         # print 'Rank %i before append_cell_attributes' % rank
         append_cell_attributes(MPI._addressof(comm), forest_path, population, synapse_dict,
                                 namespace='Synapse_Attributes', io_size=io_size, chunk_size=chunk_size,
@@ -68,9 +68,9 @@ def main(forest_path, io_size, chunk_size, value_chunk_size):
     # len_mismatched_section_dict_fragments = comm.gather(len(mismatched_section_dict), root=0)
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print 'target: %s, %i ranks took %i s to compute syn_locs for %i cells' % (population, comm.size,
+        print('target: %s, %i ranks took %i s to compute syn_locs for %i cells' % (population, comm.size,
                                                                                        time.time() - start_time,
-                                                                                       np.sum(global_count))
+                                                                                       np.sum(global_count)))
         # print '%i morphologies have mismatched section indexes' % np.sum(len_mismatched_section_dict_fragments)
 
 

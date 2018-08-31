@@ -191,7 +191,7 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
             if rank == 0:
                 logger.info("Computing UVL coordinates...")
 
-        for i in xrange(0,xyz_coords.shape[0]):
+        for i in range(0,xyz_coords.shape[0]):
 
             coord_ind = i
             if i % size == rank:
@@ -266,7 +266,7 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
 
                 safety = 0.01
                 sampled_coords = all_coords
-                for i in xrange(population_count - len(all_coords)):
+                for i in range(population_count - len(all_coords)):
                     coord_u = np.random.uniform(pop_min_extent[0] + safety, pop_max_extent[0] - safety)
                     coord_v = np.random.uniform(pop_min_extent[1] + safety, pop_max_extent[1] - safety)
                     coord_l = np.random.uniform(pop_min_extent[2] + safety, pop_max_extent[2] - safety)

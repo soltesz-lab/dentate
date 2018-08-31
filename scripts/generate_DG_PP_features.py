@@ -89,7 +89,7 @@ def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_
     feature_type_random = np.random.RandomState(feature_seed_offset - 1)
     
     # every 60 degrees repeats in a hexagonal array
-    modules = range(10)
+    modules = list(range(10))
     grid_orientation = [local_random.uniform(0., np.pi / 3.) for i in range(len(modules))]
 
     population_ranges = read_population_ranges(coords_path, comm)[0]
@@ -102,7 +102,7 @@ def main(config, stimulus_id, coords_path, output_path, distances_namespace, io_
         start_time = time.time()
         feature_type_value_lst = []
         feature_type_prob_lst  = []
-        for t, p in feature_type_dict[population].iteritems():
+        for t, p in feature_type_dict[population].items():
             feature_type_value_lst.append(t)
             feature_type_prob_lst.append(p)
             

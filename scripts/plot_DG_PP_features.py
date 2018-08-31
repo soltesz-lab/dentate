@@ -26,7 +26,7 @@ def h5_to_dict(fn, namespace, population='MPP'):
 
 def visualize_xy_offsets(cells, modules):
     
-    gids = cells.keys()
+    gids = list(cells.keys())
     #module_xy_offsets = {k: [] for k in module_meshes.keys()}
 
     ranks = set()
@@ -34,14 +34,14 @@ def visualize_xy_offsets(cells, modules):
         cell = cells[gid]
         rank = cell['Rank'][0]
         ranks.add(rank)
-    print(len(gids))
+    print((len(gids)))
     print(ranks)
     module_xy_offsets = {module: {r: [] for r in ranks} for module in modules}
     for gid in gids:
         cell = cells[gid]
         rank = cell['Rank'][0]
         module = cell['Module'][0]
-        xy_offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
+        xy_offsets = list(zip(cell['X Offset Scaled'], cell['Y Offset Scaled']))
         for (x, y) in xy_offsets:
             module_xy_offsets[module][rank].append((x,y))
     
@@ -49,9 +49,9 @@ def visualize_xy_offsets(cells, modules):
     for rank in ranks:
         #plt.figure()
         count = 1
-        for module in module_xy_offsets.keys():
+        for module in list(module_xy_offsets.keys()):
             xy_offsets = np.asarray(module_xy_offsets[module][rank], dtype='float32')
-            print(rank, module, len(xy_offsets))
+            print((rank, module, len(xy_offsets)))
             tlen += len(xy_offsets)
             #plt.subplot(2,5,count)
             #plt.scatter(xy_offsets[:,0], xy_offsets[:,1])
@@ -60,7 +60,7 @@ def visualize_xy_offsets(cells, modules):
     print(tlen)
 def visualize_rate_maps(cells, modules):
     module_rate_maps = {k: [] for k in modules}
-    gids = cells.keys()
+    gids = list(cells.keys())
     for gid in gids:
         cell = cells[gid]
         module = cell['Module'][0]
@@ -71,7 +71,7 @@ def visualize_rate_maps(cells, modules):
     summed_module_map = {k: None for k in modules}
     mean_module_map = {k: None for k in modules}
     var_module_map = {k: None for k in modules}
-    for module in module_rate_maps.keys():
+    for module in list(module_rate_maps.keys()):
         maps = np.asarray(module_rate_maps[module], dtype='float32')
         summed_map = np.sum(maps,axis=0)
         mean_map = np.mean(maps,axis=0)
@@ -86,7 +86,7 @@ def visualize_rate_maps(cells, modules):
 def im_plot(module_maps, metric):
     plt.figure()
     count = 1
-    for module in module_maps.keys():
+    for module in list(module_maps.keys()):
         module_map = module_maps[module]
         plt.subplot(2,5,count)
         plt.imshow(module_map, cmap='inferno')
@@ -106,7 +106,7 @@ if __name__ == '__main__':
         
     grid_cells = h5_to_dict(grid_fn, grid_namespace)
     place_cells = h5_to_dict(place_fn, place_namespace)
-    visualize_xy_offsets(grid_cells, module_meshes.keys())
+    visualize_xy_offsets(grid_cells, list(module_meshes.keys()))
     #visualize_rate_maps(grid_cells, module_meshes.keys())
     plt.show()
 

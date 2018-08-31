@@ -123,7 +123,7 @@ def plot_in_degree_single_target(target_gid, target, source, forest_file, soma_c
     :param distance_V: array
     """
     raw_source_gids = soma_coords[source]['GID'][:]
-    sorted_source_indexes = range(len(raw_source_gids))
+    sorted_source_indexes = list(range(len(raw_source_gids)))
     sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
     with h5py.File(neurotrees_dir+forest_file, 'r') as f:
         target_connection_index = np.where(f['Populations'][target]['Connectivity']['source_gid']['Cell Index'][:] ==
@@ -264,7 +264,7 @@ def plot_out_degree_single_source(source_gid, target, source, forest_file, soma_
     :param distance_V: array
     """
     raw_target_gids = soma_coords[target]['GID'][:]
-    sorted_target_indexes = range(len(raw_target_gids))
+    sorted_target_indexes = list(range(len(raw_target_gids)))
     sorted_target_indexes.sort(key=raw_target_gids.__getitem__)
     with h5py.File(neurotrees_dir+forest_file, 'r') as f:
         target_connection_index = np.where(f['Populations'][target]['Connectivity']['source_gid']['Cell Index'][:] ==
@@ -335,7 +335,7 @@ def plot_in_degree(target, source, projection, degrees_file, soma_coords, u, v, 
     with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
         in_degree_group = f['Projections'][projection]['In degree']
         raw_target_gids = soma_coords[target]['GID'][:]
-        sorted_target_indexes = range(len(raw_target_gids))
+        sorted_target_indexes = list(range(len(raw_target_gids)))
         sorted_target_indexes.sort(key=raw_target_gids.__getitem__)
 
         target_indexes_gid = get_array_index(raw_target_gids[sorted_target_indexes], in_degree_group['Cell Index'][:])
@@ -383,7 +383,7 @@ def plot_out_degree(target, source, projection, degrees_file, soma_coords, u, v,
     with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
         out_degree_group = f['Projections'][projection]['Out degree']
         raw_source_gids = soma_coords[source]['GID'][:]
-        sorted_source_indexes = range(len(raw_source_gids))
+        sorted_source_indexes = list(range(len(raw_source_gids)))
         sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
 
         source_indexes_gid = get_array_index(raw_source_gids[sorted_source_indexes], out_degree_group['Cell Index'][:])
@@ -426,7 +426,7 @@ def plot_out_degree_orig(target, source, projection, degrees_file, width_U):
     with h5py.File(neurotrees_dir+degrees_file, 'r') as f:
         out_degree_group = f['Projections'][projection]['Out degree']
         raw_source_gids = out_degree_group['Cell Index'][:]
-        sorted_source_indexes = range(len(raw_source_gids))
+        sorted_source_indexes = list(range(len(raw_source_gids)))
         sorted_source_indexes.sort(key=raw_source_gids.__getitem__)
         source_distances_U = np.arange(0., width_U, width_U / len(raw_source_gids))
 
@@ -459,7 +459,7 @@ def plot_population_density(population, soma_coords, u, v, distance_U, distance_
     fig1 = plt.figure()
     ax = fig1.add_subplot(111, projection='3d')
     pop_size = len(soma_coords[population]['x'])
-    indexes = random.sample(range(pop_size), min(pop_size, 5000))
+    indexes = random.sample(list(range(pop_size)), min(pop_size, 5000))
     ax.scatter(soma_coords[population]['x'][indexes], soma_coords[population]['y'][indexes],
                soma_coords[population]['z'][indexes], c='grey', alpha=0.15, linewidth=0)
     scaling = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])

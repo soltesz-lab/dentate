@@ -3,14 +3,14 @@ import pandas as pd
 import h5py
 
 def h5_get_group (h, groupname):
-    if groupname in h.keys():
+    if groupname in list(h.keys()):
         g = h[groupname]
     else:
         g = h.create_group(groupname)
     return g
 
 def h5_get_dataset (g, dsetname, **kwargs):
-    if dsetname in g.keys():
+    if dsetname in list(g.keys()):
         dset = g[dsetname]
     else:
         dset = g.create_dataset(dsetname, (0,), **kwargs)
@@ -31,7 +31,7 @@ def import_voxeldb (inputfile,outputfile,colsep=' ',bufsize=1000000):
     count = 0
     for chunk in pd.read_csv(inputfile, chunksize=chunksize, sep=colsep, \
                              names=['X', 'Y', 'Z', 'Longitudinal', 'Transverse', 'Depth', 'Bregma', 'Interaural', 'Type']):
-        print 'chunk %d read' % count
+        print('chunk %d read' % count)
 
         with h5py.File(outputfile, "a", libver="latest") as h5:
 

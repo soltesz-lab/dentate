@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from collections import namedtuple, defaultdict
-from utils import *
+from .utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
 from neuron import h
@@ -62,11 +62,12 @@ class Env:
         self.cells = []
         self.gjlist = []
         self.biophys_cells = defaultdict(dict)
+        self.v_sample_dict = {}
 
         self.comm = comm
         if comm is not None:
             self.pc = h.ParallelContext()
-        
+
         self.colsep = ' '  # column separator for text data files
         self.bufsize = 100000  # buffer size for text data files
 
@@ -76,9 +77,12 @@ class Env:
         self.logger = get_root_logger()
         
         # Directories for cell templates
-        self.templatePaths = []
+        print(("before templatePath: templatePaths = ", templatePaths))
         if templatePaths is not None:
-            self.templatePaths = string.split(templatePaths, ':')
+            self.templatePaths = templatePaths.split( ':')
+        else:
+            self.templatePaths = []
+        print(("templatePaths = ", self.templatePaths))
 
         # The location of required hoc libraries
         self.hoclibPath = hoclibPath
@@ -158,6 +162,7 @@ class Env:
             raise RuntimeError("missing configuration file")
 
         defs = self.modelConfig['Definitions']
+        print(("defs = ", defs))
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
@@ -189,6 +194,7 @@ class Env:
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             # self.parse_gapjunction_config()
+        print(("self.datasetPrefix = ", self.datasetPrefix))
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
@@ -211,13 +217,15 @@ class Env:
 
         self.lfpConfig = {}
         if 'LFP' in self.modelConfig:
-            for label, config in self.modelConfig['LFP'].items():
+            for label, config in list(self.modelConfig['LFP'].items()):
                 self.lfpConfig[label] = {'position': tuple(config['position']),
                                          'maxEDist': config['maxEDist'],
                                          'fraction': config['fraction'],
                                          'rho': config['rho'],
                                          'dt': config['dt']}
 
+        print(("self.lfpConfig = ", self.lfpConfig))
+                
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
 
@@ -251,13 +259,13 @@ class Env:
         input_dict = self.modelConfig['Input']
         input_config = {}
         
-        for (id,dvals) in input_dict.items():
+        for (id,dvals) in list(input_dict.items()):
             config_dict = {}
             config_dict['trajectory'] = dvals['trajectory']
             feature_type_dict = {}
-            for (pop,pdvals) in dvals['feature type'].items():
+            for (pop,pdvals) in list(dvals['feature type'].items()):
                 pop_feature_type_dict = {}
-                for (feature_type_name,feature_type_fraction) in pdvals.items():
+                for (feature_type_name,feature_type_fraction) in list(pdvals.items()):
                     pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)
                 feature_type_dict[pop] = pop_feature_type_dict
             config_dict['feature type'] = feature_type_dict
@@ -312,10 +320,10 @@ class Env:
         synapse_config = connection_config['Synapses']
         connection_dict = {}
         
-        for (key_postsyn, val_syntypes) in synapse_config.items():
+        for (key_postsyn, val_syntypes) in list(synapse_config.items()):
             connection_dict[key_postsyn]  = {}
             
-            for (key_presyn, syn_dict) in val_syntypes.items():
+            for (key_presyn, syn_dict) in list(val_syntypes.items()):
                 val_type        = syn_dict['type']
                 val_synsections = syn_dict['sections']
                 val_synlayers   = syn_dict['layers']
@@ -339,13 +347,13 @@ class Env:
 
 
             config_dict = defaultdict(lambda: 0.0)
-            for (key_presyn, conn_config) in connection_dict[key_postsyn].items():
+            for (key_presyn, conn_config) in list(connection_dict[key_postsyn].items()):
                 for (s,l,p) in zip(conn_config.sections, \
                                    conn_config.layers, \
                                    conn_config.proportions):
                     config_dict[(conn_config.type, s, l)] += p
                                               
-            for (k,v) in config_dict.items():
+            for (k,v) in list(config_dict.items()):
                 try:
                     assert(np.isclose(v, 1.0))
                 except Exception as e:
@@ -365,8 +373,8 @@ class Env:
 
             gj_sections = gj_config['Locations']
             sections = {}
-            for pop_a, pop_dict in gj_sections.items():
-                for pop_b, sec_names in pop_dict.items():
+            for pop_a, pop_dict in list(gj_sections.items()):
+                for pop_b, sec_names in list(pop_dict.items()):
                     pair = (pop_a, pop_b)
                     sec_idxs = []
                     for sec_name in sec_names:
@@ -375,8 +383,8 @@ class Env:
 
             gj_connection_probs = gj_config['Connection Probabilities']
             connection_probs = {}
-            for pop_a, pop_dict in gj_connection_probs.items():
-                for pop_b, prob in pop_dict.items():
+            for pop_a, pop_dict in list(gj_connection_probs.items()):
+                for pop_b, prob in list(pop_dict.items()):
                     pair = (pop_a, pop_b)
                     connection_probs[pair] = float(prob)
 
@@ -395,8 +403,8 @@ class Env:
             
             gj_coupling_coeffs = gj_config['Coupling Coefficients']
             coupling_coeffs = {}
-            for pop_a, pop_dict in gj_coupling_coeffs.items():
-                for pop_b, coeff in pop_dict.items():
+            for pop_a, pop_dict in list(gj_coupling_coeffs.items()):
+                for pop_b, coeff in list(pop_dict.items()):
                     pair = (pop_a, pop_b)
                     coupling_coeffs[pair] = float(coeff)
 
@@ -416,7 +424,7 @@ class Env:
             coupling_bounds = coupling_bounds
 
             self.gapjunctions = {}
-            for pair, sec_idxs in sections.items():
+            for pair, sec_idxs in list(sections.items()):
                 self.gapjunctions[pair] = GapjunctionConfig(sec_idxs, \
                                                             connection_probs[pair], \
                                                             connection_params, \
@@ -435,8 +443,7 @@ class Env:
         rank = self.comm.Get_rank()
         size = self.comm.Get_size()
         celltypes = self.celltypes
-        typenames = celltypes.keys()
-        typenames.sort()
+        typenames = sorted(celltypes.keys())
 
         self.comm.Barrier()
 

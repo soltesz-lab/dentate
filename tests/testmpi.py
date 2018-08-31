@@ -1,7 +1,8 @@
 from mpi4py import MPI
 from neuron import h
+from neuroh5 import io
 pc = h.ParallelContext()
 id = int(pc.id())
 nhost = int(pc.nhost())
-print "I am", id, "of", nhost
+print ("I am", id, "of", nhost)
 

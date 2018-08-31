@@ -62,7 +62,7 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     arena_dimension = 100.  # minimum distance from origin to boundary (cm)
@@ -93,7 +93,7 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
     features_namespace = 'Feature Selectivity'
     prediction_namespace = 'Response Prediction '+str(trajectory_id)
 
-    populations = selectivity_type_dict.keys()
+    populations = list(selectivity_type_dict.keys())
 
     for population in populations:
         count = 0
@@ -102,7 +102,7 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
         attr_gen = NeuroH5CellAttrGen(comm, features_path, population, io_size=io_size,
                                       cache_size=cache_size, namespace=features_namespace)
         if debug:
-            attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+            attr_gen_wrapper = (next(attr_gen) for i in range(2))
         else:
             attr_gen_wrapper = attr_gen
         for gid, features_dict in attr_gen_wrapper:
@@ -130,8 +130,8 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
                 peak_index = np.where(response == np.max(response))[0][0]
                 response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
                 response_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')
-                print 'Rank %i: took %.2f s to compute predicted response for %s gid %i' % \
-                      (rank, time.time() - local_time, population, gid)
+                print('Rank %i: took %.2f s to compute predicted response for %s gid %i' % \
+                      (rank, time.time() - local_time, population, gid))
                 count += 1
             if not debug:
                 append_cell_attributes(comm, features_path, population, response_dict,
@@ -144,8 +144,8 @@ def main(features_path, io_size, chunk_size, value_chunk_size, cache_size, traje
 
         global_count = comm.gather(count, root=0)
         if rank == 0:
-            print '%i ranks took %.2f s to compute predicted responses for %i %s cells' % \
-                  (comm.size, time.time() - start_time, np.sum(global_count), population)
+            print('%i ranks took %.2f s to compute predicted responses for %i %s cells' % \
+                  (comm.size, time.time() - start_time, np.sum(global_count), population))
 
 
 if __name__ == '__main__':

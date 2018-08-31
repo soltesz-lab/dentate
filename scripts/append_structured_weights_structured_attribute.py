@@ -1,6 +1,6 @@
 from function_lib import *
 from mpi4py import MPI
-from itertools import izip
+
 from neurotrees.io import NeurotreeAttrGen
 from neurotrees.io import append_cell_attributes
 import click
@@ -43,7 +43,7 @@ def main(weights_path, weights_namespace, structured_weights_namespace, io_size,
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     population = 'GC'
@@ -55,9 +55,9 @@ def main(weights_path, weights_namespace, structured_weights_namespace, io_size,
     structured_weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, population, io_size=io_size,
                                    cache_size=cache_size, namespace=structured_weights_namespace)
     if debug:
-        attr_gen = ((weights_gen.next(), structured_weights_gen.next()) for i in xrange(10))
+        attr_gen = ((next(weights_gen), next(structured_weights_gen)) for i in range(10))
     else:
-        attr_gen = izip(weights_gen, structured_weights_gen)
+        attr_gen = zip(weights_gen, structured_weights_gen)
     for (gid, weights_dict), (structured_weights_gid, structured_weights_dict) in attr_gen:
         local_time = time.time()
         modified_dict = {}
@@ -80,8 +80,8 @@ def main(weights_path, weights_namespace, structured_weights_namespace, io_size,
                                 'structured_weights_namespace') % gid
             modify_weights = not np.all(sorted_weights == sorted_structured_weights)
             modified_dict[gid] = {'structured': np.array([int(modify_weights)], dtype='uint32')}
-            print 'Rank %i: %s gid %i took %.2f s to check for structured weights: %s' % \
-                  (rank, population, gid, time.time() - local_time, str(modify_weights))
+            print('Rank %i: %s gid %i took %.2f s to check for structured weights: %s' % \
+                  (rank, population, gid, time.time() - local_time, str(modify_weights)))
             if modify_weights:
                 structured_count += 1
             count += 1
@@ -102,9 +102,9 @@ def main(weights_path, weights_namespace, structured_weights_namespace, io_size,
     global_count = comm.gather(count, root=0)
     global_structured_count = comm.gather(structured_count, root=0)
     if rank == 0:
-        print '%i ranks processed %i %s cells (%i assigned structured weights) in %.2f s' % \
+        print('%i ranks processed %i %s cells (%i assigned structured weights) in %.2f s' % \
               (comm.size, np.sum(global_count), population, np.sum(global_structured_count),
-               time.time() - start_time)
+               time.time() - start_time))
 
 
 if __name__ == '__main__':

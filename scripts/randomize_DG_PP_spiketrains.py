@@ -46,7 +46,7 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     seed_offset *= 2e6
@@ -73,7 +73,7 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
         attr_gen = NeuroH5CellAttrGen(comm, stimulus_path, population, io_size=io_size,
                                       cache_size=cache_size, namespace=input_stimulus_namespace)
         if debug:
-            attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+            attr_gen_wrapper = (next(attr_gen) for i in range(2))
         else:
             attr_gen_wrapper = attr_gen
         for gid, stimulus_dict in attr_gen_wrapper:
@@ -88,8 +88,8 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
                                                  'modulation': stimulus_dict['modulation'],
                                                  'peak_index': stimulus_dict['peak_index'] }
 
-                print 'Rank %i; source: %s; assigned spike trains for gid %i to gid %i in %.2f s' % \
-                      (rank, population, gid, random_gid+population_start, time.time() - local_time)
+                print('Rank %i; source: %s; assigned spike trains for gid %i to gid %i in %.2f s' % \
+                      (rank, population, gid, random_gid+population_start, time.time() - local_time))
                 count += 1
             if not debug:
                 append_cell_attributes(comm, stimulus_path, population, new_response_dict,
@@ -102,8 +102,8 @@ def main(stimulus_path, input_stimulus_namespace, output_stimulus_namespace, io_
 
         global_count = comm.gather(count, root=0)
         if rank == 0:
-            print '%i ranks randomized spike trains for %i cells in %.2f s' % (comm.size, np.sum(global_count),
-                                                                               time.time() - start_time)
+            print('%i ranks randomized spike trains for %i cells in %.2f s' % (comm.size, np.sum(global_count),
+                                                                               time.time() - start_time))
 
 
 if __name__ == '__main__':

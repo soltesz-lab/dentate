@@ -180,13 +180,13 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     start_time = time.time()
 
     soma_coords = {}
-    source_populations = population_ranges(comm, coords_path).keys()
+    source_populations = list(population_ranges(comm, coords_path).keys())
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                             namespace=coords_namespace)
@@ -203,7 +203,7 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
     attr_gen = NeuroH5CellAttrGen(comm, forest_path, target, io_size=io_size, cache_size=cache_size,
                                   namespace='Synapse Attributes')
     if debug:
-        attr_gen_wrapper = (attr_gen.next() for i in xrange(2))
+        attr_gen_wrapper = (next(attr_gen) for i in range(2))
     else:
         attr_gen_wrapper = attr_gen
     for target_gid, attributes_dict in attr_gen_wrapper:
@@ -212,9 +212,9 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
         p_dict = {}
         source_gid_dict = {}
         if target_gid is None:
-            print 'Rank %i target gid is None' % rank
+            print('Rank %i target gid is None' % rank)
         else:
-            print 'Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid)
+            print('Rank %i received attributes for target: %s, gid: %i' % (rank, target, target_gid))
             synapse_dict = attributes_dict['Synapse_Attributes']
             connection_dict[target_gid] = {}
             local_np_random.seed(target_gid + connectivity_seed_offset)
@@ -228,13 +228,13 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
                         if sources:
                             if rank == 0 and count == 0:
                                 source_list_str = '[' + ', '.join(['%s' % xi for xi in sources]) + ']'
-                                print 'Connections to target: %s in layer: %i ' \
+                                print('Connections to target: %s in layer: %i ' \
                                     '(swc_type: %i, syn_type: %i): %s' % \
-                                    (target, layer, swc_type, syn_type, source_list_str)
+                                    (target, layer, swc_type, syn_type, source_list_str))
                             p, source_gid = np.array([]), np.array([])
                             for source, this_proportion in zip(sources, this_proportions):
                                 if source not in source_gid_dict:
-                                    this_source_gid = soma_coords[source].keys()
+                                    this_source_gid = list(soma_coords[source].keys())
                                     this_p = np.ones(len(this_source_gid)) / float(len(this_source_gid))
                                     source_gid_dict[source] = this_source_gid
                                     p_dict[source] = this_p
@@ -252,9 +252,9 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
                                 np.append(connection_dict[target_gid]['source_gid'],
                                           this_source_gid).astype('uint32', copy=False)
             count += 1
-            print 'Rank %i took %.2f s to compute connectivity for target: %s, gid: %i' % (rank,
+            print('Rank %i took %.2f s to compute connectivity for target: %s, gid: %i' % (rank,
                                                                                            time.time() - last_time,
-                                                                                           target, target_gid)
+                                                                                           target, target_gid))
             sys.stdout.flush()
         if not debug:
             append_cell_attributes(comm, forest_path, target, connection_dict,
@@ -268,8 +268,8 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
 
     global_count = comm.gather(count, root=0)
     if rank == 0:
-        print '%i ranks took took %.2f s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
-                                                                                  np.sum(global_count))
+        print('%i ranks took took %.2f s to compute connectivity for %i cells' % (comm.size, time.time() - start_time,
+                                                                                  np.sum(global_count)))
 
 
 if __name__ == '__main__':

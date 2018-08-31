@@ -11,8 +11,8 @@ import rbf.basis
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 from dentate import utils, synapses
-from synapses import make_synapse_graph
-from utils import list_find_all, random_clustered_shuffle, random_choice_w_replacement
+from .synapses import make_synapse_graph
+from .utils import list_find_all, random_clustered_shuffle, random_choice_w_replacement
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -90,7 +90,7 @@ class ConnectionProb(object):
         max_distance_u = source_width['u'] + source_offset['u']
         max_distance_v = source_width['v'] + source_offset['v']
 
-        for (source_gid, coords) in source_coords.items():
+        for (source_gid, coords) in list(source_coords.items()):
 
             source_u, source_v, source_l = coords
 
@@ -143,10 +143,10 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     :param population_dict: mapping of population names to population indices
     :param projection_synapse_dict: mapping of projection names to a tuple of the form: <type, layers, swc sections, proportions>
     """
-    ivd = { v:k for k,v in population_dict.items() }
+    ivd = { v:k for k,v in list(population_dict.items()) }
     projection_lst = []
     projection_prob_lst = []
-    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in projection_synapse_dict.items():
+    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in list(projection_synapse_dict.items()):
         if (syn_type == syn_config_type) and (swc_type in syn_config_sections):
             ord_indices = list_find_all(lambda x: x == swc_type, syn_config_sections)
             for ord_index in ord_indices:
@@ -208,14 +208,14 @@ def generate_synaptic_connections(rank,
         assert(projection is not None)
         synapse_prj_partition[projection].append(syn_id)
 
-    for projection in projection_synapse_dict.keys():
+    for projection in list(projection_synapse_dict.keys()):
         if not (projection in synapse_prj_partition):
             logger.warning('Rank %i: gid %i: projection: %s has an empty synapse list; swc types are %s layers are %s' % (rank, destination_gid, projection, str(set(synapse_dict['swc_types'].flat)), str(set(synapse_dict['syn_layers'].flat))))
             assert(projection in synapse_prj_partition)
 
     ## Choose source connections based on distance-weighted probability
     count = 0
-    for projection, syn_ids in synapse_prj_partition.items():
+    for projection, syn_ids in list(synapse_prj_partition.items()):
         count += len(syn_ids)
         source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection]
         distance_dict = { source_gid: distance_u+distance_v \
@@ -285,7 +285,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
     destination_population = connection_prob.destination_population
     
-    source_populations = connection_config[destination_population].keys()
+    source_populations = list(connection_config[destination_population].keys())
 
     for source_population in source_populations:
         if rank == 0:
@@ -350,8 +350,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
-                    for (prj, prj_dict) in  connection_dict.items():
-                        logger.info("%s: %s" % (prj, str(prj_dict.keys())))
+                    for (prj, prj_dict) in  list(connection_dict.items()):
+                        logger.info("%s: %s" % (prj, str(list(prj_dict.keys()))))
                     logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
             projection_dict.clear()
             connection_dict.clear()
@@ -368,8 +368,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
     if rank == 0:
         if connection_dict:
-            for (prj, prj_dict) in  connection_dict.items():
-                logger.info("%s: %s" % (prj, str(prj_dict.keys())))
+            for (prj, prj_dict) in  list(connection_dict.items()):
+                logger.info("%s: %s" % (prj, str(list(prj_dict.keys()))))
                 logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
 
     global_count = comm.gather(total_count, root=0)

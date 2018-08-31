@@ -28,7 +28,7 @@ DG_vecstim_file_dict = {
     120: "DG_PP_features_120_20180417.h5"  \
 }
 
-vecstim_dict = { 'Vector Stimulus %i' % stim_id : stim_file for stim_id, stim_file in DG_vecstim_file_dict.iteritems() }
+vecstim_dict = { 'Vector Stimulus %i' % stim_id : stim_file for stim_id, stim_file in DG_vecstim_file_dict.items() }
      
 
 
@@ -139,7 +139,7 @@ with h5py.File(DG_cells_file) as f:
     grp = f["Populations"]
 
     for p in DG_EXT_populations:
-        for (vecstim_ns, vecstim_file) in vecstim_dict.iteritems():
+        for (vecstim_ns, vecstim_file) in vecstim_dict.items():
             grp[p][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
 
 

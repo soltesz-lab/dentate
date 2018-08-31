@@ -28,20 +28,20 @@ def main(coords_path, io_size, chunk_size, value_chunk_size):
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
     source_population_ranges = population_ranges(MPI._addressof(comm), coords_path)
-    source_populations = source_population_ranges.keys()
+    source_populations = list(source_population_ranges.keys())
     for population in source_populations:
         if rank == 0:
-            print 'population: ',population
+            print('population: ',population)
         soma_coords = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
                                             namespace='Interpolated Coordinates')
         #print soma_coords.keys()
         u_coords = []
         gids = []
-        for gid, attrs in soma_coords.iteritems():
+        for gid, attrs in soma_coords.items():
             u_coords.append(attrs['U Coordinate'])
             gids.append(gid)
         u_coordv = np.asarray(u_coords, dtype=np.float32)

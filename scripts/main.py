@@ -25,8 +25,8 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 
 
-sys_excepthook = sys.excepthook
-sys.excepthook = mpi_excepthook
+#sys_excepthook = sys.excepthook
+#sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -86,9 +86,11 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
+    print("before env ")
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, results_path, results_id,
               node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
               results_write_time, dt, ldbal, lptbal, verbose=verbose)
+    print(("env = ", env))
     network.init(env)
     if not dry_run:
         network.run(env)

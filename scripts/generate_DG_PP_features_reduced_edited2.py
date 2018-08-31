@@ -113,7 +113,7 @@ def init_generate_populations(gen_rate=True, scale_factor=6.*np.ones(nmodules)):
     grid_feature_dict_LPP, place_feature_dict_LPP, xy_offsets_LPP, feature_types_LPP, orientation_LPP = init(population='LPP')
     mega_arena_xp, mega_arena_yp = generate_mesh()
     elapsed = time.time() - tic
-    print('Took %f seconds to initialize populations and generate meshgrid' % (elapsed))
+    print(('Took %f seconds to initialize populations and generate meshgrid' % (elapsed)))
  
  
     if gen_rate:
@@ -153,11 +153,11 @@ def read_file(fn):
 
 def rate_histogram(features_dict, xp, yp, xoi, yoi, ctype='grid', module=0):
     r = []
-    for idx in features_dict.keys():
+    for idx in list(features_dict.keys()):
         cell = features_dict[idx]
         if cell['Module'][0] == module:       
             spacing, orientation = None, 0.0
-            if cell.has_key('Grid Spacing'):
+            if 'Grid Spacing' in cell:
                 spacing = cell['Grid Spacing']
                 orientation = cell['Grid Orientation']
             else:
@@ -193,7 +193,7 @@ def peak_to_trough(module_cells, modules=modules):
     mean_evaluations = np.asarray([1.0 for _ in np.arange(nmodules)], dtype='float32')
     var_evaluations = np.asarray([0.0 for _ in np.arange(nmodules)], dtype='float32')
 
-    for mod in module_cells.keys():
+    for mod in list(module_cells.keys()):
         cells = module_cells[mod]
         module_rate_map = None
         for (c, cell) in enumerate(cells):
@@ -218,30 +218,30 @@ def peak_to_trough(module_cells, modules=modules):
 
 def fraction_active(module_cells, modules=modules, target=0.3):
     rates = {mod:[] for mod in modules}
-    for mod in module_cells.keys():
+    for mod in list(module_cells.keys()):
         cells = module_cells[mod]
         for cell in cells:
             rate_map = cell['Rate Map']
             nx, ny = rate_map.shape
             rates[mod].append(rate_map)
     nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
-    coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+    coords = list(zip(nxx.reshape(-1,), nyy.reshape(-1,)))
     frac_active_dict = {(i,j): {k:None for k in modules} for (i,j) in coords}
-    diagonal_positions = [ (i,j) for (i,j) in frac_active_dict.keys()]
+    diagonal_positions = [ (i,j) for (i,j) in list(frac_active_dict.keys())]
     for (px, py) in diagonal_positions:
-        for key in rates.keys():
+        for key in list(rates.keys()):
             module_maps = np.asarray(rates[key])
             position_rates = module_maps[:,px,py]
             frac_active = calculate_fraction_active(position_rates)
             frac_active_dict[(px,py)][key] = frac_active
-    target_fraction_active = {(i,j): {k: target for k in modules} for (i,j) in frac_active_dict.keys()}
+    target_fraction_active = {(i,j): {k: target for k in modules} for (i,j) in list(frac_active_dict.keys())}
 
-    diff_fraction_active = {(i,j): {k: np.abs(target_fraction_active[(i,j)][k]-frac_active_dict[(i,j)][k]) for k in modules} for (i,j) in frac_active_dict.keys()}
+    diff_fraction_active = {(i,j): {k: np.abs(target_fraction_active[(i,j)][k]-frac_active_dict[(i,j)][k]) for k in modules} for (i,j) in list(frac_active_dict.keys())}
     
     module_error = np.array([ 0. for _ in range(len(modules))])
-    for (i,j) in diff_fraction_active.keys():
+    for (i,j) in list(diff_fraction_active.keys()):
         pos_errors = diff_fraction_active[(i,j)]
-        for module in pos_errors.keys():
+        for module in list(pos_errors.keys()):
             mod_e = pos_errors[module]
             module_error[module] += mod_e
     for i in range(len(module_error)):
@@ -261,7 +261,7 @@ def calculate_fraction_active(rates, threshold=0.1):
 def cost_func(x, cell_modules, mesh):
     sf = x
     xp, yp = mesh
-    for mod in cell_modules.keys():
+    for mod in list(cell_modules.keys()):
         cells = cell_modules[mod]
         for (c,cell) in enumerate(cells):
             orientation, spacing = cell['Jittered Grid Orientation'], cell['Jittered Grid Spacing']
@@ -285,7 +285,7 @@ def cost_func(x, cell_modules, mesh):
 
     total_cost = 0.5 * (cost_peak_trough + cost_frac_active)
     elapsed = time.time() - tic
-    print('Cost: %f calculted in %f seconds' % (total_cost,elapsed))
+    print(('Cost: %f calculted in %f seconds' % (total_cost,elapsed)))
     cost_value.append(total_cost)
     return total_cost
 
@@ -303,9 +303,9 @@ class OptimizationRoutine(object):
 
         if verbose:
             print(x0)
-            print(bh_output.x)
-            print(fnc(x0))
-            print(fnc(bh_output.x))
+            print((bh_output.x))
+            print((fnc(x0)))
+            print((fnc(bh_output.x)))
 
 class Cell_Generator(object):
     def __init__(self, jitter_orientation=True, jitter_spacing=True):
@@ -384,16 +384,16 @@ class Cell_Generator(object):
         N = 0
         present = [False, False, False, False]
         if self.mpp_grid is not None:
-            N += len(self.mpp_grid.keys())
+            N += len(list(self.mpp_grid.keys()))
             present[0] = True
         if self.mpp_place is not None:
-            N += len(self.mpp_place.keys())
+            N += len(list(self.mpp_place.keys()))
             present[1] = True
         if self.lpp_grid is not None:
-            N += len(self.lpp_grid.keys())
+            N += len(list(self.lpp_grid.keys()))
             present[2] = True
         if self.lpp_place is not None:
-            N += len(self.lpp_place.keys())
+            N += len(list(self.lpp_place.keys()))
             present[3] = True
 
         _, xy_offsets, _, _ = generate_spatial_offsets(N, arena_dimension=arena_dimension, scale_factor=1.0)
@@ -408,7 +408,7 @@ class Cell_Generator(object):
             counter = self._generate_xy_offsets(self.lpp_place, xy_offsets, counter)
  
     def _generate_xy_offsets(self, cells, xy_offsets, counter):
-        for key in cells.keys():
+        for key in list(cells.keys()):
             cell = cells[key]
             cell['X Offset'] = np.array([xy_offsets[counter,0]], dtype='float32')
             cell['Y Offset'] = np.array([xy_offsets[counter,0]], dtype='float32')
@@ -426,7 +426,7 @@ class Cell_Generator(object):
             self._calculate_rate_maps(self.lpp_place, scale_factors, cell_type='place', jittered_orientation=self.jitter_orientation, jittered_spacing=self.jitter_spacing)
 
     def _calculate_rate_maps(self,cells, scale_factors, cell_type='grid', jittered_orientation=False, jittered_spacing=False):
-        for key in cells.keys():
+        for key in list(cells.keys()):
             cell = cells[key]
             x_offset, y_offset = None, None
             this_module = cell['Module'][0]
@@ -456,7 +456,7 @@ def main(init_scale_factor, verbose=True):
     cell_corpus.full_init()
     elapsed = time.time() - tic
     if verbose:
-        print('%d cells generated in %f seconds' % ((N_LPP+N_MPP), elapsed))
+        print(('%d cells generated in %f seconds' % ((N_LPP+N_MPP), elapsed)))
 
     T = init_scale_factor.shape[1]
     generated_cells = {}
@@ -464,12 +464,12 @@ def main(init_scale_factor, verbose=True):
         corpus_copy = deepcopy(cell_corpus)
         scale_factor0 = init_scale_factor[:,t]
         if verbose:
-            print(t, scale_factor0)
+            print((t, scale_factor0))
         tic = time.time()
         corpus_copy.calculate_rate_maps(scale_factor0)
         elapsed = time.time() - tic
         if verbose:
-            print('Rate maps for %d cells calculated in %f seconds' % (len(corpus_copy.mpp_grid.keys()), elapsed))
+            print(('Rate maps for %d cells calculated in %f seconds' % (len(list(corpus_copy.mpp_grid.keys())), elapsed)))
         module_mpp_grid = generate_module_dictionary(corpus_copy.mpp_grid)
         mesh = (corpus_copy.xp, corpus_copy.yp)
         opt = OptimizationRoutine(module_mpp_grid, mesh)
@@ -480,7 +480,7 @@ def main(init_scale_factor, verbose=True):
 
 def generate_module_dictionary(cells):
     mod = {k:[] for k in np.arange(nmodules)}
-    for key in cells.keys():
+    for key in list(cells.keys()):
         cell = cells[key]
         curr_mod = cell['Module'][0]
         mod[curr_mod].append(cell)

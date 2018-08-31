@@ -2,8 +2,9 @@ import itertools
 import networkx as nx
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
+import collections
 try:
-    import btmorph
+    from . import btmorph
 except Exception:
     pass
 
@@ -214,7 +215,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
             elif self.sec.n3d() == 0:
                 return self.content['layer'][0]
             else:
-                for i in xrange(self.sec.n3d()):
+                for i in range(self.sec.n3d()):
                     if self.sec.arc3d(i) / self.sec.L >= x:
                         return self.content['layer'][i]
         else:
@@ -448,7 +449,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
     """
     sec_type_map = {}
-    for sec_type, sec_index_list in default_hoc_sec_lists.items():
+    for sec_type, sec_index_list in list(default_hoc_sec_lists.items()):
         if hasattr(hoc_cell, sec_type):
             sec_list = list(getattr(hoc_cell, sec_type))
             if hasattr(hoc_cell, sec_index_list):
@@ -638,7 +639,7 @@ def get_path_length_swc(path):
     :return: int or float
     """
     distance = 0.
-    for i in xrange(len(path) - 1):
+    for i in range(len(path) - 1):
         distance += np.sqrt(np.sum((path[i].content['p3d'].xyz - path[i + 1].content['p3d'].xyz) ** 2.))
     return distance
 
@@ -1230,7 +1231,7 @@ def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
         raise RuntimeError('parse_custom_mech_rules: no custom function provided for mechanism: %s parameter: %s in '
                            'sec_type: %s' % (mech_name, param_name, node.type))
-    if rules['custom']['func'] in globals() and callable(globals()[rules['custom']['func']]):
+    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.Callable):
         func = globals()[rules['custom']['func']]
     else:
         raise RuntimeError('parse_custom_mech_rules: problem locating custom function: %s for mechanism: %s '
@@ -1394,7 +1395,7 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
     env.load_cell_template(popName)
     templateClass = getattr(h, env.celltypes[popName]['template'])
 
-    if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
+    if popName in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[popName]:
         if neurotree_dict:
             hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, dataset_path=datasetPath)
         else:

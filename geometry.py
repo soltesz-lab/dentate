@@ -34,10 +34,10 @@ def DG_volume(u, v, l, rotate=None):
     l = np.array([l]).reshape(-1,)
 
     if rotate is not None:
-        for i in xrange(0, 3):
+        for i in range(0, 3):
             if rotate[i] != 0.:
                 a = float(np.deg2rad(rotate[i]))
-                rot = rotate3d([ 1 if i == j else 0 for j in xrange(0,3) ], a)
+                rot = rotate3d([ 1 if i == j else 0 for j in range(0,3) ], a)
     else:
         rot = None
 
@@ -208,7 +208,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
 
     logger.info('Interpolation by optimization of UVL coordinates...')
     all_node_uvl_coords = []
-    for i in xrange(0, xyz_coords.shape[0]):
+    for i in range(0, xyz_coords.shape[0]):
         logger.info("coordinates %i" % i)
         this_xyz_coords = xyz_coords[i,:]
         f_uvl_distance = make_uvl_distance(this_xyz_coords,rotate=rotate)
@@ -297,7 +297,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
     size = comm.size
 
     if populations is None:
-        populations = soma_coords.keys()
+        populations = list(soma_coords.keys())
 
     soma_distances = {}
     for pop in populations:
@@ -310,7 +310,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
         u_obs = []
         v_obs = []
         gids    = []
-        for gid, coords in coords_dict.items():
+        for gid, coords in list(coords_dict.items()):
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
                 try:
@@ -350,7 +350,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
             dist_dicts = comm.allgather(local_dist_dict)
             combined_dist_dict = {}
             for dist_dict in dist_dicts:
-                for k, v in dist_dict.items():
+                for k, v in list(dist_dict.items()):
                     combined_dist_dict[k] = v
             soma_distances[pop] = combined_dist_dict
         else:
@@ -372,18 +372,18 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
     min_l = float('inf')
     max_l = 0.0
     
-    for layer, min_extent in env.geometry['Parametric Surface']['Minimum Extent'].items():
+    for layer, min_extent in list(env.geometry['Parametric Surface']['Minimum Extent'].items()):
         min_u = min(min_extent[0], min_u)
         min_v = min(min_extent[1], min_v)
         min_l = min(min_extent[2], min_l)
         
-    for layer, max_extent in env.geometry['Parametric Surface']['Maximum Extent'].items():
+    for layer, max_extent in list(env.geometry['Parametric Surface']['Maximum Extent'].items()):
         max_u = max(max_extent[0], max_u)
         max_v = max(max_extent[1], max_v)
         max_l = max(max_extent[2], max_l)
 
     population_extents = {}
-    for population in soma_coords.keys():
+    for population in list(soma_coords.keys()):
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
         max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
         population_extents[population] = (min_extent, max_extent)
@@ -457,7 +457,7 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
     size = comm.size
 
     if populations is None:
-        populations = soma_coords.keys()
+        populations = list(soma_coords.keys())
 
     srf_resample = 25
     
@@ -479,7 +479,7 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
         limits = population_extents[pop]
         xyz_coords = []
         gids = []
-        for gid, coords in coords_dict.items():
+        for gid, coords in list(coords_dict.items()):
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
                 xyz_coords.append(DG_volume(soma_u, soma_v, soma_l, rotate=rotate))
@@ -501,7 +501,7 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
             interp_err = np.zeros((len(gids),))
             converged, transf, estimate, fitness = icp.icp(cloud_in, cloud_prj, max_iter=icp_iter)
             logger.info('Transformation of population %s has converged: ' % (pop) + str(converged) + ' score: %f' % (fitness) )
-            for i, gid in zip(xrange(0, estimate.size), gids):
+            for i, gid in zip(range(0, estimate.size), gids):
                 k_xyz_coords = estimate[i]
                 k_est_xyz_coords[i,:] = est_xyz_coords
                 f_uvl_distance = make_uvl_distance(est_xyz_coords,rotate=rotate)

@@ -78,7 +78,7 @@ def cartesian_product(arrays, out=None):
     out[:,0] = np.repeat(arrays[0], m)
     if arrays[1:]:
         cartesian_product(arrays[1:], out=out[0:m,1:])
-        for j in xrange(1, arrays[0].size):
+        for j in range(1, arrays[0].size):
             out[j*m:(j+1)*m,1:] = out[0:m,1:]
     return out
 
@@ -300,7 +300,7 @@ class RBFSurface(object):
         aidx.remove(axis)
 
         distances = []
-        coords    = [ [] for i in xrange(0,2) ]
+        coords    = [ [] for i in range(0,2) ]
         for (sgn, axes) in ordered_axes:
             
             npts = axes[axis].shape[0]
@@ -404,7 +404,7 @@ def test_uv_isospline():
     xyz = test_surface (u, v, obs_l).reshape(3, u.size).T
 
     order = [1]
-    for ii in xrange(len(order)):
+    for ii in range(len(order)):
         srf = RBFSurface(obs_u, obs_v, xyz, order=order[ii])
 
         U, V = srf._resample_uv(50, 50)
@@ -446,14 +446,14 @@ def test_point_distance():
     U, V = srf._resample_uv(5, 5)
     
     dist, coords = srf.point_distance(U, V)
-    print dist
-    print coords
+    print(dist)
+    print(coords)
     dist, coords = srf.point_distance(U, V[0])
-    print dist
-    print coords
+    print(dist)
+    print(coords)
     dist, coords = srf.point_distance(U, V[0], axis_origin=np.median(obs_u))
-    print dist
-    print coords
+    print(dist)
+    print(coords)
 
     
 

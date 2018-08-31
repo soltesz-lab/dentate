@@ -98,8 +98,8 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
                 apicalidx = set(cell.apicalidx)
                 basalidx  = set(cell.basalidx)
                 
-                dendrite_area_dict = { k+1: 0.0 for k in xrange(0, 4) }
-                dendrite_length_dict = { k+1: 0.0 for k in xrange(0, 4) }
+                dendrite_area_dict = { k+1: 0.0 for k in range(0, 4) }
+                dendrite_length_dict = { k+1: 0.0 for k in range(0, 4) }
                 for (i, sec) in enumerate(cell.sections):
                     if (i in apicalidx) or (i in basalidx):
                         secnodes = secnodes_dict[i]

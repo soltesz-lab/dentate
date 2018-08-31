@@ -68,7 +68,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
 
     
     population_ranges = read_population_ranges(coords_path)[0]
-    populations = population_ranges.keys()
+    populations = list(population_ranges.keys())
     
     if rank == 0:
         logger.info('Reading population coordinates...')

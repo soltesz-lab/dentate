@@ -8,7 +8,7 @@ try:
     from rbf.nodes import disperse
     from rbf.halton import halton
 except ImportError as e:
-    print 'dentate.stimulus: problem importing rbf module:', e
+    print('dentate.stimulus: problem importing rbf module:', e)
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0

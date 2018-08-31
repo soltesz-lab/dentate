@@ -105,11 +105,11 @@ def generate_mesh(scale_factor=init_scale_factor):
 
 def rate_histogram(features_dict, xp, yp, xoi, yoi, ctype='grid', module=0):
     r = []
-    for idx in features_dict.keys():
+    for idx in list(features_dict.keys()):
         cell = features_dict[idx]
         if cell['Module'][0] == module:       
             spacing, orientation = None, 0.0
-            if cell.has_key('Grid Spacing'):
+            if 'Grid Spacing' in cell:
                 spacing = cell['Grid Spacing']
                 orientation = cell['Grid Orientation']
             else:
@@ -164,17 +164,17 @@ def fraction_active(cells, target=0.15):
         rates.append(rate_map)
     rates = np.asarray(rates, dtype='float32')
     nxx, nyy = np.meshgrid(np.arange(nx), np.arange(ny))
-    coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+    coords = list(zip(nxx.reshape(-1,), nyy.reshape(-1,)))
     frac_active_dict = {(i,j): [] for (i,j) in coords}
     
     factive = lambda px, py: calculate_fraction_active(rates[:,px,py])
-    frac_active_dict = {(px,py): factive(px, py) for (px,py) in frac_active_dict.keys()} 
-    target_fraction_active = {(i,j): target for (i,j) in frac_active_dict.keys()}
-    diff_fraction_active = {(i,j): np.abs(target_fraction_active[(i,j)]-frac_active_dict[(i,j)]) for (i,j) in frac_active_dict.keys()}
+    frac_active_dict = {(px,py): factive(px, py) for (px,py) in list(frac_active_dict.keys())} 
+    target_fraction_active = {(i,j): target for (i,j) in list(frac_active_dict.keys())}
+    diff_fraction_active = {(i,j): np.abs(target_fraction_active[(i,j)]-frac_active_dict[(i,j)]) for (i,j) in list(frac_active_dict.keys())}
     
     errors = []
     error_sum, error_mean, error_var = 0.0, 0.0, 0.0    
-    for (i,j) in diff_fraction_active.keys():
+    for (i,j) in list(diff_fraction_active.keys()):
         errors.append(diff_fraction_active[(i,j)])
     errors     = np.asarray(errors, dtype='float32')
     error_sum  = np.sum(errors)
@@ -225,10 +225,10 @@ def cost_prepare_place(x, cells, mesh):
         cell['Ny'] = np.array([ny], dtype='int32')
 
 def module_merge(x, y):
-    return {k: x[k] + y[k] for k in x.keys()}
+    return {k: x[k] + y[k] for k in list(x.keys())}
         
 def translate_cells(cell_modules, x_translate, y_translate, scale_factors):
-    for mod in cell_modules.keys():
+    for mod in list(cell_modules.keys()):
         cells = cell_modules[mod] 
         curr_xt = x_translate[mod]
         curr_yt = y_translate[mod] 
@@ -428,10 +428,10 @@ class Cell_Population(object):
             counter = self._generate_xy_offsets(self.lpp_place, xy_offsets, counter)
  
     def _generate_xy_offsets(self, cells, xy_offsets, counter):
-        for key in cells.keys():
+        for key in list(cells.keys()):
             nfields = 1
             cell = cells[key]
-            if cell.has_key('Field Width'):
+            if 'Field Width' in cell:
                 nfields = cell['Num Fields'][0]
             cell['X Offset'] = np.asarray(xy_offsets[counter:counter+nfields,0], dtype='float32')
             cell['Y Offset'] = np.asarray(xy_offsets[counter:counter+nfields,1], dtype='float32')
@@ -441,7 +441,7 @@ class Cell_Population(object):
 def calculate_module_centroids(cell_modules):
     module_x_centroids = [0.0 for _ in np.arange(nmodules)]
     module_y_centroids = [0.0 for _ in np.arange(nmodules)]
-    for mod in cell_modules.keys():
+    for mod in list(cell_modules.keys()):
         cells = cell_modules[mod] 
         curr_x, curr_y = [], []
         for cell in cells:
@@ -489,8 +489,8 @@ def read_input_path(comm, feature_seed_offset, types_path, input_path, verbose):
         lpp_place = cell_corpus.lpp_place
     if verbose:
         elapsed = time.time() - tic
-        N = len(mpp_place.keys()) + len(mpp_grid.keys()) + len(lpp_place.keys()) + len(lpp_grid.keys())
-        print('%d cells initialized on rank %d in %f seconds' % (N,rank,elapsed))
+        N = len(list(mpp_place.keys())) + len(list(mpp_grid.keys())) + len(list(lpp_place.keys())) + len(list(lpp_grid.keys()))
+        print(('%d cells initialized on rank %d in %f seconds' % (N,rank,elapsed)))
     return mpp_grid, mpp_place, lpp_grid, lpp_place
 
 @click.command()
@@ -531,7 +531,7 @@ def main(optimize, centroid, input_path, types_path, config, output_path, lbound
         main_optimization(comm, logger, types_path, output_path, cells, lbound, ubound, centroid, verbose)
         elapsed = time.time() - tic
         if verbose:
-            print('Took %f seconds' % elapsed)
+            print(('Took %f seconds' % elapsed))
     else:
         scale_factors = []
         f = open('optimal_sf.txt', 'r')
@@ -541,7 +541,7 @@ def main(optimize, centroid, input_path, types_path, config, output_path, lbound
         main_hardcoded(comm, logger, output_path, cells, scale_factors)
         elapsed = time.time() - tic
         if verbose:
-            print('Completed in %f seconds...' % elapsed)
+            print(('Completed in %f seconds...' % elapsed))
 
 def main_optimization(comm, logger, types_path, output_path, cells, lbound, ubound, centroid, verbose):
     mpp_grid, mpp_place, lpp_grid, lpp_place = cells
@@ -665,7 +665,7 @@ def main_hardcoded(comm, logger, output_path, cells, scale_factors):
     save_h5(comm, place_fn, place_post_optimization, 'MPP', 'Place Input Features')
 
 def scale_cells_in_module(cell_modules, scale_factors):
-    for module in cell_modules.keys():
+    for module in list(cell_modules.keys()):
         cells = cell_modules[module]
         scale_factor = scale_factors[module]
         for cell in cells:
@@ -686,7 +686,7 @@ def list_to_file(data, fn):
 
 def gid_to_module_dictionary(cells):
     mod = {k:[] for k in np.arange(nmodules)}
-    for key in cells.keys():
+    for key in list(cells.keys()):
         cell = cells[key]
         curr_mod = cell['Module'][0]
         mod[curr_mod].append(cell)
@@ -694,7 +694,7 @@ def gid_to_module_dictionary(cells):
 
 def module_to_gid_dictionary(module_cells):
     gid_dictionary = {}
-    for mod in module_cells.keys():
+    for mod in list(module_cells.keys()):
         cells = module_cells[mod] 
         for cell in cells:
             gid = cell['gid'][0]

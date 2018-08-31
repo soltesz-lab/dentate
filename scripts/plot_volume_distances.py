@@ -30,7 +30,7 @@ def main(config, resolution, resample, alpha_radius, graph_type, verbose):
     max_v = 0.0
     min_l = float('inf')
     max_l = 0.0
-    for layer in layers.keys():
+    for layer in list(layers.keys()):
         min_extent = env.geometry['Parametric Surface']['Minimum Extent'][layer]
         max_extent = env.geometry['Parametric Surface']['Maximum Extent'][layer]
         min_u = min(min_extent[0], min_u)
@@ -52,11 +52,11 @@ def main(config, resolution, resample, alpha_radius, graph_type, verbose):
     (obs_uv, dist_u, dist_v) = vol_dist
 
     dist_dict = {}
-    for i in xrange(0, len(dist_u)):
+    for i in range(0, len(dist_u)):
         dist_dict[i] = { 'U Distance': np.asarray([dist_u[i]], dtype=np.float32), \
                          'V Distance': np.asarray([dist_v[i]], dtype=np.float32) }
     
-    plot.plot_positions ("DG Volume", dist_dict.iteritems(), verbose=verbose, saveFig=True, graphType=graph_type)
+    plot.plot_positions ("DG Volume", iter(dist_dict.items()), verbose=verbose, saveFig=True, graphType=graph_type)
         
 
 if __name__ == '__main__':

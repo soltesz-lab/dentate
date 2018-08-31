@@ -19,8 +19,8 @@ for population in populations:
     pop_size = len(f['Populations'][population][namespace]['U Coordinate']['value'])
     if 'Interpolation Error' in f['Populations'][population][namespace]:
         re_positioned = np.where(f['Populations'][population][namespace]['Interpolation Error']['value'][:] > 1.)[0]
-    print 'population: %s, re-positioned %i out of %i' % (population, len(re_positioned), pop_size)
-    indexes = random.sample(range(pop_size), min(pop_size, 5000))
+    print('population: %s, re-positioned %i out of %i' % (population, len(re_positioned), pop_size))
+    indexes = random.sample(list(range(pop_size)), min(pop_size, 5000))
 
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(111, projection='3d')

@@ -1,7 +1,7 @@
 
 import sys, os, time, gc, click, logging
 from collections import defaultdict
-from itertools import izip_longest, izip
+from itertools import zip_longest
 import numpy as np
 from mpi4py import MPI
 import neuroh5
@@ -145,7 +145,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                                                         comm=comm))
 
     structured_weights_dict = {}
-    for itercount, attr_gen_package in enumerate(izip_longest(*connection_gen_list)):
+    for itercount, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
         local_time = time.time()
         syn_weight_dict = {}
         source_syn_map = defaultdict(list)
@@ -166,13 +166,13 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                                                    selection=[destination_gid], \
                                                    namespace=initial_weights_namespace, \
                                                    comm=comm)
-            _,initial_weights_dict = itval.next()
+            _,initial_weights_dict = next(itval)
             syn_weight_dict = { int(syn_id): float(weight) for (syn_id, weight) in 
-                                izip(np.nditer(initial_weights_dict['syn_id']),
+                                zip(np.nditer(initial_weights_dict['syn_id']),
                                      np.nditer(initial_weights_dict['weight'])) }
             local_random.seed(int(destination_gid + seed_offset))
             for this_destination_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
-                for i in xrange(len(source_gid_array)):
+                for i in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
                     this_syn_id = conn_attr_dict['Synapses']['syn_id'][i]
                     source_syn_map[this_source_gid].append(this_syn_id)
@@ -199,10 +199,10 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                             modulated_inputs += 1
                         syn_weight_dict[this_syn_id] += delta_weight
             structured_weights_dict[destination_gid] = \
-                {'syn_id': np.array(syn_peak_index_map.keys()).astype('uint32', copy=False),
+                {'syn_id': np.array(list(syn_peak_index_map.keys())).astype('uint32', copy=False),
                  'weight': np.array([syn_weight_dict[syn_id] for syn_id in syn_peak_index_map]).astype('float32',
                                                                                                       copy=False),
-                 'peak_index': np.array(syn_peak_index_map.values()).astype('uint32', copy=False),
+                 'peak_index': np.array(list(syn_peak_index_map.values())).astype('uint32', copy=False),
                  'structured': np.array([int(modify_weights)], dtype='uint32')}
             if modify_weights:
                 logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i/%i inputs in %.2f s' % \

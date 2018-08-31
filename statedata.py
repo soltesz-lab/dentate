@@ -14,7 +14,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
     attr_info_dict = read_cell_attribute_info(input_file, populations=list(population_names), read_cell_index=True)
 
     if query:
-        print attr_info_dict
+        print(attr_info_dict)
         return
         
     for pop_name in population_names:
@@ -28,7 +28,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
         if unitNo is None:
             if (maxUnits is not None) and (len(cell_index)>maxUnits):
                 if verbose:
-                    print('  Reading only randomly sampled %i out of %i units for population %s' % (maxUnits, len(cell_index), pop_name))
+                    print(('  Reading only randomly sampled %i out of %i units for population %s' % (maxUnits, len(cell_index), pop_name)))
                 sample_inds = np.random.randint(0, len(cell_index)-1, size=int(maxUnits))
                 unitNo      = set([cell_index[i] for i in sample_inds])
             else:
@@ -36,7 +36,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
         else:
             unitNo = set(unitNo)
 
-        print unitNo
+        print(unitNo)
             
         state_dict = {}
         valiter    = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)

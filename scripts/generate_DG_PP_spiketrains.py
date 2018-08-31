@@ -49,7 +49,7 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%i ranks have been allocated' % comm.size
+        print('%i ranks have been allocated' % comm.size)
 
     local_random = random.Random()
     input_spiketrain_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])

@@ -78,7 +78,7 @@ def cartesian_product(arrays, out=None):
     out[:,0] = np.repeat(arrays[0], m)
     if arrays[1:]:
         cartesian_product(arrays[1:], out=out[0:m,1:])
-        for j in xrange(1, arrays[0].size):
+        for j in range(1, arrays[0].size):
             out[j*m:(j+1)*m,1:] = out[0:m,1:]
     return out
 
@@ -243,7 +243,7 @@ class RBFVolume(object):
                return None, None
            return xyz_new, np.array([u,v,l],dtype='float32').reshape(1,3)
 
-        for xyz_key in distance_dictionary.keys():
+        for xyz_key in list(distance_dictionary.keys()):
             ndistance, _, _, points_to_add = distance_dictionary[xyz_key]
             
             sphere_centroid, sphere_radius = xyz_key, ndistance / 2.
@@ -465,9 +465,9 @@ class RBFVolume(object):
 
         c = input_axes
 
-        ordered_axes = [ np.sort(c[i]) if i == axis else c[i] for i in xrange(0,3) ]
+        ordered_axes = [ np.sort(c[i]) if i == axis else c[i] for i in range(0,3) ]
 
-        aidx = list(xrange(0,3))
+        aidx = list(range(0,3))
         aidx.remove(axis)
         
         distances = []
@@ -487,7 +487,7 @@ class RBFVolume(object):
                 if return_coords:
                     cind = np.lexsort(tuple([ split_pts_coords[0][i] for i in aidx ]))
                     coords.append(split_pts_coords[0][cind])
-                for i in xrange(0, npts-1):
+                for i in range(0, npts-1):
                     a = split_pts[i+1]
                     b = split_pts[i]
                     a_coords = split_pts_coords[i+1]
@@ -543,7 +543,7 @@ class RBFVolume(object):
         d1   = np.abs(b1 - coords[axis])
         ps1  = np.linspace(b1, coords[axis], int(d1/resolution))
         if len(ps1) > 1:
-            p_grid1  = [ ps1 if i == axis else coords[i] for i in xrange(0,3) ]
+            p_grid1  = [ ps1 if i == axis else coords[i] for i in range(0,3) ]
             p_u, p_v, p_l = np.meshgrid(*p_grid1)
             p_dist1  = self.point_distance(p_u.ravel(), p_v.ravel(), p_l.ravel(),
                                            axis=axis, mesh=False, return_coords=False)[-1]
@@ -554,7 +554,7 @@ class RBFVolume(object):
         d2  = np.abs(b2 - coords[axis])
         ps2 = np.linspace(coords[axis], b2, int(d2/resolution))
         if len(ps2) > 1:
-            p_grid2  = [ ps2 if i == axis else coords[i] for i in xrange(0,3) ]
+            p_grid2  = [ ps2 if i == axis else coords[i] for i in range(0,3) ]
             p_u, p_v, p_l = np.meshgrid(*p_grid2)
             p_dist2  = self.point_distance(p_u.ravel(), p_v.ravel(), p_l.ravel(),
                                            axis=axis, mesh=False, return_coords=False)[-1]
@@ -590,7 +590,7 @@ class RBFVolume(object):
 
         pos = []
         extents = []
-        for i in xrange(0, npts):
+        for i in range(0, npts):
             u_dist1, u_dist2 = self.boundary_distance(0, self.u[0], self.u[-1], uvl[i,:], resolution=resolution)
 
             u_extent = u_dist1 + u_dist2
@@ -770,10 +770,10 @@ def test_surface(u, v, l, rotate=None):
     import numpy as np
 
     if rotate is not None:
-        for i in xrange(0, 3):
+        for i in range(0, 3):
             if rotate[i] != 0.:
                 a = float(np.deg2rad(rotate[i]))
-                rot = rotate3d([ 1 if i == j else 0 for j in xrange(0,3) ], a)
+                rot = rotate3d([ 1 if i == j else 0 for j in range(0,3) ], a)
     else:
         rot = None
 
@@ -794,7 +794,7 @@ def test_surface(u, v, l, rotate=None):
 def test_nodes():
     from rbf.nodes import snap_to_boundary,disperse,menodes
     from rbf.geometry import contains
-    from alphavol import alpha_shape
+    from .alphavol import alpha_shape
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
@@ -878,7 +878,7 @@ def test_uv_isospline():
     xyz = test_surface (u, v, l).reshape(3, u.size).T
 
     order = [1]
-    for ii in xrange(len(order)):
+    for ii in range(len(order)):
         vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=order[ii])
 
         U, V = vol._resample_uv(5, 5)
@@ -921,11 +921,11 @@ def test_point_distance_mesh():
     L = np.asarray([1.0, 0.0, -1.0])
     
     dist, coords = vol.point_distance(U, V[0], L, axis=0)
-    print dist
-    print coords
+    print(dist)
+    print(coords)
     dist, coords = vol.point_distance(U[0], V, L, axis=1)
-    print dist
-    print coords
+    print(dist)
+    print(coords)
 
 
 def test_point_distance():
@@ -943,11 +943,11 @@ def test_point_distance():
     L = np.asarray([1.0, 0.0, -1.0])
     
     dist, coords = vol.point_distance(U, np.full((U.shape[0],1),V[10]), np.full((U.shape[0],1),L[1]), axis=0, mesh=False)
-    print dist
-    print coords
+    print(dist)
+    print(coords)
     dist, coords = vol.point_distance(np.full((V.shape[0],1),U[10]), V, np.full((V.shape[0],1),L[1]), axis=1, mesh=False)
-    print dist
-    print coords
+    print(dist)
+    print(coords)
 
 
 def test_point_position():
@@ -964,8 +964,8 @@ def test_point_position():
     U, V = vol._resample_uv(5, 5)
     L = np.asarray([1.0, 0.0, -1.0])
     
-    print vol.point_position(np.median(U), np.median(V), np.max(L))
-    print vol.point_position(1.0, np.median(V), np.max(L))
+    print(vol.point_position(np.median(U), np.median(V), np.max(L)))
+    print(vol.point_position(1.0, np.median(V), np.max(L)))
 
 def test_precision():
     
@@ -988,13 +988,13 @@ def test_precision():
     interp_xyz = vol(u, v, l, mesh=False).reshape(3, u.size).T
 
     error = xyz - interp_xyz
-    print ('Min error: %f' % np.min(error))
-    print ('Max error: %f' % np.max(error))
-    print ('Mean error: %f' % np.mean(error))
+    print(('Min error: %f' % np.min(error)))
+    print(('Max error: %f' % np.max(error)))
+    print(('Mean error: %f' % np.mean(error)))
     
     
 def test_alphavol():
-    from alphavol import alpha_shape
+    from .alphavol import alpha_shape
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
@@ -1075,8 +1075,8 @@ def test_load():
     vol.save('vol.p', 'phs3')
     vol_from_file = RBFVolume.load('vol.p')
 
-    print(vol(0.5, 0.5, 0.5))
-    print(vol_from_file(0.5, 0.5, 0.5))
+    print((vol(0.5, 0.5, 0.5)))
+    print((vol_from_file(0.5, 0.5, 0.5)))
     
     
 if __name__ == '__main__':

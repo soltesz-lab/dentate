@@ -121,7 +121,7 @@ def generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params, ra
         gid_dict[gid_a].append(gid_b)
 
     
-    for gid_a,gids_b in gid_dict.items():
+    for gid_a,gids_b in list(gid_dict.items()):
         sections_a   = []
         positions_a  = []
         sections_b   = []
@@ -193,7 +193,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
     start_time = time.time()
 
     ranstream_gj = np.random.RandomState(gj_seed)
-    population_pairs = gj_config_dict.keys()
+    population_pairs = list(gj_config_dict.keys())
 
     for pp in population_pairs:
         if rank == 0:
@@ -227,7 +227,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         
         clst_a = []
         gid_a  = []
-        for (gid, coords) in soma_coords_dict[population_a].items():
+        for (gid, coords) in list(soma_coords_dict[population_a].items()):
             clst_a.append(np.asarray(coords))
             gid_a.append(gid)
         gid_a = np.asarray(gid_a) 
@@ -237,7 +237,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
             
         clst_b = []
         gid_b  = []
-        for (gid, coords) in soma_coords_dict[population_b].items():
+        for (gid, coords) in list(soma_coords_dict[population_b].items()):
             clst_b.append(np.asarray(coords))
             gid_b.append(gid)
         gid_b = np.asarray(gid_b) 
@@ -254,7 +254,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         gj_distances = []
         gids_a = []
         gids_b = []
-        for gid, v in gj_prob_dict.items():
+        for gid, v in list(gj_prob_dict.items()):
             if gid % size == rank:
                 (nngids,nndists,nnprobs) = v
                 gids_a.append(np.full(nngids.shape,gid,dtype=np.int32))

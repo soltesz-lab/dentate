@@ -81,7 +81,7 @@ def split_array(a, size):
     start = 0
     chunk_size = int(math.ceil(float(len(a)) / size))
     sub_arrays = []
-    for i in xrange(size):
+    for i in range(size):
         if i == size - 1:
             sub_arrays.append(a[start:])
         else:
@@ -116,8 +116,8 @@ def serial_neuroh5_get_attr(file_path, population, namespace, gid, header='Popul
         attr_dict[namespace] = {}
         for attr in group:
             if not ('gid' in group[attr] and 'ptr' in group[attr] and 'value' in group[attr]):
-                print 'serial_neuroh5_get_attr: excluding namespace: %s; attribute: %s; format not recognized' % \
-                      (namespace, attr)
+                print('serial_neuroh5_get_attr: excluding namespace: %s; attribute: %s; format not recognized' % \
+                      (namespace, attr))
             else:
                 if gid_offset is None:
                     gid_offset = group[attr]['gid'][0]

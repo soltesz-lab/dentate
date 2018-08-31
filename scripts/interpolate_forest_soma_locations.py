@@ -154,7 +154,7 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
             if len(all_coords) > 0:
                 coords_sort_idxs = list_argsort(lambda coords: coords[1], all_coords) ## sort on U coordinate
                 reindex_dict = { coords[0]: { 'New Cell Index' : np.array([(i+population_start)], dtype='uint32') }
-                                     for (i, coords) in itertools.izip (coords_sort_idxs, all_coords) }
+                                     for (i, coords) in zip (coords_sort_idxs, all_coords) }
                 append_cell_attributes(coords_path, population, reindex_dict,
                                            namespace='Tree Reindex', io_size=1, comm=comm0)
             

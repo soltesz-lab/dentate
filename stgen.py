@@ -179,7 +179,7 @@ class StGen:
             spikes = np.concatenate((spikes,extra_spikes))
 
             if debug:
-                print "ISI buf overrun handled. len(spikes)=%d, len(extra_spikes)=%d" % (len(spikes),len(extra_spikes))
+                print("ISI buf overrun handled. len(spikes)=%d, len(extra_spikes)=%d" % (len(spikes),len(extra_spikes)))
 
 
         else:
@@ -526,11 +526,11 @@ class StGen:
         
 
         # python loop... bad+slow!
-        for i in xrange(1,N):
+        for i in range(1,N):
             y[i] = y[i-1]+fac*(y0-y[i-1])+noise*gauss[i-1]
 
         if time_it:
-            print time.time()-1
+            print(time.time()-1)
         
         return (y,t)
 
@@ -573,12 +573,12 @@ class StGen:
         mfac = 1-fac
         
         # python loop... bad+slow!
-        for i in xrange(1,N):
+        for i in range(1,N):
             idx = i-1
             y[i] = y[idx]*mfac+gauss[idx]
 
         if time_it:
-            print time.time()-t1
+            print(time.time()-t1)
 
         return (y,t)
 
@@ -645,7 +645,7 @@ class StGen:
 
 
         if time_it:
-            print 'Elapsed ',time.time()-t1,' seconds.'
+            print('Elapsed ',time.time()-t1,' seconds.')
 
         return (y,t)
 
@@ -761,7 +761,7 @@ def _gen_g_add(spikes,q,tau,t,eps = 1.0e-8):
     idx2 = np.clip(idx+vs_idx,0,len(gd_s))
     idx3 = idx2-idx
 
-    for i in xrange(len(idx)):
+    for i in range(len(idx)):
 
         gd_s[idx[i]:idx2[i]] += kern[0:idx3[i]]
 

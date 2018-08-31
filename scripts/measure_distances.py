@@ -60,7 +60,7 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
 
     soma_distances = measure_distances(env, comm, soma_coords, resolution=resolution)
                                        
-    for population in soma_distances.keys():
+    for population in list(soma_distances.keys()):
             
 
         if rank == 0:
@@ -68,7 +68,7 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
 
         dist_dict = soma_distances[population]
         attr_dict = {}
-        for k, v in dist_dict.iteritems():
+        for k, v in dist_dict.items():
             attr_dict[k] = { 'U Distance': np.asarray([v[0]],dtype=np.float32), \
                              'V Distance': np.asarray([v[1]],dtype=np.float32) }
         append_cell_attributes(output_path, population, attr_dict,

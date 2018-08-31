@@ -38,7 +38,7 @@ def main(file_path, namespace, attribute, population, io_size, cache_size, traje
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print '%s: %i ranks have been allocated' % (os.path.basename(__file__).split('.py')[0], comm.size)
+        print('%s: %i ranks have been allocated' % (os.path.basename(__file__).split('.py')[0], comm.size))
     sys.stdout.flush()
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
@@ -49,7 +49,7 @@ def main(file_path, namespace, attribute, population, io_size, cache_size, traje
 
     with h5py.File(file_path, 'a', driver='mpio', comm=comm) as f:
         if trajectory_namespace not in f:
-            print 'Rank: %i; Creating %s datasets' % (rank, trajectory_namespace)
+            print('Rank: %i; Creating %s datasets' % (rank, trajectory_namespace))
             group = f.create_group(trajectory_namespace)
             t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
                                                       spatial_resolution=spatial_resolution)
@@ -58,7 +58,7 @@ def main(file_path, namespace, attribute, population, io_size, cache_size, traje
                 with dataset.collective:
                     dataset[:] = value.astype('float32', copy=False)
         else:
-            print 'Rank: %i; Reading %s datasets' % (rank, trajectory_namespace)
+            print('Rank: %i; Reading %s datasets' % (rank, trajectory_namespace))
             group = f[trajectory_namespace]
             dataset = group['x']
             with dataset.collective:
@@ -86,14 +86,14 @@ def main(file_path, namespace, attribute, population, io_size, cache_size, traje
     matched = 0
     processed = 0
     for itercount, (target_gid, attr_dict) in enumerate(attr_gen):
-        print 'Rank: %i receieved target_gid: %s from the attribute generator.' % (rank, str(target_gid))
+        print('Rank: %i receieved target_gid: %s from the attribute generator.' % (rank, str(target_gid)))
         attr_dict2 = select_cell_attributes(target_gid, comm, file_path, index_map, target, namespace,
                                             population_offset=target_gid_offset)
         if np.all(attr_dict[attribute][:] == attr_dict2[attribute][:]):
-            print 'Rank: %i; cell attributes match!' % rank
+            print('Rank: %i; cell attributes match!' % rank)
             matched += 1
         else:
-            print 'Rank: %i; cell attributes do not match.' % rank
+            print('Rank: %i; cell attributes do not match.' % rank)
         comm.barrier()
         processed += 1
         if itercount > maxiter:
@@ -101,8 +101,8 @@ def main(file_path, namespace, attribute, population, io_size, cache_size, traje
     matched = comm.gather(matched, root=0)
     processed = comm.gather(processed, root=0)
     if comm.rank == 0:
-        print '%i / %i processed gids had matching cell attributes returned by both read methods' % \
-              (np.sum(matched), np.sum(processed))
+        print('%i / %i processed gids had matching cell attributes returned by both read methods' % \
+              (np.sum(matched), np.sum(processed)))
 
 
 if __name__ == '__main__':

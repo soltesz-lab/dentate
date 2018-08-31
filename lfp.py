@@ -64,13 +64,13 @@ class LFP:
 
 
         ex, ey, ez = self.epoint
-        for pop_name in self.celltypes.keys():
+        for pop_name in list(self.celltypes.keys()):
             
             lfp_ids = self.lfp_ids[pop_name]
             lfp_types = self.lfp_types[pop_name]
             lfp_coeffs = self.lfp_coeffs[pop_name]
             
-            for i in xrange(0, int(lfp_ids.size())):
+            for i in range(0, int(lfp_ids.size())):
                 ## Iterates over all cells chosen for the LFP computation
 	    
                 gid  = lfp_ids.x[i]
@@ -87,7 +87,7 @@ class LFP:
                         zz = h.Vector(nn)
                         ll = h.Vector(nn)
 		    
-                        for ii in xrange(0,nn):
+                        for ii in range(0,nn):
                             xx.x[ii] = sec.x3d(ii)
                             yy.x[ii] = sec.y3d(ii)
                             zz.x[ii] = sec.z3d(ii)
@@ -147,7 +147,7 @@ class LFP:
             pop_start = self.celltypes[pop_name]['start']
             pop_num = self.celltypes[pop_name]['num']
             
-            for gid in xrange(pop_start, pop_start+pop_num):
+            for gid in range(pop_start, pop_start+pop_num):
 
                 ransample = ranlfp.repick()
 
@@ -198,11 +198,11 @@ class LFP:
 	
         vlfp = 0.
 
-        for pop_name in self.celltypes.keys():
+        for pop_name in list(self.celltypes.keys()):
             lfp_ids = self.lfp_ids[pop_name]
             lfp_coeffs = self.lfp_coeffs[pop_name]
             ## Iterate over all cell types
-            for i in xrange(0, int(lfp_ids.size())):
+            for i in range(0, int(lfp_ids.size())):
                 ## Iterate over the cells chosen for the LFP computation
                 gid  = lfp_ids.x[i]
                 cell = self.pc.gid2cell(gid)

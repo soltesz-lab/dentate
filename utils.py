@@ -91,7 +91,7 @@ def nested_convert_scalars(data):
         for key in data:
             data[key] = nested_convert_scalars(data[key])
     elif isinstance(data, Iterable) and not isinstance(data, (str, tuple)):
-        for i in xrange(len(data)):
+        for i in range(len(data)):
             data[i] = nested_convert_scalars(data[i])
     elif hasattr(data, 'item'):
         try:
