@@ -27,72 +27,59 @@ def hoc_results_to_python(hoc_results):
     return results_dict
 
 
-def write_results(results, filepath, header):
-    f = open(filepath,'w')
-    f.write(header+'\n')
-    for item in results:
-        for (gid, vect) in item.items():
-            f.write (str(gid)+"\t")
-            f.write (("\t".join(['{:0.3f}'.format(i) for i in vect])) + "\n")
-    f.close()
-
     
-def simulate(h, v_init, prelength, mainlength):
+def simulate(v_init, mainlength, prelength=0, cvode=True):
     """
 
     :param h:
     :param v_init:
     :param prelength:
     :param mainlength:
+    :param cvode:
     """
-    h.cvode_active (1)
+    h.cvode_active (1 if cvode else 0)
     h.finitialize(v_init)
     h.tstop = prelength+mainlength
     h.fadvance()
     h.continuerun(h.tstop)
 
 
-## Adds a network connection to a single synapse point process
-##    pc: ParallelContext
-##    nclist: list of netcons
-##    srcgid: source gid
-##    dstgid: target gid
-##    syn: synapse point process
-def mknetcon(pc, nclist, srcgid, dstgid, syn, weight, delay):
-    nc = pc.gid_connect(srcgid, syn)
-    nc.weight[0] = weight
-    nc.delay = delay
-    nclist.append(nc)
-
-#New version of the function, used with dentate.cells
-def mk_netcon(pc, srcgid, dstgid, syn, weight, delay):
+def mknetcon(pc, srcgid, dstgid, syn, weight, delay):
+    """
+    Creates a network connection from the provided source to the provided synaptic point process.
+    :param pc: :class:'h.ParallelContext'
+    :param srcgid: int; source gid
+    :param dstgid: int; destination gid
+    :param syn: synapse point process
+    :param delay: float
+    :param weight: float
+    :return: :class:'h.NetCon'
+    """
+    assert pc.gid_exists(dstgid)
     nc = pc.gid_connect(srcgid, syn)
     nc.weight[0] = weight
     nc.delay = delay
     return nc
 
-## A variant of ParallelNetManager.nc_append that takes in a
-## synaptic point process as an argument, as opposed to the index of a
-## synapse in cell.synlist) 
-def nc_appendsyn(pc, nclist, srcgid, dstgid, syn, weight, delay):
-    ## target in this subset
-    ## source may be on this or another machine
-    assert (pc.gid_exists(dstgid))
-    if (pc.gid_exists(dstgid)):
-        cell = pc.gid2cell(dstgid)
-    mknetcon(pc, nclist, srcgid, dstgid, syn, weight/1000.0, delay)
 
-#New version of the function, used with dentate.cells
-def mk_nc_syn(pc, srcgid, dstgid, syn, weight, delay):
-    assert (pc.gid_exists(dstgid))
-    if (pc.gid_exists(dstgid)):
-        cell = pc.gid2cell(dstgid)
-    nc = mk_netcon(pc, srcgid, dstgid, syn, weight / 1000.0, delay)
-    return nc
+def mknetcon_vecstim(syn, delay=0.1, weight=1):
+    """
+    Creates a VecStim object to drive the provided synaptic point process, and a network connection from the VecStim
+    source to the synapse target.
+    :param syn: synapse point process
+    :param delay: float
+    :param weight: float
+    :return: :class:'h.NetCon', :class:'h.VecStim'
+    """
+    vs = h.VecStim()
+    nc = h.NetCon(vs, syn)
+    nc.weight[0] = weight
+    nc.delay = delay
+    return nc, vs
 
 
 ## Create gap junctions
-def mkgap(pc, gjlist, gid, secpos, secidx, sgid, dgid, w):
+def mkgap(env, gid, secpos, secidx, sgid, dgid, w):
     """
     Create gap junctions
     :param pc:
@@ -104,7 +91,7 @@ def mkgap(pc, gjlist, gid, secpos, secidx, sgid, dgid, w):
     :param w:
     :return:
     """
-    cell = pc.gid2cell(gid)
+    cell = env.pc.gid2cell(gid)
 
     sec = list(cell.sections)[secidx]
     seg = sec(secpos)
@@ -113,6 +100,35 @@ def mkgap(pc, gjlist, gid, secpos, secidx, sgid, dgid, w):
     pc.source_var(seg._ref_v, sgid, sec=sec)
     pc.target_var(gj, gj._ref_vgap, dgid)
     
-    gjlist.append(gj)
     gj.g = w
 
+    return gj
+
+def configure_hoc_env(env):
+    """
+
+    :param env: :class:'Env'
+    """
+    h.load_file("nrngui.hoc")
+    h.load_file("loadbal.hoc")
+    h('objref pc, nc, nil')
+    h('strdef datasetPath')
+    h('numCells = 0')
+    h.datasetPath = env.datasetPath
+    h.pc = h.ParallelContext()
+    env.pc = h.pc
+    ## polymorphic value template
+    h.load_file(env.hoclibPath + '/templates/Value.hoc')
+    ## randomstream template
+    h.load_file(env.hoclibPath + '/templates/ranstream.hoc')
+    ## stimulus cell template
+    h.load_file(env.hoclibPath + '/templates/StimCell.hoc')
+    h.xopen(env.hoclibPath + '/lib.hoc')
+    h.dt = env.dt
+    h.tstop = env.tstop
+
+    h('objref templatePaths, templatePathValue')
+    h.templatePaths = h.List()
+    for path in env.templatePaths:
+        h.templatePathValue = h.Value(1, path)
+        h.templatePaths.append(h.templatePathValue)

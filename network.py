@@ -187,6 +187,31 @@ def lfpout(env, output_path, lfp):
     grp['v'] = np.asarray(lfp.meanlfp, dtype=np.float32)
 
     output.close()
+            
+def register_cell(env, pop_name, gid, cell):
+    """
+    Registers a cell in a network environment.
+    :param env: an instance of env.Env
+    :param pop_name: population name
+    :param gid: gid
+    :param cell: cell instance
+    """
+    rank = env.comm.rank
+    env.gidlist.append(gid)
+    env.cells.append(cell)
+    env.pc.set_gid2node(gid, rank)
+    # Tell the ParallelContext that this cell is a spike source
+    # for all other hosts. NetCon is temporary.
+    nc = cell.connect2target(h.nil)
+    env.pc.cell(gid, nc, 1)
+    # Record spikes of this cell
+    env.pc.spike_record(gid, env.t_vec, env.id_vec)
+    # Record voltages from a subset of cells
+    if gid in env.v_sample_dict[pop_name]: 
+        v_vec = h.Vector()
+        soma = list(cell.soma)[0]
+        v_vec.record(soma(0.5)._ref_v)
+        env.v_dict[pop_name][gid] = v_vec
 
 
 def connect_cells(env, cleanup=True):
@@ -348,7 +373,7 @@ def connect_cells(env, cleanup=True):
                    for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
                        for syn_name, syn in edge_syn_obj_dict[edge_syn_id].items():
                            delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                           this_nc = synapses.mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
+                           this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                            syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                            synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
@@ -525,7 +550,7 @@ def connect_cell_selection(env, cleanup=True):
                     vecstim_selection[presyn_name].add(presyn_gid)
                     for syn_name, syn in edge_syn_obj_dict[edge_syn_id].items():
                         delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                        this_nc = synapses.mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
+                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
@@ -568,8 +593,6 @@ def connect_gjs(env):
 
     if gapjunctionsFilePath is not None:
 
-        h('objref gjlist')
-        h.gjlist = h.List()
         (graph, a) = bcast_graph(gapjunctionsFilePath,\
                                  namespaces=['Coupling strength','Location'],\
                                  comm=env.comm)
@@ -611,30 +634,20 @@ def connect_gjs(env):
                             logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                         'sgid = %d dgid = %d\n' %
                                         (rank, src, srcsec, weight, ggid, ggid+1))
-                        mkgap(env.pc, h.gjlist, src, srcpos, srcsec, ggid, ggid+1, srcwgt)
+                        gj = mkgap(env.pc, src, srcpos, srcsec, ggid, ggid+1, srcwgt)
+                        env.gjlist.append(gj)
                     if env.pc.gid_exists(dst):
                         if rank == 0:
                            logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                        'sgid = %d dgid = %d\n' %
                                        (rank, dst, dstsec, weight, ggid+1, ggid))
-                        mkgap(env.pc, h.gjlist, dst, dstpos, dstsec, ggid+1, ggid, dstwgt)
+                        gj = mkgap(env.pc, dst, dstpos, dstsec, ggid+1, ggid, dstwgt)
+                        env.gjlist.append(gj)
                     ggid = ggid+2
 
             del graph[name[0]][name[1]]
-            
-def make_cell(env, gid, cell):
-    rank = env.comm.rank
-    env.gidlist.append(gid)
-    env.cells.append(cell)
-    env.pc.set_gid2node(gid, rank)
-    # Tell the ParallelContext that this cell is a spike source
-    # for all other hosts. NetCon is temporary.
-    nc = cell.connect2target(h.nil)
-    env.pc.cell(gid, nc, 1)
-    # Record spikes of this cell
-    env.pc.spike_record(gid, env.t_vec, env.id_vec)
-    h.numCells = h.numCells + 1
-            
+
+
 
 def make_cells(env):
     """
@@ -659,11 +672,11 @@ def make_cells(env):
         if rank == 0:
             logger.info("*** Creating population %s" % pop_name)
         env.load_cell_template(pop_name)
-        templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
         v_sample_set = set([])
+        env.v_sample_dict[pop_name] = v_sample_set
         env.v_dict[pop_name] = {}
-
+        
         for gid in xrange(env.celltypes[pop_name]['start'],
                           env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
             if ranstream_v_sample.uniform() <= env.vrecordFraction:
@@ -682,33 +695,16 @@ def make_cells(env):
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
             h.numCells = 0
-            i = 0
-            for (gid, tree) in trees:
+            for i, (gid, tree) in enumerate(trees):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
-                                                       dataset_path=datasetPath)
+                model_cell = cells.make_hoc_cell(env, gid, pop_name, neurotree_dict=tree)
                 if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
-                env.gidlist.append(gid)
-                env.cells.append(model_cell)
-                env.pc.set_gid2node(gid, rank)
-                # Tell the ParallelContext that this cell is a spike source
-                # for all other hosts. NetCon is temporary.
-                nc = model_cell.connect2target(h.nil)
-                env.pc.cell(gid, nc, 1)
-                # Record spikes of this cell
-                env.pc.spike_record(gid, env.t_vec, env.id_vec)
-                # Record voltages from a subset of cells
-                if gid in v_sample_set:
-                    v_vec = h.Vector()
-                    soma = list(model_cell.soma)[0]
-                    v_vec.record(soma(0.5)._ref_v)
-                    env.v_dict[pop_name][gid] = v_vec
-                i = i + 1
-                h.numCells = h.numCells + 1
+                register_cell(env, gid, model_cell)
+
             if rank == 0:
                 logger.info("*** Created %i cells" % i)
 
@@ -731,19 +727,21 @@ def make_cells(env):
             coords = cell_attributes_dict['Coordinates']
 
             h.numCells = 0
-            i = 0
-            for (gid, cell_coords_dict) in coords:
+            for i, (gid, cell_coords_dict) in enumerate(coords):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+                model_cell = cells.make_hoc_cell(env, gid, pop_name)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
                 cell_z = cell_coords_dict['Z Coordinate'][0]
                 model_cell.position(cell_x, cell_y, cell_z)
 
-                make_cell(env, gid, model_cell)
+                register_cell(env, pop_name, gid, model_cell)
+                
+            if rank == 0:
+                logger.info("*** Created %i cells" % i)
         h.define_shape()
 
         
@@ -914,17 +912,10 @@ def init(env):
 
     :param env:
     """
-    h.load_file("nrngui.hoc")
-    h.load_file("loadbal.hoc")
-    h('objref pc, nclist, nc, nil')
-    h('strdef datasetPath')
-    h('numCells = 0')
-    h.nclist = h.List()
-    h.datasetPath = env.datasetPath
+    configure_hoc_env(env)
+    
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
-    h.dt = env.dt
-    h.tstop = env.tstop
     if env.optldbal or env.optlptbal:
         lb = h.LoadBalance()
         if not os.path.isfile("mcomplex.dat"):

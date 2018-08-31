@@ -568,39 +568,6 @@ def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shar
     return syn_obj_dict
 
 
-def mknetcon(pc, srcgid, dstgid, syn, delay=0.1, weight=1):
-    """
-    Creates a network connection from the provided source to the provided synaptic point process.
-    :param pc: :class:'h.ParallelContext'
-    :param srcgid: int; source gid
-    :param dstgid: int; destination gid
-    :param syn: synapse point process
-    :param delay: float
-    :param weight: float
-    :return: :class:'h.NetCon'
-    """
-    assert pc.gid_exists(dstgid)
-    nc = pc.gid_connect(srcgid, syn)
-    nc.weight[0] = weight
-    nc.delay = delay
-    return nc
-
-
-def mknetcon_vecstim(syn, delay=0.1, weight=1):
-    """
-    Creates a VecStim object to drive the provided synaptic point process, and a network connection from the VecStim
-    source to the synapse target.
-    :param syn: synapse point process
-    :param delay: float
-    :param weight: float
-    :return: :class:'h.NetCon', :class:'h.VecStim'
-    """
-    vs = h.VecStim()
-    nc = h.NetCon(vs, syn)
-    nc.weight[0] = weight
-    nc.delay = delay
-    return nc, vs
-
 
 # ------------------------------- Methods to specify synaptic mechanisms  -------------------------------------------- #
 

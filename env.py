@@ -60,6 +60,7 @@ class Env:
 
         self.gidlist = []
         self.cells = []
+        self.gjlist = []
         self.biophys_cells = defaultdict(dict)
 
         self.comm = comm

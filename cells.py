@@ -1301,6 +1301,35 @@ def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
 
 # ------------------- Methods to specify cells from hoc templates and neuroh5 trees ---------------------------------- #
 
+def report_topology(cell, env, node=None):
+    """
+    Traverse a cell and report topology and number of synapses.
+    :param cell:
+    :param env:
+    :param node:
+    """
+    if node is None:
+       node = cell.tree.root
+    syn_attrs = env.synapse_attributes
+    if node.index in syn_attrs.sec_index_map[cell.gid]:
+        num_exc_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
+                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
+                                                              syn_types=[env.syntypes_dict['excitatory']]))
+        num_inh_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
+                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
+                                                              syn_types=[env.syntypes_dict['inhibitory']]))
+    else:
+        num_exc_syns = 0
+        num_inh_syns = 0
+    report = 'node: %s, L: %.1f, diam: %.2f, children: %i, exc_syns: %i, inh_syns: %i' % \
+             (node.name, node.sec.L, node.sec.diam, len(node.children), num_exc_syns, num_inh_syns)
+    if node.parent is not None:
+        report += ', parent: %s' % node.parent.name
+    logger.info(report)
+    for child in node.children:
+        report_topology(cell, env, child)
+
+        
 def make_neurotree_graph(neurotree_dict, return_root=True):
     """
     Creates a graph of sections that follows the topological organization of the given neuron.
@@ -1351,14 +1380,75 @@ def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neur
     return cell
 
 
-def make_cell(template_class, local_id=0, gid=0, dataset_path=""):
+tree = select_tree_attributes(gid, env.comm, dataFilePath, popName)
+
+def make_hoc_cell(env, gid, population, neurotree_dict=False):
     """
 
-    :param template_class:
-    :param local_id:
+    :param env:
     :param gid:
-    :param dataset_path:
-    :return: hoc cell object
+    :param population:
+    :return:
     """
-    cell = template_class(local_id, gid, dataset_path)
+    popName = population
+    datasetPath = env.datasetPath
+    dataFilePath = env.dataFilePath
+    env.load_cell_template(popName)
+    templateClass = getattr(h, env.celltypes[popName]['template'])
+
+    if env.cellAttributeInfo.has_key(popName) and env.cellAttributeInfo[popName].has_key('Trees'):
+        if neurotree_dict:
+            i = h.numCells
+            hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
+                                               dataset_path=datasetPath)
+        else:
+            raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provded' %
+                            dataFilePath, popName, gid)
+    else:
+        hoc_cell = template_class(local_id, gid, datasetPath)
+        
+    h.numCells = h.numCells + 1
+    return hoc_cell
+
+
+
+def get_biophys_cell(env, gid, pop_name):
+    """
+    TODO: Use Connections: distance attribute to compute and load netcon delays
+    TODO: Consult env for weights namespaces, load_syn_weights
+    :param env:
+    :param gid:
+    :param pop_name:
+    :return:
+    """
+    hoc_cell = make_hoc_cell(env, gid, pop_name)
+    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
+    target_gid_offset = env.celltypes[pop_name]['start']
+    syn_attrs = env.synapse_attributes
+    try:
+        if pop_name not in syn_attrs.select_cell_attr_index_map:
+            syn_attrs.select_cell_attr_index_map[pop_name] = \
+                get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
+        syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
+                                                                syn_attrs.select_cell_attr_index_map[pop_name],
+                                                                pop_name, 'Synapse Attributes', target_gid_offset))
+    except Exception:
+        logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+
+    try:
+        if len(env.projection_dict[pop_name]) == 0:
+            raise Exception
+        for source_name in env.projection_dict[pop_name]:
+            if source_name not in syn_attrs.select_edge_attr_index_map[pop_name]:
+                syn_attrs.select_edge_attr_index_map[pop_name][source_name] = \
+                    get_edge_attributes_index_map(env.comm, env.connectivityFilePath, source_name, pop_name)
+            source_gid_offset = env.celltypes[source_name]['start']
+            source_indexes, edge_attr_dict = \
+                select_edge_attributes(gid, env.comm, env.connectivityFilePath,
+                                       syn_attrs.select_edge_attr_index_map[pop_name][source_name], source_name,
+                                       pop_name, ['Synapses'], source_gid_offset, target_gid_offset)
+            syn_attrs.load_edge_attrs(gid, source_name, edge_attr_dict['Synapses']['syn_id'], env)
+    except Exception:
+        logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+    env.biophys_cells[pop_name][gid] = cell
     return cell
