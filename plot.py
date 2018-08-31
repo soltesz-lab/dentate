@@ -1213,18 +1213,18 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 
     maxN = 0
     minN = N
-    if popRates:
-        avg_rates = {}
-        tsecs = (timeRange[1]-timeRange[0])/1e3 
-        for i,pop_name in enumerate(spkpoplst):
-            pop_num = len(pop_active_cells[pop_name])
-            maxN = max(maxN, max(pop_active_cells[pop_name]))
-            minN = min(minN, min(pop_active_cells[pop_name]))
-            if pop_num > 0:
-                if num_cell_spks[pop_name] == 0:
-                    avg_rates[pop_name] = 0
-                else:
-                    avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
+
+    avg_rates = {}
+    tsecs = (timeRange[1]-timeRange[0])/1e3 
+    for i,pop_name in enumerate(spkpoplst):
+        pop_num = len(pop_active_cells[pop_name])
+        maxN = max(maxN, max(pop_active_cells[pop_name]))
+        minN = min(minN, min(pop_active_cells[pop_name]))
+        if pop_num > 0:
+            if num_cell_spks[pop_name] == 0:
+                avg_rates[pop_name] = 0
+            else:
+                avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
         
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -1282,11 +1282,13 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
         ax1.set_xlim(timeRange)
         ax1.set_ylim(minN-1, maxN+1)
 
+        ax1.tick_params(axis='both', which='major', labelsize=fontSize)
+        ax1.tick_params(axis='both', which='minor', labelsize=fontSize)
         # Add legend
         if popRates:
             pop_labels = [pop_name + ' (%i active; %.3g Hz)' % (len(pop_active_cells[pop_name]), avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
         else:
-            pop_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))]
+            pop_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))  for pop_name in spkpoplst if pop_name in avg_rates]
             
         if labels == 'legend':
             legend_labels = pop_labels
