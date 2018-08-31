@@ -1,0 +1,41 @@
+bounds:
+  scale_factor: !!python/tuple
+  - 1.0
+  - 100.0
+feature_names:
+- minmax sum eval
+- minmax var eval
+- fraction active
+update_context:
+- - generate_DG_PP_features_v3
+  - _calculate_rate_maps
+get_features_stages:
+- source: generate_DG_PP_features_v3
+  compute_features: calculate_features
+get_objectives:
+  generate_DG_PP_features_v3: get_objectives
+kwargs:
+  module: 9
+  fraction_active_target: 0.15
+  cell_type: grid
+objective_names:
+- minmax sum error
+- minmax var error
+- fraction active mean error
+- fraction active var error
+optimization_title: generate_DG_PP_leak
+param_gen: PopulationAnnealing
+param_names:
+- scale_factor
+target_range:
+  minmax sum error: 1.0
+  minmax var error: 1.0
+  fraction active mean error: 1.0
+  fraction active var error: 1.0
+target_val:
+  minmax sum error: 1.0
+  minmax var error: 1.0 
+  fraction active mean error: 0.0
+  fraction active var error: 0.0
+x0:
+  scale_factor: 50.0
