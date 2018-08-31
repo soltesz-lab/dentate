@@ -1380,8 +1380,6 @@ def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neur
     return cell
 
 
-tree = select_tree_attributes(gid, env.comm, dataFilePath, popName)
-
 def make_hoc_cell(env, gid, population, neurotree_dict=False):
     """
 
@@ -1418,7 +1416,8 @@ def get_biophys_cell(env, gid, pop_name):
     :param pop_name:
     :return:
     """
-    hoc_cell = make_hoc_cell(env, gid, pop_name)
+    tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
+    hoc_cell = make_hoc_cell(env, gid, pop_name, neurotree_dict=tree)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
     target_gid_offset = env.celltypes[pop_name]['start']
     syn_attrs = env.synapse_attributes
