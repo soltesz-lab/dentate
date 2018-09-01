@@ -18,6 +18,9 @@ kwargs:
   module: 9
   fraction_active_target: 0.15
   cell_type: grid
+  active_threshold: 1.0
+  grid_peak_rate: 20.0
+  place_peak_rate: 20.0
 objective_names:
 - minmax sum error
 - minmax var error
@@ -28,14 +31,14 @@ param_gen: PopulationAnnealing
 param_names:
 - scale_factor
 target_range:
-  minmax sum error: 1.0
-  minmax var error: 1.0
-  fraction active mean error: 1.0
-  fraction active var error: 1.0
+  minmax sum error: 0.05
+  minmax var error: 0.05
+  fraction active mean error: 0.01
+  fraction active var error: 0.05
 target_val:
   minmax sum error: 1.0
   minmax var error: 1.0 
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  scale_factor: 50.0
+  scale_factor: 7.5
