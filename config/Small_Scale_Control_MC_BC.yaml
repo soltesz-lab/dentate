@@ -33,6 +33,7 @@ Cell Types:
   BC:
     template: BasketCell
     templateFile: BasketCell_minimal.hoc
+    mech_file: 20180831_BC_mech.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:

@@ -1,7 +1,6 @@
-
 from dentate.neuron_utils import *
+from dentate.utils import viewitems
 from dentate.cells import get_mech_rules_dict, get_donor, get_distance_to_node, get_param_val_by_distance, import_mech_dict_from_file, custom_filter_by_branch_order, custom_filter_by_terminal, make_neurotree_graph
-import networkx as nx
 import collections
 
 
@@ -167,7 +166,7 @@ class SynapseAttributes(object):
         if not self.has_mech_attrs(gid, syn_id, syn_name):
             self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs'] = params
         else:
-            for param, val in list(params.items()):
+            for param, val in viewitems(params):
                 self.syn_mech_attr_dict[gid][syn_id][syn_name]['attrs'][param] = val
 
     def get_filtered_syn_indexes(self, gid, syn_indexes=None, syn_types=None, layers=None, sources=None,
@@ -216,7 +215,7 @@ def organize_syn_ids_by_source(gid, env, syn_ids=None):
     :param env: :class:'Env'
     :param syn_ids: array of int
     """
-    source_names = {id: name for name, id in list(env.pop_dict.items())}
+    source_names = {id: name for name, id in viewitems(env.pop_dict)}
     source_syn_ids = defaultdict(list)
     syn_attrs = env.synapse_attributes
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
@@ -224,7 +223,7 @@ def organize_syn_ids_by_source(gid, env, syn_ids=None):
 
     for syn_id in syn_ids:
         source_id = syn_id_attr_dict['syn_sources'][syn_id_attr_index_map[syn_id]]
-        if sources_id in source_names:
+        if source_id in source_names:
             source_name = source_names[source_id]
             source_syn_ids[source_name].append(syn_id)
     return source_syn_ids
@@ -267,7 +266,7 @@ def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, un
         sec_id = syn_id_attr_dict['syn_secs'][syn_index]
         sec = cell.tree.get_node_with_index(sec_id).sec
         syn_loc = syn_id_attr_dict['syn_locs'][syn_index]
-        for syn_name, mech_params in list(syn_params.items()):
+        for syn_name, mech_params in viewitems(syn_params):
             syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=shared_syns_dict,
                               mech_names=syn_attrs.syn_mech_names)
             syn_obj_dict[syn_id][syn_name] = syn
@@ -281,7 +280,7 @@ def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, un
 
     nc_count = 0
     for syn_id in syn_ids:
-        for syn_name, syn in list(syn_obj_dict[syn_id].items()):
+        for syn_name, syn in viewitems(syn_obj_dict[syn_id]):
             this_nc, this_vecstim = mknetcon_vecstim(syn)
             syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
             syn_attrs.append_vecstim(gid, syn_id, syn_name, this_vecstim)
@@ -448,7 +447,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
         mech_name = mech_names[syn_name]
     else:
         mech_name = syn_name
-    for param, val in list(params.items()):
+    for param, val in viewitems(params):
         failed = True
         if param in rules[mech_name]['mech_params']:
             if syn is None:
@@ -552,7 +551,7 @@ def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shar
         else:
             raise RuntimeError("Unsupported synapse SWC type %d" % swc_type)
 
-        for syn_name, params in list(syn_params.items()):
+        for syn_name, params in viewitems(syn_params):
             syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
                               mech_names=syn_attrs.syn_mech_names)
             if syn not in env.syns_set[gid]:
@@ -1035,6 +1034,8 @@ def make_synapse_graph(syn_dict, neurotree_dict, return_root=False):
     :param neurotree_dict:
     :return: NetworkX.DiGraph
     """
+    import networkx as nx
+    
     sec_graph = make_neurotree_graph(neurotree_dict)
 
     syn_ids  = syn_dict['syn_ids']
@@ -1047,7 +1048,7 @@ def make_synapse_graph(syn_dict, neurotree_dict, return_root=False):
         
     syn_graph = nx.DiGraph()
 
-    for sec_id, syn_id_locs in list(sec_syn_dict.items()):
+    for sec_id, syn_id_locs in viewitems(sec_syn_dict):
 
         sec_parents = sec_graph.ancestors(sec_id)
         sec_children = sec_graph.descendants(sec_id)
@@ -1101,10 +1102,10 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
         secnodes_dict = neurotree_dict['section_topology']['nodes']
     else:
         secnodes_dict = None
-    for (syn_type_label, layer_density_dict) in list(layer_density_dicts.items()):
+    for (syn_type_label, layer_density_dict) in viewitems(layer_density_dicts):
         syn_type = syn_type_dict[syn_type_label]
         rans = {}
-        for (layer_label, density_dict) in list(layer_density_dict.items()):
+        for (layer_label, density_dict) in viewitems(layer_density_dict):
             if layer_label == 'default':
                 layer = layer_label
             else:
@@ -1114,7 +1115,7 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
             rans[layer] = ran
         segdensity = defaultdict(list)
         layers = defaultdict(list)
-        for sec_index, seg_list in list(seg_dict.items()):
+        for sec_index, seg_list in viewitems(seg_dict):
             for seg in seg_list:
                 L = seg.sec.L
                 nseg = seg.sec.nseg
@@ -1171,10 +1172,10 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
         secnodes_dict = neurotree_dict['section_topology']['nodes']
     else:
         secnodes_dict = None
-    for (syn_type_label, layer_density_dict) in list(layer_density_dicts.items()):
+    for (syn_type_label, layer_density_dict) in viewitems(layer_density_dicts):
         syn_type = syn_type_dict[syn_type_label]
         rans = {}
-        for (layer_label, density_dict) in list(layer_density_dict.items()):
+        for (layer_label, density_dict) in viewitems(layer_density_dict):
             if layer_label == 'default':
                 layer = layer_label
             else:
@@ -1184,7 +1185,7 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
             rans[layer] = ran
         segcounts = []
         layers = []
-        for sec_index, seg_list in list(sec_dict.items()):
+        for sec_index, seg_list in viewitems(sec_dict):
             for seg in seg_list:
                 L = seg.sec.L
                 nseg = seg.sec.nseg
@@ -1246,7 +1247,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     syn_index = 0
 
     segcounts_per_sec = {}
-    for (sec_name, layer_density_dict) in list(sec_layer_density_dict.items()):
+    for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
         sec_index_dict = secidx_dict[sec_name]
         swc_type = swc_type_dict[sec_name]
         seg_list = []
@@ -1255,7 +1256,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         secidxlst = cell_secidx_dict[sec_name]
         sec_dict = { int(idx): sec for sec, idx in zip(seclst, secidxlst) }
         seg_dict = {}
-        for (sec_index, sec) in list(sec_dict.items()):
+        for (sec_index, sec) in viewitems(sec_dict):
             seg_list = []
             if maxdist is None:
                 for seg in sec:
@@ -1272,11 +1273,11 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                neurotree_dict=neurotree_dict)
         segcounts_per_sec[sec_name] = segcounts_dict
         sample_size = total
-        for (syn_type_label, _) in list(layer_density_dict.items()):
+        for (syn_type_label, _) in viewitems(layer_density_dict):
             syn_type = syn_type_dict[syn_type_label]
             segcounts = segcounts_dict[syn_type]
             layers = layers_dict[syn_type]
-            for sec_index, seg_list in list(seg_dict.items()):
+            for sec_index, seg_list in viewitems(seg_dict):
                 for seg, layer, seg_count in zip(seg_list, layers, segcounts):
                     seg_start = seg.x - (0.5 / seg.sec.nseg)
                     seg_end = seg.x + (0.5 / seg.sec.nseg)
@@ -1321,6 +1322,8 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     :param verbose:
     :return:
     """
+    import networkx as nx
+    
     syn_ids = []
     syn_locs = []
     syn_secs = []
@@ -1333,7 +1336,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     sec_graph = make_neurotree_graph(neurotree_dict, return_root=False)
 
     seg_density_per_sec = {}
-    for (sec_name, layer_density_dict) in list(sec_layer_density_dict.items()):
+    for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
 
         swc_type = swc_type_dict[sec_name]
         seg_dict = {}
@@ -1355,7 +1358,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                 sec_edges = [(None, idx) for idx in list(sec_dict.keys()) ]
         else:
             sec_edges = [(None, idx) for idx in list(sec_dict.keys()) ]
-        for sec_index, sec in list(sec_dict.items()):
+        for sec_index, sec in viewitems(sec_dict):
             seg_list = []
             if maxdist is None:
                 for seg in sec:
@@ -1373,7 +1376,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                 seg_dict, density_seed, \
                                 neurotree_dict=neurotree_dict)
         seg_density_per_sec[sec_name] = seg_density_dict
-        for (syn_type_label, _) in list(layer_density_dict.items()):
+        for (syn_type_label, _) in viewitems(layer_density_dict):
             r = np.random.RandomState()
             syn_type = syn_type_dict[syn_type_label]
             seg_density = seg_density_dict[syn_type]

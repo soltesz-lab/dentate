@@ -5,6 +5,7 @@ __author__ = 'See AUTHORS.md'
 
 import dentate
 from dentate.neuron_utils import *
+from dentate.utils import viewitems
 from dentate import cells, synapses, lpt, lfp, simtime
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
@@ -162,9 +163,9 @@ def vout(env, output_path, t_vec, v_dict):
     else:
         namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
 
-    for pop_name, gid_v_dict in list(v_dict.items()):
+    for pop_name, gid_v_dict in viewitems(v_dict):
         attr_dict  = {gid: {'v': np.array(vs, dtype=np.float32), 't': t_vec}
-                      for (gid, vs) in list(gid_v_dict.items())}
+                      for (gid, vs) in viewitems(gid_v_dict)}
         write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
 
 
@@ -234,7 +235,7 @@ def connect_cells(env, cleanup=True):
         logger.info('*** Connectivity file path is %s' % connectivityFilePath)
         logger.info('*** Reading projections: ')
 
-    for (postsyn_name, presyn_names) in list(env.projection_dict.items()):
+    for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -371,7 +372,7 @@ def connect_cells(env, cleanup=True):
                                h.psection(sec=sec)
 
                    for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
-                       for syn_name, syn in list(edge_syn_obj_dict[edge_syn_id].items()):
+                       for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                            delay = (distance / env.connection_velocity[presyn_name]) + h.dt
                            this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                            syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
@@ -424,7 +425,7 @@ def connect_cell_selection(env, cleanup=True):
 
     vecstim_selection = defaultdict(list)
     
-    for (postsyn_name, presyn_names) in list(env.projection_dict.items()):
+    for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
         if postsyn_name not in pop_names:
             continue
@@ -548,7 +549,7 @@ def connect_cell_selection(env, cleanup=True):
 
                 for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
                     vecstim_selection[presyn_name].add(presyn_gid)
-                    for syn_name, syn in list(edge_syn_obj_dict[edge_syn_id].items()):
+                    for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                         delay = (distance / env.connection_velocity[presyn_name]) + h.dt
                         this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
@@ -889,7 +890,7 @@ def make_stimulus(env,vecstim_selection):
 
     if vecstim_selection is not None:
         assert(env.spike_input_path is not None)
-        for pop_name, gid_range in list(vecstim_selection.items()):
+        for pop_name, gid_range in viewitems(vecstim_selection):
             cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range),
                                                         namespace=env.spike_input_ns,
                                                         comm=env.comm, io_size=env.IOsize)
@@ -957,7 +958,7 @@ def init(env):
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     h.startsw()
     if env.cell_selection is None:
-        for lfp_label,lfp_config_dict in list(env.lfpConfig.items()):
+        for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
             env.lfp[lfp_label] = \
               lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], rho=lfp_config_dict['rho'],
                         dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],

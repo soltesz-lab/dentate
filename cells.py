@@ -1,10 +1,11 @@
 import itertools
-import networkx as nx
+from dentate.utils import viewitems
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
+from neuroh5.io import read_cell_attribute_selection
 import collections
 try:
-    from . import btmorph
+    import btmorph
 except Exception:
     pass
 
@@ -449,7 +450,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     :param hoc_cell: :class:'h.hocObject': instance of a NEURON cell template
     """
     sec_type_map = {}
-    for sec_type, sec_index_list in list(default_hoc_sec_lists.items()):
+    for sec_type, sec_index_list in viewitems(default_hoc_sec_lists):
         if hasattr(hoc_cell, sec_type):
             sec_list = list(getattr(hoc_cell, sec_type))
             if hasattr(hoc_cell, sec_index_list):
@@ -1337,6 +1338,7 @@ def make_neurotree_graph(neurotree_dict, return_root=True):
     :param neurotree_dict:
     :return: NetworkX.DiGraph
     """
+    import networkx as nx
 
     sec_nodes = neurotree_dict['section_topology']['nodes']
     sec_src   = neurotree_dict['section_topology']['src']
@@ -1397,7 +1399,7 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
 
     if popName in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[popName]:
         if neurotree_dict:
-            hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, dataset_path=datasetPath)
+            hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
         else:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             dataFilePath, popName, gid)
@@ -1423,14 +1425,18 @@ def get_biophys_cell(env, gid, pop_name):
     target_gid_offset = env.celltypes[pop_name]['start']
     syn_attrs = env.synapse_attributes
     try:
-        if pop_name not in syn_attrs.select_cell_attr_index_map:
-            syn_attrs.select_cell_attr_index_map[pop_name] = \
-                get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
-        syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
-                                                                syn_attrs.select_cell_attr_index_map[pop_name],
-                                                                pop_name, 'Synapse Attributes', target_gid_offset))
+        #if pop_name not in syn_attrs.select_cell_attr_index_map:
+        #    syn_attrs.select_cell_attr_index_map[pop_name] = \
+        #        get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
+        #syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
+        #                                                        syn_attrs.select_cell_attr_index_map[pop_name],
+        #                                                        pop_name, 'Synapse Attributes', target_gid_offset))
+        synapses_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
+                                                        'Synapse Attributes', comm=env.comm)
+        synapses_dict = dict(synapses_iter)
+        syn_attrs.load_syn_id_attrs(gid, synapses_dict[gid])
     except Exception:
-        logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+        logger.warning('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
 
     try:
         if len(env.projection_dict[pop_name]) == 0:
@@ -1446,6 +1452,6 @@ def get_biophys_cell(env, gid, pop_name):
                                        pop_name, ['Synapses'], source_gid_offset, target_gid_offset)
             syn_attrs.load_edge_attrs(gid, source_name, edge_attr_dict['Synapses']['syn_id'], env)
     except Exception:
-        logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+        logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
     env.biophys_cells[pop_name][gid] = cell
     return cell

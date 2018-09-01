@@ -261,7 +261,7 @@ class QuickSim(object):
         if len(self.recs) == 0:
             return
         fig, axes = plt.subplots()
-        for name, rec_dict in list(self.recs.items()):
+        for name, rec_dict in viewitems(self.recs):
             description = str(rec_dict['description'])
             axes.plot(self.tvec, rec_dict['vec'],
                       label='%s: %s(%.2f) %s' % (name, rec_dict['node'].name, rec_dict['loc'], description))
@@ -307,7 +307,7 @@ class QuickSim(object):
                 target[str(simiter)].attrs[parameter] = self.parameters[parameter]
             if len(self.stims) > 0:
                 target[str(simiter)].create_group('stims')
-                for name, stim_dict in list(self.stims.items()):
+                for name, stim_dict in viewitems(self.stims):
                     stim = target[str(simiter)]['stims'].create_dataset(name, compression='gzip', data=stim_dict['vec'])
                     cell = stim_dict['cell']
                     stim.attrs['cell'] = cell.gid
@@ -325,7 +325,7 @@ class QuickSim(object):
                     stim.attrs['dur'] = stim_dict['stim'].dur
                     stim.attrs['description'] = stim_dict['description']
             target[str(simiter)].create_group('recs')
-            for name, rec_dict in list(self.recs.items()):
+            for name, rec_dict in viewitems(self.recs):
                 rec = target[str(simiter)]['recs'].create_dataset(name, compression='gzip', data=rec_dict['vec'])
                 cell = rec_dict['cell']
                 rec.attrs['cell'] = cell.gid

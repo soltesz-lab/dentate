@@ -3,7 +3,7 @@ import sys, os.path, string, time, gc, math, datetime, numbers, itertools
 import copy, pprint, logging
 import yaml
 import numpy as np
-
+from future.utils import viewitems
 
 class IncludeLoader(yaml.Loader):
     """

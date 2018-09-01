@@ -105,7 +105,7 @@ def make_spike_dict (spkinds, spkts):
     
 def interspike_intervals (spkdict):
     isi_dict = {}
-    for ind, lst in list(spkdict.items()):
+    for ind, lst in viewitems(spkdict):
         isi_dict[ind] = np.diff(np.asarray(lst))
     return isi_dict
 
@@ -113,7 +113,7 @@ def interspike_intervals (spkdict):
 def spike_rates (spkdict, t_dflt):
     rate_dict = {}
     isidict = interspike_intervals(spkdict)
-    for ind, isiv in list(isidict.items()):
+    for ind, isiv in viewitems(isidict):
         if isiv.size > 0:
             t = np.sum(isiv)
             rate = isiv.size / t / 1000.0
@@ -145,7 +145,7 @@ def spike_inst_rates (population, spkdict, timeRange, sampling_period=2.0*ms, si
     t_stop = timeRange[1]
 
     pool = ProcessPool(nprocs)
-    spk_rate_dict = dict(pool.map(lambda item: spike_inst_rates_func(item,t_start,t_stop,sampling_period,sigma,kernel), list(spkdict.items())))
+    spk_rate_dict = dict(pool.map(lambda item: spike_inst_rates_func(item,t_start,t_stop,sampling_period,sigma,kernel), viewitems(spkdict)))
 
     if saveData:
         if isinstance(saveData, str):
@@ -160,7 +160,7 @@ def spike_inst_rates (population, spkdict, timeRange, sampling_period=2.0*ms, si
 
 def spike_bin_counts(spkdict, bins):
     count_bin_dict = {}
-    for (ind, lst) in list(spkdict.items()):
+    for (ind, lst) in viewitems(spkdict):
 
         spkts = np.asarray(lst, dtype=np.float32)
         bin_inds      = np.digitize(spkts, bins = bins)
@@ -211,7 +211,7 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
             
     rate_bin_dict = spike_bin_rates(population, spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], saveData=saveData)
     MI_dict = {}
-    for ind, (count_bins, rate_bins) in list(rate_bin_dict.items()):
+    for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
         MI = 0.
         rates = np.asarray(rate_bins)
         R     = np.mean(rates)
@@ -237,7 +237,7 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
     cell_count = 0
     pf_min = sys.maxsize
     pf_max = 0
-    for ind, valdict  in list(rate_dict.items()):
+    for ind, valdict  in viewitems(rate_dict):
         x      = valdict['x']
         rate   = valdict['rate']
         m      = np.mean(rate)
@@ -315,7 +315,7 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
         for spkind, spkt in zip(np.nditer(spkinds), np.nditer(spkts)):
             spk_dict[int(spkind)].append(spkt)
         x_lst = []
-        for ind, lst in list(spk_dict.items()):
+        for ind, lst in viewitems(spk_dict):
             spkv  = np.asarray(lst)
             count, bin_edges = np.histogram(spkv, bins = bins)
             if quantity == 'rate':
@@ -373,7 +373,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
         for spkind, spkt in zip(np.nditer(spkinds), np.nditer(spkts)):
             spk_dict[int(spkind)].append(spkt)
         x_lst = []
-        for ind, lst in list(spk_dict.items()):
+        for ind, lst in viewitems(spk_dict):
             spkv  = np.asarray(lst)
             count, bin_edges = np.histogram(spkv, bins = bins)
             if quantity == 'rate':

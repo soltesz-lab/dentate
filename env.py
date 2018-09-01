@@ -1,9 +1,9 @@
 import os
 import numpy as np
 from collections import namedtuple, defaultdict
-from .utils import *
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
+from dentate.utils import *
 from neuron import h
 
 ConnectionConfig = namedtuple('ConnectionConfig',
@@ -217,7 +217,7 @@ class Env:
 
         self.lfpConfig = {}
         if 'LFP' in self.modelConfig:
-            for label, config in list(self.modelConfig['LFP'].items()):
+            for label, config in viewitems(self.modelConfig['LFP']):
                 self.lfpConfig[label] = {'position': tuple(config['position']),
                                          'maxEDist': config['maxEDist'],
                                          'fraction': config['fraction'],
@@ -259,13 +259,13 @@ class Env:
         input_dict = self.modelConfig['Input']
         input_config = {}
         
-        for (id,dvals) in list(input_dict.items()):
+        for (id,dvals) in viewitems(input_dict):
             config_dict = {}
             config_dict['trajectory'] = dvals['trajectory']
             feature_type_dict = {}
-            for (pop,pdvals) in list(dvals['feature type'].items()):
+            for (pop,pdvals) in viewitems(dvals['feature type']):
                 pop_feature_type_dict = {}
-                for (feature_type_name,feature_type_fraction) in list(pdvals.items()):
+                for (feature_type_name,feature_type_fraction) in viewitems(pdvals):
                     pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)
                 feature_type_dict[pop] = pop_feature_type_dict
             config_dict['feature type'] = feature_type_dict
@@ -320,10 +320,10 @@ class Env:
         synapse_config = connection_config['Synapses']
         connection_dict = {}
         
-        for (key_postsyn, val_syntypes) in list(synapse_config.items()):
+        for (key_postsyn, val_syntypes) in viewitems(synapse_config):
             connection_dict[key_postsyn]  = {}
             
-            for (key_presyn, syn_dict) in list(val_syntypes.items()):
+            for (key_presyn, syn_dict) in viewitems(val_syntypes):
                 val_type        = syn_dict['type']
                 val_synsections = syn_dict['sections']
                 val_synlayers   = syn_dict['layers']
@@ -347,13 +347,13 @@ class Env:
 
 
             config_dict = defaultdict(lambda: 0.0)
-            for (key_presyn, conn_config) in list(connection_dict[key_postsyn].items()):
+            for (key_presyn, conn_config) in viewitems(connection_dict[key_postsyn]):
                 for (s,l,p) in zip(conn_config.sections, \
                                    conn_config.layers, \
                                    conn_config.proportions):
                     config_dict[(conn_config.type, s, l)] += p
                                               
-            for (k,v) in list(config_dict.items()):
+            for (k,v) in viewitems(config_dict):
                 try:
                     assert(np.isclose(v, 1.0))
                 except Exception as e:
@@ -373,8 +373,8 @@ class Env:
 
             gj_sections = gj_config['Locations']
             sections = {}
-            for pop_a, pop_dict in list(gj_sections.items()):
-                for pop_b, sec_names in list(pop_dict.items()):
+            for pop_a, pop_dict in viewitems(gj_sections):
+                for pop_b, sec_names in viewitems(pop_dict):
                     pair = (pop_a, pop_b)
                     sec_idxs = []
                     for sec_name in sec_names:
@@ -383,8 +383,8 @@ class Env:
 
             gj_connection_probs = gj_config['Connection Probabilities']
             connection_probs = {}
-            for pop_a, pop_dict in list(gj_connection_probs.items()):
-                for pop_b, prob in list(pop_dict.items()):
+            for pop_a, pop_dict in viewitems(gj_connection_probs):
+                for pop_b, prob in viewitems(pop_dict):
                     pair = (pop_a, pop_b)
                     connection_probs[pair] = float(prob)
 
@@ -403,8 +403,8 @@ class Env:
             
             gj_coupling_coeffs = gj_config['Coupling Coefficients']
             coupling_coeffs = {}
-            for pop_a, pop_dict in list(gj_coupling_coeffs.items()):
-                for pop_b, coeff in list(pop_dict.items()):
+            for pop_a, pop_dict in viewitems(gj_coupling_coeffs):
+                for pop_b, coeff in viewitems(pop_dict):
                     pair = (pop_a, pop_b)
                     coupling_coeffs[pair] = float(coeff)
 
@@ -424,7 +424,7 @@ class Env:
             coupling_bounds = coupling_bounds
 
             self.gapjunctions = {}
-            for pair, sec_idxs in list(sections.items()):
+            for pair, sec_idxs in viewitems(sections):
                 self.gapjunctions[pair] = GapjunctionConfig(sec_idxs, \
                                                             connection_probs[pair], \
                                                             connection_params, \

@@ -13,6 +13,7 @@ from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume, rotate3d
 from dentate.rbf_surface import RBFSurface
 from dentate import utils
+from utils import viewitems
 from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -310,7 +311,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
         u_obs = []
         v_obs = []
         gids    = []
-        for gid, coords in list(coords_dict.items()):
+        for gid, coords in viewitems(coords_dict):
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
                 try:
@@ -350,7 +351,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
             dist_dicts = comm.allgather(local_dist_dict)
             combined_dist_dict = {}
             for dist_dict in dist_dicts:
-                for k, v in list(dist_dict.items()):
+                for k, v in viewitems(dist_dict):
                     combined_dist_dict[k] = v
             soma_distances[pop] = combined_dist_dict
         else:
@@ -372,12 +373,12 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
     min_l = float('inf')
     max_l = 0.0
     
-    for layer, min_extent in list(env.geometry['Parametric Surface']['Minimum Extent'].items()):
+    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
         min_u = min(min_extent[0], min_u)
         min_v = min(min_extent[1], min_v)
         min_l = min(min_extent[2], min_l)
         
-    for layer, max_extent in list(env.geometry['Parametric Surface']['Maximum Extent'].items()):
+    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
         max_u = max(max_extent[0], max_u)
         max_v = max(max_extent[1], max_v)
         max_l = max(max_extent[2], max_l)
@@ -479,7 +480,7 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
         limits = population_extents[pop]
         xyz_coords = []
         gids = []
-        for gid, coords in list(coords_dict.items()):
+        for gid, coords in viewitems(coords_dict):
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
                 xyz_coords.append(DG_volume(soma_u, soma_v, soma_l, rotate=rotate))
