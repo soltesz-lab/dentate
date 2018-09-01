@@ -2,14 +2,10 @@ import sys, os, time, random, click, logging
 import numpy as np
 from pprint import pprint
 
-from scipy.optimize import minimize
-from scipy.optimize import basinhopping
-
 import dentate
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
-from dentate.stimulus import generate_spatial_offsets
-from dentate.stimulus import generate_spatial_ratemap
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
 
 from nested.optimize_utils import *
 from optimize_cells_utils import *
@@ -24,7 +20,9 @@ local_random = random.Random()
 local_random.seed(seed)
 feature_type_random  = np.random.RandomState(seed)
 place_field_random   = np.random.RandomState(seed)
-nfield_probabilities = np.asarray([0.8, 0.15, 0.05])
+n_place_field_probabilities = np.asarray([0.8, 0.15, 0.05])
+grid_field_random    = np.random.RandomState(seed)
+n_grid_field_probabilities = np.asarray([0.10, 0.90]) 
 
 nmodules           = 10
 modules            = np.arange(nmodules)
@@ -34,7 +32,7 @@ field_width        = lambda x : 40. + field_width_params[0] * (np.exp(x / field_
 max_field_width    = field_width(1.)
 
 
-n_mpp_grid      = 25000
+n_mpp_grid      = 5000
 n_mpp_place     = 5
 n_lpp_place     = 5
 n_lpp_grid      = 0
@@ -47,14 +45,14 @@ context = Context()
 
 def _instantiate_place_cell(population, gid, module, nxy):
     cell = {}
-    #module    = local_random.choice(modules)
     field_set = [1,2,3]
-    nfields   = place_field_random.choice(field_set, p=nfield_probabilities, size=(1,))
+    nfields   = place_field_random.choice(field_set, p=n_place_field_probabilities, size=(1,))
     cell_field_width = []
     for n in xrange(nfields[0]):
         cell_field_width.append(field_width(local_random.random()))
     
     cell['gid']         = np.array([gid], dtype='int32')
+    cell['Num Fields']  = np.array([nfields], dtype='uint8')
     cell['Population']  = np.array([feature_population[population]], dtype='uint8')
     cell['Cell Type']   = np.array([feature_ctypes['place']], dtype='uint8')
     cell['Module']      = np.array([module], dtype='uint8')
@@ -66,14 +64,17 @@ def _instantiate_place_cell(population, gid, module, nxy):
 
 def _instantiate_grid_cell(population, gid, module, nxy):
     cell   = {}
-    #module = local_random.choice(modules)
+    field_set = [0,1]
+    nfields   = grid_field_random.choice(field_set, p=n_grid_field_probabilities, size=(1,))
+    
     orientation = grid_orientation[module]
     spacing     = field_width(float(module)/float(np.max(modules)))
 
-    delta_orientation = local_random.uniform(-10, 10) # Look into gaussian
-    delta_spacing     = local_random.uniform(-10, 10) # Look into gaussian
+    delta_spacing     = local_random.gauss(0., 50. * (module+1) / float(np.max(modules)))
+    delta_orientation = local_random.gauss(0., np.deg2rad(10. * (module+1.) / float(np.max(modules))))
 
     cell['gid']          = np.array([gid], dtype='int32')
+    cell['Num Fields']   = np.array([nfields], dtype='uint8')
     cell['Population']   = np.array([feature_population[population]], dtype='uint8')
     cell['Cell Type']    = np.array([feature_ctypes['grid']], dtype='uint8')
     cell['Module']       = np.array([module], dtype='uint8')
@@ -167,7 +168,7 @@ def main(config_file_path, output_dir, export, export_file_path, label, run_test
         print('... config interactive complete...')
  
     if run_tests:
-        compare_ratemap(context, plot=False)
+        #compare_ratemap(context, plot=False)
         report_cost(context)
         report_xy_offsets(context, plot=False, save=True)
         report_rate_map(context, plot=False, save=True)
@@ -219,6 +220,9 @@ def report_cost(context):
     _, objectives = get_objectives(features)
 
     print('Scale factor: %f' % x0[0])
+    print('xt1: %f' % x0[1])
+    print('xt2: %f' % x0[2])
+    print('gain: %f' % x0[3])
     print('Module: %d' % context.module)
     for objective in objectives.keys():
         print('Objective: %s has cost %f' % (objective, objectives[objective]))
@@ -413,7 +417,14 @@ def _calculate_fraction_active(rates):
 def _calculate_rate_maps(x, context):
     cells        = get_cell_types_from_context(context)
     xp, yp       = context.mesh
-    scale_factor = x
+    scale_factor = x[0]
+
+    ratemap_kwargs         = dict()
+    ratemap_kwargs['xt1']  = x[1]
+    ratemap_kwargs['xt2']  = x[2]
+    ratemap_kwargs['gain'] = x[3]
+    
+    
     for gid in cells:
         cell  = cells[gid]
         ctype = cell['Cell Type']
@@ -431,7 +442,7 @@ def _calculate_rate_maps(x, context):
         cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
         cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
         rate_map = generate_spatial_ratemap(ctype, cell, None, xp, yp, context.grid_peak_rate, \
-                                            context.place_peak_rate, ramp_up_period=None)
+                                            context.place_peak_rate, None, **ratemap_kwargs)
             #rate_map += _rate_map(xp, yp, spacing[n], orientation[n], xf_scaled[n], yf_scaled[n], ctype)
         cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
 

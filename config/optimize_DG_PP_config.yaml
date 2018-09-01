@@ -2,6 +2,16 @@ bounds:
   scale_factor: !!python/tuple
   - 1.0
   - 100.0
+  distance_threshold_init: !!python/tuple
+  - 1.0
+  - 2.5
+  distance_threshold_saturation: !!python/tuple
+  - 3.0
+  - 10.0
+  distance_gain: !!python/tuple
+  - 0.5
+  - 5.0
+  
 feature_names:
 - minmax sum eval
 - minmax var eval
@@ -15,7 +25,7 @@ get_features_stages:
 get_objectives:
   generate_DG_PP_features_v3: get_objectives
 kwargs:
-  module: 9
+  module: 0
   fraction_active_target: 0.15
   cell_type: grid
   active_threshold: 1.0
@@ -26,10 +36,13 @@ objective_names:
 - minmax var error
 - fraction active mean error
 - fraction active var error
-optimization_title: generate_DG_PP_leak
+optimization_title: generate_DG_PP_features
 param_gen: PopulationAnnealing
 param_names:
 - scale_factor
+- distance_threshold_init
+- distance_threshold_saturation
+- distance_gain
 target_range:
   minmax sum error: 0.05
   minmax var error: 0.05
@@ -41,4 +54,7 @@ target_val:
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  scale_factor: 7.5
+  scale_factor: 27.0
+  distance_threshold_init: 1.75
+  distance_threshold_saturation: 6.5
+  distance_gain: 2.5
