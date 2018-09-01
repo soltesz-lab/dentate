@@ -9,6 +9,7 @@ import dentate
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
 from dentate.stimulus import generate_spatial_offsets
+from dentate.stimulus import generate_spatial_ratemap
 
 from nested.optimize_utils import *
 from optimize_cells_utils import *
@@ -27,15 +28,15 @@ nfield_probabilities = np.asarray([0.8, 0.15, 0.05])
 
 nmodules           = 10
 modules            = np.arange(nmodules)
-grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in range(nmodules)]
+grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
 field_width_params = [35.0, 0.32]
 field_width        = lambda x : 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
 max_field_width    = field_width(1.)
 
 
-n_mpp_grid      = 5000
-n_mpp_place     = 50
-n_lpp_place     = 50
+n_mpp_grid      = 25000
+n_mpp_place     = 5
+n_lpp_place     = 5
 n_lpp_grid      = 0
 arena_dimension = 100.
 resolution      = 5.
@@ -50,7 +51,7 @@ def _instantiate_place_cell(population, gid, module, nxy):
     field_set = [1,2,3]
     nfields   = place_field_random.choice(field_set, p=nfield_probabilities, size=(1,))
     cell_field_width = []
-    for n in range(nfields[0]):
+    for n in xrange(nfields[0]):
         cell_field_width.append(field_width(local_random.random()))
     
     cell['gid']         = np.array([gid], dtype='int32')
@@ -77,7 +78,7 @@ def _instantiate_grid_cell(population, gid, module, nxy):
     cell['Cell Type']    = np.array([feature_ctypes['grid']], dtype='uint8')
     cell['Module']       = np.array([module], dtype='uint8')
     cell['Grid Spacing'] = np.array([spacing + delta_spacing], dtype='float32')
-    cell['Orientation']  = np.array([orientation + delta_orientation], dtype='float32')
+    cell['Grid Orientation']  = np.array([orientation + delta_orientation], dtype='float32')
     cell['Nx']           = np.array([nxy[0]], dtype='int32')
     cell['Ny']           = np.array([nxy[1]], dtype='int32')
 
@@ -86,14 +87,14 @@ def _instantiate_grid_cell(population, gid, module, nxy):
 def _build_cells(population_context, module, nxy):
     grid_cells, place_cells = {}, {}
     gid = 1
-    for population in population_context.keys():
+    for population in population_context:
         current_population = population_context[population]
-        for ctype in current_population.keys():
+        for ctype in current_population:
             start_gid  = gid
             ncells     = current_population[ctype][0]
             if ncells == 0:
                 population_context[population][ctype] += [None, None]
-            for i in range(ncells):
+            for i in xrange(ncells):
                 if ctype == 'grid':
                     grid_cells[gid] =_instantiate_grid_cell(population, gid, module, nxy)
                 elif ctype == 'place':
@@ -109,7 +110,7 @@ def _build_cells(population_context, module, nxy):
             elif feature_ctypes[ctype] == 1:
                 cells = place_cells
             total_fields = 0
-            for gid in cells.keys():
+            for gid in cells:
                 cell = cells[gid]
                 if cell['Cell Type'] == 0:
                     total_fields += 1
@@ -117,7 +118,7 @@ def _build_cells(population_context, module, nxy):
                     total_fields += cell['Field Width'].shape[0]
             _, xy_offsets, _, _ = generate_spatial_offsets(total_fields, arena_dimension=arena_dimension, scale_factor=1.0)
             curr_pos   = 0
-            for gid in cells.keys():
+            for gid in cells:
                 cell = cells[gid]
                 if cell['Cell Type'] == 0:  
                     cell['X Offset'] = np.array([xy_offsets[curr_pos,0]], dtype='float32')
@@ -166,16 +167,58 @@ def main(config_file_path, output_dir, export, export_file_path, label, run_test
         print('... config interactive complete...')
  
     if run_tests:
+        compare_ratemap(context, plot=False)
         report_cost(context)
         report_xy_offsets(context, plot=False, save=True)
-        report_rate_map(context, plot=True, save=True)
+        report_rate_map(context, plot=False, save=True)
+        report_fraction_active(context, plot=True, save=True)
+
+#def unit_tests():
+    #import plot_DG_PP_features_v2
+    #from plot_DG_PP_feau
+
+def compare_ratemap(context, plot=False):
+    cells = get_cell_types_from_context(context)
+    gids = cells.keys()
+    cell = cells[gids[0]]
+    xp, yp = context.mesh
+
+    tic = time.time()
+    rate_map_original = _rate_map(xp, yp, cell['Grid Spacing'][0], cell['Grid Orientation'][0], cell['X Offset Scaled'][0], cell['Y Offset Scaled'][0], 0)
+    elapsed = time.time() - tic
+    print('It took %f seconds to calculate rate maps for a cells' % (elapsed)) 
+ 
+    tic = time.time()
+    rate_map_new = generate_spatial_ratemap(cell['Cell Type'][0], cell, None, xp, yp, 20.0, 20.0, None)
+    elapsed = time.time() - tic
+    print('It took %f seconds to calcualte rate map the other way' % elapsed)
+    difference_map = np.abs(rate_map_new - rate_map_original)
+    print('min diff, max diff = %f, %f' % (np.min(difference_map), np.max(difference_map)))
+  
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.subplot(1,3,1)
+    plt.imshow(rate_map_original, cmap='inferno')
+    plt.colorbar()
+    plt.title('old')
+    plt.subplot(1,3,2)
+    plt.imshow(rate_map_new, cmap='inferno')
+    plt.colorbar()
+    plt.title('new')
+    plt.subplot(1,3,3)
+    plt.imshow(difference_map, cmap='inferno')
+    plt.colorbar()
+    plt.title('difference')
+
+    if plot:
+        plt.show()
 
 def report_cost(context):
-    x0 = context.x0
+    x0 = context.x0_array
     features = calculate_features(x0)
     _, objectives = get_objectives(features)
 
-    print('Scale factor: %f' % x0['scale_factor'])
+    print('Scale factor: %f' % x0[0])
     print('Module: %d' % context.module)
     for objective in objectives.keys():
         print('Objective: %s has cost %f' % (objective, objectives[objective]))
@@ -184,6 +227,7 @@ def report_rate_map(context, plot=False, save=True):
     cells = get_cell_types_from_context(context)
     gids = cells.keys()
     rate_maps = []
+
     for gid in gids:
         cell = cells[gid]
         rate_maps.append(cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0]))
@@ -223,9 +267,8 @@ def report_rate_map(context, plot=False, save=True):
 
 def report_xy_offsets(context, plot=False, save=True):
     cells = get_cell_types_from_context(context)
-    gids = cells.keys()
     pop_xy_offsets = [] 
-    for gid in gids:
+    for gid in cells:
         cell   = cells[gid]
         offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
         for (x_offset, y_offset) in offsets:
@@ -244,9 +287,37 @@ def report_xy_offsets(context, plot=False, save=True):
         plt.savefig('%s-module-%d-xyoffsets.png' % (ctype, module))
     if plot:
         plt.show()
-    
 
-def config_controller():
+def report_fraction_active(context, plot=False, save=True):
+    cells = get_cell_types_from_context(context)
+    fraction_active = _fraction_active(cells)
+    
+    fraction_active_im = np.zeros((20,20))
+    for (i,j) in fraction_active:
+        fraction_active_im[i,j] = fraction_active[(i,j)]
+    
+    import matplotlib.pyplot as plt
+
+    plt.subplot(1,2,1)
+    plt.imshow(fraction_active_im, cmap='inferno')
+    plt.colorbar()
+    plt.title('fraction active')
+
+    plt.subplot(1,2,2)
+    plt.imshow(fraction_active_im - context.fraction_active_target, cmap='inferno')
+    plt.colorbar()
+    plt.title('fraction active distance from target')
+ 
+    ctype  = context.cell_type
+    module = context.module
+    if save:
+        plt.savefig('%s-module-%d-fractionactive.png' % (ctype, module))
+    if plot:
+        plt.show()
+
+def config_controller(export_file_path, output_dir, **kwargs):
+    context.update(locals())
+    context.update(kwargs)
     init_context()
 
 
@@ -271,6 +342,7 @@ def get_cell_types_from_context(context):
     return cells
 
 def calculate_features(parameters, export=False):
+    update_source_contexts(parameters, context)
     cells    = get_cell_types_from_context(context)
     features = {}
 
@@ -279,32 +351,33 @@ def calculate_features(parameters, export=False):
 
     features['minmax sum eval'] = minmax_eval[0]
     features['minmax var eval'] = minmax_eval[1]
-    features['fraction active'] = fraction_active
+    features['fraction active population'] = fraction_active
+    features['fraction active'] = np.mean(fraction_active.values())
     return features
 
 def get_objectives(features):
     feature_names = context.feature_names
-    for feature in features.keys():
-        if feature not in feature_names:
-            raise Exception('Feautre %s could not be found' % feature)
+    for feature in feature_names:
+        if feature not in features:
+            raise Exception('Feature %s could not be found' % feature)
 
     objectives = {}
-    objectives['minmax sum error'] = (features['minmax sum eval'] - context.target_val['minmax sum error']) ** 2
-    objectives['minmax var error'] = (features['minmax var eval'] - context.target_val['minmax var error']) ** 2
-    fraction_active  = features['fraction active']
+    objectives['minmax sum error'] = ((features['minmax sum eval'] - context.target_val['minmax sum error']) / context.target_range['minmax sum error']) ** 2
+    objectives['minmax var error'] = ((features['minmax var eval'] - context.target_val['minmax var error']) / context.target_range['minmax var error']) ** 2
+    fraction_active  = features['fraction active population']
     diff_frac_active = {(i,j): np.abs(fraction_active[(i,j)] - context.fraction_active_target) \
                         for (i,j) in fraction_active.keys()}
     fraction_active_errors = np.asarray([diff_frac_active[(i,j)] for (i,j) in diff_frac_active.keys()])
     fraction_active_mean_error = np.mean(fraction_active_errors)
     fraction_active_var_error  = np.var(fraction_active_errors)
-    objectives['fraction active mean error'] = (fraction_active_mean_error - context.target_val['fraction active mean error']) ** 2
-    objectives['fraction active var error'] = (fraction_active_var_error - context.target_val['fraction active var error']) ** 2
+    objectives['fraction active mean error'] = ((fraction_active_mean_error - context.target_val['fraction active mean error']) / context.target_range['fraction active mean error']) ** 2
+    objectives['fraction active var error'] = ((fraction_active_var_error - context.target_val['fraction active var error']) / context.target_range['fraction active var error']) ** 2
 
     return features, objectives
 
 def _peak_to_trough(cells):
     rate_maps = []
-    for gid in cells.keys():
+    for gid in cells:
         cell     = cells[gid]
         nx, ny   = cell['Nx'][0], cell['Ny'][0]
         rate_map = cell['Rate Map'].reshape(nx, ny)
@@ -316,9 +389,9 @@ def _peak_to_trough(cells):
     var_eval    = np.divide(float(np.max(var_map)), float(np.min(var_map)))
     return minmax_eval, var_eval 
 
-def _fraction_active(cells, target=0.15):
+def _fraction_active(cells):
     rate_maps = []
-    for gid in cells.keys():
+    for gid in cells:
         cell     = cells[gid]
         nx, ny   = cell['Nx'][0], cell['Ny'][0]
         rate_map = cell['Rate Map'].reshape(nx, ny)
@@ -330,11 +403,10 @@ def _fraction_active(cells, target=0.15):
     factive = lambda px, py: _calculate_fraction_active(rate_maps[:,px,py])
     return {(px,py): factive(px, py) for (px, py) in coords}
 
-def _calculate_fraction_active(rates, threshold=1.0):
-    #max_rate = np.max(rates)
-    #normalized_rates = np.divide(rates, max_rate)
-    num_active = len(np.where(rates > threshold)[0])
-    fraction_active = np.divide(float(num_active), len(rates))
+def _calculate_fraction_active(rates):
+    N = len(rates)
+    num_active = len(np.where(rates > context.active_threshold)[0])
+    fraction_active = np.divide(float(num_active), float(N))
     return fraction_active    
     
     
@@ -342,12 +414,12 @@ def _calculate_rate_maps(x, context):
     cells        = get_cell_types_from_context(context)
     xp, yp       = context.mesh
     scale_factor = x
-    for gid in cells.keys():
+    for gid in cells:
         cell  = cells[gid]
         ctype = cell['Cell Type']
 
         if ctype == 0: # Grid
-            orientation = cell['Orientation']
+            orientation = cell['Grid Orientation']
             spacing     = cell['Grid Spacing']
         elif ctype == 1: # Place
             spacing     = cell['Field Width']
@@ -358,33 +430,27 @@ def _calculate_rate_maps(x, context):
         yf_scaled = cell['Y Offset'] * scale_factor
         cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
         cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
-        rate_map = np.zeros((xp.shape[0], xp.shape[1]))
-        for n in range(len(spacing)):
-            rate_map += _rate_map(xp, yp, spacing[n], orientation[n], xf_scaled[n], yf_scaled[n], ctype)
+        rate_map = generate_spatial_ratemap(ctype, cell, None, xp, yp, context.grid_peak_rate, \
+                                            context.place_peak_rate, ramp_up_period=None)
+            #rate_map += _rate_map(xp, yp, spacing[n], orientation[n], xf_scaled[n], yf_scaled[n], ctype)
         cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
 
 def _rate_map(xp, yp, spacing, orientation, x_offset, y_offset, ctype):    
-    nx, ny = xp.shape
-    mask   = None
     if ctype == 1:
-        radius    = spacing / 2.
-        distances = np.sqrt( (xp - x_offset) ** 2 + (yp - y_offset) ** 2)
-        mask      = np.zeros(xp.shape)
-        mask[distances < radius] = 1   
-    theta_k   = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
-    inner_sum = np.zeros(xp.shape)
-    for k in range(len(theta_k)):
-        inner_sum += np.cos( ((4 * np.pi) / (np.sqrt(3.) * spacing)) * (np.cos(theta_k[k]) * (xp - x_offset) + (np.sin(theta_k[k]) * (yp - y_offset))))
+        rate_map = context.place_peak_rate *  np.exp(-((xp - x_offset) / (spacing / 3. / np.sqrt(2.))) ** 2.) * \
+        np.exp(-((yp - y_offset) / (spacing / 3. / np.sqrt(2.))) ** 2.)
+    elif ctype == 0:
+        theta_k   = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
+        inner_sum = np.zeros(xp.shape)
+        for theta in theta_k:
+            inner_sum += np.cos( ((4 * np.pi) / (np.sqrt(3.) * spacing)) * ( np.cos(theta - orientation) * (xp - x_offset) + np.sin(theta - orientation) * (yp - y_offset) ) )
     
-    transfer = lambda z: np.exp(0.3 * (z - (-1.5))) - 1.
-    rate_map = transfer(inner_sum)
-    if mask is not None:
-        return rate_map * mask
+        transfer = lambda z: np.exp(0.3 * (z - (-1.5))) - 1.
+        rate_map = context.grid_peak_rate * transfer(inner_sum) / transfer(3.)
+    else:
+        raise Exception('Could not find proper cell type')
     return rate_map    
    
-
-
-
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
