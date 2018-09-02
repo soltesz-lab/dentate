@@ -49,6 +49,11 @@ color_list = ["#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#00FF78", "#FF6E41", "#005F39", "#6B6882", "#5FAD4E", "#A75740", "#A5FFD2", "#FFB167", 
               "#009BFF", "#E85EBE"]
 
+rainbow_color_list = ["#9400D3", "#4B0082", "#00FF00", "#FFFF00", "#FF7F00", "#FF0000"]
+    
+def hex2rgb(hexcode):
+    return tuple([ float(b)/255.0 for b in map(ord,hexcode[1:].decode('hex')) ])
+
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 12.
 mpl.rcParams['font.sans-serif'] = 'Arial'
@@ -74,7 +79,7 @@ def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
 
-def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, **kwargs):
+def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, **kwargs):
     """ Shows graph edges using Mayavi
 
         Parameters
@@ -91,6 +96,12 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, **kwargs):
             extra keyword arguments are passed to quiver3d.
     """
     from mayavi import mlab
+    if edge_color is not None:
+        kwargs['color'] = edge_color
+    mlab.points3d(x[0],y[0],z[0],
+                  mode='cone',
+                  scale_factor=50,
+                  **kwargs)
     vec = mlab.quiver3d(x[start_idx],
                         y[start_idx],
                         z[start_idx],
@@ -878,7 +889,7 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
     mlab.show()
 
 
-def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05, subvol=True, verbose=False):
+def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1, verbose=False):
     
     env = Env(configFile=config)
 
@@ -904,7 +915,6 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
     if verbose:
         print(("Layer minimum extents: %s" % (str(layer_min_extent))))
         print(("Layer maximum extents: %s" % (str(layer_max_extent))))
-        print('Reading coordinates...')
 
     (population_ranges, _) = read_population_ranges(forest_path)
 
@@ -914,21 +924,40 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
     import networkx as nx
     from mayavi import mlab
     
-    if verbose:
-        print('Plotting trees in volume...')
-
-    #(trees, _) = NeuroH5TreeGen(forest_path, population)
-    if isinstance(sample, numbers.Real):
-        s = np.random.random_sample((population_count,))
-        selection = np.where(s <= sample) + population_start
+    if longitudinal_extent is None:
+        #(trees, _) = NeuroH5TreeGen(forest_path, population)
+        if isinstance(sample, numbers.Real):
+            s = np.random.random_sample((population_count,))
+            selection = np.where(s <= sample) + population_start
+        else:
+            selection = list(sample)
     else:
-        selection = list(sample)
+        print('Reading distances...')
+        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+        if verbose:
+            print('read distances (%i elements)' % len(list(soma_distances.keys())))
 
-    (tree_iter, _) = read_tree_selection(forest_path, population, selection)
+        lst = []
+        for k, v in viewitems(soma_distances):
+            if v[0] >= longitudinal_extent[0] and v[0] <= longitudinal_extent[1]:
+                lst.append(k)
+        sample_range = np.asarray(lst)
+                          
+        if isinstance(sample, numbers.Real):
+            s = np.random.random_sample(sample_range.shape)
+            selection = sample_range[np.where(s <= sample)]
+        else:
+            raise RuntimeError('Sample must be a real number')
+
+    print('%d trees selected from population %s' % (len(selection), population))
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection=selection.tolist())
     for (gid,tree_dict) in tree_iter:
 
         if verbose:
-            print(('%i' % gid))
+            print('plotting tree %i' % gid)
         xcoords = tree_dict['x']
         ycoords = tree_dict['y']
         zcoords = tree_dict['z']
@@ -968,35 +997,48 @@ def plot_trees_in_volume(population, forest_path, config, width=3., sample=0.05,
         start_idx, end_idx, _ = np.array(list(edges)).T
         start_idx = start_idx.astype(np.int)
         end_idx   = end_idx.astype(np.int)
-        
+        if color_edge_scalars:
+            edge_scalars = z[start_idx]
+            edge_color = None
+        else:
+            edge_scalars = None
+            edge_color = hex2rgb(rainbow_color_list[gid%len(rainbow_color_list)])
+                                        
         # Plot this with Mayavi
-        plot_graph(x, y, z, start_idx, end_idx, edge_scalars=z[start_idx], \
-                       opacity=0.8, colormap='summer', line_width=width)
+        plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
+                       opacity=0.8, colormap='summer', line_width=line_width)
 
             
-    if verbose:
-        print('Creating volume...')
-
     from dentate.geometry import make_volume
 
-    if subvol:
-        subvol = make_volume ((pop_min_extent[0], pop_max_extent[0]), \
-                              (pop_min_extent[1], pop_max_extent[1]), \
-                              (pop_min_extent[2], pop_max_extent[2]), \
-                              rotate=rotate)
+    if volume == 'none':
+        pass
+    elif volume == 'subvol':
+        if verbose:
+            print('Creating volume...')
+        vol = make_volume ((pop_min_extent[0], pop_max_extent[0]), \
+                               (pop_min_extent[1], pop_max_extent[1]), \
+                               (pop_min_extent[2], pop_max_extent[2]), \
+                               rotate=rotate)
 
-    else:
-        subvol = make_volume ((layer_min_extent[0], layer_max_extent[0]), \
+        if verbose:
+            print('Plotting volume...')
+        vol.mplot_surface(color=(0, 0.4, 0), opacity=volume_opacity)
+    elif volume == 'full':
+        if verbose:
+            print('Creating volume...')
+        vol = make_volume ((layer_min_extent[0], layer_max_extent[0]), \
                               (layer_min_extent[1], layer_max_extent[1]), \
                               (layer_min_extent[2], layer_max_extent[2]), \
                               rotate=rotate)
-
-    if verbose:
-        print('Plotting volume...')
-    if subvol:
-        subvol.mplot_surface(color=(0, 0.4, 0), opacity=0.33)
+        if verbose:
+            print('Plotting volume...')
+        vol.mplot_surface(color=(0, 1, 0), opacity=volume_opacity)
     else:
-        vol.mplot_surface(color=(0, 1, 0), opacity=0.33)
+        raise ValueError('Unknown volume plot type %s' % volume)        
+
+    mlab.gcf().scene.x_plus_view()
+    mlab.savefig('%s_trees_in_volume.tiff' % population, magnification=10)
     mlab.show()
 
 
