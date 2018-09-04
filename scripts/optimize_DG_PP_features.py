@@ -12,7 +12,7 @@ from optimize_cells_utils import *
 
 
 utils.config_logging(True)
-script_name = 'generate_DG_PP_features_v3.py'
+script_name = 'optimize_DG_PP_features.py'
 logger      = utils.get_script_logger(script_name)
 
 seed = 64
