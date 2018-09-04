@@ -1,112 +1,153 @@
 import os, sys
 import numpy as np
-import h5py
-from neuroh5.io import read_cell_attributes
-from generate_DG_PP_features_reduced_h5support import generate_mesh
 import matplotlib.pyplot as plt
+from nested.optimize_utils import *
 
-grid_fn = 'grid-MPP.h5'
-place_fn = 'place-MPP.h5'
-module_fn = 'optimal_sf.txt'
-grid_namespace = 'Grid Input Features'
-place_namespace = 'Place Input Features'
+def plot_rate_maps(cells, plot=False, save=True, **kwargs):
 
-
-def read_module_fn(fn):
-    f = open(fn, 'r')
-    module_size = []
-    for line in f.readlines():
-        line = line.strip('\n')
-        module_size.append(int(line))
-    f.close()
-    return module_size
-
-def h5_to_dict(fn, namespace, population='MPP'):
-    return {gid: cell_attr for (gid, cell_attr) in read_cell_attributes(fn, population, namespace=namespace)}
-
-def visualize_xy_offsets(cells, modules):
+    rate_maps = [] 
+    for gid in cells:
+        cell = cells[gid]
+        rate_maps.append(cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0]))
+    rate_maps = np.asarray(rate_maps, dtype='float32')
     
-    gids = cells.keys()
-    #module_xy_offsets = {k: [] for k in module_meshes.keys()}
+    summed_map = np.sum(rate_maps, axis=0)
+    mean_map   = np.mean(rate_maps,axis=0)
+    var_map    = np.var(rate_maps, axis=0)
+    images = [summed_map, mean_map, var_map]
 
-    ranks = set()
-    for gid in gids:
-        cell = cells[gid]
-        rank = cell['Rank'][0]
-        ranks.add(rank)
-    print(len(gids))
-    print(ranks)
-    module_xy_offsets = {module: {r: [] for r in ranks} for module in modules}
-    for gid in gids:
-        cell = cells[gid]
-        rank = cell['Rank'][0]
-        module = cell['Module'][0]
-        xy_offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
-        for (x, y) in xy_offsets:
-            module_xy_offsets[module][rank].append((x,y))
-    
-    tlen = 0
-    for rank in ranks:
-        #plt.figure()
-        count = 1
-        for module in module_xy_offsets.keys():
-            xy_offsets = np.asarray(module_xy_offsets[module][rank], dtype='float32')
-            print(rank, module, len(xy_offsets))
-            tlen += len(xy_offsets)
-            #plt.subplot(2,5,count)
-            #plt.scatter(xy_offsets[:,0], xy_offsets[:,1])
-            #plt.title('Module %d' % (module+1))
-            count += 1
-    print(tlen)
-def visualize_rate_maps(cells, modules):
-    module_rate_maps = {k: [] for k in modules}
-    gids = cells.keys()
-    for gid in gids:
-        cell = cells[gid]
-        module = cell['Module'][0]
-        nx, ny = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
-        module_rate_maps[module].append(rate_map)
+    ctype = kwargs.get('ctype', 'grid')
+    module = kwargs.get('module', 0)
 
-    summed_module_map = {k: None for k in modules}
-    mean_module_map = {k: None for k in modules}
-    var_module_map = {k: None for k in modules}
-    for module in module_rate_maps.keys():
-        maps = np.asarray(module_rate_maps[module], dtype='float32')
-        summed_map = np.sum(maps,axis=0)
-        mean_map = np.mean(maps,axis=0)
-        var_map = np.var(maps,axis=0)
-        summed_module_map[module] = summed_map
-        mean_module_map[module] = mean_map
-        var_module_map[module] = var_map
-    im_plot(summed_module_map, 'sum')
-    im_plot(mean_module_map, 'mean')
-    im_plot(var_module_map, 'var')
+    fig, axes = plt.subplots(3,2)
+    for j in range(2):
+        for i in range(3):
+            img = axes[i,j].imshow(images[i], cmap='inferno')
+            plt.colorbar(img, ax=axes[i,j])
+            if j == 1:
+                img.set_clim(0, np.max(images[i]))
+            if i == 0:
+                axes[i,j].set_title('Cells: %s. Module: %d. Summed RM' % (ctype, module))
+            elif i == 1:
+                axes[i,j].set_title('Cells: %s. Module: %d. Mean RM' % (ctype, module))
+            else:
+                axes[i,j].set_title('Cells: %s. Module: %d. Var RM' % (ctype, module))
+    if save:
+        plt.savefig('%s-module-%d-ratemap.png' % (ctype, module))
+    if plot:
+        plt.show()
 
-def im_plot(module_maps, metric):
+def plot_xy_offsets(cells, plot=False, save=True, **kwargs):
+
+    pop_xy_offsets = []
+    for gid in cells:
+        cell = cells[gid]
+        if 'X Offset Scaled' not in cell or 'Y Offset Scaled' not in cell:
+            offsets = zip(cell['X Offset'], cell['Y Offset'])
+        else:
+            offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
+        for (x_offset, y_offset) in offsets:
+            pop_xy_offsets.append((x_offset, y_offset))
+    pop_xy_offsets = np.asarray(pop_xy_offsets, dtype='float32')
+
+    ctype  = kwargs.get('ctype', 'grid')
+    module = kwargs.get('module', 0)
+
     plt.figure()
-    count = 1
-    for module in module_maps.keys():
-        module_map = module_maps[module]
-        plt.subplot(2,5,count)
-        plt.imshow(module_map, cmap='inferno')
-        plt.colorbar()
-        plt.clim(0, np.max(module_map))
-        plt.title('%s-module %d' % (metric,(module+1)))
-        count += 1
+    plt.scatter(pop_xy_offsets[:,0], pop_xy_offsets[:,1])
+    plt.title('Cells: %s. Module: %d. xy-offsets' % (ctype, module))
+    
+    if save:
+        plt.savefig('%s-module-%d-xyoffsets.png' % (ctype, module))
+    if plot:
+        plt.show()
+
+
+def plot_fraction_active_map(cells, func_name, plot=False,save=True, **kwargs):
+    m = sys.modules['__main__']
+    if hasattr(m, func_name):
+        f = getattr(m, func_name)
+    else:
+        raise Exception('Function could not be found')
+
+    fraction_active = f(cells)
+    fraction_active_img = np.zeros((20,20))
+    for (i,j) in fraction_active:
+        fraction_active_img[i,j] = fraction_active[(i,j)]
+
+    ctype  = kwargs.get('ctype', 'grid')
+    module = kwargs.get('module',0)
+    target = kwargs.get('target', 0.15)
+   
+    fig, axes = plt.subplots(1,2)
+
+    img = axes[0].imshow(fraction_active_img, cmap='inferno')
+    plt.colorbar(img, ax=axes[0])
+    #img.set_clim(0, 1.0)
+    axes[0].set_title('Fraction Active')
+
+    img = axes[1].imshow(fraction_active_img - target, cmap='inferno')
+    plt.colorbar(img, ax=axes[1])
+    #img.set_clim(0, 1.0)
+    axes[1].set_title('Fraction active distance from target')
+ 
+    if save:
+        plt.savefig('%s-module-%d-fractionactive.png' % (ctype, module))
+    if plot:
+        plt.show()
+
+def plot_rate_histogram(cells, plot=False, save=True, **kwargs):
+    ctype  = kwargs.get('ctype', 'grid')
+    module = kwargs.get('module', 0)
+    peak_firing_rate = kwargs.get('peak firing rate', 20.0)
+    bins = kwargs.get('nbins', 40)
+
+    rate_maps = []
+    for gid in cells:
+        cell = cells[gid]
+        nx, ny = cell['Nx'][0], cell['Ny'][0]
+        rate_maps.append(cell['Rate Map'].reshape(nx, ny))
+    rate_maps = np.asarray(rate_maps, dtype='float32')
+
+    N, nx, ny = rate_maps.shape
+    weights = np.ones(N) / float(N)
+    hists, edges_list = [], []
+    for i in xrange(nx):
+        for j in xrange(ny):
+            hist, edges = np.histogram(rate_maps[:,i,j], bins=bins, range=(0.0, peak_firing_rate), weights=weights)
+            hists.append(hist)
+            edges_list.append(edges)
+    hists = np.asarray(hists)
+    hist_mean = np.mean(hists, axis=0)
+    hist_std = np.sqrt(np.var(hists, axis=0))
+
+    fig, axes = plt.subplots(2, 1)
+    axes[0].bar(edges_list[0][1:], hist_mean, alpha=0.5, log=False, yerr=hist_std)
+    axes[0].set_title('Firing rate histogram')
+    axes[0].set_ylabel('Probability')
+
+    axes[1].bar(edges_list[0][1:], hist_mean, alpha=0.5, log=True, yerr=hist_std)
+    axes[1].set_ylabel('Log Probability')
+    axes[1].set_xlabel('Firing rate (Hz')
+ 
+    if save:
+        plt.savefig('%s-module-%d-rate-histogram.png' % (ctype, module))
+    if plot:
+        plt.show()
+
+    
+
+def plot_population_storage(file_path):
+
+    try:
+        storage = PopulationStorage(file_path=file_path)
+    except:
+        raise Exception('Error occured when loading PopulationStorage object')
+    storage.plot()
+
 
 if __name__ == '__main__':
-    module_size = read_module_fn(module_fn)
-    module_meshes = {}
-    for i in range(len(module_size)):
-        xp, yp = generate_mesh(scale_factor=module_size[i])
-        mesh = np.dstack((xp, yp))
-        xs, ys, _ = mesh.shape
-        module_meshes[i] = (mesh, (xs, ys), module_size[i])
-        
-    grid_cells = h5_to_dict(grid_fn, grid_namespace)
-    place_cells = h5_to_dict(place_fn, place_namespace)
-    visualize_xy_offsets(grid_cells, module_meshes.keys())
-    #visualize_rate_maps(grid_cells, module_meshes.keys())
-    plt.show()
+    file_path = str(sys.argv[1])
+    plot_population_storage(file_path)
+
 
