@@ -44,6 +44,8 @@ class SynapseAttributes(object):
         # value of -1 used to indicate not yet assigned; all source populations are associated with positive integers
         self.syn_id_attr_dict[gid]['syn_sources'] = \
             np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
+        self.syn_id_attr_dict[gid]['syn_source_gids'] = \
+            np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int32')
         self.syn_id_attr_index_map[gid] = {syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids'])}
         for i, sec_id in enumerate(syn_id_attr_dict['syn_secs']):
             self.sec_index_map[gid][sec_id].append(i)
@@ -79,6 +81,34 @@ class SynapseAttributes(object):
                 self.syn_id_attr_dict[gid]['delays'] = \
                     np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, 0., dtype='float32')
             self.syn_id_attr_dict[gid]['delays'][indexes] = delays
+
+    def load_edge_attrs_from_iter(self, gid, pop_name, presyn_name, env, attr_info, edge_iter):
+        """
+
+        :param gid: int
+        :param source_name: str; name of source population
+        :param syn_ids: array of int
+        :param env: :class:'Env'
+        :param delays: array of float; axon conduction (netcon) delays
+        """
+        syn_id_attr_index = attr_info[pop_name][presyn_name]['Synapses']['syn_id']
+        distance_attr_index = attr_info[pop_name][presyn_name]['Connections']['distance']
+
+        presyn_index = int(env.pop_dict[presyn_name])
+
+        for (postsyn_gid, edges) in edge_iter:
+
+            if postsyn_gid == gid:
+            
+                presyn_gids, edge_attrs = edges
+                edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
+                edge_dists = edge_attrs['Connections'][distance_attr_index]
+                delays = [ (distance / env.connection_velocity[presyn_name]) + h.dt for distance in edge_dists ]
+                syn_indexes = [self.syn_id_attr_index_map[gid][syn_id] for syn_id in edge_syn_ids]
+                
+                self.syn_id_attr_dict[gid]['syn_sources'][syn_indexes] = presyn_index
+                self.syn_id_attr_dict[gid]['syn_source_gids'][syn_indexes] = presyn_gids
+                self.syn_id_attr_dict[gid]['delays'][syn_indexes] = delays
 
     def append_netcon(self, gid, syn_id, syn_name, nc):
         """

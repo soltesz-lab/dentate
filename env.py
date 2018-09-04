@@ -3,6 +3,7 @@ import numpy as np
 from collections import namedtuple, defaultdict
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
+from mpi4py import MPI
 from dentate.utils import *
 from neuron import h
 

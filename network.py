@@ -897,7 +897,7 @@ def make_stimulus(env,vecstim_selection):
             for gid in gid_range:
                 cell = h.VecStim()
                 cell.play(cell_spikes[gid])
-                make_cell(env, gid, cell)
+                register_cell(env, pop_name, gid, cell)
 
 def init(env):
     """Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.

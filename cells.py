@@ -2,7 +2,7 @@ import itertools
 from dentate.utils import viewitems
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
-from neuroh5.io import read_cell_attribute_selection
+from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 import collections
 try:
     import btmorph
@@ -1410,13 +1410,12 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
 
 
 
-def get_biophys_cell(env, gid, pop_name):
+def get_biophys_cell(env, pop_name, gid):
     """
-    TODO: Use Connections: distance attribute to compute and load netcon delays
     TODO: Consult env for weights namespaces, load_syn_weights
     :param env:
-    :param gid:
     :param pop_name:
+    :param gid:
     :return:
     """
     tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
@@ -1441,17 +1440,22 @@ def get_biophys_cell(env, gid, pop_name):
     try:
         if len(env.projection_dict[pop_name]) == 0:
             raise Exception
-        for source_name in env.projection_dict[pop_name]:
-            if source_name not in syn_attrs.select_edge_attr_index_map[pop_name]:
-                syn_attrs.select_edge_attr_index_map[pop_name][source_name] = \
-                    get_edge_attributes_index_map(env.comm, env.connectivityFilePath, source_name, pop_name)
-            source_gid_offset = env.celltypes[source_name]['start']
-            source_indexes, edge_attr_dict = \
-                select_edge_attributes(gid, env.comm, env.connectivityFilePath,
-                                       syn_attrs.select_edge_attr_index_map[pop_name][source_name], source_name,
-                                       pop_name, ['Synapses'], source_gid_offset, target_gid_offset)
-            syn_attrs.load_edge_attrs(gid, source_name, edge_attr_dict['Synapses']['syn_id'], env)
+        
+        projections=[(presyn_name, pop_name) for presyn_name in env.projection_dict[pop_name] ]
+        (graph, a) = read_graph_selection(env.connectivityFilePath, [gid],
+                                          comm=env.comm, projections=projections,
+                                          namespaces=['Synapses', 'Connections'])
+
+        for presyn_name in env.projection_dict[pop_name]:
+
+            edge_iter = graph[pop_name][presyn_name]
+            syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
+            
+            syn_attrs.load_edge_attrs_from_iter(gid, pop_name, source_name, env, a, edge_iter)
+            
     except Exception:
         logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
     env.biophys_cells[pop_name][gid] = cell
     return cell
+
+

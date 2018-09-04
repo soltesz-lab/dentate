@@ -954,6 +954,8 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
 
     print('%d trees selected from population %s' % (len(selection), population))
     (tree_iter, _) = read_tree_selection(forest_path, population, selection=selection.tolist())
+   
+    mlab.figure(bgcolor=(0,0,0))
     for (gid,tree_dict) in tree_iter:
 
         if verbose:

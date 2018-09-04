@@ -409,7 +409,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_hoc_env(env)
 
-    cell = get_biophys_cell(env, gid, pop_name)
+    cell = get_biophys_cell(env, pop_name, gid)
     mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())
     
