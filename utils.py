@@ -3,7 +3,6 @@ import sys, os.path, string, time, gc, math, datetime, numbers, itertools
 import copy, pprint, logging
 import yaml
 import numpy as np
-from future.utils import viewitems
 
 class IncludeLoader(yaml.Loader):
     """
@@ -156,7 +155,16 @@ def list_argsort(f, seq):
     return [i for i,x in sorted(enumerate(seq), key = lambda x: f(x[1]))]
 
 
-    
+def viewitems(obj, **kwargs):
+    """
+    Function for iterating over dictionary items with the same set-like
+    behaviour on Py2.7 as on Py3.
+
+    Passes kwargs to method."""
+    func = getattr(obj, "viewitems", None)
+    if not func:
+        func = obj.items
+    return func(**kwargs)    
     
     
 def make_geometric_graph(x, y, z, edges):

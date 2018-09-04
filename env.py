@@ -64,7 +64,10 @@ class Env:
         self.biophys_cells = defaultdict(dict)
         self.v_sample_dict = {}
 
-        self.comm = comm
+        if comm is None:
+            self.comm = MPI.COMM_WORLD
+        else:
+            self.comm = comm
         if comm is not None:
             self.pc = h.ParallelContext()
 
@@ -155,7 +158,7 @@ class Env:
             else:
                 configFilePath = configFile
             if not os.path.isfile(configFilePath):
-                raise RuntimeError("missing configuration file")
+                raise RuntimeError("configuration file %s was not found" % configFilePath)
             with open(configFilePath) as fp:
                 self.modelConfig = yaml.load(fp, IncludeLoader)
         else:
