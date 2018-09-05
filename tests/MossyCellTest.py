@@ -39,7 +39,7 @@ def passive_test (template_class, tree, v_init):
     
     h.tstop = tstop
 
-    neuron_utils.simulate(h, v_init, prelength,mainlength)
+    neuron_utils.simulate(v_init, prelength,mainlength)
 
     ## compute membrane time constant
     vrest  = h.Vlog.x[int(h.tlog.indwhere(">=",prelength-1))]
@@ -105,7 +105,7 @@ def ap_rate_test (template_class, tree, v_init):
     ## or up to 5 steps
     while (h.spikelog.size() < 50):
 
-        neuron_utils.simulate(h, v_init, prelength,mainlength)
+        neuron_utils.simulate(v_init, prelength,mainlength)
         
         if ((h.spikelog.size() < 50) & (it < 5)):
             print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
@@ -305,7 +305,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
         tlog = res.o(0)
         vlog = res.o(1)
         
-        f=open("MossyCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
+        f=open("MossyCell_%s_%s_synapse_rate_%.1f_%i.dat" % (presyn_name, syn_name, rate, group_size),'w')
         
         for i in xrange(0, int(tlog.size())):
             f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
@@ -352,9 +352,18 @@ def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, v_holding, v_init)
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 100, v_holding, v_init)
         
+        rate = 10
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
+
         rate = 30
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
+
+        rate = 50
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
+
  
     
 @click.command()
@@ -370,7 +379,6 @@ def main(config_path,template_path,forest_path,synapses_path):
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
-    h.xopen("./lib.hoc")
     h.xopen ("./tests/rn.hoc")
     h.xopen(template_path+'/MossyCell.hoc')
     h.pc = h.ParallelContext()
@@ -392,8 +400,8 @@ def main(config_path,template_path,forest_path,synapses_path):
     template_class = getattr(h, "MossyCell")
 
     v_init = -75.0
-    #if (synapses is not None):
-    #    synapse_test(template_class, gid, tree, synapses, v_init, env)
+    if (synapses is not None):
+        synapse_test(template_class, gid, tree, synapses, v_init, env)
 
     v_init = -60
     passive_test(template_class, tree, v_init)
