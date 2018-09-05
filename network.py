@@ -3,13 +3,14 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
+import itertools
 import dentate
 from dentate.neuron_utils import *
 from dentate.utils import viewitems
 from dentate import cells, synapses, lpt, lfp, simtime
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
-    write_cell_attributes, read_cell_attribute_selection, read_tree_selection
+    write_cell_attributes, read_cell_attribute_selection, read_tree_selection, read_graph_selection
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -374,7 +375,7 @@ def connect_cells(env, cleanup=True):
                    for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
                        for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                            delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                           this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
+                           this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
                            syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                            synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
@@ -422,7 +423,8 @@ def connect_cell_selection(env, cleanup=True):
         logger.info('*** Reading projections: ')
 
     pop_names = set([ s[0] for s in env.cell_selection ])
-
+    gid_range = list(itertools.chain.from_iterable([ s[1] for s in env.cell_selection ]))
+    
     vecstim_selection = defaultdict(list)
     
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
@@ -551,7 +553,7 @@ def connect_cell_selection(env, cleanup=True):
                     vecstim_selection[presyn_name].add(presyn_gid)
                     for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                         delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay)
+                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
@@ -634,14 +636,14 @@ def connect_gjs(env):
                         if rank == 0:
                             logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                         'sgid = %d dgid = %d\n' %
-                                        (rank, src, srcsec, weight, ggid, ggid+1))
+                                        (rank, src, srcsec, srcwgt, ggid, ggid+1))
                         gj = mkgap(env.pc, src, srcpos, srcsec, ggid, ggid+1, srcwgt)
                         env.gjlist.append(gj)
                     if env.pc.gid_exists(dst):
                         if rank == 0:
                            logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                        'sgid = %d dgid = %d\n' %
-                                       (rank, dst, dstsec, weight, ggid+1, ggid))
+                                       (rank, dst, dstsec, dstwgt, ggid+1, ggid))
                         gj = mkgap(env.pc, dst, dstpos, dstsec, ggid+1, ggid, dstwgt)
                         env.gjlist.append(gj)
                     ggid = ggid+2
@@ -702,7 +704,7 @@ def make_cells(env):
                 if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
-                register_cell(env, gid, model_cell)
+                register_cell(env, pop_name, gid, model_cell)
 
             if rank == 0:
                 logger.info("*** Created %i cells" % i)
@@ -819,11 +821,12 @@ def make_cell_selection(env):
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
             i = 0
+            cell_attributes_iter = cell_attributes_dict['Coordinates']
             for (gid, cell_coords_dict) in cell_attributes_iter:
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_cell(templateClass, gid=gid, local_id=i, dataset_path=datasetPath)
+                model_cell = cells.make_hoc_cell(env, gid, pop_name, templateClass)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]

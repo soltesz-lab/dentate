@@ -1,28 +1,41 @@
 import os, sys
 import numpy as np
-import h5py
-from neuroh5.io import read_cell_attributes
-from generate_DG_PP_features_reduced_h5support import generate_mesh
 import matplotlib.pyplot as plt
+from nested.optimize_utils import *
 
-grid_fn = 'grid-MPP.h5'
-place_fn = 'place-MPP.h5'
-module_fn = 'optimal_sf.txt'
-grid_namespace = 'Grid Input Features'
-place_namespace = 'Place Input Features'
+def plot_rate_maps(cells, plot=False, save=True, **kwargs):
 
+    rate_maps = [] 
+    for gid in cells:
+        cell = cells[gid]
+        rate_maps.append(cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0]))
+    rate_maps = np.asarray(rate_maps, dtype='float32')
+    
+    summed_map = np.sum(rate_maps, axis=0)
+    mean_map   = np.mean(rate_maps,axis=0)
+    var_map    = np.var(rate_maps, axis=0)
+    images = [summed_map, mean_map, var_map]
 
-def read_module_fn(fn):
-    f = open(fn, 'r')
-    module_size = []
-    for line in f.readlines():
-        line = line.strip('\n')
-        module_size.append(int(line))
-    f.close()
-    return module_size
+    ctype = kwargs.get('ctype', 'grid')
+    module = kwargs.get('module', 0)
 
-def h5_to_dict(fn, namespace, population='MPP'):
-    return {gid: cell_attr for (gid, cell_attr) in read_cell_attributes(fn, population, namespace=namespace)}
+    fig, axes = plt.subplots(3,2)
+    for j in range(2):
+        for i in range(3):
+            img = axes[i,j].imshow(images[i], cmap='inferno')
+            plt.colorbar(img, ax=axes[i,j])
+            if j == 1:
+                img.set_clim(0, np.max(images[i]))
+            if i == 0:
+                axes[i,j].set_title('Cells: %s. Module: %d. Summed RM' % (ctype, module))
+            elif i == 1:
+                axes[i,j].set_title('Cells: %s. Module: %d. Mean RM' % (ctype, module))
+            else:
+                axes[i,j].set_title('Cells: %s. Module: %d. Var RM' % (ctype, module))
+    if save:
+        plt.savefig('%s-module-%d-ratemap.png' % (ctype, module))
+    if plot:
+        plt.show()
 
 def visualize_xy_offsets(cells, modules):
     
@@ -63,7 +76,6 @@ def visualize_rate_maps(cells, modules):
     gids = list(cells.keys())
     for gid in gids:
         cell = cells[gid]
-        module = cell['Module'][0]
         nx, ny = cell['Nx'][0], cell['Ny'][0]
         rate_map = cell['Rate Map'].reshape(nx, ny)
         module_rate_maps[module].append(rate_map)

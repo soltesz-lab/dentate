@@ -6,6 +6,7 @@ import numpy as np
 import neo, elephant
 from quantities import s, ms, Hz
 from dentate import utils
+from utils import viewitems
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -117,8 +118,6 @@ def spike_rates (spkdict, t_dflt):
         if isiv.size > 0:
             t = np.sum(isiv)
             rate = isiv.size / t / 1000.0
-        elif len(spks) > 0:
-            rate = 1.0 / t_dflt / 1000.0
         else:
             rate = 0.0
         rate_dict[ind] = rate
@@ -126,7 +125,6 @@ def spike_rates (spkdict, t_dflt):
 
 def spike_inst_rates_func (item,t_start,t_stop,sampling_period,sigma,kernel,bin_steps=5):
     (ind, lst) = item
-    print(ind)
     spkts = np.asarray(lst, dtype=np.float32)
     spktrain      = neo.core.SpikeTrain(spkts*ms, t_start=t_start*ms, t_stop=t_stop*ms)
     spkrates_r    = elephant.statistics.instantaneous_rate(spktrain, sampling_period, kernel=kernel).ravel()
@@ -209,7 +207,7 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_bin_rates(population, spkdict, time_bins, t_start=timeRange[0], t_stop=timeRange[1], saveData=saveData)
+    rate_bin_dict = spike_inst_rates(population, spkdict, time_bins, timeRange, saveData=saveData)
     MI_dict = {}
     for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
         MI = 0.
@@ -330,7 +328,7 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
         
         # Limit to maxElems
         if (maxElems is not None) and (x_matrix.shape[0]>maxElems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], pop_name))
+            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], subset))
             sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(maxElems))
             x_matrix = x_matrix[sample_inds,:]
 
@@ -388,7 +386,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
         
         # Limit to maxElems
         if (maxElems is not None) and (x_matrix.shape[0]>maxElems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], pop_name))
+            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], subset))
             sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(maxElems))
             x_matrix = x_matrix[sample_inds,:]
 
@@ -399,9 +397,3 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
 
     
     return corr_dict
-
-def activity_ratio(stimulus, response, binSize = 25.):
-    result = np.power(np.sum(np.array(mean_rates),axis=0)/nstim,2) / (np.sum(np.power(mean_rates,2.0),axis=0)/nstim)
-    return result
-
-

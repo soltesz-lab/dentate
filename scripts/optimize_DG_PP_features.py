@@ -12,7 +12,7 @@ from optimize_cells_utils import *
 
 
 utils.config_logging(True)
-script_name = 'generate_DG_PP_features_v3.py'
+script_name = 'optimize_DG_PP_features.py'
 logger      = utils.get_script_logger(script_name)
 
 seed = 64
@@ -33,8 +33,8 @@ max_field_width    = field_width(1.)
 
 
 n_mpp_grid      = 5000
-n_mpp_place     = 5
-n_lpp_place     = 5
+n_mpp_place     = 5000
+n_lpp_place     = 5000
 n_lpp_grid      = 0
 arena_dimension = 100.
 resolution      = 5.
@@ -168,51 +168,20 @@ def main(config_file_path, output_dir, export, export_file_path, label, run_test
         print('... config interactive complete...')
  
     if run_tests:
-        #compare_ratemap(context, plot=False)
-        report_cost(context)
-        report_xy_offsets(context, plot=False, save=True)
-        report_rate_map(context, plot=False, save=True)
-        report_fraction_active(context, plot=True, save=True)
+        tests()
 
-#def unit_tests():
-    #import plot_DG_PP_features_v2
-    #from plot_DG_PP_feau
-
-def compare_ratemap(context, plot=False):
+def tests():
+    from plot_DG_PP_features import plot_rate_maps, plot_xy_offsets, \
+                                    plot_fraction_active_map, plot_rate_histogram
     cells = get_cell_types_from_context(context)
-    gids = cells.keys()
-    cell = cells[gids[0]]
-    xp, yp = context.mesh
+    kwargs = {'ctype': context.cell_type, 'module': context.module, \
+              'target': context.fraction_active_target, 'nbins': 40}
 
-    tic = time.time()
-    rate_map_original = _rate_map(xp, yp, cell['Grid Spacing'][0], cell['Grid Orientation'][0], cell['X Offset Scaled'][0], cell['Y Offset Scaled'][0], 0)
-    elapsed = time.time() - tic
-    print('It took %f seconds to calculate rate maps for a cells' % (elapsed)) 
- 
-    tic = time.time()
-    rate_map_new = generate_spatial_ratemap(cell['Cell Type'][0], cell, None, xp, yp, 20.0, 20.0, None)
-    elapsed = time.time() - tic
-    print('It took %f seconds to calcualte rate map the other way' % elapsed)
-    difference_map = np.abs(rate_map_new - rate_map_original)
-    print('min diff, max diff = %f, %f' % (np.min(difference_map), np.max(difference_map)))
-  
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.subplot(1,3,1)
-    plt.imshow(rate_map_original, cmap='inferno')
-    plt.colorbar()
-    plt.title('old')
-    plt.subplot(1,3,2)
-    plt.imshow(rate_map_new, cmap='inferno')
-    plt.colorbar()
-    plt.title('new')
-    plt.subplot(1,3,3)
-    plt.imshow(difference_map, cmap='inferno')
-    plt.colorbar()
-    plt.title('difference')
-
-    if plot:
-        plt.show()
+    report_cost(context)
+    plot_rate_maps(cells, plot=False, save=True, **kwargs)
+    plot_xy_offsets(cells,plot=False,save=True, **kwargs)
+    plot_fraction_active_map(cells,'_fraction_active', plot=False,save=True, **kwargs)
+    plot_rate_histogram(cells, plot=True, save=True, **kwargs)
 
 def report_cost(context):
     x0 = context.x0_array
@@ -220,104 +189,13 @@ def report_cost(context):
     _, objectives = get_objectives(features)
 
     print('Scale factor: %f' % x0[0])
-    print('xt1: %f' % x0[1])
-    print('xt2: %f' % x0[2])
-    print('gain: %f' % x0[3])
-    print('Module: %d' % context.module)
+    if len(x0) > 1:
+        print('xt1: %f' % x0[1])
+        print('xt2: %f' % x0[2])
+        print('gain: %f' % x0[3])
+        print('Module: %d' % context.module)
     for objective in objectives.keys():
         print('Objective: %s has cost %f' % (objective, objectives[objective]))
-
-def report_rate_map(context, plot=False, save=True):
-    cells = get_cell_types_from_context(context)
-    gids = cells.keys()
-    rate_maps = []
-
-    for gid in gids:
-        cell = cells[gid]
-        rate_maps.append(cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0]))
-    rate_maps = np.asarray(rate_maps, dtype='float32')
-    
-    summed_map = np.sum(rate_maps, axis=0)
-    mean_map   = np.mean(rate_maps, axis=0)
-    var_map    = np.var(rate_maps, axis=0)
-
-    ctype  = context.cell_type
-    module = context.module
-
-    import matplotlib.pyplot as plt
-    plt.figure()
-
-    plt.subplot(1,3,1)
-    plt.imshow(summed_map, cmap='inferno')
-    plt.colorbar()
-    plt.title('Summed map for %s cells module %d' % (ctype, module))
-
-    plt.subplot(1,3,2)
-    plt.imshow(mean_map, cmap='inferno')
-    plt.colorbar()
-    plt.title('Mean map for %s cells module %d' % (ctype, module))
-
-    plt.subplot(1,3,3)
-    plt.imshow(var_map, cmap='inferno')
-    plt.colorbar()
-    plt.title('Var map for %s cells module %d' % (ctype, module))
-    
-    if save:
-        plt.savefig('%s-module-%d-ratemap.png' % (ctype, module))
-    if plot:
-        plt.show()
-    
-
-
-def report_xy_offsets(context, plot=False, save=True):
-    cells = get_cell_types_from_context(context)
-    pop_xy_offsets = [] 
-    for gid in cells:
-        cell   = cells[gid]
-        offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
-        for (x_offset, y_offset) in offsets:
-            pop_xy_offsets.append((x_offset, y_offset))
-    pop_xy_offsets = np.asarray(pop_xy_offsets, dtype='float32')
-
-    ctype  = context.cell_type
-    module = context.module
-
-    import matplotlib.pyplot as plt
-    plt.figure()
-    plt.scatter(pop_xy_offsets[:,0], pop_xy_offsets[:,1])
-    plt.title('xy offsets for %s cells in module %d' % (ctype, module))
-
-    if save:
-        plt.savefig('%s-module-%d-xyoffsets.png' % (ctype, module))
-    if plot:
-        plt.show()
-
-def report_fraction_active(context, plot=False, save=True):
-    cells = get_cell_types_from_context(context)
-    fraction_active = _fraction_active(cells)
-    
-    fraction_active_im = np.zeros((20,20))
-    for (i,j) in fraction_active:
-        fraction_active_im[i,j] = fraction_active[(i,j)]
-    
-    import matplotlib.pyplot as plt
-
-    plt.subplot(1,2,1)
-    plt.imshow(fraction_active_im, cmap='inferno')
-    plt.colorbar()
-    plt.title('fraction active')
-
-    plt.subplot(1,2,2)
-    plt.imshow(fraction_active_im - context.fraction_active_target, cmap='inferno')
-    plt.colorbar()
-    plt.title('fraction active distance from target')
- 
-    ctype  = context.cell_type
-    module = context.module
-    if save:
-        plt.savefig('%s-module-%d-fractionactive.png' % (ctype, module))
-    if plot:
-        plt.show()
 
 def config_controller(export_file_path, output_dir, **kwargs):
     context.update(locals())
@@ -419,11 +297,11 @@ def _calculate_rate_maps(x, context):
     xp, yp       = context.mesh
     scale_factor = x[0]
 
-    ratemap_kwargs         = dict()
-    ratemap_kwargs['xt1']  = x[1]
-    ratemap_kwargs['xt2']  = x[2]
-    ratemap_kwargs['gain'] = x[3]
-    
+    ratemap_kwargs = dict()
+    if len(x) > 1:
+        ratemap_kwargs['xt1']  = x[1]
+        ratemap_kwargs['xt2']  = x[2]
+        ratemap_kwargs['gain'] = x[3]
     
     for gid in cells:
         cell  = cells[gid]

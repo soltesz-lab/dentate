@@ -84,7 +84,7 @@ def make_volume(extent_u, extent_v, extent_l, rotate=None, basis=rbf.basis.phs3,
         return vol
 
 
-def make_surface(extent_u, extent_v, obs_l, rotate=None, basis=rbf.basis.phs2, order=1, res=[33, 30]):  
+def make_surface(extent_u, extent_v, obs_l, rotate=None, basis=rbf.basis.phs2, order=1, resolution=[33, 30]):  
     """Creates an RBF surface based on the parametric equations of the dentate volume.
     """
     ures = resolution[0]
@@ -445,7 +445,7 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
 
 
 
-def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=None, populations=None, icp_iter=1000, opt_iter=100):
+def icp_transform(comm, env, soma_coords, projection_ls, population_extents, rotate=None, populations=None, icp_iter=1000, opt_iter=100):
     """
     Uses the iterative closest point (ICP) algorithm of the PCL library to transform soma coordinates onto a surface for a particular L value.
     http://pointclouds.org/documentation/tutorials/iterative_closest_point.php#iterative-closest-point
@@ -461,12 +461,39 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
         populations = list(soma_coords.keys())
 
     srf_resample = 25
+
+    min_u = float('inf')
+    max_u = 0.0
+
+    min_v = float('inf')
+    max_v = 0.0
+
+    min_l = float('inf')
+    max_l = 0.0
+    
+    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
+        min_u = min(min_extent[0], min_u)
+        min_v = min(min_extent[1], min_v)
+        min_l = min(min_extent[2], min_l)
+        
+    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
+        max_u = max(max_extent[0], max_u)
+        max_v = max(max_extent[1], max_v)
+        max_l = max(max_extent[2], max_l)
+
+    ## This parameter is used to expand the range of L and avoid
+    ## situations where the endpoints of L end up outside of the range
+    ## of the distance interpolant
+    safety = 0.01
+
+    extent_u = (min_u-safety, max_u+safety)
+    extent_v = (min_v-safety, max_v+safety)
     
     projection_ptclouds = []
     for obs_l in projection_ls:
-        srf = make_surface (obs_l, rotate=rotate)
+        srf = make_surface (extent_u, extent_v, obs_l, rotate=rotate)
         U, V = srf._resample_uv(srf_resample, srf_resample)
-        meshpts = self.ev(U, V)
+        meshpts = srf.ev(U, V)
         projection_ptcloud = pcl.PointCloud()
         projection_ptcloud.from_array(meshpts)
         projection_ptclouds.append(projection_ptcloud)
@@ -503,7 +530,7 @@ def icp_transform(comm, soma_coords, projection_ls, population_extents, rotate=N
             converged, transf, estimate, fitness = icp.icp(cloud_in, cloud_prj, max_iter=icp_iter)
             logger.info('Transformation of population %s has converged: ' % (pop) + str(converged) + ' score: %f' % (fitness) )
             for i, gid in zip(range(0, estimate.size), gids):
-                k_xyz_coords = estimate[i]
+                est_xyz_coords = estimate[i]
                 k_est_xyz_coords[i,:] = est_xyz_coords
                 f_uvl_distance = make_uvl_distance(est_xyz_coords,rotate=rotate)
                 uvl_coords,err = dlib.find_min_global(f_uvl_distance, limits[0], limits[1], opt_iter)

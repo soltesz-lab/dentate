@@ -94,7 +94,7 @@ def register_cell(env, pop_name, gid, cell):
 
 
     
-def network_clamp(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={})
+def network_clamp(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
     """
     Instantiates a cell and all its synapses and connections and loads or generates spike times for all synaptic connections.
     :param env: an instance of env.Env
@@ -121,7 +121,7 @@ def network_clamp(env, pop_name, gid, spike_events_path, spike_events_namespace=
 
     ## Determine if a mechanism configuration file exists for this cell type
     if 'mech_file' in env.celltypes[pop_name]:
-        mech_file = env.celltypes[postsyn_name]['mech_file']
+        mech_file = env.celltypes[pop_name]['mech_file']
     else:
         mech_file = None
 
@@ -170,7 +170,7 @@ def network_clamp(env, pop_name, gid, spike_events_path, spike_events_namespace=
     this_syn_ids   = syn_attrs.syn_id_attr_dict[gid]['syn_ids']
     for syn_id, presyn_id, presyn_gid in zip(this_syn_ids, \
                                              this_syn_attrs['syn_sources'], \
-                                             this_syn_attrs['syn_source_gids'])
+                                             this_syn_attrs['syn_source_gids']):
     
         vss = [ value['vecstim'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
         spk_sources = spk_source_dict[presyn_id]

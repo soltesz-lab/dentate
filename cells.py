@@ -1063,7 +1063,7 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
         if donor is None:
             raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for mechanism: '
                                '%s parameter: %s from origin: %s in sec_type: %s' %
-                               (rules['origin'], mech_name, param_name, node.type))
+                               (rules['origin'], mech_name, param_name, cell, node.type))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
@@ -1332,7 +1332,7 @@ def report_topology(cell, env, node=None):
         report_topology(cell, env, child)
 
         
-def make_neurotree_graph(neurotree_dict, return_root=True):
+def make_neurotree_graph(neurotree_dict):
     """
     Creates a graph of sections that follows the topological organization of the given neuron.
     :param neurotree_dict:
@@ -1348,15 +1348,7 @@ def make_neurotree_graph(neurotree_dict, return_root=True):
     for i, j in zip(sec_src, sec_dst):
         sec_graph.add_edge(i, j)
 
-    root=None
-    if return_root:
-        order = nx.topological_sort(sec_graph)
-        root = next(order)
-
-    if return_root:
-        return (sec_graph, root)
-    else:
-        return sec_graph
+    return sec_graph
     
 
 def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
@@ -1395,7 +1387,7 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
     datasetPath = env.datasetPath
     dataFilePath = env.dataFilePath
     env.load_cell_template(popName)
-    templateClass = getattr(h, env.celltypes[popName]['template'])
+    template_class = getattr(h, env.celltypes[popName]['template'])
 
     if popName in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[popName]:
         if neurotree_dict:
@@ -1404,7 +1396,7 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             dataFilePath, popName, gid)
     else:
-        hoc_cell = template_class(local_id, gid, datasetPath)
+        hoc_cell = template_class(gid, datasetPath)
         
     return hoc_cell
 

@@ -97,8 +97,8 @@ def mkgap(env, gid, secpos, secidx, sgid, dgid, w):
     seg = sec(secpos)
     gj = h.ggap(seg)
 
-    pc.source_var(seg._ref_v, sgid, sec=sec)
-    pc.target_var(gj, gj._ref_vgap, dgid)
+    env.pc.source_var(seg._ref_v, sgid, sec=sec)
+    env.pc.target_var(gj, gj._ref_vgap, dgid)
     
     gj.g = w
 

@@ -1057,7 +1057,7 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
         return None
 
 
-def make_synapse_graph(syn_dict, neurotree_dict, return_root=False):
+def make_synapse_graph(syn_dict, neurotree_dict):
     """
     Creates a graph of synapses that follows the topological organization of the given neuron.
     :param syn_dict:
@@ -1100,16 +1100,7 @@ def make_synapse_graph(syn_dict, neurotree_dict, return_root=False):
         for i, j in zip(syn_id_locs[:-1], syn_id_locs[1:]):
             syn_graph.add_edge(i[0], j[0])
 
-    if return_root:
-        order = ns.topological_sort(syn_graph)
-        root = order[0]
-    else:
-        root = None
-        
-    if root:
-        return (syn_graph, root)
-    else:
-        return syn_graph
+    return syn_graph
     
     
 
@@ -1215,7 +1206,7 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
             rans[layer] = ran
         segcounts = []
         layers = []
-        for sec_index, seg_list in viewitems(sec_dict):
+        for sec_index, seg_list in viewitems(seg_dict):
             for seg in seg_list:
                 L = seg.sec.L
                 nseg = seg.sec.nseg
@@ -1278,7 +1269,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     segcounts_per_sec = {}
     for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
-        sec_index_dict = secidx_dict[sec_name]
+        sec_index_dict = cell_secidx_dict[sec_name]
         swc_type = swc_type_dict[sec_name]
         seg_list = []
         L_total = 0
@@ -1299,7 +1290,8 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
             L_total += sec.L
             seg_dict[sec_index] = seg_list
         segcounts_dict, total, layers_dict = \
-            synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, seg_dict, density_seed,
+            synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, \
+                               sec_index_dict=sec_index_dict, seg_dict=seg_dict, seed=density_seed, \
                                neurotree_dict=neurotree_dict)
         segcounts_per_sec[sec_name] = segcounts_dict
         sample_size = total
@@ -1320,7 +1312,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                         if syn_loc < 1.0:
                             syn_locs.append(syn_loc)
                             syn_ids.append(syn_index)
-                            syn_secs.append(sec_obj_index_dict[seg.sec])
+                            syn_secs.append(sec_index_dict[seg.sec])
                             syn_layers.append(layer)
                             syn_types.append(syn_type)
                             swc_types.append(swc_type)
@@ -1335,7 +1327,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                 'syn_types': np.asarray(syn_types, dtype='uint8'),
                 'swc_types': np.asarray(swc_types, dtype='uint8')}
 
-    return (syn_dict, segcounts_per_dict)
+    return (syn_dict, segcounts_per_sec)
 
 def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
                                 cell_sec_dict, cell_secidx_dict):
@@ -1363,7 +1355,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     syn_index = 0
 
 
-    sec_graph = make_neurotree_graph(neurotree_dict, return_root=False)
+    sec_graph = make_neurotree_graph(neurotree_dict)
 
     seg_density_per_sec = {}
     for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):

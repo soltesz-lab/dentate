@@ -375,7 +375,7 @@ class RBFVolume(object):
         return arr
 
     
-    def vtan(self, su, sv, normalize=True):
+    def vtan(self, su, sv, sl, normalize=True):
 
         u = np.array([su]).reshape(-1,)
         v = np.array([sv]).reshape(-1,)

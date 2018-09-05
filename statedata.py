@@ -3,13 +3,17 @@ import itertools
 from collections import defaultdict
 import numpy as np
 from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_info, read_population_ranges, read_population_names
+from dentate import utils
 
-def read_state(comm, input_file, population_names, namespace_id, timeVariable='t', variable='v', timeRange = None, maxUnits = None, unitNo = None, query = False, verbose = False):
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = utils.get_module_logger(__name__)
+
+def read_state(comm, input_file, population_names, namespace_id, timeVariable='t', variable='v', timeRange = None, maxUnits = None, unitNo = None, query = False):
 
     pop_state_dict = {}
 
-    if verbose:
-        print('Reading state data...')
+    logger.info('Reading state data...')
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=list(population_names), read_cell_index=True)
 
@@ -27,8 +31,7 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
         # Limit to maxUnits
         if unitNo is None:
             if (maxUnits is not None) and (len(cell_index)>maxUnits):
-                if verbose:
-                    print(('  Reading only randomly sampled %i out of %i units for population %s' % (maxUnits, len(cell_index), pop_name)))
+                logger.info('  Reading only randomly sampled %i out of %i units for population %s' % (maxUnits, len(cell_index), pop_name))
                 sample_inds = np.random.randint(0, len(cell_index)-1, size=int(maxUnits))
                 unitNo      = set([cell_index[i] for i in sample_inds])
             else:
@@ -36,8 +39,6 @@ def read_state(comm, input_file, population_names, namespace_id, timeVariable='t
         else:
             unitNo = set(unitNo)
 
-        print(unitNo)
-            
         state_dict = {}
         valiter    = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
         
