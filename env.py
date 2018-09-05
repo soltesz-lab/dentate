@@ -72,21 +72,16 @@ class Env:
         if comm is not None:
             self.pc = h.ParallelContext()
 
-        self.colsep = ' '  # column separator for text data files
-        self.bufsize = 100000  # buffer size for text data files
-
         # print verbose diagnostic messages
         self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
         
         # Directories for cell templates
-        print(("before templatePath: templatePaths = ", templatePaths))
         if templatePaths is not None:
             self.templatePaths = templatePaths.split( ':')
         else:
             self.templatePaths = []
-        print(("templatePaths = ", self.templatePaths))
 
         # The location of required hoc libraries
         self.hoclibPath = hoclibPath
@@ -252,7 +247,6 @@ class Env:
             h.load_file(self.hoclibPath + '/templates/Value.hoc')
             # stimulus cell template
             h.load_file(self.hoclibPath + '/templates/StimCell.hoc')
-            h.xopen(self.hoclibPath + '/lib.hoc')
 
     def parse_input_config(self):
         """
@@ -476,27 +470,4 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-
-        h('objref templatePaths, templatePathValue')
-        h.templatePaths = h.List()
-        for path in self.templatePaths:
-            h.templatePathValue = h.Value(1, path)
-            h.templatePaths.append(h.templatePathValue)
-
-        if not hasattr(h, templateName):
-            if 'templateFile' in self.celltypes[popName]:
-                templateFile = self.celltypes[popName]['templateFile']
-                templateFilePath = None
-                for templatePath in self.templatePaths:
-                    if os.path.isfile(templatePath + '/' + templateFile):
-                        templateFilePath = templatePath + '/' + templateFile
-                        break
-                if templateFilePath is None:
-                    raise IOError('Env.load_cell_templates: population: %s; template not found: %s' %
-                                  (popName, templateFile))
-                h.load_file(templateFilePath)
-                if rank == 0 and self.verbose:
-                    self.logger.info('load_cell_templates: population: %s; template loaded: %s' % \
-                                (popName, templateFilePath))
-            else:
-                h.find_template(self.pc, h.templatePaths, templateName)
+        find_template(env, templateName, self.templatePaths)

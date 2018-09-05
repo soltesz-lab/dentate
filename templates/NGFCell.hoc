@@ -4,14 +4,14 @@ public connect2target, subsets, is_art, is_connected
 public all, soma, basal, apical, ais, hillock, axon, allaxon
 public somaidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
-public syns
-public syn_stim, syntest
+public syns, layers
+
 
 create sections[1]
 
 objref all, soma, basal, apical, ais, hillock, axon, allaxon
 objref basalidx, apicalidx, somaidx, axonidx, aisidx, hilidx
-objref syns, syntypes
+objref syns, layers
 
 id  = -1
 gid = -1
@@ -30,13 +30,7 @@ proc assert() { local test strdef errmsg
     }
 }
 
-// dendrites 1 and 2 are apical
-// dendrites 3 and 4 are basal
-
 proc init() {
-    
-    // dendrites 1*ndendsec and 2*ndendsec are apical
-    // dendrites 3*ndendsec and 4*ndendsec are basal
     
     apicalidx = new Vector()
     basalidx = new Vector()
@@ -44,13 +38,16 @@ proc init() {
     axonidx = new Vector()
     aisidx = new Vector()
     hilidx = new Vector()
+    layers = new List()
+    syns = new List()
     
     id  = $1
     gid = $2
     
     if (numarg() > 2) {
-        topol_from_python($o4,$o5,$o6,$o7,$o12)
-        shape_from_python($o7,$o8,$o9,$o10,$o11)
+        topol_from_python($o4,$o6,$o7,$o12)
+        shape_from_python($o4,$o8,$o9,$o10,$o11)
+        layers_from_python($o4,$o5)
     } else {
         ndends   = 4
         ndendsec = 1
@@ -80,11 +77,6 @@ proc init() {
     subsets()
     geom_nseg()
     biophys()
-    
-    syns = new List()
-    syntypes = new List()
-    syntypes.append(new List()) // excitatory
-    syntypes.append(new List()) // inhibitory
 }
 
 
@@ -267,40 +259,61 @@ proc biophys() {
 }
 
 
-proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
+
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, secnodes, swc_types
     
-    // vlayers, vsrc, vdst, secnodes
-    vlayers   = new Vector($o1)
+    secnodes  = $o1
     vsrc      = new Vector($o2)
     vdst      = new Vector($o3)
-    secnodes  = $o4
-    swc_types = new Vector($o5)
+    swc_types = new Vector($o4)
     
-    nDends = secnodes.__len__()-1
+    nDends = 0
+    nSoma  = 0
+    nAxon  = 0
+    nAIS   = 0
+    nHill  = 0
     
     for s = 0, secnodes.__len__()-1 {
         vidxs = new Vector(secnodes.__getitem__(s))
         i = vidxs.x[vidxs.size()-1]
         swc_type = swc_types.x[i]
+        if (swc_type == 8) {
+            hilidx.append(s)
+            nHill = nHill + 1
+            nAxon = nAxon + 1
+
+        }
+        if (swc_type == 7) {
+            aisidx.append(s)
+            nAIS = nAIS + 1
+            nAxon = nAxon + 1
+        }
         if (swc_type == 4) {
             apicalidx.append(s)
+            nDends = nDends + 1
         }
         if (swc_type == 3) {
             basalidx.append(s)
+            nDends = nDends + 1
+        }
+        if (swc_type == 2) {
+            axonidx.append(s)
+            nAxon = nAxon + 1
         }
         if (swc_type == 1) {
             somaidx.append(s)
+            nSoma = nSoma+1
         }
     }
     
-    create sections[nDends+1]
+    create sections[nDends+nSoma+nAxon]
     for p = 0, vsrc.size-1 {
         i = vsrc.x[p]
         j = vdst.x[p]
         assert (i >= 0,  "compartment index in topology matrix is less than zero")
         assert (j >= 0,  "compartment index in topology matrix is less than zero")
-        assert (i < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
-        assert (j < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        assert (i < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        assert (j < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
         if (i == 0) {
             if (j == 1 || j == 2) {
                 connect sections[j](0),sections[i](1)
@@ -313,7 +326,6 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         
     }
     
-    vlayers.resize(0)
     vsrc.resize(0)
     vdst.resize(0)
     
@@ -331,20 +343,50 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
     
     for s=0, secnodes.__len__()-1 {
         idxs = secnodes.__getitem__(s)
-        vidxs = new Vector(idxs)
+        vidxs = new Vector()
+        vidxs.from_python(idxs)
+        seclayers = new List()
         sections[s] {
-            pt3dconst(1)
+            k = vidxs.x[0]
             for i=0, vidxs.size()-1 {
                 k = vidxs.x[i]
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
             }
+            pt3dconst(1)
         }
+        
+        
     }
     
     vx.resize(0)
     vy.resize(0)
     vz.resize(0)
     vradius.resize(0)
+}
+
+
+proc layers_from_python() { local i,j,k,s localobj secnodes, vlayer, seclayers, idxs, vidxs
+    
+    secnodes = $o1
+    vlayer = new Vector($o2)
+    
+    for s=0, secnodes.__len__()-1 {
+        layers.append(new Vector())
+    }
+    
+    for s=0, secnodes.__len__()-1 {
+        idxs = secnodes.__getitem__(s)
+        vidxs = new Vector()
+        vidxs.from_python(idxs)
+        seclayers = layers.o(s)
+        k = vidxs.x[0]
+        for i=0, vidxs.size()-1 {
+            k = vidxs.x[i]
+            seclayers.append(vlayer.x[k])
+        }
+    }
+    
+    vlayer.resize(0)
 }
 
 
@@ -364,104 +406,5 @@ proc position() { local i
   }
   xx = $1  yy = $2  zz = $3
 }
-
-external continuerun, cvode_active, cvode
-
-obfunc syntest() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist, vec, synlist, results, tlog, nil
-    
-    synlist = $o1
-    se = $o2
-    w = $3
-    v_holding = $4
-    v_init = $5
-    
-    soma { 
-        se.rs = 10
-        se.dur1 = 1010
-        se.amp1 = v_holding 
-    }
-    
-    mainDT = 0.001
-    dt = mainDT
-    tstop = 1000
-    
-    vec_size = tstop/mainDT + 1
-    
-    vec = new Vector(vec_size)
-    vec.record(&se.i)
-    
-    tlog = new Vector(vec_size)
-    tlog.record(&t)
-    
-    ns = new NetStim()
-    ns.interval = 1000
-    ns.number = 1
-    ns.start  = 200
-    ns.noise  = 0
-    
-    nclist = new List()
-    for idx=0, synlist.count()-1 {
-        nc = new NetCon(ns,synlist.o(idx))
-        nc.weight = w
-        nc.delay = 0
-        nclist.append(nc)
-    }
-    
-    cvode_active(1)
-    cvode.use_daspk(1)
-    cvode.dae_init_dteps(1e-9, 2)
-
-    finitialize(v_init)
-    fadvance()
-    continuerun(tstop)
-    
-    i_holding = vec.x[tlog.indwhere(">=",ns.start)]
-    idx = tlog.indwhere(">=",ns.start) - 1
-    vec.remove(0,idx)
-    tlog.remove(0,idx)
-    
-    vec.printf()
-    tlog.printf()
-    
-    i_peak = vec.min()
-    t_peak = tlog.x[vec.indwhere("==",i_peak)]
-    
-    print "i_peak = ", i_peak
-    print "i_holding = ", i_holding
-    print "i_peak - i_holding = ", i_peak - i_holding
-    
-    amp = abs(i_peak - i_holding) * 1000
-    
-    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
-    i_10 = i_holding + (i_peak - i_holding) * 1/10
-    i_20 = i_holding + (i_peak - i_holding) * 2/10
-    i_50 = i_holding + (i_peak - i_holding) * 5/10
-    i_80 = i_holding + (i_peak - i_holding) * 8/10
-    i_90 = i_holding + (i_peak - i_holding) * 9/10
-    
-    t_10_90 = tlog.x[vec.indwhere("<",i_90)] - tlog.x[vec.indwhere("<",i_10)]
-    t_20_80 = tlog.x[vec.indwhere("<",i_80)] - tlog.x[vec.indwhere("<",i_20)]
-    
-    t_all = t_peak - tlog.x[(vec.indwhere("<",i_0001))]
-    t_50  = t_peak - tlog.x[(vec.indwhere(">",i_50))]
-    
-    idx = vec.indwhere("==",i_peak) - 1
-    if (idx >= 0) {
-        vec.remove(0,idx)
-        tlog.remove(0,idx)
-    }
-    
-    i_t	= i_holding - ((1/exp(1)) * abs(i_peak - i_holding))
-    t_decay = tlog.x[vec.indwhere(">",i_t)] - tlog.x[0]
-    
-    results = new Vector()
-    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
-    
-    ns = nil
-    nc = nil
-    
-    return results
-}
-
 
 endtemplate NGFCell

@@ -4,14 +4,14 @@ public connect2target, subsets, is_art, is_connected
 public all, soma, basal, apical, ais, hillock, axon, allaxon
 public apicalidx, basalidx, somaidx, axonidx
 public xx, yy, zz, position
-public syns, syntypes
-public syn_stim, syntest_exc, syntest_inh
+public syns
 
 create sections[1]
 
 objref all, soma, basal, apical, ais, hillock, axon, allaxon
 objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
-objref syns, syntypes
+objref layers
+objref syns
 
 id  = -1
 gid = -1
@@ -40,47 +40,21 @@ proc init() {
     axonidx = new Vector()
     aisidx = new Vector()
     hilidx = new Vector()
+    layers = new List()
+    syns = new List()
     
     id  = $1
     gid = $2
     
     if (numarg() > 2) {
-        topol_from_python($o4,$o5,$o6,$o7,$o12)
-        shape_from_python($o7,$o8,$o9,$o10,$o11)
-    } else {
-        ndends   = 4
-        ndendsec = 4
-        create sections[ndends*ndendsec+1]
-        
-        somaidx.append(0)
-        i=0
-        for j=0, ndendsec-1 { 
-            basalidx.append(1+i*ndendsec + j)
-        }
-        i=1
-        for j=0, ndendsec-1 { 
-            basalidx.append(1+i*ndendsec + j)
-        }
-        i=2
-        for j=0, ndendsec-1 { 
-            apicalidx.append(1+i*ndendsec + j)
-        }
-        i=3
-        for j=0, ndendsec-1 { 
-            apicalidx.append(1+i*ndendsec + j)
-        }
-        
-        topol(ndends,ndendsec)
-        geom()
+        topol_from_python($o4,$o6,$o7,$o12)
+        shape_from_python($o4,$o8,$o9,$o10,$o11)
+        layers_from_python($o4,$o5)
     }
     subsets()
     geom_nseg()
-    // biophys()
+    biophys()
 
-    syns = new List()
-    syntypes = new List()
-    syntypes.append(new List())
-    syntypes.append(new List())
 }
 
 
@@ -138,25 +112,6 @@ proc subsets() { local i, ndends, ndendsec
 
 }
 
-proc geom() {
-    
-    sections[0] {nseg=1 L=20 diam=20}
-        
-    for i = 0,1 {
-        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4} 	// dend 1 and 2 are basal
-        sections[1+i*ndendsec+1] {nseg=3 L=200 diam=1.5}
-        sections[1+i*ndendsec+2] {nseg=3 L=200 diam=1}
-        sections[1+i*ndendsec+3] {nseg=3 L=200 diam=0.5} 
-    }
-    
-    for i = 2,3 {
-        sections[1+i*ndendsec+0] {nseg=3 L=200 diam=4}	// dend 3 and 4 are apical
-        sections[1+i*ndendsec+1] {nseg=3 L=200 diam=1.5}
-        sections[1+i*ndendsec+2] {nseg=3 L=200 diam=1}
-        sections[1+i*ndendsec+3] {nseg=3 L=200 diam=0.5}
-    }
-}
-
 func lambda_f() { local i, x, y, z, x1, x2, d1, d2, lam
     
     /*
@@ -199,34 +154,16 @@ proc geom_nseg() { local freq, d_lambda
 
 }
 
-proc topol() {
+proc biophys() {
     
-    ndends = $1
-    ndendsec = $2
-    
-    nDends = ndends*ndendsec
-    
-    connect sections[1+0*ndendsec+0](0), sections[0](1)
-    connect sections[1+1*ndendsec+0](0), sections[0](1)
-    connect sections[1+2*ndendsec+0](0), sections[0](0)
-    connect sections[1+3*ndendsec+0](0), sections[0](0)
-    
-    for i=0,ndends-1 {
-        for j=1,ndendsec-1 {
-	    connect sections[1+i*ndendsec+j](0), sections[1+i*ndendsec+(j-1)](1)
-        }
-    }
-}    
+}
 
-
-proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, secnodes, swc_types
     
-    // vlayers, vsrc, vdst, secnodes
-    vlayers  = new Vector($o1)
-    vsrc     = new Vector($o2)
-    vdst     = new Vector($o3)
-    secnodes = $o4
-    swc_types = new Vector($o5)
+    secnodes  = $o1
+    vsrc      = new Vector($o2)
+    vdst      = new Vector($o3)
+    swc_types = new Vector($o4)
     
     nDends = 0
     nSoma  = 0
@@ -287,7 +224,6 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         
     }
     
-    vlayers.resize(0)
     vsrc.resize(0)
     vdst.resize(0)
     
@@ -315,12 +251,40 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
             }
             pt3dconst(1)
         }
+        
+        
     }
     
     vx.resize(0)
     vy.resize(0)
     vz.resize(0)
     vradius.resize(0)
+}
+
+
+
+proc layers_from_python() { local i,j,k,s localobj secnodes, vlayer, seclayers, idxs, vidxs
+    
+    secnodes = $o1
+    vlayer = new Vector($o2)
+    
+    for s=0, secnodes.__len__()-1 {
+        layers.append(new Vector())
+    }
+    
+    for s=0, secnodes.__len__()-1 {
+        idxs = secnodes.__getitem__(s)
+        vidxs = new Vector()
+        vidxs.from_python(idxs)
+        seclayers = layers.o(s)
+        k = vidxs.x[0]
+        for i=0, vidxs.size()-1 {
+            k = vidxs.x[i]
+            seclayers.append(vlayer.x[k])
+        }
+    }
+    
+    vlayer.resize(0)
 }
 
 
@@ -339,257 +303,6 @@ proc position() { local i
     pt3dchange(i, $1-xx+x3d(i), $2-yy+y3d(i), $3-zz+z3d(i), diam3d(i))
   }
   xx = $1  yy = $2  zz = $3
-}
-
-external cvode_active, continuerun
-
-obfunc syntest_exc() { local vec_size, i_holding, w, idx localobj se, ns, nc, nclist, vec, synlst, results, tlog, nil
-    
-    synlst = $o1
-    se     = $o2
-    w      = $3
-    v_holding = $4
-    v_init    = $5
-    
-    soma { 
-        se.rs = 10
-        se.dur1 = 1010
-        se.amp1 = v_holding 
-    }
-    
-    mainDT = 0.001
-    dt = mainDT
-    tstop = 1000
-    
-    vec_size = tstop/mainDT + 1
-    
-    vec = new Vector(vec_size)
-    vec.record(&se.i)
-    
-    tlog = new Vector(vec_size)
-    tlog.record(&t)
-    
-    ns = new NetStim()
-    ns.interval = 1000
-    ns.number = 1
-    ns.start  = 200
-    ns.noise  = 0
-    
-    nclist = new List()
-    for idx=0, synlst.count()-1 {
-        nc = new NetCon(ns,synlst.o(idx))
-        nc.weight = w
-        nc.delay = 0
-        nclist.append(nc)
-    }
-    
-    cvode_active(1)
-
-    finitialize(v_init)
-    fadvance()
-    continuerun(tstop)
-    
-    t_holding_index = tlog.indwhere(">=",ns.start)
-    t_holding = tlog.x[t_holding_index]
-    i_holding = vec.x[t_holding_index]
-    idx = tlog.indwhere(">=",ns.start) - 1
-    vec.remove(0,idx)
-    tlog.remove(0,idx)
-    
-    vec.printf()
-    tlog.printf()
-    
-    i_peak = vec.min()
-    t_peak = tlog.x[vec.indwhere("==",i_peak)]
-    
-    print "i_peak = ", i_peak
-    print "i_holding = ", i_holding
-    print "i_peak - i_holding = ", i_peak - i_holding
-    print "t_peak = ", t_peak
-    print "t_holding = ", t_holding
-
-    amp = abs(i_peak - i_holding) * 1000
-    
-    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
-    i_10 = i_holding + (i_peak - i_holding) * 1/10
-    i_20 = i_holding + (i_peak - i_holding) * 2/10
-    i_50 = i_holding + (i_peak - i_holding) * 5/10
-    i_80 = i_holding + (i_peak - i_holding) * 8/10
-    i_90 = i_holding + (i_peak - i_holding) * 9/10
-    
-    t_10_90 = tlog.x[vec.indwhere("<",i_90)] - tlog.x[vec.indwhere("<",i_10)]
-    t_20_80 = tlog.x[vec.indwhere("<",i_80)] - tlog.x[vec.indwhere("<",i_20)]
-    
-    t_all = t_peak - tlog.x[(vec.indwhere("<",i_0001))]
-    t_50  = t_peak - tlog.x[(vec.indwhere(">",i_50))]
-    
-    idx = vec.indwhere("==",i_peak) - 1
-    if (idx >= 0) {
-        vec.remove(0,idx)
-        tlog.remove(0,idx)
-    }
-    
-    i_t	= i_holding - ((1/exp(1)) * abs(i_peak - i_holding))
-    t_decay = tlog.x[vec.indwhere(">",i_t)] - tlog.x[0]
-    
-    results = new Vector()
-    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
-    
-    ns = nil
-    nc = nil
-    
-    return results
-}
-
-obfunc syntest_inh() { local vec_size, i_holding, t_holding, t_holding_index, w, idx localobj se, ns, nc, nclist, vec, synlist, results, tlog, nil
-    
-    synlist = $o1
-    se = $o2
-    w = $3
-    v_holding = $4
-    v_init = $5
-    
-    soma { 
-        se.dur1 = 1010
-        se.amp1 = v_holding 
-    }
-    
-    mainDT = 0.001
-    dt = mainDT
-    tstop = 1000
-    
-    vec_size = tstop/mainDT + 1
-    
-    vec = new Vector(vec_size)
-    vec.record(&se.i)
-    
-    tlog = new Vector(vec_size)
-    tlog.record(&t)
-    
-    ns = new NetStim()
-    ns.interval = 1000
-    ns.number = 1
-    ns.start  = 200
-    ns.noise  = 0
-    
-    nclist = new List()
-    for idx=0, synlist.count()-1 {
-        nc = new NetCon(ns,synlist.o(idx))
-        nc.weight = w
-        nc.delay = 0
-        nclist.append(nc)
-    }
-    
-    cvode_active(1)
-    //cvode.use_daspk(1)
-    //cvode.dae_init_dteps(1e-9, 2)
-    finitialize(v_init)
-    fadvance()
-    continuerun(tstop)
-    
-    
-    t_holding_index = tlog.indwhere(">=",ns.start)
-    t_holding = tlog.x(t_holding_index)
-    i_holding = vec.x[t_holding_index]
-    idx = tlog.indwhere(">=",ns.start) - 1
-    vec.remove(0,idx)
-    tlog.remove(0,idx)
-    
-    vec.printf()
-    tlog.printf()
-    
-    i_peak = vec.max()
-    t_peak = tlog.x[vec.indwhere("==",i_peak)]
-    
-    print "celsius = ", celsius
-    print "i_peak = ", i_peak
-    print "i_holding = ", i_holding
-    print "i_peak - i_holding = ", i_peak - i_holding
-    print "t_peak = ", t_peak
-    print "t_holding = ", t_holding
-
-    amp = abs(i_peak - i_holding) * 1000
-    
-    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
-    i_10 = i_holding + (i_peak - i_holding) * 1/10
-    i_20 = i_holding + (i_peak - i_holding) * 2/10
-    i_50 = i_holding + (i_peak - i_holding) * 5/10
-    i_80 = i_holding + (i_peak - i_holding) * 8/10
-    i_90 = i_holding + (i_peak - i_holding) * 9/10
-    
-    t_10_90 = tlog.x[vec.indwhere(">",i_90)] - tlog.x[vec.indwhere(">",i_10)]
-    t_20_80 = tlog.x[vec.indwhere(">",i_80)] - tlog.x[vec.indwhere(">",i_20)]
-    
-    t_all = t_peak - tlog.x[(vec.indwhere(">",i_0001))]
-    t_50  = t_peak - tlog.x[(vec.indwhere(">",i_50))]
-    
-    idx = vec.indwhere("==",i_peak) - 1
-    if (idx >= 0) {
-        vec.remove(0,idx)
-        tlog.remove(0,idx)
-    }
-    
-    i_t	= i_holding + ((1/exp(1)) * abs(i_peak - i_holding))
-    t_decay = tlog.x[vec.indwhere("<",i_t)] - tlog.x[0]
-    
-    results = new Vector()
-    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
-    
-    ns = nil
-    nc = nil
-    
-    return results
-}
-
-
-obfunc syntest_rate() { local vec_size, w, rate, idx localobj ns, nc, nclist, vec, synlist, results, tlog, nil
-    
-    synlist = $o1
-    w = $2
-    rate = $3
-    v_init = $4
-    
-    mainDT = 0.001
-    dt = mainDT
-    tstop = 1000
-    
-    vec_size = tstop/mainDT + 1
-    
-    vec = new Vector(vec_size)
-    vec.record(&sections[0].v(0.5))
-    
-    tlog = new Vector(vec_size)
-    tlog.record(&t)
-    
-    ns = new NetStim()
-    ns.interval = 1000/rate
-    ns.number = rate
-    ns.start  = 200
-    ns.noise  = 0
-    
-    nclist = new List()
-    for idx=0, synlist.count()-1 {
-        nc = new NetCon(ns,synlist.o(idx))
-        nc.weight = w
-        nc.delay = 0
-        nclist.append(nc)
-    }
-    
-    cvode_active(1)
-    //cvode.use_daspk(1)
-    //cvode.dae_init_dteps(1e-9, 2)
-    finitialize(v_init)
-    fadvance()
-    continuerun(tstop)
-    
-    results = new List()
-    results.append(tlog)
-    results.append(vec)
-    
-    ns = nil
-    nc = nil
-    
-    return results
 }
 
 endtemplate BasketCell

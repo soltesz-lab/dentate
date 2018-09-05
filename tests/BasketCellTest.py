@@ -1,15 +1,14 @@
 
 
-import sys, os
-import os.path
-import click
-import itertools
+import sys, os, os.path, click
+import itertools, random
 import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 from dentate.env import Env
 from dentate import utils, neuron_utils, cells, synapses
+from dentate.synapses import mksyns, mknetcon, config_syn, add_unique_synapse, add_shared_synapse
 
     
 def passive_test (templateClass, tree, v_init):
@@ -37,7 +36,7 @@ def passive_test (templateClass, tree, v_init):
     
     h.tstop = tstop
 
-    neuron_utils.simulate(h, v_init, prelength,mainlength)
+    neuron_utils.simulate(v_init, prelength, mainlength)
 
     ## compute membrane time constant
     vrest  = h.Vlog.x[int(h.tlog.indwhere(">=",prelength-1))]
@@ -95,7 +94,7 @@ def ap_rate_test (templateClass, tree, v_init):
     ## or up to 5 steps
     while (h.spikelog.size() < 50):
 
-        neuron_utils.simulate(h, v_init, prelength,mainlength)
+        neuron_utils.simulate(v_init, prelength,mainlength)
         
         if ((h.spikelog.size() < 50) & (it < 5)):
             print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
@@ -192,7 +191,7 @@ def fi_test (templateClass, tree, v_init):
     stim_amps = [stim1.amp]
     for it in range(1, 9):
 
-        neuron_utils.simulate(h, v_init, prelength, mainlength)
+        neuron_utils.simulate(v_init, prelength, mainlength)
         
         print "fi_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
         stim1.amp = stim1.amp + 0.1
@@ -210,11 +209,11 @@ def fi_test (templateClass, tree, v_init):
     f.close()
 
 
-def gap_junction_test (templateClass, tree, v_init):
+def gap_junction_test (env, templateClass, tree, v_init):
     
     h('objref gjlist, cells, Vlog1, Vlog2')
 
-    h.pc = h.ParallelContext()
+    pc = env.pc
     h.cells  = h.List()
     h.gjlist = h.List()
     
@@ -234,14 +233,14 @@ def gap_junction_test (templateClass, tree, v_init):
     stimdur     = 500
     tstop       = 2000
     
-    h.pc.set_gid2node(source, int(h.pc.id()))
+    pc.set_gid2node(source, int(pc.id()))
     nc = cell1.connect2target(h.nil)
-    h.pc.cell(source, nc, 1)
+    pc.cell(source, nc, 1)
     soma1 = list(cell1.soma)[0]
 
-    h.pc.set_gid2node(destination, int(h.pc.id()))
+    pc.set_gid2node(destination, int(pc.id()))
     nc = cell2.connect2target(h.nil)
-    h.pc.cell(destination, nc, 1)
+    pc.cell(destination, nc, 1)
     soma2 = list(cell2.soma)[0]
     stim1 = h.IClamp(soma2(0.5))
     stim1.delay = 250
@@ -263,19 +262,20 @@ def gap_junction_test (templateClass, tree, v_init):
 
     h.Vlog2 = h.Vector(log_size)
     h.Vlog2.record (soma2(0.5)._ref_v)
-    
-    neuron_utils.mkgap(h.pc, h.gjlist, source, srcbranch, ggid, ggid+1, weight)
-    neuron_utils.mkgap(h.pc, h.gjlist, destination, dstbranch, ggid+1, ggid, weight)
 
-    h.pc.setup_transfer()
-    h.pc.set_maxstep(10.0)
+    gjpos = 0.5
+    neuron_utils.mkgap(env, cell1, source, gjpos, srcbranch, ggid, ggid+1, weight)
+    neuron_utils.mkgap(env, cell2, destination, gjpos, dstbranch, ggid+1, ggid, weight)
+
+    pc.setup_transfer()
+    pc.set_maxstep(10.0)
 
     h.stdinit()
     h.finitialize(v_init)
-    h.pc.barrier()
+    pc.barrier()
 
     h.tstop = tstop
-    h.pc.psolve(h.tstop)
+    pc.psolve(h.tstop)
 
     f=open("BasketCellGJ.dat",'w')
     for (t,v1,v2) in itertools.izip(h.tlog,h.Vlog1,h.Vlog2):
@@ -283,83 +283,194 @@ def gap_junction_test (templateClass, tree, v_init):
     f.close()
     
 
-def synapse_group_test (label, syntype, cell, w, v_holding, v_init):
+def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, v_holding, v_init, tstart = 200.):
+
+    syn_attrs = env.synapse_attributes
     
     vv = h.Vector()
     vv.append(0,0,0,0,0,0)
 
-    soma = list(cell.soma)[0]
-    se = h.SEClamp(soma(0.5))
+    ranstream = np.random.RandomState(0)
 
-    if syntype == 0:
-        v = cell.syntest_exc(cell.syntypes.o(syntype),se,w,v_holding,v_init)
-    else:
-        v = cell.syntest_inh(cell.syntypes.o(syntype),se,w,v_holding,v_init)
+    syn_ids = syn_obj_dict.keys()
+
+    if len(syn_ids) == 0:
+        return
+    
+    selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
+    selected_ids = [ syn_ids[i] for i in selected ]
+
+    for syn_name in syn_params_dict.keys():
+        synlst = []
+        for syn_id in selected_ids:
+            synlst.append(syn_obj_dict[syn_id][syn_name])
+            
+        print ('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
+
+        ns = h.NetStim()
+        ns.interval = 1000
+        ns.number = 1
+        ns.start  = 200
+        ns.noise  = 0
         
-    vv = vv.add(v)
+        nclst = []
+        for syn_id, syn in itertools.izip(selected_ids, synlst):
+            this_nc = h.NetCon(ns,syn)
+            syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
+            config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                    mech_names=syn_attrs.syn_mech_names, nc=this_nc,
+                    **syn_params_dict[syn_name])
+            nclst.append(this_nc)
+
+        if syn_name == 'SatAMPA':
+            v = cell.syntest_exc(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'AMPA':
+            v = cell.syntest_exc(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'SatGABA':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'GABA':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'SatGABA_A':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'GABA_A':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'SatGABA_B':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        elif syn_name == 'GABA_B':
+            v = cell.syntest_inh(tstart,v_holding,v_init,"BasketCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+        else:
+            raise RuntimeError('Unknown synapse mechanism type %s' % syn_name)
+        vv = vv.add(v)
     
-    amp     = vv.x[0]
-    t_10_90 = vv.x[1]
-    t_20_80 = vv.x[2]
-    t_all   = vv.x[3]
-    t_50    = vv.x[4]
-    t_decay = vv.x[5]
+        amp     = vv.x[0]
+        t_10_90 = vv.x[1]
+        t_20_80 = vv.x[2]
+        t_all   = vv.x[3]
+        t_50    = vv.x[4]
+        t_decay = vv.x[5]
 
-    f=open("BasketCell_%s_synapse_results.dat" % label,'w')
+        f=open("BasketCell_%s_%s_synapse_results_%i.dat" % (presyn_name, syn_name, group_size), 'w')
 
-    f.write("%s synapses: \n" % label)
-    f.write("  Amplitude %f\n" % amp)
-    f.write("  10-90 Rise Time %f\n" % t_10_90)
-    f.write("  20-80 Rise Time %f\n" % t_20_80)
-    f.write("  Decay Time Constant %f\n" % t_decay)
+        f.write("%s synapses: \n" % syn_name)
+        f.write("  Amplitude %f\n" % amp)
+        f.write("  10-90 Rise Time %f\n" % t_10_90)
+        f.write("  20-80 Rise Time %f\n" % t_20_80)
+        f.write("  Decay Time Constant %f\n" % t_decay)
+        
+        f.close()
 
-    f.close()
 
+def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, rate, tstart = 200.):
 
-def synapse_group_rate_test (label, syntype, cell, w, rate, v_init):
+    syn_attrs = env.synapse_attributes
+    ranstream = np.random.RandomState(0)
 
-    res = cell.syntest_rate(cell.syntypes.o(syntype),w,rate,v_init)
+    syn_ids = syn_obj_dict.keys()
 
-    tlog = res.o(0)
-    vlog = res.o(1)
+    if len(syn_ids) == 0:
+        return
+
+    selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
+    selected_ids = [ syn_ids[i] for i in selected ]
+
+    for syn_name in syn_params_dict.keys():
+        
+        synlst = []
+        for syn_id in selected_ids:
+            synlst.append(syn_obj_dict[syn_id][syn_name])
     
-    f=open("BasketCell_%s_synapse_rate.dat" % label,'w')
+        print ('synapse_group_rate_test: %s %s synapses: %i out of %i ' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
+    
+        ns = h.NetStim()
+        ns.interval = 1000./rate
+        ns.number = rate
+        ns.start  = 200
+        ns.noise  = 0
+        
+        nclst = []
+        for syn_id in selected_ids:
+            for syn_name, syn in syn_obj_dict[syn_id].iteritems():
+                this_nc = h.NetCon(ns,syn)
+                syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
+                config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                            mech_names=syn_attrs.syn_mech_names, nc=this_nc,
+                            **syn_params_dict[syn_name])
+                nclst.append(this_nc)
 
-    for i in xrange(0, int(tlog.size())):
-        f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
+        if syn_name == 'SatAMPA':
+            v_init = -75
+        elif syn_name == 'AMPA':
+            v_init = -75
+        elif syn_name == 'SatGABA':
+            v_init = 0
+        elif syn_name == 'GABA':
+            v_init = 0
+        elif syn_name == 'SatGABA_A':
+            v_init = 0
+        elif syn_name == 'GABA_A':
+            v_init = 0
+        elif syn_name == 'SatGABA_B':
+            v_init = 0
+        elif syn_name == 'GABA_B':
+            v_init = 0
+        else:
+            raise RuntimeError('Unknown synapse mechanism type %s' % syn_name)
 
-    f.close()
+        res = cell.syntest_rate(tstart,rate,v_init)
+
+        tlog = res.o(0)
+        vlog = res.o(1)
+        
+        f=open("BasketCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
+        
+        for i in xrange(0, int(tlog.size())):
+            f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
+            
+        f.close()
     
 
-def synapse_test(templateClass, tree, synapses, v_init, env, unique=True):
+def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
     
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
-
-    syn_ids      = synapses['syn_ids']
-    syn_types    = synapses['syn_types']
-    swc_types    = synapses['swc_types']
-    syn_locs     = synapses['syn_locs']
-    syn_sections = synapses['syn_secs']
-
-    print 'synapse sections: ',set(syn_sections)
-    synapse_kinetics = {}
-    synapse_kinetics[env.Synapse_Types['excitatory']] = env.celltypes['BC']['synapses']['kinetics']['MPP']
-    synapse_kinetics[env.Synapse_Types['inhibitory']] = env.celltypes['BC']['synapses']['kinetics']['BC']
+    postsyn_name = 'BC'
+    presyn_names = ['GC', 'MC', 'BC', 'HC', 'HCC', 'MOPP', 'NGFC']
     
-    utils.mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,synapse_kinetics,env)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
 
-    edge_syn_obj_dict = \
-      synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
-                      0, add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+    all_syn_ids = synapses['syn_ids']
+    all_syn_layers = synapses['syn_layers']
+    all_syn_sections = synapses['syn_secs']
 
-    print int(cell.syntypes.o(env.Synapse_Types['inhibitory']).count()), " inhibitory synapses"
-    print int(cell.syntypes.o(env.Synapse_Types['excitatory']).count()), " excitatory synapses"
+    print ('Total %i %s synapses' % (len(all_syn_ids), postsyn_name))
+
+    env.cells.append(cell)
+    env.pc.set_gid2node(gid, env.comm.rank)
+
+    syn_attrs = env.synapse_attributes
+    syn_attrs.load_syn_id_attrs(gid, synapses)
     
-    synapse_group_test("Inhibitory", 1, cell, 0.0033, -70, 0)
-    synapse_group_test("Excitatory", 0, cell, 0.006, 0, v_init)
+    for presyn_name in presyn_names:
 
-    synapse_group_rate_test("Inhibitory", 1, cell, 0.0033, 150, v_init)
-    synapse_group_rate_test("Excitatory", 0, cell, 0.006, 150, v_init)
+        syn_ids = []
+        layers = env.connection_config[postsyn_name][presyn_name].layers
+        proportions = env.connection_config[postsyn_name][presyn_name].proportions
+        for syn_id, syn_layer in itertools.izip(all_syn_ids, all_syn_layers):
+            i = utils.list_index(syn_layer, layers) 
+            if i is not None:
+                if random.random() <= proportions[i]:
+                    syn_ids.append(syn_id)
+        
+        syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
+        syn_obj_dict = mksyns(gid, cell, syn_ids, syn_params_dict, env, 0,
+                        add_synapse=add_unique_synapse if unique else add_shared_synapse)
+
+        v_holding = -60
+        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, v_holding, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, v_holding, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 100, v_holding, v_init)
+        
+        rate = 30
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
 
     
 
@@ -377,10 +488,8 @@ def main(template_path,forest_path,synapses_path,config_path):
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
-    h.xopen("./lib.hoc")
     h.xopen ("./tests/rn.hoc")
     h.xopen(template_path+'/BasketCell.hoc')
-    h.pc = h.ParallelContext()
     
     popName = "BC"
     gid = 1039000
@@ -393,12 +502,12 @@ def main(template_path,forest_path,synapses_path,config_path):
     v_init = -60
     
     templateClass = getattr(h, "BasketCell")
-    
+
     passive_test(templateClass, tree, v_init)
     ap_rate_test(templateClass, tree, v_init)
     fi_test(templateClass, tree, v_init)
-    gap_junction_test(templateClass, tree, v_init)
-    synapse_test(templateClass, tree, synapses, v_init, env)
+    gap_junction_test(env, templateClass, tree, v_init)
+    synapse_test(templateClass, gid, tree, synapses, v_init, env)
     
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("BasketCellTest.py") != -1,sys.argv)+1):])

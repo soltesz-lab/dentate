@@ -1,3 +1,4 @@
+import os
 from dentate.utils import *
 try:
     from mpi4py import MPI  # Must come before importing NEURON
@@ -78,8 +79,7 @@ def mknetcon_vecstim(syn, delay=0.1, weight=1):
     return nc, vs
 
 
-## Create gap junctions
-def mkgap(env, gid, secpos, secidx, sgid, dgid, w):
+def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     """
     Create gap junctions
     :param pc:
@@ -91,7 +91,7 @@ def mkgap(env, gid, secpos, secidx, sgid, dgid, w):
     :param w:
     :return:
     """
-    cell = env.pc.gid2cell(gid)
+    
 
     sec = list(cell.sections)[secidx]
     seg = sec(secpos)
@@ -103,6 +103,30 @@ def mkgap(env, gid, secpos, secidx, sgid, dgid, w):
     gj.g = w
 
     return gj
+
+def find_template(env, template_name, path=['templates'], rank=0):
+    """
+    Finds and loads a template located in a directory within the given path list.
+    """
+    pc = env.pc
+    found = False
+    foundv = h.Vector(1)
+    template_path = ''
+    if pc.id() == rank:
+        for template_dir in path:
+            template_path = '%s/%s.hoc' % (template_dir, template_name)
+            found = os.path.isfile(template_path)
+            if found:
+                break
+        foundv.x[0] = found
+        pc.broadcast(foundv, rank)
+        pc.broadcast(template_path, rank)
+    if foundv.x[0] > 0.0:
+        h.load_file(template_path)
+    else:
+        raise Exception('find_template: template not found: %s' % template_name)
+
+
 
 def configure_hoc_env(env):
     """
@@ -116,18 +140,11 @@ def configure_hoc_env(env):
     h.datasetPath = env.datasetPath
     h.pc = h.ParallelContext()
     env.pc = h.pc
-    ## polymorphic value template
-    h.load_file(env.hoclibPath + '/templates/Value.hoc')
     ## randomstream template
     h.load_file(env.hoclibPath + '/templates/ranstream.hoc')
     ## stimulus cell template
     h.load_file(env.hoclibPath + '/templates/StimCell.hoc')
-    h.xopen(env.hoclibPath + '/lib.hoc')
     h.dt = env.dt
     h.tstop = env.tstop
 
-    h('objref templatePaths, templatePathValue')
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePathValue = h.Value(1, path)
-        h.templatePaths.append(h.templatePathValue)
+

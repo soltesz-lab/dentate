@@ -11,7 +11,7 @@ create sections[1]
 
 objref all, soma, basal, apical, ais, hillock, axon, allaxon
 objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
-objref syns, syntypes
+objref syns, layers
 
 id  = -1
 gid = -1
@@ -42,10 +42,13 @@ proc init() { // arguments are id, gid
     axonidx = new Vector()
     aisidx = new Vector()
     hilidx = new Vector()
+    layers = new List()
+    syns = new List()
     
     if (numarg() > 2) {
-        topol_from_python($o4,$o5,$o6,$o7,$o12)
-        shape_from_python($o7,$o8,$o9,$o10,$o11)
+        topol_from_python($o4,$o6,$o7,$o12)
+        shape_from_python($o4,$o8,$o9,$o10,$o11)
+        layers_from_python($o4,$o5)
     } else {
         ndends   = 4
         ndendsec = 3
@@ -76,16 +79,6 @@ proc init() { // arguments are id, gid
     geom_nseg()
     biophys()
     
-    /*
-    forall {
-        print " nseg is ", nseg, " length is ", L, " diam is ", diam, " area is ", area(0.5)
-    }
-    */
-    
-    syns = new List()
-    syntypes = new List()
-    syntypes.append(new List()) // excitatory
-    syntypes.append(new List()) // inhibitory
 }
 
 
@@ -278,39 +271,60 @@ proc biophys() {
 }
 
 
-proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, vdst, secnodes, swc_types
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, secnodes, swc_types
     
-    // vlayers, vsrc, vdst, secnodes
-    vlayers   = new Vector($o1)
+    secnodes  = $o1
     vsrc      = new Vector($o2)
     vdst      = new Vector($o3)
-    secnodes  = $o4
-    swc_types = new Vector($o5)
-    nDends = secnodes.__len__()-1
+    swc_types = new Vector($o4)
+    
+    nDends = 0
+    nSoma  = 0
+    nAxon  = 0
+    nAIS   = 0
+    nHill  = 0
     
     for s = 0, secnodes.__len__()-1 {
         vidxs = new Vector(secnodes.__getitem__(s))
         i = vidxs.x[vidxs.size()-1]
         swc_type = swc_types.x[i]
+        if (swc_type == 8) {
+            hilidx.append(s)
+            nHill = nHill + 1
+            nAxon = nAxon + 1
+
+        }
+        if (swc_type == 7) {
+            aisidx.append(s)
+            nAIS = nAIS + 1
+            nAxon = nAxon + 1
+        }
         if (swc_type == 4) {
             apicalidx.append(s)
+            nDends = nDends + 1
         }
         if (swc_type == 3) {
             basalidx.append(s)
+            nDends = nDends + 1
+        }
+        if (swc_type == 2) {
+            axonidx.append(s)
+            nAxon = nAxon + 1
         }
         if (swc_type == 1) {
             somaidx.append(s)
+            nSoma = nSoma+1
         }
     }
     
-    create sections[nDends+1]
+    create sections[nDends+nSoma+nAxon]
     for p = 0, vsrc.size-1 {
         i = vsrc.x[p]
         j = vdst.x[p]
         assert (i >= 0,  "compartment index in topology matrix is less than zero")
         assert (j >= 0,  "compartment index in topology matrix is less than zero")
-        assert (i < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
-        assert (j < nDends+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        assert (i < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
+        assert (j < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
         if (i == 0) {
             if (j == 1 || j == 2) {
                 connect sections[j](0),sections[i](1)
@@ -323,11 +337,12 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vlayers, vsrc, 
         
     }
     
-    vlayers.resize(0)
     vsrc.resize(0)
     vdst.resize(0)
-    swc_types.resize(0)
+    
 }
+
+
 
 proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius, idxs, vidxs
     
@@ -339,22 +354,50 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
     
     for s=0, secnodes.__len__()-1 {
         idxs = secnodes.__getitem__(s)
-        vidxs = new Vector(idxs)
+        vidxs = new Vector()
+        vidxs.from_python(idxs)
+        seclayers = new List()
         sections[s] {
-            pt3dconst(1)
+            k = vidxs.x[0]
             for i=0, vidxs.size()-1 {
                 k = vidxs.x[i]
                 pt3dadd(vx.x[k], vy.x[k], vz.x[k], 2*vradius.x[k]) 
             }
+            pt3dconst(1)
         }
+        
+        
     }
     
-
     vx.resize(0)
     vy.resize(0)
     vz.resize(0)
     vradius.resize(0)
+}
+
+
+proc layers_from_python() { local i,j,k,s localobj secnodes, vlayer, seclayers, idxs, vidxs
     
+    secnodes = $o1
+    vlayer = new Vector($o2)
+    
+    for s=0, secnodes.__len__()-1 {
+        layers.append(new Vector())
+    }
+    
+    for s=0, secnodes.__len__()-1 {
+        idxs = secnodes.__getitem__(s)
+        vidxs = new Vector()
+        vidxs.from_python(idxs)
+        seclayers = layers.o(s)
+        k = vidxs.x[0]
+        for i=0, vidxs.size()-1 {
+            k = vidxs.x[i]
+            seclayers.append(vlayer.x[k])
+        }
+    }
+    
+    vlayer.resize(0)
 }
 
 

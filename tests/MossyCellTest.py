@@ -332,7 +332,6 @@ def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
     syn_attrs = env.synapse_attributes
     syn_attrs.load_syn_id_attrs(gid, synapses)
     
-    
     for presyn_name in presyn_names:
 
         syn_ids = []

@@ -94,9 +94,11 @@ def register_cell(env, pop_name, gid, cell):
 
 
     
-def network_clamp(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
+def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
     """
-    Instantiates a cell and all its synapses and connections and loads or generates spike times for all synaptic connections.
+    Instantiates a cell and all its synapses and connections and
+    loads or generates spike times for all synaptic connections.
+
     :param env: an instance of env.Env
     :param pop_name: population name
     :param gid: gid
