@@ -161,7 +161,6 @@ class Env:
             raise RuntimeError("missing configuration file")
 
         defs = self.modelConfig['Definitions']
-        print(("defs = ", defs))
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
         self.layers = defs['Layers']
@@ -193,7 +192,6 @@ class Env:
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             # self.parse_gapjunction_config()
-        print(("self.datasetPrefix = ", self.datasetPrefix))
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
@@ -223,7 +221,6 @@ class Env:
                                          'rho': config['rho'],
                                          'dt': config['dt']}
 
-        print(("self.lfpConfig = ", self.lfpConfig))
                 
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host

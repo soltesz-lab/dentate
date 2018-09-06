@@ -230,7 +230,7 @@ Synapses:
     AAC:  
       type: inhibitory
       sections: [ais]
-      layers: [GCL]
+      layers: [Hilus]
       proportions: [1.0]
       mechanisms:
         GABA_A:

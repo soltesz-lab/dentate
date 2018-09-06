@@ -350,7 +350,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
-                    for (prj, prj_dict) in  viewitemsist(connection_dict):
+                    for (prj, prj_dict) in  viewitems(connection_dict):
                         logger.info("%s: %s" % (prj, str(list(prj_dict.keys()))))
                     logger.info('Appending connectivity for %i projections took %i s' % (len(connection_dict), time.time() - last_time))
             projection_dict.clear()
