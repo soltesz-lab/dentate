@@ -4,8 +4,9 @@ from collections import namedtuple, defaultdict
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
 from mpi4py import MPI
-from dentate.utils import *
 from neuron import h
+from dentate.utils import *
+from dentate.neuron_utils import find_template
 
 ConnectionConfig = namedtuple('ConnectionConfig',
                                  ['type',
@@ -78,6 +79,7 @@ class Env:
         self.logger = get_root_logger()
         
         # Directories for cell templates
+        print 'templatePaths = ', templatePaths
         if templatePaths is not None:
             self.templatePaths = templatePaths.split( ':')
         else:
@@ -467,4 +469,4 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-        find_template(env, templateName, self.templatePaths)
+        find_template(self, templateName, self.templatePaths)

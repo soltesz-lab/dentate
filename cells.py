@@ -1391,7 +1391,7 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
 
     if popName in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[popName]:
         if neurotree_dict:
-            hoc_cell = make_neurotree_cell(templateClass, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
+            hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
         else:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             dataFilePath, popName, gid)
@@ -1429,24 +1429,21 @@ def get_biophys_cell(env, pop_name, gid):
     except Exception:
         logger.warning('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
 
-    try:
-        if len(env.projection_dict[pop_name]) == 0:
-            raise Exception
+    if len(env.projection_dict[pop_name]) == 0:
+        raise Exception
         
-        projections=[(presyn_name, pop_name) for presyn_name in env.projection_dict[pop_name] ]
-        (graph, a) = read_graph_selection(env.connectivityFilePath, [gid],
-                                          comm=env.comm, projections=projections,
-                                          namespaces=['Synapses', 'Connections'])
+    (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
+                                          comm=env.comm, namespaces=['Synapses', 'Connections'])
 
-        for presyn_name in env.projection_dict[pop_name]:
+    for presyn_name in env.projection_dict[pop_name]:
 
-            edge_iter = graph[pop_name][presyn_name]
-            syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
+         edge_iter = graph[pop_name][presyn_name]
+         syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
+         
+         syn_attrs.load_edge_attrs_from_iter(gid, pop_name, source_name, env, a, edge_iter)
             
-            syn_attrs.load_edge_attrs_from_iter(gid, pop_name, source_name, env, a, edge_iter)
-            
-    except Exception:
-        logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+    #except Exception:
+    #    logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
     env.biophys_cells[pop_name][gid] = cell
     return cell
 

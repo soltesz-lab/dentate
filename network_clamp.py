@@ -29,13 +29,17 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False):
     configure_hoc_env(env)
 
     cell = get_biophys_cell(env, pop_name, gid)
-    if env.configPrefix is not None:
-        mech_file_path = env.configPrefix + '/' + mech_file
+    if mech_file is not None:
+        if env.configPrefix is not None:
+            mech_file_path = env.configPrefix + '/' + mech_file
+        else:
+            mech_file_path = mech_file
     else:
-        mech_file_path = mech_file
-
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
-                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+        mech_file_path = None
+        
+    if mech_file_path is not None:
+        init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
+                        correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
     config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
     return cell
@@ -88,7 +92,7 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.set_gid2node(gid, rank)
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
-    nc = cell.connect2target(h.nil)
+    nc = cell.hoc_cell.connect2target(h.nil)
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -244,7 +248,7 @@ def run(env, output=True):
 @click.option("--config-file", '-c', required=True, type=str)
 @click.option("--population", '-p', required=True, type=str, default='GC')
 @click.option("--gid", '-g', required=True, type=int, default=0)
-@click.option("--template-paths", type=str)
+@click.option("--template-paths", type=str, required=True)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--spike-events-path", '-s', required=True, type=click.Path())
@@ -266,12 +270,13 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm=comm, configFile=config_file, tempatePaths=template_paths, \
+    print 'template_paths= ', template_paths
+    env = Env(comm=comm, configFile=config_file, templatePaths=template_paths, \
                   datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
                   verbose=verbose)
     configure_hoc_env(env)
     
-    init(env, pop_name, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
+    init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
          t_var='t', t_min=None, t_max=None, spike_generator_dict={})
 
 

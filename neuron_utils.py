@@ -112,9 +112,11 @@ def find_template(env, template_name, path=['templates'], rank=0):
     found = False
     foundv = h.Vector(1)
     template_path = ''
+    print path
     if pc.id() == rank:
         for template_dir in path:
             template_path = '%s/%s.hoc' % (template_dir, template_name)
+            print template_path
             found = os.path.isfile(template_path)
             if found:
                 break
@@ -140,10 +142,6 @@ def configure_hoc_env(env):
     h.datasetPath = env.datasetPath
     h.pc = h.ParallelContext()
     env.pc = h.pc
-    ## randomstream template
-    h.load_file(env.hoclibPath + '/templates/ranstream.hoc')
-    ## stimulus cell template
-    h.load_file(env.hoclibPath + '/templates/StimCell.hoc')
     h.dt = env.dt
     h.tstop = env.tstop
 
