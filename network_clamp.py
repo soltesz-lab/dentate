@@ -141,6 +141,9 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     cell = load_cell(env, pop_name, gid, mech_file=mech_file, correct_for_spines=correct_for_spines_flag)
     register_cell(env, pop_name, gid, cell)
 
+    if env.verbose:
+        report_topology(cell, env)
+
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events (spike_events_path, \
                                            presyn_names, \
@@ -187,3 +190,88 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
             vs.play(data)
 
         
+
+def run(env, output=True):
+    """
+    Runs network clamp simulation. Assumes that procedure `init` has been
+    called with the network configuration provided by the `env`
+    argument.
+
+    :param env:
+    :param output: bool
+
+    """
+    rank = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
+
+    if rank == 0:
+        logger.info("*** Running simulation")
+
+    env.pc.barrier()
+    env.pc.psolve(h.tstop)
+
+    if rank == 0:
+        logger.info("*** Simulation completed")
+    del env.cells
+    env.pc.barrier()
+    if rank == 0:
+        logger.info("*** Writing spike data")
+    if output:
+        spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+
+    comptime = env.pc.step_time()
+    cwtime   = comptime + env.pc.step_wait()
+    maxcw    = env.pc.allreduce(cwtime, 2)
+    avgcomp  = env.pc.allreduce(comptime, 1)/nhosts
+    maxcomp  = env.pc.allreduce(comptime, 2)
+
+    if rank == 0:
+        logger.info("Execution time summary for host %i:" % rank)
+        logger.info("  created cells in %g seconds" % env.mkcellstime)
+        logger.info("  connected cells in %g seconds" % env.connectcellstime)
+        logger.info("  created gap junctions in %g seconds" % env.connectgjstime)
+        logger.info("  ran simulation in %g seconds" % comptime)
+        if maxcw > 0:
+            logger.info("  load balance = %g" % (avgcomp/maxcw))
+
+    env.pc.runworker()
+    env.pc.done()
+
+
+
+@click.command()
+@click.option("--config-file", required=True, type=str)
+@click.option("--population", required=True, type=str, default='GC')
+@click.option("--gid", required=True, type=int, default=0)
+@click.option("--template-paths", type=str)
+@click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--spike-events-path", '-p', required=True, type=click.Path())
+@click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
+@click.option('--verbose', '-v', is_flag=True)
+def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, verbose):
+    """
+
+    :param config_file: str; model configuration file name
+    :param population: str
+    :param gid: int
+    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+    :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param config_prefix: str; path to directory containing network and cell mechanism config files
+    :param spike_events_path: str; path to file containing spike times
+    :param spike_events_namespace: str; namespace containing spike times
+    :param verbose: bool
+    """
+
+    comm = MPI.COMM_WORLD
+    np.seterr(all='raise')
+    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
+    configure_hoc_env(env)
+    
+    init(env, pop_name, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
+         t_var='t', t_min=None, t_max=None, spike_generator_dict={})
+
+
+if __name__ == '__main__':
+    main(args=sys.argv[(list_find(lambda s: s.find(os.path.basename(__file__)) != -1, sys.argv) + 1):],
+         standalone_mode=False)
