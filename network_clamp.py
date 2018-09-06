@@ -1,4 +1,5 @@
 
+import click
 from collections import defaultdict
 from dentate.utils import *
 from dentate.neuron_utils import *
@@ -240,14 +241,14 @@ def run(env, output=True):
 
 
 @click.command()
-@click.option("--config-file", required=True, type=str)
-@click.option("--population", required=True, type=str, default='GC')
-@click.option("--gid", required=True, type=int, default=0)
+@click.option("--config-file", '-c', required=True, type=str)
+@click.option("--population", '-p', required=True, type=str, default='GC')
+@click.option("--gid", '-g', required=True, type=int, default=0)
 @click.option("--template-paths", type=str)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--spike-events-path", '-p', required=True, type=click.Path())
-@click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
+@click.option("--spike-events-path", '-s', required=True, type=click.Path())
+@click.option("--spike-events-namespace", type=str, default='Spike Events')
 @click.option('--verbose', '-v', is_flag=True)
 def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, verbose):
     """
@@ -265,7 +266,9 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
+    env = Env(comm=comm, configFile=config_file, tempatePaths=template_paths, \
+                  datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
+                  verbose=verbose)
     configure_hoc_env(env)
     
     init(env, pop_name, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
