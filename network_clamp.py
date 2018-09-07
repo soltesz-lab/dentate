@@ -1,3 +1,6 @@
+"""
+Routines for Network Clamp simulation.
+"""
 
 import click
 from collections import defaultdict
@@ -12,10 +15,11 @@ from dentate import spikedata, io_utils
 
 def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False):
     """
+    Instantiates the mechanisms, synapses, and connections of a single cell.
 
-    :param gid: int
+    :param env: env.Env
     :param pop_name: str
-    :param config_file: str; model configuration file name
+    :param gid: int
     :param mech_file: str; cell mechanism config file name
     :param correct_for_spines: bool
 
@@ -49,8 +53,10 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False):
 
 def add_rec(recid, population, cell, sec, dt=h.dt, loc=None, param='v', description=''):
         """
+        Adds a recording vector for the specified quantity in the specified section and location.
 
         :param recid: integer
+        :param population: str
         :param cell: :class:'BiophysCell'
         :param sec: :class:'HocObject'
         :param dt: float
@@ -76,11 +82,12 @@ def add_rec(recid, population, cell, sec, dt=h.dt, loc=None, param='v', descript
         return rec_dict
 
 
-def register_cell(env, pop_name, gid, cell):
+def register_cell(env, population, gid, cell):
     """
-    Registers a cell in a network environment.
+    Registers a cell in a ParallelContext network environment.
+
     :param env: an instance of env.Env
-    :param pop_name: population name
+    :param population: population name
     :param gid: gid
     :param cell: cell instance
     """
@@ -103,8 +110,7 @@ def register_cell(env, pop_name, gid, cell):
     
 def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
     """
-    Instantiates a cell and all its synapses and connections and
-    loads or generates spike times for all synaptic connections.
+    Instantiates a cell and all its synapses and connections and loads or generates spike times for all synaptic connections.
 
     :param env: an instance of env.Env
     :param pop_name: population name
@@ -221,6 +227,7 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
 
     return recs
 
+
 def run(env, recs, output=True):
     """
     Runs network clamp simulation. Assumes that procedure `init` has been
@@ -228,9 +235,11 @@ def run(env, recs, output=True):
     argument.
 
     :param env:
+    :param recs:
     :param output: bool
 
     """
+    
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
@@ -284,10 +293,12 @@ def run(env, recs, output=True):
 @click.option('--verbose', '-v', is_flag=True)
 def main(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, verbose):
     """
+    Runs network clamp simulation for the specified cell gid.
 
     :param config_file: str; model configuration file name
     :param population: str
     :param gid: int
+    :param tstop: float
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files
