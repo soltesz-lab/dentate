@@ -31,15 +31,19 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
 
     for pop_name in population_names:
 
-        logger.info('Reading spike data for population %s...' % pop_name)
- 
+        if timeRange is None:
+            logger.info('Reading spike data for population %s...' % pop_name)
+        else:
+            logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(time_range)))
+
+        print 'namespace is %s' % namespace_id
         spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id)
         this_num_cell_spks = 0
         active_set = set([])
 
         pop_spkindlst = []
         pop_spktlst   = []
-        
+
         # Time Range
         if timeRange is None:
             for spkind,spkts in spkiter:

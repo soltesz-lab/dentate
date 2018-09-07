@@ -108,6 +108,10 @@ class SynapseAttributes(object):
                 
                 self.syn_id_attr_dict[gid]['syn_sources'][syn_indexes] = presyn_index
                 self.syn_id_attr_dict[gid]['syn_source_gids'][syn_indexes] = presyn_gids
+
+                if not ('delays' in self.syn_id_attr_dict[gid]):
+                    self.syn_id_attr_dict[gid]['delays'] = \
+                      np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, 0., dtype='float32')
                 self.syn_id_attr_dict[gid]['delays'][syn_indexes] = delays
 
     def append_netcon(self, gid, syn_id, syn_name, nc):

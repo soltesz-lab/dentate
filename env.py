@@ -79,7 +79,6 @@ class Env:
         self.logger = get_root_logger()
         
         # Directories for cell templates
-        print 'templatePaths = ', templatePaths
         if templatePaths is not None:
             self.templatePaths = templatePaths.split( ':')
         else:

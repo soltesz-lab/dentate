@@ -158,12 +158,15 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     spkindlst = spkdata['spkindlst']
     spktlst   = spkdata['spktlst']
     spkpoplst = spkdata['spkpoplst']
-    
+
     ## Organize spike times by index of presynaptic population and gid
     spk_source_dict = {}
     for presyn_name in presyn_names:
         presyn_index = int(env.pop_dict[presyn_name])
         spk_pop_index = list_index(presyn_name, spkpoplst)
+        if spk_pop_index is None:
+            logger.warning("No spikes found for population %s in file %s" % (presyn_name, spike_events_path))
+            continue
         spk_inds   = spkindlst[spk_pop_index]
         spk_ts     = spktlst[spk_pop_index]
         if presyn_name in spike_generator_dict:
@@ -178,21 +181,26 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     syn_attrs = env.synapse_attributes
     this_syn_attrs = syn_attrs.syn_id_attr_dict[gid]
     this_syn_ids   = syn_attrs.syn_id_attr_dict[gid]['syn_ids']
-    for syn_id, presyn_id, presyn_gid in zip(this_syn_ids, \
-                                             this_syn_attrs['syn_sources'], \
-                                             this_syn_attrs['syn_source_gids']):
+    for syn_id, presyn_id, presyn_gid, delay in zip(this_syn_ids, \
+                                                    this_syn_attrs['syn_sources'], \
+                                                    this_syn_attrs['syn_source_gids'],
+                                                    this_syn_attrs['delays']):
     
         vss = [ value['vecstim'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
-        spk_sources = spk_source_dict[presyn_id]
-        gen = spk_sources['gen']
-        if gen is None:
-            spk_inds = spk_sources['gid']
-            spk_ts = spk_sources['t']
-            data = spk_ts[np.where(spk_inds == presyn_gid)]
-        else:
-            data = gen(presyn_gid, t_range)
-        for vs in vss:
-            vs.play(data)
+        ncs = [ value['netcon'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
+        for nc in ncs:
+            nc.delay = delay
+        if presyn_id in spk_source_dict:
+            spk_sources = spk_source_dict[presyn_id]
+            gen = spk_sources['gen']
+            if gen is None:
+                spk_inds = spk_sources['gid']
+                spk_ts = spk_sources['t']
+                data = spk_ts[np.where(spk_inds == presyn_gid)]
+            else:
+                data = gen(presyn_gid, t_range)
+            for vs in vss:
+                vs.play(h.Vector(data))
 
         
 
@@ -270,7 +278,7 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    print 'template_paths= ', template_paths
+
     env = Env(comm=comm, configFile=config_file, templatePaths=template_paths, \
                   datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
                   verbose=verbose)
@@ -278,7 +286,7 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
     
     init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
          t_var='t', t_min=None, t_max=None, spike_generator_dict={})
-
+    run(env)
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(os.path.basename(__file__)) != -1, sys.argv) + 1):],

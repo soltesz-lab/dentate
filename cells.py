@@ -1440,7 +1440,7 @@ def get_biophys_cell(env, pop_name, gid):
          edge_iter = graph[pop_name][presyn_name]
          syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
          
-         syn_attrs.load_edge_attrs_from_iter(gid, pop_name, source_name, env, a, edge_iter)
+         syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
             
     #except Exception:
     #    logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
