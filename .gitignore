@@ -41,6 +41,7 @@
 
 # Emacs backup files
 *~
+*.bak
 
 # Byte-compiled / optimized / files
 __pycache__/

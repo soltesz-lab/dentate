@@ -7,11 +7,10 @@ import itertools
 import dentate
 from dentate.neuron_utils import *
 from dentate.utils import viewitems
-from dentate import cells, synapses, lpt, lfp, simtime
+from dentate import cells, synapses, lpt, lfp, simtime, io_utils
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
     write_cell_attributes, read_cell_attribute_selection, read_tree_selection, read_graph_selection
-
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -30,8 +29,8 @@ def cx(env):
     lb = h.LoadBalance()
     if os.path.isfile("mcomplex.dat"):
         lb.read_mcomplex()
-    cxvec = h.Vector(len(env.gidlist))
-    for i, gid in enumerate(env.gidlist):
+    cxvec = h.Vector(len(env.gidset))
+    for i, gid in enumerate(env.gidset):
         cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
     env.cxvec = cxvec
     return cxvec
@@ -65,7 +64,7 @@ def lpt_bal(env):
     nhosts = int(env.pc.nhost())
 
     cxvec = env.cxvec
-    gidvec = env.gidlist
+    gidvec = list(env.gidset)
     # gather gidvec, cxvec to rank 0
     src = [None] * nhosts
     src[0] = list(zip(cxvec.to_python(), gidvec))
@@ -85,110 +84,6 @@ def lpt_bal(env):
                     fp.write('%d %d\n' % (x[1], part_rank))
                 part_rank = part_rank + 1
 
-
-def mkout(env, results_filename):
-    """
-    Creates simulation results file and adds H5Types group compatible with NeuroH5.
-
-    :param env:
-    :param results_filename:
-    :return:
-    """
-    datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
-    dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    dataFile      = h5py.File(dataFilePath,'r')
-    resultsFile   = h5py.File(results_filename,'w')
-    dataFile.copy('/H5Types',resultsFile)
-    dataFile.close()
-    resultsFile.close()
-
-
-def spikeout(env, output_path, t_vec, id_vec):
-    """
-    Writes spike time to specified NeuroH5 output file.
-
-    :param env:
-    :param output_path:
-    :param t_vec:
-    :param id_vec:
-    :return:
-    """
-    binlst  = []
-    typelst = list(env.celltypes.keys())
-    for k in typelst:
-        binlst.append(env.celltypes[k]['start'])
-
-    binvect  = np.array(binlst)
-    sort_idx = np.argsort(binvect,axis=0)
-    bins     = binvect[sort_idx][1:]
-    types    = [ typelst[i] for i in sort_idx ]
-    inds     = np.digitize(id_vec, bins)
-
-    if not str(env.resultsId):
-        namespace_id = "Spike Events"
-    else:
-        namespace_id = "Spike Events %s" % str(env.resultsId)
-
-    for i in range(0,len(types)):
-        spkdict  = {}
-        sinds    = np.where(inds == i)
-        if len(sinds) > 0:
-            ids      = id_vec[sinds]
-            ts       = t_vec[sinds]
-            for j in range(0,len(ids)):
-                id = ids[j]
-                t  = ts[j]
-                if id in spkdict:
-                    spkdict[id]['t'].append(t)
-                else:
-                    spkdict[id]= {'t': [t]}
-            for j in list(spkdict.keys()):
-                spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
-        pop_name = types[i]
-        write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
-        del(spkdict)
-
-
-def vout(env, output_path, t_vec, v_dict):
-    """
-    Writes intracellular voltage traces to specified NeuroH5 output file.
-
-    :param env:
-    :param output_path:
-    :param t_vec:
-    :param v_dict:
-    :return:
-    """
-    if not str(env.resultsId):
-        namespace_id = "Intracellular Voltage"
-    else:
-        namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
-
-    for pop_name, gid_v_dict in viewitems(v_dict):
-        attr_dict  = {gid: {'v': np.array(vs, dtype=np.float32), 't': t_vec}
-                      for (gid, vs) in viewitems(gid_v_dict)}
-        write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
-
-
-def lfpout(env, output_path, lfp):
-    """
-    Writes local field potential voltage traces to specified HDF5 output file.
-
-    :param env:
-    :param output_path:
-    :param lfp:
-    :return:
-    """
-    namespace_id = "Local Field Potential %s" % str(lfp.label)
-    import h5py
-    output = h5py.File(output_path)
-
-    grp = output.create_group(namespace_id)
-
-    grp['t'] = np.asarray(lfp.t, dtype=np.float32)
-    grp['v'] = np.asarray(lfp.meanlfp, dtype=np.float32)
-
-    output.close()
             
 def register_cell(env, pop_name, gid, cell):
     """
@@ -199,12 +94,13 @@ def register_cell(env, pop_name, gid, cell):
     :param cell: cell instance
     """
     rank = env.comm.rank
-    env.gidlist.append(gid)
+    env.gidset.add(gid)
     env.cells.append(cell)
     env.pc.set_gid2node(gid, rank)
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
     nc = cell.connect2target(h.nil)
+    nc.delay = 0.1
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -794,7 +690,7 @@ def make_cell_selection(env):
                 if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
-                env.gidlist.append(gid)
+                env.gidset.add(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, rank)
                 # Tell the ParallelContext that this cell is a spike source
@@ -835,7 +731,7 @@ def make_cell_selection(env):
                 cell_z = cell_coords_dict['Z Coordinate'][0]
                 model_cell.position(cell_x, cell_y, cell_z)
 
-                env.gidlist.append(gid)
+                env.gidset.add(gid)
                 env.cells.append(model_cell)
                 env.pc.set_gid2node(gid, rank)
                 # Tell the ParallelContext that this cell is a spike source
@@ -921,7 +817,7 @@ def init(env):
             lb.ExperimentalMechComplex()
 
     if rank == 0:
-        mkout(env, env.resultsFilePath)
+        io_utils.mkout(env, env.resultsFilePath)
     if rank == 0:
         logger.info("*** Creating cells...")
     h.startsw()
@@ -1011,12 +907,12 @@ def run(env, output=True):
     if rank == 0:
         logger.info("*** Writing spike data")
     if output:
-        spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+        io_utils.spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
         if env.vrecordFraction > 0.:
           if rank == 0:
             logger.info("*** Writing intracellular trace data")
           t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
-          vout(env, env.resultsFilePath, t_vec, env.v_dict)
+          io_utils.vout(env, env.resultsFilePath, t_vec, env.v_dict)
         env.pc.barrier()
         if rank == 0:
             logger.info("*** Writing local field potential data")

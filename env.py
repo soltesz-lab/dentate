@@ -60,7 +60,7 @@ class Env:
         self.SWC_Types = {}
         self.Synapse_Types = {}
 
-        self.gidlist = []
+        self.gidset = set([])
         self.cells = []
         self.gjlist = []
         self.biophys_cells = defaultdict(dict)
@@ -240,11 +240,13 @@ class Env:
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
 
+        # stimulus cell templates
+        find_template(self, 'StimCell', self.templatePaths)
+        find_template(self, 'VecStimCell', self.templatePaths)
+
         if self.hoclibPath:
             # polymorphic hoc value template
             h.load_file(self.hoclibPath + '/templates/Value.hoc')
-            # stimulus cell template
-            h.load_file(self.hoclibPath + '/templates/StimCell.hoc')
 
     def parse_input_config(self):
         """

@@ -7,7 +7,7 @@ from neuroh5.h5py_io_utils import *
 from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import *
-from dentate import spikedata
+from dentate import spikedata, io_utils
 
 
 def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False):
@@ -42,13 +42,12 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False):
                         correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
     config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+
     return cell
 
 
 
-
-
-def add_rec(self, recid, cell, sec=None, dt=h.dt, loc=None, param='v', description=''):
+def add_rec(recid, population, cell, sec, dt=h.dt, loc=None, param='v', description=''):
         """
 
         :param recid: integer
@@ -68,14 +67,13 @@ def add_rec(self, recid, cell, sec=None, dt=h.dt, loc=None, param='v', descripti
 
         rec_dict = { 'name': name,
                      'cell': cell,
+                     'population': population,
                      'loc': loc,
                      'sec': sec,
                      'description': description,
                      'vec': vec }
                 
         return rec_dict
-
-    
 
 
 def register_cell(env, pop_name, gid, cell):
@@ -87,12 +85,16 @@ def register_cell(env, pop_name, gid, cell):
     :param cell: cell instance
     """
     rank = env.comm.rank
-    env.gidlist.append(gid)
+    env.gidset.add(gid)
     env.cells.append(cell)
     env.pc.set_gid2node(gid, rank)
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
-    nc = cell.hoc_cell.connect2target(h.nil)
+    hoc_cell = getattr(cell, "hoc_cell", None)
+    if hoc_cell is None:
+        nc = cell.connect2target(h.nil)
+    else:
+        nc = cell.hoc_cell.connect2target(h.nil)
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -109,6 +111,7 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     :param gid: gid
     :param spike_events_path:
     """
+    io_utils.mkout(env, env.resultsFilePath)
 
     ## If specified, presynaptic spikes that only fall within this time range
     ## will be loaded or generated
@@ -146,9 +149,12 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     cell = load_cell(env, pop_name, gid, mech_file=mech_file, correct_for_spines=correct_for_spines_flag)
     register_cell(env, pop_name, gid, cell)
 
+    recs = []
+    recs.append(add_rec(0, pop_name, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording'))
+     
     if env.verbose:
         report_topology(cell, env)
-
+        
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events (spike_events_path, \
                                            presyn_names, \
@@ -175,9 +181,8 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
             spike_generator = None
         spk_source_dict[presyn_index] = { 'gid': spk_inds, 't': spk_ts, 'gen': spike_generator }
 
-    ## Load presynaptic spike times into the VecStim for each synapse;
-    ## if spike_generator_dict contains an entry for the respective presynaptic population,
-    ## then use the given generator function to generate spikes.
+
+    min_delay = float('inf')
     syn_attrs = env.synapse_attributes
     this_syn_attrs = syn_attrs.syn_id_attr_dict[gid]
     this_syn_ids   = syn_attrs.syn_id_attr_dict[gid]['syn_ids']
@@ -185,26 +190,38 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
                                                     this_syn_attrs['syn_sources'], \
                                                     this_syn_attrs['syn_source_gids'],
                                                     this_syn_attrs['delays']):
-    
-        vss = [ value['vecstim'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
+        if presyn_id in spk_source_dict:
+            ## Load presynaptic spike times into the VecStim for each synapse;
+            ## if spike_generator_dict contains an entry for the respective presynaptic population,
+            ## then use the given generator function to generate spikes.
+             if not (presyn_gid in env.gidset):
+                spk_sources = spk_source_dict[presyn_id]
+                gen = spk_sources['gen']
+                if gen is None:
+                    spk_inds = spk_sources['gid']
+                    spk_ts = spk_sources['t']
+                    data = spk_ts[np.where(spk_inds == presyn_gid)]
+                else:
+                    data = gen(presyn_gid, t_range)
+                vs = h.VecStimCell(presyn_gid)
+                vs.pp.play(h.Vector(data))
+                register_cell(env, presyn_id, presyn_gid, vs)
+
         ncs = [ value['netcon'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
+                
         for nc in ncs:
             nc.delay = delay
-        if presyn_id in spk_source_dict:
-            spk_sources = spk_source_dict[presyn_id]
-            gen = spk_sources['gen']
-            if gen is None:
-                spk_inds = spk_sources['gid']
-                spk_ts = spk_sources['t']
-                data = spk_ts[np.where(spk_inds == presyn_gid)]
-            else:
-                data = gen(presyn_gid, t_range)
-            for vs in vss:
-                vs.play(h.Vector(data))
+            env.pc.gid_connect(presyn_gid, nc.syn(), nc)
+            min_delay = min(min_delay, delay)
 
-        
+    assert(min_delay > 0.0)
+    env.pc.set_maxstep(10)
+    h.stdinit()
+    h.finitialize(env.v_init)
 
-def run(env, output=True):
+    return recs
+
+def run(env, recs, output=True):
     """
     Runs network clamp simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
@@ -217,8 +234,9 @@ def run(env, output=True):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    h.tstop = env.tstop
     if rank == 0:
-        logger.info("*** Running simulation")
+        logger.info("*** Running simulation with dt = %f and tstop = %f" % (h.dt, h.tstop))
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)
@@ -230,7 +248,8 @@ def run(env, output=True):
     if rank == 0:
         logger.info("*** Writing spike data")
     if output:
-        spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+        io_utils.spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+        io_utils.recsout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), recs)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
@@ -256,13 +275,14 @@ def run(env, output=True):
 @click.option("--config-file", '-c', required=True, type=str)
 @click.option("--population", '-p', required=True, type=str, default='GC')
 @click.option("--gid", '-g', required=True, type=int, default=0)
+@click.option("--tstop", '-t', type=float, default=150.0)
 @click.option("--template-paths", type=str, required=True)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--spike-events-path", '-s', required=True, type=click.Path())
 @click.option("--spike-events-namespace", type=str, default='Spike Events')
 @click.option('--verbose', '-v', is_flag=True)
-def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, verbose):
+def main(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, verbose):
     """
 
     :param config_file: str; model configuration file name
@@ -279,14 +299,17 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
 
-    env = Env(comm=comm, configFile=config_file, templatePaths=template_paths, \
+    env = Env(comm=comm, tstop=tstop, configFile=config_file, templatePaths=template_paths, \
                   datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
                   verbose=verbose)
     configure_hoc_env(env)
     
-    init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
-         t_var='t', t_min=None, t_max=None, spike_generator_dict={})
-    run(env)
+    recs = init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
+                t_var='t', t_min=None, t_max=None, spike_generator_dict={})
+
+    run(env, recs)
+    
+    
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(os.path.basename(__file__)) != -1, sys.argv) + 1):],
