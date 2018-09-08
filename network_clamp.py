@@ -267,11 +267,7 @@ def run(env, recs, output=True):
     maxcomp  = env.pc.allreduce(comptime, 2)
 
     if rank == 0:
-        logger.info("Execution time summary for host %i:" % rank)
-        logger.info("  created cells in %g seconds" % env.mkcellstime)
-        logger.info("  connected cells in %g seconds" % env.connectcellstime)
-        logger.info("  created gap junctions in %g seconds" % env.connectgjstime)
-        logger.info("  ran simulation in %g seconds" % comptime)
+        logger.info("Host %i  ran simulation in %g seconds" % (rank, comptime))
         if maxcw > 0:
             logger.info("  load balance = %g" % (avgcomp/maxcw))
 
