@@ -29,7 +29,7 @@ class Env:
     """
     Network model configuration.
     """
-    def __init__(self, comm=None, configFile=None, templatePaths=None, hoclibPath=None, datasetPrefix=None,
+    def __init__(self, comm=None, configFile=None, templatePaths="templates", hoclibPath=None, datasetPrefix=None,
                  configPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0,
                  dt=0.025, ldbal=False, lptbal=False, cell_selection=None, spike_input_path=None, spike_input_ns=None,
@@ -192,7 +192,7 @@ class Env:
 
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
-            # self.parse_gapjunction_config()
+            self.parse_gapjunction_config()
 
         if self.datasetPrefix is not None:
             self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
@@ -471,3 +471,6 @@ class Env:
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
         find_template(self, templateName, self.templatePaths)
+        template_class = getattr(h, self.celltypes[popName]['template'])
+        return template_class
+    

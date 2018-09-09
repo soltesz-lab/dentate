@@ -2,13 +2,13 @@ import sys, os, gc, string, time, click, logging, itertools
 from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
-from neuron import h
 from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
 import h5py
 import dentate
 from dentate.env import Env
-from dentate import cells, synapses, utils
+from dentate import cells, synapses, neuron_utils, utils
 from dentate.utils import list_find
+from dentate.neuron_utils import configure_hoc_env
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -153,21 +153,17 @@ def main(config, template_path, output_path, forest_path, populations, distribut
     comm = MPI.COMM_WORLD
     rank = comm.rank
     
-    env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path)
-    h('objref nil, pc, templatePaths')
-    h.load_file("nrngui.hoc")
-    h.load_file("./templates/Value.hoc")
-    h.xopen("./lib.hoc")
-    h.pc = h.ParallelContext()
-    
-    if io_size == -1:
-        io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePaths.append(h.Value(1,path))
+    logger.info('rank %i: before environment' % rank)
+    comm.barrier()
+    env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path)
+    logger.info('rank %i: environment configured' % rank)
+    configure_hoc_env(env)
+    
+    if io_size == -1:
+        io_size = comm.size
 
     if output_path is None:
         output_path = forest_path
@@ -189,9 +185,8 @@ def main(config, template_path, output_path, forest_path, populations, distribut
         logger.info('Rank %i population: %s' % (rank, population))
         count = 0
         (population_start, _) = pop_ranges[population]
-        template_name = env.celltypes[population]['template']
-        h.find_template(h.pc, h.templatePaths, template_name)
-        template_class = getattr(h, env.celltypes[population]['template'])
+        template_class = env.load_cell_template(population)
+        
         density_dict = env.celltypes[population]['synapses']['density']
         layer_set_dict = defaultdict(set)
         swc_set_dict = defaultdict(set)

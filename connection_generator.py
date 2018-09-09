@@ -197,21 +197,35 @@ def generate_synaptic_connections(rank,
     :param connection_dict: output connection dictionary
     :param random_choice: random choice procedure (default uses np.ranstream.multinomial)
     """
-    ## assign each synapse to a projection
+    num_projections = len(projection_synapse_dict)
+    prj_pop_index = { population: i for (i,population) in enumerate(projection_synapse_dict.keys()) }
+    synapse_prj_counts = np.zeros((num_projections,))
     synapse_prj_partition = defaultdict(list)
-    for (syn_id,syn_type,swc_type,syn_layer) in zip(synapse_dict['syn_ids'],
-                                                    synapse_dict['syn_types'],
-                                                    synapse_dict['swc_types'],
-                                                    synapse_dict['syn_layers']):
-        projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
-                                               population_dict, projection_synapse_dict)
-        assert(projection is not None)
-        synapse_prj_partition[projection].append(syn_id)
+    maxit = 1000
+    it = 0
+    ## assign each synapse to a projection
+    while (np.count_nonzero(synapse_prj_counts) < num_projections) and (it < maxit):
+        synapse_prj_counts.fill(0)
+        synapse_prj_partition.clear()
+        for (syn_id,syn_type,swc_type,syn_layer) in zip(synapse_dict['syn_ids'],
+                                                        synapse_dict['syn_types'],
+                                                        synapse_dict['swc_types'],
+                                                        synapse_dict['syn_layers']):
+            projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
+                                                   population_dict, projection_synapse_dict)
+            assert(projection is not None)
+            synapse_prj_counts[prj_pop_index[projection]] += 1
+            synapse_prj_partition[projection].append(syn_id)
+        it += 1
 
+    empty_projections = []
     for projection in list(projection_synapse_dict.keys()):
-        if not (projection in synapse_prj_partition):
-            logger.warning('Rank %i: gid %i: projection: %s has an empty synapse list; swc types are %s layers are %s' % (rank, destination_gid, projection, str(set(synapse_dict['swc_types'].flat)), str(set(synapse_dict['syn_layers'].flat))))
-            assert(projection in synapse_prj_partition)
+        logger.debug('Rank %i: gid %i: projection %s has %i synapses' % (rank, destination_gid, projection, len(synapse_prj_partition[projection])))
+        if not (len(synapse_prj_partition[projection]) > 0):
+            empty_projections.append(projection)
+    if len(empty_projections) > 0:
+        logger.warning('Rank %i: gid %i: projections %s have an empty synapse list; swc types are %s layers are %s' % (rank, destination_gid, str(empty_projections), str(set(synapse_dict['swc_types'].flat)), str(set(synapse_dict['syn_layers'].flat))))
+    assert(len(empty_projections) == 0)
 
     ## Choose source connections based on distance-weighted probability
     count = 0
@@ -235,7 +249,6 @@ def generate_synaptic_connections(rank,
                                               { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
                                                 'Connections' : { 'distance': distances }
                                               } )
-            logger.info('Rank %i: gid: %i projection: %s len(gid_dict) = %i' % (rank, destination_gid, projection, len(gid_dict)))
         else:
             logger.warning('Rank %i: source gid list is empty for gid: %i projection: %s len(syn_ids): %i' % (rank, destination_gid, projection, len(syn_ids)))
 ## If any projection does not have connections associated with it, create empty entries

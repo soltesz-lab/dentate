@@ -15,6 +15,7 @@ from dentate.connection_generator import ConnectionProb, generate_uv_distance_co
 from dentate.geometry import measure_distances
 from dentate.env import Env
 import dentate.utils as utils
+from dentate.neuron_utils import configure_hoc_env
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -53,6 +54,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     rank = comm.rank
 
     env = Env(comm=comm, configFile=config)
+    configure_hoc_env(env)
+
     connection_config = env.connection_config
     extent      = {}
     soma_coords = {}

@@ -193,7 +193,7 @@ Synapses:
           tau1: 0.5
           tau2: 6.2
           e: 0
-          weight: 0.012
+          weight: 0.02
     MC:   
       type: excitatory
       sections: [apical]
@@ -470,7 +470,7 @@ Synapses:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.96, 0.96]
+      proportions: [0.90, 0.90]
       mechanisms:
         GABA_A:
           tau1: 0.46
@@ -481,7 +481,7 @@ Synapses:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.02, 0.02]
+      proportions: [0.05, 0.05]
       mechanisms:
         GABA_A:
           tau1:   4.2
@@ -497,7 +497,7 @@ Synapses:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.02, 0.02]
+      proportions: [0.05, 0.05]
       mechanisms:
         GABA_A:
           tau1:   4.2

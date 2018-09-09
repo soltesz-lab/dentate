@@ -104,7 +104,7 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
 
     return gj
 
-def find_template(env, template_name, path=['templates'], rank=0):
+def find_template(env, template_name, path=['templates'], root=0):
     """
     Finds and loads a template located in a directory within the given path list.
     """
@@ -112,19 +112,20 @@ def find_template(env, template_name, path=['templates'], rank=0):
     found = False
     foundv = h.Vector(1)
     template_path = ''
-    if pc.id() == rank:
+    if pc.id() == root:
         for template_dir in path:
             template_path = '%s/%s.hoc' % (template_dir, template_name)
             found = os.path.isfile(template_path)
             if found:
                 break
         foundv.x[0] = found
-        pc.broadcast(foundv, rank)
-        pc.broadcast(template_path, rank)
+    pc.broadcast(foundv, root)
     if foundv.x[0] > 0.0:
-        h.load_file(template_path)
+        s = h.ref(template_path)
+        pc.broadcast(s, root)
+        h.load_file(s)
     else:
-        raise Exception('find_template: template not found: %s' % template_name)
+        raise Exception('find_template: template not found: %s; path is %s' % (template_name, str(path)))
 
 
 
@@ -137,7 +138,8 @@ def configure_hoc_env(env):
     h.load_file("loadbal.hoc")
     h('objref pc, nc, nil')
     h('strdef datasetPath')
-    h.datasetPath = env.datasetPath
+    if hasattr(env,'datasetPath'):
+        h.datasetPath = env.datasetPath
     h.pc = h.ParallelContext()
     env.pc = h.pc
     h.dt = env.dt
