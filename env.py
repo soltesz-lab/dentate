@@ -467,7 +467,6 @@ class Env:
         :param popName: str
         """
         rank = self.comm.Get_rank()
-        logger.info("rank %d: load_cell_template: popName = %s" % (rank, popName))
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']

@@ -105,11 +105,12 @@ def register_cell(env, pop_name, gid, cell):
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
     # Record voltages from a subset of cells
-    if gid in env.v_sample_dict[pop_name]: 
-        v_vec = h.Vector()
-        soma = list(cell.soma)[0]
-        v_vec.record(soma(0.5)._ref_v)
-        env.v_dict[pop_name][gid] = v_vec
+    if cell.is_art() == 0:
+        if gid in env.v_sample_dict[pop_name]: 
+            v_vec = h.Vector()
+            soma = list(cell.soma)[0]
+            v_vec.record(soma(0.5)._ref_v)
+            env.v_dict[pop_name][gid] = v_vec
 
 
 def connect_cells(env, cleanup=True):
