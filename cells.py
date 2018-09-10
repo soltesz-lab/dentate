@@ -1375,7 +1375,7 @@ def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neur
     return cell
 
 
-def make_hoc_cell(env, gid, population, neurotree_dict=False):
+def make_hoc_cell(env, gid, pop_name, neurotree_dict=False):
     """
 
     :param env:
@@ -1383,18 +1383,18 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
     :param population:
     :return:
     """
-    popName = population
     datasetPath = env.datasetPath
     dataFilePath = env.dataFilePath
-    env.load_cell_template(popName)
-    template_class = getattr(h, env.celltypes[popName]['template'])
+    template_name = env.celltypes[pop_name]['template']
+    assert(hasattr(h, template_name))
+    template_class = getattr(h, template_name)
 
-    if popName in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[popName]:
+    if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
         if neurotree_dict:
             hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
         else:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
-                            dataFilePath, popName, gid)
+                            dataFilePath, pop_name, gid)
     else:
         hoc_cell = template_class(gid, datasetPath)
         
@@ -1410,6 +1410,7 @@ def get_biophys_cell(env, pop_name, gid, load_edges=True):
     :param gid:
     :return:
     """
+    env.load_cell_template(pop_name)
     tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
     hoc_cell = make_hoc_cell(env, gid, pop_name, neurotree_dict=tree)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
