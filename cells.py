@@ -1351,7 +1351,7 @@ def make_neurotree_graph(neurotree_dict):
     return sec_graph
     
 
-def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
+def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
     """
 
     :param template_class:
@@ -1371,7 +1371,7 @@ def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neur
     vsrc     = neurotree_dict['section_topology']['src']
     vdst     = neurotree_dict['section_topology']['dst']
     swc_type = neurotree_dict['swc_type']
-    cell     = template_class(local_id, gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
+    cell     = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
     return cell
 
 
