@@ -15,10 +15,10 @@ apical:
       variance: 0.1
   inhibitory:
     OML:
-      mean: 0.7
+      mean: 1.0
       variance: 0.1
     MML:
-      mean: 0.7
+      mean: 1.0
       variance: 0.1
     IML:
       mean: 0.3
