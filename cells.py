@@ -1402,7 +1402,7 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
 
 
 
-def get_biophys_cell(env, pop_name, gid):
+def get_biophys_cell(env, pop_name, gid, load_edges=True):
     """
     TODO: Consult env for weights namespaces, load_syn_weights
     :param env:
@@ -1429,18 +1429,19 @@ def get_biophys_cell(env, pop_name, gid):
     except Exception:
         logger.warning('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
 
-    if len(env.projection_dict[pop_name]) == 0:
-        raise Exception
+    if load_edges:
+        if len(env.projection_dict[pop_name]) == 0:
+            raise Exception
         
-    (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
-                                          comm=env.comm, namespaces=['Synapses', 'Connections'])
+        (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
+                                              comm=env.comm, namespaces=['Synapses', 'Connections'])
 
-    for presyn_name in env.projection_dict[pop_name]:
+        for presyn_name in env.projection_dict[pop_name]:
 
-         edge_iter = graph[pop_name][presyn_name]
-         syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
-         
-         syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
+            edge_iter = graph[pop_name][presyn_name]
+            syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
+            
+            syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
             
     #except Exception:
     #    logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))

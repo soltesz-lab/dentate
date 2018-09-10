@@ -131,7 +131,7 @@ class ConnectionProb(object):
 
 
 
-def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict):
+def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, population_dict, projection_synapse_dict, log=False):
     """Given a synapse projection, SWC synapse location, and synapse
     type, chooses a projection from the given projection dictionary
     based on 1) whether the projection properties match the given
@@ -156,6 +156,8 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     if len(projection_lst) > 1:
        candidate_projections = np.asarray(projection_lst)
        candidate_probs       = np.asarray(projection_prob_lst)
+       if log:
+           logger.info("candidate_projections: %s candidate_probs: %s" % (str(candidate_projections), str(candidate_probs)))
        projection            = ranstream_syn.choice(candidate_projections, 1, p=candidate_probs)[0]
     elif len(projection_lst) > 0:
        projection = projection_lst[0]
@@ -173,6 +175,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
 
  
 def generate_synaptic_connections(rank,
+                                  gid,
                                   ranstream_syn,
                                   ranstream_con,
                                   cluster_seed,
@@ -201,10 +204,13 @@ def generate_synaptic_connections(rank,
     prj_pop_index = { population: i for (i,population) in enumerate(projection_synapse_dict.keys()) }
     synapse_prj_counts = np.zeros((num_projections,))
     synapse_prj_partition = defaultdict(list)
-    maxit = 1000
+    maxit = 10
     it = 0
     ## assign each synapse to a projection
     while (np.count_nonzero(synapse_prj_counts) < num_projections) and (it < maxit):
+        log_flag = it > 1
+        if log_flag:
+            logger.info("generate_synaptic_connections: gid %i: iteration %i" % (gid, it))
         synapse_prj_counts.fill(0)
         synapse_prj_partition.clear()
         for (syn_id,syn_type,swc_type,syn_layer) in zip(synapse_dict['syn_ids'],
@@ -212,7 +218,9 @@ def generate_synaptic_connections(rank,
                                                         synapse_dict['swc_types'],
                                                         synapse_dict['syn_layers']):
             projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type,
-                                                   population_dict, projection_synapse_dict)
+                                                   population_dict, projection_synapse_dict, log=log_flag)
+            if log_flag:
+                logger.info("generate_synaptic_connections: gid %i: syn_id = %i syn_type = %i swc_type = %i syn_layer = %i projection = %s" % (gid, syn_id, syn_type, swc_type, syn_layer, projection))
             assert(projection is not None)
             synapse_prj_counts[prj_pop_index[projection]] += 1
             synapse_prj_partition[projection].append(syn_id)
@@ -340,6 +348,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                     
 
             count = generate_synaptic_connections(rank,
+                                                  destination_gid,
                                                   ranstream_syn,
                                                   ranstream_con,
                                                   cluster_seed+destination_gid,
