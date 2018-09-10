@@ -16,11 +16,11 @@ DG_EXT_coordinate_file = "dentate_Full_Scale_Control_coords_20180717.h5"
 DG_GC_forest_file = "DGC_forest_20180425.h5"
 DG_IN_forest_file = "DG_IN_forest_20180908.h5"
 
-DG_GC_forest_syns_file = "DGC_forest_syns_20180801_compressed.h5"
+DG_GC_forest_syns_file = "DGC_forest_syns_20180812_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20180908.h5"
 
 DG_IN_connectivity_file = "DG_IN_connections_20180908.h5"
-DG_GC_connectivity_file = "DG_GC_connections_20180806_compressed.h5"
+DG_GC_connectivity_file = "DG_GC_connections_20180813_compressed.h5"
 
 DG_vecstim_file_dict = { 
     100: "DG_PP_features_100_20180406.h5", \
