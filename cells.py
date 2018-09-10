@@ -1062,8 +1062,8 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
             raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for mechanism: '
-                               '%s parameter: %s from origin: %s in sec_type: %s' %
-                               (rules['origin'], mech_name, param_name, cell, node.type))
+                               '%s parameter: %s in sec_type: %s' %
+                               (rules['origin'], mech_name, param_name, node.type))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
