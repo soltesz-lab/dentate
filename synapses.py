@@ -327,7 +327,7 @@ def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, un
                     '%i syn_ids' % (presyn_name, postsyn_name, gid, syn_count, nc_count, len(syn_ids)))
 
 
-def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=False, unique=False, netcon=True, verbose=False):
+def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=False, unique=None, verbose=False):
     """
     1) organize syn_ids by source population
     2) if insert, collate syn_ids without netcons, iterate over sources and call insert_syns_from_mech_attrs
