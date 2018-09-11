@@ -600,7 +600,7 @@ def make_cells(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, gid, pop_name, neurotree_dict=tree)
+                model_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
                 if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
@@ -630,7 +630,7 @@ def make_cells(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, gid, pop_name)
+                model_cell = cells.make_hoc_cell(env, pop_name, gid)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
@@ -726,7 +726,7 @@ def make_cell_selection(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, gid, pop_name, templateClass)
+                model_cell = cells.make_hoc_cell(env, pop_name, gid)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
