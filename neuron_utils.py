@@ -112,13 +112,15 @@ def find_template(env, template_name, path=['templates'], root=0):
     found = False
     foundv = h.Vector(1)
     template_path = ''
-    if pc.id() == root:
+    pc.barrier()
+    if int(pc.id()) == root:
         for template_dir in path:
             template_path = '%s/%s.hoc' % (template_dir, template_name)
             found = os.path.isfile(template_path)
             if found:
                 break
-        foundv.x[0] = found
+        foundv.x[0] = 1 if found else 0
+    pc.barrier()
     pc.broadcast(foundv, root)
     if foundv.x[0] > 0.0:
         s = h.ref(template_path)

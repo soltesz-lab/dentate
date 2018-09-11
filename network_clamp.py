@@ -13,7 +13,7 @@ from dentate.synapses import *
 from dentate import spikedata, io_utils
 
 
-def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False):
+def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load_edges=True):
     """
     Instantiates the mechanisms, synapses, and connections of a single cell.
 
@@ -32,7 +32,7 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False):
     """
     configure_hoc_env(env)
 
-    cell = get_biophys_cell(env, pop_name, gid)
+    cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges)
     if mech_file is not None:
         if env.configPrefix is not None:
             mech_file_path = env.configPrefix + '/' + mech_file
@@ -106,9 +106,44 @@ def register_cell(env, population, gid, cell):
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
+def init_cell(env, pop_name, gid, load_edges=True):
+    """
+    Instantiates a cell and all its synapses
+
+    :param env: an instance of env.Env
+    :param pop_name: population name
+    :param gid: gid
+    """
+    ## Determine if a mechanism configuration file exists for this cell type
+    if 'mech_file' in env.celltypes[pop_name]:
+        mech_file = env.celltypes[pop_name]['mech_file']
+    else:
+        mech_file = None
+
+    ## Determine if correct_for_spines flag has been specified for this cell type
+    synapse_config = env.celltypes[pop_name]['synapses']
+    if 'correct_for_spines' in synapse_config:
+        correct_for_spines_flag = synapse_config['correct_for_spines']
+    else:
+        correct_for_spines_flag = False
+
+    ## Determine presynaptic populations that connect to this cell type
+    presyn_names = env.projection_dict[pop_name]
+
+    ## Load cell gid and its synaptic attributes and connection data
+    cell = load_cell(env, pop_name, gid, mech_file=mech_file, correct_for_spines=correct_for_spines_flag, load_edges=load_edges)
+    register_cell(env, pop_name, gid, cell)
+
+    recs = []
+    recs.append(add_rec(0, pop_name, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording'))
+     
+    if env.verbose:
+        report_topology(cell, env)
+
+    return cell, recs
 
     
-def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
+def init(env, pop_name, gid, cell, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
     """
     Instantiates a cell and all its synapses and connections and loads or generates spike times for all synaptic connections.
 
@@ -135,32 +170,12 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     else:
         namespace_id = "%s %s" % (spike_events_namespace, str(env.resultsId))
 
-    ## Determine if a mechanism configuration file exists for this cell type
-    if 'mech_file' in env.celltypes[pop_name]:
-        mech_file = env.celltypes[pop_name]['mech_file']
-    else:
-        mech_file = None
-
-    ## Determine if correct_for_spines flag has been specified for this cell type
-    synapse_config = env.celltypes[pop_name]['synapses']
-    if 'correct_for_spines' in synapse_config:
-        correct_for_spines_flag = synapse_config['correct_for_spines']
-    else:
-        correct_for_spines_flag = False
-
     ## Determine presynaptic populations that connect to this cell type
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = load_cell(env, pop_name, gid, mech_file=mech_file, correct_for_spines=correct_for_spines_flag)
-    register_cell(env, pop_name, gid, cell)
+    cell, recs = init_cell(env, pop_name, gid)
 
-    recs = []
-    recs.append(add_rec(0, pop_name, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording'))
-     
-    if env.verbose:
-        report_topology(cell, env)
-        
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events (spike_events_path, \
                                            presyn_names, \
@@ -274,6 +289,37 @@ def run(env, recs, output=True):
     env.pc.runworker()
     env.pc.done()
 
+
+@click.command()
+@click.option("--config-file", '-c', required=True, type=str)
+@click.option("--population", '-p', required=True, type=str, default='GC')
+@click.option("--gid", '-g', required=True, type=int, default=0)
+@click.option("--template-paths", type=str, required=True)
+@click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
+@click.option('--verbose', '-v', is_flag=True)
+def show(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, verbose):
+    """
+    Show configuration for the specified cell gid.
+
+    :param config_file: str; model configuration file name
+    :param population: str
+    :param gid: int
+    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+    :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param config_prefix: str; path to directory containing network and cell mechanism config files
+    :param verbose: bool
+    """
+
+    comm = MPI.COMM_WORLD
+    np.seterr(all='raise')
+
+    env = Env(comm=comm, tstop=tstop, configFile=config_file, templatePaths=template_paths, \
+                  datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
+                  verbose=True)
+    configure_hoc_env(env)
+    
+    init_cell(env, population, gid, load_edges=False)
 
 
 @click.command()

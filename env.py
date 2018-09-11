@@ -470,7 +470,8 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-        find_template(self, templateName, self.templatePaths)
-        template_class = getattr(h, self.celltypes[popName]['template'])
+        find_template(self, templateName, path=self.templatePaths)
+        assert(hasattr(h, templateName))
+        template_class = getattr(h, templateName)
         return template_class
     

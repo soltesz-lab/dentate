@@ -1351,7 +1351,7 @@ def make_neurotree_graph(neurotree_dict):
     return sec_graph
     
 
-def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neurotree_dict={}):
+def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
     """
 
     :param template_class:
@@ -1371,11 +1371,11 @@ def make_neurotree_cell(template_class, local_id=0, gid=0, dataset_path="", neur
     vsrc     = neurotree_dict['section_topology']['src']
     vdst     = neurotree_dict['section_topology']['dst']
     swc_type = neurotree_dict['swc_type']
-    cell     = template_class(local_id, gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
+    cell     = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
     return cell
 
 
-def make_hoc_cell(env, gid, population, neurotree_dict=False):
+def make_hoc_cell(env, gid, pop_name, neurotree_dict=False):
     """
 
     :param env:
@@ -1383,18 +1383,18 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
     :param population:
     :return:
     """
-    popName = population
     datasetPath = env.datasetPath
     dataFilePath = env.dataFilePath
-    env.load_cell_template(popName)
-    template_class = getattr(h, env.celltypes[popName]['template'])
+    template_name = env.celltypes[pop_name]['template']
+    assert(hasattr(h, template_name))
+    template_class = getattr(h, template_name)
 
-    if popName in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[popName]:
+    if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
         if neurotree_dict:
             hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
         else:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
-                            dataFilePath, popName, gid)
+                            dataFilePath, pop_name, gid)
     else:
         hoc_cell = template_class(gid, datasetPath)
         
@@ -1402,7 +1402,7 @@ def make_hoc_cell(env, gid, population, neurotree_dict=False):
 
 
 
-def get_biophys_cell(env, pop_name, gid):
+def get_biophys_cell(env, pop_name, gid, load_edges=True):
     """
     TODO: Consult env for weights namespaces, load_syn_weights
     :param env:
@@ -1410,6 +1410,7 @@ def get_biophys_cell(env, pop_name, gid):
     :param gid:
     :return:
     """
+    env.load_cell_template(pop_name)
     tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
     hoc_cell = make_hoc_cell(env, gid, pop_name, neurotree_dict=tree)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
@@ -1429,18 +1430,19 @@ def get_biophys_cell(env, pop_name, gid):
     except Exception:
         logger.warning('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
 
-    if len(env.projection_dict[pop_name]) == 0:
-        raise Exception
+    if load_edges:
+        if len(env.projection_dict[pop_name]) == 0:
+            raise Exception
         
-    (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
-                                          comm=env.comm, namespaces=['Synapses', 'Connections'])
+        (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
+                                              comm=env.comm, namespaces=['Synapses', 'Connections'])
 
-    for presyn_name in env.projection_dict[pop_name]:
+        for presyn_name in env.projection_dict[pop_name]:
 
-         edge_iter = graph[pop_name][presyn_name]
-         syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
-         
-         syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
+            edge_iter = graph[pop_name][presyn_name]
+            syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
+            
+            syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
             
     #except Exception:
     #    logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))

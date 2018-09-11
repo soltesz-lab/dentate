@@ -17,7 +17,6 @@ objref somaidx, basalidx, apicalidx, axonidx, aisidx, hilidx
 objref syns, layers
 objref syn_stim
 
-cellid = -1
 gid = -1
 
 ndends   = -1
@@ -47,13 +46,12 @@ proc init() { // arguments are id, gid
     layers = new List()
     syns = new List()
     
-    cellid = $1
-    gid = $2
+    gid = $1
     
     if (numarg() > 2) {
-        topol_from_python($o4,$o6,$o7,$o12)
-        shape_from_python($o4,$o8,$o9,$o10,$o11)
-        layers_from_python($o4,$o5)
+        topol_from_python($o3,$o5,$o6,$o11)
+        shape_from_python($o3,$o7,$o8,$o9,$o10)
+        layers_from_python($o3,$o4)
     } else {
         ndends   = 4
         ndendsec = 4

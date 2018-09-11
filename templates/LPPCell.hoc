@@ -1,12 +1,11 @@
 begintemplate LPPCell
 
-public pp, connect2target, id, is_art
+public pp, connect2target, is_art
 public x, y, z, position, xpos, ypos, zpos
 objref pp, rs, spikevect
 
 proc init() { local status 
-    id = $1
-    gid = $2
+    gid = $1
     pp = new VecStim()
 }
 
