@@ -153,7 +153,7 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
     return response
 
 
-def read_trajectory (comm, input_path, trajectory_id):
+def read_trajectory (input_path, trajectory_id):
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
 
@@ -170,7 +170,7 @@ def read_trajectory (comm, input_path, trajectory_id):
     return (x,y,d,t)
 
 
-def read_stimulus (comm, stimulus_path, stimulus_namespace, population):
+def read_stimulus (stimulus_path, stimulus_namespace, population, comm):
         ratemap_lst = []
         attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace, comm=comm)
         for gid, stimulus_dict in attr_gen:

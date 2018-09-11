@@ -1,11 +1,8 @@
 
 import sys, gc
-from mpi4py import MPI
 import click
 import dentate
 from dentate import utils, plot
-
-script_name = 'plot_stimulus_spatial_map.py'
 
 @click.command()
 @click.option("--features-path", '-p', required=True, type=click.Path())
@@ -21,7 +18,8 @@ def main(features_path, coords_path, features_namespace, distances_namespace, in
                                          include, normed=normed, fontSize=font_size, saveFig=True, verbose=verbose)
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+
 
 
     
