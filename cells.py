@@ -1,9 +1,8 @@
-import itertools
+import os, itertools, collections
 from dentate.utils import viewitems
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
-import collections
 try:
     import btmorph
 except Exception:
