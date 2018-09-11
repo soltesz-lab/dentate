@@ -47,11 +47,11 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 aprun -n 16384 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
     --config-file=Full_Scale_Control_log_normal_weights.yaml  \
-    --template-paths=../dgc/Mateos-Aparicio2014 \
+    --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=1000 \
+    --tstop=5000 \
     --v-init=-75 \
     --stimulus-onset=50.0 \
     --max-walltime-hours=3.4 \

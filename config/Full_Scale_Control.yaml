@@ -4,8 +4,8 @@ Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20180806.h5
-Connection Data: DG_Connections_Full_Scale_20180806.h5
+Cell Data: DG_Cells_Full_Scale_20180908.h5
+Connection Data: DG_Connections_Full_Scale_20180908.h5
 Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
 Input: !include Input.yaml
