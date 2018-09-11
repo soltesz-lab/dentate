@@ -2467,7 +2467,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
         rate_lst = []
         if verbose:
             print('Reading vector stimulus data from namespace %s for population %s...' % (namespace_id, population ))
-        for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, namespace_id, population):
+        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, namespace_id, population, comm):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
 
@@ -2540,7 +2540,7 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         rate_sum_dict = {}
         if verbose:
             print('Reading vector stimulus data for population %s...' % population) 
-        for (gid, rate, _, _) in stimulus.read_stimulus(comm, input_path, stimulus_namespace, population):
+        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population, comm):
             rate_sum_dict[gid] = np.sum(rate)
         
         if verbose:
@@ -2594,7 +2594,7 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         if isinstance(saveFig, str):
             filename = saveFig
         else:
-            filename = stimulus_namespace+' '+'spatial ratemap.png'
+            filename = '%s %s spatial ratemap.png' % (population, stimulus_namespace)
         plt.savefig(filename)
 
     # show fig 
