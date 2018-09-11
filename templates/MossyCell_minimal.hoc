@@ -48,8 +48,8 @@ proc init() { // arguments are id, gid
     gid = $1
     
     if (numarg() > 2) {
-        topol_from_python($o4,$o5,$o6,$o7,$o12)
-        shape_from_python($o7,$o8,$o9,$o10,$o11)
+        topol_from_python($o3,$o5,$o6,$o11)
+        shape_from_python($o3,$o7,$o8,$o9,$o10)
         layers_from_python($o3,$o4)
     } else {
         ndends   = 4
