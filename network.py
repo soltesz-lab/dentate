@@ -583,6 +583,7 @@ def make_cells(env):
             if ranstream_v_sample.uniform() <= env.vrecordFraction:
                 v_sample_set.add(gid)
 
+        num_cells = 0
         if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
@@ -605,8 +606,7 @@ def make_cells(env):
                         h.psection(sec=sec)
                 register_cell(env, pop_name, gid, model_cell)
 
-            if rank == 0:
-                logger.info("*** Created %i cells" % i)
+                num_cells += 1
 
         elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
@@ -638,10 +638,11 @@ def make_cells(env):
                 model_cell.position(cell_x, cell_y, cell_z)
 
                 register_cell(env, pop_name, gid, model_cell)
-                
-            if rank == 0:
-                logger.info("*** Created %i cells" % i)
+                num_cells += 1
+
         h.define_shape()
+        if rank == 0:
+            logger.info("*** Created %i cells" % num_cells)
 
         
 def make_cell_selection(env):
