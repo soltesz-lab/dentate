@@ -222,7 +222,6 @@ class Env:
                                          'rho': config['rho'],
                                          'dt': config['dt']}
 
-                
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
 
