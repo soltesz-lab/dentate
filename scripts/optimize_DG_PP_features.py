@@ -5,143 +5,132 @@ from pprint import pprint
 import dentate
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, memoize_rates
 
 from nested.optimize_utils import *
 from optimize_cells_utils import *
 
 
 utils.config_logging(True)
-script_name = 'optimize_DG_PP_features.py'
+script_name = 'optimize_DG_PP_features_v3.py'
 logger      = utils.get_script_logger(script_name)
-
-seed = 64
-local_random = random.Random()
-local_random.seed(seed)
-feature_type_random  = np.random.RandomState(seed)
-place_field_random   = np.random.RandomState(seed)
-n_place_field_probabilities = np.asarray([0.8, 0.15, 0.05])
-grid_field_random    = np.random.RandomState(seed)
-n_grid_field_probabilities = np.asarray([0.10, 0.90]) 
-
-nmodules           = 10
-modules            = np.arange(nmodules)
-grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
-field_width_params = [35.0, 0.32]
-field_width        = lambda x : 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
-max_field_width    = field_width(1.)
-
-
-n_mpp_grid      = 5000
-n_mpp_place     = 5000
-n_lpp_place     = 5000
-n_lpp_grid      = 0
-arena_dimension = 100.
-resolution      = 5.
-feature_population = {'MPP': 0, 'LPP': 1}
-feature_ctypes     = {'grid': 0, 'place': 1}
 
 context = Context()
 
-def _instantiate_place_cell(population, gid, module, nxy):
+def _instantiate_place_cell(gid, module, nfields):
     cell = {}
-    field_set = [1,2,3]
-    nfields   = place_field_random.choice(field_set, p=n_place_field_probabilities, size=(1,))
     cell_field_width = []
-    for n in xrange(nfields[0]):
-        cell_field_width.append(field_width(local_random.random()))
+    for n in xrange(nfields):
+        this_width = context.module_width 
+        #delta_spacing = context.local_random.gauss(0., 50. * (module+1)/float(np.max(context.modules)))
+        delta_spacing = context.local_random.uniform(-10, 10)
+        cell_field_width.append(this_width + delta_spacing)
     
     cell['gid']         = np.array([gid], dtype='int32')
     cell['Num Fields']  = np.array([nfields], dtype='uint8')
-    cell['Population']  = np.array([feature_population[population]], dtype='uint8')
-    cell['Cell Type']   = np.array([feature_ctypes['place']], dtype='uint8')
+    cell['Cell Type']   = np.array([context.feature_ctypes['place']], dtype='uint8')
     cell['Module']      = np.array([module], dtype='uint8')
     cell['Field Width'] = np.asarray(cell_field_width, dtype='float32')
-    cell['Nx']           = np.array([nxy[0]], dtype='int32')
-    cell['Ny']           = np.array([nxy[1]], dtype='int32')
+    cell['Nx']           = np.array([context.nx], dtype='int32')
+    cell['Ny']           = np.array([context.ny], dtype='int32')
     
     return cell 
 
-def _instantiate_grid_cell(population, gid, module, nxy):
-    cell   = {}
-    field_set = [0,1]
-    nfields   = grid_field_random.choice(field_set, p=n_grid_field_probabilities, size=(1,))
-    
-    orientation = grid_orientation[module]
-    spacing     = field_width(float(module)/float(np.max(modules)))
+def _instantiate_grid_cell(gid, module, nfields):
+    cell    = {}
 
-    delta_spacing     = local_random.gauss(0., 50. * (module+1) / float(np.max(modules)))
-    delta_orientation = local_random.gauss(0., np.deg2rad(10. * (module+1.) / float(np.max(modules))))
+    orientation = context.grid_orientation[module]
+    spacing     = context.module_width #* 0.94
+
+    #delta_spacing     = context.local_random.gauss(0., 50. * (module+1) / float(np.max(context.modules)))
+    #delta_orientation = context.local_random.gauss(0., np.deg2rad(10. * (module+1.) / float(np.max(context.modules))))
+    delta_spacing     = context.local_random.uniform(-10,10)
+    delta_orientation = context.local_random.uniform(-10,10)
+
 
     cell['gid']          = np.array([gid], dtype='int32')
     cell['Num Fields']   = np.array([nfields], dtype='uint8')
-    cell['Population']   = np.array([feature_population[population]], dtype='uint8')
-    cell['Cell Type']    = np.array([feature_ctypes['grid']], dtype='uint8')
+    cell['Cell Type']    = np.array([context.feature_ctypes['grid']], dtype='uint8')
     cell['Module']       = np.array([module], dtype='uint8')
     cell['Grid Spacing'] = np.array([spacing + delta_spacing], dtype='float32')
     cell['Grid Orientation']  = np.array([orientation + delta_orientation], dtype='float32')
-    cell['Nx']           = np.array([nxy[0]], dtype='int32')
-    cell['Ny']           = np.array([nxy[1]], dtype='int32')
+    cell['Nx']           = np.array([context.nx], dtype='int32')
+    cell['Ny']           = np.array([context.ny], dtype='int32')
 
     return cell 
 
-def _build_cells(population_context, module, nxy):
-    grid_cells, place_cells = {}, {}
-    gid = 1
-    for population in population_context:
-        current_population = population_context[population]
-        for ctype in current_population:
-            start_gid  = gid
-            ncells     = current_population[ctype][0]
-            if ncells == 0:
-                population_context[population][ctype] += [None, None]
-            for i in xrange(ncells):
-                if ctype == 'grid':
-                    grid_cells[gid] =_instantiate_grid_cell(population, gid, module, nxy)
-                elif ctype == 'place':
-                    place_cells[gid] = _instantiate_place_cell(population, gid, module, nxy)
-                if i == ncells - 1:
-                    end_gid = gid
-                    population_context[population][ctype].append(start_gid)
-                    population_context[population][ctype].append(end_gid)
-                gid += 1
+def acquire_fields_per_cell(ncells, field_probabilities, generator):
+    field_probabilities = np.asarray(field_probabilities, dtype='float32')
+    field_set = [i for i in range(field_probabilities.shape[0])]
+    return generator.choice(field_set, p=field_probabilities, size=(ncells,))
+    
+def _build_cells(N, ctype, module, start_gid=1):
 
-            if feature_ctypes[ctype] == 0:
-                cells = grid_cells
-            elif feature_ctypes[ctype] == 1:
-                cells = place_cells
-            total_fields = 0
-            for gid in cells:
-                cell = cells[gid]
-                if cell['Cell Type'] == 0:
-                    total_fields += 1
-                elif cell['Cell Type'] == 1:
-                    total_fields += cell['Field Width'].shape[0]
-            _, xy_offsets, _, _ = generate_spatial_offsets(total_fields, arena_dimension=arena_dimension, scale_factor=1.0)
-            curr_pos   = 0
-            for gid in cells:
-                cell = cells[gid]
-                if cell['Cell Type'] == 0:  
-                    cell['X Offset'] = np.array([xy_offsets[curr_pos,0]], dtype='float32')
-                    cell['Y Offset'] = np.array([xy_offsets[curr_pos,1]], dtype='float32')
-                    curr_pos += 1
-                elif cell['Cell Type'] == 1:
-                    num_fields = cell['Field Width'].shape[0]
-                    cell['X Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+num_fields,0], dtype='float32')
-                    cell['Y Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+num_fields,1], dtype='float32')
-                    curr_pos += num_fields
-    return grid_cells, place_cells
+    cells = {}
+    if ctype == 'place':
+        nfields      = acquire_fields_per_cell(N, context.field_probabilities, context.field_random)
+        total_fields = np.sum(nfields)
+    elif ctype == 'grid':
+        nfields      = np.ones((N,), dtype='uint8')
+        total_fields = N
+
+    gid = start_gid
+    for i in xrange(N):
+        if ctype == 'grid':
+            cells[gid]= _instantiate_grid_cell(gid, module, nfields[i])
+        elif ctype == 'place':
+            cells[gid] = _instantiate_place_cell(gid, module, nfields[i])
+        gid += 1
+
+    scale_factor = context.scale_factor
+    xy_offsets,_, _, _ = generate_spatial_offsets(total_fields, arena_dimension=context.arena_dimension, scale_factor=scale_factor)
+    xy_insertion_order = context.field_random.permutation(np.arange(len(xy_offsets)))
+    xy_offsets = xy_offsets[xy_insertion_order]
+
+    curr_pos = 0
+    for (i,gid) in enumerate(xrange(start_gid, gid)):
+        cell = cells[gid]
+        nf   = nfields[i]
+        if cell['Cell Type'][0] == 0 and nf > 0:  
+            cell['X Offset'] = np.array([xy_offsets[curr_pos,0]], dtype='float32')
+            cell['Y Offset'] = np.array([xy_offsets[curr_pos,1]], dtype='float32')
+        elif cell['Cell Type'][0] == 1 and nf > 0:
+            cell['X Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,0], dtype='float32')
+            cell['Y Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,1], dtype='float32')
+        curr_pos += nf
+    return cells, gid + 1
 
 def init_context():
 
-    mesh   = _generate_mesh()
-    nx, ny = mesh[0].shape[0], mesh[0].shape[1]
-    population_context = {'MPP': {'grid': [n_mpp_grid], 'place': [n_mpp_place]}, \
-                          'LPP': {'grid': [n_lpp_grid], 'place': [n_lpp_place]}}
-    grid_cells, place_cells = _build_cells(population_context, context.module, (nx, ny))
-    context.update(locals())
+    local_random = random.Random()
+    local_random.seed(context.local_seed)
 
-def _generate_mesh(scale_factor=1.0, arena_dimension=arena_dimension, resolution=resolution):
+    feature_type_random = np.random.RandomState(context.local_seed)
+    field_random = np.random.RandomState(context.local_seed)
+    field_probabilities = None
+    
+    nmodules           = 10
+    modules            = np.arange(nmodules)
+    grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
+    field_width_params = [35.0, 0.32]
+    field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
+    max_field_width    = field_width(1.)
+    feature_ctypes     = {'grid': 0, 'place': 1}
+    arena_dimension    = 100.
+    resolution         = 5.
+    module_width       = field_width( float(context.module) / np.max(modules))
+    scale_factor       = 1. + (module_width * np.cos(np.pi/4) / arena_dimension)
+
+    mesh   = _generate_mesh(resolution=resolution)
+    nx, ny = mesh[0].shape[0], mesh[0].shape[1]
+    grid_cells, place_cells = {}, {}
+    place_gid_start = None
+    context.update(locals())
+    context.grid_cells, context.place_gid_start  = _build_cells(context.num_grid, 'grid', context.module)
+    _calculate_rate_maps(context.grid_cells, context)
+
+
+def _generate_mesh(scale_factor=1.0, arena_dimension=100., resolution=5.):
     arena_x_bounds = [-arena_dimension * scale_factor / 2., arena_dimension * scale_factor / 2.]
     arena_y_bounds = [-arena_dimension * scale_factor / 2., arena_dimension * scale_factor / 2.]
     arena_x        = np.arange(arena_x_bounds[0], arena_x_bounds[1], resolution)
@@ -150,7 +139,7 @@ def _generate_mesh(scale_factor=1.0, arena_dimension=arena_dimension, resolution
 
 @click.command()
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), 
-               default="../config/optimize_DG_PP_config.yaml")
+               default="../config/optimize_DG_PP_config_3.yaml")
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=True, dir_okay=True), default=None)
 @click.option("--export", is_flag=True, default=False)
 @click.option("--export-file-path", type=str, default=None)
@@ -168,49 +157,55 @@ def main(config_file_path, output_dir, export, export_file_path, label, run_test
         print('... config interactive complete...')
  
     if run_tests:
-        tests()
+        tests(plot=True)
 
-def tests():
-    from plot_DG_PP_features import plot_rate_maps, plot_xy_offsets, \
-                                    plot_fraction_active_map, plot_rate_histogram
-    cells = get_cell_types_from_context(context)
-    kwargs = {'ctype': context.cell_type, 'module': context.module, \
+def tests(plot=False):
+    report_cost(context)
+
+    place_cells = context.place_cells
+    grid_cells  = context.grid_cells
+    kwargs = {'ctype': 'place', 'module': context.module, \
               'target': context.fraction_active_target, 'nbins': 40}
 
-    report_cost(context)
+    plot_group(place_cells, plot=plot, **kwargs)
+    kwargs['ctype'] = 'grid'
+    plot_group(grid_cells, plot=plot, **kwargs)
+
+def plot_group(cells, plot=False, **kwargs):
+    from plot_DG_PP_features import plot_rate_maps, plot_xy_offsets, \
+                                    plot_fraction_active_map, plot_rate_histogram
     plot_rate_maps(cells, plot=False, save=True, **kwargs)
     plot_xy_offsets(cells,plot=False,save=True, **kwargs)
     plot_fraction_active_map(cells,'_fraction_active', plot=False,save=True, **kwargs)
-    plot_rate_histogram(cells, plot=True, save=True, **kwargs)
+    plot_rate_histogram(cells, plot=plot, save=True, **kwargs)
 
 def report_cost(context):
     x0 = context.x0_array
     features = calculate_features(x0)
     _, objectives = get_objectives(features)
 
-    print('Scale factor: %f' % x0[0])
-    if len(x0) > 1:
-        print('xt1: %f' % x0[1])
-        print('xt2: %f' % x0[2])
-        print('gain: %f' % x0[3])
-        print('Module: %d' % context.module)
+    grid_fa = np.mean(_fraction_active(context.grid_cells).values())
+
+    print('probability inactive: %f' % x0[0])
+    print('pr: %0.4f' % x0[1])
+    print(calculate_field_distribution(x0[0], x0[1]))
+    print('Module: %d' % context.module)
+    print('Place population fraction active: %f' % features['fraction active'])
+    print('Grid population fraction active: %f' % grid_fa)
+    #print('Total population fraction active: %f' % pop_fa)
+
+    for feature in features.keys():
+        if feature in context.feature_names:
+            print('Feature: %s has value %f' % (feature, features[feature]))
     for objective in objectives.keys():
         print('Objective: %s has cost %f' % (objective, objectives[objective]))
 
-def config_controller(export_file_path, output_dir, **kwargs):
-    context.update(locals())
-    context.update(kwargs)
-    init_context()
+def config_worker():
 
-
-def config_worker(update_context_funs, param_names, default_params, feature_names, objective_names, target_val, target_range, temp_output_path, export_file_path, output_dir, disp, **kwargs):
-
-    context.update(locals())
-    context.update(kwargs)
     if 'module' not in context():
         raise Exception('Optimization cannot proceed unless it has been given a module')
-    if 'cell_type' not in context():
-        raise Exception('Optimization cannot proceed unless a cell type has been specified')
+    if 'num_grid' not in context() or 'num_place' not in context():
+        raise Exception('Place and grid cell counts must be defined prior to optimization')
     init_context()
     
 def get_cell_types_from_context(context):
@@ -225,14 +220,13 @@ def get_cell_types_from_context(context):
 
 def calculate_features(parameters, export=False):
     update_source_contexts(parameters, context)
-    cells    = get_cell_types_from_context(context)
+    cells    = context.place_cells
     features = {}
 
-    minmax_eval     = _peak_to_trough(cells)
     fraction_active = _fraction_active(cells) 
+    c_variation     = _coefficient_of_variation(cells)
 
-    features['minmax sum eval'] = minmax_eval[0]
-    features['minmax var eval'] = minmax_eval[1]
+    features['coefficient of variation'] = c_variation
     features['fraction active population'] = fraction_active
     features['fraction active'] = np.mean(fraction_active.values())
     return features
@@ -244,8 +238,13 @@ def get_objectives(features):
             raise Exception('Feature %s could not be found' % feature)
 
     objectives = {}
-    objectives['minmax sum error'] = ((features['minmax sum eval'] - context.target_val['minmax sum error']) / context.target_range['minmax sum error']) ** 2
-    objectives['minmax var error'] = ((features['minmax var eval'] - context.target_val['minmax var error']) / context.target_range['minmax var error']) ** 2
+
+    if features['coefficient of variation'] <= context.target_val['variation error']:
+        objectives['variation error'] = 0.0
+    else:
+        objectives['variation error'] = ((features['coefficient of variation'] - context.target_val['variation error']) / context.target_range['variation error']) ** 2
+
+
     fraction_active  = features['fraction active population']
     diff_frac_active = {(i,j): np.abs(fraction_active[(i,j)] - context.fraction_active_target) \
                         for (i,j) in fraction_active.keys()}
@@ -257,6 +256,21 @@ def get_objectives(features):
 
     return features, objectives
 
+def _coefficient_of_variation(cells, eps=1.0e-6):
+    rate_maps = []
+    for gid in cells:
+        cell     = cells[gid]
+        nx, ny   = cell['Nx'][0], cell['Ny'][0]
+        rate_map = cell['Rate Map'].reshape(nx, ny)
+        rate_maps.append(rate_map)
+    rate_maps  = np.asarray(rate_maps, dtype='float32')
+    summed_map = np.sum(rate_maps, axis=0)
+    
+    mean = np.mean(summed_map)
+    std  = np.std(summed_map)
+    cov  = np.divide(std, mean + eps)
+    return cov
+
 def _peak_to_trough(cells):
     rate_maps = []
     for gid in cells:
@@ -267,8 +281,10 @@ def _peak_to_trough(cells):
     rate_maps  = np.asarray(rate_maps, dtype='float32')
     summed_map = np.sum(rate_maps, axis=0)
     var_map    = np.var(rate_maps, axis=0)
-    minmax_eval = np.divide(float(np.max(summed_map)), float(np.min(summed_map)))
-    var_eval    = np.divide(float(np.max(var_map)), float(np.min(var_map)))
+    #minmax_eval = np.divide(float(np.max(summed_map)), float(np.min(summed_map)))
+    #var_eval    = np.divide(float(np.max(var_map)), float(np.min(var_map)))
+    minmax_eval = 0.0
+    var_eval    = 0.0
     return minmax_eval, var_eval 
 
 def _fraction_active(cells):
@@ -290,56 +306,57 @@ def _calculate_fraction_active(rates):
     num_active = len(np.where(rates > context.active_threshold)[0])
     fraction_active = np.divide(float(num_active), float(N))
     return fraction_active    
-    
-    
-def _calculate_rate_maps(x, context):
-    cells        = get_cell_types_from_context(context)
-    xp, yp       = context.mesh
-    scale_factor = x[0]
 
+def calculate_field_distribution(pi, pr):
+    p1 = (1. - pi) / (1. + (7./4.) * pr)
+    p2 = p1 * pr
+    p3 = 0.5 * p2
+    p4 = 0.5 * p3
+    probabilities = np.array([pi, p1, p2, p3, p4], dtype='float32')
+    assert( np.abs(np.sum(probabilities) - 1.) < 1.e-5)
+    return probabilities 
+
+
+def update(x, context):
+    context.local_random = random.Random()
+    context.local_random.seed(context.local_seed)
+    context.field_random = np.random.RandomState(context.local_seed)
+   
+    p_inactive     = x[0] 
+    p_r            = x[1]
+    context.field_probabilities = calculate_field_distribution(p_inactive, p_r)
+    context.place_cells, _ = _build_cells(context.num_place, 'place', context.module, start_gid=context.place_gid_start)
+    _calculate_rate_maps(context.place_cells, context)
+
+def merge_cells():
+    z = context.grid_cells.copy()
+    return z.update(context.place_cells.copy())
+    
+def _calculate_rate_maps(cells, context):
+    xp, yp       = context.mesh
     ratemap_kwargs = dict()
-    if len(x) > 1:
-        ratemap_kwargs['xt1']  = x[1]
-        ratemap_kwargs['xt2']  = x[2]
-        ratemap_kwargs['gain'] = x[3]
+    ratemap_kwargs['a'] = context.a
+    ratemap_kwargs['b'] = context.b
+    ratemap_kwargs['c'] = context.c
     
     for gid in cells:
         cell  = cells[gid]
-        ctype = cell['Cell Type']
+        if cell['Num Fields'][0] > 0:
+            ctype = cell['Cell Type'][0]
 
-        if ctype == 0: # Grid
-            orientation = cell['Grid Orientation']
-            spacing     = cell['Grid Spacing']
-        elif ctype == 1: # Place
-            spacing     = cell['Field Width']
-            orientation = [0.0 for _ in range(len(spacing))]
+            if ctype == 0: # Grid
+                orientation = cell['Grid Orientation']
+                spacing     = cell['Grid Spacing']
+            elif ctype == 1: # Place
+                spacing     = cell['Field Width']
+                orientation = [0.0 for _ in range(len(spacing))]
+ 
 
-        xf, yf    = cell['X Offset'], cell['Y Offset']
-        xf_scaled = cell['X Offset'] * scale_factor
-        yf_scaled = cell['Y Offset'] * scale_factor
-        cell['X Offset Scaled'] = np.asarray(xf_scaled, dtype='float32')
-        cell['Y Offset Scaled'] = np.asarray(yf_scaled, dtype='float32')
-        rate_map = generate_spatial_ratemap(ctype, cell, None, xp, yp, context.grid_peak_rate, \
-                                            context.place_peak_rate, None, **ratemap_kwargs)
-            #rate_map += _rate_map(xp, yp, spacing[n], orientation[n], xf_scaled[n], yf_scaled[n], ctype)
-        cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
-
-def _rate_map(xp, yp, spacing, orientation, x_offset, y_offset, ctype):    
-    if ctype == 1:
-        rate_map = context.place_peak_rate *  np.exp(-((xp - x_offset) / (spacing / 3. / np.sqrt(2.))) ** 2.) * \
-        np.exp(-((yp - y_offset) / (spacing / 3. / np.sqrt(2.))) ** 2.)
-    elif ctype == 0:
-        theta_k   = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
-        inner_sum = np.zeros(xp.shape)
-        for theta in theta_k:
-            inner_sum += np.cos( ((4 * np.pi) / (np.sqrt(3.) * spacing)) * ( np.cos(theta - orientation) * (xp - x_offset) + np.sin(theta - orientation) * (yp - y_offset) ) )
-    
-        transfer = lambda z: np.exp(0.3 * (z - (-1.5))) - 1.
-        rate_map = context.grid_peak_rate * transfer(inner_sum) / transfer(3.)
-    else:
-        raise Exception('Could not find proper cell type')
-    return rate_map    
-   
+            rate_map = generate_spatial_ratemap(ctype, cell, None, xp, yp, context.grid_peak_rate, \
+                                                context.place_peak_rate, None, **ratemap_kwargs)
+            cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
+        else:
+            cell['Rate Map'] = np.zeros( (cell['Nx'][0] * cell['Ny'][0],) ).astype('float32')
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
