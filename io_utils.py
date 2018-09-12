@@ -182,7 +182,7 @@ def vout(env, output_path, t_vec, v_dict):
     :param v_dict:
     :return:
     """
-    if not str(env.resultsId):
+    if env.resultsId is None:
         namespace_id = "Intracellular Voltage"
     else:
         namespace_id = "Intracellular Voltage %s" % str(env.resultsId)

@@ -1,11 +1,10 @@
 
-import sys, gc
+import sys, os
 from mpi4py import MPI
 import click
 import dentate
 from dentate import utils, plot
 
-script_name = 'plot_state.py'
 
 @click.command()
 @click.option("--state-path", '-p', required=True, type=click.Path())
@@ -21,6 +20,9 @@ script_name = 'plot_state.py'
 @click.option("--query", "-q", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(state_path, state_namespace, populations, max_units, unit_no, t_variable, variable, t_max, t_min, font_size, query, verbose):
+
+    utils.config_logging(verbose)
+
     if t_max is None:
         timeRange = None
     else:
@@ -40,11 +42,11 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
     plot.plot_intracellular_state (state_path, state_namespace, include=populations, timeRange=timeRange,
                                    timeVariable=t_variable, variable=variable,
                                    maxUnits=max_units, unitNo=unit_no,
-                                   fontSize=font_size, saveFig=True, query=query, verbose=verbose)
+                                   fontSize=font_size, saveFig=True, query=query)
+    
+
+
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
-
-
-    
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
