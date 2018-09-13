@@ -41,7 +41,7 @@ sys.excepthook = mpi_excepthook
               default='config', help='path to directory containing network and cell mechanism config files')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
                   help='path to directory where output files will be written')
-@click.option("--results-id", type=str, required=False, default='',
+@click.option("--results-id", type=str, required=False, default=None,
                   help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='name of file specifying assignment of cell gids to MPI ranks')

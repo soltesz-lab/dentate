@@ -1,60 +1,50 @@
 bounds:
-  scale_factor: !!python/tuple
+  prob_inactive: !!python/tuple
+  - 0.0
   - 1.0
-  - 100.0
-  distance_threshold_init: !!python/tuple
-  - 1.0
-  - 2.5
-  distance_threshold_saturation: !!python/tuple
-  - 3.0
-  - 10.0
-  distance_gain: !!python/tuple
-  - 0.5
-  - 5.0
-  
+  pr: !!python/tuple
+  - 0.0
+  - 0.67
 feature_names:
-- minmax sum eval
-- minmax var eval
 - fraction active
+- coefficient of variation
 update_context:
-- - generate_DG_PP_features_v3
-  - _calculate_rate_maps
+- - optimize_DG_PP_features
+  - update
 get_features_stages:
-- source: generate_DG_PP_features_v3
+- source: optimize_DG_PP_features
   compute_features: calculate_features
 get_objectives:
-  generate_DG_PP_features_v3: get_objectives
+  optimize_DG_PP_features: get_objectives
 kwargs:
-  module: 0
-  fraction_active_target: 0.15
-  cell_type: grid
-  active_threshold: 1.0
+  num_grid: 1140
+  num_place: 2660
+  module: 1
+  local_seed: 64
+  fraction_active_target: 0.05
+  active_threshold: 2.0
   grid_peak_rate: 20.0
   place_peak_rate: 20.0
+  a: 0.70
+  b: -1.5
+  c: 0.90
 objective_names:
-- minmax sum error
-- minmax var error
+- variation error
 - fraction active mean error
 - fraction active var error
-optimization_title: generate_DG_PP_features
+optimization_title: optimize_DG_PP_features
 param_gen: PopulationAnnealing
 param_names:
-- scale_factor
-- distance_threshold_init
-- distance_threshold_saturation
-- distance_gain
+- prob_inactive
+- pr
 target_range:
-  minmax sum error: 0.05
-  minmax var error: 0.05
+  variation error: 0.05
   fraction active mean error: 0.01
   fraction active var error: 0.05
 target_val:
-  minmax sum error: 1.0
-  minmax var error: 1.0 
+  variation error:  0.10
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  scale_factor: 27.0
-  distance_threshold_init: 1.75
-  distance_threshold_saturation: 6.5
-  distance_gain: 2.5
+  prob_inactive: 0.50
+  pr: 0.34
