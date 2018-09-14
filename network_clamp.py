@@ -51,36 +51,6 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
 
 
 
-def add_rec(recid, population, cell, sec, dt=h.dt, loc=None, param='v', description=''):
-        """
-        Adds a recording vector for the specified quantity in the specified section and location.
-
-        :param recid: integer
-        :param population: str
-        :param cell: :class:'BiophysCell'
-        :param sec: :class:'HocObject'
-        :param dt: float
-        :param loc: float
-        :param param: str
-        :param ylabel: str
-        :param description: str
-        """
-        vec = h.Vector()
-        name = 'rec%i' % recid
-        if loc is None:
-           loc = 0.5
-        vec.record(getattr(sec(loc), '_ref_%s' % param), dt)
-        rec_dict = { 'name': name,
-                     'cell': cell,
-                     'population': population,
-                     'loc': loc,
-                     'sec': sec,
-                     'description': description,
-                     'vec': vec
-                    }
-                
-        return rec_dict
-
 
 def register_cell(env, population, gid, cell):
     """
@@ -134,13 +104,12 @@ def init_cell(env, pop_name, gid, load_edges=True):
     cell = load_cell(env, pop_name, gid, mech_file=mech_file, correct_for_spines=correct_for_spines_flag, load_edges=load_edges)
     register_cell(env, pop_name, gid, cell)
 
-    recs = []
-    recs.append(add_rec(0, pop_name, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording'))
+    env.recs_dict[0] = make_rec(0, pop_name, gid, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording')
      
     if env.verbose:
         report_topology(cell, env)
 
-    return cell, recs
+    return cell
 
     
 def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
@@ -174,7 +143,7 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell, recs = init_cell(env, pop_name, gid)
+    cell = init_cell(env, pop_name, gid)
 
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events (spike_events_path, \
@@ -239,17 +208,15 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
     h.stdinit()
     h.finitialize(env.v_init)
 
-    return recs
 
 
-def run(env, recs, output=True):
+def run(env, output=True):
     """
     Runs network clamp simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
     argument.
 
     :param env:
-    :param recs:
     :param output: bool
 
     """
@@ -268,14 +235,14 @@ def run(env, recs, output=True):
         logger.info("*** Simulation completed")
     del env.cells
     env.pc.barrier()
+
     if output:
         if rank == 0:
             logger.info("*** Writing spike data")
-        io_utils.spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+        io_utils.spikeout(env, env.resultsFilePath)
         if rank == 0:
             logger.info("*** Writing intracellular data")
-        t_vec = np.arange(0, env.tstop+h.dt, h.dt, dtype=np.float32)
-        io_utils.recsout(env, env.resultsFilePath, np.array(t_vec, dtype=np.float32), recs)
+        io_utils.recsout(env, env.resultsFilePath)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
@@ -363,10 +330,10 @@ def main(config_file, population, gid, tstop, template_paths, dataset_prefix, co
                   resultsId=results_id, verbose=verbose)
     configure_hoc_env(env)
 
-    recs = init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
-                t_var='t', t_min=None, t_max=None, spike_generator_dict={})
+    init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
+             t_var='t', t_min=None, t_max=None, spike_generator_dict={})
 
-    run(env, recs)
+    run(env)
     
     
 

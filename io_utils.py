@@ -126,16 +126,18 @@ def mkout(env, results_filename):
     dataFile.close()
     resultsFile.close()
 
-def spikeout(env, output_path, t_vec, id_vec):
+def spikeout(env, output_path):
     """
     Writes spike time to specified NeuroH5 output file.
 
     :param env:
     :param output_path:
-    :param t_vec:
-    :param id_vec:
     :return:
     """
+
+    t_vec = np.array(env.t_vec, dtype=np.float32)
+    id_vec = np.array(env.id_vec, dtype=np.uint32)
+
     binlst  = []
     typelst = list(env.celltypes.keys())
     for k in typelst:
@@ -171,29 +173,8 @@ def spikeout(env, output_path, t_vec, id_vec):
         write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
         del(spkdict)
 
-        
-def vout(env, output_path, t_vec, v_dict):
-    """
-    Writes intracellular voltage traces to specified NeuroH5 output file.
 
-    :param env:
-    :param output_path:
-    :param t_vec:
-    :param v_dict:
-    :return:
-    """
-    if env.resultsId is None:
-        namespace_id = "Intracellular Voltage"
-    else:
-        namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
-
-    for pop_name, gid_v_dict in viewitems(v_dict):
-        attr_dict  = {gid: {'v': np.array(vs, dtype=np.float32), 't': t_vec}
-                      for (gid, vs) in viewitems(gid_v_dict)}
-        write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
-
-
-def recsout(env, output_path, t_vec, recs):
+def recsout(env, output_path):
     """
     Writes intracellular voltage traces to specified NeuroH5 output file.
 
@@ -207,17 +188,19 @@ def recsout(env, output_path, t_vec, recs):
     else:
         namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
 
+    t_vec = np.arange(0, env.tstop+env.dt, env.dt, dtype=np.float32)
+    
     attr_dict = defaultdict(lambda: {})
-    for rec in  recs:
-        gid = rec['cell'].gid
+    for _, rec in viewitems(env.recs_dict):
         pop_name = rec['population']
+        gid = rec['gid']
         attr_dict[pop_name][gid] = {'v': np.array(rec['vec'], dtype=np.float32), 't': t_vec} 
 
     for pop_name in attr_dict.keys():
         write_cell_attributes(output_path, pop_name, attr_dict[pop_name], namespace=namespace_id, comm=env.comm)
 
 
-def lfpout(env, output_path, lfp):
+def lfpout(env, output_path):
     """
     Writes local field potential voltage traces to specified HDF5 output file.
 
@@ -226,13 +209,16 @@ def lfpout(env, output_path, lfp):
     :param lfp:
     :return:
     """
-    namespace_id = "Local Field Potential %s" % str(lfp.label)
-    import h5py
-    output = h5py.File(output_path)
 
-    grp = output.create_group(namespace_id)
+    for lfp in env.lfp.values():
 
-    grp['t'] = np.asarray(lfp.t, dtype=np.float32)
-    grp['v'] = np.asarray(lfp.meanlfp, dtype=np.float32)
-
-    output.close()
+        namespace_id = "Local Field Potential %s" % str(lfp.label)
+        import h5py
+        output = h5py.File(output_path)
+        
+        grp = output.create_group(namespace_id)
+        
+        grp['t'] = np.asarray(lfp.t, dtype=np.float32)
+        grp['v'] = np.asarray(lfp.meanlfp, dtype=np.float32)
+        
+        output.close()

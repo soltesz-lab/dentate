@@ -1423,7 +1423,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
                                            timeVariable=timeVariable, timeRange=timeRange)
     indata  = statedata.read_state (input_path, [popName], intracellular_namespace, timeVariable=timeVariable, \
                                     variable=intracellularVariable, timeRange=timeRange, unitNo = [unitNo])
-    
+
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
     spktlst          = spkdata['spktlst']

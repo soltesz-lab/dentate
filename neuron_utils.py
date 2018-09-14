@@ -148,3 +148,35 @@ def configure_hoc_env(env):
     h.tstop = env.tstop
 
 
+
+def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', description=''):
+        """
+        Makes a recording vector for the specified quantity in the specified section and location.
+
+        :param recid: integer
+        :param population: str
+        :param gid: integer
+        :param cell: :class:'BiophysCell'
+        :param sec: :class:'HocObject'
+        :param dt: float
+        :param loc: float
+        :param param: str
+        :param ylabel: str
+        :param description: str
+        """
+        vec = h.Vector()
+        name = 'rec%i' % recid
+        if loc is None:
+           loc = 0.5
+        vec.record(getattr(sec(loc), '_ref_%s' % param), dt)
+        rec_dict = { 'name': name,
+                     'gid': gid,
+                     'cell': cell,
+                     'population': population,
+                     'loc': loc,
+                     'sec': sec,
+                     'description': description,
+                     'vec': vec
+                    }
+                
+        return rec_dict
