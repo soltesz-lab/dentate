@@ -1,7 +1,6 @@
 
 import sys, os, time, gc, click, logging
 from collections import defaultdict
-from itertools import zip_longest
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
@@ -89,7 +88,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
                                                         comm=comm))
 
     weights_dict = {}
-    for itercount, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
+    for itercount, attr_gen_package in enumerate(utils.zip_longest(*connection_gen_list)):
         local_time = time.time()
         source_syn_map = defaultdict(list)
         source_weights = None
