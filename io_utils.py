@@ -191,10 +191,10 @@ def recsout(env, output_path):
     t_vec = np.arange(0, env.tstop+env.dt, env.dt, dtype=np.float32)
     
     attr_dict = defaultdict(lambda: {})
-    for _, rec in viewitems(env.recs_dict):
-        pop_name = rec['population']
-        gid = rec['gid']
-        attr_dict[pop_name][gid] = {'v': np.array(rec['vec'], dtype=np.float32), 't': t_vec} 
+    for pop_name, rec_dict in viewitems(env.recs_dict):
+        for _, rec in viewitems(rec_dict):
+            gid = rec['gid']
+            attr_dict[pop_name][gid] = {'v': np.array(rec['vec'], dtype=np.float32), 't': t_vec} 
 
     for pop_name in attr_dict.keys():
         write_cell_attributes(output_path, pop_name, attr_dict[pop_name], namespace=namespace_id, comm=env.comm)

@@ -600,8 +600,8 @@ def make_cells(env):
                 # Record voltages from a subset of cells
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
-                                                      dt=env.dt, loc=0.5, param='v', description='Soma V')
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
 
 
 
@@ -701,8 +701,8 @@ def make_cell_selection(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
-                                                      dt=env.dt, loc=0.5, param='v', description='Soma V')
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
 
                 i = i + 1
             if rank == 0:
@@ -741,8 +741,8 @@ def make_cell_selection(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
-                                                      dt=env.dt, loc=0.5, param='v', description='Soma V')
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
 
                 i = i + 1
         h.define_shape()

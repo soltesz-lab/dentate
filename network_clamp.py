@@ -104,7 +104,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
     cell = load_cell(env, pop_name, gid, mech_file=mech_file, correct_for_spines=correct_for_spines_flag, load_edges=load_edges)
     register_cell(env, pop_name, gid, cell)
 
-    env.recs_dict[0] = make_rec(0, pop_name, gid, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording')
+    env.recs_dict[pop_name][0] = make_rec(0, pop_name, gid, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording')
      
     if env.verbose:
         report_topology(cell, env)
