@@ -1478,7 +1478,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
         
     elif spikeHist == 'subplot':
 
-        gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+        gs = gridspec.GridSpec(3, 1, height_ratios=[2,1,1])
         ax1=plt.subplot(gs[0])
         
         for (pop_name, pop_spkinds, pop_spkts) in zip (spkpoplst, spkindlst, spktlst):
@@ -1535,16 +1535,16 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             ax2.set_xlim(timeRange)
 
         # Plot intracellular state
-        ax2=plt.subplot(gs[1])
-        ax2.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax2.set_ylabel(intracellularVariable, fontsize=fontSize)
-        ax2.set_xlim(timeRange)
+        ax3=plt.subplot(gs[2])
+        ax3.set_xlabel('Time (ms)', fontsize=fontSize)
+        ax3.set_ylabel(intracellularVariable, fontsize=fontSize)
+        ax3.set_xlim(timeRange)
 
         states = indata['states']
         stplots = []
         for (pop_name, pop_states) in viewitems(states):
             for (gid, cell_states) in viewitems(pop_states):
-                stplots.append(ax2.plot(cell_states[0], cell_states[1], linewidth=lw, marker=marker, alpha=0.5, label=pop_name))
+                stplots.append(ax3.plot(cell_states[0], cell_states[1], linewidth=lw, marker=marker, alpha=0.5, label=pop_name))
             
         if orderInverse:
             plt.gca().invert_yaxis()

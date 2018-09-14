@@ -166,11 +166,12 @@ def viewitems(obj, **kwargs):
         func = obj.items
     return func(**kwargs)    
 
+
 def zip_longest(*args, **kwds):
     if hasattr(itertools, 'izip_longest'):
-        itertools.izip_longest(*args, **kwds)
+        return itertools.izip_longest(*args, **kwds)
     else:
-        itertools.zip_longest(*args, **kwds)
+        return itertools.zip_longest(*args, **kwds)
 
     
 def make_geometric_graph(x, y, z, edges):
