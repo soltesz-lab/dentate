@@ -919,7 +919,7 @@ def run(env, output=True):
         if rank == 0:
             logger.info("*** Writing local field potential data")
             for lfp in env.lfp.values():
-                lfpout(env, env.resultsFilePath, lfp)
+                io_utils.lfpout(env, env.resultsFilePath, lfp)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
