@@ -1079,6 +1079,50 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
+def plot_lfp(config, input_path, timeRange = None, lw = 3, marker = ',', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+    env = Env(configFile=config)
+
+    fig = plt.figure(figsize=figSize)
+    ax = plt.gca()
+
+    for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
+        namespace_id = "Local Field Potential %s" % str(lfp_label)
+        import h5py
+        infile = h5py.File(input_path)
+
+        if timeRange is None:
+            t = infile[namespace_id]['t']
+            v = infile[namespace_id]['v']
+        else:
+            tlst = []
+            vlst = []
+            for (t,v) in zip(infile[namespace_id]['t'], infile[namespace_id]['v']):
+                if timeRange[0] <= t <= timeRange[1]:
+                    tlst.append(t)
+                    vlst.append(v)
+            t = np.asarray(tlst)
+            v = np.asarray(vlst)
+        
+        ax.plot(t, v, label=lfp_label)
+        
+        ax.set_xlabel('Time (ms)', fontsize=fontSize)
+        ax.set_ylabel('Field Potential (mV)', fontsize=fontSize)
+
+    # save figure
+    if saveFig: 
+        if isinstance(saveFig, str):
+            filename = saveFig
+        else:
+            filename = namespace_id+'.png'
+            plt.savefig(filename)
+                
+    # show fig 
+    if showFig:
+        show_figure()
+
+        
+
+
 ## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', variable='v', maxUnits = 1, unitNo = None,
                               orderInverse = False, labels = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
@@ -1380,7 +1424,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 ## Plot netclamp results (intracellular trace of target cell + spike raster of presynaptic inputs)
 def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unitNo, include='eachPop', timeRange = None, timeVariable='t',
                         intracellularVariable='v', orderInverse = False, labels = 'legend', spikeHist = None, spikeHistBin = 5,
-                        lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
+                        lw = 3, marker = ',', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
     ''' 
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
 

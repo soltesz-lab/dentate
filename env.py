@@ -72,6 +72,8 @@ class Env:
             self.comm = comm
         if comm is not None:
             self.pc = h.ParallelContext()
+        else:
+            self.pc = None
 
         # print verbose diagnostic messages
         self.verbose = verbose
@@ -242,8 +244,9 @@ class Env:
         self.syns_set = defaultdict(set)
 
         # stimulus cell templates
-        find_template(self, 'StimCell', self.templatePaths)
-        find_template(self, 'VecStimCell', self.templatePaths)
+        if len(self.templatePaths) > 0:
+            find_template(self, 'StimCell', self.templatePaths)
+            find_template(self, 'VecStimCell', self.templatePaths)
 
         if self.hoclibPath:
             # polymorphic hoc value template
