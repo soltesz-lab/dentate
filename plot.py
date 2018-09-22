@@ -1237,7 +1237,7 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
 
 ## Plot spike raster
 def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', maxSpikes = int(1e6),
-                       orderInverse = False, labels = 'legend', popRates = False,
+                       orderInverse = False, labels = 'legend', popRates = True,
                        spikeHist = None, spikeHistBin = 5, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
                        showFig = True): 
     ''' 
