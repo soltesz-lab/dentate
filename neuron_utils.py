@@ -112,19 +112,22 @@ def find_template(env, template_name, path=['templates'], root=0):
     found = False
     foundv = h.Vector(1)
     template_path = ''
-    pc.barrier()
-    if int(pc.id()) == root:
+    if pc is not None:
+        pc.barrier()
+    if (pc is None) or (int(pc.id()) == root):
         for template_dir in path:
             template_path = '%s/%s.hoc' % (template_dir, template_name)
             found = os.path.isfile(template_path)
             if found:
                 break
         foundv.x[0] = 1 if found else 0
-    pc.barrier()
-    pc.broadcast(foundv, root)
+    if pc is not None:
+        pc.barrier()
+        pc.broadcast(foundv, root)
     if foundv.x[0] > 0.0:
         s = h.ref(template_path)
-        pc.broadcast(s, root)
+        if pc is not None:
+            pc.broadcast(s, root)
         h.load_file(s)
     else:
         raise Exception('find_template: template not found: %s; path is %s' % (template_name, str(path)))
