@@ -165,12 +165,12 @@ Synapses:
           tau1:  0.1
           tau2: 10.0
           e:   -75
-          weight: 0.00015
+          weight: 0.0002
         GABA_B:
           tau1:  50.0
           tau2: 200.0
           e:   -90
-          weight: 0.0001
+          weight: 0.00015
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -181,7 +181,7 @@ Synapses:
           tau1:  0.1
           tau2: 10.0
           e:   -75
-          weight: 0.00015
+          weight: 0.0002
   MC:
     GC:   
       type: excitatory
