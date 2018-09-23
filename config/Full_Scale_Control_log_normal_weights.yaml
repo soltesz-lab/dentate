@@ -13,8 +13,7 @@ Input: !include Input.yaml
 Cell Types:
   GC:
     template: DGC
-    templateFile: DGC_Template_minimal.hoc
-    mech_file_path: 20180529_DG_GC_mech.yaml
+    templateFile: DGC.hoc
     synapses:
       correct_for_spines: True
       weights: True
