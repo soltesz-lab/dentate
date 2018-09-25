@@ -525,7 +525,7 @@ def connect_gjs(env):
                         if rank == 0:
                             logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                         'sgid = %d dgid = %d\n' %
-                                        (rank, src, srcsec, srcwgt, ggid, ggid+1))
+                                        (rank, src, srcsec, wgt, ggid, ggid+1))
                         cell = env.pc.gid2cell(src)
                         gj = mkgap(env, cell, src, srcpos, srcsec, ggid, ggid+1, wgt)
                         env.gjlist.append(gj)
@@ -533,7 +533,7 @@ def connect_gjs(env):
                         if rank == 0:
                            logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                        'sgid = %d dgid = %d\n' %
-                                       (rank, dst, dstsec, dstwgt, ggid+1, ggid))
+                                       (rank, dst, dstsec, wgt, ggid+1, ggid))
                         cell = env.pc.gid2cell(dst)
                         gj = mkgap(env, cell, dst, dstpos, dstsec, ggid+1, ggid, wgt)
                         env.gjlist.append(gj)
