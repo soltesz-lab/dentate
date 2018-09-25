@@ -386,13 +386,23 @@ def save_to_h5():
 
     for gid in gid_attributes:
         cell = gid_attributes[gid]
+
         if cell['Cell Type'][0] == feature_grid:
             mpp_grid_cells[gid] = cell
-        elif cell['Cell Type'][0] == feature_MPP:
+        elif cell['Cell Type'][0] == feature_place:
             if cell['Population'][0] == feature_LPP:
                 lpp_place_cells[gid] = cell
             elif cell['Population'][0] == feature_MPP:
                 mpp_place_cells[gid] = cell    
+
+    lpp_place_gid = lpp_place_cells.keys()
+    mpp_place_gid = mpp_place_cells.keys()
+    mpp_grid_gid  = mpp_grid_cells.keys()
+
+    assert(bool(set(lpp_place_gid) & set(mpp_place_gid)) == False)
+    assert(bool(set(lpp_place_gid) & set(mpp_grid_gid)) == False)
+    assert(bool(set(mpp_place_gid) & set(mpp_grid_gid)) == False)
+    
 
     append_cell_attributes(context.output_path, 'MPP', mpp_grid_cells, namespace='Grid Input Features',\
                            comm=context.comm, io_size=context.io_size, chunk_size=context.chunk_size,\
