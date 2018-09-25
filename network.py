@@ -520,15 +520,14 @@ def connect_gjs(env):
                     srcsec    = srcsecs[i]
                     dstpos    = dstposs[i]
                     dstsec    = dstsecs[i]
-                    srcwgt    = srcweights[i]
-                    dstwgt    = dstweights[i]
+                    wgt       = srcweights[i]*0.001
                     if env.pc.gid_exists(src):
                         if rank == 0:
                             logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                         'sgid = %d dgid = %d\n' %
                                         (rank, src, srcsec, srcwgt, ggid, ggid+1))
                         cell = env.pc.gid2cell(src)
-                        gj = mkgap(env, cell, src, srcpos, srcsec, ggid, ggid+1, srcwgt)
+                        gj = mkgap(env, cell, src, srcpos, srcsec, ggid, ggid+1, wgt)
                         env.gjlist.append(gj)
                     if env.pc.gid_exists(dst):
                         if rank == 0:
@@ -536,7 +535,7 @@ def connect_gjs(env):
                                        'sgid = %d dgid = %d\n' %
                                        (rank, dst, dstsec, dstwgt, ggid+1, ggid))
                         cell = env.pc.gid2cell(dst)
-                        gj = mkgap(env, cell, dst, dstpos, dstsec, ggid+1, ggid, dstwgt)
+                        gj = mkgap(env, cell, dst, dstpos, dstsec, ggid+1, ggid, wgt)
                         env.gjlist.append(gj)
                     ggid = ggid+2
 
@@ -934,6 +933,10 @@ def run(env, output=True):
         logger.info("  connected cells in %g seconds" % env.connectcellstime)
         logger.info("  created gap junctions in %g seconds" % env.connectgjstime)
         logger.info("  ran simulation in %g seconds" % comptime)
+        logger.info("  spike communication time: %g seconds" % env.pc.send_time())
+        logger.info("  event handling time: %g seconds" % env.pc.event_time())
+        logger.info("  numerical integration time: %g seconds" % env.pc.integ_time())
+        logger.info("  voltage transfer time: %g seconds" % env.pc.vtransfer_time())
         if maxcw > 0:
             logger.info("  load balance = %g" % (avgcomp/maxcw))
 
