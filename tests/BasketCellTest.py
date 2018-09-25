@@ -226,9 +226,9 @@ def gap_junction_test (env, templateClass, tree, v_init):
     ggid        = 20000000
     source      = 10422930
     destination = 10422670
-    srcbranch   = 1
-    dstbranch   = 2
     weight      = 5.4e-4
+    srcsec   = int(cell1.somaidx.x[0])
+    dstsec   = int(cell2.somaidx.x[0])
 
     stimdur     = 500
     tstop       = 2000
@@ -242,7 +242,8 @@ def gap_junction_test (env, templateClass, tree, v_init):
     nc = cell2.connect2target(h.nil)
     pc.cell(destination, nc, 1)
     soma2 = list(cell2.soma)[0]
-    stim1 = h.IClamp(soma2(0.5))
+
+    stim1 = h.IClamp(soma1(0.5))
     stim1.delay = 250
     stim1.dur = stimdur
     stim1.amp = -0.1
@@ -263,9 +264,10 @@ def gap_junction_test (env, templateClass, tree, v_init):
     h.Vlog2 = h.Vector(log_size)
     h.Vlog2.record (soma2(0.5)._ref_v)
 
+
     gjpos = 0.5
-    neuron_utils.mkgap(env, cell1, source, gjpos, srcbranch, ggid, ggid+1, weight)
-    neuron_utils.mkgap(env, cell2, destination, gjpos, dstbranch, ggid+1, ggid, weight)
+    neuron_utils.mkgap(env, cell1, source, gjpos, srcsec, ggid, ggid+1, weight)
+    neuron_utils.mkgap(env, cell2, destination, gjpos, dstsec, ggid+1, ggid, weight)
 
     pc.setup_transfer()
     pc.set_maxstep(10.0)

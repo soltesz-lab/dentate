@@ -1919,7 +1919,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
 ## Plot spike distribution per cell
 def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
-                                      overlay=True, quantity = 'rate', figSize = (15,8),
+                                      overlay=True, quantity = 'rate', graphType = 'point', figSize = (15,8),
                                       fontSize = 14, lw = 3, saveFig = None, showFig = True): 
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
@@ -1966,14 +1966,14 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 
     timeRange = [tmin, tmax]
             
-    # Y-axis label
     if quantity == 'rate':
-        yaxisLabel = 'Cell firing rate (Hz)'
+        quantityLabel = 'Cell firing rate (Hz)'
     elif quantity == 'count':
-        yaxisLabel = 'Spike count'
+        quantityLabel = 'Spike count'
     else:
         print('Invalid quantity value %s', (quantity))
         return
+
 
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
@@ -1986,10 +1986,13 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         spkinds  = spkindlst[iplot]
 
         u, counts = np.unique(spkinds, return_counts=True)
+        sorted_count_idxs = np.argsort(counts)[::-1]
         if quantity == 'rate':
-            rate_dict = spike_rates(spkinds, spkts)
-            rates = [rate_dict[ind] for ind in u]
-
+            spkdict = spikedata.make_spike_dict(spkinds, spkts)
+            rate_dict = spikedata.spike_rates(spkdict, tmax-tmin)
+            rates = np.asarray([rate_dict[ind] for ind in u if rate_dict[ind] > 0])
+            sorted_rate_idxs = np.argsort(rates)[::-1]
+            
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
@@ -1998,18 +2001,33 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
             plt.title (label, fontsize=fontSize)
             
         if quantity == 'rate':
-            y = rates
+            x = u[sorted_rate_idxs]
+            y = rates[sorted_rate_idxs]
         elif quantity == 'count':
-            y = counts
+            x = u[sorted_count_idxs]
+            y = counts[sorted_count_idxs]
+        else:
+            raise ValueError('plot_spike_distribution_per_cell: unrecognized quantity: %s' % str(quantity))
 
-        plt.plot(u,y)
+        if graphType == 'point':
+            plt.plot(x,y,'o')
+            yaxisLabel = quantityLabel
+            xaxisLabel = 'Cell index'
+        elif graphType == 'histogram':
+            histoCount, bin_edges = np.histogram(np.asarray(y), bins = 40)
+            binSize = bin_edges[1] - bin_edges[0]
+            histoX = bin_edges[:-1]+binSize/2
+            b = plt.bar(histoX, histoCount, width=binSize)
+            yaxisLabel = 'Cell count'
+            xaxisLabel = quantityLabel
+        else:
+            raise ValueError('plot_spike_distribution_per_cell: unrecognized graph type: %s' % str(graphType))
+            
         
         if iplot == 0:
             plt.ylabel(yaxisLabel, fontsize=fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('Cell index', fontsize=fontSize)
-        else:
-            plt.tick_params(labelbottom='off')
+            plt.xlabel(xaxisLabel, fontsize=fontSize)
 
 
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
