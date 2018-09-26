@@ -96,12 +96,12 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     sec = list(cell.sections)[secidx]
     seg = sec(secpos)
     gj = h.ggap(seg)
+    gj.g = w
 
     env.pc.source_var(seg._ref_v, sgid, sec=sec)
     env.pc.target_var(gj, gj._ref_vgap, dgid)
-    
-    gj.g = w
 
+    env.gjlist.append(gj)
     return gj
 
 def find_template(env, template_name, path=['templates'], root=0):

@@ -1,5 +1,5 @@
 
-import sys, gc, math
+import sys, gc, os, math
 from mpi4py import MPI
 import click
 import dentate, utils, plot
@@ -21,9 +21,7 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
                                saveFig=True, verbose=verbose)
 
 
+    
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
-
-
-    
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
