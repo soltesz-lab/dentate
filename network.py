@@ -538,7 +538,7 @@ def connect_gjs(env):
                     ggid = ggid+2
 
             del graph[name[0]][name[1]]
-
+        logger.info('host %d: created %i gap junctions' % (len(env.gjlist)))
 
 
 def make_cells(env):
