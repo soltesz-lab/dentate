@@ -533,22 +533,23 @@ def connect_gjs(env):
                         gj = mkgap(env, cell, src, srcpos, srcsec, ggid, ggid+1, wgt)
                     if env.pc.gid_exists(dst):
                         if rank == 0:
-                           logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
-                                       'sgid = %d dgid = %d\n' %
-                                       (rank, dst, dstsec, wgt, ggid+1, ggid))
+                            logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
+                                        'sgid = %d dgid = %d\n' %
+                                        (rank, dst, dstsec, wgt, ggid+1, ggid))
                         cell = env.pc.gid2cell(dst)
                         gj = mkgap(env, cell, dst, dstpos, dstsec, ggid+1, ggid, wgt)
                     ggid = ggid+2
-                    num_gj += 1
-                    if env.pc.gid_exists(src) and env.pc.gid_exists(dst):
-                        num_gj_inter += 1
-                    else:
-                        num_gj_intra += 1
+                    if env.pc.gid_exists(src) or env.pc.gid_exists(dst):
+                        num_gj += 1
+                        if env.pc.gid_exists(src) and env.pc.gid_exists(dst):
+                            num_gj_intra += 1
+                        else:
+                            num_gj_inter += 1
                         
 
             del graph[name[0]][name[1]]
         
-        logger.info('*** host %d: created total %i gap junctions: %i intraprocessor %i interprocessor' % (num_gj, num_gj_intra, num_gj_inter))
+        logger.info('*** host %d: created total %i gap junctions: %i intraprocessor %i interprocessor' % (rank, num_gj, num_gj_intra, num_gj_inter))
 
 
 def make_cells(env):
