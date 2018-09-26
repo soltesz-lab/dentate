@@ -1919,7 +1919,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
 
 ## Plot spike distribution per cell
 def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], timeVariable='t', timeRange = None, 
-                                      overlay=True, quantity = 'rate', figSize = (15,8),
+                                      overlay=True, quantity = 'rate', graphType = 'point', figSize = (15,8),
                                       fontSize = 14, lw = 3, saveFig = None, showFig = True): 
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
@@ -1966,14 +1966,14 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 
     timeRange = [tmin, tmax]
             
-    # Y-axis label
     if quantity == 'rate':
-        yaxisLabel = 'Cell firing rate (Hz)'
+        quantityLabel = 'Cell firing rate (Hz)'
     elif quantity == 'count':
-        yaxisLabel = 'Spike count'
+        quantityLabel = 'Spike count'
     else:
         print('Invalid quantity value %s', (quantity))
         return
+
 
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
@@ -1986,10 +1986,13 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         spkinds  = spkindlst[iplot]
 
         u, counts = np.unique(spkinds, return_counts=True)
+        sorted_count_idxs = np.argsort(counts)[::-1]
         if quantity == 'rate':
-            rate_dict = spike_rates(spkinds, spkts)
-            rates = [rate_dict[ind] for ind in u]
-
+            spkdict = spikedata.make_spike_dict(spkinds, spkts)
+            rate_dict = spikedata.spike_rates(spkdict, tmax-tmin)
+            rates = np.asarray([rate_dict[ind] for ind in u if rate_dict[ind] > 0])
+            sorted_rate_idxs = np.argsort(rates)[::-1]
+            
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
@@ -1998,18 +2001,33 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
             plt.title (label, fontsize=fontSize)
             
         if quantity == 'rate':
-            y = rates
+            x = u[sorted_rate_idxs]
+            y = rates[sorted_rate_idxs]
         elif quantity == 'count':
-            y = counts
+            x = u[sorted_count_idxs]
+            y = counts[sorted_count_idxs]
+        else:
+            raise ValueError('plot_spike_distribution_per_cell: unrecognized quantity: %s' % str(quantity))
 
-        plt.plot(u,y)
+        if graphType == 'point':
+            plt.plot(x,y,'o')
+            yaxisLabel = quantityLabel
+            xaxisLabel = 'Cell index'
+        elif graphType == 'histogram':
+            histoCount, bin_edges = np.histogram(np.asarray(y), bins = 40)
+            binSize = bin_edges[1] - bin_edges[0]
+            histoX = bin_edges[:-1]+binSize/2
+            b = plt.bar(histoX, histoCount, width=binSize)
+            yaxisLabel = 'Cell count'
+            xaxisLabel = quantityLabel
+        else:
+            raise ValueError('plot_spike_distribution_per_cell: unrecognized graph type: %s' % str(graphType))
+            
         
         if iplot == 0:
             plt.ylabel(yaxisLabel, fontsize=fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('Cell index', fontsize=fontSize)
-        else:
-            plt.tick_params(labelbottom='off')
+            plt.xlabel(xaxisLabel, fontsize=fontSize)
 
 
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
@@ -2621,8 +2639,12 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     M = 0
     for iplot, population in enumerate(include):
         rate_lst = []
-        logger.info('Reading vector stimulus data from namespace %s for population %s...' % (namespace_id, population ))
-        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, namespace_id, population):
+        if trajectory_id is None:
+            ns = namespace_id
+        else:
+            ns = '%s %d' % (namespace_id, trajectory_id)
+        logger.info('Reading vector stimulus data from namespace %s for population %s...' % (ns, population ))
+        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
 
@@ -2648,9 +2670,12 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
             axes.set_xlim([extent[0], extent[1]])
             axes.set_ylim(-1, N+1)    
             
-
-    axes.set_xlabel('Time (ms)', fontsize=fontSize)
-    axes.set_ylabel('Input #', fontsize=fontSize)
+    if len(include) > 1:
+        axes[0].set_xlabel('Time (ms)', fontsize=fontSize)
+        axes[0].set_ylabel('Input #', fontsize=fontSize)
+    else:
+        axes.set_xlabel('Time (ms)', fontsize=fontSize)
+        axes.set_ylabel('Input #', fontsize=fontSize)
     
     # save figure
     if saveFig: 
@@ -3659,3 +3684,80 @@ def clean_axes(axes):
         axis.spines['right'].set_visible(False)
         axis.get_xaxis().tick_bottom()
         axis.get_yaxis().tick_left()
+
+        
+
+def calculate_module_density(gid_module_assignments, gid_normed_distance):
+
+    module_bounds = [[1.0, 0.0] for _ in xrange(10)]
+    module_counts = [0 for _ in xrange(10)]
+    gid_module_assignments = context.gid_module_assignments
+    gid_normed_distance    = context.gid_normed_distance
+    
+    for (gid,module) in gid_module_assignments.iteritems():
+        normed_u, _, _, _ = gid_normed_distance[gid]
+        if normed_u < module_bounds[module-1][0]:
+            module_bounds[module - 1][0] = normed_u
+        if normed_u > module_bounds[module - 1][1]:
+            module_bounds[module - 1][1] = normed_u
+        module_counts[module - 1] += 1
+
+    module_widths  = [y-x for [x,y] in module_bounds]
+    module_density = np.divide(module_counts, module_widths)
+    return module_bounds, module_counts, module_density
+
+
+def plot_module_assignment_histogram():
+
+    module_bounds, module_counts, module_density = calculate_module_density()
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3,1)
+
+    ax1.bar(np.arange(10)+1, module_counts)
+    ax1.set_xlabel('Module')
+    ax1.set_ylabel('Count')
+
+    ax2.bar(np.arange(10)+1, module_density)
+    ax2.set_xlabel('Module')
+    ax2.set_ylabel('Density')
+
+    for (i, bounds) in enumerate(module_bounds):
+        ax3.plot([bounds[0],bounds[1]], [i+1,i+1], label='%i' % (i+1))
+    ax3.set_xlabel('Normalized Bounds')
+    ax3.set_ylabel('Module')
+    ax3.legend(frameon=False, framealpha=0.5, loc='center left')
+
+    fig, (ax1, ax2) = plt.subplots(2,1)
+    normalized_u_positions = [norm_u for (norm_u,_,_,_) in context.gid_normed_distance.values()]
+    absolute_u_positions   = [u for (_,_,u,_) in context.gid_normed_distance.values()]
+    absolute_v_positions   = [v for (_,_,_,v) in context.gid_normed_distance.values()]
+    hist_norm, edges_norm  = np.histogram(normalized_u_positions, bins=25)
+    hist_abs, edges_abs    = np.histogram(absolute_u_positions, bins=100)
+    hist_v_abs, edges_v_abs = np.histogram(absolute_v_positions, bins=100)
+
+    ax1.plot(edges_norm[1:], hist_norm)
+    ax1.set_xlabel('Normalized septo-temporal position')
+    ax1.set_ylabel('Cell count')
+
+    ax2.plot(edges_abs[1:], hist_abs)
+    ax2.set_xlabel('Absolute septo-temporal position')
+    ax2.set_ylabel('Cell Count')
+
+    fig, ax = plt.subplots()
+    module_pos_dictionary = dict()
+    for gid in context.gid_normed_distance:
+        norm_u,_,_,_ = context.gid_normed_distance[gid]
+        module       = context.gid_module_assignments[gid]
+        if module_pos_dictionary.has_key(module):
+            module_pos_dictionary[module].append(norm_u)
+        else:
+            module_pos_dictionary[module] = [norm_u]
+
+    for module in module_pos_dictionary:
+        positions = module_pos_dictionary[module]
+        hist_pos, _ = np.histogram(positions, bins=edges_norm)
+        hist_pos = hist_pos.astype('float32')
+        ax.plot(edges_norm[1:], hist_pos / hist_norm)
+    ax.legend(['%i' % (i+1) for i in xrange(10)])
+
+    plt.show()

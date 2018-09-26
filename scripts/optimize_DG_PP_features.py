@@ -5,7 +5,7 @@ from pprint import pprint
 import dentate
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, memoize_rates
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
 
 from nested.optimize_utils import *
 from optimize_cells_utils import *

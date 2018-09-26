@@ -2,7 +2,7 @@ import sys, time, gc
 import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
-from neuroh5.io import read_cell_attributes, read_population_ranges
+from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
 try:
     import rbf
     from rbf.nodes import disperse
@@ -152,6 +152,22 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
     
     return response
 
+def gid2module_dictionary(cell_lst, modules):
+    module_dict = {module: [] for module in modules}
+    for cells in cell_lst:
+        for gid in cells:
+            cell = cells[gid]
+            this_module = cell['Module'][0]
+            module_dict[this_module].append(cell)
+    return module_dict
+
+def module2gid_dictionary(module_dict):
+    gid_dict = dict()
+    for module in module_dict:
+        for cell in module_dict[module]:
+            gid_dict[cell['gid'][0]] = cell
+    return gid_dict
+        
 
 def read_trajectory (input_path, trajectory_id):
 
@@ -170,9 +186,9 @@ def read_trajectory (input_path, trajectory_id):
     return (x,y,d,t)
 
 
-def read_stimulus (stimulus_path, stimulus_namespace, population, comm=None):
+def read_stimulus (stimulus_path, stimulus_namespace, population):
         ratemap_lst = []
-        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace, comm=comm)
+        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
         for gid, stimulus_dict in attr_gen:
             rate = stimulus_dict['rate']
             spiketrain = stimulus_dict['spiketrain']

@@ -114,13 +114,12 @@ def interspike_intervals (spkdict):
     return isi_dict
 
 
-def spike_rates (spkdict, t_dflt):
+def spike_rates (spkdict, t):
     rate_dict = {}
     isidict = interspike_intervals(spkdict)
     for ind, isiv in viewitems(isidict):
         if isiv.size > 0:
-            t = np.sum(isiv)
-            rate = isiv.size / t / 1000.0
+            rate = isiv.size / (t / 1000.0)
         else:
             rate = 0.0
         rate_dict[ind] = rate
