@@ -2639,8 +2639,12 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
     M = 0
     for iplot, population in enumerate(include):
         rate_lst = []
-        logger.info('Reading vector stimulus data from namespace %s for population %s...' % (namespace_id, population ))
-        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, namespace_id, population):
+        if trajectory_id is None:
+            ns = namespace_id
+        else:
+            ns = '%s %d' % (namespace_id, trajectory_id)
+        logger.info('Reading vector stimulus data from namespace %s for population %s...' % (ns, population ))
+        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
 
@@ -2666,9 +2670,12 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
             axes.set_xlim([extent[0], extent[1]])
             axes.set_ylim(-1, N+1)    
             
-
-    axes.set_xlabel('Time (ms)', fontsize=fontSize)
-    axes.set_ylabel('Input #', fontsize=fontSize)
+    if len(include) > 1:
+        axes[0].set_xlabel('Time (ms)', fontsize=fontSize)
+        axes[0].set_ylabel('Input #', fontsize=fontSize)
+    else:
+        axes.set_xlabel('Time (ms)', fontsize=fontSize)
+        axes.set_ylabel('Input #', fontsize=fontSize)
     
     # save figure
     if saveFig: 

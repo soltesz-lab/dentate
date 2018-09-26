@@ -1,5 +1,5 @@
 
-import sys, time, gc, random, click, logging
+import sys, time, os, gc, random, click, logging
 import numpy as np
 import mpi4py
 from mpi4py import MPI
@@ -9,12 +9,18 @@ import dentate
 from dentate.env import Env
 from dentate import stimulus, stgen, utils
 
-script_name = 'generate_DG_PP_spiketrains.py'
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--features-path", "-p", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--output-path", "-o", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -24,7 +30,7 @@ script_name = 'generate_DG_PP_spiketrains.py'
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
+def main(config, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
          stimulus_namespace, verbose, dry_run):
     """
 
@@ -39,7 +45,7 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
     :param dry_run: bool
     """
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(script_name)
+    logger = utils.get_script_logger(os.path.basename(__file__))
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -67,12 +73,20 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
     stimulus_id_namespace = '%s %s' % (stimulus_namespace, str(stimulus_id))
 
     if rank == 0:
+        if (not dry_run):
+            if not os.path.isfile(output_path):
+                input_file  = h5py.File(features_path,'r')
+                output_file = h5py.File(output_path,'w')
+                input_file.copy('/H5Types',output_file)
+                input_file.close()
+                output_file.close()
+
         with h5py.File(features_path, 'a') as f:
             if trajectory_namespace not in f:
                 logger.info('Rank: %i; Creating %s datasets' % (rank, trajectory_namespace))
                 group = f.create_group(trajectory_namespace)
                 t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                                          spatial_resolution=spatial_resolution)
+                                                              spatial_resolution=spatial_resolution)
                 for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
                     dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
                     dataset[:] = value.astype('float32', copy=False)
@@ -120,7 +134,7 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
                                                                 grid_peak_rate=20., place_peak_rate=20.)
                     local_random.seed(int(input_spiketrain_offset + gid))
                     spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)
-                    response_dict[gid] = {'rate': response, \
+                    response_dict[gid] = {'rate': np.asarray(response, dtype='float32'), \
                                           'spiketrain': np.asarray(spiketrain, dtype='float32')}
                     baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
                     peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
@@ -132,7 +146,7 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
                                     (rank, population, gid, time.time() - local_time))
                     count += 1
                 if not dry_run:
-                    append_cell_attributes(features_path, population, response_dict,
+                    append_cell_attributes(output_path, population, response_dict,
                                             namespace=stimulus_id_namespace, comm=comm,
                                             io_size=io_size, chunk_size=chunk_size,
                                             value_chunk_size=value_chunk_size)
@@ -147,4 +161,5 @@ def main(config, features_path, io_size, chunk_size, value_chunk_size, cache_siz
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+

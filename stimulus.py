@@ -169,13 +169,6 @@ def module2gid_dictionary(module_dict):
     return gid_dict
         
 
-def read_cell_attributes(features_path, population, namespace, comm, io_size, cache_size):
-    attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=namespace, comm=comm, \
-                                  io_size=io_size, cache_size=cache_size)
-    cells = {gid: feature_dict for (gid, feature_dict) in attr_gen}
-    return cells
-
-
 def read_trajectory (input_path, trajectory_id):
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
@@ -193,9 +186,9 @@ def read_trajectory (input_path, trajectory_id):
     return (x,y,d,t)
 
 
-def read_stimulus (stimulus_path, stimulus_namespace, population, comm=None):
+def read_stimulus (stimulus_path, stimulus_namespace, population):
         ratemap_lst = []
-        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace, comm=comm)
+        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
         for gid, stimulus_dict in attr_gen:
             rate = stimulus_dict['rate']
             spiketrain = stimulus_dict['spiketrain']
