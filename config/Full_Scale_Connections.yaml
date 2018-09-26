@@ -316,7 +316,7 @@ Synapses:
           tau1:  0.5
           tau2: 3.0
           e:     0
-          weight: 0.0005
+          weight: 0.0002
     LPP:
       type: excitatory
       sections: [apical]
@@ -327,7 +327,7 @@ Synapses:
           tau1:  0.5
           tau2: 3.0
           e:     0
-          weight: 0.0006
+          weight: 0.00025
     MC:   
       type: excitatory
       sections: [apical, apical]
@@ -338,7 +338,7 @@ Synapses:
           tau1: 0.9
           tau2: 3.6
           e: 0
-          weight: 0.0001
+          weight: 0.00025
     BC:   
       type: inhibitory
       sections: [basal, soma]
