@@ -2,7 +2,7 @@ import sys, time, gc
 import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
-from neuroh5.io import read_cell_attributes, read_population_ranges
+from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
 try:
     import rbf
     from rbf.nodes import disperse
@@ -151,6 +151,29 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
         response[ramp_up_region] = response[ramp_up_region] * half_window
     
     return response
+
+def gid2module_dictionary(cell_lst, modules):
+    module_dict = {module: [] for module in modules}
+    for cells in cell_lst:
+        for gid in cells:
+            cell = cells[gid]
+            this_module = cell['Module'][0]
+            module_dict[this_module].append(cell)
+    return module_dict
+
+def module2gid_dictionary(module_dict):
+    gid_dict = dict()
+    for module in module_dict:
+        for cell in module_dict[module]:
+            gid_dict[cell['gid'][0]] = cell
+    return gid_dict
+        
+
+def read_cell_attributes(features_path, population, namespace, comm, io_size, cache_size):
+    attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=namespace, comm=comm, \
+                                  io_size=io_size, cache_size=cache_size)
+    cells = {gid: feature_dict for (gid, feature_dict) in attr_gen}
+    return cells
 
 
 def read_trajectory (input_path, trajectory_id):
