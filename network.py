@@ -484,6 +484,9 @@ def connect_gjs(env):
     gapjunctions = env.gapjunctions
     gapjunctionsFilePath = env.gapjunctionsFilePath 
 
+    num_gj = 0
+    num_gj_intra = 0
+    num_gj_inter = 0
     if gapjunctionsFilePath is not None:
 
         (graph, a) = bcast_graph(gapjunctionsFilePath,\
@@ -536,9 +539,16 @@ def connect_gjs(env):
                         cell = env.pc.gid2cell(dst)
                         gj = mkgap(env, cell, dst, dstpos, dstsec, ggid+1, ggid, wgt)
                     ggid = ggid+2
+                    num_gj += 1
+                    if env.pc.gid_exists(src) and env.pc.gid_exists(dst):
+                        num_gj_inter += 1
+                    else:
+                        num_gj_intra += 1
+                        
 
             del graph[name[0]][name[1]]
-        logger.info('host %d: created %i gap junctions' % (len(env.gjlist)))
+        
+        logger.info('*** host %d: created total %i gap junctions: %i intraprocessor %i interprocessor' % (num_gj, num_gj_intra, num_gj_inter))
 
 
 def make_cells(env):
@@ -922,9 +932,13 @@ def run(env, output=True):
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
     maxcw    = env.pc.allreduce(cwtime, 2)
-    avgcomp  = env.pc.allreduce(comptime, 1)/nhosts
+    meancomp = env.pc.allreduce(comptime, 1)/nhosts
     maxcomp  = env.pc.allreduce(comptime, 2)
 
+    gjtime   = env.pc.vtransfer_time()
+    meangj   = env.pc.allreduce(gjtime, 1)/nhosts
+    maxgj    = env.pc.allreduce(gjtime, 2)
+    
     if rank == 0:
         logger.info("Execution time summary for host %i:" % rank)
         logger.info("  created cells in %g seconds" % env.mkcellstime)
@@ -934,9 +948,10 @@ def run(env, output=True):
         logger.info("  spike communication time: %g seconds" % env.pc.send_time())
         logger.info("  event handling time: %g seconds" % env.pc.event_time())
         logger.info("  numerical integration time: %g seconds" % env.pc.integ_time())
-        logger.info("  voltage transfer time: %g seconds" % env.pc.vtransfer_time())
+        logger.info("  voltage transfer time: %g seconds" % gjtime)
+        logger.info("  mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
         if maxcw > 0:
-            logger.info("  load balance = %g" % (avgcomp/maxcw))
+            logger.info("  load balance = %g" % (meancomp/maxcw))
 
     env.pc.runworker()
     env.pc.done()
