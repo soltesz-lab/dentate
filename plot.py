@@ -15,13 +15,13 @@ from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
+from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
 import dentate.utils as utils
 import dentate.statedata as statedata
 from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
-from utils import get_module_logger, viewitems
+from dentate.utils import get_module_logger, viewitems
 try:
     import dentate.spikedata as spikedata
 except ImportError as e:
@@ -235,7 +235,7 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
 
 
 def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, source, 
-                        bin_size=20.0, cache_size=50, fontSize=14, showFig = True, saveFig = False):
+                        bin_size=20.0, cache_size=100, fontSize=14, showFig = True, saveFig = False):
     """
     Plot vertex distribution with respect to septo-temporal distance
 
@@ -252,75 +252,118 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     destination_start = population_ranges[destination][0]
     destination_count = population_ranges[destination][1]
 
-    source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
+    logger.info('reading %s distances...' % destination)
     destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+    
 
-    source_soma_distance_U = {}
-    source_soma_distance_V = {}
     destination_soma_distance_U = {}
     destination_soma_distance_V = {}
-    for k,v in source_soma_distances:
-        source_soma_distance_U[k] = v['U Distance'][0]
-        source_soma_distance_V[k] = v['V Distance'][0]
     for k,v in destination_soma_distances:
         destination_soma_distance_U[k] = v['U Distance'][0]
         destination_soma_distance_V[k] = v['V Distance'][0]
 
-    del(source_soma_distances)
     del(destination_soma_distances)
-                
-    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size)
-    dist_bins = {}
-    dist_u_bins = {}
-    dist_v_bins = {}
-    count = 0
-    min_dist = float('inf')
-    max_dist = 0.0
-    max_dist_u = 0.0
-    max_dist_v = 0.0
 
-    for (destination_gid,rest) in g:
+    if source == ():
+        sources = []
+        for (src, dst) in read_projection_names(connectivity_path):
+            if dst == destination:
+                sources.append(src)
+    else:
+        sources = source
+
+    source_soma_distances = {}
+    for s in sources:
+        logger.info('reading %s distances...' % s)
+        source_soma_distances[s] = read_cell_attributes(coords_path, s, namespace=distances_namespace)
+
+    
+    source_soma_distance_U = {}
+    source_soma_distance_V = {}
+    for s in sources:
+        this_source_soma_distance_U = {}
+        this_source_soma_distance_V = {}
+        for k,v in source_soma_distances[s]:
+            this_source_soma_distance_U[k] = v['U Distance'][0]
+            this_source_soma_distance_V[k] = v['V Distance'][0]
+        source_soma_distance_U[s] = this_source_soma_distance_U
+        source_soma_distance_V[s] = this_source_soma_distance_V
+    del(source_soma_distances)
+
+    logger.info('reading connections %s -> %s...' % (str(sources), destination))
+    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size) for source in sources ]
+    
+    dist_bins = defaultdict(dict)
+    dist_u_bins = defaultdict(dict)
+    dist_v_bins = defaultdict(dict)
+    
+    min_dist = { s: float('inf') for s in sources }
+    max_dist = { s: 0.0 for s in sources }
+    max_dist_u = { s: 0.0 for s in sources }
+    max_dist_v = { s: 0.0 for s in sources }
+    count = { s: 0 for s in sources }
+
+    for prj_gen_tuple in utils.zip_longest(*gg):
+        destination_gid = prj_gen_tuple[0][0]
+        if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
+            raise Exception('destination %s: destination_gid %i not matched across multiple projection generators: %s' %
+                            (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
+
         if destination_gid is not None:
-            (source_indexes, attr_dict) = rest
-            for source_gid in source_indexes:
-                dist_u = destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]
-                dist_v = destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid]
-                dist = abs(destination_soma_distance_U[destination_gid] - source_soma_distance_U[source_gid]) + \
-                       abs(destination_soma_distance_V[destination_gid] - source_soma_distance_V[source_gid])
-                min_dist = min(min_dist, dist)
-                max_dist = max(max_dist, dist)
-                max_dist_u = max(max_dist_u, dist_u)
-                max_dist_v = max(max_dist_v, dist_v)
-                update_bins(dist_bins, bin_size, dist)
-                update_bins(dist_u_bins, bin_size, dist_u)
-                update_bins(dist_v_bins, bin_size, dist_v)
-                count = count + 1
-    dist_histoCount, dist_bin_edges = finalize_bins(dist_bins, bin_size)
-    dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins, bin_size)
-    dist_v_histoCount, dist_v_bin_edges = finalize_bins(dist_v_bins, bin_size)
-    
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-    fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fontSize)
+            logger.info('reading connections of gid %i' % destination_gid)
+            for (source, (this_destination_gid,rest)) in itertools.izip(sources, prj_gen_tuple):
+                this_source_soma_distance_U = source_soma_distance_U[source]
+                this_source_soma_distance_V = source_soma_distance_V[source]
+                this_min_dist = min_dist[source]
+                this_max_dist = max_dist[source]
+                this_max_dist_u = max_dist_u[source]
+                this_max_dist_v = max_dist_v[source]
+                this_dist_bins = dist_bins[source]
+                this_dist_u_bins = dist_u_bins[source]
+                this_dist_v_bins = dist_v_bins[source]
+                (source_indexes, attr_dict) = rest
+                dst_U = destination_soma_distance_U[destination_gid]
+                dst_V = destination_soma_distance_V[destination_gid]
+                for source_gid in source_indexes:
+                    dist_u = dst_U - this_source_soma_distance_U[source_gid]
+                    dist_v = dst_V - this_source_soma_distance_V[source_gid]
+                    dist = abs(dist_u) + abs(dist_v)
+                    min_dist[source] = min(this_min_dist, dist)
+                    max_dist[source] = max(this_max_dist, dist)
+                    max_dist_u[source] = max(this_max_dist_u, dist_u)
+                    max_dist_v[source] = max(this_max_dist_v, dist_v)
+                    update_bins(this_dist_bins, bin_size, dist)
+                    update_bins(this_dist_u_bins, bin_size, dist_u)
+                    update_bins(this_dist_v_bins, bin_size, dist_v)
+                    count[source] += 1
 
-    ax1.bar(dist_bin_edges, dist_histoCount, width=bin_size)
-    ax1.set_xlabel('Total distance (um)', fontsize=fontSize)
-    ax1.set_ylabel('Number of connections', fontsize=fontSize)
+    for s in sources:
+        dist_histoCount, dist_bin_edges = finalize_bins(dist_bins[s], bin_size)
+        dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins[s], bin_size)
+        dist_v_histoCount, dist_v_bin_edges = finalize_bins(dist_v_bins[s], bin_size)
+    
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+        fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fontSize)
+
+        ax1.bar(dist_bin_edges, dist_histoCount, width=bin_size)
+        ax1.set_xlabel('Total distance (um)', fontsize=fontSize)
+        ax1.set_ylabel('Number of connections', fontsize=fontSize)
         
-    ax2.bar(dist_u_bin_edges, dist_u_histoCount, width=bin_size)
-    ax2.set_xlabel('Septal - temporal (um)', fontsize=fontSize)
-    
-    ax3.bar(dist_v_bin_edges, dist_v_histoCount, width=bin_size)
-    ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fontSize)
+        ax2.bar(dist_u_bin_edges, dist_u_histoCount, width=bin_size)
+        ax2.set_xlabel('Septal - temporal (um)', fontsize=fontSize)
+        
+        ax3.bar(dist_v_bin_edges, dist_v_histoCount, width=bin_size)
+        ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fontSize)
 
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
-        else:
-            filename = 'Connection distance %s to %s.png' % (source, destination)
-            plt.savefig(filename)
+        if saveFig: 
+            if isinstance(saveFig, str):
+                filename = saveFig
+            else:
+                filename = 'Connection distance %s to %s.png' % (source, destination)
+                plt.savefig(filename)
 
-    if showFig:
-        show_figure()
+        if showFig:
+            show_figure()
 
 
 def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, 
