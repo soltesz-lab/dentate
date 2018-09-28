@@ -916,9 +916,9 @@ def run(env, output=True):
         logger.info("*** Simulation completed")
     del env.cells
     env.pc.barrier()
-    if rank == 0:
-        logger.info("*** Writing spike data")
     if output:
+        if rank == 0:
+            logger.info("*** Writing spike data")
         io_utils.spikeout(env, env.resultsFilePath)
         if env.vrecordFraction > 0.:
           if rank == 0:
@@ -939,7 +939,7 @@ def run(env, output=True):
     gjtime   = env.pc.vtransfer_time()
 
     gjvect   = h.Vector()
-    pc.allgather(gjtime, gjvect)
+    env.pc.allgather(gjtime, gjvect)
     meangj = gjvect.mean()
     maxgj  = gjvect.max()
     
