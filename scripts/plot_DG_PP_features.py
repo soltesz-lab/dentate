@@ -2,6 +2,12 @@ import os, sys
 import numpy as np
 import matplotlib.pyplot as plt
 from nested.optimize_utils import *
+from neuroh5.io import NeuroH5CellAttrGen
+from mpi4py import MPI
+from pprint import pprint
+
+import dentate
+from dentate.stimulus import read_cell_attributes, gid2module_dictionary, module2gid_dictionary, fraction_active
 
 def plot_rate_maps(cells, plot=False, save=True, **kwargs):
 
@@ -64,20 +70,14 @@ def plot_xy_offsets(cells, plot=False, save=True, **kwargs):
 
 
 def plot_fraction_active_map(cells, func_name, plot=False,save=True, **kwargs):
-    m = sys.modules['__main__']
-    if hasattr(m, func_name):
-        f = getattr(m, func_name)
-    else:
-        raise Exception('Function could not be found')
-
-    fraction_active = f(cells)
+    factive = fraction_active(cells, 2.)
     fraction_active_img = np.zeros((20,20))
-    for (i,j) in fraction_active:
-        fraction_active_img[i,j] = fraction_active[(i,j)]
+    for (i,j) in factive:
+        fraction_active_img[i,j] = factive[(i,j)]
 
     ctype  = kwargs.get('ctype', 'grid')
     module = kwargs.get('module',0)
-    target = kwargs.get('target', 0.15)
+    target = kwargs.get('target', 0.05)
    
     fig, axes = plt.subplots(1,2)
 
@@ -176,9 +176,31 @@ def plot_population_input(storage, bounds=None):
 
 if __name__ == '__main__':
     file_path = str(sys.argv[1])
-    storage   = read_population_storage(file_path)
-    #plot_population_storage(storage)
-    plot_population_input(storage, bounds=(0.045, 0.055))
-    plt.show()
+    #storage   = read_population_storage(file_path)
+    #plot_population_input(storage, bounds=(0.045, 0.055))
+    #plt.show()
+
+    comm = MPI.COMM_WORLD
+    modules = np.arange(10) + 1
+
+    lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features', comm, io_size=-1, cache_size=50)
+    mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features', comm, io_size=-1, cache_size=50)
+    mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features', comm, io_size=-1, cache_size=50)
 
 
+    cell_corpus = [lpp_place, mpp_place, mpp_grid]
+    place_cells_modules_dictionary = gid2module_dictionary([lpp_place, mpp_place], modules)
+    mpp_modules_dictionary         = gid2module_dictionary([mpp_place, mpp_grid], modules)
+
+    lpp_place_modules_dictionary   = gid2module_dictionary([lpp_place], modules)
+    mpp_place_modules_dictionary   = gid2module_dictionary([mpp_place], modules)
+    mpp_grid_modules_dictionary    = gid2module_dictionary([mpp_grid], modules)
+  
+
+    kwargs = {'ctype': 'place', 'module': 1}
+    plot_rate_maps(place_cells_modules_dictionary[1], plot=False, **kwargs)
+    plot_fraction_active_map(place_cells_modules_dictionary[1], None, plot=False, **kwargs)
+    plot_xy_offsets(place_cells_modules_dictionary[1], plot=True, **kwargs)
+
+
+    
