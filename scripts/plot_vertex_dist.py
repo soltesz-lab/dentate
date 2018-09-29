@@ -5,6 +5,13 @@ import click
 import dentate
 from dentate import utils, plot
 
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
 
 @click.command()
 @click.option("--connectivity-path", '-p', required=True, type=click.Path())
@@ -16,13 +23,14 @@ from dentate import utils, plot
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(connectivity_path, coords_path, distances_namespace, destination, source, bin_size, font_size, verbose):
-    
+
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
+    comm = MPI.COMM_WORLD
 
     plot.plot_vertex_dist (connectivity_path, coords_path, distances_namespace,
                            destination, source, bin_size, fontSize=font_size,
-                           saveFig=True)
+                           saveFig=True, comm=comm)
 
 
     
