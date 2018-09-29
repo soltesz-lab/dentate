@@ -916,9 +916,9 @@ def run(env, output=True):
         logger.info("*** Simulation completed")
     del env.cells
     env.pc.barrier()
-    if rank == 0:
-        logger.info("*** Writing spike data")
     if output:
+        if rank == 0:
+            logger.info("*** Writing spike data")
         io_utils.spikeout(env, env.resultsFilePath)
         if env.vrecordFraction > 0.:
           if rank == 0:
@@ -937,8 +937,11 @@ def run(env, output=True):
     maxcomp  = env.pc.allreduce(comptime, 2)
 
     gjtime   = env.pc.vtransfer_time()
-    meangj   = env.pc.allreduce(gjtime, 1)/nhosts
-    maxgj    = env.pc.allreduce(gjtime, 2)
+
+    gjvect   = h.Vector()
+    env.pc.allgather(gjtime, gjvect)
+    meangj = gjvect.mean()
+    maxgj  = gjvect.max()
     
     if rank == 0:
         logger.info("Execution time summary for host %i:" % rank)
@@ -950,9 +953,12 @@ def run(env, output=True):
         logger.info("  event handling time: %g seconds" % env.pc.event_time())
         logger.info("  numerical integration time: %g seconds" % env.pc.integ_time())
         logger.info("  voltage transfer time: %g seconds" % gjtime)
-        logger.info("  mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
         if maxcw > 0:
-            logger.info("  load balance = %g" % (meancomp/maxcw))
+            logger.info("Load balance = %g" % (meancomp/maxcw))
+        if meangj > 0:
+            logger.info("Mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
+            for i in range(nhosts):
+                logger.info("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
 
     env.pc.runworker()
     env.pc.done()

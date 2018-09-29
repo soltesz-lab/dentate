@@ -31,7 +31,7 @@ logger = utils.get_script_logger(os.path.basename(__file__))
 feature_grid  = 0
 feature_place = 1
 
-module_pi = [0.12, 0.313, 0.500, 0.654, 0.723, 0.783, 0.830, 0.852, 0.874, 0.890]
+module_pi = [0.012, 0.313, 0.500, 0.654, 0.723, 0.783, 0.830, 0.852, 0.874, 0.890]
 module_pr = [0.342, 0.274, 0.156, 0.125, 0.045, 0.038, 0.022, 0.018, 0.013, 0.004]
 
 context = Context()
@@ -206,7 +206,9 @@ def determine_cell_participation(gid_module_assignments):
             if feature_types[i] == feature_grid:
                 cell['Num Fields'] = np.array([nfields], dtype='uint8')
             elif feature_types[i] == feature_place:
-                nfields = acquire_fields_per_cell(1, module_probabilities[module - 1], num_field_random)[0]
+                field_probabilities = module_probabilities[module - 1]
+                field_set = [i for i in xrange(field_probabilities.shape[0])]
+                nfields = num_field_random.choice(field_set, p=field_probabilities, size=(10,))[-1]
                 cell['Num Fields'] = np.array([nfields], dtype='uint8')
             gid_attributes[population][gid] = cell
             total_num_fields += nfields
@@ -215,16 +217,19 @@ def determine_cell_participation(gid_module_assignments):
     return total_num_fields, gid_attributes
 
 
-def _cells_per_module(gid_attributes, modules):
-    cell_per_module_dict = {mod + 1: 0 for mod in modules}
-    for population in gid_attributes.keys():
-        for gid in gid_attributes[population]:
-            module = gid_attributes[population][gid]['Module'][0]
-            cell_per_module_dict[module] += 1
-    return cell_per_module_dict
-    
+def _fields_per_module(gid_attributes, modules):
+    fields_per_module_dict = {mod + 1: [0,0] for mod in modules}
+    for population in gid_attributes:
+        this_gid_attributes = gid_attributes[population]
+        for gid in this_gid_attributes:
+            module  = this_gid_attributes[gid]['Module'][0]
+            nfields = this_gid_attributes[gid]['Num Fields'][0]
+            #if gid_attributes[gid]['Cell Type'][0] == feature_place:
+            fields_per_module_dict[module][0] += 1
+            fields_per_module_dict[module][1] += nfields
+    return fields_per_module_dict
 
-def build_cell_attributes(gid_attributes, nfields):
+def build_cell_attributes(gid_attributes, total_num_fields):
     
     nmodules       = 10
     modules        = np.arange(nmodules)
@@ -242,13 +247,13 @@ def build_cell_attributes(gid_attributes, nfields):
     nx, ny = xp.shape
     ratemap_kwargs = {'a': 0.70 , 'b': -1.5, 'c': 0.90}
 
-    cell_module_distribution = _cells_per_module(gid_attributes, modules)
+    field_module_distribution = _fields_per_module(gid_attributes, modules)
     xy_offset_module_dict    = { mod + 1: None for mod in modules }
     
-    for mod in cell_module_distribution:
+    for mod in field_module_distribution:
         module_width = module_widths[mod - 1]
         scale_factor  = 1. + (module_width * np.cos(np.pi/4.) / 100.)
-        xy_offsets, _, _, _ = generate_spatial_offsets(cell_module_distribution[mod], arena_dimension=100., scale_factor=scale_factor)
+        xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100., scale_factor=scale_factor)
         local_random.shuffle(xy_offsets)
         xy_offset_module_dict[mod] = np.asarray(xy_offsets, dtype='float32')
 
