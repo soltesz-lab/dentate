@@ -13,6 +13,7 @@ import matplotlib.lines as mlines
 from matplotlib import gridspec, mlab, rcParams
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import MaxNLocator
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import h5py
@@ -1489,6 +1490,175 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
     
     return fig
 
+
+    
+    
+def update_spatial_rasters(i, scts, timebins, data, distances_U_dict, distances_V_dict, lgd):
+    if i > 0:
+        t0 = timebins[i]
+        t1 = timebins[i+1]
+        print t0, ':', t1
+        for p, (pop_name, spkinds, spkts) in enumerate(data):
+            distances_U = distances_U_dict[pop_name]
+            distances_V = distances_V_dict[pop_name]
+            rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
+            cinds = spkinds[rinds]
+            x = np.asarray([distances_U[ind] for ind in cinds])
+            y = np.asarray([distances_V[ind] for ind in cinds])
+            offsets = np.column_stack((x,y))
+            scts[p].set_offsets(offsets)
+            scts[p].set_label(pop_name)
+    return scts + [lgd(scts)]
+        
+def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, lw, marker, pop_colors):
+    scts = []
+    t0 = timebins[0]
+    t1 = timebins[1]
+    min_U = None
+    min_V = None
+    max_U = None
+    max_V = None
+    for (pop_name, spkinds, spkts) in data:
+        distances_U = distances_U_dict[pop_name]
+        distances_V = distances_V_dict[pop_name]
+        rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
+        cinds = spkinds[rinds]
+        x = np.asarray([distances_U[ind] for ind in cinds])
+        y = np.asarray([distances_V[ind] for ind in cinds])
+        scts.append(ax.scatter(x, y, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        #scts.append(ax.scatter([], [], linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        if min_U is None:
+            min_U = range_U_dict[pop_name][0]
+        else:
+            min_U = min(min_U, range_U_dict[pop_name][0])
+        if min_V is None:
+            min_V = range_V_dict[pop_name][0]
+        else:
+            min_V = min(min_V, range_V_dict[pop_name][0])
+        if max_U is None:
+            max_U = range_U_dict[pop_name][1]
+        else:
+            max_U = max(max_U, range_U_dict[pop_name][1])
+        if max_V is None:
+            max_V = range_V_dict[pop_name][1]
+        else:
+            max_V = max(max_V, range_V_dict[pop_name][1])
+    ax.set_xlim((min_U, max_U))
+    ax.set_ylim((min_V, max_V))
+    return scts + [lgd(scts)]
+        
+        
+## Plot spike raster
+def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_namespace='Arc Distances',
+                               include = ['eachPop'], timeRange = None, timeVariable='t', maxSpikes = int(1e6),
+                               lw = 3, marker = 'o', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
+    ''' 
+    Spatial raster plot of network spike times. Returns the figure handle.
+
+    input_path: file with spike data
+    namespace_id: attribute namespace for spike events
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    maxSpikes (int): maximum number of spikes that will be plotted  (default: 1e6)
+    orderInverse (True|False): Invert the y-axis order (default: False)
+    labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
+    lw (integer): Line width for each spike (default: 3)
+    marker (char): Marker for each spike (default: '|')
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    distance_U_dict = {}
+    distance_V_dict = {}
+    range_U_dict = {}
+    range_V_dict = {}
+    for population in include:
+        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+        
+        logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
+        distance_U_array = np.asarray([soma_distances[gid][0] for gid in soma_distances])
+        distance_V_array = np.asarray([soma_distances[gid][1] for gid in soma_distances])
+
+        U_min = np.min(distance_U_array)
+        U_max = np.max(distance_U_array)
+        V_min = np.min(distance_V_array)
+        V_max = np.max(distance_V_array)
+
+        range_U_dict[population] = (U_min, U_max)
+        range_V_dict[population] = (V_min, V_max)
+        
+        distance_U = { gid: soma_distances[gid][0] for gid in soma_distances }
+        distance_V = { gid: soma_distances[gid][1] for gid in soma_distances }
+
+        distance_U_dict[population] = distance_U
+        distance_V_dict[population] = distance_V
+        
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable, timeRange=timeRange)
+
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+    
+    timeRange = [tmin, tmax]
+    
+    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
+    
+    # Plot spikes
+    fig, ax1 = plt.subplots(figsize=figSize)
+    aniplots = []
+
+    pop_labels = [ pop_name for pop_name in spkpoplst ]
+    legend_labels = pop_labels
+    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.)
+    
+    dt = 50.0
+    timebins = np.linspace(tmin, tmax, dt)
+    data = zip (spkpoplst, spkindlst, spktlst)
+    scts = init_spatial_rasters(ax1, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, lw, marker, pop_colors)
+    ani = FuncAnimation(fig, update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
+                        blit=True, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
+    aniplots.append(ani)
+    print ani
+    # Add legend
+            
+
+        # save figure
+        #if saveFig: 
+        #    if isinstance(saveFig, str):
+        #        filename = saveFig
+        #    else:
+        #        filename = namespace_id+' '+'raster.png'
+        #        plt.savefig(filename)
+                
+    # show fig 
+    if showFig:
+        show_figure()
+    
+    return fig
+
+
 ## Plot netclamp results (intracellular trace of target cell + spike raster of presynaptic inputs)
 def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unitNo, include='eachPop', timeRange = None, timeVariable='t',
                         intracellularVariable='v', orderInverse = False, labels = 'legend', spikeHist = None, spikeHistBin = 5,
@@ -1831,7 +2001,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], timeV
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, timeVariable=timeVariable,
-                                           timeRange=timeRange, maxSpikes = 1e6)
+                                           timeRange=timeRange)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -2836,6 +3006,8 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
     # show fig 
     if showFig:
         show_figure()
+
+
 
         
         
