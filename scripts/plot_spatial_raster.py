@@ -32,7 +32,7 @@ def main(spike_events_path, spike_events_namespace, coords_path, distances_names
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spatial_spike_raster (spike_events_path, spike_events_namespace, coords_path, distances_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True)
+    plot.plot_spatial_spike_raster (spike_events_path, spike_events_namespace, coords_path, distances_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, maxSpikes=max_spikes, fontSize=font_size, saveFig=True)
     
 
 if __name__ == '__main__':
