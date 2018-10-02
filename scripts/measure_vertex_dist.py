@@ -3,7 +3,6 @@ import sys, os, gc, itertools, math, click, logging
 from collections import defaultdict
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, bcast_cell_attributes, NeuroH5ProjectionGen
-import h5py
 import numpy as np
 import dentate
 import dentate.utils as utils
@@ -52,10 +51,9 @@ def add_bins(bins1, bins2, datatype):
 @click.option("--distances-namespace", type=str, default='Arc Distances')
 @click.option("--destination", '-d', required=True, type=str)
 @click.option("--bin-size", type=int, default=20)
-@click.option("--io-size", type=int, default=-1)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(connectivity_path, output_path, coords_path, distances_namespace, destination, bin_size, io_size, cache_size, verbose):
+def main(connectivity_path, output_path, coords_path, distances_namespace, destination, bin_size, cache_size, verbose):
     """
     Measures vertex distribution with respect to septo-temporal distance
 
@@ -148,37 +146,48 @@ def main(connectivity_path, output_path, coords_path, distances_namespace, desti
                     update_bins(this_dist_bins, bin_size, dist)
                     update_bins(this_dist_u_bins, bin_size, dist_u)
                     update_bins(this_dist_v_bins, bin_size, dist_v)
+    comm.barrier()
 
+    logger.info('merging distance dictionaries...')
     add_bins_op = MPI.Op.Create(add_bins, commute=True)
     for source in sources:
         dist_bins[source] = comm.reduce(dist_bins[source], op=add_bins_op, root=0)
         dist_u_bins[source] = comm.reduce(dist_u_bins[source], op=add_bins_op, root=0)
         dist_v_bins[source] = comm.reduce(dist_v_bins[source], op=add_bins_op, root=0)
                 
+    comm.barrier()
+    
+    if rank == 0:
+        color = 1
+    else:
+        color = 0
+
+    ## comm0 includes only rank 0
+    comm0 = comm.Split(color, 0)
 
     if rank == 0:
         if output_path is None:
             output_path = connectivity_path
-        with h5py.File(output_path, 'a') as f:
-            if 'Nodes' in f:
-                nodes_grp = f['Nodes']
-            else:
-                nodes_grp = f.create_group('Nodes')
-            grp = nodes_grp.create_group('Connectivity Distance Histogram')
-            dst_grp = grp.create_group(destination)
-            for source in sources:
-                dist_histoCount, dist_bin_edges = finalize_bins(dist_bins[source], bin_size)
-                dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins[source], bin_size)
-                dist_v_histoCount, dist_v_bin_edges = finalize_bins(dist_v_bins[source], bin_size)
-                print 'dst_grp: ', dst_grp
-                src_grp = dst_grp.create_group(source)
-                src_grp.create_dataset('Distance U Bin Count', data=dist_u_histoCount)
-                src_grp.create_dataset('Distance U Bin Edges', data=dist_u_bin_edges)
-                src_grp.create_dataset('Distance V Bin Count', data=dist_v_histoCount)
-                src_grp.create_dataset('Distance V Bin Edges', data=dist_v_bin_edges)
-                src_grp.create_dataset('Distance Bin Count', data=dist_histoCount)
-                src_grp.create_dataset('Distance Bin Edges', data=dist_bin_edges)
-            
+        logger.info('writing output to %s...' % output_path)
+
+        #f = h5py.File(output_path, 'a', driver='mpio', comm=comm0)
+        #if 'Nodes' in f:
+        #    nodes_grp = f['Nodes']
+        #else:
+        #    nodes_grp = f.create_group('Nodes')
+        #grp = nodes_grp.create_group('Connectivity Distance Histogram')
+        #dst_grp = grp.create_group(destination)
+        for source in sources:
+            dist_histoCount, dist_bin_edges = finalize_bins(dist_bins[source], bin_size)
+            dist_u_histoCount, dist_u_bin_edges = finalize_bins(dist_u_bins[source], bin_size)
+            dist_v_histoCount, dist_v_bin_edges = finalize_bins(dist_v_bins[source], bin_size)
+            np.savetxt('%s Distance U Bin Count.dat' % source, dist_u_histoCount)
+            np.savetxt('%s Distance U Bin Edges.dat' % source, dist_u_bin_edges)
+            np.savetxt('%s Distance V Bin Count.dat' % source, dist_v_histoCount)
+            np.savetxt('%s Distance V Bin Edges.dat' % source, dist_v_bin_edges)
+            np.savetxt('%s Distance Bin Count.dat' % source, dist_histoCount)
+            np.savetxt('%s Distance Bin Edges.dat' % source, dist_bin_edges)
+        #f.close()
     comm.barrier()
             
 
