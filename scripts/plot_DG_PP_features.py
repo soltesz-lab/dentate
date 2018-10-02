@@ -4,12 +4,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from nested.optimize_utils import *
-from neuroh5.io import NeuroH5CellAttrGen
+from neuroh5.io import NeuroH5CellAttrGen, read_cell_attributes
 from mpi4py import MPI
 from pprint import pprint
 
 import dentate
-from dentate.stimulus import read_cell_attributes, gid2module_dictionary, module2gid_dictionary, fraction_active
+from dentate.stimulus import gid2module_dictionary, module2gid_dictionary, fraction_active
 
 def plot_rate_maps_single_module(cells, plot=False, save=True, **kwargs):
 
@@ -368,9 +368,9 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     modules = np.arange(10) + 1
 
-    lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features', comm, io_size=-1, cache_size=50)
-    mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features', comm, io_size=-1, cache_size=50)
-    mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features', comm, io_size=-1, cache_size=50)
+    lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features')
+    mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features')
+    mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features')
 
 
     place_cells_modules_dictionary = gid2module_dictionary([lpp_place, mpp_place], modules)
