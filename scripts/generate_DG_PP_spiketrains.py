@@ -21,6 +21,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--features-path", "-p", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", "-o", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
+@click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -30,7 +31,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
+def main(config, features_path, output_path, template_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
          stimulus_namespace, verbose, dry_run):
     """
 
@@ -50,7 +51,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, configFile=config, templatePaths=template_path)
     
     if io_size == -1:
         io_size = comm.size
@@ -128,7 +129,8 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
                 if gid is None:
                     logger.info('Rank %i gid is None' % rank)
                 else:
-                    logger.info('Rank %i received attributes for gid %i' % (rank, gid))
+                    if verbose:
+                        logger.info('Rank %i received attributes for gid %i' % (rank, gid))
                     local_time = time.time()
                     response = stimulus.generate_spatial_ratemap(features_type, features_dict, t, x, y, 
                                                                 grid_peak_rate=20., place_peak_rate=20.)
