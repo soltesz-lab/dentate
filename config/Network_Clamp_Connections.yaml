@@ -110,7 +110,7 @@ Synapses:
           tau1: 0.5
           tau2: 5.5
           e: 0
-          weight: 0.003
+          weight: 0.00075
     AAC:
       type: inhibitory
       sections: [ais]
@@ -154,7 +154,7 @@ Synapses:
           tau1: 0.5
           tau2: 6.0
           e: -75
-          weight: 0.0005
+          weight: 0.006
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -193,7 +193,7 @@ Synapses:
           tau1: 0.5
           tau2: 6.2
           e: 0
-          weight: 0.04
+          weight: 0.02
     MC:   
       type: excitatory
       sections: [apical]
@@ -215,7 +215,7 @@ Synapses:
           tau1: 0.5
           tau2: 6.0
           e: -75
-          weight: 0.001
+          weight: 0.003
     BC:   
       type: inhibitory
       sections: [soma, apical]
@@ -316,7 +316,7 @@ Synapses:
           tau1:  0.5
           tau2: 3.0
           e:     0
-          weight: 0.0005
+          weight: 0.00025
     LPP:
       type: excitatory
       sections: [apical]
@@ -327,7 +327,7 @@ Synapses:
           tau1:  0.5
           tau2: 3.0
           e:     0
-          weight: 0.0005
+          weight: 0.00025
     MC:   
       type: excitatory
       sections: [apical, apical]
