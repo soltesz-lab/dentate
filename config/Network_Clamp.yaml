@@ -1,5 +1,5 @@
 ## Model configuration of dentate gyrus network
-Model Name: dentatenet
+Model Name: dentate_Netclamp
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
