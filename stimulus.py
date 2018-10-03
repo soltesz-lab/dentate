@@ -2,7 +2,7 @@ import sys, time, gc
 import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
-from neuroh5.io import read_cell_attributes, read_population_ranges
+from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
 try:
     import rbf
     from rbf.nodes import disperse
@@ -152,8 +152,43 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
     
     return response
 
+def fraction_active(cells, threshold):
+    rate_maps = []
+    for gid in cells:
+        cell = cells[gid]
+        nx, ny = cell['Nx'][0], cell['Ny'][0]
+        rate_map = cell['Rate Map'].reshape(nx, ny)
+        rate_maps.append(rate_map)
+    rate_maps = np.asarray(rate_maps, dtype='float32')
+    nxx, nyy  = np.meshgrid(np.arange(nx), np.arange(ny))
+    coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+  
+    factive = lambda px, py: calculate_fraction_active(rate_maps[:, px, py], threshold)
+    return {(px, py): factive(px, py) for (px, py) in coords}
 
-def read_trajectory (comm, input_path, trajectory_id):
+def calculate_fraction_active(rates, threshold):
+    N = len(rates)
+    num_active = len(np.where(rates > threshold)[0])
+    fraction_active = np.divide(float(num_active), float(N))
+    return fraction_active
+
+
+def gid2module_dictionary(cell_lst, modules):
+    module_dict = {module: {} for module in modules}
+    for cells in cell_lst:
+        for (gid, cell) in cells:
+            this_module = cell['Module'][0]
+            module_dict[this_module][cell['gid'][0]] = cell
+    return module_dict
+
+def module2gid_dictionary(module_dict):
+    gid_dict = dict()
+    for module in module_dict:
+        gid_dict.update(module_dict[module])
+    return gid_dict
+        
+
+def read_trajectory (input_path, trajectory_id):
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
 
@@ -170,9 +205,9 @@ def read_trajectory (comm, input_path, trajectory_id):
     return (x,y,d,t)
 
 
-def read_stimulus (comm, stimulus_path, stimulus_namespace, population):
+def read_stimulus (stimulus_path, stimulus_namespace, population):
         ratemap_lst = []
-        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace, comm=comm)
+        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
         for gid, stimulus_dict in attr_gen:
             rate = stimulus_dict['rate']
             spiketrain = stimulus_dict['spiketrain']

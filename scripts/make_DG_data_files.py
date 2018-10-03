@@ -6,8 +6,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20180908.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20180908.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20180928.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20180928.h5"
 
 DG_GC_coordinate_file  = "DGC_forest_reindex_20180418.h5"
 DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
@@ -23,9 +23,7 @@ DG_IN_connectivity_file = "DG_IN_connections_20180908.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20180813_compressed.h5"
 
 DG_vecstim_file_dict = { 
-    100: "DG_PP_features_100_20180406.h5", \
-    110: "DG_PP_features_110_20180404.h5", \
-    120: "DG_PP_features_120_20180417.h5"  \
+    100: "DG_PP_spiketrains_100_20180928.h5", 
 }
 
 vecstim_dict = { 'Vector Stimulus %i' % stim_id : stim_file for stim_id, stim_file in DG_vecstim_file_dict.items() }

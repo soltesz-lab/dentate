@@ -1,6 +1,7 @@
 import math
 import itertools
 from collections import defaultdict
+from mpi4py import MPI
 import numpy as np
 from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_info, read_population_ranges, read_population_names
 from dentate import utils
@@ -9,13 +10,15 @@ from dentate import utils
 ## which is created in module env
 logger = utils.get_module_logger(__name__)
 
-def read_state(comm, input_file, population_names, namespace_id, timeVariable='t', variable='v', timeRange = None, maxUnits = None, unitNo = None, query = False):
+def read_state(input_file, population_names, namespace_id, timeVariable='t', variable='v', timeRange = None, maxUnits = None, unitNo = None, query = False, comm = None):
 
+    if comm is None:
+        comm = MPI.COMM_WORLD
     pop_state_dict = {}
 
     logger.info('Reading state data...')
 
-    attr_info_dict = read_cell_attribute_info(input_file, populations=list(population_names), read_cell_index=True)
+    attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
 
     if query:
         print(attr_info_dict)

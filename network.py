@@ -9,8 +9,10 @@ from dentate.neuron_utils import *
 from dentate.utils import viewitems
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
 import h5py
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
-    write_cell_attributes, read_cell_attribute_selection, read_tree_selection, read_graph_selection
+from neuroh5.io import scatter_read_graph, bcast_graph, \
+     scatter_read_trees, scatter_read_cell_attributes, \
+     write_cell_attributes, read_cell_attribute_selection, \
+     read_tree_selection, read_graph_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -54,9 +56,9 @@ def ld_bal(env):
 
 def lpt_bal(env):
     """
-    Load-balancing based on the LPT algorithm. 
+    Load-balancing based on the LPT algorithm.
     Each rank has gidvec, cxvec: gather everything to rank 0, do lpt
-    algorithm and write to a balance file.    
+    algorithm and write to a balance file.
 
     :param env: an instance of the `dentate.Env` class.
     """
@@ -84,7 +86,7 @@ def lpt_bal(env):
                     fp.write('%d %d\n' % (x[1], part_rank))
                 part_rank = part_rank + 1
 
-            
+
 def register_cell(env, pop_name, gid, cell):
     """
     Registers a cell in a network environment.
@@ -104,13 +106,6 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
-    # Record voltages from a subset of cells
-    if cell.is_art() == 0:
-        if gid in env.v_sample_dict[pop_name]: 
-            v_vec = h.Vector()
-            soma = list(cell.soma)[0]
-            v_vec.record(soma(0.5)._ref_v)
-            env.v_dict[pop_name][gid] = v_vec
 
 
 def connect_cells(env, cleanup=True):
@@ -162,7 +157,7 @@ def connect_cells(env, cleanup=True):
             mech_file_path = None
 
         if rank == 0:
-                logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
+            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
         if has_weights:
             cell_attr_namespaces = ['Synapse Attributes', weights_namespace]
@@ -206,8 +201,7 @@ def connect_cells(env, cleanup=True):
                     first_gid = gid
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
-                                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -241,10 +235,10 @@ def connect_cells(env, cleanup=True):
 
             attr_dict = a[postsyn_name][presyn_name]
 
-            if ('Synapses' in attr_dict and \
-                'syn_id' in attr_dict['Synapses'] and \
-                'Connections' in attr_dict and \
-                'distance' in attr_dict['Connections']):
+            if 'Synapses' in attr_dict and \
+               'syn_id' in attr_dict['Synapses'] and \
+               'Connections' in attr_dict and \
+               'distance' in attr_dict['Connections']:
 
                syn_id_attr_index = attr_dict['Synapses']['syn_id']
                distance_attr_index = attr_dict['Connections']['distance']
@@ -259,9 +253,9 @@ def connect_cells(env, cleanup=True):
                    syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
                    edge_syn_obj_dict = \
-                       synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
-                                       env.edge_count[postsyn_name][presyn_name],
-                                       add_synapse=synapses.add_unique_synapse if unique else
+                       synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
+                                       env.edge_count[postsyn_name][presyn_name], \
+                                       add_synapse=synapses.add_unique_synapse if unique else \
                                                                                   synapses.add_shared_synapse)
 
                    if rank == 0:
@@ -398,8 +392,7 @@ def connect_cell_selection(env, cleanup=True):
                     first_gid = gid
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
-                                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -437,8 +430,8 @@ def connect_cell_selection(env, cleanup=True):
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
                 edge_syn_obj_dict = \
-                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
-                           env.edge_count[postsyn_name][presyn_name],
+                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
+                           env.edge_count[postsyn_name][presyn_name], \
                            add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
                 if rank == 0:
@@ -452,7 +445,7 @@ def connect_cell_selection(env, cleanup=True):
                         delay = (distance / env.connection_velocity[presyn_name]) + h.dt
                         this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
                         syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
@@ -486,11 +479,14 @@ def connect_gjs(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    datasetPath = os.path.join(env.datasetPrefix,env.datasetName)
+    datasetPath = os.path.join(env.datasetPrefix, env.datasetName)
 
     gapjunctions = env.gapjunctions
     gapjunctionsFilePath = env.gapjunctionsFilePath 
 
+    num_gj = 0
+    num_gj_intra = 0
+    num_gj_inter = 0
     if gapjunctionsFilePath is not None:
 
         (graph, a) = bcast_graph(gapjunctionsFilePath,\
@@ -527,28 +523,33 @@ def connect_gjs(env):
                     srcsec    = srcsecs[i]
                     dstpos    = dstposs[i]
                     dstsec    = dstsecs[i]
-                    srcwgt    = srcweights[i]
-                    dstwgt    = dstweights[i]
+                    wgt       = srcweights[i]*0.001
                     if env.pc.gid_exists(src):
                         if rank == 0:
                             logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
                                         'sgid = %d dgid = %d\n' %
-                                        (rank, src, srcsec, srcwgt, ggid, ggid+1))
+                                        (rank, src, srcsec, wgt, ggid, ggid+1))
                         cell = env.pc.gid2cell(src)
-                        gj = mkgap(env, cell, src, srcpos, srcsec, ggid, ggid+1, srcwgt)
-                        env.gjlist.append(gj)
+                        gj = mkgap(env, cell, src, srcpos, srcsec, ggid, ggid+1, wgt)
                     if env.pc.gid_exists(dst):
                         if rank == 0:
-                           logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
-                                       'sgid = %d dgid = %d\n' %
-                                       (rank, dst, dstsec, dstwgt, ggid+1, ggid))
+                            logger.info('host %d: gap junction: gid = %d sec = %d coupling = %g '
+                                        'sgid = %d dgid = %d\n' %
+                                        (rank, dst, dstsec, wgt, ggid+1, ggid))
                         cell = env.pc.gid2cell(dst)
-                        gj = mkgap(env, cell, dst, dstpos, dstsec, ggid+1, ggid, dstwgt)
-                        env.gjlist.append(gj)
+                        gj = mkgap(env, cell, dst, dstpos, dstsec, ggid+1, ggid, wgt)
                     ggid = ggid+2
+                    if env.pc.gid_exists(src) or env.pc.gid_exists(dst):
+                        num_gj += 1
+                        if env.pc.gid_exists(src) and env.pc.gid_exists(dst):
+                            num_gj_intra += 1
+                        else:
+                            num_gj_inter += 1
+                        
 
             del graph[name[0]][name[1]]
-
+        
+        logger.info('*** host %d: created total %i gap junctions: %i intraprocessor %i interprocessor' % (rank, num_gj, num_gj_intra, num_gj_inter))
 
 
 def make_cells(env):
@@ -576,13 +577,13 @@ def make_cells(env):
 
         v_sample_set = set([])
         env.v_sample_dict[pop_name] = v_sample_set
-        env.v_dict[pop_name] = {}
         
         for gid in range(env.celltypes[pop_name]['start'],
                          env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
             if ranstream_v_sample.uniform() <= env.vrecordFraction:
                 v_sample_set.add(gid)
 
+        num_cells = 0
         if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
@@ -599,14 +600,20 @@ def make_cells(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, gid, pop_name, neurotree_dict=tree)
+                model_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
                 if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
                 register_cell(env, pop_name, gid, model_cell)
+                # Record voltages from a subset of cells
+                if model_cell.is_art() == 0:
+                    if gid in env.v_sample_dict[pop_name]: 
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
 
-            if rank == 0:
-                logger.info("*** Created %i cells" % i)
+
+
+                num_cells += 1
 
         elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
@@ -630,7 +637,7 @@ def make_cells(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, gid, pop_name)
+                model_cell = cells.make_hoc_cell(env, pop_name, gid)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
@@ -638,10 +645,11 @@ def make_cells(env):
                 model_cell.position(cell_x, cell_y, cell_z)
 
                 register_cell(env, pop_name, gid, model_cell)
-                
-            if rank == 0:
-                logger.info("*** Created %i cells" % i)
+                num_cells += 1
+
         h.define_shape()
+        if rank == 0:
+            logger.info("*** Created %i cells" % num_cells)
 
         
 def make_cell_selection(env):
@@ -667,7 +675,6 @@ def make_cell_selection(env):
         templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
         v_sample_set = set([])
-        env.v_dict[pop_name] = {}
 
         gid_range = [ s[1] + env.celltypes[pop_name]['start'] for s in env.cell_selection if s[0] == pop_name ]
         for gid in gid_range:
@@ -677,7 +684,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees,_) = read_tree_selection (dataFilePath, pop_name, gid_range, comm=env.comm, io_size=env.IOsize)
+            (trees, _) = read_tree_selection(dataFilePath, pop_name, gid_range, comm=env.comm, io_size=env.IOsize)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
@@ -686,7 +693,7 @@ def make_cell_selection(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, local_id=i,
+                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, 
                                                        dataset_path=datasetPath)
                 if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
@@ -700,12 +707,11 @@ def make_cell_selection(env):
                 env.pc.cell(gid, nc, 1)
                 # Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
-                # Record voltages from a subset of cells
-                if gid in v_sample_set:
-                    v_vec = h.Vector()
-                    soma = list(model_cell.soma)[0]
-                    v_vec.record(soma(0.5)._ref_v)
-                    env.v_dict[pop_name][gid] = v_vec
+                if model_cell.is_art() == 0:
+                    if gid in env.v_sample_dict[pop_name]: 
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
+
                 i = i + 1
             if rank == 0:
                 logger.info("*** Created %i cells" % i)
@@ -725,7 +731,7 @@ def make_cell_selection(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, gid, pop_name, templateClass)
+                model_cell = cells.make_hoc_cell(env, pop_name, gid)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
@@ -741,6 +747,11 @@ def make_cell_selection(env):
                 env.pc.cell(gid, nc, 1)
                 # Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
+                if model_cell.is_art() == 0:
+                    if gid in env.v_sample_dict[pop_name]: 
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
+
                 i = i + 1
         h.define_shape()
 
@@ -905,35 +916,49 @@ def run(env, output=True):
         logger.info("*** Simulation completed")
     del env.cells
     env.pc.barrier()
-    if rank == 0:
-        logger.info("*** Writing spike data")
     if output:
-        io_utils.spikeout(env, env.resultsFilePath, np.array(env.t_vec, dtype=np.float32), np.array(env.id_vec, dtype=np.uint32))
+        if rank == 0:
+            logger.info("*** Writing spike data")
+        io_utils.spikeout(env, env.resultsFilePath)
         if env.vrecordFraction > 0.:
           if rank == 0:
             logger.info("*** Writing intracellular trace data")
           t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
-          io_utils.vout(env, env.resultsFilePath, t_vec, env.v_dict)
+          io_utils.recsout(env, env.resultsFilePath)
         env.pc.barrier()
         if rank == 0:
             logger.info("*** Writing local field potential data")
-            for lfp in env.lfp.values():
-                lfpout(env, env.resultsFilePath, lfp)
+            io_utils.lfpout(env, env.resultsFilePath)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
     maxcw    = env.pc.allreduce(cwtime, 2)
-    avgcomp  = env.pc.allreduce(comptime, 1)/nhosts
+    meancomp = env.pc.allreduce(comptime, 1)/nhosts
     maxcomp  = env.pc.allreduce(comptime, 2)
 
+    gjtime   = env.pc.vtransfer_time()
+
+    gjvect   = h.Vector()
+    env.pc.allgather(gjtime, gjvect)
+    meangj = gjvect.mean()
+    maxgj  = gjvect.max()
+    
     if rank == 0:
         logger.info("Execution time summary for host %i:" % rank)
         logger.info("  created cells in %g seconds" % env.mkcellstime)
         logger.info("  connected cells in %g seconds" % env.connectcellstime)
         logger.info("  created gap junctions in %g seconds" % env.connectgjstime)
         logger.info("  ran simulation in %g seconds" % comptime)
+        logger.info("  spike communication time: %g seconds" % env.pc.send_time())
+        logger.info("  event handling time: %g seconds" % env.pc.event_time())
+        logger.info("  numerical integration time: %g seconds" % env.pc.integ_time())
+        logger.info("  voltage transfer time: %g seconds" % gjtime)
         if maxcw > 0:
-            logger.info("  load balance = %g" % (avgcomp/maxcw))
+            logger.info("Load balance = %g" % (meancomp/maxcw))
+        if meangj > 0:
+            logger.info("Mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
+            for i in range(nhosts):
+                logger.info("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
 
     env.pc.runworker()
     env.pc.done()

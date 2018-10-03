@@ -1,9 +1,8 @@
-import itertools
+import os, itertools, collections
 from dentate.utils import viewitems
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
-import collections
 try:
     import btmorph
 except Exception:
@@ -1375,7 +1374,7 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     return cell
 
 
-def make_hoc_cell(env, gid, pop_name, neurotree_dict=False):
+def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     """
 
     :param env:
@@ -1402,7 +1401,7 @@ def make_hoc_cell(env, gid, pop_name, neurotree_dict=False):
 
 
 
-def get_biophys_cell(env, pop_name, gid, load_edges=True):
+def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
     """
     TODO: Consult env for weights namespaces, load_syn_weights
     :param env:
@@ -1412,40 +1411,44 @@ def get_biophys_cell(env, pop_name, gid, load_edges=True):
     """
     env.load_cell_template(pop_name)
     tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
-    hoc_cell = make_hoc_cell(env, gid, pop_name, neurotree_dict=tree)
+    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
     target_gid_offset = env.celltypes[pop_name]['start']
     syn_attrs = env.synapse_attributes
-    try:
+    
+    if load_synapses:
         #if pop_name not in syn_attrs.select_cell_attr_index_map:
         #    syn_attrs.select_cell_attr_index_map[pop_name] = \
         #        get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
         #syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
         #                                                        syn_attrs.select_cell_attr_index_map[pop_name],
         #                                                        pop_name, 'Synapse Attributes', target_gid_offset))
-        synapses_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
-                                                        'Synapse Attributes', comm=env.comm)
-        synapses_dict = dict(synapses_iter)
-        syn_attrs.load_syn_id_attrs(gid, synapses_dict[gid])
-    except Exception:
-        logger.warning('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+        if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
+            synapses_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
+                                                            'Synapse Attributes', comm=env.comm)
+            synapses_dict = dict(synapses_iter)
+            syn_attrs.load_syn_id_attrs(gid, synapses_dict[gid])
+        else:
+            logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+            raise Exception
 
     if load_edges:
-        if len(env.projection_dict[pop_name]) == 0:
+        if os.path.isfile(env.connectivityFilePath):
+            (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
+                                                comm=env.comm, namespaces=['Synapses', 'Connections'])
+            if pop_name in env.projection_dict:
+                for presyn_name in env.projection_dict[pop_name]:
+                    
+                    edge_iter = graph[pop_name][presyn_name]
+                    syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
+                    
+                    syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
+            else:
+                logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+                raise Exception
+        else:
+            logger.error('get_biophys_cell: connection file %s not found' % (env.connectivityFilePath))
             raise Exception
-        
-        (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
-                                              comm=env.comm, namespaces=['Synapses', 'Connections'])
-
-        for presyn_name in env.projection_dict[pop_name]:
-
-            edge_iter = graph[pop_name][presyn_name]
-            syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
-            
-            syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
-            
-    #except Exception:
-    #    logger.warning('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
     env.biophys_cells[pop_name][gid] = cell
     return cell
 

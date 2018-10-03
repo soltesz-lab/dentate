@@ -28,6 +28,6 @@ cd $PBS_O_WORKDIR
 aprun -n 1024 -b -- bwpy-environ -- python2.7 $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
     -d GC -s LPP -s MPP -s MC \
     --config=./config/Full_Scale_Control.yaml \
-    --weights-path=$SCRATCH/Full_Scale_Control/DG_GC_forest_syns_log_normal_weights_20180806.h5 \
-    --connections-path=$SCRATCH/Full_Scale_Control/DG_GC_connections_20180806_compressed.h5 \
-    --io-size=256 --cache-size=1 --value-chunk-size=100000 --chunk-size=20000 -v
+    --weights-path=$SCRATCH/Full_Scale_Control/DG_GC_forest_syns_log_normal_weights_20180914.h5 \
+    --connections-path=$SCRATCH/Full_Scale_Control/DG_GC_connections_20180813_compressed.h5 \
+    --io-size=256 --cache-size=20 --value-chunk-size=100000 --chunk-size=20000 -v

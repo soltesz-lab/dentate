@@ -165,7 +165,14 @@ def viewitems(obj, **kwargs):
     if not func:
         func = obj.items
     return func(**kwargs)    
-    
+
+
+def zip_longest(*args, **kwds):
+    if hasattr(itertools, 'izip_longest'):
+        return itertools.izip_longest(*args, **kwds)
+    else:
+        return itertools.zip_longest(*args, **kwds)
+
     
 def make_geometric_graph(x, y, z, edges):
     """ Builds a NetworkX graph with xyz node coordinates and the node indices

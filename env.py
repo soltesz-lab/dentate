@@ -72,6 +72,8 @@ class Env:
             self.comm = comm
         if comm is not None:
             self.pc = h.ParallelContext()
+        else:
+            self.pc = None
 
         # print verbose diagnostic messages
         self.verbose = verbose
@@ -224,8 +226,9 @@ class Env:
 
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
-
-        self.v_dict = defaultdict(lambda: {})  # Voltage samples on this host
+        self.recs_dict = {}  # Intracellular samples on this host
+        for pop_name, _ in viewitems(self.pop_dict):
+            self.recs_dict[pop_name] = {}
 
         # used to calculate model construction times and run time
         self.mkcellstime = 0
@@ -240,8 +243,9 @@ class Env:
         self.syns_set = defaultdict(set)
 
         # stimulus cell templates
-        find_template(self, 'StimCell', self.templatePaths)
-        find_template(self, 'VecStimCell', self.templatePaths)
+        if len(self.templatePaths) > 0:
+            find_template(self, 'StimCell', self.templatePaths)
+            find_template(self, 'VecStimCell', self.templatePaths)
 
         if self.hoclibPath:
             # polymorphic hoc value template

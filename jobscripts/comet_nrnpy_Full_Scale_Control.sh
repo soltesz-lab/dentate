@@ -40,7 +40,7 @@ echo python is `which python`
 
 mpirun_rsh -export-all -hostfile $nodefile -np 1680  \
  python ./scripts/main.py --config-file=Full_Scale_Control.yaml  \
- --template-paths=../dgc/Mateos-Aparicio2014 \
+ --template-paths=../dgc/Mateos-Aparicio2014:templates \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \
  --io-size=256 \

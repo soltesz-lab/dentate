@@ -34,9 +34,8 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
         if timeRange is None:
             logger.info('Reading spike data for population %s...' % pop_name)
         else:
-            logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(time_range)))
+            logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(timeRange)))
 
-        print 'namespace is %s' % namespace_id
         spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id)
         this_num_cell_spks = 0
         active_set = set([])
@@ -115,13 +114,12 @@ def interspike_intervals (spkdict):
     return isi_dict
 
 
-def spike_rates (spkdict, t_dflt):
+def spike_rates (spkdict, t):
     rate_dict = {}
     isidict = interspike_intervals(spkdict)
     for ind, isiv in viewitems(isidict):
         if isiv.size > 0:
-            t = np.sum(isiv)
-            rate = isiv.size / t / 1000.0
+            rate = isiv.size / (t / 1000.0)
         else:
             rate = 0.0
         rate_dict[ind] = rate

@@ -96,12 +96,12 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     sec = list(cell.sections)[secidx]
     seg = sec(secpos)
     gj = h.ggap(seg)
+    gj.g = w
 
     env.pc.source_var(seg._ref_v, sgid, sec=sec)
     env.pc.target_var(gj, gj._ref_vgap, dgid)
-    
-    gj.g = w
 
+    env.gjlist.append(gj)
     return gj
 
 def find_template(env, template_name, path=['templates'], root=0):
@@ -112,19 +112,22 @@ def find_template(env, template_name, path=['templates'], root=0):
     found = False
     foundv = h.Vector(1)
     template_path = ''
-    pc.barrier()
-    if int(pc.id()) == root:
+    if pc is not None:
+        pc.barrier()
+    if (pc is None) or (int(pc.id()) == root):
         for template_dir in path:
             template_path = '%s/%s.hoc' % (template_dir, template_name)
             found = os.path.isfile(template_path)
             if found:
                 break
         foundv.x[0] = 1 if found else 0
-    pc.barrier()
-    pc.broadcast(foundv, root)
+    if pc is not None:
+        pc.barrier()
+        pc.broadcast(foundv, root)
     if foundv.x[0] > 0.0:
         s = h.ref(template_path)
-        pc.broadcast(s, root)
+        if pc is not None:
+            pc.broadcast(s, root)
         h.load_file(s)
     else:
         raise Exception('find_template: template not found: %s; path is %s' % (template_name, str(path)))
@@ -148,3 +151,35 @@ def configure_hoc_env(env):
     h.tstop = env.tstop
 
 
+
+def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', description=''):
+        """
+        Makes a recording vector for the specified quantity in the specified section and location.
+
+        :param recid: integer
+        :param population: str
+        :param gid: integer
+        :param cell: :class:'BiophysCell'
+        :param sec: :class:'HocObject'
+        :param dt: float
+        :param loc: float
+        :param param: str
+        :param ylabel: str
+        :param description: str
+        """
+        vec = h.Vector()
+        name = 'rec%i' % recid
+        if loc is None:
+           loc = 0.5
+        vec.record(getattr(sec(loc), '_ref_%s' % param), dt)
+        rec_dict = { 'name': name,
+                     'gid': gid,
+                     'cell': cell,
+                     'population': population,
+                     'loc': loc,
+                     'sec': sec,
+                     'description': description,
+                     'vec': vec
+                    }
+                
+        return rec_dict
