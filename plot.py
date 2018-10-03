@@ -17,8 +17,8 @@ from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, bcast_cell_attributes, \
-     NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
+from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, \
+    bcast_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
 import dentate.utils as utils
 import dentate.statedata as statedata
 from dentate.env import Env

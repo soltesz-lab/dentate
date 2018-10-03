@@ -82,7 +82,7 @@ class Env:
         
         # Directories for cell templates
         if templatePaths is not None:
-            self.templatePaths = templatePaths.split( ':')
+            self.templatePaths = templatePaths.split(':')
         else:
             self.templatePaths = []
 
@@ -475,11 +475,11 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-        templateFile = None
         if 'templateFile' in self.celltypes[popName]:
             templateFile = self.celltypes[popName]['templateFile']
+        else:
+            templateFile = None
         find_template(self, templateName, template_file=templateFile, path=self.templatePaths)
         assert(hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class
-    
