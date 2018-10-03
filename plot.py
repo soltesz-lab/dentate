@@ -1493,11 +1493,11 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], timeRang
 
     
     
-def update_spatial_rasters(i, scts, timebins, data, distances_U_dict, distances_V_dict, lgd):
-    if i > 0:
-        t0 = timebins[i]
-        t1 = timebins[i+1]
-        print t0, ':', t1
+def update_spatial_rasters(frame, scts, timebins, data, distances_U_dict, distances_V_dict, lgd):
+    print 'frame: ',frame
+    if frame > 0:
+        t0 = timebins[frame]
+        t1 = timebins[frame+1]
         for p, (pop_name, spkinds, spkts) in enumerate(data):
             distances_U = distances_U_dict[pop_name]
             distances_V = distances_V_dict[pop_name]
@@ -1505,10 +1505,9 @@ def update_spatial_rasters(i, scts, timebins, data, distances_U_dict, distances_
             cinds = spkinds[rinds]
             x = np.asarray([distances_U[ind] for ind in cinds])
             y = np.asarray([distances_V[ind] for ind in cinds])
-            offsets = np.column_stack((x,y))
-            scts[p].set_offsets(offsets)
+            scts[p].set_data(x, y)
             scts[p].set_label(pop_name)
-    return scts + [lgd(scts)]
+    return scts
         
 def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, lw, marker, pop_colors):
     scts = []
@@ -1525,8 +1524,8 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
         cinds = spkinds[rinds]
         x = np.asarray([distances_U[ind] for ind in cinds])
         y = np.asarray([distances_V[ind] for ind in cinds])
-        scts.append(ax.scatter(x, y, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
-        #scts.append(ax.scatter([], [], linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        #scts.append(ax.scatter(x, y, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        scts = scts + plt.plot([], [], 'o', animated=True)
         if min_U is None:
             min_U = range_U_dict[pop_name][0]
         else:
@@ -1547,6 +1546,7 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
     ax.set_ylim((min_V, max_V))
     return scts + [lgd(scts)]
         
+aniplots = []
         
 ## Plot spike raster
 def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_namespace='Arc Distances',
@@ -1626,23 +1626,21 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
     
     # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
-    aniplots = []
+    fig, ax = plt.subplots(figsize=figSize)
 
     pop_labels = [ pop_name for pop_name in spkpoplst ]
     legend_labels = pop_labels
-    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.)
+    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=2., )
     
-    dt = 50.0
-    timebins = np.linspace(tmin, tmax, dt)
+    dt = 15.0
+    timebins = np.linspace(tmin, tmax, (tmax-tmin) / dt)
+    
     data = zip (spkpoplst, spkindlst, spktlst)
-    scts = init_spatial_rasters(ax1, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, lw, marker, pop_colors)
-    ani = FuncAnimation(fig, update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
-                        blit=True, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
+    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, lw, marker, pop_colors)
+    ani = FuncAnimation(fig, func=update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
+                        blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
     aniplots.append(ani)
-    print ani
-    # Add legend
-            
+
 
         # save figure
         #if saveFig: 
