@@ -1,10 +1,8 @@
 
-import sys, gc, math
+import sys, os, gc, math
 from mpi4py import MPI
 import click
 import dentate, utils, plot
-
-script_name = 'plot_single_vertex_dist.py'
 
 @click.command()
 @click.option("--connectivity-path", '-p', required=True, type=click.Path())
@@ -17,14 +15,14 @@ script_name = 'plot_single_vertex_dist.py'
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, bin_size, font_size, verbose):
+
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
+
     plot.plot_single_vertex_dist (connectivity_path, coords_path, distances_namespace,
                                   destination_gid, destination, source, bin_size, fontSize=font_size,
-                                  saveFig=True, verbose=verbose)
-
-
+                                  saveFig=True)
+    
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
-
-
-    
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

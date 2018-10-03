@@ -176,8 +176,7 @@ def calculate_fraction_active(rates, threshold):
 def gid2module_dictionary(cell_lst, modules):
     module_dict = {module: {} for module in modules}
     for cells in cell_lst:
-        for gid in cells:
-            cell = cells[gid]
+        for (gid, cell) in cells:
             this_module = cell['Module'][0]
             module_dict[this_module][cell['gid'][0]] = cell
     return module_dict

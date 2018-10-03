@@ -4,12 +4,29 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from nested.optimize_utils import *
-from neuroh5.io import NeuroH5CellAttrGen
+from neuroh5.io import NeuroH5CellAttrGen, read_cell_attributes
 from mpi4py import MPI
 from pprint import pprint
 
 import dentate
-from dentate.stimulus import read_cell_attributes, gid2module_dictionary, module2gid_dictionary, fraction_active
+from dentate.stimulus import gid2module_dictionary, module2gid_dictionary, fraction_active
+
+def add_colorbar(img, ax):
+    divider = make_axes_locatable(ax)
+    cax     = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(img, cax=cax)
+
+def turn_off_xy(axes):
+    turn_off_x(axes)
+    turn_off_y(axes)
+
+def turn_off_x(axes):
+    axes.xaxis.set_ticks_position('none')
+    axes.get_xaxis().set_visible(False)
+
+def turn_off_y(axes):
+    axes.yaxis.set_ticks_position('none')
+    axes.get_yaxis().set_visible(False)
 
 def plot_rate_maps_single_module(cells, plot=False, save=True, **kwargs):
 
@@ -44,11 +61,6 @@ def plot_rate_maps_single_module(cells, plot=False, save=True, **kwargs):
         plt.savefig('%s-module-%d-ratemap.svg' % (ctype, module), {'format': 'svg'})
     if plot:
         plt.show()
-
-def add_colorbar(img, ax):
-    divider = make_axes_locatable(ax)
-    cax     = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(img, cax=cax)
 
 def plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs):
     assert(len(modules) == 10)
@@ -99,20 +111,6 @@ def plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save
     if plot:
         plt.show()
         
-
-def turn_off_xy(axes):
-    turn_off_x(axes)
-    turn_off_y(axes)
-
-def turn_off_x(axes):
-    axes.xaxis.set_ticks_position('none')
-    axes.get_xaxis().set_visible(False)
-
-def turn_off_y(axes):
-    axes.yaxis.set_ticks_position('none')
-    axes.get_yaxis().set_visible(False)
-        
-            
 
 def plot_xy_offsets_single_module(cells, plot=False, save=True, **kwargs):
 
@@ -312,6 +310,51 @@ def plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=False,
     if plot:
         plt.show()
 
+def plot_lambda_activity_histograms(module_dictionary, modules, save=False, plot=False, threshold=2.0, **kwargs):
+    
+    fig, axes   = plt.subplots(2)
+    ctype     = kwargs.get('ctype', 'grid')
+    nx, ny    = 20, 20
+    nxx, nyy  = np.meshgrid(np.arange(nx), np.arange(ny))
+    coords    = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+    active_lambda_maps = {(i,j): [] for (i,j) in coords}
+    for (i, module) in enumerate(module_dictionary):
+        cells = module_dictionary[module]
+        for gid in cells:
+            cell = cells[gid]
+            rate_map = cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0])
+            module = cell['Module'][0]
+            for x in xrange(nx):
+                for y in xrange(ny):
+                    response = rate_map[(x,y)]
+                    if response >= threshold:
+                        active_lambda_maps[(x,y)].append(module)
+
+    hist_lst, edges_lst = [], []
+    for (i,j) in active_lambda_maps:
+        pos_activity = active_lambda_maps[(i, j)]
+        hist, edges = np.histogram(pos_activity,bins=10)
+        hist_lst.append(hist)
+        edges_lst.append(edges)
+    hists = np.asarray(hist_lst)
+
+    hist_mean = np.mean(hists,axis=0)
+    hist_std  = np.std(hists,axis=0)
+    hist_mean_normalized = hist_mean / [len(module_dictionary[i]) for i in module_dictionary.keys()]
+    hist_std_normalized = hist_std / [len(module_dictionary[i]) for i in module_dictionary.keys()]
+
+    axes[0].bar(edges_lst[0][1:], hist_mean, alpha=0.5, yerr=hist_std)
+    axes[0].set_title('Activity per module')
+
+    axes[1].bar(edges_lst[0][1:], hist_mean_normalized, alpha=0.5, yerr=hist_std_normalized)
+    axes[1].set_title('Normalized acitivity per module')
+
+    if save:
+        fig.savefig('%s-module-activity.svg' % (ctype), format='svg')
+    if plot:
+        plt.show()
+            
+
 def read_population_storage(file_path):
     try:
         storage = PopulationStorage(file_path=file_path)
@@ -350,6 +393,8 @@ def plot_population_input(storage, bounds=None):
         ax2.set_xlabel('p_inactive')
         ax2.set_ylabel('p_r')
 
+
+
 def plot_group(module_dictionary, modules, plot=False, **kwargs):
     plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs)
     plot_fraction_active_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs)
@@ -358,6 +403,7 @@ def plot_group(module_dictionary, modules, plot=False, **kwargs):
 
 if __name__ == '__main__':
     file_path = str(sys.argv[1])
+    ctype     = str(sys.argv[2])
     #storage   = read_population_storage(file_path)
     #plot_population_input(storage, bounds=(0.045, 0.055))
     #plt.show()
@@ -368,22 +414,25 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     modules = np.arange(10) + 1
 
-    lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features', comm, io_size=-1, cache_size=50)
-    mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features', comm, io_size=-1, cache_size=50)
-    mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features', comm, io_size=-1, cache_size=50)
+    if ctype == 'grid':
+        mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features')
+        cells_modules_dictionary = gid2module_dictionary([mpp_grid], modules)
+    elif ctype == 'place':
+        lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features')
+        mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features')
+        cells_modules_dictionary = gid2module_dictionary([mpp_place, lpp_place], modules)
+    elif ctype == 'both':
+        lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features')
+        mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features')
+        mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features')
+        cells_modules_dictionary = gid2module_dictionary([mpp_grid, mpp_place, lpp_place], modules)
+
+    print( [len(cells_modules_dictionary[i]) for i in cells_modules_dictionary.keys()])
+    kwargs = {'ctype': ctype}
+    plot_lambda_activity_histograms(cells_modules_dictionary, modules, plot=False, save=True, **kwargs)
+    #plot_group(cells_modules_dictionary, modules, plot=False, **kwargs)
 
 
-    place_cells_modules_dictionary = gid2module_dictionary([lpp_place, mpp_place], modules)
-    kwargs = {'ctype': 'place'}
-    plot_group(place_cells_modules_dictionary, modules, plot=False, **kwargs)
-
-    grid_cells_modules_dictionary = gid2module_dictionary([mpp_grid], modules)
-    kwargs = {'ctype': 'grid'}
-    plot_group(grid_cells_modules_dictionary, modules, plot=False, **kwargs)
-
-    all_cells_modules_dictionary = gid2module_dictionary([lpp_place, mpp_place, mpp_grid], modules)
-    kwargs = {'ctype': 'both'}
-    plot_group(all_cells_modules_dictionary, modules, plot=False, **kwargs)
 
 
 
