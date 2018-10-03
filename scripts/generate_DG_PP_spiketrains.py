@@ -91,6 +91,7 @@ def main(config, features_path, output_path, template_path, io_size, chunk_size,
                 for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
                     dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
                     dataset[:] = value.astype('float32', copy=False)
+
             else:
                 logger.info('Rank: %i; Reading %s datasets' % (rank, trajectory_namespace))
                 group = f[trajectory_namespace]
@@ -102,6 +103,10 @@ def main(config, features_path, output_path, template_path, io_size, chunk_size,
                 d = dataset[:]
                 dataset = group['t']
                 t = dataset[:]
+
+            output_file = h5py.File(output_path, 'a')
+            f.copy(trajectory_namespace, output_file)
+            output_file.close()
     else:
         x = None
         y = None
