@@ -46,7 +46,7 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 
 aprun -n 16384 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
-    --config-file=Full_Scale_Control_log_normal_weights.yaml  \
+    --config-file=Full_Scale_Control_LN.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
