@@ -30,7 +30,7 @@ def main(destination, source, font_size, verbose):
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15,5))
         fig.suptitle('Distribution of connection distances for projection %s -> %s' % (s, destination), fontsize=font_size)
         
-        bin_size = 5.
+        bin_size = 10.
         ax1.bar(dist_bin_edges, dist_histoCount, width=bin_size)
         ax1.set_xlabel('Total distance (um)', fontsize=font_size)
         ax1.set_ylabel('Number of connections', fontsize=font_size)

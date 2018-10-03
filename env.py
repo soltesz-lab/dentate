@@ -246,8 +246,8 @@ class Env:
 
         # stimulus cell templates
         if len(self.templatePaths) > 0:
-            find_template(self, 'StimCell', self.templatePaths)
-            find_template(self, 'VecStimCell', self.templatePaths)
+            find_template(self, 'StimCell', path=self.templatePaths)
+            find_template(self, 'VecStimCell', path=self.templatePaths)
 
         if self.hoclibPath:
             # polymorphic hoc value template
@@ -475,7 +475,10 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-        find_template(self, templateName, path=self.templatePaths)
+        templateFile = None
+        if 'templateFile' in self.celltypes[popName]:
+            templateFile = self.celltypes[popName]['templateFile']
+        find_template(self, templateName, template_file=templateFile, path=self.templatePaths)
         assert(hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class

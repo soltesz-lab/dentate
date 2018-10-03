@@ -14,7 +14,8 @@ Input: !include Input.yaml
 Cell Types:
   GC:
     template: DGC
-    templateFile: DGC.hoc
+    templateFile: DGC_Template_minimal.hoc
+    mech_file_path: 20180605_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
       density: !include GC_synapse_density.yaml

@@ -104,7 +104,7 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     env.gjlist.append(gj)
     return gj
 
-def find_template(env, template_name, path=['templates'], root=0):
+def find_template(env, template_name, template_file=None, path=['templates'], root=0):
     """
     Finds and loads a template located in a directory within the given path list.
     """
@@ -112,11 +112,13 @@ def find_template(env, template_name, path=['templates'], root=0):
     found = False
     foundv = h.Vector(1)
     template_path = ''
+    if template_file is None:
+        template_file = '%s.hoc' % template_name
     if pc is not None:
         pc.barrier()
     if (pc is None) or (int(pc.id()) == root):
         for template_dir in path:
-            template_path = '%s/%s.hoc' % (template_dir, template_name)
+            template_path = '%s/%s' % (template_dir, template_file)
             found = os.path.isfile(template_path)
             if found:
                 break
@@ -130,7 +132,7 @@ def find_template(env, template_name, path=['templates'], root=0):
             pc.broadcast(s, root)
         h.load_file(s)
     else:
-        raise Exception('find_template: template not found: %s; path is %s' % (template_name, str(path)))
+        raise Exception('find_template: template %s not found: file %s; path is %s' % (template_name, template_file, str(path)))
 
 
 

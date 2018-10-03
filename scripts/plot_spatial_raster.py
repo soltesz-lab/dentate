@@ -15,9 +15,10 @@ from dentate import utils, plot
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
+@click.option("--t-step", type=float, default=5.0)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, coords_path, distances_namespace, populations, max_spikes, t_variable, t_max, t_min, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, coords_path, distances_namespace, populations, max_spikes, t_variable, t_max, t_min, t_step, font_size, verbose):
 
     utils.config_logging(verbose)
     
@@ -32,7 +33,9 @@ def main(spike_events_path, spike_events_namespace, coords_path, distances_names
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spatial_spike_raster (spike_events_path, spike_events_namespace, coords_path, distances_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, maxSpikes=max_spikes, fontSize=font_size, saveFig=True)
+    plot.plot_spatial_spike_raster (spike_events_path, spike_events_namespace, coords_path, distances_namespace, include=populations, \
+                                    timeRange=timeRange, timeVariable=t_variable, timeStep=t_step, maxSpikes=max_spikes, \
+                                    fontSize=font_size, saveFig=True)
     
 
 if __name__ == '__main__':
