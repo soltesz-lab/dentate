@@ -1525,7 +1525,7 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
         x = np.asarray([distances_U[ind] for ind in cinds])
         y = np.asarray([distances_V[ind] for ind in cinds])
         #scts.append(ax.scatter(x, y, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
-        scts = scts + plt.plot([], [], 'o', animated=True)
+        scts = scts + plt.plot([], [], 'o', animated=True, alpha=0.5)
         if min_U is None:
             min_U = range_U_dict[pop_name][0]
         else:
@@ -1630,9 +1630,10 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
     pop_labels = [ pop_name for pop_name in spkpoplst ]
     legend_labels = pop_labels
-    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=2., )
+    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=2., \
+                                    loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
-    dt = 15.0
+    dt = 5.0
     timebins = np.linspace(tmin, tmax, (tmax-tmin) / dt)
     
     data = zip (spkpoplst, spkindlst, spktlst)
