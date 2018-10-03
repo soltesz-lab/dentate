@@ -5,12 +5,12 @@
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=3:30:00
+#PBS -l walltime=3:00:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control_log_normal_weights
+#PBS -N dentate_Full_Scale_Control_Pas
 ### set the job stdout and stderr
-#PBS -e ./results/dentate.log_normal_weights.$PBS_JOBID.err
-#PBS -o ./results/dentate.log_normal_weights.$PBS_JOBID.out
+#PBS -e ./results/dentate.$PBS_JOBID.err
+#PBS -o ./results/dentate.$PBS_JOBID.out
 ### set email notification
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
@@ -46,15 +46,16 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 
 aprun -n 16384 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
-    --config-file=Full_Scale_Control_log_normal_weights.yaml  \
+    --config-file=Full_Scale_Pas.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=2500 \
+    --tstop=5000 \
     --v-init=-75 \
     --stimulus-onset=50.0 \
-    --max-walltime-hours=3.4 \
+    --max-walltime-hours=2.9 \
     --vrecord-fraction=0.001 \
+    --node-rank-file=parts.16384 \
     --verbose
 

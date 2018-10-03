@@ -264,9 +264,10 @@ def standard_modify_syn_mech_param_tests(cell, env):
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../config')
 @click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
+@click.option("--load-edges", type=bool, default=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
-         verbose):
+         load_edges, verbose):
     """
 
     :param gid: int
@@ -277,19 +278,22 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files
     :param mech_file: str; cell mechanism config file name
+    :param load_edges: bool; whether to attempt to load connections for neuroh5
     :param verbose: bool
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
-    configure_env(env)
+    configure_hoc_env(env)
 
+    context.update(locals())
+
+    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     mech_file_path = config_prefix + '/' + mech_file
-    cell = get_biophys_cell(env, gid, pop_name)
     context.update(locals())
 
     standard_modify_mech_param_tests(cell)
-    # standard_cable_tests(cell, mech_file_path)
+    standard_cable_tests(cell, mech_file_path)
     cm_correction_test(cell, env, mech_file_path)
     count_spines(cell, env)
     standard_modify_syn_mech_param_tests(cell, env)

@@ -17,8 +17,8 @@ from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, bcast_cell_attributes, \
-     NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
+from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, \
+    bcast_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
 import dentate.utils as utils
 import dentate.statedata as statedata
 from dentate.env import Env
@@ -1507,9 +1507,10 @@ def update_spatial_rasters(frame, scts, timebins, data, distances_U_dict, distan
             y = np.asarray([distances_V[ind] for ind in cinds])
             scts[p].set_data(x, y)
             scts[p].set_label(pop_name)
+            scts[-1].set_text('t = %f ms' % t1)
     return scts
         
-def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, lw, marker, pop_colors):
+def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, fontSize, lw, marker, pop_colors):
     scts = []
     t0 = timebins[0]
     t1 = timebins[1]
@@ -1525,7 +1526,7 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
         x = np.asarray([distances_U[ind] for ind in cinds])
         y = np.asarray([distances_V[ind] for ind in cinds])
         #scts.append(ax.scatter(x, y, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
-        scts = scts + plt.plot([], [], 'o', animated=True, alpha=0.5)
+        scts = scts + plt.plot([], [], marker, animated=True, alpha=0.5)
         if min_U is None:
             min_U = range_U_dict[pop_name][0]
         else:
@@ -1544,13 +1545,14 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
             max_V = max(max_V, range_V_dict[pop_name][1])
     ax.set_xlim((min_U, max_U))
     ax.set_ylim((min_V, max_V))
-    return scts + [lgd(scts)]
+    
+    return scts + [lgd(scts), plt.text(0.05, 0.95, 't = %f ms' % t0, fontsize=fontSize, transform=ax.transAxes)]
         
 aniplots = []
         
 ## Plot spike raster
 def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_namespace='Arc Distances',
-                               include = ['eachPop'], timeRange = None, timeVariable='t', maxSpikes = int(1e6),
+                               include = ['eachPop'], timeStep = 5.0, timeRange = None, timeVariable='t', maxSpikes = int(1e6),
                                lw = 3, marker = 'o', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
     ''' 
     Spatial raster plot of network spike times. Returns the figure handle.
@@ -1633,11 +1635,10 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=2., \
                                     loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
-    dt = 5.0
-    timebins = np.linspace(tmin, tmax, (tmax-tmin) / dt)
+    timebins = np.linspace(tmin, tmax, (tmax-tmin) / timeStep)
     
     data = zip (spkpoplst, spkindlst, spktlst)
-    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, lw, marker, pop_colors)
+    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, fontSize, lw, marker, pop_colors)
     ani = FuncAnimation(fig, func=update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
                         blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
     aniplots.append(ani)

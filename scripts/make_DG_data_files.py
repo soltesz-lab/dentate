@@ -6,8 +6,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20180928.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20180928.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20181003.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20181003.h5"
 
 DG_GC_coordinate_file  = "DGC_forest_reindex_20180418.h5"
 DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
@@ -18,6 +18,8 @@ DG_IN_forest_file = "DG_IN_forest_20180908.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20180812_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20180908.h5"
+
+DG_GC_syn_weights_file = "DG_GC_forest_syns_log_normal_weights_20180914_compressed.h5"
 
 DG_IN_connectivity_file = "DG_IN_connections_20180908.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20180813_compressed.h5"
@@ -86,6 +88,10 @@ forest_syns_files = {
      'NGFC': DG_IN_forest_syns_file 
 }
 
+syn_weight_files = {
+     'GC': { "Log-Normal Weights": DG_GC_syn_weights_file } 
+}
+
 ## Creates H5Types entries
 with h5py.File(DG_cells_file) as f:
     input_file  = h5py.File(h5types_file,'r')
@@ -120,6 +126,12 @@ with h5py.File(DG_cells_file) as f:
             forest_syns_file = forest_syns_files[p]
             grp[p]["Trees"] = h5py.ExternalLink(forest_file,"/Populations/%s/Trees" % p)
             grp[p]["Synapse Attributes"] = h5py.ExternalLink(forest_syns_file,"/Populations/%s/Synapse Attributes" % p)
+
+    for p in DG_populations:
+        if p in syn_weight_files:
+            weight_dict = syn_weight_files[p]
+            for w in weight_dict:
+                grp[p][w] = h5py.ExternalLink(weight_dict[w],"/Populations/%s/%s" % (p,w))
 
 ## Creates connectivity entries
 with h5py.File(DG_connections_file) as f:
