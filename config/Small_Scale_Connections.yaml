@@ -883,3 +883,4 @@ Connection Velocity:
   LPP: 250.0
   IS: 250.0
   GC: 250.0
+Gap Junctions: !include Gap_Junctions_Control.yaml

@@ -104,9 +104,15 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     env.gjlist.append(gj)
     return gj
 
-def find_template(env, template_name, path=['templates'], root=0):
+
+def find_template(env, template_name, path=['templates'], template_file=None, root=0):
     """
     Finds and loads a template located in a directory within the given path list.
+    :param env: :class:'Env'
+    :param template_name: str; name of hoc template
+    :param path: list of str; directories to look for hoc template
+    :param template_file: str; file_name containing definition of hoc template
+    :param root: int; MPI.COMM_WORLD.rank
     """
     pc = env.pc
     found = False
@@ -116,9 +122,13 @@ def find_template(env, template_name, path=['templates'], root=0):
         pc.barrier()
     if (pc is None) or (int(pc.id()) == root):
         for template_dir in path:
-            template_path = '%s/%s.hoc' % (template_dir, template_name)
+            if template_file is None:
+                template_path = '%s/%s.hoc' % (template_dir, template_name)
+            else:
+                template_path = '%s/%s' % (template_dir, template_file)
             found = os.path.isfile(template_path)
             if found:
+                print('Loaded %s from %s' % (template_name, template_path))
                 break
         foundv.x[0] = 1 if found else 0
     if pc is not None:
@@ -131,7 +141,6 @@ def find_template(env, template_name, path=['templates'], root=0):
         h.load_file(s)
     else:
         raise Exception('find_template: template not found: %s; path is %s' % (template_name, str(path)))
-
 
 
 def configure_hoc_env(env):
@@ -149,7 +158,6 @@ def configure_hoc_env(env):
     env.pc = h.pc
     h.dt = env.dt
     h.tstop = env.tstop
-
 
 
 def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', description=''):
