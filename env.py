@@ -32,7 +32,7 @@ class Env:
     def __init__(self, comm=None, configFile=None, templatePaths="templates", hoclibPath=None, datasetPrefix=None,
                  configPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0,
-                 dt=0.025, ldbal=False, lptbal=False, cell_selection=None, spike_input_path=None, spike_input_ns=None,
+                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection=None, spike_input_path=None, spike_input_ns=None,
                  verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
@@ -125,6 +125,8 @@ class Env:
         # measure/perform load balancing
         self.optldbal = ldbal
         self.optlptbal = lptbal
+
+        self.transfer_debug = transfer_debug
 
         # Fraction of cells to record intracellular voltage from
         self.vrecordFraction = vrecordFraction
