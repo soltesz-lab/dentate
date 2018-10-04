@@ -179,8 +179,12 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
         attribute = 'Grid Spacing'
     elif metric == 'spacing' and cellType == 'place':
         attribute = 'Field Width'
-
-
+    if metric == 'num-fields':
+        attribute = 'Num Fields'
+    if metric == 'orientation' and cellType == 'grid':
+        attribute = 'Grid Orientation'
+    elif metric == 'orientation' and cellType == 'place':
+        return 
     
     attr_gen  = read_cell_attributes(features_path, population, input_features)
     attr_dict = {}
@@ -188,28 +192,28 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
         attr_dict[gid] = features_dict[attribute]
     del attr_gen
 
-    spacings = []
+    attr_lst = []
     for gid in gids:
         if gid in attr_dict:
-            this_spacing = attr_dict[gid]
-            mean_spacing = np.mean(this_spacing)
-            spacings.append(mean_spacing)
+            this_attr = attr_dict[gid]
+            mean_attr = np.mean(this_attr)
+            attr_lst.append(mean_attr)
         else:
-            spacings.append(0.0)
+            attr_lst.append(0.0)
 
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
     ax.axis([x_min, x_max, y_min, y_max])
         
+    (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=attr_lst, normed=normed)
+    (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+    H = np.zeros(H1.shape)
+    nz = np.where(H2 > 0.0)
+    H[nz] = np.divide(H1[nz], H2[nz])
+
     if normed:
-        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spacings, normed=normed)
-        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
-        H = np.zeros(H1.shape)
-        nz = np.where(H2 > 0.0)
-        H[nz] = np.divide(H1[nz], H2[nz])
         H[nz] = np.divide(H[nz], np.max(H[nz]))
-    else:
-        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spacings)
+
     X, Y = np.meshgrid(xedges, yedges)
     pcm = ax.pcolormesh(X, Y, H.T)
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
