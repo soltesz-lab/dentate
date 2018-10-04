@@ -263,6 +263,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
             _, _, u, v = gid_normed_distances[gid]
             cell['U Distance'] = np.asarray([u], dtype='float32')
             cell['V Distance'] = np.asarray([v], dtype='float32')
+            cell['gid'] = np.asarray([gid], dtype='int32')
             
             cell['Nx']  = np.array([nx], dtype='int32')
             cell['Ny']  = np.array([ny], dtype='int32')
@@ -278,7 +279,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
                     this_spacing      = module_widths[module - 1]
                     this_orientation  = grid_orientation[module - 1]
                     delta_spacing     = local_random.uniform(-10., 10.)
-                    delta_orientation = local_random.uniform(-10., 10.)
+                    delta_orientation = local_random.uniform(np.deg2rad(-15.), np.deg2rad(15.))
                     cell_spacing.append(this_spacing + delta_spacing)
                     cell_orientation.append(this_orientation + delta_orientation)
                 cell['Grid Spacing']     = np.asarray(cell_spacing, dtype='float32')
