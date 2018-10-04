@@ -205,19 +205,30 @@ def read_trajectory (input_path, trajectory_id):
     return (x,y,d,t)
 
 
-def read_stimulus (stimulus_path, stimulus_namespace, population):
-        ratemap_lst = []
+def read_stimulus (stimulus_path, stimulus_namespace, population, module=None):
+        ratemap_lst    = []
+        module_gid_lst = []
+        if module is not None:
+            if not isinstance(module, int):
+                raise Exception('module variable must be an integer')
+            gid_module_gen = read_cell_attributes(stimulus_path, population, namespace='Cell Attributes')
+            for (gid, attr_dict) in gid_module_gen:
+                this_module = attr_dict['Module'][0]
+                if this_module == module:
+                    module_gid_lst.append(gid)
+
         attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
         for gid, stimulus_dict in attr_gen:
-            rate = stimulus_dict['rate']
-            spiketrain = stimulus_dict['spiketrain']
-            modulation = stimulus_dict['modulation']
-            peak_index = stimulus_dict['peak index']
-            ratemap_lst.append((gid, rate, spiketrain, peak_index))
+            if gid in module_gid_lst or module_gid_lst == []:
+                rate       = stimulus_dict['rate']
+                spiketrain = stimulus_dict['spiketrain']
+                modulation = stimulus_dict['modulation']
+                peak_index = stimulus_dict['peak index']
+                ratemap_lst.append((gid, rate, spiketrain, peak_index))
 
+ 
         ## sort by peak_index
         ratemap_lst.sort(key=lambda item: item[3])
-
         return ratemap_lst
             
 

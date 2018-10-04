@@ -12,13 +12,14 @@ from dentate import utils, plot
 @click.option("--features-namespace", '-n', type=str, default='Vector Stimulus')
 @click.option("--trajectory-id", '-t', type=int, default=0)
 @click.option("--include", '-i', type=str, multiple=True)
+@click.option("--module", type=int, required=False, default=None)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(features_path, features_namespace, trajectory_id, include, font_size, verbose):
+def main(features_path, features_namespace, trajectory_id, include, module, font_size, verbose):
 
     utils.config_logging(verbose)
 
-    plot.plot_stimulus_rate (features_path, features_namespace, include, trajectory_id=trajectory_id, \
+    plot.plot_stimulus_rate (features_path, features_namespace, include, module = module, trajectory_id=trajectory_id, \
                              fontSize=font_size, saveFig=True)
 
 if __name__ == '__main__':

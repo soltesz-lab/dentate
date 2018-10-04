@@ -25,6 +25,7 @@ from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
 from dentate.utils import get_module_logger, viewitems
+
 try:
     import dentate.spikedata as spikedata
 except ImportError as e:
@@ -152,6 +153,57 @@ def add_bins(bins1, bins2, datatype):
             bins1[item] = bins2[item]
     return bins1
 
+def plot_PP_metrics(features_path, coords_path, distances_namespace, population='MPP', cellType = 'grid', binSize=50., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
+
+    if cellType == 'grid':
+        input_features = 'Grid Input Features'
+    elif cellType == 'place':
+        input_features = 'Place Input Features'
+
+    distances = read_cell_attributes(coords_path, population, distances_namespace)
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
+    gids = sorted(soma_distances.keys())
+    distance_U = np.asarray([ soma_distances[gid][0] for gid in gids])
+    distance_V = np.asarray([ soma_distances[gid][1] for gid in gids])
+ 
+    x_min, y_min = np.min(distance_U), np.min(distance_V)
+    x_max, y_max = np.max(distance_U), np.max(distance_V)
+
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
+    
+
+    if metric == 'spacing' and cellType == 'grid':
+        attribute = 'Grid Spacing'
+    elif metric == 'spacing' and cellType == 'place':
+        attribute = 'Field Width'
+
+    with h5py.File(features_path, 'r') as f:
+        spacings = f['Populations'][population][input_features][attribute]['Attribute Value'][:]
+        
+    fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+    ax.axis([x_min, x_max, y_min, y_max])
+        
+    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spacings)
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T)
+    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_aspect('equal')
+    
+    if saveFig: 
+        if isinstance(saveFig, str):
+            filename = saveFig
+        else:
+            filename = '%s-%s-%s.png' % (population, cellType, metric)
+            plt.savefig(filename)
+
+    if showFig:
+        show_figure()
+        
 def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
                         binSize = 50., metric='Indegree', normed = False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
     """
@@ -2850,7 +2902,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
 
 
 
-def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
+def plot_stimulus_rate (input_path, namespace_id, include, module = None, trajectory_id=None,
                         figSize = (8,8), fontSize = 14, saveFig = None, showFig = True):
     ''' 
 
@@ -2882,7 +2934,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
         else:
             ns = '%s %d' % (namespace_id, trajectory_id)
         logger.info('Reading vector stimulus data from namespace %s for population %s...' % (ns, population ))
-        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population):
+        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
 
@@ -2903,8 +2955,13 @@ def plot_stimulus_rate (input_path, namespace_id, include, trajectory_id=None,
             axes[iplot].set_ylim(-1, N+1)
             
         else:
-            axes.set_title(population, fontsize=fontSize)
-            axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
+            if module is None:
+                title = population
+            else:
+                title = population + ', module: %i' % module
+            axes.set_title(title, fontsize=fontSize)
+            img = axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
+            plt.colorbar(img, ax=axes)
             axes.set_xlim([extent[0], extent[1]])
             axes.set_ylim(-1, N+1)    
             
