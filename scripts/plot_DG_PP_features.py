@@ -9,11 +9,10 @@ from mpi4py import MPI
 from pprint import pprint
 
 import dentate
-from dentate.plot import plot_PP_metrics
 from dentate.utils import list_find
 from dentate.stimulus import gid2module_dictionary, module2gid_dictionary, fraction_active
 
-script_name = 'plot_DG_PP_features.py'
+script_name = os.path.basename(__file__)
 
 def add_colorbar(img, ax):
     divider = make_axes_locatable(ax)
@@ -399,26 +398,18 @@ def plot_population_input(storage, bounds=None):
 
 
 
-def plot_group(module_dictionary, modules, plot=False, **kwargs):
-    plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs)
-    plot_fraction_active_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs)
-    plot_xy_offsets_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs)
-    plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=plot, save=True, **kwargs)
+def plot_group(module_dictionary, modules, plot=False, save=False, **kwargs):
+    plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save=save, **kwargs)
+    plot_fraction_active_multiple_modules(module_dictionary, modules, plot=False, save=save, **kwargs)
+    plot_xy_offsets_multiple_modules(module_dictionary, modules, plot=False, save=save, **kwargs)
+    plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=plot, save=save, **kwargs)
 
 @click.command()
-@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--distances-namespace", required=True, type=str)
-@click.option("--population", required=False, type=str)
-@click.option("--cell-type", required=False, type=str)
-@click.option("--normed", type=int, default=0)
-def main(coords_path, features_path, distances_namespace, population, cell_type, normed):
-
-    plot_PP_metrics(coords_path, features_path, distances_namespace, population=population, cellType=cell_type,\
-                    binSize=50., metric='spacing', normed=normed, graphType='histogram2d', saveFig = True, showFig=True)
-    
-
-    sys.exit(1)
+@click.option("--cell-type", required=True, type=str)
+@click.option("--show-fig", type=int, default=0)
+@click.option("--save-fig", type=int, default=0)
+def main(features_path, cell_type, show_fig, save_fig):
 
     font = {'family': 'normal', 'weight': 'bold', 'size': 6}
     matplotlib.rc('font', **font)
@@ -439,10 +430,8 @@ def main(coords_path, features_path, distances_namespace, population, cell_type,
         mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
         cells_modules_dictionary = gid2module_dictionary([mpp_grid, mpp_place, lpp_place], modules)
 
-    print( [len(cells_modules_dictionary[i]) for i in cells_modules_dictionary.keys()])
     kwargs = {'ctype': cell_type}
-    plot_lambda_activity_2d_histograms(cells_modules_dictionary, modules, plot=False, save=True, **kwargs)
-    plot_group(cells_modules_dictionary, modules, plot=False, **kwargs)
+    plot_group(cells_modules_dictionary, modules, plot=show_fig, save=save_fig, **kwargs)
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
