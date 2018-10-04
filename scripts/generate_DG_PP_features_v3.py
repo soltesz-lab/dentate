@@ -88,7 +88,7 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
     gid_normed_distances = assign_cells_to_normalized_position() # Assign normalized u,v coordinates
     gid_module_assignments = assign_cells_to_module(gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
     total_num_fields, gid_attributes = determine_cell_participation(gid_module_assignments) # Determine if a cell is 1) active and; 2) how many fields? 
-    cell_attributes = build_cell_attributes(gid_attributes, total_num_fields) # Determine additional cell properties (lambda, field_width, orientation, jitter, and rate map. This will also build the data structure ({<pop>: {<cell type>: <cells>}}) containing all cells.
+    cell_attributes = build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields) # Determine additional cell properties (lambda, field_width, orientation, jitter, and rate map. This will also build the data structure ({<pop>: {<cell type>: <cells>}}) containing all cells.
 
     if not dry_run and rank == 0:
         save_to_h5(cell_attributes)
@@ -229,7 +229,7 @@ def _fields_per_module(gid_attributes, modules):
             fields_per_module_dict[module][1] += nfields
     return fields_per_module_dict
 
-def build_cell_attributes(gid_attributes, total_num_fields):
+def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields):
     
     nmodules       = 10
     modules        = np.arange(nmodules)
@@ -259,6 +259,10 @@ def build_cell_attributes(gid_attributes, total_num_fields):
 
     for population in gid_attributes.keys():
         for gid, cell in viewitems(gid_attributes[population]):
+
+            _, _, u, v = gid_normed_distances[gid]
+            cell['U Distance'] = np.asarray([u], dtype='float32')
+            cell['V Distance'] = np.asarray([v], dtype='float32')
             
             cell['Nx']  = np.array([nx], dtype='int32')
             cell['Ny']  = np.array([ny], dtype='int32')
