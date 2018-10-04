@@ -121,6 +121,22 @@ def main(config, features_path, output_path, template_path, io_size, chunk_size,
 
     for population in ['MPP', 'LPP']:
         population_start = population_ranges[population][0]
+  
+        for features_type, features_namespace in enumerate(features_namespaces):
+            attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=features_namespace,
+                                           comm=comm, io_size=io_size, cache_size=cache_size)
+ 
+            cells = {}
+            for gid, features_dict in attr_gen:
+                if features_dict is None:
+                    continue
+                cells[gid] = {}
+                cells[gid]['Module'] = features_dict['Module']
+            append_cell_attributes(output_path, population, cells, namespace='Cell Attributes', comm=comm, \
+                                   io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+
+    for population in ['MPP', 'LPP']:
+        population_start = population_ranges[population][0]
 
         count = 0
         start_time = time.time()
@@ -128,6 +144,7 @@ def main(config, features_path, output_path, template_path, io_size, chunk_size,
         for features_type, features_namespace in enumerate(features_namespaces):
             attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=features_namespace,
                                               comm=comm, io_size=io_size, cache_size=cache_size)
+                
             for gid, features_dict in attr_gen:
                 response_dict = {}
                 response = None
