@@ -153,15 +153,17 @@ def add_bins(bins1, bins2, datatype):
             bins1[item] = bins2[item]
     return bins1
 
-def plot_PP_metrics(features_path, coords_path, distances_namespace, population='MPP', cellType = 'grid', binSize=50., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
+def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=50., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
 
     if cellType == 'grid':
         input_features = 'Grid Input Features'
     elif cellType == 'place':
         input_features = 'Place Input Features'
 
+
     distances = read_cell_attributes(coords_path, population, distances_namespace)
     soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
+    del distances
     gids = sorted(soma_distances.keys())
     distance_U = np.asarray([ soma_distances[gid][0] for gid in gids])
     distance_V = np.asarray([ soma_distances[gid][1] for gid in gids])
@@ -178,20 +180,43 @@ def plot_PP_metrics(features_path, coords_path, distances_namespace, population=
     elif metric == 'spacing' and cellType == 'place':
         attribute = 'Field Width'
 
-    with h5py.File(features_path, 'r') as f:
-        spacings = f['Populations'][population][input_features][attribute]['Attribute Value'][:]
-        
+
+    
+    attr_gen  = read_cell_attributes(features_path, population, input_features)
+    attr_dict = {}
+    for (gid, features_dict) in attr_gen:
+        attr_dict[gid] = features_dict[attribute]
+    del attr_gen
+
+    spacings = []
+    for gid in gids:
+        if gid in attr_dict:
+            this_spacing = attr_dict[gid]
+            mean_spacing = np.mean(this_spacing)
+            spacings.append(mean_spacing)
+        else:
+            spacings.append(0.0)
+
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
     ax.axis([x_min, x_max, y_min, y_max])
         
-    (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spacings)
+    if normed:
+        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spacings, normed=normed)
+        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+        H = np.zeros(H1.shape)
+        nz = np.where(H2 > 0.0)
+        H[nz] = np.divide(H1[nz], H2[nz])
+        H[nz] = np.divide(H[nz], np.max(H[nz]))
+    else:
+        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spacings)
     X, Y = np.meshgrid(xedges, yedges)
     pcm = ax.pcolormesh(X, Y, H.T)
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
     ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('%s distribution for population: %s cell type: %s' % (metric, population, cellType), fontsize=fontSize)
     ax.set_aspect('equal')
     
     if saveFig: 

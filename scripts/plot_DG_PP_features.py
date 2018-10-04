@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, click
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -9,7 +9,11 @@ from mpi4py import MPI
 from pprint import pprint
 
 import dentate
+from dentate.plot import plot_PP_metrics
+from dentate.utils import list_find
 from dentate.stimulus import gid2module_dictionary, module2gid_dictionary, fraction_active
+
+script_name = 'plot_DG_PP_features.py'
 
 def add_colorbar(img, ax):
     divider = make_axes_locatable(ax)
@@ -353,7 +357,7 @@ def plot_lambda_activity_histograms(module_dictionary, modules, save=False, plot
         fig.savefig('%s-module-activity.svg' % (ctype), format='svg')
     if plot:
         plt.show()
-            
+
 
 def read_population_storage(file_path):
     try:
@@ -401,12 +405,20 @@ def plot_group(module_dictionary, modules, plot=False, **kwargs):
     plot_xy_offsets_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs)
     plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=plot, save=True, **kwargs)
 
-if __name__ == '__main__':
-    file_path = str(sys.argv[1])
-    ctype     = str(sys.argv[2])
-    #storage   = read_population_storage(file_path)
-    #plot_population_input(storage, bounds=(0.045, 0.055))
-    #plt.show()
+@click.command()
+@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--distances-namespace", required=True, type=str)
+@click.option("--population", required=False, type=str)
+@click.option("--cell-type", required=False, type=str)
+@click.option("--normed", type=int, default=0)
+def main(coords_path, features_path, distances_namespace, population, cell_type, normed):
+
+    plot_PP_metrics(coords_path, features_path, distances_namespace, population=population, cellType=cell_type,\
+                    binSize=50., metric='spacing', normed=normed, graphType='histogram2d', saveFig = True, showFig=True)
+    
+
+    sys.exit(1)
 
     font = {'family': 'normal', 'weight': 'bold', 'size': 6}
     matplotlib.rc('font', **font)
@@ -414,23 +426,26 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     modules = np.arange(10) + 1
 
-    if ctype == 'grid':
-        mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features')
+    if cell_type == 'grid':
+        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
         cells_modules_dictionary = gid2module_dictionary([mpp_grid], modules)
-    elif ctype == 'place':
-        lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features')
+    elif cell_type == 'place':
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
         cells_modules_dictionary = gid2module_dictionary([mpp_place, lpp_place], modules)
-    elif ctype == 'both':
-        lpp_place = read_cell_attributes(file_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(file_path, 'MPP', 'Place Input Features')
-        mpp_grid = read_cell_attributes(file_path, 'MPP', 'Grid Input Features')
+    elif cell_type == 'both':
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
+        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
         cells_modules_dictionary = gid2module_dictionary([mpp_grid, mpp_place, lpp_place], modules)
 
     print( [len(cells_modules_dictionary[i]) for i in cells_modules_dictionary.keys()])
-    kwargs = {'ctype': ctype}
-    plot_lambda_activity_histograms(cells_modules_dictionary, modules, plot=False, save=True, **kwargs)
-    #plot_group(cells_modules_dictionary, modules, plot=False, **kwargs)
+    kwargs = {'ctype': cell_type}
+    plot_lambda_activity_2d_histograms(cells_modules_dictionary, modules, plot=False, save=True, **kwargs)
+    plot_group(cells_modules_dictionary, modules, plot=False, **kwargs)
+
+if __name__ == '__main__':
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
 
 
 
