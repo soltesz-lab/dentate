@@ -18,10 +18,8 @@ sys.excepthook = mpi_excepthook
 
 local_random = np.random.RandomState()
 
-# yields a distribution of synaptic weights with mean  ~>1., and tail ~2.-4.
 mu = 0.
-sigma = 0.35
-
+sigma = 1.0
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
