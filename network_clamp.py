@@ -167,8 +167,12 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
         spk_ts     = spktlst[spk_pop_index]
         if presyn_name in spike_generator_dict:
             spike_generator = spike_generator_dict[presyn_name]
+        elif presyn_name in env.modelConfig['Network Clamp']['Target']['Firing Rate']:
+            fr = env.modelConfig['Network Clamp']['Target']['Firing Rate'][presyn_name]
+            spike_generator = { 'rate': fr }
         else:
             spike_generator = None
+        
         spk_source_dict[presyn_index] = { 'gid': spk_inds, 't': spk_ts, 'gen': spike_generator }
 
     min_delay = float('inf')
@@ -182,7 +186,7 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
         if presyn_id in spk_source_dict:
             ## Load presynaptic spike times into the VecStim for each synapse;
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
-            ## then use the given generator function to generate spikes.
+            ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
                 spk_sources = spk_source_dict[presyn_id]
                 gen = spk_sources['gen']
@@ -190,11 +194,11 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
                     spk_inds = spk_sources['gid']
                     spk_ts = spk_sources['t']
                     data = spk_ts[np.where(spk_inds == presyn_gid)]
+                    cell = h.VecStimCell(presyn_gid)
+                    cell.pp.play(h.Vector(data))
                 else:
-                    data = gen(presyn_gid, t_range)
-                vs = h.VecStimCell(presyn_gid)
-                vs.pp.play(h.Vector(data))
-                register_cell(env, presyn_id, presyn_gid, vs)
+                    cell = h.StimCell(presyn_gid, gen['rate'])
+                register_cell(env, presyn_id, presyn_gid, cell)
 
         ncs = [ value['netcon'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
                 
