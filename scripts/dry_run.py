@@ -14,7 +14,7 @@ context = Context()
 
 
 @click.command()
-@click.option("--config-file", required=True, type=str, default='Small_Scale_Control_log_normal_weights.yaml')
+@click.option("--config-file", required=True, type=str, default='Small_Scale_Control_LN_weights.yaml')
 @click.option("--template-paths", type=str, default='../../DGC/Mateos-Aparicio2014:../templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='..')
