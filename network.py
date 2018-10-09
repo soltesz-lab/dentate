@@ -266,7 +266,7 @@ def connect_cells(env, cleanup=True):
                    for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
                        for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                            delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                           mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
+                           mech_params = syn_attrs.get_mech_attrs(gid, edge_syn_id, syn_name)
                            if mech_params is None:
                                mech_params = syn_params_dict[syn_name]
                            else:
