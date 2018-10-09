@@ -2,7 +2,7 @@
 #
 #SBATCH -J compute_vertex_metrics
 #SBATCH -o ./results/compute_vertex_metrics.%j.o
-#SBATCH --nodes=32
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 1:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -18,7 +18,8 @@ ulimit -c unlimited
 
 set -x
 
-input=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20180717_compressed.h5 
+#input=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20180717_compressed.h5 
+input=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180908.h5
 
-ibrun -np 768 $HOME/src/neuroh5/build/neurograph_vertex_metrics --indegree --outdegree -i 128 \
+ibrun -np 96 $HOME/src/neuroh5/build/neurograph_vertex_metrics --indegree --outdegree -i 24 \
     $input

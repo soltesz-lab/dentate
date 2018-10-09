@@ -32,9 +32,9 @@ git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 
-ibrun -np 12 python ./scripts/main.py \
+ibrun -np 12 python2.7 ./scripts/main.py \
  --config-file=Test_GC_1000.yaml  \
- --template-paths=../dgc/Mateos-Aparicio2014 \
+ --template-paths=../dgc/Mateos-Aparicio2014:templates \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \
  --results-path=$results_path \
  --io-size=4 \
