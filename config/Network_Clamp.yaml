@@ -1,3 +1,27 @@
-Target:
-  Firing Rate:
-    BC: 10
+Template Parameter Rules:
+  StimCell:
+    - rate
+Input Generator:
+  BC:
+    template: StimCell
+    params:
+      rate: 1
+Weight Generator:
+  GC:
+    MPP:
+      class: Log-Normal
+      params:
+        mu: 0.
+        sigma: 1.0
+    LPP:
+      class: Log-Normal
+      params:
+        mu: 0.
+        sigma: 1.0
+    MC:
+      class: Log-Normal
+      params:
+        mu: 0.
+        sigma: 1.0
+
+
