@@ -24,6 +24,10 @@ GapjunctionConfig = namedtuple('GapjunctionConfig',
                                   'coupling_parameters',
                                   'coupling_bounds'])
 
+NetclampConfig = namedtuple('NetclampConfig',
+                            ['template_params',
+                             'input_generators'])
+
 
 class Env:
     """
@@ -212,6 +216,9 @@ class Env:
         if 'Input' in self.modelConfig:
             self.parse_input_config()
 
+        if 'Network Clamp' in self.modelConfig:
+            self.parse_netclamp_config()
+
         self.projection_dict = defaultdict(list)
         if self.datasetPrefix is not None:
             for (src, dst) in read_projection_names(self.connectivityFilePath, comm=self.comm):
@@ -275,6 +282,22 @@ class Env:
             input_config[int(id)] = config_dict
 
         self.inputConfig = input_config
+
+
+    def parse_netclamp_config(self):
+        """
+
+        :return:
+        """
+        netclamp_config_dict = self.modelConfig['Network Clamp']
+        input_generator_dict = netclamp_config_dict['Input Generator']
+        template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
+        
+        template_params = {}
+        for (template_name, params) in viewitems(template_param_rules_dict):
+            template_params[template_name] = params
+
+        self.netclampConfig = NetclampConfig(template_params, input_generator_dict)
 
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']

@@ -180,14 +180,15 @@ def connect_cells(env, cleanup=True):
             for gid in cell_weights_dict:
                 if first_gid is None:
                     first_gid = gid
+                weights_syn_ids = cell_weights_dict[gid]['syn_id']
                 for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
                     # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'SatAMPA')
                     if syn_name in ['weight', 'AMPA']:
                         target_syn_name = 'SatAMPA'
                     else:
                         target_syn_name = syn_name
-                    syn_attrs.load_syn_weights(gid, target_syn_name, cell_weights_dict[gid]['syn_id'],
-                                               cell_weights_dict[gid][syn_name])
+                    weights_values = cell_weights_dict[gid][syn_name]
+                    syn_attrs.load_syn_weights(gid, target_syn_name, weights_syn_ids, weights_values)
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
@@ -254,7 +255,6 @@ def connect_cells(env, cleanup=True):
 
                    edge_syn_obj_dict = \
                        synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
-                                       env.edge_count[postsyn_name][presyn_name], \
                                        add_synapse=synapses.add_unique_synapse if unique else \
                                                                                   synapses.add_shared_synapse)
 
@@ -266,32 +266,27 @@ def connect_cells(env, cleanup=True):
                    for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
                        for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                            delay = (distance / env.connection_velocity[presyn_name]) + h.dt
+                           mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
+                           if mech_params is None:
+                               mech_params = syn_params_dict[syn_name]
+                           else:
+                               if has_weights:
+                                  mech_params['weight'] = mech_params['weight'] * syn_params_dict[syn_name]['weight']
                            this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
-                           syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                           synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
-                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
+                           syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
+                           synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
+                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
+                                               **mech_params)
 
                    env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
             else:
                 logger.warning('Projection %s -> %s does not have edge attributes Synapses and Connections' % (presyn_name, postsyn_name))
 
-        first_gid = None
-        # this is a pre-built list to survive change in len during iteration
-        local_time = time.time()
-        for gid in list(cell_synapses_dict.keys()):
-            if first_gid is None:
-                first_gid = gid
-                this_verbose = True
-            else:
-                this_verbose = False
-            # TODO: update_mech_attrs
-            synapses.config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=this_verbose)
-            if cleanup:
+        if cleanup:
+            for gid in cell_synapses_dict.keys():
                 syn_attrs.cleanup(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
-        logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
-                    (rank, postsyn_name, time.time() - local_time))
 
 
 def connect_cell_selection(env, cleanup=True):
@@ -443,30 +438,26 @@ def connect_cell_selection(env, cleanup=True):
                     vecstim_selection[presyn_name].add(presyn_gid)
                     for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                         delay = (distance / env.connection_velocity[presyn_name]) + h.dt
+                        mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
+                        if mech_params is None:
+                            mech_params = syn_params_dict[syn_name]
+                        else:
+                            if has_weights:
+                              mech_params['weight'] = mech_params['weight'] * syn_params_dict[syn_name]['weight']
+
                         this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
-                        syn_attrs.append_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
+                        syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc, **syn_params_dict[syn_name])
+                                            mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
+                                            **mech_params)
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
 
-        first_gid = None
-        # this is a pre-built list to survive change in len during iteration
-        local_time = time.time()
-        for gid in list(cell_synapses_dict.keys()):
-            if first_gid is None:
-                first_gid = gid
-                this_verbose = True
-            else:
-                this_verbose = False
-            # TODO: update_mech_attrs
-            synapses.config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=this_verbose)
-            if cleanup:
+        if cleanup:
+            for gid in cell_synapses_dict.keys():
                 syn_attrs.cleanup(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
-        logger.info('*** rank: %i: config_syns and cleanup for %s took %i s' %
-                    (rank, postsyn_name, time.time() - local_time))
 
     return vecstim_selection
 

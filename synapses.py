@@ -2,10 +2,11 @@ from dentate.neuron_utils import *
 from dentate.utils import viewitems
 from dentate.cells import get_mech_rules_dict, get_donor, get_distance_to_node, get_param_val_by_distance, import_mech_dict_from_file, custom_filter_by_branch_order, custom_filter_by_terminal, make_neurotree_graph
 import collections
-
+from collections import namedtuple, defaultdict
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
+
 
 
 class SynapseAttributes(object):
@@ -22,11 +23,6 @@ class SynapseAttributes(object):
         """
         self.syn_mech_names = syn_mech_names
         self.syn_param_rules = syn_param_rules
-        # TODO: these two dicts need to also be indexed by the namespace
-        self.select_cell_attr_index_map = {}  # population name (str): gid (int): index in file (int)
-        # dest population name (str): source population name (str): gid (int): index in file (int)
-        self.select_edge_attr_index_map = defaultdict(dict)
-
         self.syn_id_attr_dict = {}  # gid (int): attr_name (str): array
         # gid (int): syn_id (int): dict
         self.syn_mech_attr_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
@@ -46,7 +42,7 @@ class SynapseAttributes(object):
             np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
         self.syn_id_attr_dict[gid]['syn_source_gids'] = \
             np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int32')
-        self.syn_id_attr_index_map[gid] = {syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids'])}
+        self.syn_id_attr_index_map[gid] = { syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids']) }
         for i, sec_id in enumerate(syn_id_attr_dict['syn_secs']):
             self.sec_index_map[gid][sec_id].append(i)
         for sec_id in self.sec_index_map[gid]:
@@ -54,6 +50,8 @@ class SynapseAttributes(object):
 
     def load_syn_weights(self, gid, syn_name, syn_ids, weights):
         """
+        Given a vector of weights for the given synaptic mechanism and synapse ids,
+        sets mechanism attribute 'weight' for the specified synapse ids.
 
         :param gid: int
         :param syn_name: str
@@ -61,11 +59,12 @@ class SynapseAttributes(object):
         :param weights: array of float
         """
         for i, syn_id in enumerate(syn_ids):
-            params = {'weight': float(weights[i])}
+            params = { 'weight': float(weights[i]) }
             self.set_mech_attrs(gid, syn_id, syn_name, params)
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env, delays=None):
         """
+        Sets connection edge attributes for the specified synapse ids.
 
         :param gid: int
         :param source_name: str; name of source population
@@ -114,7 +113,7 @@ class SynapseAttributes(object):
                       np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, 0., dtype='float32')
                 self.syn_id_attr_dict[gid]['delays'][syn_indexes] = delays
 
-    def append_netcon(self, gid, syn_id, syn_name, nc):
+    def set_netcon(self, gid, syn_id, syn_name, nc):
         """
 
         :param gid: int
@@ -151,7 +150,7 @@ class SynapseAttributes(object):
         else:
             return None
 
-    def append_vecstim(self, gid, syn_id, syn_name, vs):
+    def set_vecstim(self, gid, syn_id, syn_name, vs):
         """
 
         :param gid: int
@@ -316,8 +315,8 @@ def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, un
     for syn_id in syn_ids:
         for syn_name, syn in viewitems(syn_obj_dict[syn_id]):
             this_nc, this_vecstim = mknetcon_vecstim(syn)
-            syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
-            syn_attrs.append_vecstim(gid, syn_id, syn_name, this_vecstim)
+            syn_attrs.set_netcon(gid, syn_id, syn_name, this_nc)
+            syn_attrs.set_vecstim(gid, syn_id, syn_name, this_vecstim)
             config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names,
                        nc=this_nc, **syn_params[syn_name])
             nc_count += 1
@@ -376,6 +375,7 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
     syns_set = set()
     for presyn_name in source_syn_ids:
         syn_names = list(env.connection_config[postsyn_name][presyn_name].mechanisms.keys())
+        syn_mech_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
         for syn_id in source_syn_ids[presyn_name]:
             for syn_name in syn_names:
                 mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
@@ -388,6 +388,9 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
                             syn_count += 1
                         else:
                             syn = None
+                        if 'weight' in mech_params:
+                            print 'original weight: %f parameter weight: %f scaled weight: %f' % (mech_params['weight'], syn_mech_params_dict[syn_name]['weight'], mech_params['weight'] * syn_mech_params_dict[syn_name]['weight'])
+                            mech_params['weight'] = mech_params['weight'] * syn_mech_params_dict[syn_name]['weight']
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
                         nc_count += 1
@@ -494,6 +497,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 failed = False
             else:
                 i = rules[mech_name]['netcon_params'][param]
+
                 if int(nc.wcnt()) >= i:
                     nc.weight[i] = val
                     failed = False
@@ -528,7 +532,7 @@ def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
                          (param_name, mech_name))
 
 
-def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shared_synapse):
+def mksyns(gid, cell, syn_ids, syn_params, env, add_synapse=add_shared_synapse):
     """
 
     :param gid: int
@@ -560,7 +564,7 @@ def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shar
     
     syn_attrs = env.synapse_attributes
     syn_attr_id_dict = syn_attrs.syn_id_attr_dict[gid]
-    syn_indexes = [syn_attrs.syn_id_attr_index_map[gid][syn_id] for syn_id in syn_ids]
+    syn_indexes = [ syn_attrs.syn_id_attr_index_map[gid][syn_id] for syn_id in syn_ids ]
 
     syn_obj_dict = defaultdict(dict)
 
@@ -589,15 +593,12 @@ def mksyns(gid, cell, syn_ids, syn_params, env, edge_count, add_synapse=add_shar
             syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
                               mech_names=syn_attrs.syn_mech_names)
             if syn not in env.syns_set[gid]:
-                config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names,
+                config_syn(syn_name=syn_name, \
+                           rules=syn_attrs.syn_param_rules, \
+                           mech_names=syn_attrs.syn_mech_names, \
                            syn=syn, **params)
                 env.syns_set[gid].add(syn)
             syn_obj_dict[syn_id][syn_name] = syn
-
-    #if rank == 0 and edge_count == 0:
-    #    sec = syns_dict.iterkeys().next()
-    #    logger.info('syns_dict[%s]:' % sec.hname())
-    #    logger.info('%s' % pprint.pformat(syns_dict[sec]))
 
     return syn_obj_dict
 
