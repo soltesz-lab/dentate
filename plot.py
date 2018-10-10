@@ -153,27 +153,12 @@ def add_bins(bins1, bins2, datatype):
             bins1[item] = bins2[item]
     return bins1
 
-def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=50., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
+def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=250., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
 
     if cellType == 'grid':
         input_features = 'Grid Input Features'
     elif cellType == 'place':
         input_features = 'Place Input Features'
-
-
-    distances = read_cell_attributes(coords_path, population, distances_namespace)
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
-    del distances
-    gids = sorted(soma_distances.keys())
-    distance_U = np.asarray([ soma_distances[gid][0] for gid in gids])
-    distance_V = np.asarray([ soma_distances[gid][1] for gid in gids])
- 
-    x_min, y_min = np.min(distance_U), np.min(distance_V)
-    x_max, y_max = np.max(distance_U), np.max(distance_V)
-
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
-    
 
     if metric == 'spacing' and cellType == 'grid':
         attribute = 'Grid Spacing'
@@ -185,21 +170,34 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
         attribute = 'Grid Orientation'
     elif metric == 'orientation' and cellType == 'place':
         return 
-    
-    attr_gen  = read_cell_attributes(features_path, population, input_features)
+
+    attr_gen = read_cell_attributes(features_path, population, input_features)
     attr_dict = {}
     for (gid, features_dict) in attr_gen:
         attr_dict[gid] = features_dict[attribute]
     del attr_gen
+    present_gids = attr_dict.keys()
 
+    distances = read_cell_attributes(coords_path, population, distances_namespace)
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
+    del distances
+
+    distance_U, distance_V = [], []
     attr_lst = []
-    for gid in gids:
-        if gid in attr_dict:
-            this_attr = attr_dict[gid]
-            mean_attr = np.mean(this_attr)
-            attr_lst.append(mean_attr)
-        else:
-            attr_lst.append(0.0)
+    for gid in present_gids:
+        distance_U.append(soma_distances[gid][0])
+        distance_V.append(soma_distances[gid][1])
+        attr_mean = np.mean(attr_dict[gid])
+        attr_lst.append(attr_mean)
+
+    distance_U = np.asarray(distance_U, dtype='float32')
+    distance_V = np.asarray(distance_V, dtype='float32')
+ 
+    x_min, y_min = np.min(distance_U), np.min(distance_V)
+    x_max, y_max = np.max(distance_U), np.max(distance_V)
+
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
 
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -219,9 +217,9 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
     pcm = ax.pcolormesh(X, Y, H.T)
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
-    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('%s distribution for population: %s cell type: %s' % (metric, population, cellType), fontsize=fontSize)
+    #ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    #ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    #ax.set_title('%s distribution for population: %s cell type: %s' % (metric, population, cellType), fontsize=fontSize)
     ax.set_aspect('equal')
     
     if saveFig: 
@@ -3017,7 +3015,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, module = None, trajec
 
         
 def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace, distances_namespace, include,
-                                    normed = False, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True):
+                                    normed = False, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True, verbose=False):
     ''' 
 
         - input_path: file with stimulus data
@@ -3040,27 +3038,35 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         logger.info('Reading vector stimulus data for population %s...' % population) 
         for (gid, rate, _, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population):
             rate_sum_dict[gid] = np.sum(rate)
+        present_gids = rate_sum_dict.keys()
         
         logger.info('read rates (%i elements)' % len(list(rate_sum_dict.keys())))
 
         distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
-    
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
+
+        distance_U, distance_V = [], []
+        rate_sums = []
+        for gid in present_gids:
+            distance_U.append(soma_distances[gid][0])
+            distance_V.append(soma_distances[gid][1])
+            rate_sums.append(rate_sum_dict[gid])
+        distance_U = np.asarray(distance_U, dtype='float32')
+        distance_V = np.asarray(distance_V, dtype='float32')
         
         logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
-
-        distance_U = np.asarray([ soma_distances[gid][0] for gid in list(rate_sum_dict.keys()) ])
-        distance_V = np.asarray([ soma_distances[gid][1] for gid in list(rate_sum_dict.keys()) ])
-        rate_sums  = np.asarray([ rate_sum_dict[gid] for gid in list(rate_sum_dict.keys()) ])
-
         x_min = np.min(distance_U)
         x_max = np.max(distance_U)
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
 
-        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100], weights=rate_sums, normed=normed)
-        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100])
+        binSize = 400.
+        dx = (x_max - x_min) / binSize
+        dy = (y_max - y_min) / binSize
+
+        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=rate_sums, normed=normed)
+        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
         nz = np.where(H2 > 0.0)
         zeros = np.where(H2 == 0.0)
 
@@ -3085,8 +3091,8 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
             axes.axis([x_min, x_max, y_min, y_max])
             axes.set_aspect('equal')
     
-            axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-            axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+            #axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+            #axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
             fig.colorbar(pcm, ax=axes, shrink=0.5, aspect=20)
 
     # save figure
