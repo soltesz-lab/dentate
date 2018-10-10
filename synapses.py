@@ -389,7 +389,6 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
                         else:
                             syn = None
                         if 'weight' in mech_params:
-                            print 'original weight: %f parameter weight: %f scaled weight: %f' % (mech_params['weight'], syn_mech_params_dict[syn_name]['weight'], mech_params['weight'] * syn_mech_params_dict[syn_name]['weight'])
                             mech_params['weight'] = mech_params['weight'] * syn_mech_params_dict[syn_name]['weight']
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
