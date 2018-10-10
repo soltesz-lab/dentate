@@ -8,6 +8,21 @@ from collections import namedtuple, defaultdict
 logger = get_module_logger(__name__)
 
 
+Synapse = namedtuple('Synapse',
+                         ['syn_type',
+                          'swc_type',
+                          'syn_layer',
+                          'syn_loc',
+                          'syn_sec',
+                          'source_gid',
+                          'source_population',
+                          'source_delay',
+                          'mech_attr_dict',
+                          'netcon_attr_dict',
+                          'mech_dict',
+                          'netcon_dict'
+                         ])
+
 
 class SynapseAttributes(object):
     """
@@ -23,44 +38,38 @@ class SynapseAttributes(object):
         """
         self.syn_mech_names = syn_mech_names
         self.syn_param_rules = syn_param_rules
-        self.syn_id_attr_dict = {}  # gid (int): attr_name (str): array
-        # gid (int): syn_id (int): dict
-        self.syn_mech_attr_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
-        self.syn_id_attr_index_map = {}  # gid (int): syn_id (int): index in syn_id_attr_dict (int)
-        # gid (int): sec_id (int): list of indexes in syn_id_attr_dict (int)
-        self.sec_index_map = defaultdict(lambda: defaultdict(list))
+        self.syn_mech_dict = dict(enumerate(syn_mech_names.keys())) # int : mech_name dict
 
-    def load_syn_id_attrs(self, gid, syn_id_attr_dict):
-        """
+    def init_syn_id_attrs_from_iter(self, cell_iter):
+        for (gid, attr_dict) in cell_iter:
+            init_syn_id_attrs(gid, attr_dict)
+        
+    def init_syn_id_attrs(self, gid, syn_id_attr_dict):
+        if gid in self.syn_id_attr_dict:
+            raise RuntimeError('Entry %i exists in synapse attribute dictionary' % gid)
+        else:
+            syn_ids = syn_id_attr_dict['syn_ids']
+            syn_layers = syn_id_attr_dict['syn_layers']
+            syn_types = syn_id_attr_dict['syn_types']
+            swc_types = syn_id_attr_dict['swc_types']
+            syn_secs = syn_id_attr_dict['syn_secs']
+            syn_locs = syn_id_attr_dict['syn_locs']
 
-        :param gid: int
-        :param syn_id_attr_dict: dict
-        """
-        self.syn_id_attr_dict[gid] = syn_id_attr_dict
-        # value of -1 used to indicate not yet assigned; all source populations are associated with positive integers
-        self.syn_id_attr_dict[gid]['syn_sources'] = \
-            np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
-        self.syn_id_attr_dict[gid]['syn_source_gids'] = \
-            np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int32')
-        self.syn_id_attr_index_map[gid] = { syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids']) }
-        for i, sec_id in enumerate(syn_id_attr_dict['syn_secs']):
-            self.sec_index_map[gid][sec_id].append(i)
-        for sec_id in self.sec_index_map[gid]:
-            self.sec_index_map[gid][sec_id] = np.array(self.sec_index_map[gid][sec_id], dtype='uint32')
-
-    def load_syn_weights(self, gid, syn_name, syn_ids, weights):
-        """
-        Given a vector of weights for the given synaptic mechanism and synapse ids,
-        sets mechanism attribute 'weight' for the specified synapse ids.
-
-        :param gid: int
-        :param syn_name: str
-        :param syn_ids: array of int
-        :param weights: array of float
-        """
-        for i, syn_id in enumerate(syn_ids):
-            params = { 'weight': float(weights[i]) }
-            self.set_mech_attrs(gid, syn_id, syn_name, params)
+            for i, (syn_id,syn_layer,syn_type,swc_type,syn_sec,syn_loc) in \
+              enumerate(utils.zip_longest(syn_ids,syn_layers,syn_types,swc_types,syn_secs,syn_locs)):
+                self.syn_id_attr_dict[syn_id] = Synapse(syn_type=syn_type, \
+                                                        syn_layer=syn_layer, \
+                                                        syn_sec=syn_sec, \
+                                                        syn_loc=syn_loc, \
+                                                        swc_type=swc_type, \
+                                                        source_gid=None, \
+                                                        source_population=None, \
+                                                        source_delay=None, \
+                                                        mech_attr_dict={}, \
+                                                        netcon_attr_dict={}, \
+                                                        mech_dict={}, \
+                                                        netcon_dict={}, \
+                                                        vecstim_dict={})
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env, delays=None):
         """
@@ -113,7 +122,23 @@ class SynapseAttributes(object):
                       np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, 0., dtype='float32')
                 self.syn_id_attr_dict[gid]['delays'][syn_indexes] = delays
 
-    def set_netcon(self, gid, syn_id, syn_name, nc):
+    def insert_attrs(self, gid, syn_name, syn_ids, weights):
+        """
+        Given a vector of weights for the given synaptic mechanism and synapse ids,
+        sets mechanism attribute 'weight' for the specified synapse ids.
+
+        :param gid: int
+        :param syn_name: str
+        :param syn_ids: array of int
+        :param weights: array of float
+        """
+        for i, syn_id in enumerate(syn_ids):
+            params = { 'weight': float(weights[i]) }
+            self.set_mech_attrs(gid, syn_id, syn_name, params)
+        self.syn_id_attr_dict[gid]['syn_sources'] = \
+            np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
+
+    def add_netcon(self, gid, syn_id, syn_name, nc):
         """
 
         :param gid: int
@@ -150,7 +175,7 @@ class SynapseAttributes(object):
         else:
             return None
 
-    def set_vecstim(self, gid, syn_id, syn_name, vs):
+    def add_vecstim(self, gid, syn_id, syn_name, vs):
         """
 
         :param gid: int
@@ -188,7 +213,7 @@ class SynapseAttributes(object):
         else:
             return None
 
-    def set_mech_attrs(self, gid, syn_id, syn_name, params):
+    def add_mech_attrs(self, gid, syn_id, syn_name, params):
         """
 
         :param gid: int
