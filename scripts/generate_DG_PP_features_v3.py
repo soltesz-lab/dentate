@@ -252,8 +252,9 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     
     for mod in field_module_distribution:
         module_width = module_widths[mod - 1]
-        scale_factor  = 1. + (module_width * np.cos(np.pi/4.) / 100.)
-        xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100., scale_factor=scale_factor)
+        scale_factor = 1. + (module_width * np.cos(np.pi/4.) / 100.)
+        xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100.,
+                                                       scale_factor=scale_factor)
         local_random.shuffle(xy_offsets)
         xy_offset_module_dict[mod] = np.asarray(xy_offsets, dtype='float32')
 
