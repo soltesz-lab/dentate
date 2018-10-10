@@ -10,8 +10,15 @@ from dentate.neuron_utils import *
 from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import *
-from neuroh5.h5py_io_utils import *
 
+def make_input_cell(env, gid, gen):
+    template_name = gen['template']
+    param_values  = gen['params']
+    template = getattr(h, template_name)
+    params = [ param_values[p] for p in env.netclampConfig.template_params[template_name] ]
+    cell = template(gid, *params)
+    return cell
+    
 
 def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load_edges=True):
     """
@@ -45,6 +52,7 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
         init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
                         correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
+
     config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
 
     return cell
@@ -84,6 +92,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
     :param pop_name: population name
     :param gid: gid
     """
+    
     ## Determine if a mechanism configuration file exists for this cell type
     if 'mech_file' in env.celltypes[pop_name]:
         mech_file = env.celltypes[pop_name]['mech_file']
@@ -112,7 +121,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
     return cell
 
     
-def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, spike_generator_dict={}):
+def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
     """
     Instantiates a cell and all its synapses and connections and loads or generates spike times for all synaptic connections.
 
@@ -165,10 +174,14 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
             continue
         spk_inds   = spkindlst[spk_pop_index]
         spk_ts     = spktlst[spk_pop_index]
-        if presyn_name in spike_generator_dict:
-            spike_generator = spike_generator_dict[presyn_name]
+        if presyn_name in generate:
+            if (presyn_name in env.netclampConfig.input_generators):
+                spike_generator = env.netclampConfig.input_generators[presyn_name]
+            else:
+                raise RuntimeError('network_clamp.init: no generator specified for population %s' % presyn_name)
         else:
             spike_generator = None
+        
         spk_source_dict[presyn_index] = { 'gid': spk_inds, 't': spk_ts, 'gen': spike_generator }
 
     min_delay = float('inf')
@@ -182,7 +195,7 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
         if presyn_id in spk_source_dict:
             ## Load presynaptic spike times into the VecStim for each synapse;
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
-            ## then use the given generator function to generate spikes.
+            ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
                 spk_sources = spk_source_dict[presyn_id]
                 gen = spk_sources['gen']
@@ -190,11 +203,11 @@ def init(env, pop_name, gid, spike_events_path, spike_events_namespace='Spike Ev
                     spk_inds = spk_sources['gid']
                     spk_ts = spk_sources['t']
                     data = spk_ts[np.where(spk_inds == presyn_gid)]
+                    cell = h.VecStimCell(presyn_gid)
+                    cell.pp.play(h.Vector(data))
                 else:
-                    data = gen(presyn_gid, t_range)
-                vs = h.VecStimCell(presyn_gid)
-                vs.pp.play(h.Vector(data))
-                register_cell(env, presyn_id, presyn_gid, vs)
+                    cell = make_input_cell(env, presyn_gid, gen)
+                register_cell(env, presyn_id, presyn_gid, cell)
 
         ncs = [ value['netcon'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
                 
@@ -295,6 +308,7 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--config-file", '-c', required=True, type=str)
 @click.option("--population", '-p', required=True, type=str, default='GC')
 @click.option("--gid", '-g', required=True, type=int, default=0)
+@click.option("--generate", '-e', required=False, type=str, multiple=True)
 @click.option("--tstop", '-t', type=float, default=150.0)
 @click.option("--template-paths", type=str, required=True)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
@@ -306,7 +320,7 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--results-id", type=str, required=False, default=None, \
                   help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--verbose', '-v', is_flag=True)
-def main(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, verbose):
+def main(config_file, population, gid, generate, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, verbose):
     """
     Runs network clamp simulation for the specified cell gid.
 
@@ -330,8 +344,8 @@ def main(config_file, population, gid, tstop, template_paths, dataset_prefix, co
                   resultsId=results_id, verbose=verbose)
     configure_hoc_env(env)
 
-    init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, \
-             t_var='t', t_min=None, t_max=None, spike_generator_dict={})
+    init(env, population, gid, spike_events_path, generate=set(generate), spike_events_namespace=spike_events_namespace, \
+             t_var='t', t_min=None, t_max=None)
 
     run(env)
     

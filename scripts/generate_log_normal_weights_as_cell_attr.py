@@ -17,10 +17,8 @@ sys.excepthook = mpi_excepthook
 
 local_random = np.random.RandomState()
 
-# yields a distribution of synaptic weights with mean  ~>1., and tail ~2.-4.
 mu = 0.
-sigma = 0.35
-
+sigma = 1.0
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -111,9 +109,11 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
             for this_source_gid, this_weight in zip(source_syn_map, source_weights):
                 for this_syn_id in source_syn_map[this_source_gid]:
                     syn_weight_map[this_syn_id] = this_weight
+            weights = np.array(list(syn_weight_map.values())).astype('float32', copy=False)
+            normed_weights = weights / weights.max()
             weights_dict[destination_gid] = \
-                {'syn_id': np.array(list(syn_weight_map.keys())).astype('uint32', copy=False),
-                 weights_name: np.array(list(syn_weight_map.values())).astype('float32', copy=False)}
+                { 'syn_id': np.array(list(syn_weight_map.keys())).astype('uint32', copy=False),
+                  weights_name: normed_weights }
             logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
                         '%.2f s' % (rank, destination, destination_gid, len(syn_weight_map), len(source_weights),
                                     time.time() - local_time))

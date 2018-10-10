@@ -6,22 +6,18 @@ objref pp
 
 proc init() {
     gid = $1
+    rate = $2
     if (numarg() > 3) {
-        rate = $4
-    } else {
-        rate = 30
-    }
-    if (numarg() > 4) {
         number = $5
     } else {
-        number = 100
+        number = 1e6
     }
-    if (numarg() > 5) {
+    if (numarg() > 4) {
         start = $6
     } else {
         start = 5
     }
-    if (numarg() > 6) {
+    if (numarg() > 5) {
         noise = $7
     } else {
         noise = 0
@@ -40,9 +36,10 @@ proc setup() {
 func is_art() {return 1}
 
 
-obfunc connect2target() { // $o1 target point process, optional $o2 returned NetCon
-  $o2 = new NetCon(pp, $o1)
-  return $o2
+obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
+    nc = new NetCon(pp, $o1)
+    if (numarg() == 2) { $o2 = nc } // for backward compatibility
+    return nc
 }
 
 proc position(){
