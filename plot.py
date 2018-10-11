@@ -2677,6 +2677,42 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
 
     return fig
 
+def plot_place_cells(features_path, population, nfields=1, to_plot=100, showFig = True, saveFig = True):
+
+    attr_gen = read_cell_attributes(features_path, population, namespace='Place Input Features')
+    place_cells = {}
+    for (gid, cell_attributes) in attr_gen:
+        place_cells[gid] = cell_attributes
+
+    cells_to_plot = []
+    N = 0
+    for gid in place_cells:
+        cell_features = place_cells[gid]
+        if N == to_plot:
+            break
+        if cell_features['Num Fields'][0] == nfields:
+            N += 1
+            nx, ny = cell_features['Nx'][0], cell_features['Ny'][0]
+            cells_to_plot.append(cell_features['Rate Map'].reshape(nx, ny))
+
+    axes_dim = int(np.round(np.sqrt(to_plot)))
+    print(axes_dim)
+    fig, axes = plt.subplots(axes_dim, axes_dim)
+    for i in range(len(cells_to_plot)):
+        img = axes[i%axes_dim, i/axes_dim].imshow(cells_to_plot[i], cmap='viridis')
+        plt.colorbar(img, ax=axes[i%axes_dim, i/axes_dim])
+ 
+    if saveFig:
+        if isinstance(saveFig, str):
+            title = saveFig
+        else:
+            title = 'Place-Fields.png'
+        plt.savefig(title)
+
+    if showFig:
+        plt.show()
+    
+
 
 def plot_place_fields (spike_input_path, spike_namespace_id, 
                        trajectory_path, trajectory_id, include = ['eachPop'],
@@ -3072,6 +3108,7 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
 
         H = np.zeros_like(H1)
         H[nz] = np.divide(H1[nz], H2[nz])
+        H = np.divide(H, 10.)
         H[zeros] = None
     
         X, Y = np.meshgrid(xedges, yedges)

@@ -104,7 +104,8 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
         nfields  = features_dict['Num Fields'][0]
         rate_map = np.zeros_like(interp_x)
         for n in xrange(nfields):
-            rate_map += place_peak_rate * np.exp(-((interp_x - x_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.) * np.exp(-((interp_y  - y_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.)
+            current_map = place_peak_rate * np.exp(-((interp_x - x_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.) * np.exp(-((interp_y  - y_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.)
+            rate_map    = np.maximum(current_map, rate_map)
     else:
         raise Exception('Could not find proper cell type')
 
