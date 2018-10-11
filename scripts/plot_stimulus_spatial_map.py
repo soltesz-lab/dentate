@@ -1,5 +1,5 @@
 
-import sys, gc
+import sys, gc, os
 import click
 import dentate
 from dentate import utils, plot
@@ -14,8 +14,12 @@ from dentate import utils, plot
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(features_path, coords_path, features_namespace, distances_namespace, include, normed, font_size, verbose):
+
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
+
     plot.plot_stimulus_spatial_rate_map (features_path, coords_path, features_namespace, distances_namespace,
-                                         include, normed=normed, fontSize=font_size, saveFig=True, verbose=verbose)
+                                         include, normed=normed, fontSize=font_size, saveFig=True)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
