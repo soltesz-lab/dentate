@@ -19,7 +19,7 @@ def main(features_path, coords_path, features_namespace, distances_namespace, in
     logger = utils.get_script_logger(os.path.basename(__file__))
 
     plot.plot_stimulus_spatial_rate_map (features_path, coords_path, features_namespace, distances_namespace,
-                                         include, normed=normed, fontSize=font_size, saveFig=True)
+                                         include, normed=normed, fontSize=font_size, saveFig=True, showFig=True, verbose=verbose)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

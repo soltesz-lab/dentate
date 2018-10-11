@@ -153,27 +153,12 @@ def add_bins(bins1, bins2, datatype):
             bins1[item] = bins2[item]
     return bins1
 
-def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=50., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
+def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=250., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
 
     if cellType == 'grid':
         input_features = 'Grid Input Features'
     elif cellType == 'place':
         input_features = 'Place Input Features'
-
-
-    distances = read_cell_attributes(coords_path, population, distances_namespace)
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
-    del distances
-    gids = sorted(soma_distances.keys())
-    distance_U = np.asarray([ soma_distances[gid][0] for gid in gids])
-    distance_V = np.asarray([ soma_distances[gid][1] for gid in gids])
- 
-    x_min, y_min = np.min(distance_U), np.min(distance_V)
-    x_max, y_max = np.max(distance_U), np.max(distance_V)
-
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
-    
 
     if metric == 'spacing' and cellType == 'grid':
         attribute = 'Grid Spacing'
@@ -185,21 +170,34 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
         attribute = 'Grid Orientation'
     elif metric == 'orientation' and cellType == 'place':
         return 
-    
-    attr_gen  = read_cell_attributes(features_path, population, input_features)
+
+    attr_gen = read_cell_attributes(features_path, population, input_features)
     attr_dict = {}
     for (gid, features_dict) in attr_gen:
         attr_dict[gid] = features_dict[attribute]
     del attr_gen
+    present_gids = attr_dict.keys()
 
+    distances = read_cell_attributes(coords_path, population, distances_namespace)
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
+    del distances
+
+    distance_U, distance_V = [], []
     attr_lst = []
-    for gid in gids:
-        if gid in attr_dict:
-            this_attr = attr_dict[gid]
-            mean_attr = np.mean(this_attr)
-            attr_lst.append(mean_attr)
-        else:
-            attr_lst.append(0.0)
+    for gid in present_gids:
+        distance_U.append(soma_distances[gid][0])
+        distance_V.append(soma_distances[gid][1])
+        attr_mean = np.mean(attr_dict[gid])
+        attr_lst.append(attr_mean)
+
+    distance_U = np.asarray(distance_U, dtype='float32')
+    distance_V = np.asarray(distance_V, dtype='float32')
+ 
+    x_min, y_min = np.min(distance_U), np.min(distance_V)
+    x_max, y_max = np.max(distance_U), np.max(distance_V)
+
+    dx = (x_max - x_min) / binSize
+    dy = (y_max - y_min) / binSize
 
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -207,10 +205,11 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
         
     (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=attr_lst, normed=normed)
     (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+    zeros = np.where(H2 == 0.0)
     H = np.zeros(H1.shape)
     nz = np.where(H2 > 0.0)
     H[nz] = np.divide(H1[nz], H2[nz])
-
+    H[zeros] = None
     if normed:
         H[nz] = np.divide(H[nz], np.max(H[nz]))
 
@@ -218,9 +217,9 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
     pcm = ax.pcolormesh(X, Y, H.T)
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
-    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('%s distribution for population: %s cell type: %s' % (metric, population, cellType), fontsize=fontSize)
+    #ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    #ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    #ax.set_title('%s distribution for population: %s cell type: %s' % (metric, population, cellType), fontsize=fontSize)
     ax.set_aspect('equal')
     
     if saveFig: 
@@ -2678,6 +2677,42 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
 
     return fig
 
+def plot_place_cells(features_path, population, nfields=1, to_plot=100, showFig = True, saveFig = True):
+
+    attr_gen = read_cell_attributes(features_path, population, namespace='Place Input Features')
+    place_cells = {}
+    for (gid, cell_attributes) in attr_gen:
+        place_cells[gid] = cell_attributes
+
+    cells_to_plot = []
+    N = 0
+    for gid in place_cells:
+        cell_features = place_cells[gid]
+        if N == to_plot:
+            break
+        if cell_features['Num Fields'][0] == nfields:
+            N += 1
+            nx, ny = cell_features['Nx'][0], cell_features['Ny'][0]
+            cells_to_plot.append(cell_features['Rate Map'].reshape(nx, ny))
+
+    axes_dim = int(np.round(np.sqrt(to_plot)))
+    print(axes_dim)
+    fig, axes = plt.subplots(axes_dim, axes_dim)
+    for i in range(len(cells_to_plot)):
+        img = axes[i%axes_dim, i/axes_dim].imshow(cells_to_plot[i], cmap='viridis')
+        plt.colorbar(img, ax=axes[i%axes_dim, i/axes_dim])
+ 
+    if saveFig:
+        if isinstance(saveFig, str):
+            title = saveFig
+        else:
+            title = 'Place-Fields.png'
+        plt.savefig(title)
+
+    if showFig:
+        plt.show()
+    
+
 
 def plot_place_fields (spike_input_path, spike_namespace_id, 
                        trajectory_path, trajectory_id, include = ['eachPop'],
@@ -3039,26 +3074,42 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         logger.info('Reading vector stimulus data for population %s...' % population) 
         for (gid, rate, _, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population):
             rate_sum_dict[gid] = np.sum(rate)
+        present_gids = rate_sum_dict.keys()
         
         logger.info('read rates (%i elements)' % len(list(rate_sum_dict.keys())))
 
         distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
-    
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
+
+        distance_U, distance_V = [], []
+        rate_sums = []
+        for gid in present_gids:
+            distance_U.append(soma_distances[gid][0])
+            distance_V.append(soma_distances[gid][1])
+            rate_sums.append(rate_sum_dict[gid])
+        distance_U = np.asarray(distance_U, dtype='float32')
+        distance_V = np.asarray(distance_V, dtype='float32')
         
         logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
-
-        distance_U = np.asarray([ soma_distances[gid][0] for gid in list(rate_sum_dict.keys()) ])
-        distance_V = np.asarray([ soma_distances[gid][1] for gid in list(rate_sum_dict.keys()) ])
-        rate_sums  = np.asarray([ rate_sum_dict[gid] for gid in list(rate_sum_dict.keys()) ])
-
         x_min = np.min(distance_U)
         x_max = np.max(distance_U)
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
 
-        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100], weights=rate_sums, normed=normed)
+        binSize = 400.
+        dx = (x_max - x_min) / binSize
+        dy = (y_max - y_min) / binSize
+
+        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=rate_sums, normed=normed)
+        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+        nz = np.where(H2 > 0.0)
+        zeros = np.where(H2 == 0.0)
+
+        H = np.zeros_like(H1)
+        H[nz] = np.divide(H1[nz], H2[nz])
+        H = np.divide(H, 10.)
+        H[zeros] = None
     
         X, Y = np.meshgrid(xedges, yedges)
         if (len(include) > 1):
@@ -3077,8 +3128,8 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
             axes.axis([x_min, x_max, y_min, y_max])
             axes.set_aspect('equal')
     
-            axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-            axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+            #axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+            #axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
             fig.colorbar(pcm, ax=axes, shrink=0.5, aspect=20)
 
     # save figure
@@ -3378,23 +3429,25 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                     syn_ids = syn_attrs.syn_id_attr_dict[gid]['syn_ids'][filtered_idxs]
                 for syn_id in syn_ids:
                     # TODO: figure out what to do with spine synapses that are not inserted into a branch node
+                    syn_index = syn_attrs.syn_id_attr_index_map[gid][syn_id]
                     if from_mech_attrs:
                         this_param_val = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
                         if this_param_val is not None:
                             attr_vals['mech_attrs'][sec_type].append(this_param_val[param_name] * scale_factor)
-                            syn_loc = syn_attrs.syn_id_attr_dict[gid]['syn_locs'][syn_attrs.syn_id_attr_index_map[gid][syn_id]]
-                            distances['mech_attrs'][sec_type].append(get_distance_to_node(cell, cell.tree.root, node, syn_loc))
+                            syn_loc = syn_attrs.syn_id_attr_dict[gid]['syn_locs'][syn_index]
+                            distances['mech_attrs'][sec_type].append(
+                                get_distance_to_node(cell, cell.tree.root, node, syn_loc))
                             if sec_type == 'basal':
                                 distances['mech_attrs'][sec_type][-1] *= -1
                     if from_target_attrs:
                         if syn_attrs.has_netcon(cell.gid, syn_id, syn_name):
                             this_nc = syn_attrs.get_netcon(cell.gid, syn_id, syn_name)
-                            attr_vals['target_attrs'][sec_type].append(get_syn_mech_param(syn_name, syn_attrs.syn_param_rules,
-                                                                                          param_name,
-                                                                                          mech_names=syn_attrs.syn_mech_names,
-                                                                                          nc=this_nc) * scale_factor)
-                            syn_loc = syn_attrs.syn_id_attr_dict[gid]['syn_locs'][syn_attrs.syn_id_attr_index_map[gid][syn_id]]
-                            distances['target_attrs'][sec_type].append(get_distance_to_node(cell, cell.tree.root, node, syn_loc))
+                            attr_vals['target_attrs'][sec_type].append(
+                                get_syn_mech_param(syn_name, syn_attrs.syn_param_rules, param_name,
+                                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc) * scale_factor)
+                            syn_loc = syn_attrs.syn_id_attr_dict[gid]['syn_locs'][syn_index]
+                            distances['target_attrs'][sec_type].append(
+                                get_distance_to_node(cell, cell.tree.root, node, syn_loc))
                             if sec_type == 'basal':
                                 distances['target_attrs'][sec_type][-1] *= -1
     for attr_type in attr_types:
@@ -3442,7 +3495,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
         if param_label is not None:
             axes.set_title(param_label + ' from ' + attr_type, fontsize=mpl.rcParams['font.size'])
         else:
-            axes.set_title('Plot from ' + attr_type, fontsize=mpl.rcParams['font.size'])
+            axes.set_title(syn_name + '_' + param_name + ' from ' + attr_type, fontsize=mpl.rcParams['font.size'])
         clean_axes(axes)
     if not svg_title is None:
         if param_label is not None:
