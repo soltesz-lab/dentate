@@ -207,10 +207,11 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
         
     (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=attr_lst, normed=normed)
     (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+    zeros = np.where(H2 == 0.0)
     H = np.zeros(H1.shape)
     nz = np.where(H2 > 0.0)
     H[nz] = np.divide(H1[nz], H2[nz])
-
+    H[zeros] = None
     if normed:
         H[nz] = np.divide(H[nz], np.max(H[nz]))
 
@@ -3058,7 +3059,14 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
 
-        (H, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100], weights=rate_sums, normed=normed)
+        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100], weights=rate_sums, normed=normed)
+        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[250, 100])
+        nz = np.where(H2 > 0.0)
+        zeros = np.where(H2 == 0.0)
+
+        H = np.zeros_like(H1)
+        H[nz] = np.divide(H1[nz], H2[nz])
+        H[zeros] = None
     
         X, Y = np.meshgrid(xedges, yedges)
         if (len(include) > 1):
