@@ -132,7 +132,7 @@ Synapses:
           tau1: 0.25
           tau2: 5.5
           e: -75
-          weight: 0.00065
+          weight: 0.001
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -271,7 +271,7 @@ Synapses:
           tau1: 0.9
           tau2: 3.6
           e: 0
-          weight: 0.0022
+          weight: 0.0042
     HC:  
       type: inhibitory
       sections: [apical]
@@ -338,7 +338,7 @@ Synapses:
           tau1: 0.9
           tau2: 3.6
           e: 0
-          weight: 0.00022
+          weight: 0.0042
     BC:   
       type: inhibitory
       sections: [basal, soma]
@@ -454,7 +454,7 @@ Synapses:
           tau1: 0.9
           tau2: 3.6
           e: 0
-          weight: 0.0001
+          weight: 0.0002
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -559,7 +559,7 @@ Synapses:
           tau1: 0.9
           tau2: 3.6
           e: 0
-          weight: 0.0023
+          weight: 0.0043
     HCC:  
       type: inhibitory
       sections: [basal, apical, apical]
@@ -703,7 +703,7 @@ Synapses:
           tau1: 0.9
           tau2: 3.6
           e: 0
-          weight: 0.0003
+          weight: 0.0004
     HC:  
       type: inhibitory
       sections: [basal, apical]
