@@ -3082,7 +3082,7 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, trajectory_id, stim
             if fromSpikes:
                 spiketrain_dict[gid] = len(spiketrain)
             else:
-                spiketrain_dict[gid] = np.sum(rate * dt)
+                spiketrain_dict[gid] = np.mean(rate) #np.sum(rate * dt)
 
         present_gids = spiketrain_dict.keys()
         
@@ -3118,7 +3118,8 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, trajectory_id, stim
 
         H = np.zeros_like(H1)
         H[nz] = np.divide(H1[nz], H2[nz])
-        H = np.divide(H, T)
+        if fromSpikes:
+            H = np.divide(H, T)
         H[zeros] = None
 
         X, Y = np.meshgrid(xedges, yedges)
