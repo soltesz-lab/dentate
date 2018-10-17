@@ -5,9 +5,8 @@ import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 import h5py
-import dentate
 from dentate.env import Env
-from dentate import utils
+import dentate.utils as utils
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
