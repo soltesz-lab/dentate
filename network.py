@@ -425,7 +425,7 @@ def connect_cell_selection(env, cleanup=True):
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
                 edge_syn_obj_dict = \
-                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
+                    synapses.mksyns(env, postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, \
                            env.edge_count[postsyn_name][presyn_name], \
                            add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
@@ -455,7 +455,7 @@ def connect_cell_selection(env, cleanup=True):
 
         if cleanup:
             for gid in cell_synapses_dict.keys():
-                syn_attrs.cleanup(gid)
+                syn_attrs.del_syn_id_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 

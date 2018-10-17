@@ -249,7 +249,6 @@ class Env:
         self.lfp = {}
 
         self.edge_count = defaultdict(dict)
-        self.syns_set = defaultdict(set)
 
         # stimulus cell templates
         if len(self.templatePaths) > 0:

@@ -5,7 +5,6 @@ from mpi4py import MPI
 #import matplotlib.pyplot as plt
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
-from nested.utils import Context
 import dentate
 from dentate.env import Env
 import dentate.utils as utils
@@ -33,7 +32,7 @@ feature_place = 1
 module_pi = [0.012, 0.313, 0.500, 0.654, 0.723, 0.783, 0.830, 0.852, 0.874, 0.890]
 module_pr = [0.342, 0.274, 0.156, 0.125, 0.045, 0.038, 0.022, 0.018, 0.013, 0.004]
 
-context = Context()
+context = None
 
 
 @click.command()
@@ -82,7 +81,7 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
             output_file.close()
     comm.barrier()
     population_ranges = read_population_ranges(coords_path, comm)[0]
-    context.update(locals())
+    context = dict(locals())
 
     gid_normed_distances = assign_cells_to_normalized_position() # Assign normalized u,v coordinates
     gid_module_assignments = assign_cells_to_module(gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position

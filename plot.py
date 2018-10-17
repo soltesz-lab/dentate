@@ -23,7 +23,7 @@ import dentate.utils as utils
 import dentate.statedata as statedata
 from dentate.env import Env
 from dentate.cells import *
-from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
+#from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
 from dentate.utils import get_module_logger, viewitems
 
 try:
@@ -3051,7 +3051,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, module = None, trajec
 
         
 def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace, distances_namespace, include,
-                                    normed = False, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True, verbose=False):
+                                    normed = False, binSize = 50, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True):
     ''' 
 
         - input_path: file with stimulus data
@@ -3097,18 +3097,19 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
 
-        binSize = 400.
         dx = (x_max - x_min) / binSize
         dy = (y_max - y_min) / binSize
 
-        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=rate_sums, normed=normed)
+        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], \
+                                              weights=rate_sums, normed=normed)
+
         (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
         nz = np.where(H2 > 0.0)
         zeros = np.where(H2 == 0.0)
 
         H = np.zeros_like(H1)
         H[nz] = np.divide(H1[nz], H2[nz])
-        H = np.divide(H, 10.)
+        H = np.divide(H, 10000.)
         H[zeros] = None
     
         X, Y = np.meshgrid(xedges, yedges)

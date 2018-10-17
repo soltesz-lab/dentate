@@ -22,7 +22,8 @@ def main(features_path, features_namespace, trajectory_id, include, module, font
     utils.config_logging(verbose)
 
     plot.plot_stimulus_rate (features_path, features_namespace, include, module = module, \
-                             trajectory_id=trajectory_id, fontSize=font_size, showFig=show_fig, saveFig=str(save_fig))
+                             trajectory_id=trajectory_id, fontSize=font_size, showFig=show_fig, \
+                             saveFig=str(save_fig))
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
