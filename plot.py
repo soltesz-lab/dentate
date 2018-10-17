@@ -3050,8 +3050,7 @@ def plot_stimulus_rate (input_path, namespace_id, include, module = None, trajec
 
 
         
-def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace, distances_namespace, include,
-                                    normed = False, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True, verbose=False):
+def plot_stimulus_spatial_rate_map (input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace, include, binSize = 100., fromSpikes = True, normed = False, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True, verbose=False):
     ''' 
 
         - input_path: file with stimulus data
@@ -3067,50 +3066,61 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         - showFig (True|False): Whether to show the figure or not (default: True)
 
     '''
-    fig, axes = plt.subplots(1, len(include), figsize=figSize)
+   # fig, axes = plt.subplots(1, len(include), figsize=figSize)
+
+    _, _, _, t = stimulus.read_trajectory(input_path, trajectory_id)
+    dt = float(t[1] - t[0]) / 1000. # ms -> s
+    T  = float(t[-1] - t[0]) / 1000. # ms -> s
+
 
     for iplot, population in enumerate(include):
-        rate_sum_dict = {}
+   
+        spiketrain_dict = {}
         logger.info('Reading vector stimulus data for population %s...' % population) 
-        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population):
-            rate_sum_dict[gid] = np.sum(rate)
-        present_gids = rate_sum_dict.keys()
+
+        for (gid, rate, spiketrain, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population): 
+            if fromSpikes:
+                spiketrain_dict[gid] = len(spiketrain)
+            else:
+                spiketrain_dict[gid] = np.sum(rate * dt)
+
+        present_gids = spiketrain_dict.keys()
         
-        logger.info('read rates (%i elements)' % len(list(rate_sum_dict.keys())))
+        logger.info('read rates (%i elements)' % len(present_gids))
 
         distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
 
         distance_U, distance_V = [], []
-        rate_sums = []
+        spikes    = []
         for gid in present_gids:
             distance_U.append(soma_distances[gid][0])
             distance_V.append(soma_distances[gid][1])
-            rate_sums.append(rate_sum_dict[gid])
+            spikes.append(spiketrain_dict[gid])
         distance_U = np.asarray(distance_U, dtype='float32')
         distance_V = np.asarray(distance_V, dtype='float32')
         
+
         logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
         x_min = np.min(distance_U)
         x_max = np.max(distance_U)
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
 
-        binSize = 400.
         dx = (x_max - x_min) / binSize
         dy = (y_max - y_min) / binSize
 
-        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=rate_sums, normed=normed)
-        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+        (H1, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spikes)
+        (H2, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
         nz = np.where(H2 > 0.0)
         zeros = np.where(H2 == 0.0)
 
         H = np.zeros_like(H1)
         H[nz] = np.divide(H1[nz], H2[nz])
-        H = np.divide(H, 10.)
+        H = np.divide(H, T)
         H[zeros] = None
-    
+
         X, Y = np.meshgrid(xedges, yedges)
         if (len(include) > 1):
             pcm = axes[iplot].pcolormesh(X, Y, H.T)
@@ -3123,11 +3133,16 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
             fig.colorbar(pcm, ax=axes[iplot], shrink=0.5, aspect=20)
             
         else:
+            fig, axes = plt.subplots(1, figsize=figSize)
             pcm = axes.pcolormesh(X, Y, H.T)
-
             axes.axis([x_min, x_max, y_min, y_max])
             axes.set_aspect('equal')
-    
+
+            if fromSpikes:
+                title = 'Spikes per second'
+            else:
+                title = 'Estimated spikes per second'
+            axes.set_title(title)
             #axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
             #axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
             fig.colorbar(pcm, ax=axes, shrink=0.5, aspect=20)
