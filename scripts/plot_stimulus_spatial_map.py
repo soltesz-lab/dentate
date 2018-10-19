@@ -16,11 +16,21 @@ from dentate import utils, plot
 @click.option("--normed", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
+<<<<<<< HEAD
 def main(features_path, coords_path, features_namespace, trajectory_id, distances_namespace, include, bin_size, from_spikes, normed, font_size, verbose):
 
     plot.plot_stimulus_spatial_rate_map (features_path, coords_path, trajectory_id, features_namespace, \
     distances_namespace, include, binSize=bin_size, fromSpikes=from_spikes, normed=normed, fontSize=font_size, \
     saveFig=True, showFig=True, verbose=verbose)
+=======
+def main(features_path, coords_path, features_namespace, distances_namespace, include, normed, font_size, verbose):
+
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
+
+    plot.plot_stimulus_spatial_rate_map (features_path, coords_path, features_namespace, distances_namespace,
+                                         include, normed=normed, fontSize=font_size, saveFig=True, showFig=True, verbose=verbose)
+>>>>>>> dff6dcba2fa0f8a3f121e194eb6d2be7fb7e258c
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
