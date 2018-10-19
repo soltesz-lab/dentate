@@ -196,8 +196,8 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
     x_min, y_min = np.min(distance_U), np.min(distance_V)
     x_max, y_max = np.max(distance_U), np.max(distance_V)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -281,8 +281,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     for source, degrees in viewitems(degrees_dict):
         
@@ -558,9 +558,9 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
         raise RuntimeError('Unknown extent type %s' % str(extent_type))
         
                           
-    dx = (x_max - x_min) / bin_size
-    dy = (y_max - y_min) / bin_size
 
+    dx = int((source_x_max - source_x_min) / bin_size)
+    dy = int((source_y_max - source_y_min) / bin_size)
     (H, xedges, yedges) = np.histogram2d(source_dist_u_array, \
                                          source_dist_v_array, \
                                          bins=[dx, dy])
@@ -712,8 +712,8 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
     
     ax.axis([x_min, x_max, y_min, y_max])
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
     if graphType == 'histogram1d':
         bins_U = np.linspace(x_min, x_max, dx)
         bins_V = np.linspace(y_min, y_max, dy)
@@ -799,8 +799,8 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graphType = 
     y_min = np.min(coord_V_array)
     y_max = np.max(coord_V_array)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     if graphType == 'scatter':
         ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
@@ -874,8 +874,8 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
     y_min = np.min(coord_Y_array)
     y_max = np.max(coord_Y_array)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     if graphType == 'scatter':
         ax.scatter(coord_X_array, coord_Y_array, alpha=0.1, linewidth=0)
@@ -3150,8 +3150,8 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, trajectory_id, stim
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
 
-        dx = (x_max - x_min) / binSize
-        dy = (y_max - y_min) / binSize
+        dx = int((x_max - x_min) / binSize)
+        dy = int((y_max - y_min) / binSize)
 
         (H1, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spikes)
         (H2, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
