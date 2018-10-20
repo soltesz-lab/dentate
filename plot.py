@@ -196,8 +196,8 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
     x_min, y_min = np.min(distance_U), np.min(distance_V)
     x_max, y_max = np.max(distance_U), np.max(distance_V)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -281,8 +281,8 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     y_min = np.min(distance_V)
     y_max = np.max(distance_V)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     for source, degrees in viewitems(degrees_dict):
         
@@ -472,7 +472,8 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     comm.barrier()
 
 
-def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, 
+def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace, destination_gid,
+                            destination, source, extent_type='local',
                             bin_size=20.0, fontSize=14, showFig = True, saveFig = False):
     """
     Plot vertex distribution with respect to septo-temporal distance for a single postsynaptic cell
@@ -494,6 +495,10 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
     source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
     destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
 
+    total_x_min = float('inf')
+    total_x_max = 0
+    total_y_min = float('inf')
+    total_y_max = 0
     source_soma_distance_U = {}
     source_soma_distance_V = {}
     destination_soma_distance_U = {}
@@ -501,9 +506,17 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
     for k,v in source_soma_distances:
         source_soma_distance_U[k] = v['U Distance'][0]
         source_soma_distance_V[k] = v['V Distance'][0]
+        total_x_min = min(total_x_min, v['U Distance'][0])
+        total_x_max = max(total_x_max, v['U Distance'][0])
+        total_y_min = min(total_y_min, v['V Distance'][0])
+        total_y_max = max(total_y_max, v['V Distance'][0])
     for k,v in destination_soma_distances:
         destination_soma_distance_U[k] = v['U Distance'][0]
         destination_soma_distance_V[k] = v['V Distance'][0]
+        total_x_min = min(total_x_min, v['U Distance'][0])
+        total_x_max = max(total_x_max, v['U Distance'][0])
+        total_y_min = min(total_y_min, v['V Distance'][0])
+        total_y_max = max(total_y_max, v['V Distance'][0])
 
     del(source_soma_distances)
     del(destination_soma_distances)
@@ -526,14 +539,28 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
     source_dist_u_array = np.asarray(source_dist_u)
     source_dist_v_array = np.asarray(source_dist_v)
 
-    x_min = np.min(source_dist_u_array)
-    x_max = np.max(source_dist_u_array)
-    y_min = np.min(source_dist_v_array)
-    y_max = np.max(source_dist_v_array)
+    source_x_min = np.min(source_dist_u_array)
+    source_x_max = np.max(source_dist_u_array)
+    source_y_min = np.min(source_dist_v_array)
+    source_y_max = np.max(source_dist_v_array)
+                          
+    if extent_type == 'local':
+        x_min = source_x_min
+        x_max = source_x_max
+        y_min = source_y_min
+        y_max = source_y_max
+    elif extent_type == 'global':
+        x_min = total_x_min
+        x_max = total_x_max
+        y_min = total_y_min
+        y_max = total_y_max
+    else:
+        raise RuntimeError('Unknown extent type %s' % str(extent_type))
+        
+                          
 
-    dx = (x_max - x_min) / bin_size
-    dy = (y_max - y_min) / bin_size
-
+    dx = int((source_x_max - source_x_min) / bin_size)
+    dy = int((source_y_max - source_y_min) / bin_size)
     (H, xedges, yedges) = np.histogram2d(source_dist_u_array, \
                                          source_dist_v_array, \
                                          bins=[dx, dy])
@@ -543,13 +570,28 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
     ax.axis([x_min, x_max, y_min, y_max])
-
+    
     ax.plot(destination_soma_distance_U[destination_gid], \
             destination_soma_distance_V[destination_gid], \
-            'r+', markersize=12, mew=5)
-    pcm = ax.pcolormesh(X, Y, H.T)
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+            'r+', markersize=12, mew=3)
+    
+    pcm_boundaries = np.arange(0, np.max(H), .1)
+    cmap_pls = plt.cm.get_cmap('PuBu',len(pcm_boundaries))
+    pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
+    pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
+    pcm_cmap.set_under(pcm_colors[0])
+    
+    pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
+                        norm = mpl.colors.BoundaryNorm(pcm_boundaries, ncolors=len(pcm_boundaries)-1,
+                                                       clip=False))
+    clb = fig.colorbar(pcm, ax=ax, shrink=0.5, label='Number of connections')
+    
     ax.set_aspect('equal')
+    ax.set_facecolor(pcm_colors[0])
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
+    ax.set_title('Connectivity distribution of %s to %s for gid: %i' % (source, destination, destination_gid), \
+                 fontsize=fontSize)
         
     if saveFig: 
         if isinstance(saveFig, str):
@@ -670,8 +712,8 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
     
     ax.axis([x_min, x_max, y_min, y_max])
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
     if graphType == 'histogram1d':
         bins_U = np.linspace(x_min, x_max, dx)
         bins_V = np.linspace(y_min, y_max, dy)
@@ -757,8 +799,8 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graphType = 
     y_min = np.min(coord_V_array)
     y_max = np.max(coord_V_array)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     if graphType == 'scatter':
         ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
@@ -832,8 +874,8 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
     y_min = np.min(coord_Y_array)
     y_max = np.max(coord_Y_array)
 
-    dx = (x_max - x_min) / binSize
-    dy = (y_max - y_min) / binSize
+    dx = int((x_max - x_min) / binSize)
+    dy = int((y_max - y_min) / binSize)
 
     if graphType == 'scatter':
         ax.scatter(coord_X_array, coord_Y_array, alpha=0.1, linewidth=0)
@@ -3067,51 +3109,62 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
         - showFig (True|False): Whether to show the figure or not (default: True)
 
     '''
-    fig, axes = plt.subplots(1, len(include), figsize=figSize)
+   # fig, axes = plt.subplots(1, len(include), figsize=figSize)
+
+    _, _, _, t = stimulus.read_trajectory(input_path, trajectory_id)
+    dt = float(t[1] - t[0]) / 1000. # ms -> s
+    T  = float(t[-1] - t[0]) / 1000. # ms -> s
+
 
     for iplot, population in enumerate(include):
-        rate_sum_dict = {}
+   
+        spiketrain_dict = {}
         logger.info('Reading vector stimulus data for population %s...' % population) 
-        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population):
-            rate_sum_dict[gid] = np.sum(rate)
-        present_gids = rate_sum_dict.keys()
+
+        for (gid, rate, spiketrain, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population): 
+            if fromSpikes:
+                spiketrain_dict[gid] = len(spiketrain)
+            else:
+                spiketrain_dict[gid] = np.mean(rate) #np.sum(rate * dt)
+
+        present_gids = spiketrain_dict.keys()
         
-        logger.info('read rates (%i elements)' % len(list(rate_sum_dict.keys())))
+        logger.info('read rates (%i elements)' % len(present_gids))
 
         distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
 
         distance_U, distance_V = [], []
-        rate_sums = []
+        spikes    = []
         for gid in present_gids:
             distance_U.append(soma_distances[gid][0])
             distance_V.append(soma_distances[gid][1])
-            rate_sums.append(rate_sum_dict[gid])
+            spikes.append(spiketrain_dict[gid])
         distance_U = np.asarray(distance_U, dtype='float32')
         distance_V = np.asarray(distance_V, dtype='float32')
         
+
         logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
         x_min = np.min(distance_U)
         x_max = np.max(distance_U)
         y_min = np.min(distance_V)
         y_max = np.max(distance_V)
 
-        dx = (x_max - x_min) / binSize
-        dy = (y_max - y_min) / binSize
+        dx = int((x_max - x_min) / binSize)
+        dy = int((y_max - y_min) / binSize)
 
-        (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], \
-                                              weights=rate_sums, normed=normed)
-
-        (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+        (H1, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spikes)
+        (H2, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
         nz = np.where(H2 > 0.0)
         zeros = np.where(H2 == 0.0)
 
         H = np.zeros_like(H1)
         H[nz] = np.divide(H1[nz], H2[nz])
-        H = np.divide(H, 10000.)
+        if fromSpikes:
+            H = np.divide(H, T)
         H[zeros] = None
-    
+
         X, Y = np.meshgrid(xedges, yedges)
         if (len(include) > 1):
             pcm = axes[iplot].pcolormesh(X, Y, H.T)
@@ -3124,11 +3177,16 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, stimulus_namespace,
             fig.colorbar(pcm, ax=axes[iplot], shrink=0.5, aspect=20)
             
         else:
+            fig, axes = plt.subplots(1, figsize=figSize)
             pcm = axes.pcolormesh(X, Y, H.T)
-
             axes.axis([x_min, x_max, y_min, y_max])
             axes.set_aspect('equal')
-    
+
+            if fromSpikes:
+                title = 'Spikes per second'
+            else:
+                title = 'Estimated spikes per second'
+            axes.set_title(title)
             #axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
             #axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
             fig.colorbar(pcm, ax=axes, shrink=0.5, aspect=20)

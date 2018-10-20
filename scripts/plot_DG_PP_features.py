@@ -89,16 +89,16 @@ def plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save
         mean_map   = np.mean(rate_maps, axis=0)
         var_map    = np.var(rate_maps, axis=0)
 
-        img_sum    = axes_sum[ax1_count,ax2_count].imshow(summed_map, cmap='inferno')
+        img_sum    = axes_sum[ax1_count,ax2_count].imshow(summed_map, cmap='Greys_r', vmin=0., vmax=np.max(summed_map))
         axes_sum[ax1_count, ax2_count].set_title('Cells: %s. Module: %i. Summed RM' % (ctype, mod))
         add_colorbar(img_sum, axes_sum[ax1_count, ax2_count])
 
-        img_mean   = axes_mean[ax1_count, ax2_count].imshow(mean_map, cmap='inferno')
+        img_mean   = axes_mean[ax1_count, ax2_count].imshow(mean_map, cmap='Greys_r', vmin=0., vmax=np.max(mean_map) )
         axes_mean[ax1_count, ax2_count].set_title('Cells: %s. Module: %i. Mean RM' % (ctype, mod))
         add_colorbar(img_mean, axes_mean[ax1_count, ax2_count])
  
-        img_var    = axes_var[ax1_count, ax2_count].imshow(var_map, cmap='inferno')
-        axes_var[ax1_count, ax2_count].set_title('Cells: %s. Module: %i. Mean RM' % (ctype, mod))
+        img_var    = axes_var[ax1_count, ax2_count].imshow(var_map, cmap='Greys_r', vmin=0., vmax=np.max(var_map))
+        axes_var[ax1_count, ax2_count].set_title('Cells: %s. Module: %i. Var RM' % (ctype, mod))
         add_colorbar(img_var, axes_var[ax1_count, ax2_count])
 
         turn_off_xy(axes_sum[ax1_count, ax2_count])
