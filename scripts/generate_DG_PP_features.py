@@ -9,14 +9,11 @@ import dentate
 from dentate.env import Env
 import dentate.utils as utils
 from dentate.utils import list_find, list_argsort, get_script_logger, viewitems
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
+from optimize_DG_PP_features import calculate_field_distribution, \
+     acquire_fields_per_cell, _generate_mesh
 from dentate.stimulus import generate_spatial_offsets
 
-from optimize_DG_PP_features import calculate_field_distribution
-from optimize_DG_PP_features import acquire_fields_per_cell
-from optimize_DG_PP_features import _generate_mesh
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
-
-utils.config_logging(True)
 logger = utils.get_script_logger(os.path.basename(__file__))
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
@@ -65,6 +62,7 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    utils.config_logging(verbose)
 
     env = Env(comm=comm, configFile=config, templatePaths=template_path)
     if io_size == -1:
