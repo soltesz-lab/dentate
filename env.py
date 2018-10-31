@@ -340,7 +340,7 @@ class Env:
         syn_mech_names  = connection_config['Synapse Mechanisms']
         syn_param_rules = connection_config['Synapse Parameter Rules']
 
-        self.synapse_attributes = SynapseAttributes(syn_mech_names, syn_param_rules)
+        self.synapse_attributes = SynapseAttributes(self, syn_mech_names, syn_param_rules)
 
         synapse_config = connection_config['Synapses']
         connection_dict = {}
