@@ -18,24 +18,27 @@ import dentate.plot as plot
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", is_flag=True)
-def main(features_path, coords_path, features_namespace, trajectory_id, distances_namespace, include, bin_size, 
+def main(features_path, coords_path, features_namespace, trajectory_id, distances_namespace, include, bin_size,
          from_spikes, normed, font_size, verbose, show_fig, save_fig):
     """
-    
-    :param features_path: 
-    :param coords_path: 
-    :param features_namespace: 
-    :param trajectory_id: 
-    :param distances_namespace: 
-    :param include: 
-    :param bin_size: 
-    :param from_spikes: 
-    :param normed: 
-    :param font_size: 
+
+    :param features_path:
+    :param coords_path:
+    :param features_namespace:
+    :param trajectory_id:
+    :param distances_namespace:
+    :param include:
+    :param bin_size:
+    :param from_spikes:
+    :param normed:
+    :param font_size:
     :param verbose:
     :param show_fig:
     :param save_fig:
     """
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
+
     plot.plot_stimulus_spatial_rate_map (features_path, coords_path, trajectory_id, features_namespace,
         distances_namespace, include, binSize=bin_size, fromSpikes=from_spikes, normed=normed, fontSize=font_size,
         saveFig=save_fig, showFig=show_fig, verbose=verbose)

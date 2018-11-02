@@ -11,16 +11,18 @@ import dentate, utils, plot
 @click.option("--destination-gid", '-g', type=int)
 @click.option("--destination", '-d', type=str)
 @click.option("--source", '-s', type=str)
+@click.option("--extent-type", type=str, default='local')
 @click.option("--bin-size", type=float, default=20.0)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, bin_size, font_size, verbose):
+def main(connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, extent_type, bin_size, font_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
 
-    plot.plot_single_vertex_dist (connectivity_path, coords_path, distances_namespace,
-                                  destination_gid, destination, source, bin_size, fontSize=font_size,
+    plot.plot_single_vertex_dist (connectivity_path, coords_path, distances_namespace, \
+                                  destination_gid, destination, source, \
+                                  extent_type=extent_type, bin_size=bin_size, fontSize=font_size, \
                                   saveFig=True)
     
 

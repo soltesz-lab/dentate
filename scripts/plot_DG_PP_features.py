@@ -98,7 +98,7 @@ def plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save
         add_colorbar(img_mean, axes_mean[ax1_count, ax2_count])
  
         img_var    = axes_var[ax1_count, ax2_count].imshow(var_map, cmap='Greys_r', vmin=0., vmax=np.max(var_map))
-        axes_var[ax1_count, ax2_count].set_title('Cells: %s. Module: %i. Mean RM' % (ctype, mod))
+        axes_var[ax1_count, ax2_count].set_title('Cells: %s. Module: %i. Var RM' % (ctype, mod))
         add_colorbar(img_var, axes_var[ax1_count, ax2_count])
 
         turn_off_xy(axes_sum[ax1_count, ax2_count])
