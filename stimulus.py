@@ -189,7 +189,7 @@ def module2gid_dictionary(module_dict):
     return gid_dict
         
 
-def read_trajectory (input_path, trajectory_id):
+def read_trajectory(input_path, trajectory_id):
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
 

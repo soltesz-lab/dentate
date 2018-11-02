@@ -12,6 +12,7 @@ import matplotlib.tri as tri
 import matplotlib.lines as mlines
 from matplotlib import gridspec, mlab, rcParams
 from matplotlib.colors import BoundaryNorm
+from matplotlib.colors import LogNorm
 from matplotlib.ticker import MaxNLocator
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
@@ -55,12 +56,13 @@ color_list = ["#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE",
               "#009BFF", "#E85EBE"]
 
 rainbow_color_list = ["#9400D3", "#4B0082", "#00FF00", "#FFFF00", "#FF7F00", "#FF0000"]
-    
+
+
 def hex2rgb(hexcode):
     return tuple([ float(b)/255.0 for b in map(ord,hexcode[1:].decode('hex')) ])
 
 mpl.rcParams['svg.fonttype'] = 'none'
-mpl.rcParams['font.size'] = 12.
+mpl.rcParams['font.size'] = 14.
 mpl.rcParams['font.sans-serif'] = 'Arial'
 mpl.rcParams['text.usetex'] = False
 
@@ -140,10 +142,12 @@ def finalize_bins(bins, binsize):
             a[i - imin] = bins[i]
     return np.asarray(a), np.asarray(b)
 
+
 def merge_bins(bins1, bins2, datatype):
     for i, count in viewitems(bins2):
         bins1[i] += count
     return bins1
+
 
 def add_bins(bins1, bins2, datatype):
     for item in bins2:
@@ -153,21 +157,50 @@ def add_bins(bins1, bins2, datatype):
             bins1[item] = bins2[item]
     return bins1
 
-def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=250., metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
 
+def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=250.,
+                    metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True,
+                    saveFig = False):
+    """
+
+    :param coords_path:
+    :param features_path:
+    :param distances_namespace:
+    :param population:
+    :param cellType:
+    :param binSize:
+    :param metric:
+    :param normed:
+    :param graphType:
+    :param fontSize:
+    :param showFig:
+    :param saveFig:
+    """
     if cellType == 'grid':
         input_features = 'Grid Input Features'
+        cellType_label = 'grid input'
     elif cellType == 'place':
         input_features = 'Place Input Features'
-
+        cellType_label = 'spatial input'
     if metric == 'spacing' and cellType == 'grid':
         attribute = 'Grid Spacing'
+        cbar_label = 'Mean grid spacing (cm)'
+        feature_label = 'grid spacing'
     elif metric == 'spacing' and cellType == 'place':
         attribute = 'Field Width'
+        cbar_label = 'Mean field width (cm)'
+        feature_label = 'spatial field width'
     if metric == 'num-fields':
-        attribute = 'Num Fields'
+        if cellType == 'grid':
+            return
+        elif cellType == 'place':
+            attribute = 'Num Fields'
+            cbar_label = 'Mean number of spatial fields'
+            feature_label = 'number of spatial fields'
     if metric == 'orientation' and cellType == 'grid':
         attribute = 'Grid Orientation'
+        cbar_label = 'Mean grid orientation (rad)'
+        feature_label = 'grid orientation'
     elif metric == 'orientation' and cellType == 'place':
         return 
 
@@ -214,12 +247,13 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
         H[nz] = np.divide(H[nz], np.max(H[nz]))
 
     X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T)
-    fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+    pcm = ax.pcolormesh(X, Y, H.T, cmap='jet')
+    cbar = fig.colorbar(pcm, ax=ax, shrink=0.48, aspect=20)
+    cbar.set_label(cbar_label, rotation=270., labelpad=20.)
     
-    #ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-    #ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    #ax.set_title('%s distribution for population: %s cell type: %s' % (metric, population, cellType), fontsize=fontSize)
+    ax.set_ylabel('Transverse distance (um)', fontsize=fontSize)
+    ax.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (binSize, binSize), fontsize=fontSize)
+    ax.set_title('%s %s: %s' % (population, cellType_label, feature_label), fontsize=fontSize)
     ax.set_aspect('equal')
     
     if saveFig: 
@@ -227,11 +261,12 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
             filename = saveFig
         else:
             filename = '%s-%s-%s.png' % (population, cellType, metric)
-            plt.savefig(filename)
+        plt.savefig(filename)
 
     if showFig:
         show_figure()
-        
+
+
 def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
                         binSize = 50., metric='Indegree', normed = False, graphType = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
     """
@@ -2711,7 +2746,6 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, showFig 
 
     if showFig:
         plt.show()
-    
 
 
 def plot_place_fields (spike_input_path, spike_namespace_id, 
@@ -2965,43 +2999,40 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
     return fig, psds
 
 
-
-def plot_stimulus_rate (input_path, namespace_id, include, module = None, trajectory_id=None,
-                        figSize = (8,8), fontSize = 14, saveFig = None, showFig = True):
-    ''' 
+def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None, figSize = (12,9),
+                       fontSize = 14, saveFig = None, showFig = True):
+    """
 
         - input_path: file with stimulus data
         - namespace_id: attribute namespace for stimulus
-        - include (['eachPop'|<population name>]): List of data series to include. 
-            (default: ['eachPop'] - expands to the name of each population)
+        - population: str name of a valid cell population
         - figSize ((width, height)): Size of figure (default: (8,8))
         - fontSize (integer): Size of text font (default: 14)
         - lw (integer): Line width for each spike (default: 3)
         - saveFig (None|True|'fileName'): File name where to save the figure;
             if set to True uses filename from simConfig (default: None)
         - showFig (True|False): Whether to show the figure or not (default: True)
-
-    '''
-    fig, axes = plt.subplots(1, len(include), figsize=figSize)
-
+    """
     if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory (input_path, trajectory_id)
+        trajectory = stimulus.read_trajectory(input_path, trajectory_id)
         (_, _, _, t)  = trajectory
     else:
         t = None
-        
+
     M = 0
-    for iplot, population in enumerate(include):
+    if trajectory_id is None:
+        ns = namespace_id
+    else:
+        ns = '%s %d' % (namespace_id, trajectory_id)
+    logger.info('Reading vector stimulus data from namespace %s for population %s...' % (ns, population ))
+    fig, axes = plt.subplots(2, 5)
+    for module in xrange(1, 11):
         rate_lst = []
-        if trajectory_id is None:
-            ns = namespace_id
-        else:
-            ns = '%s %d' % (namespace_id, trajectory_id)
-        logger.info('Reading vector stimulus data from namespace %s for population %s...' % (ns, population ))
         for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
-
+        col = (module - 1) % 5
+        row = (module - 1) / 5
         M = max(M, len(rate_lst))
         N = len(rate_lst)
         rate_matrix = np.matrix(rate_lst)
@@ -3011,48 +3042,40 @@ def plot_stimulus_rate (input_path, namespace_id, include, module = None, trajec
             extent=[0, len(rate), 0, N]
         else:
             extent=[t[0], t[-1], 0, N]
-            
-        if len(include) > 1:
-            axes[iplot].set_title(population, fontsize=fontSize)
-            axes[iplot].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
-            axes[iplot].set_xlim([extent[0], extent[1]])
-            axes[iplot].set_ylim(-1, N+1)
-            
-        else:
-            if module is None:
-                title = population
-            else:
-                title = population + ', module: %i' % module
-            axes.set_title(title, fontsize=fontSize)
-            img = axes.imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm, extent=extent)
-            plt.colorbar(img, ax=axes)
-            axes.set_xlim([extent[0], extent[1]])
-            axes.set_ylim(-1, N+1)    
-            
-    if len(include) > 1:
-        axes[0].set_xlabel('Time (ms)', fontsize=fontSize)
-        axes[0].set_ylabel('Input #', fontsize=fontSize)
-    else:
-        axes.set_xlabel('Time (ms)', fontsize=fontSize)
-        axes.set_ylabel('Input #', fontsize=fontSize)
-    
+        title = 'Module: %i' % module
+        axes[row][col].set_title(title, fontsize=fontSize)
+        img = axes[row][col].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm,
+                                    extent=extent)
+        axes[row][col].set_xlim([extent[0], extent[1]])
+        axes[row][col].set_ylim(-1, N+1)
+        if col == 0:
+            axes[row][col].set_ylabel('Sorted input ID', fontsize=fontSize)
+        if row == 1:
+            axes[row][col].set_xlabel('Time (ms)', fontsize=fontSize)
+    cax, kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
+    cbar = plt.colorbar(img, cax=cax, **kw)
+    cbar.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
+
+    fig.suptitle(population, fontsize=fontSize)
+    fig.tight_layout()
+
     # save figure
-    if saveFig: 
+    if saveFig:
         if isinstance(saveFig, str):
             filename = saveFig
         else:
             filename = namespace_id+'_'+'ratemap.png'
         plt.savefig(filename)
 
-    # show fig 
+    # show fig
     if showFig:
         show_figure()
 
 
-        
-def plot_stimulus_spatial_rate_map (input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace, include, binSize = 100., fromSpikes = True, normed = False, figSize = (8,8), fontSize = 14, saveFig = None, showFig = True, verbose=False):
-    ''' 
-
+def plot_stimulus_spatial_rate_map(input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace,
+                                    include, binSize = 100., fromSpikes = True, normed = False, figSize = (8,8),
+                                    fontSize = 14, saveFig = None, showFig = True, verbose=False):
+    """
         - input_path: file with stimulus data
         - stimulus_namespace: attribute namespace for stimulus
         - distances_namespace: attribute namespace for longitudinal and transverse distances
@@ -3064,14 +3087,10 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, trajectory_id, stim
         - saveFig (None|True|'fileName'): File name where to save the figure;
             if set to True uses filename from simConfig (default: None)
         - showFig (True|False): Whether to show the figure or not (default: True)
-
-    '''
-   # fig, axes = plt.subplots(1, len(include), figsize=figSize)
-
+    """
     _, _, _, t = stimulus.read_trajectory(input_path, trajectory_id)
     dt = float(t[1] - t[0]) / 1000. # ms -> s
     T  = float(t[-1] - t[0]) / 1000. # ms -> s
-
 
     for iplot, population in enumerate(include):
    
@@ -3123,53 +3142,39 @@ def plot_stimulus_spatial_rate_map (input_path, coords_path, trajectory_id, stim
         H[zeros] = None
 
         X, Y = np.meshgrid(xedges, yedges)
-        if (len(include) > 1):
-            pcm = axes[iplot].pcolormesh(X, Y, H.T)
+        fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
+        axes = plt.gca()
+        pcm = axes.pcolormesh(X, Y, H.T)
+        axes.axis([x_min, x_max, y_min, y_max])
+        axes.set_aspect('equal')
 
-            axes[iplot].axis([x_min, x_max, y_min, y_max])
-            axes[iplot].set_aspect('equal')
-            
-            axes[iplot].set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-            axes[iplot].set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-            fig.colorbar(pcm, ax=axes[iplot], shrink=0.5, aspect=20)
-            
+        if fromSpikes:
+            title = '%s input firing rate\nTrial: %i' % (population, trajectory_id)
         else:
-            fig, axes = plt.subplots(1, figsize=figSize)
-            pcm = axes.pcolormesh(X, Y, H.T)
-            axes.axis([x_min, x_max, y_min, y_max])
-            axes.set_aspect('equal')
+            title = '%s expected input firing rate' % population
+        axes.set_title(title, fontsize=fontSize)
+        axes.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (binSize, binSize), fontsize=fontSize)
+        axes.set_ylabel('Transverse distance (um)', fontsize=fontSize)
+        cbar = fig.colorbar(pcm, ax=axes, shrink=0.48, aspect=20)
+        cbar.set_label('Mean input firing rate (Hz)', rotation=270., labelpad=20.)
 
-            if fromSpikes:
-                title = 'Spikes per second'
+        # save figure
+        if saveFig:
+            if isinstance(saveFig, str):
+                filename = saveFig
             else:
-                title = 'Estimated spikes per second'
-            axes.set_title(title)
-            #axes.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-            #axes.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-            fig.colorbar(pcm, ax=axes, shrink=0.5, aspect=20)
+                filename = '%s %s spatial ratemap.png' % (population, stimulus_namespace)
+            plt.savefig(filename)
 
-    # save figure
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
-        else:
-            filename = '%s %s spatial ratemap.png' % (population, stimulus_namespace)
-        plt.savefig(filename)
-
-    # show fig 
-    if showFig:
-        show_figure()
+        # show fig
+        if showFig:
+            show_figure()
 
 
-
-        
-        
-
-        
-## Plot spike auto-correlation
-def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', binSize = 25, graphType = 'matrix', lag=1,
-                                   maxCells = None, xlim = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
-    ''' 
+def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t',
+                                   binSize = 25, graphType = 'matrix', lag=1, maxCells = None, xlim = None, lw = 3,
+                                   marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+    """
     Plot of spike histogram correlations. Returns the figure handle.
 
     input_path: file with spike data
@@ -3183,8 +3188,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
     figSize ((width, height)): Size of figure (default: (15,8))
     saveFig (None|True|'fileName'): File name where to save the figure (default: None)
     showFig (True|False): Whether to show the figure or not (default: True)
-    '''
-
+    """
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
