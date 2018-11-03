@@ -375,3 +375,12 @@ def kde_scipy(x, y, binSize, **kwargs):
     
     return xx, yy, np.reshape(z, xx.shape)
 
+## A hack to add docstrings to named tuples. This is only needed in
+## python 2, where __doc__ is not writeable.
+## https://stackoverflow.com/questions/1606436/adding-docstrings-to-namedtuples
+def NamedTupleWithDocstring(docstring, *ntargs):
+    nt = namedtuple(*ntargs)
+    class NT(nt):
+        __doc__ = docstring
+        __slots__ = () ## disallow mutable slots in order to keep performance advantage of tuples
+    return NT

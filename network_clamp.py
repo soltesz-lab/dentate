@@ -4,12 +4,12 @@ Routines for Network Clamp simulation.
 
 import click
 from collections import defaultdict
-from dentate import spikedata, io_utils
+import dentate
 from dentate.utils import *
 from dentate.neuron_utils import *
 from dentate.env import Env
 from dentate.cells import *
-from dentate.synapses import *
+from dentate import spikedata, io_utils, synapses
 
 def make_input_cell(env, gid, gen):
     template_name = gen['template']
@@ -47,13 +47,17 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
             mech_file_path = mech_file
     else:
         mech_file_path = None
-        
+
     if mech_file_path is not None:
         init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
                         correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
-    init_syn_mech_attrs(cell, env)
+    synapses.init_syn_mech_attrs(cell, env)
 
-    config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+    if mech_file_path is not None:
+        synapses.config_biophys_cell_syns(env, gid, env, pop_name, insert=True)
+    else:
+        synapses.config_hoc_cell_syns(env, gid, pop_name, cell=cell.hoc_cell, insert=True)
+        
 
     return cell
 
@@ -84,6 +88,7 @@ def register_cell(env, population, gid, cell):
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
+    
 def init_cell(env, pop_name, gid, load_edges=True):
     """
     Instantiates a cell and all its synapses
@@ -110,10 +115,14 @@ def init_cell(env, pop_name, gid, load_edges=True):
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = load_cell(env, pop_name, gid, mech_file=mech_file, correct_for_spines=correct_for_spines_flag, load_edges=load_edges)
+    cell = load_cell(env, pop_name, gid, mech_file=mech_file, \
+                     correct_for_spines=correct_for_spines_flag, \
+                     load_edges=load_edges)
     register_cell(env, pop_name, gid, cell)
 
-    env.recs_dict[pop_name][0] = make_rec(0, pop_name, gid, cell, sec=cell.soma[0].sec, dt=h.dt, loc=0.5, param='v', description='Soma recording')
+    env.recs_dict[pop_name][0] = make_rec(0, pop_name, gid, cell, \
+                                          sec=cell.soma[0].sec, loc=0.5, param='v', \
+                                          dt=h.dt, description='Soma recording')
      
     if env.verbose:
         report_topology(cell, env)
@@ -122,13 +131,14 @@ def init_cell(env, pop_name, gid, load_edges=True):
 
     
 def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
-    """
-    Instantiates a cell and all its synapses and connections and loads or generates spike times for all synaptic connections.
+    """Instantiates a cell and all its synapses and connections and loads
+    or generates spike times for all synaptic connections.
 
     :param env: an instance of env.Env
     :param pop_name: population name
     :param gid: gid
     :param spike_events_path:
+
     """
     io_utils.mkout(env, env.resultsFilePath)
 
@@ -297,8 +307,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
     np.seterr(all='raise')
 
     env = Env(comm=comm, tstop=tstop, configFile=config_file, templatePaths=template_paths, \
-                  datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
-                  verbose=True)
+              datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
+              verbose=True)
     configure_hoc_env(env)
     
     init_cell(env, population, gid, load_edges=False)
