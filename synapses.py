@@ -25,7 +25,7 @@ Synapse = NamedTupleWithDocstring(
     - mech_attr_dict - dictionary of attributes per synapse mechanism
       (for cases when multiple mechanisms are associated with a
       synapse, e.g. GABA_A and GABA_B)
-    - netcon_attr_dict - dictionary of network connection attributes
+    - netcon_weights_dict - dictionary of network connection weights
     """,
     'Synapse',
     ['syn_type',
@@ -33,11 +33,9 @@ Synapse = NamedTupleWithDocstring(
      'syn_layer',
      'syn_loc',
      'syn_section',
-     'source_gid',
-     'source_population',
-     'source_delay',
+     'source',
      'mech_attr_dict',
-     'netcon_attr_dict',
+     'netcon_weights_dict',
     ])
 
 
@@ -65,7 +63,7 @@ class SynapseAttributes(object):
         self.env = env
         self.syn_mech_names = syn_mech_names
         self.syn_param_rules = syn_param_rules
-        self.syn_name_index_dict = dict(enumerate(syn_mech_names.keys())) # int : mech_name dict
+        self.syn_name_index_dict = { label: index for index, label in (enumerate(syn_mech_names.keys())) } # int : mech_name dict
         # dictionary with attributes for each synapse:
         #    { gid: { synapse id: { attribute: value } } }
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
@@ -118,11 +116,9 @@ class SynapseAttributes(object):
                                                             syn_section=syn_sec, \
                                                             syn_loc=syn_loc, \
                                                             swc_type=swc_type, \
-                                                            source_gid=None, \
-                                                            source_population=None, \
-                                                            source_delay=None, \
+                                                            source={}, \
                                                             mech_attr_dict={}, \
-                                                            netcon_attr_dict={})
+                                                            netcon_weights_dict={})
                 self.pps_dict[gid][syn_id] = {}
                 self.netcon_dict[gid][syn_id] = {}
                 self.vecstim_dict[gid][syn_id] = {}
@@ -155,9 +151,9 @@ class SynapseAttributes(object):
                 raise RuntimeError('Synapse id %i gid %i has already been initialized with edge attributes' % \
                                    (edge_syn_id, gid))
 
-            syn.source_gid = presyn_gid
-            syn.source_population = presyn_index
-            syn.source_delay = delay
+            syn.source['gid'] = presyn_gid
+            syn.source['population'] = presyn_index
+            syn.source['delay'] = delay
 
 
     def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter):
@@ -396,9 +392,9 @@ class SynapseAttributes(object):
                 mech_attr_dict[k] = v
                 
 
-    def has_netcon_attrs(self, gid, syn_id, syn_name):
+    def has_netcon_weights(self, gid, syn_id, syn_name):
         """
-        Returns True if netcon attributes have been specified for the given cell id/synapse id/synapse mechanism.
+        Returns True if netcon weights have been specified for the given cell id/synapse id/synapse mechanism.
 
         :param gid: cell id
         :param syn_id: synapse id
@@ -408,11 +404,11 @@ class SynapseAttributes(object):
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
         syn = syn_id_dict[syn_id]
-        return (len(syn.netcon_attr_dict[syn_index]) > 0)
+        return (syn_index in syn.netcon_weights_dict)
         
-    def get_netcon_attrs(self, gid, syn_id, syn_name):
+    def get_netcon_weights(self, gid, syn_id, syn_name):
         """
-        Returns the netcon attributes associated with the given cell id/synapse id/synapse mechanism.
+        Returns the netcon weights associated with the given cell id/synapse id/synapse mechanism.
 
         :param gid: cell id
         :param syn_id: synapse id
@@ -422,13 +418,13 @@ class SynapseAttributes(object):
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
         syn = syn_id_dict[syn_id]
-        return syn.netcon_attr_dict[syn_index]
+        return syn.netcon_weights_dict[syn_index]
         
         
-    def add_netcon_attrs(self, gid, syn_id, syn_name, params):
+    def add_netcon_weights(self, gid, syn_name, params):
         """
-        Adds netcon attribute dictionary for the given cell id/synapse id/synapse mechanism.
-        Assumes the given parameters have not been set yet for this synapse.
+        Adds netcon weights for the given cell id/synapse id/synapse mechanism.
+        Assumes the weights have not been set yet for this synapse.
 
         :param gid: cell id
         :param syn_id: synapse id
@@ -437,17 +433,35 @@ class SynapseAttributes(object):
         """
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
-        syn = syn_id_dict[syn_id]
-        netcon_attr_dict = syn.netcon_attr_dict[syn_index]
-        for k, v in viewitems(params):
-            if k in netcon_attr_dict:
-                raise RuntimeError('Gid %i Synapse id %i mechanism %s already has netcon parameter %s' % (gid, syn_id, syn_name, str(k)))
+        for syn_id, val in viewitems(params):
+            syn = syn_id_dict[syn_id]
+            if syn_index in syn.netcon_weights_dict:
+                raise RuntimeError('Gid %i Synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
             else:
-                netcon_attr_dict[k] = v
+                syn.netcon_weights_dict[syn_index] = val
                 
-    def modify_netcon_attrs(self, gid, syn_id, syn_name, params, update=lambda (old, new): new):
+    def add_netcon_weights_from_iter(self, gid, syn_name, params_iter):
         """
-        Modifies netcon attributes for the given cell id/synapse id/synapse mechanism.
+        Adds netcon weights for the given cell id/synapse id/synapse mechanism.
+        Assumes the weights have not been set yet for this synapse.
+
+        :param gid: cell id
+        :param syn_id: synapse id
+        :param syn_name: synapse mechanism name
+        :param params: dict
+        """
+        syn_index = self.syn_name_index_dict[syn_name]
+        syn_id_dict = self.syn_id_attr_dict[gid]
+        for syn_id, val in params_iter:
+            syn = syn_id_dict[syn_id]
+            if syn_index in syn.netcon_weights_dict:
+                raise RuntimeError('Gid %i Synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
+            else:
+                syn.netcon_weights_dict[syn_index] = val
+                
+    def modify_netcon_weights(self, gid, syn_id, syn_name, params, update=lambda (old, new): new):
+        """
+        Modifies netcon weights for the given cell id/synapse id/synapse mechanism.
 
         :param gid: cell id
         :param syn_id: synapse id
@@ -457,12 +471,12 @@ class SynapseAttributes(object):
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
         syn = syn_id_dict[syn_id]
-        netcon_attr_dict = syn.netcon_attr_dict[syn_index]
+        netcon_weights_dict = syn.netcon_weights_dict[syn_index]
         for k, v in viewitems(params):
-            if k in netcon_attr_dict:
-                netcon_attr_dict[k] = update(netcon_attr_dict[k], v)
+            if k in netcon_weights_dict:
+                netcon_weights_dict[k] = update(netcon_weights_dict[k], v)
             else:
-                netcon_attr_dict[k] = v
+                netcon_weights_dict[k] = v
                 
                     
         
@@ -754,7 +768,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, insert
         for syn_id in source_syn_ids[presyn_name]:
             for syn_name in syn_names:
                 mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
-                netcon_params = syn_attrs.get_netcon_attrs(gid, syn_id, syn_name)
+                netcon_params = syn_attrs.get_netcon_weights(gid, syn_id, syn_name)
                 this_netcon = syn_attrs.get_netcon(gid, syn_id, syn_name)
                 this_pps = syn_attrs.get_pps(gid, syn_id, syn_name)
                 if mech_params is None:
