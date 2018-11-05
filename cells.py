@@ -1433,24 +1433,23 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
             synapses_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
                                                             'Synapse Attributes', comm=env.comm)
                                     
-            synapses_dict = dict(synapses_iter)
             if weights_namespace is not None:
-                weights_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
-                                                              weights_namespace, comm=env.comm)
-                cell_weights_dict = dict(weights_iter)
+                cell_weights_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
+                                                                   weights_namespace, comm=env.comm)
             else:
-                cell_weights_dict = None
+                cell_weights_iter = None
             
-            syn_attrs.load_syn_id_attrs(gid, synapses_dict[gid])
-            if cell_weights_dict is not None:
-                weights_syn_ids = cell_weights_dict[gid]['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    target_syn_name = syn_name
-                    weights_values  = cell_weights_dict[gid][syn_name]
-                    syn_attrs.load_syn_weights(gid, target_syn_name, \
-                                               weights_syn_ids, weights_values)
-                    logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
-                                    (gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
+            syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
+            if cell_weights_iter is not None:
+                for gid, cell_weights_dict in cell_weights_iter:
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        weights_values  = cell_weights_dict[syn_name]
+                        syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
+                                                               zip_longest(weights_syn_ids, \
+                                                                           weights_values))
+                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
+                                    (gid, len(cell_weights_dict[syn_name]), syn_name))
         else:
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
@@ -1466,7 +1465,7 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
                     edge_iter = graph[pop_name][presyn_name]
                     syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
                     
-                    syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
+                    syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter)
             else:
                 logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
                 raise Exception
