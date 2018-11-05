@@ -118,7 +118,7 @@ class SynapseAttributes(object):
                                                             syn_section=syn_sec, \
                                                             syn_loc=syn_loc, \
                                                             swc_type=swc_type, \
-                                                            source={}, \
+                                                            source_dict={}, \
                                                             mech_attr_dict={}, \
                                                             netcon_weights_dict={})
                 self.pps_dict[gid][syn_id] = {}
