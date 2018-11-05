@@ -11,6 +11,7 @@ from collections import namedtuple, defaultdict
 logger = get_module_logger(__name__)
 
 
+
 Synapse = NamedTupleWithDocstring(
     """A container for synapse configuration, synapse mechanism instantiation,
      and associated netcon/vecstim instances.
@@ -19,9 +20,10 @@ Synapse = NamedTupleWithDocstring(
     - syn_layer - enumerated synapse layer (int)
     - syn_loc - synapse location in segment (float)
     - syn_section - synapse section index (int)
-    - source_gid - source cell gid (int)
-    - source_population - enumerated source population index (int)
-    - source_delay - connection delay (float)
+    - source_dict: dictionary with the keys: 
+       - gid - source cell gid (int)
+       - population - enumerated source population index (int)
+       - delay - connection delay (float)
     - mech_attr_dict - dictionary of attributes per synapse mechanism
       (for cases when multiple mechanisms are associated with a
       synapse, e.g. GABA_A and GABA_B)
@@ -33,7 +35,7 @@ Synapse = NamedTupleWithDocstring(
      'syn_layer',
      'syn_loc',
      'syn_section',
-     'source',
+     'source_dict',
      'mech_attr_dict',
      'netcon_weights_dict',
     ])
@@ -147,13 +149,13 @@ class SynapseAttributes(object):
                 raise RuntimeError('Synapse id %i gid %i has not been initialized' % \
                                    (edge_syn_id, gid))
 
-            if syn.source_gid is not None:
+            if 'gid' in syn.source_dict:
                 raise RuntimeError('Synapse id %i gid %i has already been initialized with edge attributes' % \
                                    (edge_syn_id, gid))
 
-            syn.source['gid'] = presyn_gid
-            syn.source['population'] = presyn_index
-            syn.source['delay'] = delay
+            syn.source_dict['gid'] = presyn_gid
+            syn.source_dict['population'] = presyn_index
+            syn.source_dict['delay'] = delay
 
 
     def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter):
