@@ -1400,69 +1400,60 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
-
-def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
+def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True, load_weights=False):
     """
-    :param env:
-    :param pop_name:
-    :param gid:
-    :return:
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :return: :class:'BiophysCell'
     """
     env.load_cell_template(pop_name)
     tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
-    target_gid_offset = env.celltypes[pop_name]['start']
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
     
     if load_synapses:
-        #if pop_name not in syn_attrs.select_cell_attr_index_map:
-        #    syn_attrs.select_cell_attr_index_map[pop_name] = \
-        #        get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
-        #syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
-        #                                                        syn_attrs.select_cell_attr_index_map[pop_name],
-        #                                                        pop_name, 'Synapse Attributes', target_gid_offset))
-        
-        if 'weights namespace' in synapse_config:
-            weights_namespace = synapse_config['weights namespace']
-        else:
-            weights_namespace = None
-
-        if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
-            synapses_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
-                                                            'Synapse Attributes', comm=env.comm)
-                                    
+        if pop_name in env.cellAttributeInfo and 'Synapse Attributes' in env.cellAttributeInfo[pop_name]:
+            synapses_iter = read_cell_attribute_selection(env.dataFilePath, pop_name, [gid], 'Synapse Attributes',
+                                                           comm=env.comm)
             synapses_dict = dict(synapses_iter)
-            if weights_namespace is not None:
-                weights_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
-                                                              weights_namespace, comm=env.comm)
-                cell_weights_dict = dict(weights_iter)
-            else:
-                cell_weights_dict = None
-            
             syn_attrs.load_syn_id_attrs(gid, synapses_dict[gid])
-            if cell_weights_dict is not None:
-                weights_syn_ids = cell_weights_dict[gid]['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    target_syn_name = syn_name
-                    weights_values  = cell_weights_dict[gid][syn_name]
-                    syn_attrs.load_syn_weights(gid, target_syn_name, \
-                                               weights_syn_ids, weights_values)
-                    logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
-                                    (gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
         else:
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
-            
+
+    if load_weights:
+        if 'weights namespace' in synapse_config:
+            if not load_synapses:
+                logger.error('get_biophys_cell: %s: gid: %i; cannot load weights without first loading synapse '
+                             'attributes' % (pop_name, gid))
+                raise Exception
+            weights_namespace = synapse_config['weights namespace']
+            weights_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], weights_namespace,
+                                                          comm=env.comm)
+            cell_weights_dict = dict(weights_iter)
+            weights_syn_ids = cell_weights_dict[gid]['syn_id']
+            for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
+                target_syn_name = syn_name
+                weights_values = cell_weights_dict[gid][syn_name]
+                syn_attrs.load_syn_weights(gid, target_syn_name, weights_syn_ids, weights_values)
+                logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
+                            (gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
+        else:
+            logger.info('get_biophys_cell: weights not found for %s: gid: %i' % (pop_name, gid))
 
     if load_edges:
         if os.path.isfile(env.connectivityFilePath):
-            (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
-                                                comm=env.comm, namespaces=['Synapses', 'Connections'])
+            graph, a = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], comm=env.comm,
+                                            namespaces=['Synapses', 'Connections'])
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
-                    
+
                     edge_iter = graph[pop_name][presyn_name]
                     syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
                     
@@ -1471,9 +1462,7 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
                 logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
                 raise Exception
         else:
-            logger.error('get_biophys_cell: connection file %s not found' % (env.connectivityFilePath))
+            logger.error('get_biophys_cell: connection file %s not found' % env.connectivityFilePath)
             raise Exception
     env.biophys_cells[pop_name][gid] = cell
     return cell
-
-

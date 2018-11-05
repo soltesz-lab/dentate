@@ -8,6 +8,7 @@ from neuron import h
 from dentate.utils import *
 from dentate.neuron_utils import find_template
 
+
 ConnectionConfig = namedtuple('ConnectionConfig',
                                  ['type',
                                   'sections',
@@ -36,8 +37,8 @@ class Env:
     def __init__(self, comm=None, configFile=None, templatePaths="templates", hoclibPath=None, datasetPrefix=None,
                  configPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0,
-                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection=None, spike_input_path=None, spike_input_ns=None,
-                 verbose=False, **kwargs):
+                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection=None, spike_input_path=None,
+                 spike_input_ns=None, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param configFile: str; model configuration file name
@@ -383,7 +384,8 @@ class Env:
                 try:
                     assert(np.isclose(v, 1.0))
                 except Exception as e:
-                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' % (key_postsyn, str(k), v))
+                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
+                                 (key_postsyn, str(k), v))
                     raise e
                     
         self.connection_config = connection_dict

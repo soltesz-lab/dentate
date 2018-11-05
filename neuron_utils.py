@@ -45,7 +45,7 @@ def simulate(v_init, mainlength, prelength=0, cvode=True):
     h.continuerun(h.tstop)
 
 
-def mknetcon(pc, srcgid, dstgid, syn, weight, delay):
+def mknetcon(pc, srcgid, dstgid, syn, weight=1., delay=0.):
     """
     Creates a network connection from the provided source to the provided synaptic point process.
     :param pc: :class:'h.ParallelContext'

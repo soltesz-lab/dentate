@@ -110,9 +110,8 @@ def register_cell(env, pop_name, gid, cell):
 
 def connect_cells(env, cleanup=True):
     """
-    Loads NeuroH5 connectivity file, instantiates the corresponding
-    synapse and network connection mechanisms for each postsynaptic cell.
-
+    Loads NeuroH5 connectivity file, instantiates the corresponding synapse and network connection mechanisms for each
+    postsynaptic cell.
 
     TODO: cleanup might need to be more granular than binary
     :param env:
@@ -192,6 +191,12 @@ def connect_cells(env, cleanup=True):
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
+                        # TODO: remove these debugging statements
+                        logger.info('population: %s; gid: %i; syn_name: %s; target_syn_name: %s; weights: %s' %
+                                    (postsyn_name, gid, syn_name, target_syn_name,
+                                     str(cell_weights_dict[gid][syn_name][:10])))
+                        raise Exception()
+
         del cell_attributes_dict
 
         first_gid = None
@@ -202,7 +207,9 @@ def connect_cells(env, cleanup=True):
                     first_gid = gid
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True,
+                                          from_file=True, correct_cm=correct_for_spines,
+                                          correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -254,9 +261,9 @@ def connect_cells(env, cleanup=True):
                    syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
                    edge_syn_obj_dict = \
-                       synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
-                                       add_synapse=synapses.add_unique_synapse if unique else \
-                                                                                  synapses.add_shared_synapse)
+                       synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                                       add_synapse=
+                                       synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
                    if rank == 0:
                        if env.edge_count[postsyn_name][presyn_name] == 0:
@@ -264,26 +271,31 @@ def connect_cells(env, cleanup=True):
                                h.psection(sec=sec)
 
                    for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
-                       for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
-                           delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                           mech_params = syn_attrs.get_mech_attrs(gid, edge_syn_id, syn_name)
-                           if mech_params is None:
-                               mech_params = syn_params_dict[syn_name]
-                           else:
-                               if has_weights:
-                                  mech_params['weight'] = mech_params['weight'] * syn_params_dict[syn_name]['weight']
-                           this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
-                           syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                           synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
-                                               **mech_params)
+                        for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
+                            # TODO: Why add h.dt here?
+                            delay = (distance / env.connection_velocity[presyn_name]) + h.dt
+                            if not syn_attrs.has_mech_attrs(gid, edge_syn_id, syn_name):
+                                syn_attrs.set_mech_attrs(gid, edge_syn_id, syn_name, syn_params_dict[syn_name])
+                            mech_params = syn_attrs.get_mech_attrs(gid, edge_syn_id, syn_name)
+                            if mech_params is None:
+                                mech_params = syn_params_dict[syn_name]
+                            # TODO: has_weights applies to an entire cell population. Need a method to refer to check
+                            # this particular connection and syn_name has loaded weights.
+                            elif has_weights and 'weight' in mech_params and 'weight' in syn_params_dict[syn_name]:
+                                # catch for original Exp2Syn, which does not have separate g_unit and weight
+                                mech_params['weight'] *= syn_params_dict[syn_name]['weight']
+                            this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, delay=delay)
+                            syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
+                            synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                                mech_names=syn_attrs.syn_mech_names, nc=this_nc, **mech_params)
 
                    env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
             else:
-                logger.warning('Projection %s -> %s does not have edge attributes Synapses and Connections' % (presyn_name, postsyn_name))
+                logger.warning('Projection %s -> %s does not have edge attributes Synapses and Connections' %
+                               (presyn_name, postsyn_name))
 
         if cleanup:
-            for gid in cell_synapses_dict.keys():
+            for gid in cell_synapses_dict:
                 syn_attrs.cleanup(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
@@ -291,8 +303,8 @@ def connect_cells(env, cleanup=True):
 
 def connect_cell_selection(env, cleanup=True):
     """
-    Loads NeuroH5 connectivity file, instantiates the corresponding
-    synapse and network connection mechanisms for the selected postsynaptic cells.
+    Loads NeuroH5 connectivity file, instantiates the corresponding synapse and network connection mechanisms for the
+    selected postsynaptic cells.
 
     TODO: cleanup might need to be more granular than binary
     :param env:
@@ -387,7 +399,9 @@ def connect_cell_selection(env, cleanup=True):
                     first_gid = gid
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True,
+                                          from_file=True, correct_cm=correct_for_spines,
+                                          correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -425,9 +439,9 @@ def connect_cell_selection(env, cleanup=True):
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
                 edge_syn_obj_dict = \
-                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
-                           env.edge_count[postsyn_name][presyn_name], \
-                           add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
+                                    env.edge_count[postsyn_name][presyn_name],
+                                    add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
                 if rank == 0:
                     if env.edge_count[postsyn_name][presyn_name] == 0:
@@ -438,7 +452,7 @@ def connect_cell_selection(env, cleanup=True):
                     vecstim_selection[presyn_name].add(presyn_gid)
                     for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
                         delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                        mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
+                        mech_params = syn_attrs.get_mech_attrs(gid, edge_syn_id, syn_name)
                         if mech_params is None:
                             mech_params = syn_params_dict[syn_name]
                         else:
@@ -447,9 +461,8 @@ def connect_cell_selection(env, cleanup=True):
 
                         this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
                         syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                            mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
-                                            **mech_params)
+                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                            mech_names=syn_attrs.syn_mech_names, nc=this_nc, **mech_params)
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
 
@@ -460,6 +473,7 @@ def connect_cell_selection(env, cleanup=True):
                     del env.biophys_cells[postsyn_name][gid]
 
     return vecstim_selection
+
 
 def connect_gjs(env):
     """
@@ -802,6 +816,7 @@ def make_stimulus(env,vecstim_selection):
                 cell = h.VecStim()
                 cell.play(cell_spikes[gid])
                 register_cell(env, pop_name, gid, cell)
+
 
 def init(env):
     """Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.

@@ -3554,11 +3554,13 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
         if (maxval is not None) and (minval is not None):
             buffer = 0.01 * (maxval - minval)
             axes.set_ylim(minval - buffer, maxval + buffer)
-        if param_label is not None:
-            axes.set_title(param_label + ' from ' + attr_type, fontsize=mpl.rcParams['font.size'])
-        else:
-            axes.set_title(syn_name + '_' + param_name + ' from ' + attr_type, fontsize=mpl.rcParams['font.size'])
-        clean_axes(axes)
+        axes.set_title(attr_type, fontsize=mpl.rcParams['font.size'])
+    clean_axes(axes)
+    if param_label is not None:
+        fig.suptitle(param_label, fontsize=mpl.rcParams['font.size'])
+    else:
+        syn_mech_name = syn_attrs.syn_mech_names[syn_name]
+        fig.suptitle('%s; %s; %s' % (syn_name, syn_mech_name, param_name), fontsize=mpl.rcParams['font.size'])
     if not svg_title is None:
         if param_label is not None:
             svg_title = svg_title + ' - ' + param_label + '.svg'
@@ -3725,9 +3727,10 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                     buffer = 0.1 * (max_param_val - min_param_val)
                     axes.set_ylim(min_param_val - buffer, max_param_val + buffer)
                 if param_label is not None:
-                    axes.set_title(param_label + 'from' + attr_types[i], fontsize=mpl.rcParams['font.size'])
+                    axes.set_title(attr_types[i], fontsize=mpl.rcParams['font.size'])
                 clean_axes(axes)
                 axes.tick_params(direction='out')
+            fig.suptitle(param_label, fontsize=mpl.rcParams['font.size'])
             if not svg_title is None:
                 if param_label is not None:
                     svg_title = svg_title + ' - ' + param_label + '.svg'

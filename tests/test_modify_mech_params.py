@@ -215,42 +215,6 @@ def count_spines(cell, env):
     fig.show()
 
 
-def standard_modify_syn_mech_param_tests(cell, env):
-    """
-
-    :param cell:
-    :param env:
-    """
-    gid = cell.gid
-    pop_name = cell.pop_name
-    init_biophysics(cell, env, reset_cable=True, correct_cm=True)
-    config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
-    syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[cell.gid]
-    sec_index_map = syn_attrs.sec_index_map[cell.gid]
-    sec_type = 'apical'
-    syn_name = 'SatAMPA'
-    param_name = 'g_unit'
-
-    plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=False,
-                                         from_target_attrs=True, param_label='AMPA.g_unit', export='syn_attrs.hdf5',
-                                         description='stage0', show=False, overwrite=True)
-    modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
-                          filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
-                          update_targets=True)
-    plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
-                                         from_target_attrs=True, param_label='AMPA.g_unit', export='syn_attrs.hdf5',
-                                         description='stage1', show=False)
-    modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name,
-                          filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
-                          origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
-                          append=True)
-    plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
-                                         from_target_attrs=True, param_label='AMPA.g_unit', export='syn_attrs.hdf5',
-                                         description='stage2', show=False)
-    plot_syn_attr_from_file(syn_name, param_name, 'syn_attrs.hdf5', param_label='AMPA.g_unit')
-
-
 @click.command()
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
@@ -296,7 +260,6 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     standard_cable_tests(cell, mech_file_path)
     cm_correction_test(cell, env, mech_file_path)
     count_spines(cell, env)
-    standard_modify_syn_mech_param_tests(cell, env)
 
 
 if __name__ == '__main__':

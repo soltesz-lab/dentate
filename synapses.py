@@ -59,7 +59,7 @@ class SynapseAttributes(object):
         :param weights: array of float
         """
         for i, syn_id in enumerate(syn_ids):
-            params = { 'weight': float(weights[i]) }
+            params = {'weight': float(weights[i])}
             self.set_mech_attrs(gid, syn_id, syn_name, params)
 
     def load_edge_attrs(self, gid, source_name, syn_ids, env, delays=None):
@@ -380,6 +380,8 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
             for syn_name in syn_names:
                 mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
                 if mech_params is not None:
+                    # leave the value of weight in mech_attr_dict alone, just change the target
+                    mech_params = dict(mech_params)
                     this_netcon = syn_attrs.get_netcon(gid, syn_id, syn_name)
                     if this_netcon is not None:
                         syn = this_netcon.syn()
@@ -388,8 +390,9 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
                             syn_count += 1
                         else:
                             syn = None
-                        if 'weight' in mech_params:
-                            mech_params['weight'] = mech_params['weight'] * syn_mech_params_dict[syn_name]['weight']
+                        # for backwards compatibility with Exp2Syn that does not separate weight from g_unit
+                        if 'weight' in mech_params and 'weight' in syn_mech_params_dict[syn_name]:
+                            mech_params['weight'] *= syn_mech_params_dict[syn_name]['weight']
                         config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                    mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
                         nc_count += 1
@@ -592,15 +595,12 @@ def mksyns(gid, cell, syn_ids, syn_params, env, add_synapse=add_shared_synapse):
             syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
                               mech_names=syn_attrs.syn_mech_names)
             if syn not in env.syns_set[gid]:
-                config_syn(syn_name=syn_name, \
-                           rules=syn_attrs.syn_param_rules, \
-                           mech_names=syn_attrs.syn_mech_names, \
+                config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names,
                            syn=syn, **params)
                 env.syns_set[gid].add(syn)
             syn_obj_dict[syn_id][syn_name] = syn
 
     return syn_obj_dict
-
 
 
 # ------------------------------- Methods to specify synaptic mechanisms  -------------------------------------------- #
@@ -746,14 +746,14 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
             cell.mech_dict[sec_type]['synapses'][syn_name][param_name].append(rules)
     # This syn_name has been specified, but not this parameter, or the user wants to replace an existing rule set
     else:
-       cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
+        cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
     try:
         update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets)
     except (KeyError, ValueError, AttributeError, NameError, RuntimeError, IOError) as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
-        raise RuntimeError ('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s\n' \
-                                '%s\n%s' % (syn_name, param_name, sec_type, e, str(sys.exc_info()[2])))
+        raise RuntimeError('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s\n'
+                           '%s\n%s' % (syn_name, param_name, sec_type, e, str(sys.exc_info()[2])))
 
 
 def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets=False):

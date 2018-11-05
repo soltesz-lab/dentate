@@ -12,6 +12,7 @@ import dentate.network as network
 from dentate.env import Env
 from dentate.utils import list_find
 
+
 def mpi_excepthook(type, value, traceback):
     """
 
