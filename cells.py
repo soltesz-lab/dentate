@@ -1477,3 +1477,41 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
     return cell
 
 
+def find_spike_threshold_minimum(cell,loc=0.5,sec=None,duration=10.0,delay=100.0,initial_amp=0.001):
+    """
+    Determines minimum stimulus sufficient to induce a spike in a cell. 
+    Defines an IClamp with the specified duration, and an APCount to detect spikes.
+    Uses NEURON's thresh.hoc to find threshold by bisection.
+
+    :param cell: hoc cell
+    :param sec: cell section for stimulation
+    :param loc: location of stimulus
+    :param duration: stimulus duration
+    :param delay: stimulus delay
+    :param initial_amp: initial stimulus amplitude (nA)
+    """
+
+    if sec is None:
+        sec = list(cell.soma)[0]
+    
+    iclamp = h.IClamp(sec(loc))
+    setattr(iclamp,'del',delay)
+    iclamp.dur = duration
+    iclamp.amp = initial_amp
+
+    apcount = h.APCount(sec(loc))
+    apcount.thresh = -20
+    apcount.time = 0.
+
+    h.tstop = duration+delay
+    h.cvode_active (1)
+
+    h.load_file("nrngui.hoc")  
+    h.load_file("thresh.hoc")  ## nrn/lib/hoc
+    thr = h.threshold(iclamp._ref_amp)
+
+    return thr
+
+
+
+
