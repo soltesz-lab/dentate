@@ -23,7 +23,7 @@ import dentate.utils as utils
 import dentate.statedata as statedata
 from dentate.env import Env
 from dentate.cells import *
-#from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
+from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
 from dentate.utils import get_module_logger, viewitems
 
 try:
@@ -3480,20 +3480,18 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
     for sec_type in sec_types_list:
         if len(cell.nodes[sec_type]) > 0:
             for node in cell.nodes[sec_type]:
-                syn_idxs = syn_attrs.sec_index_map[gid][node.index]
-                syn_ids = syn_attrs.syn_id_attr_dict[gid]['syn_ids'][syn_idxs]
                 if filters is not None:
                     converted_filters = get_syn_filter_dict(env, filters, convert=True)
-                    filtered_idxs = syn_attrs.get_filtered_syn_indexes(gid, syn_ids, **converted_filters)
-                    syn_ids = syn_attrs.syn_id_attr_dict[gid]['syn_ids'][filtered_idxs]
-                for syn_id in syn_ids:
+                else:
+                    converted_filters = {}
+                syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], **converted_filters)
+                for syn_id, syn in viewitems(syns):
                     # TODO: figure out what to do with spine synapses that are not inserted into a branch node
-                    syn_index = syn_attrs.syn_id_attr_index_map[gid][syn_id]
                     if from_mech_attrs:
-                        this_param_val = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
+                        this_param_val = syn_attrs.get_mech_attrs(gid, syn_id, syn_name, throw_error=False)
                         if this_param_val is not None:
                             attr_vals['mech_attrs'][sec_type].append(this_param_val[param_name] * scale_factor)
-                            syn_loc = syn_attrs.syn_id_attr_dict[gid]['syn_locs'][syn_index]
+                            syn_loc = syn.syn_loc
                             distances['mech_attrs'][sec_type].append(
                                 get_distance_to_node(cell, cell.tree.root, node, syn_loc))
                             if sec_type == 'basal':
@@ -3504,7 +3502,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                             attr_vals['target_attrs'][sec_type].append(
                                 get_syn_mech_param(syn_name, syn_attrs.syn_param_rules, param_name,
                                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc) * scale_factor)
-                            syn_loc = syn_attrs.syn_id_attr_dict[gid]['syn_locs'][syn_index]
+                            syn_loc = syn.syn_loc
                             distances['target_attrs'][sec_type].append(
                                 get_distance_to_node(cell, cell.tree.root, node, syn_loc))
                             if sec_type == 'basal':

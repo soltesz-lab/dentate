@@ -763,7 +763,7 @@ def count_spines_per_seg(node, env, gid):
     filtered_synapses = syn_attrs.filter_synapses(gid, syn_sections=[node.index], \
                                                       syn_types=[env.Synapse_Types['excitatory']])
     if len(filtered_synapses) > 0:
-        this_syn_locs = [syn.syn_loc for _,syn in viewitems(filtered_synapses)]
+        this_syn_locs = np.asarray([syn.syn_loc for _,syn in viewitems(filtered_synapses)])
         seg_width = 1. / node.sec.nseg
         for i, seg in enumerate(node.sec):
             num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
@@ -813,7 +813,6 @@ def correct_node_for_spines_cm(node, env, gid):
         num_spines = node.spine_count[i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
-        logger.info('cm_correction_factor for %s seg %i: %.3f' % (node.name, i, cm_correction_factor))
 
 
 def correct_cell_for_spines_g_pas(cell, env):

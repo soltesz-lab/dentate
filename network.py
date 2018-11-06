@@ -6,7 +6,7 @@ __author__ = 'See AUTHORS.md'
 import itertools
 import dentate
 from dentate.neuron_utils import *
-from dentate.utils import viewitems
+from dentate.utils import viewitems, zip_longest
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, \
@@ -113,8 +113,6 @@ def connect_cells(env, cleanup=True):
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for each postsynaptic cell.
 
-
-    TODO: cleanup might need to be more granular than binary
     :param env:
     :param cleanup:
 
@@ -173,36 +171,37 @@ def connect_cells(env, cleanup=True):
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
                                                                 node_rank_map=env.nodeRanks,
                                                                 io_size=env.IOsize)
-        cell_synapses_dict = {k: v for (k, v) in cell_attributes_dict['Synapse Attributes']}
+        cell_synapses_iter = cell_attributes_dict['Synapse Attributes']
+        syn_attrs.init_syn_id_attrs_from_iter(cell_synapses_iter)
+        
         if weights_namespace in cell_attributes_dict:
-            cell_weights_dict = {k: v for (k, v) in cell_attributes_dict[weights_namespace]}
+            syn_weights_iter = cell_attributes_dict[weights_namespace]
             first_gid = None
-            for gid in cell_weights_dict:
+            for gid, cell_weights_dict in cell_weights_iter:
                 if first_gid is None:
                     first_gid = gid
-                weights_syn_ids = cell_weights_dict[gid]['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'SatAMPA')
-                    if syn_name in ['weight', 'AMPA']:
-                        target_syn_name = 'SatAMPA'
-                    else:
-                        target_syn_name = syn_name
-                    weights_values = cell_weights_dict[gid][syn_name]
-                    syn_attrs.load_syn_weights(gid, target_syn_name, weights_syn_ids, weights_values)
+                weights_syn_ids = cell_weights_dict['syn_id']
+                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    weights_values  = cell_weights_dict[syn_name]
+                    syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
+                                                           zip_longest(weights_syn_ids, \
+                                                                       weights_values))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
         del cell_attributes_dict
 
         first_gid = None
-        for gid in cell_synapses_dict:
-            syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+        for gid in syn_attrs.syn_id_attr_dict:
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
-                biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
+                hoc_cell = env.pc.gid2cell(gid)
+                biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=hoc_cell, env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, \
+                                          reset_cable=True, from_file=True, correct_cm=correct_for_spines, \
+                                          correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -235,56 +234,17 @@ def connect_cells(env, cleanup=True):
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
             attr_dict = a[postsyn_name][presyn_name]
+            syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, attr_dict, edge_iter)
+            del graph[postsyn_name][presyn_name]
 
-            if 'Synapses' in attr_dict and \
-               'syn_id' in attr_dict['Synapses'] and \
-               'Connections' in attr_dict and \
-               'distance' in attr_dict['Connections']:
+        for gid in syn_attrs.syn_id_attr_dict:
 
-               syn_id_attr_index = attr_dict['Synapses']['syn_id']
-               distance_attr_index = attr_dict['Connections']['distance']
-
-               for (postsyn_gid, edges) in edge_iter:
-
-                   postsyn_cell = env.pc.gid2cell(postsyn_gid)
-                   presyn_gids = edges[0]
-                   edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
-                   edge_dists = edges[1]['Connections'][distance_attr_index]
-
-                   syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
-
-                   edge_syn_obj_dict = \
-                       synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
-                                       add_synapse=synapses.add_unique_synapse if unique else \
-                                                                                  synapses.add_shared_synapse)
-
-                   if rank == 0:
-                       if env.edge_count[postsyn_name][presyn_name] == 0:
-                           for sec in list(postsyn_cell.all):
-                               h.psection(sec=sec)
-
-                   for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
-                       for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
-                           delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                           mech_params = syn_attrs.get_mech_attrs(gid, edge_syn_id, syn_name)
-                           if mech_params is None:
-                               mech_params = syn_params_dict[syn_name]
-                           else:
-                               if has_weights:
-                                  mech_params['weight'] = mech_params['weight'] * syn_params_dict[syn_name]['weight']
-                           this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
-                           syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                           synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
-                                               **mech_params)
-
-                   env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
-            else:
-                logger.warning('Projection %s -> %s does not have edge attributes Synapses and Connections' % (presyn_name, postsyn_name))
-
-        if cleanup:
-            for gid in cell_synapses_dict.keys():
-                syn_attrs.cleanup(gid)
+            postsyn_cell = env.pc.gid2cell(gid)
+            syn_count, nc_count = synapses.config_hoc_cell_syns(env, postsyn_gid, postsyn_name, \
+                                                                cell=postsyn_cell, insert=True, unique=unique)
+            env.edge_count[postsyn_name][presyn_name] += nc_count
+            if cleanup:
+                syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
@@ -350,7 +310,9 @@ def connect_cell_selection(env, cleanup=True):
         syn_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
                                                             namespace='Synapse Attributes', comm=env.comm,
                                                             io_size=env.IOsize)
-
+        syn_attrs.init_syn_id_attrs_from_iter(syn_attributes_iter)
+        del(syn_attributes_iter)
+        
         if has_weights:
             weight_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
                                                                     namespace=weights_namespace, comm=env.comm,
@@ -358,26 +320,21 @@ def connect_cell_selection(env, cleanup=True):
         else:
             weight_attributes_iter = None
 
-        cell_synapses_dict = { k: v for (k, v) in syn_attributes_iter }
         if weight_attributes_iter is not None:
-            cell_weights_dict = { k: v for (k, v) in weight_attributes_iter }
             first_gid = None
-            for gid in cell_weights_dict:
+            for gid, cell_weights_dict in weight_attributes_iter:
                 if first_gid is None:
                     first_gid = gid
-                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'SatAMPA')
-                    if syn_name in ['weight', 'AMPA']:
-                        target_syn_name = 'SatAMPA'
-                    else:
-                        target_syn_name = syn_name
-                    syn_attrs.load_syn_weights(gid, target_syn_name, cell_weights_dict[gid]['syn_id'],
-                                               cell_weights_dict[gid][syn_name])
+                weights_syn_ids = cell_weights_dict['syn_id']
+                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    weights_values  = cell_weights_dict[syn_name]
+                    syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
+                                                           zip_longest(weights_syn_ids, \
+                                                                       weights_values))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
-
-        del syn_attributes_iter, weight_attributes_iter
+            del weight_attributes_iter
 
         first_gid = None
         for gid in cell_synapses_dict:

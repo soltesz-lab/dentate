@@ -2,7 +2,7 @@ import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
 
-context = {}
+context = Context()
 
 
 def compare_single_value(key, x, seg, mech_name, param_name):
@@ -192,15 +192,14 @@ def count_spines(cell, env):
     init_biophysics(cell, env, reset_cable=True, correct_cm=True)
     gid = cell.gid
     syn_attrs = env.synapse_attributes
-    sec_index_map = syn_attrs.sec_index_map[gid]
     num_spines_list = []
     distances = []
     for node in cell.apical:
-        num_spines = len(syn_attrs.get_filtered_syn_indexes(gid, sec_index_map[node.index],
-                                                            syn_types=[env.Synapse_Types['excitatory']]))
+        num_spines = len(syn_attrs.filter_synapses(gid, syn_sections=[node.index], \
+                                                   syn_types=[env.Synapse_Types['excitatory']]))
         stored_num_spines = sum(node.spine_count)
         if num_spines != stored_num_spines:
-            raise ValueError('count_spines_test: failed for node: %s; %i != %i' %
+            raise ValueError('count_spines_test: failed for node: %s; num spines %i != stored %i' %
                              (node.name, num_spines, stored_num_spines))
         num_spines_list.append(num_spines)
         distances.append(get_distance_to_node(cell, cell.tree.root, node, 0.5))
@@ -223,12 +222,10 @@ def standard_modify_syn_mech_param_tests(cell, env):
     gid = cell.gid
     pop_name = cell.pop_name
     init_biophysics(cell, env, reset_cable=True, correct_cm=True)
-    config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+    config_biophys_cell_syns(env, gid, pop_name, insert=True)
     syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[cell.gid]
-    sec_index_map = syn_attrs.sec_index_map[cell.gid]
     sec_type = 'apical'
-    syn_name = 'SatAMPA'
+    syn_name = 'AMPA'
     param_name = 'g_unit'
 
     plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=False,
@@ -288,7 +285,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     mech_file_path = config_prefix + '/' + mech_file
     
-    context = dict(locals())
+    context.update(locals())
 
     standard_modify_mech_param_tests(cell)
     standard_cable_tests(cell, mech_file_path)
