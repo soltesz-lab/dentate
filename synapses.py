@@ -616,6 +616,9 @@ class SynapseAttributes(object):
         """
         del self.syn_id_attr_dict[gid]
 
+    def clear_filter_cache(self):
+        self.filter_cache.clear()
+
         
 def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, insert_netcons=False, insert_vecstims=False):
     """
