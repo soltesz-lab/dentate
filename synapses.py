@@ -326,7 +326,7 @@ def insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, syn_ids, un
                     '%i syn_ids' % (presyn_name, postsyn_name, gid, syn_count, nc_count, len(syn_ids)))
 
 
-def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=False, unique=None, verbose=False):
+def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=False, unique=None, verbose=True):
     """
     1) organize syn_ids by source population
     2) if insert, collate syn_ids without netcons, iterate over sources and call insert_syns_from_mech_attrs
@@ -344,13 +344,6 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
     syn_attrs = env.synapse_attributes
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
 
-    synapse_config = env.celltypes[postsyn_name]['synapses']
-    if unique is None:
-        if 'unique' in synapse_config:
-            unique = synapse_config['unique']
-        else:
-            unique = False
-
     if syn_ids is None:
         syn_ids = syn_id_attr_dict['syn_ids']
 
@@ -367,6 +360,12 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
                     if not syn_attrs.has_netcon(gid, syn_id, syn_name):
                         insert_syn_ids[presyn_name].append(syn_id)
                         break
+        if unique is None:
+            synapse_config = env.celltypes[postsyn_name]['synapses']
+            if 'unique' in synapse_config:
+                unique = synapse_config['unique']
+            else:
+                unique = False
         for presyn_name in insert_syn_ids:
             insert_syns_from_mech_attrs(gid, env, postsyn_name, presyn_name, insert_syn_ids[presyn_name], unique=unique)
 
@@ -397,7 +396,7 @@ def config_syns_from_mech_attrs(gid, env, postsyn_name, syn_ids=None, insert=Fal
                                    mech_names=syn_attrs.syn_mech_names, syn=syn, nc=this_netcon, **mech_params)
                         nc_count += 1
 
-    if verbose and rank == 0:
+    if verbose:
         logger.info('config_syns_from_mech_attrs: population: %s; cell %i: updated mech_params for %i syns and %i '
                     'netcons for %i syn_ids' % (postsyn_name, gid, syn_count, nc_count, len(syn_ids)))
 

@@ -348,7 +348,7 @@ class Env:
         connection_dict = {}
         
         for (key_postsyn, val_syntypes) in viewitems(synapse_config):
-            connection_dict[key_postsyn]  = {}
+            connection_dict[key_postsyn] = {}
             
             for (key_presyn, syn_dict) in viewitems(val_syntypes):
                 val_type        = syn_dict['type']

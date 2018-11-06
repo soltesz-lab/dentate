@@ -3494,7 +3494,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                     syn_index = syn_attrs.syn_id_attr_index_map[gid][syn_id]
                     if from_mech_attrs:
                         this_param_val = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
-                        if this_param_val is not None:
+                        if this_param_val is not None and param_name in this_param_val:
                             attr_vals['mech_attrs'][sec_type].append(this_param_val[param_name] * scale_factor)
                             syn_loc = syn_attrs.syn_id_attr_dict[gid]['syn_locs'][syn_index]
                             distances['mech_attrs'][sec_type].append(

@@ -404,7 +404,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     :param config_prefix: str; path to directory containing network and cell mechanism config files
     :param mech_file: str; cell mechanism config file name
     :param load_edges: bool; whether to attempt to load connections from a neuroh5 file
-    :param load_weightss: bool; whether to attempt to load connections from a neuroh5 file
+    :param load_weights: bool; whether to attempt to load connections from a neuroh5 file
     :param correct_for_spines: bool
     :param verbose: bool
     """
