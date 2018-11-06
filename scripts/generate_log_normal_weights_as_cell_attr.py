@@ -111,7 +111,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
                 for this_syn_id in source_syn_map[this_source_gid]:
                     syn_weight_map[this_syn_id] = this_weight
             weights = np.array(list(syn_weight_map.values())).astype('float32', copy=False)
-            normed_weights = weights / weights.max()
+            normed_weights = weights / np.max(weights)
             weights_dict[destination_gid] = \
                 { 'syn_id': np.array(list(syn_weight_map.keys())).astype('uint32', copy=False),
                   weights_name: normed_weights }
