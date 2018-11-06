@@ -129,7 +129,6 @@ def init_cell(env, pop_name, gid, load_edges=True):
 
     return cell
 
-    
 def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
     """Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
@@ -197,11 +196,10 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
     min_delay = float('inf')
     syn_attrs = env.synapse_attributes
     this_syn_attrs = syn_attrs.syn_id_attr_dict[gid]
-    this_syn_ids   = syn_attrs.syn_id_attr_dict[gid]['syn_ids']
-    for syn_id, presyn_id, presyn_gid, delay in zip(this_syn_ids, \
-                                                    this_syn_attrs['syn_sources'], \
-                                                    this_syn_attrs['syn_source_gids'],
-                                                    this_syn_attrs['delays']):
+    for syn_id, syn in viewitems(this_syn_attrs):
+        presyn_id = syn.source.population
+        presyn_gid = syn.source.gid
+        delay = syn.source.delay
         if presyn_id in spk_source_dict:
             ## Load presynaptic spike times into the VecStim for each synapse;
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
@@ -219,18 +217,17 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
                     cell = make_input_cell(env, presyn_gid, gen)
                 register_cell(env, presyn_id, presyn_gid, cell)
 
-        ncs = [ value['netcon'] for _,value in viewitems(syn_attrs.syn_mech_attr_dict[gid][syn_id]) ]
-                
+        ncs = [ nc for _,nc in viewitems(syn_attrs.netcon_dict[gid][syn_id]) ]
+
         for nc in ncs:
-            nc.delay = delay
             env.pc.gid_connect(presyn_gid, nc.syn(), nc)
+            nc.delay = delay
             min_delay = min(min_delay, delay)
 
     assert(min_delay > 0.0)
     env.pc.set_maxstep(10)
     h.stdinit()
     h.finitialize(env.v_init)
-
 
 
 def run(env, output=True):
@@ -246,7 +243,7 @@ def run(env, output=True):
     
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
-
+    
     h.tstop = env.tstop
     if rank == 0:
         logger.info("*** Running simulation with dt = %f and tstop = %f" % (h.dt, h.tstop))
@@ -256,7 +253,6 @@ def run(env, output=True):
 
     if rank == 0:
         logger.info("*** Simulation completed")
-    del env.cells
     env.pc.barrier()
 
     if output:
@@ -330,7 +326,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--results-id", type=str, required=False, default=None, \
                   help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--verbose', '-v', is_flag=True)
-def main(config_file, population, gid, generate, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, verbose):
+@click.option('--profile', is_flag=True)
+def main(config_file, population, gid, generate, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, verbose, profile):
     """
     Runs network clamp simulation for the specified cell gid.
 
@@ -358,6 +355,12 @@ def main(config_file, population, gid, generate, tstop, template_paths, dataset_
              t_var='t', t_min=None, t_max=None)
 
     run(env)
+
+    if profile:
+        from guppy import hpy
+        h = hpy()
+        
+        logger.info(h.heap())
     
     
 

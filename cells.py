@@ -1312,16 +1312,13 @@ def report_topology(cell, env, node=None):
     if node is None:
        node = cell.tree.root
     syn_attrs = env.synapse_attributes
-    if node.index in syn_attrs.sec_index_map[cell.gid]:
-        num_exc_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
-                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
-                                                              syn_types=[env.syntypes_dict['excitatory']]))
-        num_inh_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
-                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
-                                                              syn_types=[env.syntypes_dict['inhibitory']]))
-    else:
-        num_exc_syns = 0
-        num_inh_syns = 0
+    num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
+                                                 syn_sections=[node.index], \
+                                                 syn_types=[env.syntypes_dict['excitatory']]))
+    num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, \
+                                                 syn_sections=[node.index], \
+                                                 syn_types=[env.syntypes_dict['inhibitory']]))
+
     report = 'node: %s, L: %.1f, diam: %.2f, children: %i, exc_syns: %i, inh_syns: %i' % \
              (node.name, node.sec.L, node.sec.diam, len(node.children), num_exc_syns, num_inh_syns)
     if node.parent is not None:

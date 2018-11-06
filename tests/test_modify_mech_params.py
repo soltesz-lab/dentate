@@ -2,8 +2,7 @@ import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
 
-
-context = Context()
+context = {}
 
 
 def compare_single_value(key, x, seg, mech_name, param_name):
@@ -286,11 +285,10 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_hoc_env(env)
 
-    context.update(locals())
-
     cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     mech_file_path = config_prefix + '/' + mech_file
-    context.update(locals())
+    
+    context = dict(locals())
 
     standard_modify_mech_param_tests(cell)
     standard_cable_tests(cell, mech_file_path)

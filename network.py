@@ -448,8 +448,11 @@ def connect_cell_selection(env, cleanup=True):
                         this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
                         syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
                         synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                            mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
+                                            mech_names=syn_attrs.syn_mech_names, \
                                             **mech_params)
+                        synapses.config_netcon(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
+                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
+                                               **mech_params)
 
                 env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
 
