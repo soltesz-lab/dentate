@@ -157,12 +157,12 @@ class SynapseAttributes(object):
         for edge_syn_id, presyn_gid, delay in zip_longest(edge_syn_ids, presyn_gids, delays):
             syn = syn_id_dict[edge_syn_id]
             if syn is None:
-                raise RuntimeError('Synapse id %i gid %i has not been initialized' % \
-                                   (edge_syn_id, gid))
+                raise RuntimeError('init_edge_attrs: gid %i: synapse id %i has not been initialized' % \
+                                   (gid, edge_syn_id))
 
             if syn.source.gid is not None:
-                raise RuntimeError('Synapse id %i gid %i has already been initialized with edge attributes' % \
-                                   (edge_syn_id, gid))
+                raise RuntimeError('init_edge_attrs: gid %i: synapse id %i has already been initialized with edge attributes' % \
+                                   (gid, edge_syn_id))
 
             syn.source.gid = presyn_gid
             syn.source.population = presyn_index
@@ -307,7 +307,7 @@ class SynapseAttributes(object):
         syn_index = self.syn_name_index_dict[syn_name]
         gid_vecstim_dict = self.vecstim_dict[gid]
         vecstim_dict = gid_vecstim_dict[syn_id]
-        if syn_index in self.vecstim_dict:
+        if syn_index in vecstim_dict:
             raise RuntimeError('add_vecstim: gid %i synapse id %i mechanism %s already has vecstim' % (gid, syn_id, syn_name))
         else:
             self.vecstim_dict[syn_index] = vs

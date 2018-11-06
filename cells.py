@@ -758,14 +758,12 @@ def count_spines_per_seg(node, env, gid):
     :param gid: int
     """
     syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
-    sec_index_map = env.synapse_attributes.sec_index_map[gid]
     node.content['spine_count'] = []
-    sec_syn_indexes = np.array(sec_index_map[node.index])
-    if len(sec_syn_indexes > 0):
-        filtered_syn_indexes = syn_attrs.get_filtered_syn_indexes(gid, sec_syn_indexes,
-                                                                  syn_types=[env.Synapse_Types['excitatory']])
-        this_syn_locs = syn_id_attr_dict['syn_locs'][filtered_syn_indexes]
+    
+    filtered_synapses = syn_attrs.filter_synapses(gid, syn_sections=[node.index], \
+                                                      syn_types=[env.Synapse_Types['excitatory']])
+    if len(filtered_synapses) > 0:
+        this_syn_locs = [syn.syn_loc for _,syn in viewitems(filtered_synapses)]
         seg_width = 1. / node.sec.nseg
         for i, seg in enumerate(node.sec):
             num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])

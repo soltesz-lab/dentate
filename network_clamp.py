@@ -54,7 +54,7 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
     synapses.init_syn_mech_attrs(cell, env)
 
     if mech_file_path is not None:
-        synapses.config_biophys_cell_syns(env, gid, env, pop_name, insert=True)
+        synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True)
     else:
         synapses.config_hoc_cell_syns(env, gid, pop_name, cell=cell.hoc_cell, insert=True)
         
