@@ -235,12 +235,13 @@ def connect_cells(env, cleanup=True):
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
             del graph[postsyn_name][presyn_name]
 
-        for gid in syn_attrs.syn_id_attr_dict:
+        for gid in syn_attrs.syn_id_attr_dict.keys():
 
             postsyn_cell = env.pc.gid2cell(gid)
             syn_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
                                                                 cell=postsyn_cell, insert=True, unique=unique)
             env.edge_count[postsyn_name][presyn_name] += nc_count
+
             if cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
@@ -369,7 +370,7 @@ def connect_cell_selection(env, cleanup=True):
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
             del graph[postsyn_name][presyn_name]
 
-        for gid in syn_attrs.syn_id_attr_dict:
+        for gid in syn_attrs.syn_id_attr_dict.keys():
 
             postsyn_cell = env.pc.gid2cell(gid)
             syn_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
