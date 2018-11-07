@@ -177,7 +177,7 @@ def connect_cells(env, cleanup=True):
         if weights_namespace in cell_attributes_dict:
             syn_weights_iter = cell_attributes_dict[weights_namespace]
             first_gid = None
-            for gid, cell_weights_dict in cell_weights_iter:
+            for gid, cell_weights_dict in syn_weights_iter:
                 if first_gid is None:
                     first_gid = gid
                 weights_syn_ids = cell_weights_dict['syn_id']
@@ -188,7 +188,7 @@ def connect_cells(env, cleanup=True):
                                                                        weights_values))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
+                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
         del cell_attributes_dict
 
         first_gid = None
@@ -234,13 +234,13 @@ def connect_cells(env, cleanup=True):
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
             attr_dict = a[postsyn_name][presyn_name]
-            syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, attr_dict, edge_iter)
+            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, attr_dict, edge_iter)
             del graph[postsyn_name][presyn_name]
 
         for gid in syn_attrs.syn_id_attr_dict:
 
             postsyn_cell = env.pc.gid2cell(gid)
-            syn_count, nc_count = synapses.config_hoc_cell_syns(env, postsyn_gid, postsyn_name, \
+            syn_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
                                                                 cell=postsyn_cell, insert=True, unique=unique)
             env.edge_count[postsyn_name][presyn_name] += nc_count
             if cleanup:
@@ -333,12 +333,11 @@ def connect_cell_selection(env, cleanup=True):
                                                                        weights_values))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
+                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
             del weight_attributes_iter
 
         first_gid = None
-        for gid in cell_synapses_dict:
-            syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+        for gid in syn_attrs.syn_id_attr_dict:
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
