@@ -725,7 +725,7 @@ def make_stimulus(env,vecstim_selection):
                 cell.play(cell_spikes[gid])
                 register_cell(env, pop_name, gid, cell)
 
-def init(env):
+def init(env,profile=False):
     """Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
 
     Optionally performs load balancing.
@@ -751,6 +751,10 @@ def init(env):
         make_cells(env)
     else:
         make_cell_selection(env)
+    if profile and rank == 0:
+        from guppy import hpy
+        h = hpy()
+        logger.info(h.heap())
     env.pc.barrier()
     env.mkcellstime = h.stopsw()
     if rank == 0:
@@ -765,6 +769,10 @@ def init(env):
         env.connectgjstime = h.stopsw()
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
+    if profile and rank == 0:
+        from guppy import hpy
+        h = hpy()
+        logger.info(h.heap())
     h.startsw()
     if env.cell_selection is None:
         connect_cells(env)
@@ -773,6 +781,10 @@ def init(env):
         vecstim_selection = connect_cell_selection(env)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
+    if profile and rank == 0:
+        from guppy import hpy
+        h = hpy()
+        logger.info(h.heap())
     if rank == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
