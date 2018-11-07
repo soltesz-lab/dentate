@@ -188,7 +188,7 @@ def connect_cells(env, cleanup=True):
                                                                        weights_values))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
+                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
         del cell_attributes_dict
 
         first_gid = None
@@ -228,13 +228,11 @@ def connect_cells(env, cleanup=True):
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
             logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
-            logger.info('Rank %i: Projection %s -> %s attributes: %s' % (rank, presyn_name, postsyn_name, str(a)))
             edge_iter = graph[postsyn_name][presyn_name]
 
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-            attr_dict = a[postsyn_name][presyn_name]
-            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, attr_dict, edge_iter)
+            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
             del graph[postsyn_name][presyn_name]
 
         for gid in syn_attrs.syn_id_attr_dict:
@@ -368,53 +366,17 @@ def connect_cell_selection(env, cleanup=True):
 
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-            syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
-            distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
+            del graph[postsyn_name][presyn_name]
 
-            for (postsyn_gid, edges) in edge_iter:
+        for gid in syn_attrs.syn_id_attr_dict:
 
-                postsyn_cell = env.pc.gid2cell(postsyn_gid)
-                presyn_gids = edges[0]
-                edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
-                edge_dists = edges[1]['Connections'][distance_attr_index]
-
-                syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
-
-                edge_syn_obj_dict = \
-                    synapses.mksyns(env, postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, \
-                           env.edge_count[postsyn_name][presyn_name], \
-                           add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
-
-                if rank == 0:
-                    if env.edge_count[postsyn_name][presyn_name] == 0:
-                        for sec in list(postsyn_cell.all):
-                            h.psection(sec=sec)
-
-                for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
-                    vecstim_selection[presyn_name].add(presyn_gid)
-                    for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
-                        delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                        mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
-                        if mech_params is None:
-                            mech_params = syn_params_dict[syn_name]
-                        else:
-                            if has_weights:
-                              mech_params['weight'] = mech_params['weight'] * syn_params_dict[syn_name]['weight']
-
-                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
-                        syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                            mech_names=syn_attrs.syn_mech_names, \
-                                            **mech_params)
-                        synapses.config_netcon(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
-                                               **mech_params)
-
-                env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
-
-        if cleanup:
-            for gid in cell_synapses_dict.keys():
-                syn_attrs.del_syn_id_dict(gid)
+            postsyn_cell = env.pc.gid2cell(gid)
+            syn_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
+                                                                cell=postsyn_cell, insert=True, unique=unique)
+            env.edge_count[postsyn_name][presyn_name] += nc_count
+            if cleanup:
+                syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
