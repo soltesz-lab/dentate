@@ -1,3 +1,4 @@
+import time
 from dentate.neuron_utils import *
 from dentate.utils import viewitems, zip_longest, NamedTupleWithDocstring
 from dentate.cells import get_mech_rules_dict, \
@@ -16,8 +17,8 @@ connected to a synapse.
   - population - population index of source cell (int)
   - delay - connection delay (float)
 """
-class SynapticSource(object):
-      __slots__ = 'gid', 'population', 'delay'
+class SynapseSource(object):
+      __slots__ = ['gid', 'population', 'delay']
       def __init__(self):
             self.gid = None
             self.population = None
@@ -31,7 +32,7 @@ Synapse = NamedTupleWithDocstring(
     - syn_layer - enumerated synapse layer (int)
     - syn_loc - synapse location in segment (float)
     - syn_section - synapse section index (int)
-    - source: instance of SynapticSource with the slots: 
+    - source: instance of SynapseSource with the slots: 
        - gid - source cell gid (int)
        - population - enumerated source population index (int)
        - delay - connection delay (float)
@@ -80,6 +81,7 @@ class SynapseAttributes(object):
         # dictionary with attributes for each synapse:
         #    { gid: { synapse id: { attribute: value } } }
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
+        self.syn_source_dict = defaultdict(dict)
         # dictionary of mechanism point processes for each synapse:
         #    { gid: { synapse id: { attribute: value } } }
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: None))
@@ -130,14 +132,14 @@ class SynapseAttributes(object):
                                                             syn_section=syn_sec, \
                                                             syn_loc=syn_loc, \
                                                             swc_type=swc_type, \
-                                                            source=SynapticSource(), \
+                                                            source=SynapseSource(), \
                                                             mech_attr_dict=defaultdict(dict), \
                                                             netcon_weights_dict={})
                 self.pps_dict[gid][syn_id] = {}
                 self.netcon_dict[gid][syn_id] = {}
                 self.vecstim_dict[gid][syn_id] = {}
 
-    def init_edge_attrs(self, gid, presyn_name, presyn_gids, edge_syn_ids, delays=None):
+    def init_edge_attrs(self, gid, presyn_name, presyn_gids, edge_syn_ids, delays=None, source_dict=True):
         """
         Sets connection edge attributes for the specified synapse ids.
 
@@ -155,6 +157,14 @@ class SynapseAttributes(object):
             delays = [h.dt] * len(edge_syn_ids)
 
         syn_id_dict = self.syn_id_attr_dict[gid]
+
+        if source_dict:
+            if presyn_index in self.syn_source_dict[gid]:
+                syn_source_list = self.syn_source_dict[gid][presyn_index]
+            else:
+                syn_source_list = []
+                self.syn_source_dict[gid][presyn_index] = syn_source_list
+              
         for edge_syn_id, presyn_gid, delay in zip_longest(edge_syn_ids, presyn_gids, delays):
             syn = syn_id_dict[edge_syn_id]
             if syn is None:
@@ -168,7 +178,8 @@ class SynapseAttributes(object):
             syn.source.gid = presyn_gid
             syn.source.population = presyn_index
             syn.source.delay = delay
-
+            if source_dict:
+                syn_source_list.append(edge_syn_id)
 
     def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter):
         """
@@ -593,21 +604,25 @@ class SynapseAttributes(object):
         :param syn_ids: array of int
 
         """
+        start_time = time.time()
         source_names = {id: name for name, id in viewitems(self.env.pop_dict)}
         source_syn_id_dict = defaultdict(list)
-        
-        syn_id_attr_dict = self.syn_id_attr_dict[gid]
 
-        for syn_id, syn in viewitems(syn_id_attr_dict):
-            if (syn_ids is None) or (syn_id in syn_ids):
-                if syn.source.gid is not None:
-                    source_pop_index = syn.source.population
-                    source_pop_name = source_names[source_pop_index]
-                    source_syn_id_dict[source_pop_name].append(syn_id)
-                else:
-                    raise RuntimeError('partition_syn_ids_by_source: gid %d synapse %d does not have source attributes defined', \
-                                       gid, syn_id)
-                
+        if gid in self.syn_source_dict:
+              for presyn_index, edge_syn_ids in viewitems(self.syn_source_dict[gid]):
+                  source_syn_id_dict[source_names[presyn_index]] = edge_syn_ids
+        else:
+            for syn_id, syn in viewitems(syn_id_attr_dict):
+                if (syn_ids is None) or (syn_id in syn_ids):
+                    if syn.source.gid is not None:
+                        source_pop_index = syn.source.population
+                        source_pop_name = source_names[source_pop_index]
+                        source_syn_id_dict[source_pop_name].append(syn_id)
+                    else:
+                        raise RuntimeError('partition_syn_ids_by_source: gid %d synapse %d does not have source attributes defined', \
+                                        gid, syn_id)
+
+        logger.info('partition_syn_ids_by_source: partitioned synapses for gid %d in %f s' % (gid, time.time() - start_time))
         return source_syn_id_dict
 
     def del_syn_id_attr_dict(self, gid):
