@@ -232,20 +232,32 @@ def connect_cells(env, cleanup=True):
 
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
+            last_time = time.time()
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
+            logger.info('Rank %i: took %f s to initialize edge attributes for projection %s -> %s' % \
+                        (rank, time.time() - last_time, presyn_name, postsyn_name))
             del graph[postsyn_name][presyn_name]
 
+        pop_last_time = time.time()
         for gid in syn_attrs.syn_id_attr_dict.keys():
 
             postsyn_cell = env.pc.gid2cell(gid)
-            syn_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                                cell=postsyn_cell, insert=True, unique=unique)
-            env.edge_count[postsyn_name][presyn_name] += nc_count
+            
+            last_time = time.time()
+            syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
+                                                                            cell=postsyn_cell, insert=True, unique=unique)
+            if rank == 0:
+                logger.info('Rank %i: took %f s to configure synapses for gid %d' % (rank, time.time() - last_time, gid))
+
+            env.edge_count[postsyn_name][presyn_name] += syn_count
 
             if cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
+
+        if rank == 0:
+            logger.info('Rank %i: took %f s to configure synapses for population %s' % (rank, time.time() - pop_last_time, postsyn_name))
 
 
 def connect_cell_selection(env, cleanup=True):
@@ -373,9 +385,9 @@ def connect_cell_selection(env, cleanup=True):
         for gid in syn_attrs.syn_id_attr_dict.keys():
 
             postsyn_cell = env.pc.gid2cell(gid)
-            syn_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                                cell=postsyn_cell, insert=True, unique=unique)
-            env.edge_count[postsyn_name][presyn_name] += nc_count
+            syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
+                                                                            cell=postsyn_cell, insert=True, unique=unique)
+            env.edge_count[postsyn_name][presyn_name] += syn_count
             if cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:

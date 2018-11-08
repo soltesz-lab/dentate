@@ -115,6 +115,7 @@ def find_template(env, template_name, path=['templates'], template_file=None, ro
     :param root: int; MPI.COMM_WORLD.rank
     """
     pc = env.pc
+    rank = int(pc.id())
     found = False
     foundv = h.Vector(1)
     template_path = ''
@@ -129,8 +130,8 @@ def find_template(env, template_name, path=['templates'], template_file=None, ro
             else:
                 template_path = '%s/%s' % (template_dir, template_file)
             found = os.path.isfile(template_path)
-            if found:
-                print('Loaded %s from %s' % (template_name, template_path))
+            if found and (rank == root):
+                logger.info('Loaded %s from %s' % (template_name, template_path))
                 break
         foundv.x[0] = 1 if found else 0
     if pc is not None:
