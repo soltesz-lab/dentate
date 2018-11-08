@@ -246,7 +246,8 @@ def connect_cells(env, cleanup=True):
             
             last_time = time.time()
             syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                                            cell=postsyn_cell, insert=True, unique=unique)
+                                                                            cell=postsyn_cell, insert=True, \
+                                                                            unique=unique)
             if rank == 0:
                 logger.info('Rank %i: took %f s to configure synapses for gid %d' % (rank, time.time() - last_time, gid))
 
@@ -355,7 +356,13 @@ def connect_cell_selection(env, cleanup=True):
                     first_gid = gid
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, \
+                                          mech_file_path=mech_file_path, \
+                                          reset_cable=True, \
+                                          from_file=True, \
+                                          correct_cm=correct_for_spines, \
+                                          correct_g_pas=correct_for_spines, \
+                                          env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))

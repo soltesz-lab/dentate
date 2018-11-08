@@ -375,10 +375,12 @@ def kde_scipy(x, y, binSize, **kwargs):
     
     return xx, yy, np.reshape(z, xx.shape)
 
-## A hack to add docstrings to named tuples. This is only needed in
-## python 2, where __doc__ is not writeable.
-## https://stackoverflow.com/questions/1606436/adding-docstrings-to-namedtuples
 def NamedTupleWithDocstring(docstring, *ntargs):
+    """
+    A convenience wrapper to add docstrings to named tuples. This is only needed in
+    python 2, where __doc__ is not writeable.
+    https://stackoverflow.com/questions/1606436/adding-docstrings-to-namedtuples
+    """
     nt = namedtuple(*ntargs)
     class NT(nt):
         __doc__ = docstring
@@ -386,7 +388,11 @@ def NamedTupleWithDocstring(docstring, *ntargs):
     return NT
 
 def partitionn(items, predicate=int, n=2):
-        tees = itertools.tee( ((predicate(item), item)
-                                for item in items), n )
-        return ( (lambda i:(item for pred, item in tees[i] if pred==i))(x)
-                        for x in range(n) )
+    """
+    Filter an iterator into N parts lazily
+    http://paddy3118.blogspot.com/2013/06/filtering-iterator-into-n-parts-lazily.html
+    """
+    tees = itertools.tee( ((predicate(item), item)
+                               for item in items), n )
+    return ( (lambda i:(item for pred, item in tees[i] if pred==i))(x)
+                 for x in range(n) )

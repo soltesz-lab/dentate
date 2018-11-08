@@ -81,7 +81,6 @@ class SynapseAttributes(object):
         # dictionary with attributes for each synapse:
         #    { gid: { synapse id: { attribute: value } } }
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
-        #self.syn_source_dict = defaultdict(dict)
         # dictionary of mechanism point processes for each synapse:
         #    { gid: { synapse id: { attribute: value } } }
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: None))
@@ -172,7 +171,6 @@ class SynapseAttributes(object):
             syn.source.population = presyn_index
             syn.source.delay = delay
 
-            #syn_source_dict[presyn_index].append(edge_syn_id)
 
     def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter):
         """
@@ -591,7 +589,9 @@ class SynapseAttributes(object):
         source_names = {id: name for name, id in viewitems(self.env.pop_dict)}
         syn_id_attr_dict = self.syn_id_attr_dict[gid]
 
-        source_iter = partitionn(viewitems(syn_id_attr_dict), lambda((syn_id,syn)): syn.source.population, n=len(source_names))
+        source_iter = partitionn(viewitems(syn_id_attr_dict), \
+                                 lambda((syn_id,syn)): syn.source.population, \
+                                 n=len(source_names))
 
         return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
 
@@ -625,12 +625,6 @@ class SynapseAttributes(object):
         Removes the synapse attributes associated with the given cell gid.
         """
         del self.syn_id_attr_dict[gid]
-
-    #def del_syn_source_dict(self, gid):
-    #    """
-    #    Removes the source dict associated with the given cell gid.
-    #    """
-    #    del self.syn_source_dict[gid]
 
     def clear_filter_cache(self):
         self.filter_cache.clear()
@@ -674,6 +668,7 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
 
     make_syn_mech = make_unique_synapse_mech if unique else make_shared_synapse_mech
 
+    syn_count = 0
     nc_count = 0
     mech_count = 0
     for syn_id in syn_ids:
@@ -723,8 +718,9 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
                               nc=this_nc, **params)
                 nc_count += 1
 
-
-    return mech_count, nc_count
+        syn_count += 1
+        
+    return syn_count, mech_count, nc_count
 
 
 def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, unique=None):
@@ -758,13 +754,13 @@ def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, uniqu
             unique = False
 
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
-    mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell.hoc_cell, syn_ids, \
-                                                unique=unique, insert_netcons=True, insert_vecstims=True)
+    syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell.hoc_cell, syn_ids, \
+                                                           unique=unique, insert_netcons=True, insert_vecstims=True)
     
 
     if rank == 0:
         logger.info('insert_biophys_cell_syns: source: %s target: %s cell %i: created %i mechanisms and %i netcons for '
-                    '%i syn_ids' % (presyn_name, postsyn_name, gid, mech_count, nc_count, len(syn_ids)))
+                    '%i syn_ids' % (presyn_name, postsyn_name, gid, mech_count, nc_count, syn_count))
 
 
 def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False, unique=None):
@@ -801,7 +797,8 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
         if not (gid in env.biophys_cells[postsyn_name]):
             raise KeyError('config_syns: insert: BiophysCell with gid %i does not exist' % gid)
         for presyn_name, source_syn_ids in viewitems(source_syn_ids_dict):
-            insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, source_syn_ids, unique=unique)
+            if presyn_name in env.connection_config[postsyn_name]:
+                insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, source_syn_ids, unique=unique)
 
     cell = env.biophys_cells[postsyn_name][gid]
     syn_count, mech_count, nc_count = config_hoc_cell_syns(env, gid, postsyn_name, \
@@ -881,10 +878,10 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, insert
                 this_pps = None
                 this_netcon = None
                 if syn_index in syn.mech_attr_dict:
-                    this_pps = syn.get_pps(gid, syn_id, syn_name, throw_error=False)
+                    this_pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                     if this_pps is None:
                        raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have point process for mechanism %s' % (gid, syn_id, syn_name))
-                    mech_params = syn.mech_attr_dict[presyn_index]
+                    mech_params = syn.mech_attr_dict[syn_index]
                     config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
                                mech_names=syn_attrs.syn_mech_names, syn=this_pps, \
                                **mech_params)
