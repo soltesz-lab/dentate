@@ -593,7 +593,7 @@ class SynapseAttributes(object):
 
         source_iter = partitionn(viewitems(syn_id_attr_dict), lambda((syn_id,syn)): syn.source.population, n=len(source_names))
 
-        return dict(enumerate(source_iter))
+        return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
 
     def get_filtered_syn_indexes(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None, swc_types=None, cache=False):
         """
@@ -615,19 +615,10 @@ class SynapseAttributes(object):
         """
         start_time = time.time()
         source_names = {id: name for name, id in viewitems(self.env.pop_dict)}
-        source_syn_id_dict = defaultdict(list)
+        syn_id_attr_dict = self.syn_id_attr_dict[gid]
+        source_iter = partitionn(syn_id_attr_dict.keys(), lambda(syn_id): syn_id_attr_dict[syn_id].source.population, n=len(source_names))
 
-        for syn_id, syn in viewitems(syn_id_attr_dict):
-              if (syn_ids is None) or (syn_id in syn_ids):
-                    if syn.source.gid is not None:
-                          source_pop_index = syn.source.population
-                          source_pop_name = source_names[source_pop_index]
-                          source_syn_id_dict[source_pop_name].append(syn_id)
-                    else:
-                          raise RuntimeError('partition_syn_ids_by_source: gid %d synapse %d does not have source attributes defined' % \
-                                              (gid, syn_id))
-
-        return source_syn_id_dict
+        return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
 
     def del_syn_id_attr_dict(self, gid):
         """
@@ -864,9 +855,10 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, insert
         if cell is None:
             cell = env.pc.gid2cell(gid)
         for presyn_name, source_syns in viewitems(source_syn_dict):
-            source_syn_ids = [x[0] for x in source_syns]
-            syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-            insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique, insert_netcons=True)
+            if presyn_name in env.connection_config[postsyn_name]:
+                source_syn_ids = [x[0] for x in source_syns]
+                syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
+                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique, insert_netcons=True)
         if rank == 0:
            logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
                        (postsyn_name, gid, time.time() - last_time))
@@ -875,6 +867,9 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, insert
     total_mech_count = 0
     config_time = time.time()
     for presyn_name, source_syns in viewitems(source_syn_dict):
+        if presyn_name not in env.connection_config[postsyn_name]:
+              continue
+
         last_time = time.time() 
         nc_count = 0
         mech_count = 0

@@ -384,3 +384,9 @@ def NamedTupleWithDocstring(docstring, *ntargs):
         __doc__ = docstring
         __slots__ = () ## disallow mutable slots in order to keep performance advantage of tuples
     return NT
+
+def partitionn(items, predicate=int, n=2):
+        tees = itertools.tee( ((predicate(item), item)
+                                for item in items), n )
+        return ( (lambda i:(item for pred, item in tees[i] if pred==i))(x)
+                        for x in range(n) )
