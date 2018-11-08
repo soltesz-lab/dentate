@@ -396,3 +396,14 @@ def partitionn(items, predicate=int, n=2):
                                for item in items), n )
     return ( (lambda i:(item for pred, item in tees[i] if pred==i))(x)
                  for x in range(n) )
+
+def generator_peek(iterable):
+    """
+    If the iterable is empty, return None, otherwise return the
+    iterable with the first element attached back.
+    """
+    try:
+        first = next(iterable)
+    except StopIteration:
+        return None
+    return first, itertools.chain([first], iterable)
