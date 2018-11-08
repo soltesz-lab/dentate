@@ -13,6 +13,7 @@ from neuroh5.io import scatter_read_graph, bcast_graph, \
      scatter_read_trees, scatter_read_cell_attributes, \
      write_cell_attributes, read_cell_attribute_selection, \
      read_tree_selection, read_graph_selection
+from neuron import h
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -744,8 +745,9 @@ def init(env,profile=False):
 
     :param env:
     """
+    from neuron import h
     configure_hoc_env(env)
-    
+
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     if env.optldbal or env.optlptbal:
