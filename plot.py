@@ -1270,17 +1270,33 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-def plot_lfp(config, input_path, timeRange = None, lw = 3, marker = ',', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+def plot_lfp(config, input_path, timeRange = None, lw = 3, figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+    '''
+    Line plot of LFP state variable (default: v). Returns the figure handle.
+
+    config: path to model configuration file
+    input_path: file with LFP trace data
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    lw (integer): Line width (default: 3)
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
     env = Env(configFile=config)
 
     fig = plt.figure(figsize=figSize)
     ax = plt.gca()
 
     for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
+        
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
         infile = h5py.File(input_path)
 
+        logger.info('plot_lfp: reading data for %s...' % namespace_id)
         if timeRange is None:
             t = infile[namespace_id]['t']
             v = infile[namespace_id]['v']
@@ -1299,17 +1315,17 @@ def plot_lfp(config, input_path, timeRange = None, lw = 3, marker = ',', figSize
         ax.set_xlabel('Time (ms)', fontsize=fontSize)
         ax.set_ylabel('Field Potential (mV)', fontsize=fontSize)
 
-    # save figure
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
-        else:
-            filename = namespace_id+'.png'
-            plt.savefig(filename)
+        # save figure
+        if saveFig: 
+            if isinstance(saveFig, str):
+                filename = saveFig
+            else:
+                filename = namespace_id+'.png'
+                plt.savefig(filename)
                 
-    # show fig 
-    if showFig:
-        show_figure()
+        # show fig 
+        if showFig:
+            show_figure()
 
         
 
