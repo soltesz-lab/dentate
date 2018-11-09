@@ -119,7 +119,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.00035
+          g_unit: 0.00055
     AAC:
       type: inhibitory
       sections: [ais]
