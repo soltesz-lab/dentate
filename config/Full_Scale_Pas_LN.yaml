@@ -23,7 +23,8 @@ Cell Types:
   MC:
     template: MossyCell
     synapses:
-      weights: False
+      weights: True
+      weights namespace: Log-Normal Weights
       density: !include MC_synapse_density.yaml
   HC:
     template: HIPPCell
