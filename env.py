@@ -212,7 +212,13 @@ class Env:
                 self.gapjunctionsFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
             else:
                 self.gapjunctionsFilePath = None
-
+        else:
+            self.datasetPath = None
+            self.dataFilePath = None
+            self.connectivityFilePath = None
+            self.forestFilePath = None
+            self.gapjunctionsFilePath = None
+                
         if 'Input' in self.modelConfig:
             self.parse_input_config()
 

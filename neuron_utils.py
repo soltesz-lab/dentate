@@ -156,7 +156,7 @@ def configure_hoc_env(env):
     h('objref pc, nc, nil')
     h('strdef datasetPath')
     if hasattr(env,'datasetPath'):
-        h.datasetPath = env.datasetPath
+        h.datasetPath = env.datasetPath if env.datasetPath is not None else ""
     h.pc = h.ParallelContext()
     env.pc = h.pc
     h.dt = env.dt

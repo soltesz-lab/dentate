@@ -18,11 +18,10 @@ def make_input_cell(env, gid, gen):
     params = [ param_values[p] for p in env.netclampConfig.template_params[template_name] ]
     cell = template(gid, *params)
     return cell
-    
 
-def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load_edges=True):
+def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load_edges=True, tree_dict=None, synapses_dict=None):
     """
-    Instantiates the mechanisms, synapses, and connections of a single cell.
+    Instantiates the mechanisms of a single cell.
 
     :param env: env.Env
     :param pop_name: str
@@ -39,7 +38,8 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
     """
     configure_hoc_env(env)
 
-    cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges)
+    cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
+                            tree_dict=tree_dict, synapses_dict=synapses_dict)
     if mech_file is not None:
         if env.configPrefix is not None:
             mech_file_path = env.configPrefix + '/' + mech_file
@@ -57,12 +57,8 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
         synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True)
     else:
         synapses.config_hoc_cell_syns(env, gid, pop_name, cell=cell.hoc_cell, insert=True)
-        
 
     return cell
-
-
-
 
 def register_cell(env, population, gid, cell):
     """
