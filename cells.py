@@ -450,7 +450,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     """
     sec_type_map = {}
     for sec_type, sec_index_list in viewitems(default_hoc_sec_lists):
-        if hasattr(hoc_cell, sec_type):
+        if hasattr(hoc_cell, sec_type) and (getattr(hoc_cell, sec_type) is not None):
             sec_list = list(getattr(hoc_cell, sec_type))
             if hasattr(hoc_cell, sec_index_list):
                 sec_indexes = list(getattr(hoc_cell, sec_index_list))
@@ -1376,26 +1376,26 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     :param population:
     :return:
     """
-    datasetPath = env.datasetPath
+    datasetPath = env.datasetPath if env.datasetPath is not None else ""
     dataFilePath = env.dataFilePath
     template_name = env.celltypes[pop_name]['template']
     assert(hasattr(h, template_name))
     template_class = getattr(h, template_name)
 
-    if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
-        if neurotree_dict:
-            hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
-        else:
+    if neurotree_dict:
+        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
+    else:
+        if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             dataFilePath, pop_name, gid)
-    else:
-        hoc_cell = template_class(gid, datasetPath)
+        else:
+            hoc_cell = template_class(gid, datasetPath)
         
     return hoc_cell
 
 
 
-def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
+def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True):
     """
     :param env:
     :param pop_name:
@@ -1403,14 +1403,14 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
     :return:
     """
     env.load_cell_template(pop_name)
-    tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
-    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
+    if tree_dict is None:
+        tree_dict = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
+    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
-    target_gid_offset = env.celltypes[pop_name]['start']
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
     
-    if load_synapses:
+    if (synapses_dict is None) and load_synapses:
         #if pop_name not in syn_attrs.select_cell_attr_index_map:
         #    syn_attrs.select_cell_attr_index_map[pop_name] = \
         #        get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
@@ -1445,8 +1445,11 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True):
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
                                     (gid, len(cell_weights_dict[syn_name]), syn_name))
         else:
-            logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
-            raise Exception
+            if synapses_dict is not None:
+                syn_attrs.init_syn_id_attrs(synapses_dict)
+            else:
+                logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+                raise Exception
             
 
     if load_edges:

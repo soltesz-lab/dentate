@@ -9,8 +9,8 @@ from neuron import h
 from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 import dentate
 from dentate.env import Env
-from dentate import neuron_utils, utils, cells
-from dentate.synapses import mksyns, mknetcon, config_syn, add_unique_synapse, add_shared_synapse
+from dentate import neuron_utils, utils, cells, synapses, network_clamp
+
     
 
 def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, v_init, tstart = 200.):
@@ -174,15 +174,9 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
     postsyn_name = 'GC'
     presyn_names = ['MPP', 'LPP', 'MC', 'HC', 'BC', 'AAC', 'HCC']
 
-    
-    cell0 = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
-
-    if mech_file_path is not None:
-        cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=cell0, env=env)
-        cells.init_biophysics(cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True,
-                              correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
-    else:
-        cell = cell0
+    cell = network_clamp.load_cell(env, postsyn_name, gid, mech_file=mech_file_path, \
+                                   tree_dict=tree, synapses_dict=synapses, \
+                                   correct_for_spines=True, load_edges=False)
 
     all_syn_ids = synapses['syn_ids']
     all_syn_layers = synapses['syn_layers']
@@ -190,10 +184,6 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
     print ('Total %i %s synapses' % (len(all_syn_ids), postsyn_name))
     env.cells.append(cell)
     env.pc.set_gid2node(gid, env.comm.rank)
-
-    syn_attrs = env.synapse_attributes
-    syn_attrs.load_syn_id_attrs(gid, synapses)
-    
     
     for presyn_name in presyn_names:
 
@@ -207,8 +197,6 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
                     syn_ids.append(syn_id)
         
         syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
-        syn_obj_dict = mksyns(gid, cell, syn_ids, syn_params_dict, env, 0,
-                        add_synapse=add_unique_synapse if unique else add_shared_synapse)
         rate = 40
         
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
@@ -227,20 +215,16 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
     
 @click.command()
 @click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--template-paths", required=True, type=str)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--synapses-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def main(config_path,template_path,forest_path,synapses_path):
+def main(config_path,template_paths,forest_path,synapses_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    env = Env(comm=comm, configFile=config_path, templatePaths=template_path)
+    env = Env(comm=comm, configFile=config_path, templatePaths=template_paths)
 
-    h('objref nil, pc, tlog, Vlog, spikelog')
-    h.load_file("nrngui.hoc")
-    h.xopen("./lib.hoc")
-    h.xopen("./templates/Value.hoc")
-    h.xopen ("./tests/rn.hoc")
+    neuron_utils.configure_hoc_env(env)
     
     h.pc = h.ParallelContext()
 
@@ -252,7 +236,8 @@ def main(config_path,template_path,forest_path,synapses_path):
     
     (trees,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
     if synapses_path is not None:
-        synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], "Synapse Attributes", comm=comm)
+        synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], \
+                                                       "Synapse Attributes", comm=comm)
     else:
         synapses_dict = None
 

@@ -246,8 +246,9 @@ def connect_cells(env, cleanup=True):
             
             last_time = time.time()
             syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                                            cell=postsyn_cell, insert=True, \
-                                                                            unique=unique)
+                                                                            cell=postsyn_cell, unique=unique, \
+                                                                            insert=True, \
+                                                                            insert_netcons=True)
             if rank == 0:
                 logger.info('Rank %i: took %f s to configure synapses for gid %d' % (rank, time.time() - last_time, gid))
 
@@ -394,7 +395,8 @@ def connect_cell_selection(env, cleanup=True):
 
             postsyn_cell = env.pc.gid2cell(gid)
             syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                                            cell=postsyn_cell, insert=True, unique=unique)
+                                                                            cell=postsyn_cell, unique=unique, \
+                                                                            insert=True, insert_netcons=True)
             env.edge_count[postsyn_name][presyn_name] += syn_count
             if cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)

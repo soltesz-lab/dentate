@@ -708,7 +708,11 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
 
             if insert_netcons or insert_vecstims:
                 syn_pps = syn_attrs.get_pps(gid, syn_id, syn_name)
-                this_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
+                if insert_netcons and insert_vecstims:
+                    this_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
+                else:
+                    this_vecstim = None
+                    this_nc = mknetcon(env.pc, syn.source.gid, syn_pps, delay=syn.source.delay)
                 if insert_netcons:
                     syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
                 if insert_vecstims:
@@ -723,7 +727,7 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
     return syn_count, mech_count, nc_count
 
 
-def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, unique=None):
+def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, unique=None, insert_netcons=True, insert_vecstims=True):
     """
     
     1) make syns (if not unique, keep track of syn_in_seg for shared synapses)
@@ -755,7 +759,8 @@ def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, uniqu
 
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
     syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell.hoc_cell, syn_ids, \
-                                                           unique=unique, insert_netcons=True, insert_vecstims=True)
+                                                           unique=unique, insert_netcons=insert_netcons, \
+                                                           insert_vecstims=insert_vecstims)
     
 
     if rank == 0:
@@ -763,7 +768,7 @@ def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, uniqu
                     '%i syn_ids' % (presyn_name, postsyn_name, gid, mech_count, nc_count, syn_count))
 
 
-def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False, unique=None):
+def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False, unique=None, insert_netcons=False, insert_vecstims=False):
     """
     Configures the given syn_ids, and call config_syn with mechanism and netcon parameters (which must not be empty).
     If syn_ids=None, configures all synapses for the cell with the given gid.
@@ -800,7 +805,8 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
             p = generator_peek(source_syn_ids)
             if p is not None:
                first, seq = p
-               insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, seq, unique=unique)
+               insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, seq, unique=unique, \
+                                        insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
 
     cell = env.biophys_cells[postsyn_name][gid]
     syn_count, mech_count, nc_count = config_hoc_cell_syns(env, gid, postsyn_name, \
@@ -814,7 +820,7 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
     return syn_count, nc_count
 
 
-def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, insert=False, unique=None):
+def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique=None, insert=False, insert_netcons=False, insert_vecstims=False):
     """
     Configures the given syn_ids, and call config_syn with mechanism and netcon parameters (which must not be empty).
     If syn_ids=None, configures all synapses for the cell with the given gid.
@@ -859,7 +865,8 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, insert
                 first, seq = p
                 source_syn_ids = [x[0] for x in seq]
                 syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique, insert_netcons=True)
+                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique, \
+                                     insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
         if rank == 0:
            logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
                        (postsyn_name, gid, time.time() - last_time))
@@ -901,6 +908,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, insert
                     config_netcon(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
                                   mech_names=syn_attrs.syn_mech_names, nc=this_netcon, \
                                   **netcon_params)
+
                     nc_count += 1
 
         total_nc_count += nc_count
