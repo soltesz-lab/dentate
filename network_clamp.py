@@ -53,11 +53,6 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
                         correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     synapses.init_syn_mech_attrs(cell, env)
 
-    if mech_file_path is not None:
-        synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True)
-    else:
-        synapses.config_hoc_cell_syns(env, gid, pop_name, cell=cell.hoc_cell, insert=True)
-
     return cell
 
 def register_cell(env, population, gid, cell):
@@ -116,6 +111,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
                      load_edges=load_edges)
     register_cell(env, pop_name, gid, cell)
 
+    
     env.recs_dict[pop_name][0] = make_rec(0, pop_name, gid, cell, \
                                           sec=cell.soma[0].sec, loc=0.5, param='v', \
                                           dt=h.dt, description='Soma recording')
@@ -213,14 +209,8 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
                     cell = make_input_cell(env, presyn_gid, gen)
                 register_cell(env, presyn_id, presyn_gid, cell)
 
-        ncs = [ nc for _,nc in viewitems(syn_attrs.netcon_dict[gid][syn_id]) ]
+    synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True)
 
-        for nc in ncs:
-            env.pc.gid_connect(presyn_gid, nc.syn(), nc)
-            nc.delay = delay
-            min_delay = min(min_delay, delay)
-
-    assert(min_delay > 0.0)
     env.pc.set_maxstep(10)
     h.stdinit()
     h.finitialize(env.v_init)
