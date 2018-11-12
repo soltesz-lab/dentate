@@ -250,7 +250,7 @@ def connect_cells(env, cleanup=True):
                                                                             insert=True, \
                                                                             insert_netcons=True)
             if rank == 0:
-                logger.info('Rank %i: took %f s to configure synapses for gid %d' % (rank, time.time() - last_time, gid))
+                logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network connections for gid %d' % (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
 
             env.edge_count[postsyn_name][presyn_name] += syn_count
 
