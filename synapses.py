@@ -849,11 +849,8 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
     if syn_ids is None:
         syn_ids = syn_id_attr_dict.keys()
 
-    last_time = time.time() 
-    source_syn_dict = syn_attrs.partition_synapses_by_source(gid, syn_ids)
-    partition_time = time.time() - last_time
-
     if insert:
+        source_syn_dict = syn_attrs.partition_synapses_by_source(gid, syn_ids)
         last_time = time.time() 
         if (cell is None) and (not (env.pc.gid_exists(gid))):
             raise RuntimeError('config_hoc_cell_syns: insert: cell with gid %i does not exist on rank %i' % (gid, rank))
@@ -870,6 +867,8 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         if rank == 0:
            logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
                        (postsyn_name, gid, time.time() - last_time))
+
+    source_syn_dict = syn_attrs.partition_synapses_by_source(gid, syn_ids)
 
     total_nc_count = 0
     total_mech_count = 0
@@ -908,7 +907,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                     config_netcon(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
                                   mech_names=syn_attrs.syn_mech_names, nc=this_netcon, \
                                   **netcon_params)
-
+                          
                     nc_count += 1
 
         total_nc_count += nc_count
