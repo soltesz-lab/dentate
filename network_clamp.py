@@ -121,7 +121,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
 
     return cell
 
-def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
+def init(env, pop_name, gid, spike_events_path, generate_inputs=set([]), generate_weights=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
     """Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
 
@@ -167,6 +167,7 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
 
     ## Organize spike times by index of presynaptic population and gid
     spk_source_dict = {}
+    wgt_source_dict = {}
     for presyn_name in presyn_names:
         presyn_index = int(env.pop_dict[presyn_name])
         spk_pop_index = list_index(presyn_name, spkpoplst)
@@ -175,19 +176,32 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
             continue
         spk_inds   = spkindlst[spk_pop_index]
         spk_ts     = spktlst[spk_pop_index]
-        if presyn_name in generate:
+        
+        if presyn_name in generate_inputs:
             if (presyn_name in env.netclampConfig.input_generators):
                 spike_generator = env.netclampConfig.input_generators[presyn_name]
             else:
-                raise RuntimeError('network_clamp.init: no generator specified for population %s' % presyn_name)
+                raise RuntimeError('network_clamp.init: no input generator specified for population %s' % presyn_name)
         else:
             spike_generator = None
-        
+            
         spk_source_dict[presyn_index] = { 'gid': spk_inds, 't': spk_ts, 'gen': spike_generator }
+
+        if presyn_name in generate_weights:
+            if (presyn_name in env.netclampConfig.weight_generators):
+                weight_generator = env.netclampConfig.weight_generators[presyn_name]
+            else:
+                raise RuntimeError('network_clamp.init: no weights generator specified for population %s' % presyn_name)
+        else:
+            weight_generator = None
+
+        wgt_source_dict[presyn_index] = { 'gen': weight_generator }
+        
 
     min_delay = float('inf')
     syn_attrs = env.synapse_attributes
     this_syn_attrs = syn_attrs.syn_id_attr_dict[gid]
+    weight_params = defaultdict(dict)
     for syn_id, syn in viewitems(this_syn_attrs):
         presyn_id = syn.source.population
         presyn_gid = syn.source.gid
@@ -198,17 +212,23 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
             ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
                 spk_sources = spk_source_dict[presyn_id]
-                gen = spk_sources['gen']
-                if gen is None:
+                input_gen = spk_sources['gen']
+                if input_gen is None:
                     spk_inds = spk_sources['gid']
                     spk_ts = spk_sources['t']
                     data = spk_ts[np.where(spk_inds == presyn_gid)]
                     cell = h.VecStimCell(presyn_gid)
                     cell.pp.play(h.Vector(data))
                 else:
-                    cell = make_input_cell(env, presyn_gid, gen)
+                    cell = make_input_cell(env, presyn_gid, input_gen)
                 register_cell(env, presyn_id, presyn_gid, cell)
+        if presyn_id in wgt_source_dict:
+            for syn_name in wgt_source_dict[presyn_id]:
+                weight_gen = make_weight_generator(env, presyn_gid, wgt_source_dict[presyn_id][syn_name])
+                weight_params[syn_name][syn_id] = weight_gen()
 
+    for syn_name, syn_weight_params in viewitems(weight_params):
+        syn_attrs.add_netcon_weights(gid, syn_name, syn_weight_params)
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True)
 
     env.pc.set_maxstep(10)
