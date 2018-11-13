@@ -235,7 +235,7 @@ Synapses:
           tau_rise: 0.3
           tau_decay: 3.3
           e: -75
-          g_unit: 0.00175
+          g_unit: 0.001
     AAC:  
       type: inhibitory
       sections: [ais]
@@ -246,7 +246,7 @@ Synapses:
           tau_rise: 0.3
           tau_decay: 3.3
           e: -75
-          g_unit: 0.00175
+          g_unit: 0.001
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -325,7 +325,7 @@ Synapses:
           tau_rise:  0.5
           tau_decay: 3.0
           e:     0
-          g_unit: 0.0002
+          g_unit: 0.0001
     LPP:
       type: excitatory
       sections: [apical]
@@ -336,7 +336,7 @@ Synapses:
           tau_rise:  0.5
           tau_decay: 3.0
           e:     0
-          g_unit: 0.00023
+          g_unit: 0.000125
     MC:   
       type: excitatory
       sections: [apical, apical]

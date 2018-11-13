@@ -1,5 +1,5 @@
 ## Model configuration of dentate gyrus network
-Model Name: dentatenet
+Model Name: dentatenet_Full_Scale_Pas_GJ
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
