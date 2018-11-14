@@ -1,12 +1,13 @@
-## Model configuration of dentate gyrus network
-Model Name: dentate_Netclamp_Pas
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: dentatenet_Full_Scale_Pas
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20180908.h5
-Connection Data: DG_Connections_Full_Scale_20180908.h5
-Connection Generator: !include Network_Clamp_Connections.yaml
+Cell Data: DG_Cells_Full_Scale_20181017.h5
+Connection Data: DG_Connections_Full_Scale_20181017.h5
+#Gap Junction Data: DG_gapjunctions_20180721.h5
+Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
 Input: !include Input.yaml
 ## Cell types for dentate gyrus model

@@ -497,6 +497,8 @@ class SynapseAttributes(object):
         syn_id_dict = self.syn_id_attr_dict[gid]
         for syn_id, val in viewitems(params):
             syn = syn_id_dict[syn_id]
+            if syn is None:
+                raise RuntimeError('add_netcon_weights: gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.netcon_weights_dict:
                 raise RuntimeError('add_netcon_weights: gid %i synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
             else:
@@ -516,6 +518,8 @@ class SynapseAttributes(object):
         syn_id_dict = self.syn_id_attr_dict[gid]
         for syn_id, val in params_iter:
             syn = syn_id_dict[syn_id]
+            if syn is None:
+                raise RuntimeError('add_netcon_weights: gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.netcon_weights_dict:
                 raise RuntimeError('add_netcon_weights_from_iter: gid %i Synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
             else:

@@ -10,16 +10,19 @@ Weight Generator:
   GC:
     MPP:
       class: Log-Normal
+      name: AMPA
       params:
         mu: 0.
         sigma: 1.0
     LPP:
       class: Log-Normal
+      name: AMPA
       params:
         mu: 0.
         sigma: 1.0
     MC:
       class: Log-Normal
+      name: AMPA
       params:
         mu: 0.
         sigma: 1.0
