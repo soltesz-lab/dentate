@@ -19,8 +19,8 @@ DG_IN_forest_file = "DG_IN_forest_20180908.h5"
 DG_GC_forest_syns_file = "DGC_forest_syns_20180812_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20180908.h5"
 
-DG_GC_syn_weights_file = "DG_GC_weights_MPP_LPP_20181113_compressed.h5"
-DG_IN_syn_weights_file = "DG_IN_log_normal_weights_20181115_compressed.h5"
+DG_GC_syn_weights_file = "DG_GC_log_normal_weights_20181115_compressed.h5"
+DG_IN_syn_weights_file = "DG_IN_syns_log_normal_weights_20181011_compressed.h5"
 
 DG_IN_connectivity_file = "DG_IN_connections_20180908.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20180813_compressed.h5"
