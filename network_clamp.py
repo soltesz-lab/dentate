@@ -11,6 +11,39 @@ from dentate.env import Env
 from dentate.cells import *
 from dentate import spikedata, io_utils, synapses
 
+
+def generate_weights(env, weight_source_rules, this_syn_attrs):
+
+    weights_dict = {}
+
+    if len(weight_source_rules) > 0:
+
+        for presyn_id, weight_rule in viewitems(weight_source_rules):
+            if weight_rule['class'] == 'Log-Normal':
+                
+                source_syn_dict = defaultdict(list)
+    
+                for syn_id, syn in viewitems(this_syn_attrs):
+                    this_presyn_id = syn.source.population
+                    this_presyn_gid = syn.source.gid
+                    if this_presyn_id == presyn_id:
+                        source_syn_dict[this_presyn_gid].append(syn_id)
+
+                weights_name = weight_rule['name']
+                rule_params = weight_rule['params']
+                mu = rule_params['mu']
+                sigma = rule_params['sigma']
+                seed_offset = int(env.modelConfig['Random Seeds']['GC Log-Normal Weights 1'])
+                seed = int(seed_offset + 1)
+                weights_dict[presyn_id] = \
+                  synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
+            else:
+                raise RuntimeError('network_clamp.generate_weights: unknown weight generator rule class %s' % \
+                                   weight_rule['class'])
+
+    return weights_dict
+        
+
 def make_input_cell(env, gid, gen):
     template_name = gen['template']
     param_values  = gen['params']
@@ -37,7 +70,7 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
     
     """
     configure_hoc_env(env)
-
+    
     cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
                             tree_dict=tree_dict, synapses_dict=synapses_dict)
     if mech_file is not None:
@@ -52,7 +85,7 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
         init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
                         correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     synapses.init_syn_mech_attrs(cell, env)
-
+    
     return cell
 
 def register_cell(env, population, gid, cell):
@@ -121,7 +154,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
 
     return cell
 
-def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
+def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), generate_weights_pops=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
     """Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
 
@@ -166,7 +199,8 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
     spkpoplst = spkdata['spkpoplst']
 
     ## Organize spike times by index of presynaptic population and gid
-    spk_source_dict = {}
+    input_source_dict = {}
+    weight_source_dict = {}
     for presyn_name in presyn_names:
         presyn_index = int(env.pop_dict[presyn_name])
         spk_pop_index = list_index(presyn_name, spkpoplst)
@@ -175,40 +209,65 @@ def init(env, pop_name, gid, spike_events_path, generate=set([]), spike_events_n
             continue
         spk_inds   = spkindlst[spk_pop_index]
         spk_ts     = spktlst[spk_pop_index]
-        if presyn_name in generate:
+        
+        if presyn_name in generate_inputs_pops:
             if (presyn_name in env.netclampConfig.input_generators):
                 spike_generator = env.netclampConfig.input_generators[presyn_name]
             else:
-                raise RuntimeError('network_clamp.init: no generator specified for population %s' % presyn_name)
+                raise RuntimeError('network_clamp.init: no input generator specified for population %s' % presyn_name)
         else:
             spike_generator = None
+            
+        input_source_dict[presyn_index] = { 'gid': spk_inds, 't': spk_ts, 'gen': spike_generator }
+
+        if presyn_name in generate_weights_pops:
+            if (presyn_name in env.netclampConfig.weight_generators[pop_name]):
+                weight_rule = env.netclampConfig.weight_generators[pop_name][presyn_name]
+            else:
+                raise RuntimeError('network_clamp.init: no weights generator rule specified for population %s' % presyn_name)
+        else:
+            weight_rule = None
+
+        if weight_rule is not None:
+            weight_source_dict[presyn_index] = weight_rule
         
-        spk_source_dict[presyn_index] = { 'gid': spk_inds, 't': spk_ts, 'gen': spike_generator }
 
     min_delay = float('inf')
     syn_attrs = env.synapse_attributes
     this_syn_attrs = syn_attrs.syn_id_attr_dict[gid]
+    source_syn_dict = defaultdict(lambda: defaultdict(list))
+    weight_params = defaultdict(dict)
     for syn_id, syn in viewitems(this_syn_attrs):
         presyn_id = syn.source.population
         presyn_gid = syn.source.gid
         delay = syn.source.delay
-        if presyn_id in spk_source_dict:
+        if presyn_id in input_source_dict:
             ## Load presynaptic spike times into the VecStim for each synapse;
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
             ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
-                spk_sources = spk_source_dict[presyn_id]
-                gen = spk_sources['gen']
-                if gen is None:
-                    spk_inds = spk_sources['gid']
-                    spk_ts = spk_sources['t']
+                input_sources = input_source_dict[presyn_id]
+                input_gen = input_sources['gen']
+                if input_gen is None:
+                    spk_inds = input_sources['gid']
+                    spk_ts = input_sources['t']
                     data = spk_ts[np.where(spk_inds == presyn_gid)]
                     cell = h.VecStimCell(presyn_gid)
                     cell.pp.play(h.Vector(data))
                 else:
-                    cell = make_input_cell(env, presyn_gid, gen)
+                    cell = make_input_cell(env, presyn_gid, input_gen)
                 register_cell(env, presyn_id, presyn_gid, cell)
 
+    source_weight_params = generate_weights(env, weight_source_dict, this_syn_attrs)
+    
+    for presyn_id, weight_params in viewitems(source_weight_params):
+        weights_syn_ids = weight_params['syn_id']
+        for syn_name in (syn_name for syn_name in weight_params if syn_name != 'syn_id'):
+            weights_values  = weight_params[syn_name]
+            syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
+                                                   zip_longest(weights_syn_ids, \
+                                                               weights_values))
+        
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True)
 
     env.pc.set_maxstep(10)
@@ -300,7 +359,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--config-file", '-c', required=True, type=str)
 @click.option("--population", '-p', required=True, type=str, default='GC')
 @click.option("--gid", '-g', required=True, type=int, default=0)
-@click.option("--generate", '-e', required=False, type=str, multiple=True)
+@click.option("--generate-inputs", '-e', required=False, type=str, multiple=True)
+@click.option("--generate-weights", '-w', required=False, type=str, multiple=True)
 @click.option("--tstop", '-t', type=float, default=150.0)
 @click.option("--template-paths", type=str, required=True)
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
@@ -313,7 +373,7 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
                   help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--verbose', '-v', is_flag=True)
 @click.option('--profile', is_flag=True)
-def main(config_file, population, gid, generate, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, verbose, profile):
+def main(config_file, population, gid, generate_inputs, generate_weights, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, verbose, profile):
     """
     Runs network clamp simulation for the specified cell gid.
 
@@ -337,8 +397,11 @@ def main(config_file, population, gid, generate, tstop, template_paths, dataset_
                   resultsId=results_id, verbose=verbose)
     configure_hoc_env(env)
 
-    init(env, population, gid, spike_events_path, generate=set(generate), spike_events_namespace=spike_events_namespace, \
-             t_var='t', t_min=None, t_max=None)
+    init(env, population, gid, spike_events_path, \
+         generate_inputs_pops=set(generate_inputs), \
+         generate_weights_pops=set(generate_weights), \
+         spike_events_namespace=spike_events_namespace, \
+         t_var='t', t_min=None, t_max=None)
 
     run(env)
 

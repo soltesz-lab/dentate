@@ -497,6 +497,8 @@ class SynapseAttributes(object):
         syn_id_dict = self.syn_id_attr_dict[gid]
         for syn_id, val in viewitems(params):
             syn = syn_id_dict[syn_id]
+            if syn is None:
+                raise RuntimeError('add_netcon_weights: gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.netcon_weights_dict:
                 raise RuntimeError('add_netcon_weights: gid %i synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
             else:
@@ -516,6 +518,8 @@ class SynapseAttributes(object):
         syn_id_dict = self.syn_id_attr_dict[gid]
         for syn_id, val in params_iter:
             syn = syn_id_dict[syn_id]
+            if syn is None:
+                raise RuntimeError('add_netcon_weights: gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.netcon_weights_dict:
                 raise RuntimeError('add_netcon_weights_from_iter: gid %i Synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
             else:
@@ -1960,3 +1964,20 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                 'swc_types': np.asarray(swc_types, dtype='uint8')}
 
     return (syn_dict, seg_density_per_sec)
+
+
+def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
+    local_random = np.random.RandomState()
+    local_random.seed(int(seed))
+    source_weights = local_random.lognormal(mu, sigma, len(source_syn_dict))
+    syn_weight_dict = {}
+    # weights are synchronized across all inputs from the same source_gid
+    for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
+        for this_syn_id in source_syn_dict[this_source_gid]:
+            syn_weight_dict[this_syn_id] = this_weight
+    weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
+    normed_weights = weights 
+    weights_dict = \
+      { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
+        weights_name: normed_weights }
+    return weights_dict
