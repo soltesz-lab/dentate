@@ -1976,7 +1976,7 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
         for this_syn_id in source_syn_dict[this_source_gid]:
             syn_weight_dict[this_syn_id] = this_weight
     weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
-    normed_weights = weights / np.percentile(weights, 99)
+    normed_weights = weights 
     weights_dict = \
       { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
         weights_name: normed_weights }
