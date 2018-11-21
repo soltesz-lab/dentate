@@ -193,7 +193,7 @@ def connect_cells(env, cleanup=True):
         del cell_attributes_dict
 
         first_gid = None
-        for gid in syn_attrs.syn_id_attr_dict:
+        for gid in syn_attrs.gids():
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
@@ -240,7 +240,7 @@ def connect_cells(env, cleanup=True):
             del graph[postsyn_name][presyn_name]
 
         pop_last_time = time.time()
-        for gid in syn_attrs.syn_id_attr_dict.keys():
+        for gid in syn_attrs.gids():
 
             postsyn_cell = env.pc.gid2cell(gid)
             
@@ -351,7 +351,7 @@ def connect_cell_selection(env, cleanup=True):
             del weight_attributes_iter
 
         first_gid = None
-        for gid in syn_attrs.syn_id_attr_dict:
+        for gid in syn_attrs.gids():
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
@@ -391,7 +391,7 @@ def connect_cell_selection(env, cleanup=True):
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
             del graph[postsyn_name][presyn_name]
 
-        for gid in syn_attrs.syn_id_attr_dict.keys():
+        for gid in syn_attrs.gids():
 
             postsyn_cell = env.pc.gid2cell(gid)
             syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \

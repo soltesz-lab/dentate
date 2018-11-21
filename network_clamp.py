@@ -234,7 +234,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
 
     min_delay = float('inf')
     syn_attrs = env.synapse_attributes
-    this_syn_attrs = syn_attrs.syn_id_attr_dict[gid]
+    this_syn_attrs = syn_attrs[gid]
     source_syn_dict = defaultdict(lambda: defaultdict(list))
     weight_params = defaultdict(dict)
     for syn_id, syn in viewitems(this_syn_attrs):

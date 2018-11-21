@@ -208,7 +208,8 @@ class SynapseAttributes(object):
             delays = [((distance / connection_velocity) + h.dt) for distance in edge_dists]
 
             self.init_edge_attrs(postsyn_gid, presyn_name, presyn_gids, edge_syn_ids, delays=delays)
-                    
+
+
 
     def add_pps(self, gid, syn_id, syn_name, pps):
         """
@@ -633,6 +634,16 @@ class SynapseAttributes(object):
     def clear_filter_cache(self):
         self.filter_cache.clear()
 
+    def gids(self):
+        return self.syn_id_attr_dict.keys()
+  
+    def items(self):
+        return viewitems(self.syn_id_attr_dict)
+
+    def __getitem__(self, gid):
+        return self.syn_id_attr_dict[gid]
+
+  
         
 def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, insert_netcons=False, insert_vecstims=False):
     """
