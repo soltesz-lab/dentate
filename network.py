@@ -385,10 +385,11 @@ def connect_cell_selection(env, cleanup=True):
                                               namespaces=['Synapses', 'Connections'])
 
             edge_iter = graph[postsyn_name][presyn_name]
-
+            edge_tee = itertools.tee(edge_iter, lambda x: vecstim_selection.append(x))
+            
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
+            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_tee)
             del graph[postsyn_name][presyn_name]
 
         for gid in syn_attrs.gids():
@@ -737,7 +738,8 @@ def make_stimulus(env,vecstim_selection):
                 cell.play(h.Vector(vecstim_dict['spiketrain']))
 
     if vecstim_selection is not None:
-        assert(env.spike_input_path is not None)
+        if env.spike_input_path is None:
+            raise Runtime
         for pop_name, gid_range in viewitems(vecstim_selection):
             cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range),
                                                         namespace=env.spike_input_ns,

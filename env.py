@@ -34,28 +34,28 @@ class Env:
     """
     Network model configuration.
     """
-    def __init__(self, comm=None, configFile=None, templatePaths="templates", hoclibPath=None, datasetPrefix=None,
-                 configPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0,
-                 coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0,
+    def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
+                 config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0, vrecord_fraction=0,
+                 coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0, results_write_time=0,
                  dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection=None, spike_input_path=None, spike_input_ns=None,
                  verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
-        :param configFile: str; model configuration file name
-        :param templatePaths: str; colon-separated list of paths to directories containing hoc cell templates
-        :param hoclibPath: str; path to directory containing required hoc libraries
-        :param datasetPrefix: str; path to directory containing required neuroh5 data files
-        :param configPrefix: str; path to directory containing network and cell mechanism config files
-        :param resultsPath: str; path to directory to export output files
-        :param resultsId: str; label for neuroh5 namespaces to write spike and voltage trace data
-        :param nodeRankFile: str; name of file specifying assignment of node gids to MPI ranks
-        :param IOsize: int; the number of MPI ranks to be used for I/O operations
-        :param vrecordFraction: float; fraction of cells to record intracellular voltage from
+        :param config_file: str; model configuration file name
+        :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+        :param hoc_lib_path: str; path to directory containing required hoc libraries
+        :param dataset_prefix: str; path to directory containing required neuroh5 data files
+        :param config_prefix: str; path to directory containing network and cell mechanism config files
+        :param results_path: str; path to directory to export output files
+        :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
+        :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
+        :param io_size: int; the number of MPI ranks to be used for I/O operations
+        :param vrecord_fraction: float; fraction of cells to record intracellular voltage from
         :param coredat: bool; Save CoreNEURON data
         :param tstop: int; physical time to simulate (ms)
         :param v_init: float; initialization membrane potential (mV)
         :param stimulus_onset: float; starting time of stimulus (ms)
-        :param max_walltime_hrs: float; maximum wall time (hours)
+        :param max_walltime_hours: float; maximum wall time (hours)
         :param results_write_time: float; time to write out results at end of simulation
         :param dt: float; simulation time step
         :param ldbal: bool; estimate load balance based on cell complexity
@@ -86,25 +86,25 @@ class Env:
         self.logger = get_root_logger()
         
         # Directories for cell templates
-        if templatePaths is not None:
-            self.templatePaths = templatePaths.split(':')
+        if template_paths is not None:
+            self.template_paths = template_paths.split(':')
         else:
-            self.templatePaths = []
+            self.template_paths = []
 
         # The location of required hoc libraries
-        self.hoclibPath = hoclibPath
+        self.hoc_lib_path = hoc_lib_path
 
         # The location of all datasets
-        self.datasetPrefix = datasetPrefix
+        self.dataset_prefix = dataset_prefix
 
         # The path where results files should be written
-        self.resultsPath = resultsPath
+        self.results_path = results_path
 
         # Identifier used to construct results data namespaces
-        self.resultsId = resultsId
+        self.results_id = results_id
 
         # Number of MPI ranks to be used for I/O operations
-        self.IOsize = IOsize
+        self.io_size = io_size
 
         # Initialization voltage
         self.v_init = v_init
@@ -116,7 +116,7 @@ class Env:
         self.stimulus_onset = stimulus_onset
 
         # maximum wall time in hours
-        self.max_walltime_hrs = max_walltime_hrs
+        self.max_walltime_hours = max_walltime_hours
 
         # time to write out results at end of simulation
         self.results_write_time = results_write_time
@@ -134,7 +134,7 @@ class Env:
         self.transfer_debug = transfer_debug
 
         # Fraction of cells to record intracellular voltage from
-        self.vrecordFraction = vrecordFraction
+        self.vrecord_fraction = vrecord_fraction
 
         # Save CoreNEURON data
         self.coredat = coredat
@@ -147,8 +147,8 @@ class Env:
         self.spike_input_ns = spike_input_ns
         
         self.nodeRanks = None
-        if nodeRankFile:
-            with open(nodeRankFile) as fp:
+        if node_rank_file:
+            with open(node_rank_file) as fp:
                 dval = {}
                 lines = fp.readlines()
                 for l in lines:
@@ -156,16 +156,16 @@ class Env:
                     dval[int(a[0])] = int(a[1])
                 self.nodeRanks = dval
 
-        self.configPrefix = configPrefix
+        self.config_prefix = config_prefix
 
-        if configFile is not None:
-            if configPrefix is not None:
-                configFilePath = self.configPrefix + '/' + configFile
+        if config_file is not None:
+            if config_prefix is not None:
+                config_file_path = self.config_prefix + '/' + config_file
             else:
-                configFilePath = configFile
-            if not os.path.isfile(configFilePath):
-                raise RuntimeError("configuration file %s was not found" % configFilePath)
-            with open(configFilePath) as fp:
+                config_file_path = config_file
+            if not os.path.isfile(config_file_path):
+                raise RuntimeError("configuration file %s was not found" % config_file_path)
+            with open(config_file_path) as fp:
                 self.modelConfig = yaml.load(fp, IncludeLoader)
         else:
             raise RuntimeError("missing configuration file")
@@ -191,8 +191,8 @@ class Env:
         # The dataset to use for constructing the network
         self.datasetName = self.modelConfig['Dataset Name']
 
-        if resultsPath:
-            self.resultsFilePath = "%s/%s_results.h5" % (self.resultsPath, self.modelName)
+        if results_path:
+            self.resultsFilePath = "%s/%s_results.h5" % (self.results_path, self.modelName)
         else:
             self.resultsFilePath = "%s_results.h5" % self.modelName
 
@@ -203,8 +203,8 @@ class Env:
             self.parse_connection_config()
             self.parse_gapjunction_config()
 
-        if self.datasetPrefix is not None:
-            self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
+        if self.dataset_prefix is not None:
+            self.datasetPath = os.path.join(self.dataset_prefix, self.datasetName)
             self.dataFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
             self.load_celltypes()
             self.connectivityFilePath = os.path.join(self.datasetPath, self.modelConfig['Connection Data'])
@@ -227,7 +227,7 @@ class Env:
             self.parse_netclamp_config()
 
         self.projection_dict = defaultdict(list)
-        if self.datasetPrefix is not None:
+        if self.dataset_prefix is not None:
             for (src, dst) in read_projection_names(self.connectivityFilePath, comm=self.comm):
                 self.projection_dict[dst].append(src)
 
@@ -258,13 +258,13 @@ class Env:
         self.edge_count = defaultdict(dict)
 
         # stimulus cell templates
-        if len(self.templatePaths) > 0:
-            find_template(self, 'StimCell', path=self.templatePaths)
-            find_template(self, 'VecStimCell', path=self.templatePaths)
+        if len(self.template_paths) > 0:
+            find_template(self, 'StimCell', path=self.template_paths)
+            find_template(self, 'VecStimCell', path=self.template_paths)
 
-        if self.hoclibPath:
+        if self.hoc_lib_path:
             # polymorphic hoc value template
-            h.load_file(self.hoclibPath + '/templates/Value.hoc')
+            h.load_file(self.hoc_lib_path + '/templates/Value.hoc')
 
     def parse_input_config(self):
         """
@@ -509,7 +509,7 @@ class Env:
             templateFile = self.celltypes[popName]['templateFile']
         else:
             templateFile = None
-        find_template(self, templateName, template_file=templateFile, path=self.templatePaths)
+        find_template(self, templateName, template_file=templateFile, path=self.template_paths)
         assert(hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class
