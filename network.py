@@ -285,7 +285,7 @@ def connect_cell_selection(env, cleanup=True):
     pop_names = set([ s[0] for s in env.cell_selection ])
     gid_range = list(itertools.chain.from_iterable([ s[1] for s in env.cell_selection ]))
     
-    vecstim_selection = defaultdict(list)
+    vecstim_sources = defaultdict(list)
     
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
@@ -383,13 +383,15 @@ def connect_cell_selection(env, cleanup=True):
                                               comm=env.comm, io_size=env.IOsize,
                                               projections=[(presyn_name, postsyn_name)],
                                               namespaces=['Synapses', 'Connections'])
-
-            edge_iter = graph[postsyn_name][presyn_name]
-            edge_tee = itertools.tee(edge_iter, lambda x: vecstim_selection.append(x))
+                
             
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_tee)
+            edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
+
+            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
+                                                itertools.imap(lambda edge: vecstim_sources.append(edge[0]), \
+                                                               edge_iters))
             del graph[postsyn_name][presyn_name]
 
         for gid in syn_attrs.gids():
@@ -404,7 +406,7 @@ def connect_cell_selection(env, cleanup=True):
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
-    return vecstim_selection
+    return vecstim_sources
 
 def connect_gjs(env):
     """
@@ -692,7 +694,7 @@ def make_cell_selection(env):
         h.define_shape()
 
 
-def make_stimulus(env,vecstim_selection):
+def make_stimulus(env,vecstim_sources):
     """
     Loads spike train data from NeuroH5 file for those populations
     that have 'Vector Stimulus' entry in the cell configuration.
@@ -737,17 +739,21 @@ def make_stimulus(env,vecstim_selection):
                 cell = env.pc.gid2cell(gid)
                 cell.play(h.Vector(vecstim_dict['spiketrain']))
 
-    if vecstim_selection is not None:
+    if vecstim_sources is not None:
+        gid_range_inst = list(itertools.chain.from_iterable([ s[1] for s in env.cell_selection ]))
         if env.spike_input_path is None:
-            raise Runtime
-        for pop_name, gid_range in viewitems(vecstim_selection):
-            cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range),
-                                                        namespace=env.spike_input_ns,
+            raise RuntimeException("Spike input path not provided")
+        if env.spike_input_ns is None:
+            raise RuntimeException("Spike input namespace not provided")
+        for pop_name, gid_range_stim in viewitems(vecstim_sources):
+            gid_range1 = gid_range_stim.difference(gid_range_inst)
+            cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range1), \
+                                                        namespace=env.spike_input_ns, \
                                                         comm=env.comm, io_size=env.IOsize)
-            for gid in gid_range:
-                cell = h.VecStim()
-                cell.play(cell_spikes[gid])
-                register_cell(env, pop_name, gid, cell)
+            for gid in gid_range1:
+                stim_cell = h.VecStim()
+                stim_cell.play(cell_spikes[gid])
+                register_cell(env, pop_name, gid, stim_cell)
 
 def init(env,profile=False):
     """Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.

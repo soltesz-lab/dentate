@@ -407,3 +407,13 @@ def generator_peek(iterable):
     except StopIteration:
         return None
     return first, itertools.chain([first], iterable)
+
+def compose_iter(f, iters):
+    """
+    Given a function and a tuple of iterators, apply the function to
+    the first iterator in the tuple, and returns the next element from
+    the second iterator in the tuple.
+    """
+    x = next(iters[0])
+    f(x)
+    return next(iters[1])
