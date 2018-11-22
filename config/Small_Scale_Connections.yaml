@@ -80,31 +80,7 @@ Synapse Parameter Rules:
       - gmax
     netcon_params:
       weight: 0
-# full width in um [S-T, M-L]
-Axon Width:
-  GC:   [900., 900.]
-  MPP:  [1500., 3000.]
-  LPP:  [1500., 3000.]
-  MC:   [4000., 4000.]
-  NGFC: [2000., 2000.]
-  AAC:  [1700., 1100.]
-  BC:   [1700., 1000.]
-  HCC:  [2600., 2600.]
-  HC:   [3000., 3000.]
-  IS:   [3000., 3000.]
-  MOPP: [2000., 2000.]
-Axon Offset:
-    MC:   [1000., 1000.]
-    GC:   [0., 0.]
-    MPP:  [0., 0.]
-    LPP:  [0., 0.]
-    NGFC: [0., 0.]
-    AAC:  [0., 0.]
-    BC:   [0., 0.]
-    HCC:  [0., 0.]
-    HC:   [0., 0.]
-    IS:   [0., 0.]
-    MOPP: [0., 0.]
+Axon Extent: !include Axon_Extent.yaml
 Synapses:
   GC:
     MPP:

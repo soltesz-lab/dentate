@@ -8,12 +8,12 @@ from neuron import h
 from dentate.utils import *
 from dentate.neuron_utils import find_template
 
-ConnectionConfig = namedtuple('ConnectionConfig',
-                                 ['type',
-                                  'sections',
-                                  'layers',
-                                  'proportions',
-                                  'mechanisms'])
+SynapseConfig = namedtuple('SynapseConfig',
+                               ['type',
+                                'sections',
+                                'layers',
+                                'proportions',
+                                'mechanisms'])
 
 GapjunctionConfig = namedtuple('GapjunctionConfig',
                                  ['sections',
@@ -350,6 +350,27 @@ class Env:
 
         self.synapse_attributes = SynapseAttributes(self, syn_mech_names, syn_param_rules)
 
+        extent_config = connection_config['Axon Extent']
+        self.connection_extents = {}
+
+        for population in extent_config.keys():
+
+            pop_connection_extents = {}
+            for layer_name in extent_config[population].keys():
+
+                if layer_name == 'default':
+                    pop_connection_extents[layer_name] = \
+                      { 'width': extent_config[population][layer_name]['width'], \
+                        'offset': extent_config[population][layer_name]['offset'] } 
+                else:
+                    layer_index = self.layers_dict[layer_name]
+                    pop_connection_extents[layer_index] = \
+                      { 'width': extent_config[population][layer_name]['width'], \
+                        'offset': extent_config[population][layer_name]['offset'] } 
+            
+            self.connection_extents[population] = pop_connection_extents
+
+        
         synapse_config = connection_config['Synapses']
         connection_dict = {}
         
@@ -372,12 +393,12 @@ class Env:
                     res_synlayers.append(self.layers_dict[name])
                 
                 connection_dict[key_postsyn][key_presyn] = \
-                    ConnectionConfig(res_type, \
-                                     res_synsections, \
-                                     res_synlayers, \
-                                     val_proportions, \
-                                     val_synparams)
-
+                  SynapseConfig(res_type, \
+                                res_synsections, \
+                                res_synlayers, \
+                                val_proportions, \
+                                val_synparams)
+                                    
 
             config_dict = defaultdict(lambda: 0.0)
             for (key_presyn, conn_config) in viewitems(connection_dict[key_postsyn]):

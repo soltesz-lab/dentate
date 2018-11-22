@@ -98,7 +98,7 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
             output_file.close()
     comm.barrier()
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
 
     layer_min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     layer_max_extents = env.geometry['Parametric Surface']['Maximum Extent']

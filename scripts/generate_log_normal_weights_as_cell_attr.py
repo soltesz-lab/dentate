@@ -54,7 +54,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
 
     if io_size == -1:
         io_size = comm.size

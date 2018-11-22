@@ -101,7 +101,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
 
     if io_size == -1:
         io_size = comm.size

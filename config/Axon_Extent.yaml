@@ -1,0 +1,48 @@
+# Axonal extent in um [S-T, M-L]
+GC:
+  default:
+    width: [900., 900.]
+    offset: [0., 0.]
+MPP:
+  default:
+    width: [1500., 3000.]
+    offset: [0., 0.]
+LPP:
+  default:
+    width: [1500., 3000.]
+    offset: [0., 0.]
+MC:
+  IML:
+    width:  [5000., 5000.]
+    offset: [750., 750.]
+  Hilus:
+    width:  [1500., 1500.]
+    offset: [0., 0.]
+NGFC:
+  default:
+    width: [2000., 2000.]
+    offset: [0., 0.]
+AAC:
+  default:
+    width: [2000., 1000.]
+    offset: [0., 0.]
+BC:
+  default:
+    width: [1700., 1000.]
+    offset: [0., 0.]
+HCC:
+  default:
+    width: [2600., 2600.]
+    offset: [0., 0.]
+HC:
+  default:
+    width: [4000., 4000.]
+    offset: [0., 0.]
+IS:
+  default:
+    width: [3000., 3000.]
+    offset: [0., 0.]
+MOPP:
+  default:
+    width: [2000., 2000.]
+    offset: [0., 0.]
