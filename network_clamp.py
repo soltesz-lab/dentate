@@ -177,10 +177,10 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
             r_range = [t_min, t_max]
 
     ## Attribute namespace that contains recorded spike events
-    if env.resultsId is None:
+    if env.results_id is None:
         namespace_id = spike_events_namespace
     else:
-        namespace_id = "%s %s" % (spike_events_namespace, str(env.resultsId))
+        namespace_id = "%s %s" % (spike_events_namespace, str(env.results_id))
 
     ## Determine presynaptic populations that connect to this cell type
     presyn_names = env.projection_dict[pop_name]
