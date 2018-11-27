@@ -59,4 +59,7 @@ Cell Types:
   LPP:
     template: LPPCell
     Vector Stimulus: Vector Stimulus 100
+  PYR:
+    template: PYRCell
+    Vector Stimulus: Vector Stimulus 100
 

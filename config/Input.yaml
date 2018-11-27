@@ -14,6 +14,8 @@
       place: 0.7
     LPP:
       place: 1.0
+    PYR:
+      place: 1.0
 110:
 ## Configuration with 60% grid cells in MPP
   trajectory: !include Trajectory.yaml
@@ -23,6 +25,8 @@
       place: 0.4
     LPP:
       place: 1.0
+    PYR:
+      place: 1.0
 120:
 ## Configuration with 100% grid cells in MPP
   trajectory: !include Trajectory.yaml
@@ -30,4 +34,6 @@
     MPP:
       grid: 1.0
     LPP:
+      place: 1.0
+    PYR:
       place: 1.0
