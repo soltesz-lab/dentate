@@ -347,8 +347,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
 
-    env = Env(comm=comm, tstop=tstop, configFile=config_file, templatePaths=template_paths, \
-              datasetPrefix=dataset_prefix, configPrefix=config_prefix, \
+    env = Env(comm=comm, tstop=tstop, config_file=config_file, template_paths=template_paths, \
+              dataset_prefix=dataset_prefix, config_prefix=config_prefix, \
               verbose=True)
     configure_hoc_env(env)
     
@@ -392,9 +392,9 @@ def main(config_file, population, gid, generate_inputs, generate_weights, tstop,
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
 
-    env = Env(comm=comm, tstop=tstop, configFile=config_file, templatePaths=template_paths, \
-                  datasetPrefix=dataset_prefix, configPrefix=config_prefix, resultsPath=results_path, \
-                  resultsId=results_id, verbose=verbose)
+    env = Env(comm=comm, tstop=tstop, config_file=config_file, template_paths=template_paths, \
+                  dataset_prefix=dataset_prefix, config_prefix=config_prefix, results_path=results_path, \
+                  results_id=results_id, verbose=verbose)
     configure_hoc_env(env)
 
     init(env, population, gid, spike_events_path, \

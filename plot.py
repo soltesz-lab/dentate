@@ -980,7 +980,7 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
 
 def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=False):
     
-    env = Env(configFile=config)
+    env = Env(config_file=config)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
@@ -1065,7 +1065,7 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
 def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
     
-    env = Env(configFile=config)
+    env = Env(config_file=config)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
 
@@ -1285,7 +1285,7 @@ def plot_lfp(config, input_path, timeRange = None, lw = 3, figSize = (15,8), fon
     showFig (True|False): Whether to show the figure or not (default: True)
     '''
 
-    env = Env(configFile=config)
+    env = Env(config_file=config)
 
     fig = plt.figure(figsize=figSize)
     ax = plt.gca()

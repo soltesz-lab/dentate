@@ -222,7 +222,7 @@ def main(config_path,template_paths,forest_path,synapses_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    env = Env(comm=comm, configFile=config_path, templatePaths=template_paths)
+    env = Env(comm=comm, config_file=config_path, template_paths=template_paths)
 
     neuron_utils.configure_hoc_env(env)
     

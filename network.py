@@ -417,7 +417,7 @@ def connect_gjs(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    datasetPath = os.path.join(env.datasetPrefix, env.datasetName)
+    datasetPath = os.path.join(env.dataset_prefix, env.datasetName)
 
     gapjunctions = env.gapjunctions
     gapjunctionsFilePath = env.gapjunctionsFilePath 

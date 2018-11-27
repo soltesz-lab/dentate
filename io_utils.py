@@ -118,7 +118,7 @@ def mkout(env, results_filename):
     :param results_filename:
     :return:
     """
-    datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
+    datasetPath   = os.path.join(env.dataset_prefix,env.datasetName)
     dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
     dataFile      = h5py.File(dataFilePath,'r')
     resultsFile   = h5py.File(results_filename,'w')
