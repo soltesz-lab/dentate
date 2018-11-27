@@ -1326,7 +1326,7 @@ def report_topology(cell, env, node=None):
     if node is None:
        node = cell.tree.root
     syn_attrs = env.synapse_attributes
-    if node.index in syn_attrs.sec_index_map[cell.gid]:
+    if node.index in syn_attrs.sec_index_map[cell.gid] and len(syn_attrs.sec_index_map[cell.gid][node.index]) > 0:
         num_exc_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
                                                               syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
                                                               syn_types=[env.syntypes_dict['excitatory']]))
@@ -1336,8 +1336,9 @@ def report_topology(cell, env, node=None):
     else:
         num_exc_syns = 0
         num_inh_syns = 0
-    report = 'node: %s, L: %.1f, diam: %.2f, children: %i, exc_syns: %i, inh_syns: %i' % \
-             (node.name, node.sec.L, node.sec.diam, len(node.children), num_exc_syns, num_inh_syns)
+    diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
+    report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
+             (node.name, node.sec.L, diams_str, len(node.children), num_exc_syns, num_inh_syns)
     if node.parent is not None:
         report += ', parent: %s' % node.parent.name
     logger.info(report)

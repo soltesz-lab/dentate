@@ -42,7 +42,7 @@ class SynapseAttributes(object):
             np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int8')
         self.syn_id_attr_dict[gid]['syn_source_gids'] = \
             np.full(self.syn_id_attr_dict[gid]['syn_ids'].shape, -1, dtype='int32')
-        self.syn_id_attr_index_map[gid] = { syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids']) }
+        self.syn_id_attr_index_map[gid] = {syn_id: i for i, syn_id in enumerate(syn_id_attr_dict['syn_ids']) }
         for i, sec_id in enumerate(syn_id_attr_dict['syn_secs']):
             self.sec_index_map[gid][sec_id].append(i)
         for sec_id in self.sec_index_map[gid]:
@@ -220,6 +220,8 @@ class SynapseAttributes(object):
             syn_indexes = np.arange(len(syn_id_attr_dict['syn_ids']), dtype='uint32')
         else:
             syn_indexes = np.array(syn_indexes, dtype='uint32')
+        if len(syn_indexes) == 0:
+            return syn_indexes
         filtered_indexes = np.where(matches(syn_types, syn_id_attr_dict['syn_types'][syn_indexes]) &
                                     matches(layers, syn_id_attr_dict['syn_layers'][syn_indexes]) &
                                     matches(sources, syn_id_attr_dict['syn_sources'][syn_indexes]) &
@@ -1104,10 +1106,8 @@ def make_synapse_graph(syn_dict, neurotree_dict):
             syn_graph.add_edge(i[0], j[0])
 
     return syn_graph
-    
-    
 
-    
+
 def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict, seed, neurotree_dict=None):
     """
     Computes per-segment density of synapse placement.
@@ -1177,7 +1177,8 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
     return (segdensity_dict, layers_dict)
 
 
-def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seg_dict, seed, neurotree_dict=None):
+def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seg_dict, seed,
+                       neurotree_dict=None):
     """
     Computes per-segment relative counts of synapse placement.
     :param syn_type_dict:
@@ -1247,9 +1248,8 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
     return (segcounts_dict, segcount_total, layers_dict)
 
 
-
-def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
-                                cell_sec_dict, cell_secidx_dict):
+def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
+                                neurotree_dict, cell_sec_dict, cell_secidx_dict):
     """
     Computes uniformly-spaced synapse locations.
     :param density_seed:
@@ -1332,8 +1332,9 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     return (syn_dict, segcounts_per_sec)
 
-def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict, neurotree_dict,
-                                cell_sec_dict, cell_secidx_dict):
+
+def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
+                                neurotree_dict, cell_sec_dict, cell_secidx_dict):
     """
     Computes synapse locations according to a Poisson distribution.
     :param density_seed:

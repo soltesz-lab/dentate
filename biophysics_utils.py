@@ -421,7 +421,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
-    config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+    config_syns_from_mech_attrs(gid, env, pop_name, insert=True, verbose=verbose)
     if verbose:
         report_topology(cell, env)
 

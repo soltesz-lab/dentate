@@ -1,8 +1,8 @@
 Synapse Mechanisms:
-  SatAMPA: SatExp2Syn
+  AMPA: SatExp2Syn
   NMDA: FacilNMDA
-  SatGABA_A: SatExp2Syn
-  SatGABA_B: SatExp2Syn
+  GABA_A: SatExp2Syn
+  GABA_B: SatExp2Syn
 Synapse Parameter Rules:
   EPSC:
     mech_file: exp2EPSC.mod
@@ -113,7 +113,7 @@ Synapses:
       layers: [MML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.5
           sat: 0.9
@@ -127,7 +127,7 @@ Synapses:
       layers: [OML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.5
           sat: 0.9
@@ -141,7 +141,7 @@ Synapses:
       layers: [IML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.5
           sat: 0.9
@@ -155,7 +155,7 @@ Synapses:
       layers: [GCL]
       proportions: [1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.3
           tau_offset: 2.9
           sat: 0.9
@@ -167,7 +167,7 @@ Synapses:
       layers: [GCL, IML]
       proportions: [1.0, 0.69]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.25
           tau_offset: 5.5
           sat: 0.9
@@ -179,7 +179,7 @@ Synapses:
       layers: [IML]
       proportions: [0.31]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.4
           tau_offset: 1.1
           sat: 0.9
@@ -191,7 +191,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.5, 0.5]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.5
           tau_offset: 6.0
           sat: 0.9
@@ -203,13 +203,13 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.28, 0.28]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  0.1
           tau_offset: 10.0
           sat: 0.9
           e:   -75
           g_unit: 0.00015
-        SatGABA_B:
+        GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           sat: 0.9
@@ -221,7 +221,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.22, 0.22]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  0.1
           tau_offset: 10.0
           sat: 0.9
@@ -234,7 +234,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.23]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 6.2
           sat: 0.9
@@ -246,7 +246,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.77]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.45
           tau_offset: 2.2
           sat: 0.9
@@ -258,7 +258,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.33]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.5
           tau_offset: 6.0
           sat: 0.9
@@ -270,7 +270,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [1.0, 0.17]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.3
           tau_offset: 3.3
           sat: 0.9
@@ -282,7 +282,7 @@ Synapses:
       layers: [GCL]
       proportions: [1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.3
           tau_offset: 3.3
           sat: 0.9
@@ -294,7 +294,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.5]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.6
           tau_offset: 4.7
           sat: 0.9
@@ -307,7 +307,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.72]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.3
           tau_offset: 6.2
           sat: 0.9
@@ -319,7 +319,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.28]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.9
           tau_offset: 3.6
           sat: 0.9
@@ -331,7 +331,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.99]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.37
           tau_offset: 10.48
           sat: 0.9
@@ -343,7 +343,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [0.01, 1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.37
           tau_offset: 10.48
           sat: 0.9
@@ -356,7 +356,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [1.0, 1.0, 1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.3
           tau_offset: 6.2
           sat: 0.9
@@ -368,7 +368,7 @@ Synapses:
       layers: [MML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset:  0.5
           tau_offset: 3.0
           sat: 0.9
@@ -380,7 +380,7 @@ Synapses:
       layers: [OML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset:  0.5
           tau_offset: 3.0
           sat: 0.9
@@ -392,7 +392,7 @@ Synapses:
       layers: [Hilus, IML]
       proportions: [1.0, 1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.9
           tau_offset: 3.6
           sat: 0.9
@@ -404,7 +404,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [0.67, 1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.22
           tau_offset: 3.35
           sat: 0.9
@@ -416,7 +416,7 @@ Synapses:
       layers: [IML]
       proportions: [1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.6
           tau_offset: 4.78
           sat: 0.9
@@ -428,7 +428,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.96, 0.96]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.46
           tau_offset: 4.43
           sat: 0.9
@@ -440,13 +440,13 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.02, 0.02]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:   4.2
           tau_offset: 14.0
           sat: 0.9
           e:    -75
           g_unit: 0.000183
-        SatGABA_B:
+        GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           sat: 0.9
@@ -458,7 +458,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.02, 0.02]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:   4.2
           tau_offset: 14.0
           sat: 0.9
@@ -470,7 +470,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [0.33, 1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.46
           tau_offset: 4.43
           sat: 0.9
@@ -483,7 +483,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [1.0, 1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.3
           tau_offset: 6.2
           sat: 0.9
@@ -495,7 +495,7 @@ Synapses:
       layers: [MML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset:  0.5
           tau_offset: 3.0
           sat: 0.9
@@ -507,7 +507,7 @@ Synapses:
       layers: [OML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset:  0.5
           tau_offset: 3.0
           sat: 0.9
@@ -519,7 +519,7 @@ Synapses:
       layers: [IML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.9
           tau_offset: 3.6
           sat: 0.9
@@ -531,7 +531,7 @@ Synapses:
       layers: [IML]
       proportions: [1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.6
           tau_offset: 4.78
           sat: 0.9
@@ -543,7 +543,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.96, 0.96]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.46
           tau_offset: 4.43
           sat: 0.9
@@ -555,13 +555,13 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.02, 0.02]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:   4.2
           tau_offset: 14.0
           sat: 0.9
           e:    -75
           g_unit: 0.000183
-        SatGABA_B:
+        GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           sat: 0.9
@@ -573,7 +573,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.02, 0.02]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:   4.2
           tau_offset: 14.0
           sat: 0.9
@@ -585,7 +585,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [1.0, 1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.46
           tau_offset: 4.43
           sat: 0.9
@@ -598,7 +598,7 @@ Synapses:
       layers: [MML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.0
           sat: 0.9
@@ -610,7 +610,7 @@ Synapses:
       layers: [OML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.0
           sat: 0.9
@@ -622,7 +622,7 @@ Synapses:
       layers: [Hilus]
       proportions: [0.68]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.3
           tau_offset: 6.2
           sat: 0.9
@@ -634,7 +634,7 @@ Synapses:
       layers: [Hilus, IML]
       proportions: [0.32, 1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.9
           tau_offset: 3.6
           sat: 0.9
@@ -646,7 +646,7 @@ Synapses:
       layers: [Hilus, IML]
       proportions: [0.3, 1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.72
           tau_offset: 4.7
           sat: 0.9
@@ -658,13 +658,13 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.56, 0.56]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  4.2
           tau_offset: 16.2
           sat: 0.9
           e: -75
           g_unit: 0.000168
-        SatGABA_B:
+        GABA_B:
           dur_onset:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
           tau_offset: 200.0  # http://www.jneurosci.org/content/33/18/7961
           sat: 0.9
@@ -676,7 +676,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.44, 0.44]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  4.2
           tau_offset: 16.2
           sat: 0.9
@@ -688,7 +688,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [0.7, 1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.46
           tau_offset: 4.43
           sat: 0.9
@@ -701,7 +701,7 @@ Synapses:
       layers: [MML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.0
           sat: 0.9
@@ -713,7 +713,7 @@ Synapses:
       layers: [OML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.0
           sat: 0.9
@@ -725,7 +725,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.86, 0.86]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.72
           tau_offset: 4.7
           sat: 0.9
@@ -737,13 +737,13 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.08, 0.08]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  4.2
           tau_offset: 14.0
           sat: 0.9
           e: -75
           g_unit: 0.000113
-        SatGABA_B:
+        GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           sat: 0.9
@@ -755,7 +755,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.06, 0.06]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  4.2
           tau_offset: 14.0
           sat: 0.9
@@ -768,7 +768,7 @@ Synapses:
       layers: [MML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.0
           sat: 0.9
@@ -780,7 +780,7 @@ Synapses:
       layers: [OML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.5
           tau_offset: 5.0
           sat: 0.9
@@ -792,7 +792,7 @@ Synapses:
       layers: [IML]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.9
           tau_offset: 3.6
           sat: 0.9
@@ -804,7 +804,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [1.0, 0.86]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.72
           tau_offset: 4.7
           sat: 0.9
@@ -816,7 +816,7 @@ Synapses:
       layers: [IML]
       proportions: [1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.72
           tau_offset: 4.7
           sat: 0.9
@@ -828,13 +828,13 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.56, 0.08]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  4.2
           tau_offset: 14.0
           sat: 0.9
           e: -75
           g_unit: 0.000113
-        SatGABA_B:
+        GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           sat: 0.9
@@ -846,7 +846,7 @@ Synapses:
       layers: [MML, OML]
       proportions: [0.44, 0.06]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset:  4.5
           tau_offset: 13.8
           sat: 0.9
@@ -859,7 +859,7 @@ Synapses:
       layers: [Hilus]
       proportions: [1.0]
       mechanisms:
-        SatAMPA:
+        AMPA:
           dur_onset: 0.3
           tau_offset: 6.2
           sat: 0.9
@@ -871,7 +871,7 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [1.0, 1.0]
       mechanisms:
-        SatGABA_A:
+        GABA_A:
           dur_onset: 0.37
           tau_offset: 10.48
           sat: 0.9
