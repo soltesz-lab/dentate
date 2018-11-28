@@ -163,8 +163,6 @@ class ConnectionProb(object):
             else:
                 raise RuntimeError('connection_generator.get_prob: missing configuration for layer %s' % \
                                     str(layer))
-            print 'get_prob: source: %s source_layers: %s p_dist keys: %s layer key: %s' % \
-              (str(source), str(source_layers), str(self.p_dist[source].keys()), str(layer_key))
             p = self.p_dist[source][layer_key](distance_u, distance_v)
             psum = np.sum(p)
             assert((p >= 0.).all() and (p <= 1.).all())
@@ -458,8 +456,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                   connection_dict)
             total_count += count
 
-            for k in connection_dict.keys():
-                print connection_dict[k]
             logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))
 
         if gid_count % write_size == 0:
