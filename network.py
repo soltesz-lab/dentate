@@ -151,7 +151,7 @@ def connect_cells(env, cleanup=True):
             weights_namespace = 'Weights'
 
         if 'mech_file' in env.celltypes[postsyn_name]:
-            mech_file_path = env.configPrefix + '/' + env.celltypes[postsyn_name]['mech_file']
+            mech_file_path = env.config_prefix + '/' + env.celltypes[postsyn_name]['mech_file']
         else:
             mech_file_path = None
 
@@ -166,12 +166,12 @@ def connect_cells(env, cleanup=True):
         if env.nodeRanks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
-                                                                io_size=env.IOsize)
+                                                                io_size=env.io_size)
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
                                                                 node_rank_map=env.nodeRanks,
-                                                                io_size=env.IOsize)
+                                                                io_size=env.io_size)
         cell_synapses_iter = cell_attributes_dict['Synapse Attributes']
         syn_attrs.init_syn_id_attrs_from_iter(cell_synapses_iter)
         
@@ -220,11 +220,11 @@ def connect_cells(env, cleanup=True):
 
             logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
             if env.nodeRanks is None:
-                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.IOsize,
+                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
             else:
-                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.IOsize,
+                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.io_size,
                                                 node_rank_map=env.nodeRanks,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
@@ -323,14 +323,14 @@ def connect_cell_selection(env, cleanup=True):
 
         syn_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
                                                             namespace='Synapse Attributes', comm=env.comm,
-                                                            io_size=env.IOsize)
+                                                            io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(syn_attributes_iter)
         del(syn_attributes_iter)
         
         if has_weights:
             weight_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
                                                                     namespace=weights_namespace, comm=env.comm,
-                                                                    io_size=env.IOsize)
+                                                                    io_size=env.io_size)
         else:
             weight_attributes_iter = None
 
@@ -380,7 +380,7 @@ def connect_cell_selection(env, cleanup=True):
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
             (graph, a) = read_graph_selection(connectivityFilePath, gid_range,
-                                              comm=env.comm, io_size=env.IOsize,
+                                              comm=env.comm, io_size=env.io_size,
                                               projections=[(presyn_name, postsyn_name)],
                                               namespaces=['Synapses', 'Connections'])
                 
@@ -518,7 +518,7 @@ def make_cells(env):
         
         for gid in range(env.celltypes[pop_name]['start'],
                          env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
-            if ranstream_v_sample.uniform() <= env.vrecordFraction:
+            if ranstream_v_sample.uniform() <= env.vrecord_fraction:
                 v_sample_set.add(gid)
 
         num_cells = 0
@@ -527,9 +527,9 @@ def make_cells(env):
                 logger.info("*** Reading trees for population %s" % pop_name)
 
             if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.IOsize)
+                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.io_size)
             else:
-                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.IOsize,
+                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.io_size,
                                                          node_rank_map=env.nodeRanks)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
@@ -560,12 +560,12 @@ def make_cells(env):
             if env.nodeRanks is None:
                 cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, pop_name,
                                                                     namespaces=['Coordinates'],
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             else:
                 cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, pop_name,
                                                                     namespaces=['Coordinates'],
                                                                     node_rank_map=env.nodeRanks,
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
@@ -622,7 +622,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees, _) = read_tree_selection(dataFilePath, pop_name, gid_range, comm=env.comm, io_size=env.IOsize)
+            (trees, _) = read_tree_selection(dataFilePath, pop_name, gid_range, comm=env.comm, io_size=env.io_size)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
@@ -718,12 +718,12 @@ def make_stimulus(env,vecstim_sources):
             if env.nodeRanks is None:
                 cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, pop_name,
                                                                     namespaces=[vecstim_namespace],
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             else:
                 cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, pop_name,
                                                                     namespaces=[vecstim_namespace],
                                                                     node_rank_map=env.nodeRanks,
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             if rank == 0:
                 logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
@@ -749,7 +749,7 @@ def make_stimulus(env,vecstim_sources):
             gid_range1 = gid_range_stim.difference(gid_range_inst)
             cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range1), \
                                                         namespace=env.spike_input_ns, \
-                                                        comm=env.comm, io_size=env.IOsize)
+                                                        comm=env.comm, io_size=env.io_size)
             for gid in gid_range1:
                 stim_cell = h.VecStim()
                 stim_cell.play(cell_spikes[gid])
@@ -838,7 +838,7 @@ def init(env,profile=False):
     lfp_time = h.stopsw()
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
-    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time, max_setup_time)
+    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
@@ -876,7 +876,7 @@ def run(env, output=True):
         if rank == 0:
             logger.info("*** Writing spike data")
         io_utils.spikeout(env, env.resultsFilePath)
-        if env.vrecordFraction > 0.:
+        if env.vrecord_fraction > 0.:
           if rank == 0:
             logger.info("*** Writing intracellular trace data")
           t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)

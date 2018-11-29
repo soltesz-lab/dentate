@@ -183,7 +183,6 @@ def main(config, template_path, output_path, forest_path, populations, distribut
     syn_stats = {}
     for population in populations:
         logger.info('Rank %i population: %s' % (rank, population))
-        count = 0
         (population_start, _) = pop_ranges[population]
         template_class = env.load_cell_template(population)
         
@@ -202,7 +201,8 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'swc_type': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'total': { 'excitatory': 0, 'inhibitory': 0 } }
-                           
+
+        count = 0
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             local_time = time.time()
             synapse_dict = {}
@@ -246,10 +246,21 @@ def main(config, template_path, output_path, forest_path, populations, distribut
             gc.collect()
 
         global_count = comm.gather(count, root=0)
-        summary = global_syn_summary(comm, syn_stats, np.sum(global_count), root=0)
-        if rank == 0:
-            logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
-            logger.info(summary)
+
+        if count > 0:
+            color = 1
+        else:
+            color = 0
+            
+        comm0 = comm.Split(color, 0)
+        if color == 1:
+            summary = global_syn_summary(comm0, syn_stats, np.sum(global_count), root=0)
+            if rank == 0:
+                logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
+                logger.info(summary)
+        comm0.Free()
+        comm.barrier()
+            
     MPI.Finalize()
 
 

@@ -163,8 +163,6 @@ class ConnectionProb(object):
             else:
                 raise RuntimeError('connection_generator.get_prob: missing configuration for layer %s' % \
                                     str(layer))
-            print 'get_prob: source: %s source_layers: %s p_dist keys: %s layer key: %s' % \
-              (str(source), str(source_layers), str(self.p_dist[source].keys()), str(layer_key))
             p = self.p_dist[source][layer_key](distance_u, distance_v)
             psum = np.sum(p)
             assert((p >= 0.).all() and (p <= 1.).all())
@@ -305,13 +303,16 @@ def generate_synaptic_connections(rank,
     ## Choose source connections based on distance-weighted probability
     count = 0
     for projection, prj_layer_dict in viewitems(synapse_prj_partition):
+        gid_dict = connection_dict[projection]
+        prj_source_vertices = []
+        prj_syn_ids = []
+        prj_distances = []
         for prj_layer, syn_ids in viewitems(prj_layer_dict):
-            count += len(syn_ids)
-            source_probs, source_gids, distances_u, distances_v = projection_prob_dict[projection][prj_layer]
+            source_probs, source_gids, distances_u, distances_v = \
+                projection_prob_dict[projection][prj_layer]
             distance_dict = { source_gid: distance_u+distance_v \
                                 for (source_gid,distance_u,distance_v) in \
                                   zip(source_gids, distances_u, distances_v) }
-            gid_dict = connection_dict[projection]
             if len(source_gids) > 0:
                 source_gid_counts = random_choice(ranstream_con, len(syn_ids), source_probs)
                 if len(source_gid_counts) == 0:
@@ -327,21 +328,31 @@ def generate_synaptic_connections(rank,
                                                                       cluster_std=2.0, \
                                                                       random_seed=cluster_seed), \
                                              dtype=np.uint32)
+                assert(len(source_vertices) == len(syn_ids))
                 distances = np.asarray([ distance_dict[gid] for gid in source_vertices ], \
                                        dtype=np.float32).reshape(-1,)
-                gid_dict[destination_gid] = ( source_vertices,
-                                              { 'Synapses' : { 'syn_id': np.asarray (syn_ids, dtype=np.uint32) },
-                                                'Connections' : { 'distance': distances }
-                                              } )
-            else:
-                logger.warning('Rank %i: source gid list is empty for gid: %i projection: %s len(syn_ids): %i' % (rank, destination_gid, projection, len(syn_ids)))
-## If any projection does not have connections associated with it, create empty entries
-## This is necessary for the parallel graph append operation, which performs a separate append for each projection,
-## and therefore needs all ranks to participate in it.
+                prj_source_vertices.append(source_vertices)
+                prj_syn_ids.append(syn_ids)
+                prj_distances.append(distances)
                 gid_dict[destination_gid] = ( np.asarray ([], dtype=np.uint32),
                                                 { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) },
                                                   'Connections' : { 'distance': np.asarray ([], dtype=np.float32) }
                                                 } )
+        prj_source_vertices_array = np.concatenate(prj_source_vertices)
+        del(prj_source_vertices)
+        prj_syn_ids_array = np.concatenate(prj_syn_ids)
+        del(prj_syn_ids)
+        prj_distances_array = np.concatenate(prj_distances)
+        del(prj_distances)
+        if len(prj_source_vertices_array) == 0:
+            logger.warning('Rank %i: source gid list is empty for gid: %i projection: %s len(syn_ids): %i' % (rank, destination_gid, projection, len(prj_syn_ids)))
+
+        count += len(prj_source_vertices_array)
+        gid_dict[destination_gid] = ( prj_source_vertices_array,
+                                          { 'Synapses' : { 'syn_id': np.asarray (prj_syn_ids_array, \
+                                                                                 dtype=np.uint32) },
+                                          'Connections' : { 'distance': prj_distances_array }
+                                          } )
 
     return count
 
@@ -444,7 +455,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                   projection_prob_dict,
                                                   connection_dict)
             total_count += count
-            
+
             logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (rank, time.time() - last_time, count, destination_population, destination_gid))
 
         if gid_count % write_size == 0:
