@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import yaml
 from collections import namedtuple, defaultdict
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
@@ -37,7 +38,7 @@ class Env:
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0, vrecord_fraction=0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0, results_write_time=0,
-                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection=None, spike_input_path=None, spike_input_ns=None,
+                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection_path=None, spike_input_path=None, spike_input_ns=None,
                  verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
@@ -140,7 +141,11 @@ class Env:
         self.coredat = coredat
 
         # Cell selection for simulations of subsets of the network
-        self.cell_selection = cell_selection
+        self.cell_selection = None
+        self.cell_selection_path = cell_selection_path
+        if cell_selection_path:
+            with open(cell_selection_path) as fp:
+                self.cell_selection = yaml.load(fp, IncludeLoader)
         
         # Spike input path
         self.spike_input_path = spike_input_path
@@ -192,9 +197,9 @@ class Env:
         self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
-            self.resultsFilePath = "%s/%s_results.h5" % (self.results_path, self.modelName)
+            self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
         else:
-            self.resultsFilePath = "%s_results.h5" % self.modelName
+            self.results_file_path = "%s_results.h5" % self.modelName
 
         if 'Definitions' in self.modelConfig:
             self.parse_definitions()
@@ -204,21 +209,21 @@ class Env:
             self.parse_gapjunction_config()
 
         if self.dataset_prefix is not None:
-            self.datasetPath = os.path.join(self.dataset_prefix, self.datasetName)
-            self.dataFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
+            self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
+            self.data_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
             self.load_celltypes()
-            self.connectivityFilePath = os.path.join(self.datasetPath, self.modelConfig['Connection Data'])
-            self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
+            self.connectivity_file_path = os.path.join(self.dataset_path, self.modelConfig['Connection Data'])
+            self.forest_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
             if 'Gap Junction Data' in self.modelConfig:
-                self.gapjunctionsFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
+                self.gapjunctions_file_path = os.path.join(self.dataset_path, self.modelConfig['Gap Junction Data'])
             else:
-                self.gapjunctionsFilePath = None
+                self.gapjunctions_file_path = None
         else:
-            self.datasetPath = None
-            self.dataFilePath = None
-            self.connectivityFilePath = None
-            self.forestFilePath = None
-            self.gapjunctionsFilePath = None
+            self.dataset_path = None
+            self.data_file_path = None
+            self.connectivity_file_path = None
+            self.forest_file_path = None
+            self.gapjunctions_file_path = None
                 
         if 'Input' in self.modelConfig:
             self.parse_input_config()
@@ -228,7 +233,7 @@ class Env:
 
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
-            for (src, dst) in read_projection_names(self.connectivityFilePath, comm=self.comm):
+            for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
                 self.projection_dict[dst].append(src)
 
         self.lfpConfig = {}
@@ -501,7 +506,7 @@ class Env:
 
         self.comm.Barrier()
 
-        (population_ranges, _) = read_population_ranges(self.dataFilePath, self.comm)
+        (population_ranges, _) = read_population_ranges(self.data_file_path, self.comm)
         if rank == 0 and self.verbose:
             self.logger.info('population_ranges = %s' % str(population_ranges))
         
@@ -509,10 +514,10 @@ class Env:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
 
-        population_names  = read_population_names(self.dataFilePath, self.comm)
+        population_names  = read_population_names(self.data_file_path, self.comm)
         if rank == 0 and self.verbose:
             self.logger.info('population_names = %s' % str(population_names))
-        self.cellAttributeInfo = read_cell_attribute_info(self.dataFilePath, population_names, comm=self.comm)
+        self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
         if rank == 0 and self.verbose:
             self.logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
