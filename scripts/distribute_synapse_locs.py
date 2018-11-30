@@ -212,16 +212,17 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
+                random_seed = env.modelConfig['Random Seeds']['Synapse Locations'] + gid
                 if distribution == 'uniform':
-                    syn_dict, seg_density_per_sec = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                    density_dict, morph_dict,
-                                                                    cell_sec_dict, cell_secidx_dict)
+                    syn_dict, seg_density_per_sec = synapses.distribute_uniform_synapses(random_seed, env.Synapse_Types, env.SWC_Types, env.layers,
+                                                                                         density_dict, morph_dict,
+                                                                                         cell_sec_dict, cell_secidx_dict)
                                                                     
                     
                 elif distribution == 'poisson':
-                    syn_dict, seg_density_per_sec = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                    density_dict, morph_dict,
-                                                                    cell_sec_dict, cell_secidx_dict)
+                    syn_dict, seg_density_per_sec = synapses.distribute_poisson_synapses(random_seed, env.Synapse_Types, env.SWC_Types, env.layers,
+                                                                                         density_dict, morph_dict,
+                                                                                         cell_sec_dict, cell_secidx_dict)
                 else:
                     raise Exception('Unknown distribution type: %s' % distribution)
 
