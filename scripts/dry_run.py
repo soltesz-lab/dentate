@@ -7,10 +7,6 @@ from mpi4py import MPI
 import numpy as np
 import dentate.network as network
 from dentate.env import Env
-from nested.utils import Context
-
-
-context = Context()
 
 
 @click.command()
@@ -44,9 +40,8 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, tstop=tstop, 
-              verbose=verbose)
-    context.update(locals())
+    params = dict(locals())
+    env = Env(**params)
     network.init(env)
     if run_test:
         network.run(env, output=False)

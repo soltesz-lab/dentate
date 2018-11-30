@@ -158,7 +158,7 @@ def main(config, template_path, output_path, forest_path, populations, distribut
 
     logger.info('rank %i: before environment' % rank)
     comm.barrier()
-    env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path)
+    env = Env(comm=MPI.COMM_WORLD, config_file=config, template_paths=template_path)
     logger.info('rank %i: environment configured' % rank)
     configure_hoc_env(env)
     

@@ -7,6 +7,7 @@ from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_popula
 import h5py
 from dentate.env import Env
 import dentate.utils as utils
+import dentate.synapses as synapses
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -14,8 +15,6 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
-
-local_random = np.random.RandomState()
 
 mu = 0.
 sigma = 1.0
@@ -55,7 +54,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
 
     if io_size == -1:
         io_size = comm.size
@@ -81,41 +80,34 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
 
     connection_gen_list = []
     for source in sources:
-        connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], \
+        connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, \
+                                                        namespaces=['Synapses'], \
                                                         comm=comm))
 
     weights_dict = {}
     for itercount, attr_gen_package in enumerate(utils.zip_longest(*connection_gen_list)):
         local_time = time.time()
-        source_syn_map = defaultdict(list)
-        source_weights = None
+        source_syn_dict = defaultdict(list)
         source_gid_array = None
         conn_attr_dict = None
-        syn_weight_map = {}
         destination_gid = attr_gen_package[0][0]
         if not all([attr_gen_items[0] == destination_gid for attr_gen_items in attr_gen_package]):
             raise Exception('Rank: %i; destination: %s; destination_gid %i not matched across multiple attribute generators: %s' %
                             (rank, destination, destination_gid,
                              str([attr_gen_items[0] for attr_gen_items in attr_gen_package])))
         if destination_gid is not None:
-            local_random.seed(int(destination_gid + seed_offset))
+            seed = int(destination_gid + seed_offset)
             for this_destination_gid, (source_gid_array, conn_attr_dict) in attr_gen_package:
                 for j in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[j]
                     this_syn_id = conn_attr_dict['Synapses']['syn_id'][j]
-                    source_syn_map[this_source_gid].append(this_syn_id)
-            source_weights = local_random.lognormal(mu, sigma, len(source_syn_map))
-            # weights are synchronized across all inputs from the same source_gid
-            for this_source_gid, this_weight in zip(source_syn_map, source_weights):
-                for this_syn_id in source_syn_map[this_source_gid]:
-                    syn_weight_map[this_syn_id] = this_weight
-            weights = np.array(list(syn_weight_map.values())).astype('float32', copy=False)
-            normed_weights = weights / weights.max()
+                    source_syn_dict[this_source_gid].append(this_syn_id)
             weights_dict[destination_gid] = \
-                { 'syn_id': np.array(list(syn_weight_map.keys())).astype('uint32', copy=False),
-                  weights_name: normed_weights }
-            logger.info('Rank %i; destination: %s; destination_gid %i; generated log-normal weights for %i inputs from %i sources in ' \
-                        '%.2f s' % (rank, destination, destination_gid, len(syn_weight_map), len(source_weights),
+              synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
+            logger.info('Rank %i; destination: %s; destination gid %i; sources: %s; generated log-normal weights for %i inputs in ' \
+                        '%.2f s' % (rank, destination, destination_gid, \
+                                    [source.encode('ascii') for source in list(sources)], \
+                                    len(weights_dict[destination_gid]['syn_id']), \
                                     time.time() - local_time))
             count += 1
         else:
@@ -123,12 +115,10 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
         gid_count += 1
         if gid_count % write_size == 0:
             if not dry_run:
-                append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
-                                        comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                append_cell_attributes(weights_path, destination, weights_dict, namespace=weights_namespace,
+                                       comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
             # print 'Rank: %i, just after append' % rank
-            del source_syn_map
-            del source_weights
-            del syn_weight_map
+            del source_syn_dict
             del source_gid_array
             del conn_attr_dict
             weights_dict.clear()

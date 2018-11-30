@@ -8,7 +8,7 @@ from neuron import h
 from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 from dentate.env import Env
 from dentate import utils, neuron_utils, cells, synapses
-from dentate.synapses import mksyns, mknetcon, config_syn, add_unique_synapse, add_shared_synapse
+from dentate.synapses import config_syn
 
     
 def passive_test (templateClass, tree, v_init):
@@ -58,6 +58,35 @@ def passive_test (templateClass, tree, v_init):
 
     f.close()
 
+def ap_test (templateClass, tree, v_init):
+
+    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    h.dt = 0.025
+
+    prelength = 100.0
+    stimdur = 10.0
+    
+    soma = list(cell.soma)[0]
+    initial_amp = 0.05
+
+    h.tlog = h.Vector()
+    h.tlog.record (h._ref_t)
+
+    h.Vlog = h.Vector()
+    h.Vlog.record (soma(0.5)._ref_v)
+
+    thr = cells.find_spike_threshold_minimum(cell,loc=0.5,sec=soma,duration=stimdur,initial_amp=initial_amp)
+    
+    f=open("BasketCell_ap_results.dat",'w')
+    f.write ("## current amplitude: %g\n" % thr)
+    f.close()
+
+    f=open("BasketCell_voltage_trace.dat",'w')
+    for i in xrange(0, int(h.tlog.size())):
+        f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
+    f.close()
+
+    
 def ap_rate_test (templateClass, tree, v_init):
 
     cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
@@ -486,7 +515,7 @@ def main(template_path,forest_path,synapses_path,config_path):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    env = Env(comm=comm, configFile=config_path, templatePaths=template_path)
+    env = Env(comm=comm, config_file=config_path, template_paths=template_path)
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
@@ -505,11 +534,12 @@ def main(template_path,forest_path,synapses_path,config_path):
     
     templateClass = getattr(h, "BasketCell")
 
-    passive_test(templateClass, tree, v_init)
-    ap_rate_test(templateClass, tree, v_init)
-    fi_test(templateClass, tree, v_init)
-    gap_junction_test(env, templateClass, tree, v_init)
-    synapse_test(templateClass, gid, tree, synapses, v_init, env)
+    ap_test(templateClass, tree, v_init)
+    #passive_test(templateClass, tree, v_init)
+    #ap_rate_test(templateClass, tree, v_init)
+    #fi_test(templateClass, tree, v_init)
+    #gap_junction_test(env, templateClass, tree, v_init)
+    #synapse_test(templateClass, gid, tree, synapses, v_init, env)
     
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("BasketCellTest.py") != -1,sys.argv)+1):])

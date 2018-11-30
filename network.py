@@ -6,13 +6,14 @@ __author__ = 'See AUTHORS.md'
 import itertools
 import dentate
 from dentate.neuron_utils import *
-from dentate.utils import viewitems
+from dentate.utils import viewitems, zip_longest
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, \
      scatter_read_trees, scatter_read_cell_attributes, \
      write_cell_attributes, read_cell_attribute_selection, \
      read_tree_selection, read_graph_selection
+from neuron import h
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -113,8 +114,6 @@ def connect_cells(env, cleanup=True):
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for each postsynaptic cell.
 
-
-    TODO: cleanup might need to be more granular than binary
     :param env:
     :param cleanup:
 
@@ -152,7 +151,7 @@ def connect_cells(env, cleanup=True):
             weights_namespace = 'Weights'
 
         if 'mech_file' in env.celltypes[postsyn_name]:
-            mech_file_path = env.configPrefix + '/' + env.celltypes[postsyn_name]['mech_file']
+            mech_file_path = env.config_prefix + '/' + env.celltypes[postsyn_name]['mech_file']
         else:
             mech_file_path = None
 
@@ -167,42 +166,43 @@ def connect_cells(env, cleanup=True):
         if env.nodeRanks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
-                                                                io_size=env.IOsize)
+                                                                io_size=env.io_size)
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
                                                                 node_rank_map=env.nodeRanks,
-                                                                io_size=env.IOsize)
-        cell_synapses_dict = {k: v for (k, v) in cell_attributes_dict['Synapse Attributes']}
+                                                                io_size=env.io_size)
+        cell_synapses_iter = cell_attributes_dict['Synapse Attributes']
+        syn_attrs.init_syn_id_attrs_from_iter(cell_synapses_iter)
+        
         if weights_namespace in cell_attributes_dict:
-            cell_weights_dict = {k: v for (k, v) in cell_attributes_dict[weights_namespace]}
+            syn_weights_iter = cell_attributes_dict[weights_namespace]
             first_gid = None
-            for gid in cell_weights_dict:
+            for gid, cell_weights_dict in syn_weights_iter:
                 if first_gid is None:
                     first_gid = gid
-                weights_syn_ids = cell_weights_dict[gid]['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'SatAMPA')
-                    if syn_name in ['weight', 'AMPA']:
-                        target_syn_name = 'SatAMPA'
-                    else:
-                        target_syn_name = syn_name
-                    weights_values = cell_weights_dict[gid][syn_name]
-                    syn_attrs.load_syn_weights(gid, target_syn_name, weights_syn_ids, weights_values)
+                weights_syn_ids = cell_weights_dict['syn_id']
+                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    weights_values  = cell_weights_dict[syn_name]
+                    syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
+                                                           zip_longest(weights_syn_ids, \
+                                                                       weights_values))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
+                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
         del cell_attributes_dict
 
         first_gid = None
-        for gid in cell_synapses_dict:
-            syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+        for gid in syn_attrs.gids():
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
-                biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
+                hoc_cell = env.pc.gid2cell(gid)
+                biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=hoc_cell, env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, \
+                                          reset_cable=True, from_file=True, correct_cm=correct_for_spines, \
+                                          correct_g_pas=correct_for_spines, env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -220,73 +220,47 @@ def connect_cells(env, cleanup=True):
 
             logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
             if env.nodeRanks is None:
-                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.IOsize,
+                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
             else:
-                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.IOsize,
+                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.io_size,
                                                 node_rank_map=env.nodeRanks,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
             logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
-            logger.info('Rank %i: Projection %s -> %s attributes: %s' % (rank, presyn_name, postsyn_name, str(a)))
             edge_iter = graph[postsyn_name][presyn_name]
 
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-            attr_dict = a[postsyn_name][presyn_name]
+            last_time = time.time()
+            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
+            logger.info('Rank %i: took %f s to initialize edge attributes for projection %s -> %s' % \
+                        (rank, time.time() - last_time, presyn_name, postsyn_name))
+            del graph[postsyn_name][presyn_name]
 
-            if 'Synapses' in attr_dict and \
-               'syn_id' in attr_dict['Synapses'] and \
-               'Connections' in attr_dict and \
-               'distance' in attr_dict['Connections']:
+        pop_last_time = time.time()
+        for gid in syn_attrs.gids():
 
-               syn_id_attr_index = attr_dict['Synapses']['syn_id']
-               distance_attr_index = attr_dict['Connections']['distance']
+            postsyn_cell = env.pc.gid2cell(gid)
+            
+            last_time = time.time()
+            syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
+                                                                            cell=postsyn_cell, unique=unique, \
+                                                                            insert=True, \
+                                                                            insert_netcons=True)
+            if rank == 0:
+                logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network connections for gid %d' % (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
 
-               for (postsyn_gid, edges) in edge_iter:
+            env.edge_count[postsyn_name][presyn_name] += syn_count
 
-                   postsyn_cell = env.pc.gid2cell(postsyn_gid)
-                   presyn_gids = edges[0]
-                   edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
-                   edge_dists = edges[1]['Connections'][distance_attr_index]
-
-                   syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
-
-                   edge_syn_obj_dict = \
-                       synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
-                                       add_synapse=synapses.add_unique_synapse if unique else \
-                                                                                  synapses.add_shared_synapse)
-
-                   if rank == 0:
-                       if env.edge_count[postsyn_name][presyn_name] == 0:
-                           for sec in list(postsyn_cell.all):
-                               h.psection(sec=sec)
-
-                   for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
-                       for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
-                           delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                           mech_params = syn_attrs.get_mech_attrs(gid, edge_syn_id, syn_name)
-                           if mech_params is None:
-                               mech_params = syn_params_dict[syn_name]
-                           else:
-                               if has_weights:
-                                  mech_params['weight'] = mech_params['weight'] * syn_params_dict[syn_name]['weight']
-                           this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
-                           syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                           synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                               mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
-                                               **mech_params)
-
-                   env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
-            else:
-                logger.warning('Projection %s -> %s does not have edge attributes Synapses and Connections' % (presyn_name, postsyn_name))
-
-        if cleanup:
-            for gid in cell_synapses_dict.keys():
-                syn_attrs.cleanup(gid)
+            if cleanup:
+                syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
+
+        if rank == 0:
+            logger.info('Rank %i: took %f s to configure synapses for population %s' % (rank, time.time() - pop_last_time, postsyn_name))
 
 
 def connect_cell_selection(env, cleanup=True):
@@ -311,7 +285,7 @@ def connect_cell_selection(env, cleanup=True):
     pop_names = set([ s[0] for s in env.cell_selection ])
     gid_range = list(itertools.chain.from_iterable([ s[1] for s in env.cell_selection ]))
     
-    vecstim_selection = defaultdict(list)
+    vecstim_sources = defaultdict(list)
     
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
@@ -349,45 +323,47 @@ def connect_cell_selection(env, cleanup=True):
 
         syn_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
                                                             namespace='Synapse Attributes', comm=env.comm,
-                                                            io_size=env.IOsize)
-
+                                                            io_size=env.io_size)
+        syn_attrs.init_syn_id_attrs_from_iter(syn_attributes_iter)
+        del(syn_attributes_iter)
+        
         if has_weights:
             weight_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
                                                                     namespace=weights_namespace, comm=env.comm,
-                                                                    io_size=env.IOsize)
+                                                                    io_size=env.io_size)
         else:
             weight_attributes_iter = None
 
-        cell_synapses_dict = { k: v for (k, v) in syn_attributes_iter }
         if weight_attributes_iter is not None:
-            cell_weights_dict = { k: v for (k, v) in weight_attributes_iter }
             first_gid = None
-            for gid in cell_weights_dict:
+            for gid, cell_weights_dict in weight_attributes_iter:
                 if first_gid is None:
                     first_gid = gid
-                for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                    # TODO: this is here for backwards compatibility; attr_name should be syn_name (e.g. 'SatAMPA')
-                    if syn_name in ['weight', 'AMPA']:
-                        target_syn_name = 'SatAMPA'
-                    else:
-                        target_syn_name = syn_name
-                    syn_attrs.load_syn_weights(gid, target_syn_name, cell_weights_dict[gid]['syn_id'],
-                                               cell_weights_dict[gid][syn_name])
+                weights_syn_ids = cell_weights_dict['syn_id']
+                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    weights_values  = cell_weights_dict[syn_name]
+                    syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
+                                                           zip_longest(weights_syn_ids, \
+                                                                       weights_values))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
-
-        del syn_attributes_iter, weight_attributes_iter
+                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
+            del weight_attributes_iter
 
         first_gid = None
-        for gid in cell_synapses_dict:
-            syn_attrs.load_syn_id_attrs(gid, cell_synapses_dict[gid])
+        for gid in syn_attrs.gids():
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True, from_file=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    cells.init_biophysics(biophys_cell, \
+                                          mech_file_path=mech_file_path, \
+                                          reset_cable=True, \
+                                          from_file=True, \
+                                          correct_cm=correct_for_spines, \
+                                          correct_g_pas=correct_for_spines, \
+                                          env=env)
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -404,62 +380,33 @@ def connect_cell_selection(env, cleanup=True):
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
             (graph, a) = read_graph_selection(connectivityFilePath, gid_range,
-                                              comm=env.comm, io_size=env.IOsize,
+                                              comm=env.comm, io_size=env.io_size,
                                               projections=[(presyn_name, postsyn_name)],
                                               namespaces=['Synapses', 'Connections'])
-
-            edge_iter = graph[postsyn_name][presyn_name]
-
+                
+            
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-            syn_id_attr_index = a[postsyn_name][presyn_name]['Synapses']['syn_id']
-            distance_attr_index = a[postsyn_name][presyn_name]['Connections']['distance']
+            edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
 
-            for (postsyn_gid, edges) in edge_iter:
+            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
+                                                itertools.imap(lambda edge: vecstim_sources.append(edge[0]), \
+                                                               edge_iters))
+            del graph[postsyn_name][presyn_name]
 
-                postsyn_cell = env.pc.gid2cell(postsyn_gid)
-                presyn_gids = edges[0]
-                edge_syn_ids = edges[1]['Synapses'][syn_id_attr_index]
-                edge_dists = edges[1]['Connections'][distance_attr_index]
+        for gid in syn_attrs.gids():
 
-                syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
-
-                edge_syn_obj_dict = \
-                    synapses.mksyns(env, postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, \
-                           env.edge_count[postsyn_name][presyn_name], \
-                           add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
-
-                if rank == 0:
-                    if env.edge_count[postsyn_name][presyn_name] == 0:
-                        for sec in list(postsyn_cell.all):
-                            h.psection(sec=sec)
-
-                for presyn_gid, edge_syn_id, distance in zip(presyn_gids, edge_syn_ids, edge_dists):
-                    vecstim_selection[presyn_name].add(presyn_gid)
-                    for syn_name, syn in viewitems(edge_syn_obj_dict[edge_syn_id]):
-                        delay = (distance / env.connection_velocity[presyn_name]) + h.dt
-                        mech_params = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
-                        if mech_params is None:
-                            mech_params = syn_params_dict[syn_name]
-                        else:
-                            if has_weights:
-                              mech_params['weight'] = mech_params['weight'] * syn_params_dict[syn_name]['weight']
-
-                        this_nc = mknetcon(env.pc, presyn_gid, postsyn_gid, syn, weight=1.0, delay=delay)
-                        syn_attrs.set_netcon(postsyn_gid, edge_syn_id, syn_name, this_nc)
-                        synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                            mech_names=syn_attrs.syn_mech_names, nc=this_nc, \
-                                            **mech_params)
-
-                env.edge_count[postsyn_name][presyn_name] += len(presyn_gids)
-
-        if cleanup:
-            for gid in cell_synapses_dict.keys():
-                syn_attrs.del_syn_id_dict(gid)
+            postsyn_cell = env.pc.gid2cell(gid)
+            syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
+                                                                            cell=postsyn_cell, unique=unique, \
+                                                                            insert=True, insert_netcons=True)
+            env.edge_count[postsyn_name][presyn_name] += syn_count
+            if cleanup:
+                syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
-    return vecstim_selection
+    return vecstim_sources
 
 def connect_gjs(env):
     """
@@ -470,7 +417,7 @@ def connect_gjs(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    datasetPath = os.path.join(env.datasetPrefix, env.datasetName)
+    datasetPath = os.path.join(env.dataset_prefix, env.datasetName)
 
     gapjunctions = env.gapjunctions
     gapjunctionsFilePath = env.gapjunctionsFilePath 
@@ -571,7 +518,7 @@ def make_cells(env):
         
         for gid in range(env.celltypes[pop_name]['start'],
                          env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
-            if ranstream_v_sample.uniform() <= env.vrecordFraction:
+            if ranstream_v_sample.uniform() <= env.vrecord_fraction:
                 v_sample_set.add(gid)
 
         num_cells = 0
@@ -580,9 +527,9 @@ def make_cells(env):
                 logger.info("*** Reading trees for population %s" % pop_name)
 
             if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.IOsize)
+                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.io_size)
             else:
-                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.IOsize,
+                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.io_size,
                                                          node_rank_map=env.nodeRanks)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
@@ -613,12 +560,12 @@ def make_cells(env):
             if env.nodeRanks is None:
                 cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, pop_name,
                                                                     namespaces=['Coordinates'],
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             else:
                 cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, pop_name,
                                                                     namespaces=['Coordinates'],
                                                                     node_rank_map=env.nodeRanks,
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
@@ -675,7 +622,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees, _) = read_tree_selection(dataFilePath, pop_name, gid_range, comm=env.comm, io_size=env.IOsize)
+            (trees, _) = read_tree_selection(dataFilePath, pop_name, gid_range, comm=env.comm, io_size=env.io_size)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
@@ -747,7 +694,7 @@ def make_cell_selection(env):
         h.define_shape()
 
 
-def make_stimulus(env,vecstim_selection):
+def make_stimulus(env,vecstim_sources):
     """
     Loads spike train data from NeuroH5 file for those populations
     that have 'Vector Stimulus' entry in the cell configuration.
@@ -771,12 +718,12 @@ def make_stimulus(env,vecstim_selection):
             if env.nodeRanks is None:
                 cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, pop_name,
                                                                     namespaces=[vecstim_namespace],
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             else:
                 cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, pop_name,
                                                                     namespaces=[vecstim_namespace],
                                                                     node_rank_map=env.nodeRanks,
-                                                                    comm=env.comm, io_size=env.IOsize)
+                                                                    comm=env.comm, io_size=env.io_size)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             if rank == 0:
                 logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
@@ -792,26 +739,32 @@ def make_stimulus(env,vecstim_selection):
                 cell = env.pc.gid2cell(gid)
                 cell.play(h.Vector(vecstim_dict['spiketrain']))
 
-    if vecstim_selection is not None:
-        assert(env.spike_input_path is not None)
-        for pop_name, gid_range in viewitems(vecstim_selection):
-            cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range),
-                                                        namespace=env.spike_input_ns,
-                                                        comm=env.comm, io_size=env.IOsize)
-            for gid in gid_range:
-                cell = h.VecStim()
-                cell.play(cell_spikes[gid])
-                register_cell(env, pop_name, gid, cell)
+    if vecstim_sources is not None:
+        gid_range_inst = list(itertools.chain.from_iterable([ s[1] for s in env.cell_selection ]))
+        if env.spike_input_path is None:
+            raise RuntimeException("Spike input path not provided")
+        if env.spike_input_ns is None:
+            raise RuntimeException("Spike input namespace not provided")
+        for pop_name, gid_range_stim in viewitems(vecstim_sources):
+            gid_range1 = gid_range_stim.difference(gid_range_inst)
+            cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range1), \
+                                                        namespace=env.spike_input_ns, \
+                                                        comm=env.comm, io_size=env.io_size)
+            for gid in gid_range1:
+                stim_cell = h.VecStim()
+                stim_cell.play(cell_spikes[gid])
+                register_cell(env, pop_name, gid, stim_cell)
 
-def init(env):
+def init(env,profile=False):
     """Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
 
     Optionally performs load balancing.
 
     :param env:
     """
+    from neuron import h
     configure_hoc_env(env)
-    
+
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     if env.optldbal or env.optlptbal:
@@ -829,6 +782,10 @@ def init(env):
         make_cells(env)
     else:
         make_cell_selection(env)
+    if profile and rank == 0:
+        from guppy import hpy
+        h = hpy()
+        logger.info(h.heap())
     env.pc.barrier()
     env.mkcellstime = h.stopsw()
     if rank == 0:
@@ -843,6 +800,10 @@ def init(env):
         env.connectgjstime = h.stopsw()
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
+    if profile and rank == 0:
+        from guppy import hpy
+        h = hpy()
+        logger.info(h.heap())
     h.startsw()
     if env.cell_selection is None:
         connect_cells(env)
@@ -851,6 +812,10 @@ def init(env):
         vecstim_selection = connect_cell_selection(env)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
+    if profile and rank == 0:
+        from guppy import hpy
+        h = hpy()
+        logger.info(h.heap())
     if rank == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
@@ -873,7 +838,7 @@ def init(env):
     lfp_time = h.stopsw()
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
-    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hrs, env.results_write_time, max_setup_time)
+    env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
     h.finitialize(env.v_init)
@@ -911,7 +876,7 @@ def run(env, output=True):
         if rank == 0:
             logger.info("*** Writing spike data")
         io_utils.spikeout(env, env.resultsFilePath)
-        if env.vrecordFraction > 0.:
+        if env.vrecord_fraction > 0.:
           if rank == 0:
             logger.info("*** Writing intracellular trace data")
           t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)

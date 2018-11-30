@@ -34,7 +34,7 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
     comm = MPI.COMM_WORLD
     rank = comm.rank  
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
     swc_type_soma   = env.SWC_Types['soma']
 
     if io_size==-1:

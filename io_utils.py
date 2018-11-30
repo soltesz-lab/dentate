@@ -118,7 +118,7 @@ def mkout(env, results_filename):
     :param results_filename:
     :return:
     """
-    datasetPath   = os.path.join(env.datasetPrefix,env.datasetName)
+    datasetPath   = os.path.join(env.dataset_prefix,env.datasetName)
     dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
     dataFile      = h5py.File(dataFilePath,'r')
     resultsFile   = h5py.File(results_filename,'w')
@@ -149,10 +149,10 @@ def spikeout(env, output_path):
     types    = [ typelst[i] for i in sort_idx ]
     inds     = np.digitize(id_vec, bins)
 
-    if env.resultsId is None:
+    if env.results_id is None:
         namespace_id = "Spike Events"
     else:
-        namespace_id = "Spike Events %s" % str(env.resultsId)
+        namespace_id = "Spike Events %s" % str(env.results_id)
 
     for i in range(0,len(types)):
         spkdict  = {}
@@ -183,10 +183,10 @@ def recsout(env, output_path):
     :param recs:
     :return:
     """
-    if env.resultsId is None:
+    if env.results_id is None:
         namespace_id = "Intracellular Voltage"
     else:
-        namespace_id = "Intracellular Voltage %s" % str(env.resultsId)
+        namespace_id = "Intracellular Voltage %s" % str(env.results_id)
 
     t_vec = np.arange(0, env.tstop+env.dt, env.dt, dtype=np.float32)
     

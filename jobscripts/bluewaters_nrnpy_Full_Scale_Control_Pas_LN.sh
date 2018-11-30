@@ -7,7 +7,7 @@
 ### set the wallclock time
 #PBS -l walltime=3:30:00
 ### set the job name
-#PBS -N dentate_Full_Scale_Control_Pas_LN
+#PBS -N dentate_Full_Scale_Pas_LN
 ### set the job stdout and stderr
 #PBS -e ./results/dentate.log_normal_weights.$PBS_JOBID.err
 #PBS -o ./results/dentate.log_normal_weights.$PBS_JOBID.out
@@ -30,7 +30,7 @@ export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export SCRATCH=/projects/sciteam/baqc
 
 echo python is `which python`
-results_path=./results/Full_Scale_Control_$PBS_JOBID
+results_path=./results/Full_Scale_Pas_LN_$PBS_JOBID
 export results_path
 
 cd $PBS_O_WORKDIR

@@ -51,7 +51,7 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
     comm = MPI.COMM_WORLD
     rank = comm.rank
     
-    env = Env(comm=MPI.COMM_WORLD, configFile=config, templatePaths=template_path)
+    env = Env(comm=MPI.COMM_WORLD, config_file=config, template_paths=template_path)
     h('objref nil, pc, templatePaths')
     h.load_file("nrngui.hoc")
     h.load_file("./templates/Value.hoc")
