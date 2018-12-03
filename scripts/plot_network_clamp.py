@@ -8,7 +8,7 @@ from dentate import utils, plot
 @click.command()
 @click.option("--input-path", '-p', required=True, type=click.Path())
 @click.option("--spike-namespace", type=str, default='Spike Events')
-@click.option("--state-namespace", type=str, default='Intracellular Voltage')
+@click.option("--state-namespace", type=str, default='Intracellular Voltage Soma')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--unit-no", '-u', type=int, required=True)
 @click.option("--spike-hist-bin", type=float, default=5.0)

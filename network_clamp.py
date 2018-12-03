@@ -147,7 +147,11 @@ def init_cell(env, pop_name, gid, load_edges=True):
     
     env.recs_dict[pop_name][0] = make_rec(0, pop_name, gid, cell, \
                                           sec=cell.soma[0].sec, loc=0.5, param='v', \
-                                          dt=h.dt, description='Soma recording')
+                                          dt=h.dt, description='Soma')
+    if len(cell.hillock) > 0:
+        env.recs_dict[pop_name][1] = make_rec(1, pop_name, gid, cell, \
+                                              sec=cell.hillock[0].sec, loc=0.5, param='v', \
+                                              dt=h.dt, description='Axon hillock')
      
     if env.verbose:
         report_topology(cell, env)
