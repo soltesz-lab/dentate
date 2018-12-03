@@ -289,7 +289,7 @@ def connect_cell_selection(env, cleanup=True):
         if postsyn_name not in pop_names:
             continue
 
-        gid_range = env.cell_selection[postsyn_name]
+        gid_range = list(env.cell_selection[postsyn_name])
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -371,17 +371,14 @@ def connect_cell_selection(env, cleanup=True):
                     logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
 
+        (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
+                                          comm=env.comm, namespaces=['Synapses', 'Connections'])
         for presyn_name in presyn_names:
 
             env.edge_count[postsyn_name][presyn_name] = 0
 
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
-
-            (graph, a) = read_graph_selection(connectivity_file_path, gid_range,
-                                              comm=env.comm, io_size=env.io_size,
-                                              projections=[(presyn_name, postsyn_name)],
-                                              namespaces=['Synapses', 'Connections'])
             
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
