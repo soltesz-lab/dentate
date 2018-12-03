@@ -163,14 +163,14 @@ def connect_cells(env, cleanup=True):
         else:
             cell_attr_namespaces = ['Synapse Attributes']
 
-        if env.nodeRanks is None:
+        if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
                                                                 io_size=env.io_size)
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
-                                                                node_rank_map=env.nodeRanks,
+                                                                node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
         cell_synapses_iter = cell_attributes_dict['Synapse Attributes']
         syn_attrs.init_syn_id_attrs_from_iter(cell_synapses_iter)
@@ -219,7 +219,7 @@ def connect_cells(env, cleanup=True):
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
             logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
-            if env.nodeRanks is None:
+            if env.node_ranks is None:
                 (graph, a) = scatter_read_graph(connectivity_file_path, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
@@ -525,7 +525,7 @@ def make_cells(env):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            if env.nodeRanks is None:
+            if env.node_ranks is None:
                 (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
                                                          io_size=env.io_size)
             else:
@@ -559,14 +559,14 @@ def make_cells(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            if env.nodeRanks is None:
+            if env.node_ranks is None:
                 cell_attributes_dict = scatter_read_cell_attributes(data_file_path, pop_name,
                                                                     namespaces=['Coordinates'],
                                                                     comm=env.comm, io_size=env.io_size)
             else:
                 cell_attributes_dict = scatter_read_cell_attributes(data_file_path, pop_name,
                                                                     namespaces=['Coordinates'],
-                                                                    node_rank_map=env.nodeRanks,
+                                                                    node_rank_map=env.node_ranks,
                                                                     comm=env.comm, io_size=env.io_size)
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
@@ -726,14 +726,14 @@ def make_stimulus(env, vecstim_sources):
         if 'Vector Stimulus' in env.celltypes[pop_name]:
             vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
 
-            if env.nodeRanks is None:
+            if env.node_ranks is None:
                 cell_attributes_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                     namespaces=[vecstim_namespace],
                                                                     comm=env.comm, io_size=env.io_size)
             else:
                 cell_attributes_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                     namespaces=[vecstim_namespace],
-                                                                    node_rank_map=env.nodeRanks,
+                                                                    node_rank_map=env.node_ranks,
                                                                     comm=env.comm, io_size=env.io_size)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             if rank == 0:

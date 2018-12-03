@@ -151,7 +151,7 @@ class Env:
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_ns
         
-        self.nodeRanks = None
+        self.node_ranks = None
         if node_rank_file:
             with open(node_rank_file) as fp:
                 dval = {}
@@ -159,7 +159,7 @@ class Env:
                 for l in lines:
                     a = l.split(' ')
                     dval[int(a[0])] = int(a[1])
-                self.nodeRanks = dval
+                self.node_ranks = dval
 
         self.config_prefix = config_prefix
 

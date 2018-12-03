@@ -688,7 +688,7 @@ Synapses:
           tau_rise: 0.9
           tau_decay: 3.6
           e: 0
-          g_unit: 0.0004
+          g_unit: 0.0006
     HC:  
       type: inhibitory
       sections: [basal, apical]
