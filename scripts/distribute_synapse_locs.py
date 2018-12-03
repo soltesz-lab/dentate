@@ -183,7 +183,6 @@ def main(config, template_path, output_path, forest_path, populations, distribut
     syn_stats = {}
     for population in populations:
         logger.info('Rank %i population: %s' % (rank, population))
-        count = 0
         (population_start, _) = pop_ranges[population]
         template_class = env.load_cell_template(population)
         
@@ -202,7 +201,8 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'swc_type': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
                            'total': { 'excitatory': 0, 'inhibitory': 0 } }
-                           
+
+        count = 0
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             local_time = time.time()
             synapse_dict = {}
@@ -212,16 +212,17 @@ def main(config, template_path, output_path, forest_path, populations, distribut
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx}
 
+                random_seed = env.modelConfig['Random Seeds']['Synapse Locations'] + gid
                 if distribution == 'uniform':
-                    syn_dict, seg_density_per_sec = synapses.distribute_uniform_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                    density_dict, morph_dict,
-                                                                    cell_sec_dict, cell_secidx_dict)
+                    syn_dict, seg_density_per_sec = synapses.distribute_uniform_synapses(random_seed, env.Synapse_Types, env.SWC_Types, env.layers,
+                                                                                         density_dict, morph_dict,
+                                                                                         cell_sec_dict, cell_secidx_dict)
                                                                     
                     
                 elif distribution == 'poisson':
-                    syn_dict, seg_density_per_sec = synapses.distribute_poisson_synapses(gid, env.Synapse_Types, env.SWC_Types, env.layers,
-                                                                    density_dict, morph_dict,
-                                                                    cell_sec_dict, cell_secidx_dict)
+                    syn_dict, seg_density_per_sec = synapses.distribute_poisson_synapses(random_seed, env.Synapse_Types, env.SWC_Types, env.layers,
+                                                                                         density_dict, morph_dict,
+                                                                                         cell_sec_dict, cell_secidx_dict)
                 else:
                     raise Exception('Unknown distribution type: %s' % distribution)
 
@@ -245,10 +246,21 @@ def main(config, template_path, output_path, forest_path, populations, distribut
             gc.collect()
 
         global_count = comm.gather(count, root=0)
-        summary = global_syn_summary(comm, syn_stats, np.sum(global_count), root=0)
-        if rank == 0:
-            logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
-            logger.info(summary)
+
+        if count > 0:
+            color = 1
+        else:
+            color = 0
+            
+        comm0 = comm.Split(color, 0)
+        if color == 1:
+            summary = global_syn_summary(comm0, syn_stats, np.sum(global_count), root=0)
+            if rank == 0:
+                logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
+                logger.info(summary)
+        comm0.Free()
+        comm.barrier()
+            
     MPI.Finalize()
 
 

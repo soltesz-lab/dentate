@@ -118,13 +118,13 @@ def mkout(env, results_filename):
     :param results_filename:
     :return:
     """
-    datasetPath   = os.path.join(env.dataset_prefix,env.datasetName)
-    dataFilePath  = os.path.join(datasetPath,env.modelConfig['Cell Data'])
-    dataFile      = h5py.File(dataFilePath,'r')
-    resultsFile   = h5py.File(results_filename,'w')
-    dataFile.copy('/H5Types',resultsFile)
-    dataFile.close()
-    resultsFile.close()
+    dataset_path   = os.path.join(env.dataset_prefix, env.datasetName)
+    data_file_path  = os.path.join(dataset_path,env.modelConfig['Cell Data'])
+    data_file      = h5py.File(data_file_path,'r')
+    results_file   = h5py.File(results_filename,'w')
+    data_file.copy('/H5Types',results_file)
+    data_file.close()
+    results_file.close()
 
 def spikeout(env, output_path):
     """

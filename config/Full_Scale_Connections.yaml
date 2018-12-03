@@ -178,7 +178,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.2
           e: 0
-          g_unit: 0.004
+          g_unit: 0.003
     MC:   
       type: excitatory
       sections: [apical]
@@ -189,7 +189,7 @@ Synapses:
           tau_rise: 0.45
           tau_decay: 2.2
           e: 0
-          g_unit: 0.00375
+          g_unit: 0.001
     HC:   
       type: inhibitory
       sections: [apical]
@@ -417,7 +417,7 @@ Synapses:
           tau_rise:  0.5
           tau_decay: 3.0
           e:     0
-          g_unit: 0.0002
+          g_unit: 0.0001
     LPP:
       type: excitatory
       sections: [apical]
@@ -428,7 +428,7 @@ Synapses:
           tau_rise:  0.5
           tau_decay: 3.0
           e:     0
-          g_unit: 0.00023
+          g_unit: 0.000125
     MC:   
       type: excitatory
       sections: [apical]
@@ -666,7 +666,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.0
           e: 0
-          g_unit: 0.0005
+          g_unit: 0.001
     LPP:
       type: excitatory
       sections: [apical]
@@ -677,7 +677,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.0
           e: 0
-          g_unit: 0.0006
+          g_unit: 0.0012
     MC:   
       type: excitatory
       sections: [soma, basal]
@@ -688,7 +688,7 @@ Synapses:
           tau_rise: 0.9
           tau_decay: 3.6
           e: 0
-          g_unit: 0.0004
+          g_unit: 0.0006
     HC:  
       type: inhibitory
       sections: [basal, apical]
@@ -710,7 +710,7 @@ Synapses:
           tau_rise: 0.72
           tau_decay: 4.7
           e: -75
-          g_unit: 0.000325
+          g_unit: 0.000125
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
