@@ -164,7 +164,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     :param spike_events_path:
 
     """
-    io_utils.mkout(env, env.resultsFilePath)
+    io_utils.mkout(env, env.results_file_path)
 
     ## If specified, presynaptic spikes that only fall within this time range
     ## will be loaded or generated
@@ -303,10 +303,10 @@ def run(env, output=True):
     if output:
         if rank == 0:
             logger.info("*** Writing spike data")
-        io_utils.spikeout(env, env.resultsFilePath)
+        io_utils.spikeout(env, env.results_file_path)
         if rank == 0:
             logger.info("*** Writing intracellular data")
-        io_utils.recsout(env, env.resultsFilePath)
+        io_utils.recsout(env, env.results_file_path)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
@@ -391,10 +391,8 @@ def main(config_file, population, gid, generate_inputs, generate_weights, tstop,
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-
-    env = Env(comm=comm, tstop=tstop, config_file=config_file, template_paths=template_paths, \
-                  dataset_prefix=dataset_prefix, config_prefix=config_prefix, results_path=results_path, \
-                  results_id=results_id, verbose=verbose)
+    params = dict(locals())
+    env = Env(**params)
     configure_hoc_env(env)
 
     init(env, population, gid, spike_events_path, \

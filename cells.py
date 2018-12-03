@@ -1376,20 +1376,20 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     :param population:
     :return:
     """
-    datasetPath = env.datasetPath if env.datasetPath is not None else ""
-    dataFilePath = env.dataFilePath
+    dataset_path = env.dataset_path if env.dataset_path is not None else ""
+    data_file_path = env.data_file_path
     template_name = env.celltypes[pop_name]['template']
     assert(hasattr(h, template_name))
     template_class = getattr(h, template_name)
 
     if neurotree_dict:
-        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
+        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=dataset_path)
     else:
         if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
-                            dataFilePath, pop_name, gid)
+                            data_file_path, pop_name, gid)
         else:
-            hoc_cell = template_class(gid, datasetPath)
+            hoc_cell = template_class(gid, dataset_path)
         
     return hoc_cell
 
@@ -1404,7 +1404,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     """
     env.load_cell_template(pop_name)
     if tree_dict is None:
-        tree_dict = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
+        tree_dict = select_tree_attributes(gid, env.comm, env.data_file_path, pop_name)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
     syn_attrs = env.synapse_attributes
@@ -1413,8 +1413,8 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if (synapses_dict is None) and load_synapses:
         #if pop_name not in syn_attrs.select_cell_attr_index_map:
         #    syn_attrs.select_cell_attr_index_map[pop_name] = \
-        #        get_cell_attributes_index_map(env.comm, env.dataFilePath, pop_name, 'Synapse Attributes')
-        #syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.dataFilePath,
+        #        get_cell_attributes_index_map(env.comm, env.data_file_path, pop_name, 'Synapse Attributes')
+        #syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.data_file_path,
         #                                                        syn_attrs.select_cell_attr_index_map[pop_name],
         #                                                        pop_name, 'Synapse Attributes', target_gid_offset))
         
@@ -1424,11 +1424,11 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             weights_namespace = None
 
         if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
-            synapses_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
+            synapses_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
                                                             'Synapse Attributes', comm=env.comm)
                                     
             if weights_namespace is not None:
-                cell_weights_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], \
+                cell_weights_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
                                                                    weights_namespace, comm=env.comm)
             else:
                 cell_weights_iter = None
@@ -1453,8 +1453,8 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             
 
     if load_edges:
-        if os.path.isfile(env.connectivityFilePath):
-            (graph, a) = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], \
+        if os.path.isfile(env.connectivity_file_path):
+            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid], \
                                                 comm=env.comm, namespaces=['Synapses', 'Connections'])
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
@@ -1467,7 +1467,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                 logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
                 raise Exception
         else:
-            logger.error('get_biophys_cell: connection file %s not found' % (env.connectivityFilePath))
+            logger.error('get_biophys_cell: connection file %s not found' % (env.connectivity_file_path))
             raise Exception
     env.biophys_cells[pop_name][gid] = cell
     return cell

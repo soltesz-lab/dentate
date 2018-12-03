@@ -152,9 +152,9 @@ def configure_hoc_env(env):
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
     h('objref pc, nc, nil')
-    h('strdef datasetPath')
-    if hasattr(env,'datasetPath'):
-        h.datasetPath = env.datasetPath if env.datasetPath is not None else ""
+    h('strdef dataset_path')
+    if hasattr(env,'dataset_path'):
+        h.dataset_path = env.dataset_path if env.dataset_path is not None else ""
     h.pc = h.ParallelContext()
     env.pc = h.pc
     h.dt = env.dt

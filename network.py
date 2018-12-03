@@ -6,7 +6,7 @@ __author__ = 'See AUTHORS.md'
 import itertools
 import dentate
 from dentate.neuron_utils import *
-from dentate.utils import viewitems, zip_longest
+from dentate.utils import viewitems, zip_longest, compose_iter
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, \
@@ -91,7 +91,8 @@ def lpt_bal(env):
 def register_cell(env, pop_name, gid, cell):
     """
     Registers a cell in a network environment.
-    :param env: an instance of env.Env
+
+    :param env: an instance of the `dentate.Env` class
     :param pop_name: population name
     :param gid: gid
     :param cell: cell instance
@@ -114,17 +115,16 @@ def connect_cells(env, cleanup=True):
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for each postsynaptic cell.
 
-    :param env:
-    :param cleanup:
-
+    :param env: an instance of the `dentate.Env` class
+    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
-    connectivityFilePath = env.connectivityFilePath
-    forestFilePath = env.forestFilePath
+    connectivity_file_path = env.connectivity_file_path
+    forest_file_path = env.forest_file_path
     rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
 
     if rank == 0:
-        logger.info('*** Connectivity file path is %s' % connectivityFilePath)
+        logger.info('*** Connectivity file path is %s' % connectivity_file_path)
         logger.info('*** Reading projections: ')
 
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
@@ -163,14 +163,14 @@ def connect_cells(env, cleanup=True):
         else:
             cell_attr_namespaces = ['Synapse Attributes']
 
-        if env.nodeRanks is None:
-            cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name,
+        if env.node_ranks is None:
+            cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
                                                                 io_size=env.io_size)
         else:
-            cell_attributes_dict = scatter_read_cell_attributes(forestFilePath, postsyn_name,
+            cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
-                                                                node_rank_map=env.nodeRanks,
+                                                                node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
         cell_synapses_iter = cell_attributes_dict['Synapse Attributes']
         syn_attrs.init_syn_id_attrs_from_iter(cell_synapses_iter)
@@ -219,13 +219,13 @@ def connect_cells(env, cleanup=True):
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
             logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
-            if env.nodeRanks is None:
-                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.io_size,
+            if env.node_ranks is None:
+                (graph, a) = scatter_read_graph(connectivity_file_path, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
             else:
-                (graph, a) = scatter_read_graph(connectivityFilePath, comm=env.comm, io_size=env.io_size,
-                                                node_rank_map=env.nodeRanks,
+                (graph, a) = scatter_read_graph(connectivity_file_path, comm=env.comm, io_size=env.io_size,
+                                                node_rank_map=env.node_ranks,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
             logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
@@ -268,22 +268,19 @@ def connect_cell_selection(env, cleanup=True):
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for the selected postsynaptic cells.
 
-    TODO: cleanup might need to be more granular than binary
-    :param env:
-    :param cleanup:
-
+    :param env: an instance of the `dentate.Env` class
+    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
-    connectivityFilePath = env.connectivityFilePath
-    forestFilePath = env.forestFilePath
+    connectivity_file_path = env.connectivity_file_path
+    forest_file_path = env.forest_file_path
     rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
 
     if rank == 0:
-        logger.info('*** Connectivity file path is %s' % connectivityFilePath)
+        logger.info('*** Connectivity file path is %s' % connectivity_file_path)
         logger.info('*** Reading projections: ')
 
     pop_names = set([ s[0] for s in env.cell_selection ])
-    gid_range = list(itertools.chain.from_iterable([ s[1] for s in env.cell_selection ]))
     
     vecstim_sources = defaultdict(list)
     
@@ -291,6 +288,8 @@ def connect_cell_selection(env, cleanup=True):
 
         if postsyn_name not in pop_names:
             continue
+
+        gid_range = env.cell_selection[postsyn_name]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -321,14 +320,14 @@ def connect_cell_selection(env, cleanup=True):
         if rank == 0:
                 logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
-        syn_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
+        syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                             namespace='Synapse Attributes', comm=env.comm,
                                                             io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(syn_attributes_iter)
         del(syn_attributes_iter)
         
         if has_weights:
-            weight_attributes_iter = read_cell_attribute_selection(forestFilePath, postsyn_name,
+            weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                     namespace=weights_namespace, comm=env.comm,
                                                                     io_size=env.io_size)
         else:
@@ -379,19 +378,18 @@ def connect_cell_selection(env, cleanup=True):
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
-            (graph, a) = read_graph_selection(connectivityFilePath, gid_range,
+            (graph, a) = read_graph_selection(connectivity_file_path, gid_range,
                                               comm=env.comm, io_size=env.io_size,
                                               projections=[(presyn_name, postsyn_name)],
                                               namespaces=['Synapses', 'Connections'])
-                
             
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
             edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
-                                                itertools.imap(lambda edge: vecstim_sources.append(edge[0]), \
-                                                               edge_iters))
+                                                compose_iter(lambda edge: vecstim_sources.append(edge[0]), \
+                                                             edge_iters))
             del graph[postsyn_name][presyn_name]
 
         for gid in syn_attrs.gids():
@@ -410,24 +408,26 @@ def connect_cell_selection(env, cleanup=True):
 
 def connect_gjs(env):
     """
-    Loads NeuroH5 connectivity file, instantiates the corresponding half-gap mechanisms on the pre- and post-junction
-    cells.
-    :param env: :class:'Env'
+    Loads NeuroH5 connectivity file, instantiates the corresponding
+    half-gap mechanisms on the pre- and post-junction cells.
+
+    :param env: an instance of the `dentate.Env` class
+
     """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    datasetPath = os.path.join(env.dataset_prefix, env.datasetName)
+    dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
 
     gapjunctions = env.gapjunctions
-    gapjunctionsFilePath = env.gapjunctionsFilePath 
+    gapjunctions_file_path = env.gapjunctions_file_path 
 
     num_gj = 0
     num_gj_intra = 0
     num_gj_inter = 0
-    if gapjunctionsFilePath is not None:
+    if gapjunctions_file_path is not None:
 
-        (graph, a) = bcast_graph(gapjunctionsFilePath,\
+        (graph, a) = bcast_graph(gapjunctions_file_path,\
                                  namespaces=['Coupling strength','Location'],\
                                  comm=env.comm)
 
@@ -494,8 +494,7 @@ def make_cells(env):
     """
     Instantiates cell templates according to population ranges and NeuroH5 morphology if present.
 
-    :param env:
-    :return:
+    :param env: an instance of the `dentate.Env` class
     """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
@@ -504,8 +503,8 @@ def make_cells(env):
     ranstream_v_sample = np.random.RandomState()
     ranstream_v_sample.seed(v_sample_seed)
 
-    datasetPath = env.datasetPath
-    dataFilePath = env.dataFilePath
+    dataset_path = env.dataset_path
+    data_file_path = env.data_file_path
     pop_names = sorted(env.celltypes.keys())
 
     for pop_name in pop_names:
@@ -526,11 +525,12 @@ def make_cells(env):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            if env.nodeRanks is None:
-                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.io_size)
+            if env.node_ranks is None:
+                (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
+                                                         io_size=env.io_size)
             else:
-                (trees, forestSize) = scatter_read_trees(dataFilePath, pop_name, comm=env.comm, io_size=env.io_size,
-                                                         node_rank_map=env.nodeRanks)
+                (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
+                                                         io_size=env.io_size, node_rank_map=env.node_ranks)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
@@ -546,8 +546,10 @@ def make_cells(env):
                 # Record voltages from a subset of cells
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
-                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
+                                                                sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', \
+                                                                description='Soma V')
 
 
 
@@ -557,14 +559,14 @@ def make_cells(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            if env.nodeRanks is None:
-                cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, pop_name,
+            if env.node_ranks is None:
+                cell_attributes_dict = scatter_read_cell_attributes(data_file_path, pop_name,
                                                                     namespaces=['Coordinates'],
                                                                     comm=env.comm, io_size=env.io_size)
             else:
-                cell_attributes_dict = scatter_read_cell_attributes(dataFilePath, pop_name,
+                cell_attributes_dict = scatter_read_cell_attributes(data_file_path, pop_name,
                                                                     namespaces=['Coordinates'],
-                                                                    node_rank_map=env.nodeRanks,
+                                                                    node_rank_map=env.node_ranks,
                                                                     comm=env.comm, io_size=env.io_size)
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
@@ -592,17 +594,17 @@ def make_cells(env):
         
 def make_cell_selection(env):
     """
-    Instantiates cell templates for the selected cells according to population ranges and NeuroH5 morphology if present.
+    Instantiates cell templates for the selected cells according to
+    population ranges and NeuroH5 morphology if present.
 
-    :param env:
-    :param cell_selection:
-    :return:
+    :param env: an instance of the `dentate.Env` class
     """
+    
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    datasetPath = env.datasetPath
-    dataFilePath = env.dataFilePath
+    dataset_path = env.dataset_path
+    data_file_path = env.data_file_path
     
     pop_names = set([ s[0] for s in env.cell_selection ])
 
@@ -622,7 +624,8 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees, _) = read_tree_selection(dataFilePath, pop_name, gid_range, comm=env.comm, io_size=env.io_size)
+            (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, \
+                                             comm=env.comm, io_size=env.io_size)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
@@ -632,7 +635,7 @@ def make_cell_selection(env):
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
                 model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, 
-                                                       dataset_path=datasetPath)
+                                                       dataset_path=dataset_path)
                 if rank == 0 and i == 0:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
@@ -647,8 +650,10 @@ def make_cell_selection(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
-                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
+                                                                sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', \
+                                                                description='Soma V')
 
                 i = i + 1
             if rank == 0:
@@ -658,7 +663,8 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            cell_attributes_dict = read_cell_attribute_selection(dataFilePath, pop_name, namespace='Coordinates', comm=env.comm)
+            cell_attributes_dict = read_cell_attribute_selection(data_file_path, pop_name, \
+                                                                 namespace='Coordinates', comm=env.comm)
 
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
@@ -687,27 +693,32 @@ def make_cell_selection(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, sec=list(model_cell.soma)[0], \
-                                                                dt=env.dt, loc=0.5, param='v', description='Soma V')
+                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
+                                                                sec=list(model_cell.soma)[0], \
+                                                                dt=env.dt, loc=0.5, param='v', \
+                                                                description='Soma V')
 
                 i = i + 1
         h.define_shape()
 
 
-def make_stimulus(env,vecstim_sources):
+def make_stimulus(env, vecstim_sources):
     """
     Loads spike train data from NeuroH5 file for those populations
     that have 'Vector Stimulus' entry in the cell configuration.
 
-    :param env:
-    :return:
-
+    :param env: an instance of the `dentate.Env` class
+    :param vecstim_sources: a dictionary of the form { pop_name, gid_range_stim }
+    If provided, the set of gids specified in gid_range_stim will be instantiated as VecStims
+    and their spike trains will be loaded from the file and namespace specified in 
+    env.spike_input_path and env.spike_input_ns, respectively.
     """
+    
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    datasetPath = env.datasetPath
-    inputFilePath = env.dataFilePath
+    dataset_path = env.dataset_path
+    input_file_path = env.data_file_path
 
     pop_names = list(env.celltypes.keys())
     pop_names.sort()
@@ -715,14 +726,14 @@ def make_stimulus(env,vecstim_sources):
         if 'Vector Stimulus' in env.celltypes[pop_name]:
             vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
 
-            if env.nodeRanks is None:
-                cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, pop_name,
+            if env.node_ranks is None:
+                cell_attributes_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                     namespaces=[vecstim_namespace],
                                                                     comm=env.comm, io_size=env.io_size)
             else:
-                cell_attributes_dict = scatter_read_cell_attributes(inputFilePath, pop_name,
+                cell_attributes_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                     namespaces=[vecstim_namespace],
-                                                                    node_rank_map=env.nodeRanks,
+                                                                    node_rank_map=env.node_ranks,
                                                                     comm=env.comm, io_size=env.io_size)
             cell_vecstim = cell_attributes_dict[vecstim_namespace]
             if rank == 0:
@@ -755,12 +766,13 @@ def make_stimulus(env,vecstim_sources):
                 stim_cell.play(cell_spikes[gid])
                 register_cell(env, pop_name, gid, stim_cell)
 
-def init(env,profile=False):
-    """Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
+def init(env, profile=False):
+    """
+    Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
+    If env.optldbal or env.optlptbal are specified, performs load balancing.
 
-    Optionally performs load balancing.
-
-    :param env:
+    :param env: an instance of the `dentate.Env` class
+    :param profile: if true, print heap profile information as the cells and network connections are constructed.
     """
     from neuron import h
     configure_hoc_env(env)
@@ -773,7 +785,7 @@ def init(env,profile=False):
             lb.ExperimentalMechComplex()
 
     if rank == 0:
-        io_utils.mkout(env, env.resultsFilePath)
+        io_utils.mkout(env, env.results_file_path)
     if rank == 0:
         logger.info("*** Creating cells...")
     h.startsw()
@@ -855,9 +867,8 @@ def run(env, output=True):
     called with the network configuration provided by the `env`
     argument.
 
-    :param env:
-    :param output: bool
-
+    :param env: an instance of the `dentate.Env` class
+    :param output: if True, output spike and cell voltage trace data
     """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
@@ -875,16 +886,16 @@ def run(env, output=True):
     if output:
         if rank == 0:
             logger.info("*** Writing spike data")
-        io_utils.spikeout(env, env.resultsFilePath)
+        io_utils.spikeout(env, env.results_file_path)
         if env.vrecord_fraction > 0.:
           if rank == 0:
             logger.info("*** Writing intracellular trace data")
           t_vec = np.arange(0, h.tstop+h.dt, h.dt, dtype=np.float32)
-          io_utils.recsout(env, env.resultsFilePath)
+          io_utils.recsout(env, env.results_file_path)
         env.pc.barrier()
         if rank == 0:
             logger.info("*** Writing local field potential data")
-            io_utils.lfpout(env, env.resultsFilePath)
+            io_utils.lfpout(env, env.results_file_path)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
