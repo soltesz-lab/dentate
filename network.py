@@ -546,7 +546,7 @@ def make_cells(env):
                         env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
                                                                 sec=list(model_cell.soma)[0], \
                                                                 dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma V')
+                                                                description='Soma')
 
 
 
@@ -613,7 +613,8 @@ def make_cell_selection(env):
 
         v_sample_set = set([])
 
-        gid_range = [ s[1] + env.celltypes[pop_name]['start'] for s in env.cell_selection if s[0] == pop_name ]
+        gid_range = list(env.cell_selection[pop_name])
+        
         for gid in gid_range:
             v_sample_set.add(gid)
 
@@ -650,7 +651,7 @@ def make_cell_selection(env):
                         env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
                                                                 sec=list(model_cell.soma)[0], \
                                                                 dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma V')
+                                                                description='Soma')
 
                 i = i + 1
             if rank == 0:
@@ -693,7 +694,7 @@ def make_cell_selection(env):
                         env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
                                                                 sec=list(model_cell.soma)[0], \
                                                                 dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma V')
+                                                                description='Soma')
 
                 i = i + 1
         h.define_shape()
