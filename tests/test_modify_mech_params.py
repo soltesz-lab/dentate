@@ -79,7 +79,7 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_2', show=False,
                                  sec_types=['apical'])
     modify_mech_param(cell, sec_type, 'nas', 'gbar', origin='parent', slope=x['dend.gbar_nas slope'],
-                      min=x['dend.gbar_nas min'], custom={'func': 'custom_filter_by_terminal'}, append=True)
+                      min=x['dend.gbar_nas min'], custom={'func': 'custom_filter_modify_slope_if_terminal'}, append=True)
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_3', show=False,
                                  sec_types=['apical'])
     plot_mech_param_from_file('nas', 'gbar', 'dend_nas.hdf5', param_label='nas conductance',

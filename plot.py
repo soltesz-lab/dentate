@@ -3555,7 +3555,8 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
             buffer = 0.01 * (maxval - minval)
             axes.set_ylim(minval - buffer, maxval + buffer)
         axes.set_title(attr_type, fontsize=mpl.rcParams['font.size'])
-    clean_axes(axes)
+    clean_axes(axarr)
+    fig.tight_layout()
     if param_label is not None:
         fig.suptitle(param_label, fontsize=mpl.rcParams['font.size'])
     else:

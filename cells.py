@@ -1281,7 +1281,7 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     return rules
 
 
-def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
+def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, **kwargs):
     """
     Allows the provided rule to be applied if the provided node is a terminal branch. Adjusts the specified slope based
     on the length of the associated section.
@@ -1302,7 +1302,7 @@ def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
         end_val = rules['max']
         direction = 1
     else:
-        raise RuntimeError('custom_filter_by_terminal: no min or max target value specified for sec_type: %s' %
+        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: %s' %
                            node.type)
     slope = (end_val - start_val)/node.sec.L
     if 'slope' in rules:
@@ -1311,6 +1311,21 @@ def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
         else:
             slope = max(rules['slope'], slope)
     rules['slope'] = slope
+    return rules
+
+
+def custom_filter_if_terminal(cell, node, baseline, rules, donor, **kwargs):
+    """
+    Allows the provided rule to be applied if the provided node is a terminal branch.
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode'
+    :param baseline: float
+    :param rules: dict
+    :param donor: :class:'SHocNode' or None
+    :return: dict or False
+    """
+    if not is_terminal(node):
+        return False
     return rules
 
 
