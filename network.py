@@ -289,7 +289,7 @@ def connect_cell_selection(env, cleanup=True):
         if postsyn_name not in pop_names:
             continue
 
-        gid_range = env.cell_selection[postsyn_name]
+        gid_range = list(env.cell_selection[postsyn_name])
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -371,17 +371,14 @@ def connect_cell_selection(env, cleanup=True):
                     logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
 
+        (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
+                                          comm=env.comm, namespaces=['Synapses', 'Connections'])
         for presyn_name in presyn_names:
 
             env.edge_count[postsyn_name][presyn_name] = 0
 
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
-
-            (graph, a) = read_graph_selection(connectivity_file_path, gid_range,
-                                              comm=env.comm, io_size=env.io_size,
-                                              projections=[(presyn_name, postsyn_name)],
-                                              namespaces=['Synapses', 'Connections'])
             
             syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
 
@@ -549,7 +546,7 @@ def make_cells(env):
                         env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
                                                                 sec=list(model_cell.soma)[0], \
                                                                 dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma V')
+                                                                description='Soma')
 
 
 
@@ -616,7 +613,8 @@ def make_cell_selection(env):
 
         v_sample_set = set([])
 
-        gid_range = [ s[1] + env.celltypes[pop_name]['start'] for s in env.cell_selection if s[0] == pop_name ]
+        gid_range = list(env.cell_selection[pop_name])
+        
         for gid in gid_range:
             v_sample_set.add(gid)
 
@@ -653,7 +651,7 @@ def make_cell_selection(env):
                         env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
                                                                 sec=list(model_cell.soma)[0], \
                                                                 dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma V')
+                                                                description='Soma')
 
                 i = i + 1
             if rank == 0:
@@ -696,7 +694,7 @@ def make_cell_selection(env):
                         env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
                                                                 sec=list(model_cell.soma)[0], \
                                                                 dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma V')
+                                                                description='Soma')
 
                 i = i + 1
         h.define_shape()

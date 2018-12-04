@@ -82,7 +82,6 @@ class Env:
             self.pc = None
 
         # print verbose diagnostic messages
-        self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
         
@@ -207,6 +206,8 @@ class Env:
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             self.parse_gapjunction_config()
+
+        self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
 
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
@@ -504,10 +505,12 @@ class Env:
         celltypes = self.celltypes
         typenames = sorted(celltypes.keys())
 
+        if rank == 0:
+            self.logger.info('env.data_file_path = %s' % str(self.data_file_path))
         self.comm.Barrier()
 
         (population_ranges, _) = read_population_ranges(self.data_file_path, self.comm)
-        if rank == 0 and self.verbose:
+        if rank == 0:
             self.logger.info('population_ranges = %s' % str(population_ranges))
         
         for k in typenames:
@@ -515,11 +518,11 @@ class Env:
             celltypes[k]['num'] = population_ranges[k][1]
 
         population_names  = read_population_names(self.data_file_path, self.comm)
-        if rank == 0 and self.verbose:
+        if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
         self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
-        if rank == 0 and self.verbose:
+        if rank == 0:
             self.logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
 
     def load_cell_template(self, popName):
