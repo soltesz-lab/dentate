@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-#SBATCH -J dentate_Full_Scale_Control_log_normal
-#SBATCH -o ./results/dentate_Full_Scale_Control_log_normal.%j.o
-#SBATCH -N 256
+#SBATCH -J dentate_Full_Scale_Control
+#SBATCH -o ./results/dentate_Full_Scale_Control.%j.o
+#SBATCH -N 320
 #SBATCH --ntasks-per-node=32
-#SBATCH -p regular
-#SBATCH -t 6:30:00
+#SBATCH -t 5:30:00
+#SBATCH -q regular
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -34,14 +34,15 @@ echo python is `which python`
 
 set -x
 
-srun -n 2048 python ./scripts/main.py \
- --config-file=Full_Scale_Control_log_normal_weights.yaml \
- --template-paths=../dgc/Mateos-Aparicio2014 \
+srun -n 20240 python ./scripts/main.py \
+ --config-file=Full_Scale_Pas_LN.yaml  \
+ --template-paths=../dgc/Mateos-Aparicio2014:templates \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \
- --io-size=256 \
- --tstop=1500 \
- --v-init=-65 \
+ --io-size=196 \
+ --tstop=2500 \
+ --v-init=-75 \
+ --stimulus-onset=50.0 \
  --max-walltime-hours=5.4 \
  --results-write-time=250 \
  --verbose
