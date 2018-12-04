@@ -202,7 +202,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     input_source_dict = {}
     weight_source_dict = {}
     for presyn_name in presyn_names:
-        presyn_index = int(env.pop_dict[presyn_name])
+        presyn_index = int(env.Populations[presyn_name])
         spk_pop_index = list_index(presyn_name, spkpoplst)
         if spk_pop_index is None:
             logger.warning("No spikes found for population %s in file %s" % (presyn_name, spike_events_path))

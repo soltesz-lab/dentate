@@ -65,7 +65,9 @@ class Env:
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
-
+        self.layers = {}
+        self.globals = {}
+        
         self.gidset = set([])
         self.cells = []
         self.gjlist = []
@@ -174,11 +176,12 @@ class Env:
         else:
             raise RuntimeError("missing configuration file")
 
-        defs = self.modelConfig['Definitions']
-        self.SWC_Types = defs['SWC Types']
-        self.Synapse_Types = defs['Synapse Types']
-        self.layers = defs['Layers']
-        self.feature_types = defs['Input Features']
+        if 'Definitions' in self.modelConfig:
+            self.parse_definitions()
+
+        if 'Global Parameters' in self.modelConfig:
+            self.parse_globals()
+
         if 'Geometry' in self.modelConfig:
             self.geometry = self.modelConfig['Geometry']
         else:
@@ -200,8 +203,6 @@ class Env:
         else:
             self.results_file_path = "%s_results.h5" % self.modelName
 
-        if 'Definitions' in self.modelConfig:
-            self.parse_definitions()
 
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
@@ -249,7 +250,7 @@ class Env:
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
         self.recs_dict = {}  # Intracellular samples on this host
-        for pop_name, _ in viewitems(self.pop_dict):
+        for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = {}
 
         # used to calculate model construction times and run time
@@ -333,14 +334,15 @@ class Env:
         self.geometry['Parametric Surface']['Origin'] = coords
 
     def parse_definitions(self):
-        populations_dict = self.modelConfig['Definitions']['Populations']
-        self.pop_dict = populations_dict
-        syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
-        self.syntypes_dict = syntypes_dict
-        swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
-        self.swctypes_dict = swctypes_dict
-        layers_dict      = self.modelConfig['Definitions']['Layers']
-        self.layers_dict = layers_dict
+        defs               = self.modelConfig['Definitions']
+        self.Populations   = defs['Populations']
+        self.SWC_Types     = defs['SWC Types']
+        self.Synapse_Types = defs['Synapse Types']
+        self.layers        = defs['Layers']
+        self.feature_types = defs['Input Features']
+
+    def parse_globals(self):
+        self.globals       = self.modelConfig['Global Parameters']
         
     def parse_connection_config(self):
         """
@@ -369,7 +371,7 @@ class Env:
                       { 'width': extent_config[population][layer_name]['width'], \
                         'offset': extent_config[population][layer_name]['offset'] } 
                 else:
-                    layer_index = self.layers_dict[layer_name]
+                    layer_index = self.layers[layer_name]
                     pop_connection_extents[layer_index] = \
                       { 'width': extent_config[population][layer_name]['width'], \
                         'offset': extent_config[population][layer_name]['offset'] } 
@@ -390,13 +392,13 @@ class Env:
                 val_proportions = syn_dict['proportions']
                 val_synparams   = syn_dict['mechanisms']
 
-                res_type = self.syntypes_dict[val_type]
+                res_type = self.Synapse_Types[val_type]
                 res_synsections = []
                 res_synlayers = []
                 for name in val_synsections:
-                    res_synsections.append(self.swctypes_dict[name])
+                    res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
-                    res_synlayers.append(self.layers_dict[name])
+                    res_synlayers.append(self.layers[name])
                 
                 connection_dict[key_postsyn][key_presyn] = \
                   SynapseConfig(res_type, \
@@ -438,7 +440,7 @@ class Env:
                     pair = (pop_a, pop_b)
                     sec_idxs = []
                     for sec_name in sec_names:
-                        sec_idxs.append(self.swctypes_dict[sec_name])
+                        sec_idxs.append(self.SWC_Types[sec_name])
                     sections[pair] = sec_idxs
 
             gj_connection_probs = gj_config['Connection Probabilities']

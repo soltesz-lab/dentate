@@ -149,7 +149,7 @@ class SynapseAttributes(object):
         :param delays: axon conduction (netcon) delays (array of float)
         """
 
-        presyn_index = int(self.env.pop_dict[presyn_name])
+        presyn_index = int(self.env.Populations[presyn_name])
         connection_velocity = float(self.env.connection_velocity[presyn_name])
 
         if delays is None:
@@ -572,7 +572,7 @@ class SynapseAttributes(object):
         if sources is None:
             source_indexes = None
         else:
-            source_indexes = set([self.env.pop_dict(source) for source in sources])
+            source_indexes = set([self.env.Populations(source) for source in sources])
         syn_dict = {k: v for k, v in viewitems(syn_id_attr_dict) if matches(syn_sections, v.syn_section) & \
                                                                     matches(syn_indexes, k) & \
                                                                     matches(syn_types, v.syn_type) & \
@@ -591,7 +591,7 @@ class SynapseAttributes(object):
         :param syn_ids: array of int
 
         """
-        source_names = {id: name for name, id in viewitems(self.env.pop_dict)}
+        source_names = {id: name for name, id in viewitems(self.env.Populations)}
         syn_id_attr_dict = self.syn_id_attr_dict[gid]
 
         source_iter = partitionn(viewitems(syn_id_attr_dict), \
@@ -619,7 +619,7 @@ class SynapseAttributes(object):
 
         """
         start_time = time.time()
-        source_names = {id: name for name, id in viewitems(self.env.pop_dict)}
+        source_names = {id: name for name, id in viewitems(self.env.Populations)}
         syn_id_attr_dict = self.syn_id_attr_dict[gid]
         source_iter = partitionn(syn_id_attr_dict.keys(), lambda(syn_id): syn_id_attr_dict[syn_id].source.population, n=len(source_names))
 
@@ -1116,11 +1116,11 @@ def get_syn_filter_dict(env, rules, convert=False):
                 rules_dict['layers'][i] = env.layers[layer]
     if 'sources' in rules_dict:
         for i, source in enumerate(rules_dict['sources']):
-            if source not in env.pop_dict:
+            if source not in env.Populations:
                 raise ValueError('get_syn_filter_dict: presynaptic population: %s not recognized by network '
                                  'configuration' % source)
             if convert:
-                rules_dict['sources'][i] = env.pop_dict[source]
+                rules_dict['sources'][i] = env.Populations[source]
     return rules_dict
 
 

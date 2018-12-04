@@ -2,6 +2,7 @@
 Model Name: dentatenet
 Dataset Name: Test_GC_1000
 Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Cell Data: DG_test_cells_20180413.h5

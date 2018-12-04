@@ -603,7 +603,7 @@ def make_cell_selection(env):
     dataset_path = env.dataset_path
     data_file_path = env.data_file_path
     
-    pop_names = set([ s[0] for s in env.cell_selection ])
+    pop_names = env.cell_selection.keys()
 
     for pop_name in pop_names:
         if rank == 0:
@@ -612,6 +612,7 @@ def make_cell_selection(env):
         templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
         v_sample_set = set([])
+        env.v_sample_dict[pop_name] = v_sample_set
 
         gid_range = list(env.cell_selection[pop_name])
         
@@ -622,8 +623,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, \
-                                             comm=env.comm, io_size=env.io_size)
+            (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, comm=env.comm)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
@@ -749,7 +749,7 @@ def make_stimulus(env, vecstim_sources):
                 cell.play(h.Vector(vecstim_dict['spiketrain']))
 
     if vecstim_sources is not None:
-        gid_range_inst = list(itertools.chain.from_iterable([ s[1] for s in env.cell_selection ]))
+        gid_range_inst = list(itertools.chain.from_iterable([ s[1] for s in viewitems(env.cell_selection) ]))
         if env.spike_input_path is None:
             raise RuntimeException("Spike input path not provided")
         if env.spike_input_ns is None:
