@@ -38,8 +38,8 @@ class Env:
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0, vrecord_fraction=0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0, results_write_time=0,
-                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection_path=None, spike_input_path=None, spike_input_ns=None,
-                 verbose=False, **kwargs):
+                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection_path=None, 
+                 spike_input_path=None, spike_input_namespace=None, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -150,7 +150,7 @@ class Env:
         
         # Spike input path
         self.spike_input_path = spike_input_path
-        self.spike_input_ns = spike_input_ns
+        self.spike_input_ns = spike_input_namespace
         
         self.node_ranks = None
         if node_rank_file:

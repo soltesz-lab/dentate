@@ -57,7 +57,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--results-write-time", type=float, default=360.0, help='time to write out results at end of simulation')
 @click.option("--spike-input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='path to file for input spikes when cell selection is specified')
-@click.option("--spike-input-namespace", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
+@click.option("--spike-input-namespace", required=False, type=str,
                   help='namespace for input spikes when cell selection is specified')
 @click.option("--dt", type=float, default=0.025, help='')
 @click.option("--ldbal", is_flag=True, help='estimate load balance based on cell complexity')

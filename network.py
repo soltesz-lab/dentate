@@ -661,14 +661,13 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            cell_attributes_dict = read_cell_attribute_selection(data_file_path, pop_name, \
+            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
                                                                  namespace='Coordinates', comm=env.comm)
 
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
             i = 0
-            cell_attributes_iter = cell_attributes_dict['Coordinates']
             for (gid, cell_coords_dict) in cell_attributes_iter:
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
@@ -700,16 +699,12 @@ def make_cell_selection(env):
         h.define_shape()
 
 
-def make_stimulus(env, vecstim_sources):
+def make_stimulus(env):
     """
     Loads spike train data from NeuroH5 file for those populations
     that have 'Vector Stimulus' entry in the cell configuration.
 
     :param env: an instance of the `dentate.Env` class
-    :param vecstim_sources: a dictionary of the form { pop_name, gid_range_stim }
-    If provided, the set of gids specified in gid_range_stim will be instantiated as VecStims
-    and their spike trains will be loaded from the file and namespace specified in 
-    env.spike_input_path and env.spike_input_ns, respectively.
     """
     
     rank = int(env.pc.id())
@@ -748,20 +743,69 @@ def make_stimulus(env, vecstim_sources):
                 cell = env.pc.gid2cell(gid)
                 cell.play(h.Vector(vecstim_dict['spiketrain']))
 
+
+def make_stimulus_selection(env, vecstim_sources):
+    """
+    Loads spike train data from NeuroH5 file for those populations
+    that have 'Vector Stimulus' entry in the cell configuration.
+
+    :param env: an instance of the `dentate.Env` class
+    :param vecstim_sources: a dictionary of the form { pop_name, gid_range_stim }
+    If provided, the set of gids specified in gid_range_stim will be instantiated as VecStims
+    and their spike trains will be loaded from the file and namespace specified in 
+    env.spike_input_path and env.spike_input_ns, respectively.
+    """
+    
+    rank = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
+
+    dataset_path = env.dataset_path
+    input_file_path = env.data_file_path
+
+    pop_names = list(env.celltypes.keys())
+    pop_names.sort()
+    for pop_name in pop_names:
+        if 'Vector Stimulus' in env.celltypes[pop_name]:
+            vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
+
+            gid_range = list(env.cell_selection[pop_name])
+
+            cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, list(gid_range), \
+                                                              namespace=vecstim_namespace, \
+                                                              comm=env.comm)
+
+            if rank == 0:
+                logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
+            for (gid, vecstim_dict) in cell_vecstim_iter:
+                if len(vecstim_dict['spiketrain']) > 0:
+                    logger.info("*** Spike train for gid %i is of length %i (first spike at %g ms)" %
+                                (gid, len(vecstim_dict['spiketrain']), vecstim_dict['spiketrain'][0]))
+                else:
+                    logger.info("*** Spike train for gid %i is of length %i" %
+                                (gid, len(vecstim_dict['spiketrain'])))
+
+                vecstim_dict['spiketrain'] += env.stimulus_onset
+                cell = env.pc.gid2cell(gid)
+                cell.play(h.Vector(vecstim_dict['spiketrain']))
+                
+            if rank == 0:
+                logger.info("*** Initialized stimulus population %s" % pop_name)
+
+    env.pc.barrier()
     if vecstim_sources is not None:
         gid_range_inst = list(itertools.chain.from_iterable([ s[1] for s in viewitems(env.cell_selection) ]))
         if env.spike_input_path is None:
-            raise RuntimeException("Spike input path not provided")
+            raise RuntimeError("Spike input path not provided")
         if env.spike_input_ns is None:
-            raise RuntimeException("Spike input namespace not provided")
+            raise RuntimeError("Spike input namespace not provided")
         for pop_name, gid_range_stim in viewitems(vecstim_sources):
             gid_range1 = gid_range_stim.difference(gid_range_inst)
-            cell_spikes = read_cell_attribute_selection(env.spike_input_path, list(gid_range1), \
-                                                        namespace=env.spike_input_ns, \
-                                                        comm=env.comm, io_size=env.io_size)
-            for gid in gid_range1:
+            cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, list(gid_range1), \
+                                                             namespace=env.spike_input_ns, \
+                                                             comm=env.comm)
+            for gid, cell_spikes in cell_spikes_iter:
                 stim_cell = h.VecStim()
-                stim_cell.play(cell_spikes[gid])
+                stim_cell.play(cell_spikes)
                 register_cell(env, pop_name, gid, stim_cell)
 
 def init(env, profile=False):
@@ -831,7 +875,10 @@ def init(env, profile=False):
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
     h.startsw()
-    make_stimulus(env,vecstim_selection)
+    if env.cell_selection is None:
+        make_stimulus(env)
+    else:
+        make_stimulus_selection(env, vecstim_selection)
     env.mkstimtime = h.stopsw()
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
