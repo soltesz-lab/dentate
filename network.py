@@ -849,7 +849,6 @@ def init(env, profile=False):
         h.startsw()
         connect_gjs(env)
         env.pc.setup_transfer()
-        env.pc.set_maxstep(10.0)
         env.pc.barrier()
         env.connectgjstime = h.stopsw()
         if rank == 0:
@@ -864,6 +863,7 @@ def init(env, profile=False):
         vecstim_selection = None
     else:
         vecstim_selection = connect_cell_selection(env)
+    env.pc.set_maxstep(10.0)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
     if profile and rank == 0:
@@ -940,7 +940,7 @@ def run(env, output=True):
         env.pc.barrier()
         if rank == 0:
             logger.info("*** Writing local field potential data")
-            io_utils.lfpout(env, env.results_file_path)
+        io_utils.lfpout(env, env.results_file_path)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()
