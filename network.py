@@ -104,7 +104,7 @@ def register_cell(env, pop_name, gid, cell):
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
     nc = cell.connect2target(h.nil)
-    nc.delay = 0.1
+    nc.delay = env.dt
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
