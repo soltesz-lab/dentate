@@ -1305,7 +1305,21 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-def plot_lfp(config, input_path, timeRange = None, lw = 3, marker = ',', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+def plot_lfp(config, input_path, timeRange = None, lw = 3, figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+    '''
+    Line plot of LFP state variable (default: v). Returns the figure handle.
+
+    config: path to model configuration file
+    input_path: file with LFP trace data
+    timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    timeVariable: Name of variable containing spike times (default: 't')
+    lw (integer): Line width (default: 3)
+    fontSize (integer): Size of text font (default: 14)
+    figSize ((width, height)): Size of figure (default: (15,8))
+    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
+    showFig (True|False): Whether to show the figure or not (default: True)
+    '''
+
     env = Env(configFile=config)
 
     fig = plt.figure(figsize=figSize)
@@ -1316,6 +1330,7 @@ def plot_lfp(config, input_path, timeRange = None, lw = 3, marker = ',', figSize
         import h5py
         infile = h5py.File(input_path)
 
+        logger.info('plot_lfp: reading data for %s...' % namespace_id)
         if timeRange is None:
             t = infile[namespace_id]['t']
             v = infile[namespace_id]['v']
@@ -1334,17 +1349,17 @@ def plot_lfp(config, input_path, timeRange = None, lw = 3, marker = ',', figSize
         ax.set_xlabel('Time (ms)', fontsize=fontSize)
         ax.set_ylabel('Field Potential (mV)', fontsize=fontSize)
 
-    # save figure
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
-        else:
-            filename = namespace_id+'.png'
-            plt.savefig(filename)
+        # save figure
+        if saveFig:
+            if isinstance(saveFig, str):
+                filename = saveFig
+            else:
+                filename = namespace_id+'.png'
+                plt.savefig(filename)
                 
-    # show fig 
-    if showFig:
-        show_figure()
+        # show fig
+        if showFig:
+            show_figure()
 
         
 
@@ -3118,17 +3133,22 @@ def plot_stimulus_spatial_rate_map(input_path, coords_path, trajectory_id, stimu
                                     include, binSize = 100., fromSpikes = True, normed = False, figSize = (8,8),
                                     fontSize = 14, saveFig = None, showFig = True, verbose=False):
     """
-        - input_path: file with stimulus data
-        - stimulus_namespace: attribute namespace for stimulus
-        - distances_namespace: attribute namespace for longitudinal and transverse distances
+        - input_path: path to file with stimulus data (str)
+        - coords_path: path to file with cell position coordinates (str)
+        - trajectory_id: identifier for spatial trajectory (int)
+        - stimulus_namespace: attribute namespace for stimulus (str)
+        - distances_namespace: attribute namespace for longitudinal and transverse distances (str)
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
+        - binSize: length of square edge for 2D histogram (float)
+        - fromSpikes: bool; whether to compute rate maps from stored spikes, or from target function
+        - normed: bool; TODO: unused argument
         - figSize ((width, height)): Size of figure (default: (8,8))
         - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
         - saveFig (None|True|'fileName'): File name where to save the figure;
             if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
+        - showFig: bool; whether to show the figure or not (default: True)
+        - verbose: bool; unused
     """
     _, _, _, t = stimulus.read_trajectory(input_path, trajectory_id)
     dt = float(t[1] - t[0]) / 1000. # ms -> s
@@ -3512,6 +3532,13 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                                 get_distance_to_node(cell, cell.tree.root, node, syn_loc))
                             if sec_type == 'basal':
                                 distances['target_attrs'][sec_type][-1] *= -1
+
+    if export is not None:
+        export_file_path = data_dir + '/' + export
+        if overwrite:
+            if os.path.isfile(export_file_path):
+                os.remove(export_file_path)
+
     for attr_type in attr_types:
         if len(attr_vals[attr_type]) == 0 and export is not None:
             print('Not exporting to %s; mechanism: %s parameter: %s not found in any sec_type' % \
@@ -3576,10 +3603,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
-        if overwrite:
-            f = h5py.File(data_dir + '/' + export, 'w')
-        else:
-            f = h5py.File(data_dir + '/' + export, 'a')
+        f = h5py.File(export_file_path, 'a')
         if 'mech_file_path' in f.attrs:
             if not (f.attrs['mech_file_path'] == '{}'.format(cell.mech_file_path)):
                 raise Exception('Specified mechanism filepath {} does not match the mechanism filepath '
@@ -3794,6 +3818,13 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
                     if sec_type == 'basal':
                         distances[sec_type][-1] *= -1
                     param_vals[sec_type].append(getattr(getattr(seg, mech_name), param_name) * scale_factor)
+
+    if export is not None:
+        export_file_path = data_dir + '/' + export
+        if overwrite:
+            if os.path.isfile(export_file_path):
+                os.remove(export_file_path)
+
     if len(param_vals) == 0 and export is not None:
         print('Not exporting to %s; mechanism: %s parameter: %s not found in any sec_type' % \
               (export, mech_name, param_name))
@@ -3840,10 +3871,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
-        if overwrite:
-            f = h5py.File(data_dir + '/' + export, 'w')
-        else:
-            f = h5py.File(data_dir + '/' + export, 'a')
+        f = h5py.File(export_file_path, 'a')
         if 'mech_file_path' in list(f.attrs.keys()):
             if cell.mech_file_path is None or not f.attrs['mech_file_path'] == cell.mech_file_path:
                 raise ValueError('plot_mech_param_distribution: provided mech_file_path: %s does not match the '
@@ -3969,10 +3997,11 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
+        export_file_path = data_dir + '/' + export
         if overwrite:
-            f = h5py.File(data_dir + '/' + export, 'w')
-        else:
-            f = h5py.File(data_dir + '/' + export, 'a')
+            if os.path.isfile(export_file_path):
+                os.remove(export_file_path)
+        f = h5py.File(export_file_path, 'a')
         if 'mech_file_path' in list(f.attrs.keys()):
             if not (f.attrs['mech_file_path'] == '{}'.format(cell.mech_file_path)):
                 raise Exception('Specified mechanism filepath {} does not match the mechanism filepath '
@@ -4133,6 +4162,12 @@ def clean_axes(axes):
         
 
 def calculate_module_density(gid_module_assignments, gid_normed_distance):
+    """
+    TODO: context needs to be provided as an argument?
+    :param gid_module_assignments:
+    :param gid_normed_distance:
+    :return:
+    """
 
     module_bounds = [[1.0, 0.0] for _ in xrange(10)]
     module_counts = [0 for _ in xrange(10)]
@@ -4153,6 +4188,10 @@ def calculate_module_density(gid_module_assignments, gid_normed_distance):
 
 
 def plot_module_assignment_histogram():
+    """
+    TODO: context needs to be provided as an argument?
+    :return:
+    """
 
     module_bounds, module_counts, module_density = calculate_module_density()
 

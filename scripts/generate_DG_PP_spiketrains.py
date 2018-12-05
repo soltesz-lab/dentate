@@ -21,7 +21,6 @@ sys.excepthook = mpi_excepthook
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--features-path", "-p", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", "-o", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
-@click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -31,7 +30,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, features_path, output_path, template_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
+def main(config, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
          stimulus_namespace, verbose, dry_run):
     """
 
@@ -51,7 +50,7 @@ def main(config, features_path, output_path, template_path, io_size, chunk_size,
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config, templatePaths=template_path)
+    env = Env(comm=comm, configFile=config)
     
     if io_size == -1:
         io_size = comm.size

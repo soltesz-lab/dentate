@@ -378,7 +378,7 @@ class QuickSim(object):
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
-              default='Small_Scale_Control_LN_weights.yaml')
+              default='Small_Scale_Control_LN_weights_Sat.yaml')
 @click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:../dentate/templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate')
@@ -386,7 +386,7 @@ class QuickSim(object):
               default='../dentate/datasets')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate/config')
-@click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
+@click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
 @click.option("--load-edges", type=bool, default=True)
 @click.option("--load-weights", is_flag=True)
 @click.option("--correct-for-spines", type=bool, default=True)

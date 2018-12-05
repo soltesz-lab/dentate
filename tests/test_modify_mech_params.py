@@ -79,7 +79,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_2', show=False,
                                  sec_types=['apical'])
     modify_mech_param(cell, sec_type, 'nas', 'gbar', origin='parent', slope=x['dend.gbar_nas slope'],
-                      min=x['dend.gbar_nas min'], custom={'func': 'custom_filter_modify_slope_if_terminal'}, append=True)
+                      min=x['dend.gbar_nas min'], custom={'func': 'custom_filter_modify_slope_if_terminal'},
+                      append=True)
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_3', show=False,
                                  sec_types=['apical'])
     plot_mech_param_from_file('nas', 'gbar', 'dend_nas.hdf5', param_label='nas conductance',
@@ -219,7 +220,7 @@ def count_spines(cell, env):
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
-              default='Small_Scale_Control_LN_weights.yaml')
+              default='Small_Scale_Control_LN_weights_Sat.yaml')
 @click.option("--template-paths", type=str, default='../../DGC/Mateos-Aparicio2014:../templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='..')
@@ -227,7 +228,7 @@ def count_spines(cell, env):
               default='../datasets')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../config')
-@click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
+@click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
 @click.option("--load-edges", type=bool, default=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,

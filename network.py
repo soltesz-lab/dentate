@@ -1,14 +1,17 @@
 """
 Dentate Gyrus network initialization routines.
-
 """
 __author__ = 'See AUTHORS.md'
+
+import itertools
 from dentate.neuron_utils import *
 from dentate.utils import viewitems
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
-from neuroh5.io import scatter_read_graph, bcast_graph, scatter_read_trees, scatter_read_cell_attributes, \
-    read_cell_attribute_selection, read_tree_selection, read_graph_selection
-
+import h5py
+from neuroh5.io import scatter_read_graph, bcast_graph, \
+     scatter_read_trees, scatter_read_cell_attributes, \
+     write_cell_attributes, read_cell_attribute_selection, \
+     read_tree_selection, read_graph_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -105,8 +108,9 @@ def register_cell(env, pop_name, gid, cell):
 
 def connect_cells(env, cleanup=True):
     """
-    Loads NeuroH5 connectivity file, instantiates the corresponding synapse and network connection mechanisms for each
-    postsynaptic cell.
+    Loads NeuroH5 connectivity file, instantiates the corresponding
+    synapse and network connection mechanisms for each postsynaptic cell.
+
 
     TODO: cleanup might need to be more granular than binary
     :param env:
@@ -315,8 +319,8 @@ def connect_cells(env, cleanup=True):
 
 def connect_cell_selection(env, cleanup=True):
     """
-    Loads NeuroH5 connectivity file, instantiates the corresponding synapse and network connection mechanisms for the
-    selected postsynaptic cells.
+    Loads NeuroH5 connectivity file, instantiates the corresponding
+    synapse and network connection mechanisms for the selected postsynaptic cells.
 
     TODO: cleanup might need to be more granular than binary
     :param env:
@@ -451,9 +455,9 @@ def connect_cell_selection(env, cleanup=True):
                 syn_attrs.load_edge_attrs(postsyn_gid, presyn_name, edge_syn_ids, env)
 
                 edge_syn_obj_dict = \
-                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env,
-                                    env.edge_count[postsyn_name][presyn_name],
-                                    add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
+                    synapses.mksyns(postsyn_gid, postsyn_cell, edge_syn_ids, syn_params_dict, env, \
+                           env.edge_count[postsyn_name][presyn_name], \
+                           add_synapse=synapses.add_unique_synapse if unique else synapses.add_shared_synapse)
 
                 if rank == 0:
                     if env.edge_count[postsyn_name][presyn_name] == 0:

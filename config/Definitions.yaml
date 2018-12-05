@@ -35,7 +35,9 @@ Populations:
   MOPP: 8
   MPP:  9
   LPP:  10
+  PYR:  11
 Input Features:
   grid: 0
   place: 1
+  backprojection: 2
 
