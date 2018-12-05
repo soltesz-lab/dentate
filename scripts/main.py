@@ -30,7 +30,7 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
-@click.option("--cell-selection-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
+@click.option("--cell-selection-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
               help='name of file specifying subset of cells gids to be instantiated')
 @click.option("--config-file", required=True, type=str, help='model configuration file name')
 @click.option("--template-paths", type=str, default='templates', 
@@ -57,14 +57,14 @@ sys.excepthook = mpi_excepthook
 @click.option("--results-write-time", type=float, default=360.0, help='time to write out results at end of simulation')
 @click.option("--spike-input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='path to file for input spikes when cell selection is specified')
-@click.option("--spike-input-namespace", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
+@click.option("--spike-input-namespace", required=False, type=str,
                   help='namespace for input spikes when cell selection is specified')
 @click.option("--dt", type=float, default=0.025, help='')
 @click.option("--ldbal", is_flag=True, help='estimate load balance based on cell complexity')
 @click.option("--lptbal", is_flag=True, help='optimize load balancing assignment with LPT algorithm')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
-def main(cell_selection_file, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
+def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
          results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init,
          stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
          dt, ldbal, lptbal, verbose, dry_run):

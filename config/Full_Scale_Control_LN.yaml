@@ -2,6 +2,7 @@
 Model Name: dentatenet_Full_Scale_Control_log_normal_weights
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Cell Data: DG_Cells_Full_Scale_20181003.h5
