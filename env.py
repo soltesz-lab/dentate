@@ -78,7 +78,7 @@ class Env:
             self.comm = MPI.COMM_WORLD
         else:
             self.comm = comm
-        if comm is not None:
+        if self.comm is not None:
             self.pc = h.ParallelContext()
         else:
             self.pc = None
@@ -144,7 +144,7 @@ class Env:
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
         self.cell_selection_path = cell_selection_path
-        if cell_selection_path:
+        if cell_selection_path is not None:
             with open(cell_selection_path) as fp:
                 self.cell_selection = yaml.load(fp, IncludeLoader)
         
