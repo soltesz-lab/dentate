@@ -940,7 +940,7 @@ def run(env, output=True):
         env.pc.barrier()
         if rank == 0:
             logger.info("*** Writing local field potential data")
-        io_utils.lfpout(env, env.results_file_path)
+            io_utils.lfpout(env, env.results_file_path)
 
     comptime = env.pc.step_time()
     cwtime   = comptime + env.pc.step_wait()

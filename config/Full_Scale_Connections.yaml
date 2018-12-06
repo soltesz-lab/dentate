@@ -189,7 +189,7 @@ Synapses:
           tau_rise: 0.45
           tau_decay: 2.2
           e: 0
-          g_unit: 0.001
+          g_unit: 0.002
     HC:   
       type: inhibitory
       sections: [apical]
@@ -200,7 +200,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.0
           e: -75
-          g_unit: 0.001
+          g_unit: 0.0001
     BC:   
       type: inhibitory
       sections: [soma, apical]
