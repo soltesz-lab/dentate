@@ -39,7 +39,7 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
 
     soma_coords = {}
 

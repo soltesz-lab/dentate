@@ -375,3 +375,45 @@ def kde_scipy(x, y, binSize, **kwargs):
     
     return xx, yy, np.reshape(z, xx.shape)
 
+def NamedTupleWithDocstring(docstring, *ntargs):
+    """
+    A convenience wrapper to add docstrings to named tuples. This is only needed in
+    python 2, where __doc__ is not writeable.
+    https://stackoverflow.com/questions/1606436/adding-docstrings-to-namedtuples
+    """
+    nt = namedtuple(*ntargs)
+    class NT(nt):
+        __doc__ = docstring
+        __slots__ = () ## disallow mutable slots in order to keep performance advantage of tuples
+    return NT
+
+def partitionn(items, predicate=int, n=2):
+    """
+    Filter an iterator into N parts lazily
+    http://paddy3118.blogspot.com/2013/06/filtering-iterator-into-n-parts-lazily.html
+    """
+    tees = itertools.tee( ((predicate(item), item)
+                               for item in items), n )
+    return ( (lambda i:(item for pred, item in tees[i] if pred==i))(x)
+                 for x in range(n) )
+
+def generator_peek(iterable):
+    """
+    If the iterable is empty, return None, otherwise return the
+    iterable with the first element attached back.
+    """
+    try:
+        first = next(iterable)
+    except StopIteration:
+        return None
+    return first, itertools.chain([first], iterable)
+
+def compose_iter(f, iters):
+    """
+    Given a function and a tuple of iterators, apply the function to
+    the first iterator in the tuple, and returns the next element from
+    the second iterator in the tuple.
+    """
+    x = next(iters[0])
+    f(x)
+    return next(iters[1])

@@ -2,7 +2,6 @@ import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
 
-
 context = Context()
 
 
@@ -194,15 +193,14 @@ def count_spines(cell, env):
     init_biophysics(cell, env, reset_cable=True, correct_cm=True)
     gid = cell.gid
     syn_attrs = env.synapse_attributes
-    sec_index_map = syn_attrs.sec_index_map[gid]
     num_spines_list = []
     distances = []
     for node in cell.apical:
-        num_spines = len(syn_attrs.get_filtered_syn_indexes(gid, sec_index_map[node.index],
-                                                            syn_types=[env.Synapse_Types['excitatory']]))
+        num_spines = len(syn_attrs.filter_synapses(gid, syn_sections=[node.index], \
+                                                   syn_types=[env.Synapse_Types['excitatory']]))
         stored_num_spines = sum(node.spine_count)
         if num_spines != stored_num_spines:
-            raise ValueError('count_spines_test: failed for node: %s; %i != %i' %
+            raise ValueError('count_spines_test: failed for node: %s; num spines %i != stored %i' %
                              (node.name, num_spines, stored_num_spines))
         num_spines_list.append(num_spines)
         distances.append(get_distance_to_node(cell, cell.tree.root, node, 0.5))
@@ -216,6 +214,8 @@ def count_spines(cell, env):
     fig.show()
 
 
+    config_biophys_cell_syns(env, gid, pop_name, insert=True)
+    syn_name = 'AMPA'
 @click.command()
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
@@ -251,10 +251,9 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_hoc_env(env)
 
-    context.update(locals())
-
     cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     mech_file_path = config_prefix + '/' + mech_file
+    
     context.update(locals())
 
     standard_modify_mech_param_tests(cell)

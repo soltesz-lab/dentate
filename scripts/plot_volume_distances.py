@@ -20,7 +20,7 @@ def main(config, resolution, resample, alpha_radius, graph_type, verbose):
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
 
-    env = Env(configFile=config)
+    env = Env(config_file=config)
 
     layers = env.layers
     rotate = env.geometry['Parametric Surface']['Rotation']

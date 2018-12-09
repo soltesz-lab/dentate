@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import yaml
 from collections import namedtuple, defaultdict
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from dentate.synapses import SynapseAttributes
@@ -8,13 +9,12 @@ from neuron import h
 from dentate.utils import *
 from dentate.neuron_utils import find_template
 
-
-ConnectionConfig = namedtuple('ConnectionConfig',
-                                 ['type',
-                                  'sections',
-                                  'layers',
-                                  'proportions',
-                                  'mechanisms'])
+SynapseConfig = namedtuple('SynapseConfig',
+                               ['type',
+                                'sections',
+                                'layers',
+                                'proportions',
+                                'mechanisms'])
 
 GapjunctionConfig = namedtuple('GapjunctionConfig',
                                  ['sections',
@@ -27,35 +27,36 @@ GapjunctionConfig = namedtuple('GapjunctionConfig',
 
 NetclampConfig = namedtuple('NetclampConfig',
                             ['template_params',
-                             'input_generators'])
+                             'input_generators',
+                             'weight_generators'])
 
 
 class Env:
     """
     Network model configuration.
     """
-    def __init__(self, comm=None, configFile=None, templatePaths="templates", hoclibPath=None, datasetPrefix=None,
-                 configPrefix=None, resultsPath=None, resultsId=None, nodeRankFile=None, IOsize=0, vrecordFraction=0,
-                 coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hrs=0, results_write_time=0,
-                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection=None, spike_input_path=None,
-                 spike_input_ns=None, verbose=False, **kwargs):
+    def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
+                 config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0, vrecord_fraction=0,
+                 coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0, results_write_time=0,
+                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection_path=None, 
+                 spike_input_path=None, spike_input_namespace=None, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
-        :param configFile: str; model configuration file name
-        :param templatePaths: str; colon-separated list of paths to directories containing hoc cell templates
-        :param hoclibPath: str; path to directory containing required hoc libraries
-        :param datasetPrefix: str; path to directory containing required neuroh5 data files
-        :param configPrefix: str; path to directory containing network and cell mechanism config files
-        :param resultsPath: str; path to directory to export output files
-        :param resultsId: str; label for neuroh5 namespaces to write spike and voltage trace data
-        :param nodeRankFile: str; name of file specifying assignment of node gids to MPI ranks
-        :param IOsize: int; the number of MPI ranks to be used for I/O operations
-        :param vrecordFraction: float; fraction of cells to record intracellular voltage from
+        :param config_file: str; model configuration file name
+        :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+        :param hoc_lib_path: str; path to directory containing required hoc libraries
+        :param dataset_prefix: str; path to directory containing required neuroh5 data files
+        :param config_prefix: str; path to directory containing network and cell mechanism config files
+        :param results_path: str; path to directory to export output files
+        :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
+        :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
+        :param io_size: int; the number of MPI ranks to be used for I/O operations
+        :param vrecord_fraction: float; fraction of cells to record intracellular voltage from
         :param coredat: bool; Save CoreNEURON data
         :param tstop: int; physical time to simulate (ms)
         :param v_init: float; initialization membrane potential (mV)
         :param stimulus_onset: float; starting time of stimulus (ms)
-        :param max_walltime_hrs: float; maximum wall time (hours)
+        :param max_walltime_hours: float; maximum wall time (hours)
         :param results_write_time: float; time to write out results at end of simulation
         :param dt: float; simulation time step
         :param ldbal: bool; estimate load balance based on cell complexity
@@ -64,7 +65,9 @@ class Env:
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
-
+        self.layers = {}
+        self.globals = {}
+        
         self.gidset = set([])
         self.cells = []
         self.gjlist = []
@@ -75,36 +78,35 @@ class Env:
             self.comm = MPI.COMM_WORLD
         else:
             self.comm = comm
-        if comm is not None:
+        if self.comm is not None:
             self.pc = h.ParallelContext()
         else:
             self.pc = None
 
         # print verbose diagnostic messages
-        self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
         
         # Directories for cell templates
-        if templatePaths is not None:
-            self.templatePaths = templatePaths.split(':')
+        if template_paths is not None:
+            self.template_paths = template_paths.split(':')
         else:
-            self.templatePaths = []
+            self.template_paths = []
 
         # The location of required hoc libraries
-        self.hoclibPath = hoclibPath
+        self.hoc_lib_path = hoc_lib_path
 
         # The location of all datasets
-        self.datasetPrefix = datasetPrefix
+        self.dataset_prefix = dataset_prefix
 
         # The path where results files should be written
-        self.resultsPath = resultsPath
+        self.results_path = results_path
 
         # Identifier used to construct results data namespaces
-        self.resultsId = resultsId
+        self.results_id = results_id
 
         # Number of MPI ranks to be used for I/O operations
-        self.IOsize = IOsize
+        self.io_size = io_size
 
         # Initialization voltage
         self.v_init = v_init
@@ -116,7 +118,7 @@ class Env:
         self.stimulus_onset = stimulus_onset
 
         # maximum wall time in hours
-        self.max_walltime_hrs = max_walltime_hrs
+        self.max_walltime_hours = max_walltime_hours
 
         # time to write out results at end of simulation
         self.results_write_time = results_write_time
@@ -134,47 +136,52 @@ class Env:
         self.transfer_debug = transfer_debug
 
         # Fraction of cells to record intracellular voltage from
-        self.vrecordFraction = vrecordFraction
+        self.vrecord_fraction = vrecord_fraction
 
         # Save CoreNEURON data
         self.coredat = coredat
 
         # Cell selection for simulations of subsets of the network
-        self.cell_selection = cell_selection
+        self.cell_selection = None
+        self.cell_selection_path = cell_selection_path
+        if cell_selection_path is not None:
+            with open(cell_selection_path) as fp:
+                self.cell_selection = yaml.load(fp, IncludeLoader)
         
         # Spike input path
         self.spike_input_path = spike_input_path
-        self.spike_input_ns = spike_input_ns
+        self.spike_input_ns = spike_input_namespace
         
-        self.nodeRanks = None
-        if nodeRankFile:
-            with open(nodeRankFile) as fp:
+        self.node_ranks = None
+        if node_rank_file:
+            with open(node_rank_file) as fp:
                 dval = {}
                 lines = fp.readlines()
                 for l in lines:
                     a = l.split(' ')
                     dval[int(a[0])] = int(a[1])
-                self.nodeRanks = dval
+                self.node_ranks = dval
 
-        self.configPrefix = configPrefix
+        self.config_prefix = config_prefix
 
-        if configFile is not None:
-            if configPrefix is not None:
-                configFilePath = self.configPrefix + '/' + configFile
+        if config_file is not None:
+            if config_prefix is not None:
+                config_file_path = self.config_prefix + '/' + config_file
             else:
-                configFilePath = configFile
-            if not os.path.isfile(configFilePath):
-                raise RuntimeError("configuration file %s was not found" % configFilePath)
-            with open(configFilePath) as fp:
+                config_file_path = config_file
+            if not os.path.isfile(config_file_path):
+                raise RuntimeError("configuration file %s was not found" % config_file_path)
+            with open(config_file_path) as fp:
                 self.modelConfig = yaml.load(fp, IncludeLoader)
         else:
             raise RuntimeError("missing configuration file")
 
-        defs = self.modelConfig['Definitions']
-        self.SWC_Types = defs['SWC Types']
-        self.Synapse_Types = defs['Synapse Types']
-        self.layers = defs['Layers']
-        self.feature_types = defs['Input Features']
+        if 'Definitions' in self.modelConfig:
+            self.parse_definitions()
+
+        if 'Global Parameters' in self.modelConfig:
+            self.parse_globals()
+
         if 'Geometry' in self.modelConfig:
             self.geometry = self.modelConfig['Geometry']
         else:
@@ -191,29 +198,35 @@ class Env:
         # The dataset to use for constructing the network
         self.datasetName = self.modelConfig['Dataset Name']
 
-        if resultsPath:
-            self.resultsFilePath = "%s/%s_results.h5" % (self.resultsPath, self.modelName)
+        if results_path:
+            self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
         else:
-            self.resultsFilePath = "%s_results.h5" % self.modelName
+            self.results_file_path = "%s_results.h5" % self.modelName
 
-        if 'Definitions' in self.modelConfig:
-            self.parse_definitions()
 
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             self.parse_gapjunction_config()
 
-        if self.datasetPrefix is not None:
-            self.datasetPath = os.path.join(self.datasetPrefix, self.datasetName)
-            self.dataFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
-            self.load_celltypes()
-            self.connectivityFilePath = os.path.join(self.datasetPath, self.modelConfig['Connection Data'])
-            self.forestFilePath = os.path.join(self.datasetPath, self.modelConfig['Cell Data'])
-            if 'Gap Junction Data' in self.modelConfig:
-                self.gapjunctionsFilePath = os.path.join(self.datasetPath, self.modelConfig['Gap Junction Data'])
-            else:
-                self.gapjunctionsFilePath = None
+        self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
 
+        if self.dataset_prefix is not None:
+            self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
+            self.data_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
+            self.load_celltypes()
+            self.connectivity_file_path = os.path.join(self.dataset_path, self.modelConfig['Connection Data'])
+            self.forest_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
+            if 'Gap Junction Data' in self.modelConfig:
+                self.gapjunctions_file_path = os.path.join(self.dataset_path, self.modelConfig['Gap Junction Data'])
+            else:
+                self.gapjunctions_file_path = None
+        else:
+            self.dataset_path = None
+            self.data_file_path = None
+            self.connectivity_file_path = None
+            self.forest_file_path = None
+            self.gapjunctions_file_path = None
+                
         if 'Input' in self.modelConfig:
             self.parse_input_config()
 
@@ -221,8 +234,8 @@ class Env:
             self.parse_netclamp_config()
 
         self.projection_dict = defaultdict(list)
-        if self.datasetPrefix is not None:
-            for (src, dst) in read_projection_names(self.connectivityFilePath, comm=self.comm):
+        if self.dataset_prefix is not None:
+            for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
                 self.projection_dict[dst].append(src)
 
         self.lfpConfig = {}
@@ -237,7 +250,7 @@ class Env:
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
         self.recs_dict = {}  # Intracellular samples on this host
-        for pop_name, _ in viewitems(self.pop_dict):
+        for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = {}
 
         # used to calculate model construction times and run time
@@ -253,13 +266,13 @@ class Env:
         self.syns_set = defaultdict(set)
 
         # stimulus cell templates
-        if len(self.templatePaths) > 0:
-            find_template(self, 'StimCell', path=self.templatePaths)
-            find_template(self, 'VecStimCell', path=self.templatePaths)
+        if len(self.template_paths) > 0:
+            find_template(self, 'StimCell', path=self.template_paths)
+            find_template(self, 'VecStimCell', path=self.template_paths)
 
-        if self.hoclibPath:
+        if self.hoc_lib_path:
             # polymorphic hoc value template
-            h.load_file(self.hoclibPath + '/templates/Value.hoc')
+            h.load_file(self.hoc_lib_path + '/templates/Value.hoc')
 
     def parse_input_config(self):
         """
@@ -292,13 +305,14 @@ class Env:
         """
         netclamp_config_dict = self.modelConfig['Network Clamp']
         input_generator_dict = netclamp_config_dict['Input Generator']
+        weight_generator_dict = netclamp_config_dict['Weight Generator']
         template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
         
         template_params = {}
         for (template_name, params) in viewitems(template_param_rules_dict):
             template_params[template_name] = params
 
-        self.netclampConfig = NetclampConfig(template_params, input_generator_dict)
+        self.netclampConfig = NetclampConfig(template_params, input_generator_dict, weight_generator_dict)
 
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']
@@ -321,14 +335,15 @@ class Env:
         self.geometry['Parametric Surface']['Origin'] = coords
 
     def parse_definitions(self):
-        populations_dict = self.modelConfig['Definitions']['Populations']
-        self.pop_dict = populations_dict
-        syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
-        self.syntypes_dict = syntypes_dict
-        swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
-        self.swctypes_dict = swctypes_dict
-        layers_dict      = self.modelConfig['Definitions']['Layers']
-        self.layers_dict = layers_dict
+        defs               = self.modelConfig['Definitions']
+        self.Populations   = defs['Populations']
+        self.SWC_Types     = defs['SWC Types']
+        self.Synapse_Types = defs['Synapse Types']
+        self.layers        = defs['Layers']
+        self.feature_types = defs['Input Features']
+
+    def parse_globals(self):
+        self.globals       = self.modelConfig['Global Parameters']
         
     def parse_connection_config(self):
         """
@@ -342,8 +357,29 @@ class Env:
         syn_mech_names  = connection_config['Synapse Mechanisms']
         syn_param_rules = connection_config['Synapse Parameter Rules']
 
-        self.synapse_attributes = SynapseAttributes(syn_mech_names, syn_param_rules)
+        self.synapse_attributes = SynapseAttributes(self, syn_mech_names, syn_param_rules)
 
+        extent_config = connection_config['Axon Extent']
+        self.connection_extents = {}
+
+        for population in extent_config.keys():
+
+            pop_connection_extents = {}
+            for layer_name in extent_config[population].keys():
+
+                if layer_name == 'default':
+                    pop_connection_extents[layer_name] = \
+                      { 'width': extent_config[population][layer_name]['width'], \
+                        'offset': extent_config[population][layer_name]['offset'] } 
+                else:
+                    layer_index = self.layers[layer_name]
+                    pop_connection_extents[layer_index] = \
+                      { 'width': extent_config[population][layer_name]['width'], \
+                        'offset': extent_config[population][layer_name]['offset'] } 
+            
+            self.connection_extents[population] = pop_connection_extents
+
+        
         synapse_config = connection_config['Synapses']
         connection_dict = {}
         
@@ -357,21 +393,21 @@ class Env:
                 val_proportions = syn_dict['proportions']
                 val_synparams   = syn_dict['mechanisms']
 
-                res_type = self.syntypes_dict[val_type]
+                res_type = self.Synapse_Types[val_type]
                 res_synsections = []
                 res_synlayers = []
                 for name in val_synsections:
-                    res_synsections.append(self.swctypes_dict[name])
+                    res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
-                    res_synlayers.append(self.layers_dict[name])
+                    res_synlayers.append(self.layers[name])
                 
                 connection_dict[key_postsyn][key_presyn] = \
-                    ConnectionConfig(res_type, \
-                                     res_synsections, \
-                                     res_synlayers, \
-                                     val_proportions, \
-                                     val_synparams)
-
+                  SynapseConfig(res_type, \
+                                res_synsections, \
+                                res_synlayers, \
+                                val_proportions, \
+                                val_synparams)
+                                    
 
             config_dict = defaultdict(lambda: 0.0)
             for (key_presyn, conn_config) in viewitems(connection_dict[key_postsyn]):
@@ -406,7 +442,7 @@ class Env:
                     pair = (pop_a, pop_b)
                     sec_idxs = []
                     for sec_name in sec_names:
-                        sec_idxs.append(self.swctypes_dict[sec_name])
+                        sec_idxs.append(self.SWC_Types[sec_name])
                     sections[pair] = sec_idxs
 
             gj_connection_probs = gj_config['Connection Probabilities']
@@ -473,22 +509,24 @@ class Env:
         celltypes = self.celltypes
         typenames = sorted(celltypes.keys())
 
+        if rank == 0:
+            self.logger.info('env.data_file_path = %s' % str(self.data_file_path))
         self.comm.Barrier()
 
-        (population_ranges, _) = read_population_ranges(self.dataFilePath, self.comm)
-        if rank == 0 and self.verbose:
+        (population_ranges, _) = read_population_ranges(self.data_file_path, self.comm)
+        if rank == 0:
             self.logger.info('population_ranges = %s' % str(population_ranges))
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
 
-        population_names  = read_population_names(self.dataFilePath, self.comm)
-        if rank == 0 and self.verbose:
+        population_names  = read_population_names(self.data_file_path, self.comm)
+        if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
-        self.cellAttributeInfo = read_cell_attribute_info(self.dataFilePath, population_names, comm=self.comm)
+        self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
-        if rank == 0 and self.verbose:
+        if rank == 0:
             self.logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
 
     def load_cell_template(self, popName):
@@ -504,7 +542,7 @@ class Env:
             templateFile = self.celltypes[popName]['templateFile']
         else:
             templateFile = None
-        find_template(self, templateName, template_file=templateFile, path=self.templatePaths)
+        find_template(self, templateName, template_file=templateFile, path=self.template_paths)
         assert(hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class

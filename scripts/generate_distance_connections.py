@@ -53,7 +53,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
     configure_hoc_env(env)
 
     connection_config = env.connection_config
@@ -89,8 +89,6 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
             soma_distances[population] = distances
         
         gc.collect()
-        extent[population] = { 'width': env.modelConfig['Connection Generator']['Axon Width'][population],
-                               'offset': env.modelConfig['Connection Generator']['Axon Offset'][population] }
 
     destination_populations = read_population_names(forest_path)
 
@@ -102,7 +100,8 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
         if rank == 0:
             logger.info('Generating connection probabilities for population %s...' % destination_population)
 
-        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, extent)
+        connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, \
+                                         env.connection_extents)
 
         synapse_seed = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
         

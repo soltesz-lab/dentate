@@ -1,14 +1,16 @@
-## Model configuration of dentate gyrus network
-Model Name: dentate_Netclamp_Pas_LN
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: dentatenet_Full_Scale_Pas_LN
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
+Global Parameters: !include Global.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20180908.h5
-Connection Data: DG_Connections_Full_Scale_20180908.h5
-Connection Generator: !include Network_Clamp_Connections.yaml
+Cell Data: DG_Cells_Full_Scale_20181115.h5
+Connection Data: DG_Connections_Full_Scale_20181115.h5
+Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
 Input: !include Input.yaml
+Network Clamp: !include Network_Clamp.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
@@ -16,12 +18,14 @@ Cell Types:
     templateFile: DGC.hoc
     synapses:
       correct_for_spines: True
+      weights: True
       weights namespace: Log-Normal Weights
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
     synapses:
-      weights: False
+      weights: True
+      weights namespace: Log-Normal Weights
       density: !include MC_synapse_density.yaml
   HC:
     template: HIPPCell

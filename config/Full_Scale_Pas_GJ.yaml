@@ -1,25 +1,23 @@
 ## Model configuration of dentate gyrus network
-Model Name: dentatenet_Full_Scale_Control_log_normal_weights
+Model Name: dentatenet_Full_Scale_Pas_GJ
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20181003.h5
-Connection Data: DG_Connections_Full_Scale_20181003.h5
+Cell Data: DG_Cells_Full_Scale_20181017.h5
+Connection Data: DG_Connections_Full_Scale_20181017.h5
+Gap Junction Data: DG_gapjunctions_20180721.h5
 Connection Generator: !include Full_Scale_Connections.yaml
-LFP: !include LFP.yaml
+#LFP: !include LFP.yaml
 Input: !include Input.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
     template: DGC
-    templateFile: DGC_Template_minimal.hoc
-    mech_file_path: 20181205_DG_GC_excitability_mech.yaml
+    templateFile: DGC.hoc
     synapses:
       correct_for_spines: True
-      weights: True
-      weights namespace: Log-Normal Weights
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
