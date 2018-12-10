@@ -1669,15 +1669,15 @@ def make_synapse_graph(syn_dict, neurotree_dict):
 
     return syn_graph
 
-
-def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict, seed, neurotree_dict=None):
+    
+def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict, ran, neurotree_dict=None):
     """
     Computes per-segment density of synapse placement.
     :param syn_type_dict:
     :param layer_dict:
     :param layer_density_dicts:
     :param seg_dict:
-    :param seed:
+    :param ran:
     :param neurotree_dict:
     :return:
     """
@@ -1696,8 +1696,6 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
                 layer = layer_label
             else:
                 layer = layer_dict[layer_label]
-            ran = h.Random(seed)
-            ran.normal(density_dict['mean'], density_dict['variance'])
             rans[layer] = ran
         segdensity = defaultdict(list)
         layers = defaultdict(list)
@@ -1727,7 +1725,7 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
                     ran = None
                 if ran is not None:
                     while True:
-                        dens = ran.repick()
+                        dens = ran.normal(density_dict['mean'], density_dict['variance'])
                         if dens > 0.0:
                             break
                 else:
@@ -1739,8 +1737,8 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
     return (segdensity_dict, layers_dict)
 
 
-def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seg_dict, seed,
-                       neurotree_dict=None):
+
+def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index_dict, seg_dict, ran, neurotree_dict=None):
     """
     Computes per-segment relative counts of synapse placement.
     :param syn_type_dict:
@@ -1767,8 +1765,7 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
                 layer = layer_label
             else:
                 layer = layer_dict[layer_label]
-            ran = h.Random(seed)
-            ran.normal(density_dict['mean'], density_dict['variance'])
+            
             rans[layer] = ran
         segcounts = []
         layers = []
@@ -1798,7 +1795,7 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
                     ran = None
                 if ran is not None:
                     l = L / nseg
-                    dens = ran.repick()
+                    dens = ran.normal(density_dict['mean'], density_dict['variance'])
                     rc = dens * l
                     segcount_total += rc
                     segcounts.append(rc)
@@ -1832,6 +1829,9 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     swc_types = []
     syn_index = 0
 
+    r = np.random.RandomState()
+    local_random.seed(int(seed))
+
     segcounts_per_sec = {}
     for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
         sec_index_dict = cell_secidx_dict[sec_name]
@@ -1856,7 +1856,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
             seg_dict[sec_index] = seg_list
         segcounts_dict, total, layers_dict = \
             synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dict, \
-                               sec_index_dict=sec_index_dict, seg_dict=seg_dict, seed=density_seed, \
+                               sec_index_dict=sec_index_dict, seg_dict=seg_dict, ran=r, \
                                neurotree_dict=neurotree_dict)
         segcounts_per_sec[sec_name] = segcounts_dict
         sample_size = total
@@ -1924,6 +1924,8 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     sec_graph = make_neurotree_graph(neurotree_dict)
 
     seg_density_per_sec = {}
+    r = np.random.RandomState()
+    local_random.seed(int(density_seed))
     for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
 
         swc_type = swc_type_dict[sec_name]
@@ -1961,11 +1963,10 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         seg_density_dict, layers_dict = \
             synapse_seg_density(syn_type_dict, layer_dict, \
                                 layer_density_dict, \
-                                seg_dict, density_seed, \
+                                seg_dict, r, \
                                 neurotree_dict=neurotree_dict)
         seg_density_per_sec[sec_name] = seg_density_dict
         for (syn_type_label, _) in viewitems(layer_density_dict):
-            r = np.random.RandomState()
             syn_type = syn_type_dict[syn_type_label]
             seg_density = seg_density_dict[syn_type]
             layers = layers_dict[syn_type]
