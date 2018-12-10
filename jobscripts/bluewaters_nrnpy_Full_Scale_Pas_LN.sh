@@ -56,5 +56,6 @@ aprun -n 16384 -b -- bwpy-environ -- \
     --stimulus-onset=50.0 \
     --max-walltime-hours=3.4 \
     --vrecord-fraction=0.001 \
+    --node-rank-file=parts_Pas.16384 \
     --verbose
 
