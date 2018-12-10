@@ -5,7 +5,7 @@ from dentate.cells import get_mech_rules_dict, \
     get_donor, get_distance_to_node, get_param_val_by_distance, \
     import_mech_dict_from_file, custom_filter_by_branch_order, \
     custom_filter_modify_slope_if_terminal, \
-    custom_filter_by_terminal, make_neurotree_graph
+    custom_filter_if_terminal, make_neurotree_graph
 import collections
 from collections import namedtuple, defaultdict
 
@@ -622,7 +622,8 @@ class SynapseAttributes(object):
         start_time = time.time()
         source_names = {id: name for name, id in viewitems(self.env.Populations)}
         syn_id_attr_dict = self.syn_id_attr_dict[gid]
-        source_iter = partitionn(syn_id_attr_dict.keys(), lambda(syn_id): syn_id_attr_dict[syn_id].source.population, n=len(source_names))
+        source_iter = partitionn(syn_id_attr_dict.keys(), \
+                                 lambda(syn_id): syn_id_attr_dict[syn_id].source.population, n=len(source_names))
 
         return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
 
@@ -708,8 +709,10 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
             raise RuntimeError("insert_hoc_cell_syns: unsupported synapse SWC type %d for synapse %d" % (swc_type, syn_id))
 
         for syn_name, params in viewitems(syn_params):
-            syn_mech = make_syn_mech(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict, \
+            syn_mech = make_syn_mech(syn_name=syn_name, seg=sec(syn_loc), \
+                                     syns_dict=syns_dict, \
                                      mech_names=syn_attrs.syn_mech_names)
+
             syn_attrs.add_pps(gid, syn_id, syn_name, syn_mech)
             config_syn(syn_name=syn_name, \
                        rules=syn_attrs.syn_param_rules, \
@@ -758,36 +761,13 @@ def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, uniqu
 
     if not (gid in env.biophys_cells[postsyn_name]):
         raise KeyError('insert_biophys_cell_syns: BiophysCell with gid %i does not exist' % gid)
+
     cell = env.biophys_cells[postsyn_name][gid]
-    syn_attrs = env.synapse_attributes
     syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
     syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell.hoc_cell, syn_ids, \
                                                            unique=unique, insert_netcons=insert_netcons, \
                                                            insert_vecstims=insert_vecstims)
-    syn_obj_dict = defaultdict(dict)
-
-    add_synapse = add_unique_synapse if unique else add_shared_synapse
-
-    syn_count = 0
-    syns_set = set()
-    for syn_id in syn_ids:
-        syn_index = syn_id_attr_index_map[syn_id]
-        sec_id = syn_id_attr_dict['syn_secs'][syn_index]
-        sec = cell.tree.get_node_with_index(sec_id).sec
-        syn_loc = syn_id_attr_dict['syn_locs'][syn_index]
-        for syn_name, mech_params in viewitems(syn_params):
-            syn = add_synapse(syn_name=syn_name, seg=sec(syn_loc), syns_dict=shared_syns_dict,
-                              mech_names=syn_attrs.syn_mech_names)
-            syn_obj_dict[syn_id][syn_name] = syn
-            if syn not in syns_set:
-                config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, mech_names=syn_attrs.syn_mech_names,
-                           syn=syn, **mech_params)
-                cell.hoc_cell.syns.append(syn)
-                syns_set.add(syn)
-                env.syns_set[gid].add(syn)
-                syn_count += 1
 
 
     if verbose:
@@ -817,7 +797,7 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
 
     if syn_ids is None:
-        syn_ids = syn_id_attr_dict['syn_ids']
+        syn_ids = syn_id_attr_dict.keys()
 
     source_syn_ids_dict = syn_attrs.partition_syn_ids_by_source(gid, syn_ids)
 
@@ -907,7 +887,6 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         nc_count = 0
         mech_count = 0
 
-    for presyn_name in source_syn_ids:
         syn_names = list(env.connection_config[postsyn_name][presyn_name].mechanisms.keys())
         syn_indexes = [syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names]
         for syn_id, syn in seq:
@@ -1020,29 +999,30 @@ def make_syn_mech(mech_name, seg):
     return syn
 
 
-def add_shared_synapse(syn_name, seg, syns_dict, mech_names=None):
+def make_shared_synapse_mech(syn_name, seg, syns_dict, mech_names=None):
     """
     If a synaptic mechanism of the specified type already exists in the specified segment, it is returned.
     Otherwise, this method creates one in the provided segment and adds it to the provided syns_dict before it is
     returned.
+
     :param syn_name: str
     :param seg: hoc segment
     :param syns_dict: nested defaultdict
     :param mech_names: dict to convert syn_name to hoc mechanism name
     :return: hoc point process
     """
-    syn = syn_in_seg(syn_name, seg, syns_dict)
-    if syn is None:
+    syn_mech = syn_in_seg(syn_name, seg, syns_dict)
+    if syn_mech is None:
         if mech_names is not None:
             mech_name = mech_names[syn_name]
         else:
             mech_name = syn_name
-        syn = make_syn_mech(mech_name, seg)
-        syns_dict[seg.sec][seg.x][syn_name] = syn
-    return syn
+        syn_mech = make_syn_mech(mech_name, seg)
+        syns_dict[seg.sec][seg.x][syn_name] = syn_mech
+    return syn_mech
 
 
-def add_unique_synapse(syn_name, seg, syns_dict=None, mech_names=None):
+def make_unique_synapse_mech(syn_name, seg, syns_dict=None, mech_names=None):
     """
     Creates a new synapse in the provided segment, and returns it.
 
@@ -1056,8 +1036,8 @@ def add_unique_synapse(syn_name, seg, syns_dict=None, mech_names=None):
         mech_name = mech_names[syn_name]
     else:
         mech_name = syn_name
-    syn = make_syn_mech(mech_name, seg)
-    return syn
+    syn_mech = make_syn_mech(mech_name, seg)
+    return syn_mech
 
 
 def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):

@@ -149,8 +149,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
                                           sec=cell.soma[0].sec, loc=0.5, param='v', \
                                           dt=h.dt, description='Soma recording')
      
-    if env.verbose:
-        report_topology(cell, env)
+    report_topology(cell, env)
 
     return cell
 
@@ -268,7 +267,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
                                                    zip_longest(weights_syn_ids, \
                                                                weights_values))
         
-    synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True)
+    synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
 
     env.pc.set_maxstep(10)
     h.stdinit()

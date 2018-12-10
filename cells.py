@@ -1340,10 +1340,10 @@ def report_topology(cell, env, node=None):
     syn_attrs = env.synapse_attributes
     num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
                                                  syn_sections=[node.index], \
-                                                 syn_types=[env.syntypes_dict['excitatory']]))
+                                                 syn_types=[env.Synapse_Types['excitatory']]))
     num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, \
                                                  syn_sections=[node.index], \
-                                                 syn_types=[env.syntypes_dict['inhibitory']]))
+                                                 syn_types=[env.Synapse_Types['inhibitory']]))
 
     diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
     report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
