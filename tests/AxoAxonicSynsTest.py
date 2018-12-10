@@ -20,7 +20,7 @@ h.xopen(template_path+'/AxoAxonicCell.hoc')
 
 config_path = 'config/Full_Scale_Control.yaml'
 forest_path = 'datasets/AAC_forest_syns_20170920.h5'
-env = Env(comm=comm, configFile=config_path, templatePaths=template_path)
+env = Env(comm=comm, config_file=config_path, template_paths=template_path)
     
 popName = "AAC"
 (trees_dict,_) = read_tree_selection (comm, forest_path, popName, [1042800])

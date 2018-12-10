@@ -169,7 +169,7 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
     comm = MPI.COMM_WORLD
     rank = comm.rank  # The process ID (integer 0-3 for 4-process run)
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
 
     connection_config = env.connection_config    
     proportions = connection_config.synapse_proportions

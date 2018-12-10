@@ -17,7 +17,7 @@ class SimTimeEvent:
         self.tcma = 0.
         self.nsimsteps = 0
         self.walltime_checksimtime = 0
-        self.max_walltime_hrs = max_walltime_hours
+        self.max_walltime_hours = max_walltime_hours
         self.results_write_time = results_write_time
         self.dt_checksimtime = dt_checksimtime
         self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
@@ -49,7 +49,7 @@ class SimTimeEvent:
             ## remaining physical time
             trem = h.tstop - h.t
             ## remaining simulation time
-            tsimrem = self.max_walltime_hrs*3600 - self.tcsum - self.setup_time
+            tsimrem = self.max_walltime_hours*3600 - self.tcsum - self.setup_time
             min_tsimrem = self.pc.allreduce(tsimrem, 3) ## minimum value
             ## simulation time necessary to complete the simulation
             tsimneeded = (trem/self.dt_checksimtime)*self.tcma+self.results_write_time

@@ -45,28 +45,26 @@ def simulate(v_init, mainlength, prelength=0, cvode=True):
     h.continuerun(h.tstop)
 
 
-def mknetcon(pc, srcgid, dstgid, syn, weight=1., delay=0.):
+def mknetcon(pc, source, syn, weight=1, delay=0.1):
     """
     Creates a network connection from the provided source to the provided synaptic point process.
     :param pc: :class:'h.ParallelContext'
-    :param srcgid: int; source gid
-    :param dstgid: int; destination gid
+    :param source: int; source gid
     :param syn: synapse point process
     :param delay: float
     :param weight: float
     :return: :class:'h.NetCon'
     """
-    assert pc.gid_exists(dstgid)
-    nc = pc.gid_connect(srcgid, syn)
+    nc = pc.gid_connect(source, syn)
     nc.weight[0] = weight
     nc.delay = delay
     return nc
 
 
-def mknetcon_vecstim(syn, delay=0.1, weight=1):
+def mknetcon_vecstim(syn, delay=0.1, weight=1, source=None):
     """
-    Creates a VecStim object to drive the provided synaptic point process, and a network connection from the VecStim
-    source to the synapse target.
+    Creates a VecStim object to drive the provided synaptic point process, 
+    and a network connection from the VecStim source to the synapse target.
     :param syn: synapse point process
     :param delay: float
     :param weight: float
@@ -115,6 +113,7 @@ def find_template(env, template_name, path=['templates'], template_file=None, ro
     :param root: int; MPI.COMM_WORLD.rank
     """
     pc = env.pc
+    rank = int(pc.id())
     found = False
     foundv = h.Vector(1)
     template_path = ''
@@ -129,8 +128,8 @@ def find_template(env, template_name, path=['templates'], template_file=None, ro
             else:
                 template_path = '%s/%s' % (template_dir, template_file)
             found = os.path.isfile(template_path)
-            if found:
-                print('Loaded %s from %s' % (template_name, template_path))
+            if found and (rank == root):
+                logger.info('Loaded %s from %s' % (template_name, template_path))
                 break
         foundv.x[0] = 1 if found else 0
     if pc is not None:
@@ -153,13 +152,15 @@ def configure_hoc_env(env):
     h.load_file("nrngui.hoc")
     h.load_file("loadbal.hoc")
     h('objref pc, nc, nil')
-    h('strdef datasetPath')
-    if hasattr(env,'datasetPath'):
-        h.datasetPath = env.datasetPath
+    h('strdef dataset_path')
+    if hasattr(env,'dataset_path'):
+        h.dataset_path = env.dataset_path if env.dataset_path is not None else ""
     h.pc = h.ParallelContext()
     env.pc = h.pc
     h.dt = env.dt
     h.tstop = env.tstop
+    if 'celsius' in env.globals:
+        h.celsius = env.globals['celsius']
 
 
 def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', description=''):

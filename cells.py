@@ -450,7 +450,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     """
     sec_type_map = {}
     for sec_type, sec_index_list in viewitems(default_hoc_sec_lists):
-        if hasattr(hoc_cell, sec_type):
+        if hasattr(hoc_cell, sec_type) and (getattr(hoc_cell, sec_type) is not None):
             sec_list = list(getattr(hoc_cell, sec_type))
             if hasattr(hoc_cell, sec_index_list):
                 sec_indexes = list(getattr(hoc_cell, sec_index_list))
@@ -762,14 +762,12 @@ def count_spines_per_seg(node, env, gid):
     :param gid: int
     """
     syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
-    sec_index_map = env.synapse_attributes.sec_index_map[gid]
     node.content['spine_count'] = []
-    sec_syn_indexes = np.array(sec_index_map[node.index])
-    if len(sec_syn_indexes > 0):
-        filtered_syn_indexes = syn_attrs.get_filtered_syn_indexes(gid, sec_syn_indexes,
-                                                                  syn_types=[env.Synapse_Types['excitatory']])
-        this_syn_locs = syn_id_attr_dict['syn_locs'][filtered_syn_indexes]
+    
+    filtered_synapses = syn_attrs.filter_synapses(gid, syn_sections=[node.index], \
+                                                      syn_types=[env.Synapse_Types['excitatory']])
+    if len(filtered_synapses) > 0:
+        this_syn_locs = np.asarray([syn.syn_loc for _,syn in viewitems(filtered_synapses)])
         seg_width = 1. / node.sec.nseg
         for i, seg in enumerate(node.sec):
             num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
@@ -823,8 +821,7 @@ def correct_node_for_spines_cm(node, env, gid, verbose=True):
         num_spines = node.spine_count[i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
-        if verbose:
-            logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
+        logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
 
 
 def correct_cell_for_spines_g_pas(cell, env, verbose):
@@ -1341,16 +1338,13 @@ def report_topology(cell, env, node=None):
     if node is None:
        node = cell.tree.root
     syn_attrs = env.synapse_attributes
-    if node.index in syn_attrs.sec_index_map[cell.gid] and len(syn_attrs.sec_index_map[cell.gid][node.index]) > 0:
-        num_exc_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
-                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
-                                                              syn_types=[env.syntypes_dict['excitatory']]))
-        num_inh_syns = len(syn_attrs.get_filtered_syn_indexes(cell.gid,
-                                                              syn_indexes=syn_attrs.sec_index_map[cell.gid][node.index],
-                                                              syn_types=[env.syntypes_dict['inhibitory']]))
-    else:
-        num_exc_syns = 0
-        num_inh_syns = 0
+    num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
+                                                 syn_sections=[node.index], \
+                                                 syn_types=[env.Synapse_Types['excitatory']]))
+    num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, \
+                                                 syn_sections=[node.index], \
+                                                 syn_types=[env.Synapse_Types['inhibitory']]))
+
     diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
     report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
              (node.name, node.sec.L, diams_str, len(node.children), num_exc_syns, num_inh_syns)
@@ -1412,25 +1406,26 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     :param population:
     :return:
     """
-    datasetPath = env.datasetPath
-    dataFilePath = env.dataFilePath
+    dataset_path = env.dataset_path if env.dataset_path is not None else ""
+    data_file_path = env.data_file_path
     template_name = env.celltypes[pop_name]['template']
     assert(hasattr(h, template_name))
     template_class = getattr(h, template_name)
 
-    if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
-        if neurotree_dict:
-            hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=datasetPath)
-        else:
-            raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
-                            dataFilePath, pop_name, gid)
+    if neurotree_dict:
+        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=dataset_path)
     else:
-        hoc_cell = template_class(gid, datasetPath)
+        if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
+            raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
+                            data_file_path, pop_name, gid)
+        else:
+            hoc_cell = template_class(gid, dataset_path)
         
     return hoc_cell
 
 
-def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True, load_weights=False):
+
+def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True, load_weights=False):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -1441,45 +1436,50 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True, lo
     :return: :class:'BiophysCell'
     """
     env.load_cell_template(pop_name)
-    tree = select_tree_attributes(gid, env.comm, env.dataFilePath, pop_name)
-    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
+    if tree_dict is None:
+        tree_dict = select_tree_attributes(gid, env.comm, env.data_file_path, pop_name)
+    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
     
-    if load_synapses:
-        if pop_name in env.cellAttributeInfo and 'Synapse Attributes' in env.cellAttributeInfo[pop_name]:
-            synapses_iter = read_cell_attribute_selection(env.dataFilePath, pop_name, [gid], 'Synapse Attributes',
-                                                           comm=env.comm)
-            synapses_dict = dict(synapses_iter)
-            syn_attrs.load_syn_id_attrs(gid, synapses_dict[gid])
+    if (synapses_dict is None) and load_synapses:
+    	if 'weights namespace' in synapse_config:
+            weights_namespace = synapse_config['weights namespace']
+        else:
+            weights_namespace = None
+            
+        if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
+	    synapses_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
+                                                           'Synapse Attributes', comm=env.comm)
+            
+            if weights_namespace is not None:
+                cell_weights_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
+                                                                   weights_namespace, comm=env.comm)
+            else:
+                cell_weights_iter = None
+	    syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
+            if cell_weights_iter is not None:
+                for gid, cell_weights_dict in cell_weights_iter:
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        weights_values  = cell_weights_dict[syn_name]
+                        syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
+	                                                               zip_longest(weights_syn_ids, \
+                                                                           weights_values))
+                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
+                                    (gid, len(cell_weights_dict[syn_name]), syn_name))
+                                    
+    else:
+        if synapses_dict is not None:
+            syn_attrs.init_syn_id_attrs(synapses_dict)
         else:
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
 
-    if load_weights:
-        if 'weights namespace' in synapse_config:
-            if not load_synapses:
-                logger.error('get_biophys_cell: %s: gid: %i; cannot load weights without first loading synapse '
-                             'attributes' % (pop_name, gid))
-                raise Exception
-            weights_namespace = synapse_config['weights namespace']
-            weights_iter = read_cell_attribute_selection (env.dataFilePath, pop_name, [gid], weights_namespace,
-                                                          comm=env.comm)
-            cell_weights_dict = dict(weights_iter)
-            weights_syn_ids = cell_weights_dict[gid]['syn_id']
-            for syn_name in (syn_name for syn_name in cell_weights_dict[gid] if syn_name != 'syn_id'):
-                target_syn_name = syn_name
-                weights_values = cell_weights_dict[gid][syn_name]
-                syn_attrs.load_syn_weights(gid, target_syn_name, weights_syn_ids, weights_values)
-                logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
-                            (gid, len(cell_weights_dict[gid][syn_name]), target_syn_name))
-        else:
-            logger.info('get_biophys_cell: weights not found for %s: gid: %i' % (pop_name, gid))
-
     if load_edges:
-        if os.path.isfile(env.connectivityFilePath):
-            graph, a = read_graph_selection(file_name=env.connectivityFilePath, selection=[gid], comm=env.comm,
+        if os.path.isfile(env.connectivity_file_path):
+            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid], \
                                             namespaces=['Synapses', 'Connections'])
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
@@ -1487,12 +1487,50 @@ def get_biophys_cell(env, pop_name, gid, load_synapses=True, load_edges=True, lo
                     edge_iter = graph[pop_name][presyn_name]
                     syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
                     
-                    syn_attrs.load_edge_attrs_from_iter(gid, pop_name, presyn_name, env, a, edge_iter)
+                    syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter)
             else:
                 logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
                 raise Exception
         else:
-            logger.error('get_biophys_cell: connection file %s not found' % env.connectivityFilePath)
+            logger.error('get_biophys_cell: connection file %s not found' % (env.connectivity_file_path))
             raise Exception
     env.biophys_cells[pop_name][gid] = cell
     return cell
+
+
+def find_spike_threshold_minimum(cell,loc=0.5,sec=None,duration=10.0,delay=100.0,initial_amp=0.001):
+    """
+    Determines minimum stimulus sufficient to induce a spike in a cell. 
+    Defines an IClamp with the specified duration, and an APCount to detect spikes.
+    Uses NEURON's thresh.hoc to find threshold by bisection.
+
+    :param cell: hoc cell
+    :param sec: cell section for stimulation
+    :param loc: location of stimulus
+    :param duration: stimulus duration
+    :param delay: stimulus delay
+    :param initial_amp: initial stimulus amplitude (nA)
+    """
+
+    if sec is None:
+        sec = list(cell.soma)[0]
+    
+    iclamp = h.IClamp(sec(loc))
+    setattr(iclamp,'del',delay)
+    iclamp.dur = duration
+    iclamp.amp = initial_amp
+
+    apcount = h.APCount(sec(loc))
+    apcount.thresh = -20
+    apcount.time = 0.
+
+    h.tstop = duration+delay
+    h.cvode_active (1)
+
+    h.load_file("nrngui.hoc")  
+    h.load_file("thresh.hoc")  ## nrn/lib/hoc
+    thr = h.threshold(iclamp._ref_amp)
+
+    return thr
+
+

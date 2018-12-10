@@ -9,10 +9,6 @@ import numpy as np
 import dentate.network as network
 from dentate.env import Env
 from dentate.utils import list_find
-from nested.utils import Context
-
-
-context = Context()
 
 
 def mpi_excepthook(type, value, traceback):
@@ -94,10 +90,9 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, results_path, results_id,
-              node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
+    params = dict(locals())
+    env = Env(**params)
               results_write_time, dt, ldbal, lptbal, verbose=verbose)
-    context.update(locals())
     network.init(env, cleanup)
     if run_test:
         network.run(env, output=False)

@@ -47,7 +47,7 @@ def main(config, template_path, types_path, forest_path, connectivity_path, conn
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config, templatePaths=template_path)
+    env = Env(comm=comm, config_file=config, template_paths=template_path)
 
     h('objref nil, pc, templatePaths')
     h.load_file("nrngui.hoc")

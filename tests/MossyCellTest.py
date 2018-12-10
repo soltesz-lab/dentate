@@ -375,7 +375,7 @@ def main(config_path,template_path,forest_path,synapses_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    env = Env(comm=comm, configFile=config_path, templatePaths=template_path)
+    env = Env(comm=comm, config_file=config_path, template_paths=template_path)
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
