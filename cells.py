@@ -821,7 +821,8 @@ def correct_node_for_spines_cm(node, env, gid, verbose=True):
         num_spines = node.spine_count[i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
-        logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
+        if verbose:
+            logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
 
 
 def correct_cell_for_spines_g_pas(cell, env, verbose):
