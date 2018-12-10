@@ -70,8 +70,8 @@ sys.excepthook = mpi_excepthook
 def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
          results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init,
          stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
-         dt, ldbal, lptbal, verbose, dry_run):
-    :param cleanup: bool; whether to delete from memory the synapse attributes metadata after specifying connections
+         dt, ldbal, lptbal, cleanup, verbose, dry_run):
+
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     params = dict(locals())

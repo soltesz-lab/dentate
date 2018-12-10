@@ -213,8 +213,6 @@ def connect_cells(env, cleanup=True):
                 if rank == 0 and gid == first_gid:
                     logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
-        postsyn_gids = list(cell_synapses_dict.keys())
-        del cell_synapses_dict
 
         for presyn_name in presyn_names:
 
@@ -241,10 +239,15 @@ def connect_cells(env, cleanup=True):
             last_time = time.time()
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
             logger.info('Rank %i: took %f s to initialize edge attributes for projection %s -> %s' % \
+                         (rank, time.time() - last_time, presyn_name, postsyn_name))
             del graph[postsyn_name][presyn_name]
 
+        first_gid = None
         pop_last_time = time.time()
         for gid in syn_attrs.gids():
+
+            if first_gid is None:
+                first_gid = gid
 
             postsyn_cell = env.pc.gid2cell(gid)
             
@@ -253,51 +256,54 @@ def connect_cells(env, cleanup=True):
                                                                             cell=postsyn_cell, unique=unique, \
                                                                             insert=True, \
                                                                             insert_netcons=True)
-            if rank == 0:
+            if rank == 0 and gid == first_gid:
                 logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network connections for gid %d' % (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
             env.edge_count[postsyn_name][presyn_name] += syn_count
-                               (presyn_name, postsyn_name))
-
-        # At this point, all synaptic point processes and netcons for this post-synaptic cell population have been
-        # instantiated with the default parameters specified for each projection. If a weights namespace was provided,
-        # weight multipliers have been loaded into the env.synapse_attributes.syn_mech_attr_dict. These weights can be
-        # updated directly by config_syns_from_mech_attrs. However, if a gid has an associated BiophysCell,
-        # additional synaptic configuration rules can be applied from the provided mech_file with
-        # init_syn_mech_attrs.
-        for gid in postsyn_gids:
-            if gid in env.biophys_cells[postsyn_name]:
-                synapses.init_syn_mech_attrs(env.biophys_cells[postsyn_name][gid], env=env)
-            synapses.config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=(gid == first_gid))
 
             if cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
-            if gid in env.biophys_cells[postsyn_name]:
-                # TODO: May want to keep a version of this here, but wrap it in a debug flag, and load from the
-                # config_file an export_file_name and a list of gids to export syn_attr data.
-                if rank == 0 and gid == first_gid and 'AMPA' in syn_attrs.syn_mech_names:
-                    biophys_cell = env.biophys_cells[postsyn_name][gid]
-                    from dentate.plot import plot_synaptic_attribute_distribution
-                    results_file = 'example_syn_attrs.h5'
-                    overwrite = True
-                    syn_mech_name = syn_attrs.syn_mech_names['AMPA']
-                    if 'g_unit' in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
-                        param_label = 'AMPA: g_unit'
-                        plot_synaptic_attribute_distribution(biophys_cell, env, 'AMPA', 'g_unit',
-                                                             from_mech_attrs=True, from_target_attrs=True,
-                                                             param_label=param_label, export=results_file,
-                                                             description='gid %i; after' % gid, show=False,
-                                                             overwrite=overwrite, data_dir=env.resultsPath)
-                        overwrite = False
-                    param_label = 'AMPA: weight'
-                    plot_synaptic_attribute_distribution(biophys_cell, env, 'AMPA', 'weight',
-                                                         from_mech_attrs=True, from_target_attrs=True,
-                                                         param_label=param_label, export=results_file,
-                                                         description='gid %i; after' % gid, show=False,
-                                                         overwrite=overwrite, data_dir=env.resultsPath)
-                if cleanup:
+                if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
-            if cleanup:
-                syn_attrs.cleanup(gid)
+
+        # At this point, all synaptic point processes and netcons for
+        # this post-synaptic cell population have been instantiated
+        # with the default parameters specified for each
+        # projection. If a weights namespace was provided, weight
+        # multipliers have been loaded into the
+        # env.synapse_attributes.syn_mech_attr_dict. These weights can
+        # be updated directly by config_syns_from_mech_attrs. However,
+        # if a gid has an associated BiophysCell, additional synaptic
+        # configuration rules can be applied from the provided
+        # mech_file with init_syn_mech_attrs.
+
+        # for gid in postsyn_gids:
+        #     if gid in env.biophys_cells[postsyn_name]:
+        #         synapses.init_syn_mech_attrs(env.biophys_cells[postsyn_name][gid], env=env)
+        #     synapses.config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=(gid == first_gid))
+
+        #     if gid in env.biophys_cells[postsyn_name]:
+        #         # TODO: May want to keep a version of this here, but wrap it in a debug flag, and load from the
+        #         # config_file an export_file_name and a list of gids to export syn_attr data.
+        #         if rank == 0 and gid == first_gid and 'AMPA' in syn_attrs.syn_mech_names:
+        #             biophys_cell = env.biophys_cells[postsyn_name][gid]
+        #             from dentate.plot import plot_synaptic_attribute_distribution
+        #             results_file = 'example_syn_attrs.h5'
+        #             overwrite = True
+        #             syn_mech_name = syn_attrs.syn_mech_names['AMPA']
+        #             if 'g_unit' in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
+        #                 param_label = 'AMPA: g_unit'
+        #                 plot_synaptic_attribute_distribution(biophys_cell, env, 'AMPA', 'g_unit',
+        #                                                      from_mech_attrs=True, from_target_attrs=True,
+        #                                                      param_label=param_label, export=results_file,
+        #                                                      description='gid %i; after' % gid, show=False,
+        #                                                      overwrite=overwrite, data_dir=env.resultsPath)
+        #                 overwrite = False
+        #             param_label = 'AMPA: weight'
+        #             plot_synaptic_attribute_distribution(biophys_cell, env, 'AMPA', 'weight',
+        #                                                  from_mech_attrs=True, from_target_attrs=True,
+        #                                                  param_label=param_label, export=results_file,
+        #                                                  description='gid %i; after' % gid, show=False,
+        #                                                  overwrite=overwrite, data_dir=env.resultsPath)
 
         if rank == 0:
             logger.info('Rank %i: took %f s to configure synapses for population %s' % (rank, time.time() - pop_last_time, postsyn_name))
@@ -850,7 +856,7 @@ def make_stimulus_selection(env, vecstim_sources):
                 stim_cell.play(cell_spikes)
                 register_cell(env, pop_name, gid, stim_cell)
 
-def init(env, profile=False):
+def init(env, cleanup=True, profile=False):
     """
     Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
     If env.optldbal or env.optlptbal are specified, performs load balancing.
