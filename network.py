@@ -148,8 +148,8 @@ def connect_cells(env, cleanup=True):
         else:
             weights_namespace = 'Weights'
 
-        if 'mech_file' in env.celltypes[postsyn_name]:
-            mech_file_path = env.config_prefix + '/' + env.celltypes[postsyn_name]['mech_file']
+        if 'mech_file_path' in env.celltypes[postsyn_name]:
+            mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
         else:
             mech_file_path = None
 
@@ -358,8 +358,8 @@ def connect_cell_selection(env, cleanup=True):
         else:
             weights_namespace = 'Weights'
 
-        if 'mech_file' in env.celltypes[postsyn_name]:
-            mech_file_path = env.configPrefix + '/' + env.celltypes[postsyn_name]['mech_file']
+        if 'mech file_path' in env.celltypes[postsyn_name]:
+            mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
         else:
             mech_file_path = None
 
@@ -579,12 +579,16 @@ def make_cells(env):
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
+            first_gid = None
             for i, (gid, tree) in enumerate(trees):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
+                    
+                if first_gid is None:
+                    first_gid = fid
 
                 model_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
-                if rank == 0 and i == 0:
+                if rank == 0 and first_gid == gid:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
                 register_cell(env, pop_name, gid, model_cell)
@@ -675,14 +679,17 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
-            i = 0
-            for (gid, tree) in trees:
+            first_gid = None
+            for i, (gid, tree) in enumerate(trees):
+                
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
-
+                if first_gid == None:
+                    first_gid = gid
+                    
                 model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid, 
                                                        dataset_path=dataset_path)
-                if rank == 0 and i == 0:
+                if rank == 0 and first_gid == gid:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
                 env.gidset.add(gid)
@@ -701,7 +708,7 @@ def make_cell_selection(env):
                                                                 dt=env.dt, loc=0.5, param='v', \
                                                                 description='Soma')
 
-                i = i + 1
+
             if rank == 0:
                 logger.info("*** Created %i cells" % i)
 

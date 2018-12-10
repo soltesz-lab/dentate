@@ -14,7 +14,7 @@ Input: !include Input.yaml
 Cell Types:
   GC:
     template: DGC
-    templateFile: DGC.hoc
+    template file: DGC.hoc
     synapses:
       correct_for_spines: True
       weights: True

@@ -52,14 +52,14 @@ def make_input_cell(env, gid, gen):
     cell = template(gid, *params)
     return cell
 
-def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load_edges=True, tree_dict=None, synapses_dict=None):
+def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None, synapses_dict=None):
     """
     Instantiates the mechanisms of a single cell.
 
     :param env: env.Env
     :param pop_name: str
     :param gid: int
-    :param mech_file: str; cell mechanism config file name
+    :param mech_file_path: str; path to cell mechanism config file
     :param correct_for_spines: bool
 
     Environment can be instantiated as:
@@ -73,13 +73,6 @@ def load_cell(env, pop_name, gid, mech_file=None, correct_for_spines=False, load
     
     cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
                             tree_dict=tree_dict, synapses_dict=synapses_dict)
-    if mech_file is not None:
-        if env.configPrefix is not None:
-            mech_file_path = env.configPrefix + '/' + mech_file
-        else:
-            mech_file_path = mech_file
-    else:
-        mech_file_path = None
 
     if mech_file_path is not None:
         init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
@@ -123,10 +116,10 @@ def init_cell(env, pop_name, gid, load_edges=True):
     """
     
     ## Determine if a mechanism configuration file exists for this cell type
-    if 'mech_file' in env.celltypes[pop_name]:
-        mech_file = env.celltypes[pop_name]['mech_file']
+    if 'mech_file_path' in env.celltypes[pop_name]:
+        mech_file_path = env.celltypes[pop_name]['mech_file_path']
     else:
-        mech_file = None
+        mech_file_path = None
 
     ## Determine if correct_for_spines flag has been specified for this cell type
     synapse_config = env.celltypes[pop_name]['synapses']
@@ -139,7 +132,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = load_cell(env, pop_name, gid, mech_file=mech_file, \
+    cell = load_cell(env, pop_name, gid, mech_file_path=mech_file_path, \
                      correct_for_spines=correct_for_spines_flag, \
                      load_edges=load_edges)
     register_cell(env, pop_name, gid, cell)
@@ -151,6 +144,9 @@ def init_cell(env, pop_name, gid, load_edges=True):
      
     report_topology(cell, env)
 
+    for sec in list(cell.hoc_cell.all):
+        h.psection(sec=sec)
+    
     return cell
 
 def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), generate_weights_pops=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):

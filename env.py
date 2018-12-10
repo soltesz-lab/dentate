@@ -517,6 +517,8 @@ class Env:
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
+            if 'mechanism file' in celltypes[k]:
+                celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
 
         population_names  = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
@@ -535,11 +537,11 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-        if 'templateFile' in self.celltypes[popName]:
-            templateFile = self.celltypes[popName]['templateFile']
+        if 'template file' in self.celltypes[popName]:
+            template_file = self.celltypes[popName]['template file']
         else:
-            templateFile = None
-        find_template(self, templateName, template_file=templateFile, path=self.template_paths)
+            template_file = None
+        find_template(self, templateName, template_file=template_file, path=self.template_paths)
         assert(hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class
