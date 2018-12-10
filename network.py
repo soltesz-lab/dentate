@@ -205,7 +205,7 @@ def connect_cells(env, cleanup=True):
                 try:
                     cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, \
                                           reset_cable=True, from_file=True, correct_cm=correct_for_spines, \
-                                          correct_g_pas=correct_for_spines, env=env)
+                                          correct_g_pas=correct_for_spines, env=env, verbose=(first_gid==gid))
                 except IndexError:
                     raise IndexError('*** connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -408,7 +408,7 @@ def connect_cell_selection(env, cleanup=True):
                                           from_file=True, \
                                           correct_cm=correct_for_spines, \
                                           correct_g_pas=correct_for_spines, \
-                                          env=env)
+                                          env=env, verbose=(first_gid==gid))
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
