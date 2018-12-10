@@ -585,7 +585,7 @@ def make_cells(env):
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
                     
                 if first_gid is None:
-                    first_gid = fid
+                    first_gid = gid
 
                 model_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
                 if rank == 0 and first_gid == gid:
