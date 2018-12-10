@@ -154,6 +154,9 @@ def connect_cells(env, cleanup=True):
             mech_file_path = None
 
         if rank == 0:
+            logger.info('*** Mechanism file for population %s is %s' % (postsyn_name, str(mech_file_path)))
+
+        if rank == 0:
             logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
         if has_weights:
@@ -213,6 +216,8 @@ def connect_cells(env, cleanup=True):
                 if rank == 0 and gid == first_gid:
                     logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
+                    for sec in list(hoc_cell.all):
+                        h.psection(sec=sec)
 
         for presyn_name in presyn_names:
 
