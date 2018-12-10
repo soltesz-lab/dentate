@@ -208,7 +208,7 @@ def connect_cells(env, cleanup=True):
                 try:
                     cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, \
                                           reset_cable=True, from_file=True, correct_cm=correct_for_spines, \
-                                          correct_g_pas=correct_for_spines, env=env, verbose=(first_gid==gid))
+                                          correct_g_pas=correct_for_spines, env=env, verbose=((rank == 0) and (first_gid==gid)))
                 except IndexError:
                     raise IndexError('*** connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -262,7 +262,8 @@ def connect_cells(env, cleanup=True):
                                                                             insert=True, \
                                                                             insert_netcons=True)
             if rank == 0 and gid == first_gid:
-                logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network connections for gid %d' % (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
+                logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network connections for gid %d' % \
+                            (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
             env.edge_count[postsyn_name][presyn_name] += syn_count
 
             if cleanup:
@@ -413,7 +414,7 @@ def connect_cell_selection(env, cleanup=True):
                                           from_file=True, \
                                           correct_cm=correct_for_spines, \
                                           correct_g_pas=correct_for_spines, \
-                                          env=env, verbose=(first_gid==gid))
+                                          env=env, verbose=((rank == 0) and (first_gid==gid)))
                 except IndexError:
                     raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
