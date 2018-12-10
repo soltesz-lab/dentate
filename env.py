@@ -270,9 +270,6 @@ class Env:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
 
-        if self.hoc_lib_path:
-            # polymorphic hoc value template
-            h.load_file(self.hoc_lib_path + '/templates/Value.hoc')
 
     def parse_input_config(self):
         """

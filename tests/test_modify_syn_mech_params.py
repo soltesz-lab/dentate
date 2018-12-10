@@ -17,7 +17,7 @@ def standard_modify_syn_mech_param_tests(cell, env, syn_name='AMPA', param_name=
     gid = cell.gid
     pop_name = cell.pop_name
     init_syn_mech_attrs(cell, env)
-    config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
+    config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
     syn_attrs = env.synapse_attributes
     sec_type = 'apical'
     syn_mech_name = syn_attrs.syn_mech_names[syn_name]

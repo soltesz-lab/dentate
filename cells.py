@@ -1134,7 +1134,11 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
         if mech_name == 'ions':
             setattr(node.sec, param_name, baseline)
         else:
-            node.sec.insert(mech_name)
+            try:
+                node.sec.insert(mech_name)
+            except Exception:
+                raise RuntimeError('set_mech_param: unable to insert mechanism: %s cell: %s in sec_type: %s ' \
+                                    % (mech_name, str(cell), node.type))
             setattr(node.sec, param_name + "_" + mech_name, baseline)
     elif donor is None:
         raise RuntimeError('set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s '

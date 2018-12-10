@@ -213,9 +213,7 @@ def count_spines(cell, env):
     clean_axes(axes)
     fig.show()
 
-
-    config_biophys_cell_syns(env, gid, pop_name, insert=True)
-    syn_name = 'AMPA'
+    
 @click.command()
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')

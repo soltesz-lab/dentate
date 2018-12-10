@@ -1,5 +1,5 @@
 ais:
-  DGC_KM:
+  KM:
     gbar:
       value: 0.01305485237132087
   cable:
@@ -77,7 +77,7 @@ apical:
       slope: 3.829971282710617e-05
       tau: 305.3398519738249
 axon:
-  DGC_KM:
+  KM:
     gbar:
       origin: ais
   cable:
@@ -105,7 +105,7 @@ axon:
     g:
       origin: soma
 hillock:
-  DGC_KM:
+  KM:
     gbar:
       value: 0.01305485237132087
   cable:
