@@ -119,7 +119,7 @@ def init_context():
     arena_dimension    = 100.
     resolution         = 5.
     module_width       = field_width( float(context.module) / np.max(modules))
-    scale_factor       = 1. + (module_width * np.cos(np.pi/4) / arena_dimension)
+    scale_factor       = (module_width / 100.) + 1.
 
     mesh   = _generate_mesh(resolution=resolution)
     nx, ny = mesh[0].shape[0], mesh[0].shape[1]

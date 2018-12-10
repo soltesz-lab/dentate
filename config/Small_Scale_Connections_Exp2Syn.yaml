@@ -1,8 +1,8 @@
 Synapse Mechanisms:
-  AMPA: SatExp2Syn
+  AMPA: Exp2Syn
   NMDA: FacilNMDA
-  GABA_A: SatExp2Syn
-  GABA_B: SatExp2Syn
+  GABA_A: Exp2Syn
+  GABA_B: Exp2Syn
 Synapse Parameter Rules:
   EPSC:
     mech_file: exp2EPSC.mod
@@ -114,13 +114,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.5
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.5
           e: 0
-          g_unit: 0.0016
-        NMDA:
-          g_unit: 0.0016
+          weight: 0.002
     LPP:
       type: excitatory
       sections: [apical]
@@ -128,13 +125,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.5
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.5
           e: 0
-          g_unit: 0.0018
-        NMDA:
-          g_unit: 0.0016
+          weight: 0.0022
     MC:
       type: excitatory
       sections: [apical]
@@ -142,13 +136,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.5
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.5
           e: 0
-          g_unit: 0.00019
-        NMDA:
-          g_unit: 0.0016
+          weight: 0.00075
     AAC:
       type: inhibitory
       sections: [ais]
@@ -156,212 +147,194 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.3
-          tau_offset: 2.9
-          sat: 0.9
+          tau1: 0.3
+          tau2: 2.9
           e: -75
-          g_unit: 0.001
-    BC:   
+          weight: 0.001
+    BC:
       type: inhibitory
-      sections: [soma, apical]
-      layers: [GCL, IML]
-      proportions: [1.0, 0.69]
+      sections: [soma, apical, apical]
+      layers: [GCL, GCL, IML]
+      proportions: [1.0, 1.0, 0.69]
       mechanisms:
         GABA_A:
-          dur_onset: 0.25
-          tau_offset: 5.5
-          sat: 0.9
+          tau1: 0.25
+          tau2: 5.5
           e: -75
-          g_unit: 0.00065
-    HCC:  
+          weight: 0.001
+    HCC:
       type: inhibitory
       sections: [apical]
       layers: [IML]
       proportions: [0.31]
       mechanisms:
         GABA_A:
-          dur_onset: 0.4
-          tau_offset: 1.1
-          sat: 0.9
+          tau1: 0.4
+          tau2: 1.1
           e: -75
-          g_unit: 0.003
-    HC:   
+          weight: 0.004
+    HC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.5, 0.5]
       mechanisms:
         GABA_A:
-          dur_onset: 0.5
-          tau_offset: 6.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 6.0
           e: -75
-          g_unit: 0.006
-    NGFC: 
+          weight: 0.006
+    NGFC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.28, 0.28]
       mechanisms:
         GABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
-          sat: 0.9
+          tau1:  0.1
+          tau2: 10.0
           e:   -75
-          g_unit: 0.00015
+          weight: 0.0002
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau1:  50.0
+          tau2: 200.0
           e:   -90
-          g_unit: 0.0001
-    MOPP: 
+          weight: 0.00015
+    MOPP:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.22, 0.22]
       mechanisms:
         GABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
-          sat: 0.9
+          tau1:  0.1
+          tau2: 10.0
           e:   -75
-          g_unit: 0.00015
+          weight: 0.0002
   MC:
-    GC:   
+    GC:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
       proportions: [0.23]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 6.2
-          sat: 0.9
+          tau1: 0.5
+          tau2: 6.2
           e: 0
-          g_unit: 0.0015
-    MC:   
+          weight: 0.004
+    MC:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
       proportions: [0.77]
       mechanisms:
         AMPA:
-          dur_onset: 0.45
-          tau_offset: 2.2
-          sat: 0.9
+          tau1: 0.45
+          tau2: 2.2
           e: 0
-          g_unit: 0.0005
-    HC:   
+          weight: 0.005
+    HC:
       type: inhibitory
       sections: [apical]
       layers: [Hilus]
       proportions: [0.33]
       mechanisms:
         GABA_A:
-          dur_onset: 0.5
-          tau_offset: 6.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 6.0
           e: -75
-          g_unit: 0.001
-    BC:   
+          weight: 0.001
+    BC:
       type: inhibitory
       sections: [soma, apical]
       layers: [Hilus, Hilus]
       proportions: [1.0, 0.17]
       mechanisms:
         GABA_A:
-          dur_onset: 0.3
-          tau_offset: 3.3
-          sat: 0.9
+          tau1: 0.3
+          tau2: 3.3
           e: -75
-          g_unit: 0.0015
-    AAC:  
+          weight: 0.003
+    AAC:
       type: inhibitory
       sections: [ais]
-      layers: [GCL]
+      layers: [Hilus]
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.3
-          tau_offset: 3.3
-          sat: 0.9
+          tau1: 0.3
+          tau2: 3.3
           e: -75
-          g_unit: 0.003
-    HCC:  
+          weight: 0.003
+    HCC:
       type: inhibitory
       sections: [apical]
       layers: [Hilus]
       proportions: [0.5]
       mechanisms:
         GABA_A:
-          dur_onset: 0.6
-          tau_offset: 4.7
-          sat: 0.9
+          tau1: 0.6
+          tau2: 4.7
           e: -75
-          g_unit: 0.0006
+          weight: 0.0006
   HC:
-    GC:   
+    GC:
       type: excitatory
-      sections: [apical]
-      layers: [Hilus]
-      proportions: [0.72]
+      sections: [soma, apical]
+      layers: [Hilus, Hilus]
+      proportions: [0.72, 0.72]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau1: 0.3
+          tau2: 6.2
           e: 0
-          g_unit: 0.0047
-    MC:   
+          weight: 0.0047
+    MC:
       type: excitatory
-      sections: [apical]
-      layers: [Hilus]
-      proportions: [0.28]
+      sections: [soma, apical]
+      layers: [Hilus, Hilus]
+      proportions: [0.28, 0.28]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau1: 0.9
+          tau2: 3.6
           e: 0
-          g_unit: 0.0022
-    HC:  
+          weight: 0.0042
+    HC:
       type: inhibitory
       sections: [apical]
       layers: [Hilus]
       proportions: [0.99]
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
-          sat: 0.9
+          tau1: 0.37
+          tau2: 10.48
           e: -75
-          g_unit: 0.000623
-    IS:  
+          weight: 0.000623
+    IS:
       type: inhibitory
       sections: [apical, soma]
       layers: [Hilus, Hilus]
       proportions: [0.01, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
-          sat: 0.9
+          tau1: 0.37
+          tau2: 10.48
           e: -75
-          g_unit: 0.0005
+          weight: 0.0005
   BC:
-    GC:   
+    GC:
       type: excitatory
       sections: [soma, basal]
       layers: [Hilus, Hilus]
       proportions: [1.0, 1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau1: 0.3
+          tau2: 6.2
           e: 0
-          g_unit: 0.0047
+          weight: 0.0047
     MPP:
       type: excitatory
       sections: [apical]
@@ -369,11 +342,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau1:  0.5
+          tau2: 3.0
           e:     0
-          g_unit: 0.0005
+          weight: 0.0002
     LPP:
       type: excitatory
       sections: [apical]
@@ -381,89 +353,81 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau1:  0.5
+          tau2: 3.0
           e:     0
-          g_unit: 0.0005
-    MC:   
+          weight: 0.00023
+    MC:
       type: excitatory
       sections: [apical, apical]
       layers: [Hilus, IML]
       proportions: [1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau1: 0.9
+          tau2: 3.6
           e: 0
-          g_unit: 0.0003
-    BC:   
+          weight: 0.0042
+    BC:
       type: inhibitory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
       proportions: [0.67, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.22
-          tau_offset: 3.35
-          sat: 0.9
+          tau1: 0.22
+          tau2: 3.35
           e: -75
-          g_unit: 0.00427
-    HCC:  
+          weight: 0.00427
+    HCC:
       type: inhibitory
       sections: [apical]
       layers: [IML]
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.6
-          tau_offset: 4.78
-          sat: 0.9
+          tau1: 0.6
+          tau2: 4.78
           e: -75
-          g_unit: 0.000664
-    HC:   
+          weight: 0.000664
+    HC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.96, 0.96]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau1: 0.46
+          tau2: 4.43
           e: -75
-          g_unit: 0.00214
-    NGFC: 
+          weight: 0.00214
+    NGFC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.02, 0.02]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau1:   4.2
+          tau2: 14.0
           e:    -75
-          g_unit: 0.000183
+          weight: 0.000183
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau1:  50.0
+          tau2: 200.0
           e:   -90
-          g_unit: 0.000181
-    MOPP: 
+          weight: 0.000181
+    MOPP:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.02, 0.02]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau1:   4.2
+          tau2: 14.0
           e:    -75
-          g_unit: 0.0002
+          weight: 0.0002
     IS:
       type: inhibitory
       sections: [basal, apical]
@@ -471,24 +435,22 @@ Synapses:
       proportions: [0.33, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau1: 0.46
+          tau2: 4.43
           e: -75
-          g_unit: 0.00214
+          weight: 0.003
   AAC:
-    GC:   
+    GC:
       type: excitatory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
       proportions: [1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau1: 0.3
+          tau2: 6.2
           e: 0
-          g_unit: 0.0047
+          weight: 0.0047
     MPP:
       type: excitatory
       sections: [apical]
@@ -496,11 +458,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau1:  0.5
+          tau2: 3.0
           e:     0
-          g_unit: 0.0005
+          weight: 0.0002
     LPP:
       type: excitatory
       sections: [apical]
@@ -508,77 +469,70 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau1:  0.5
+          tau2: 3.0
           e:     0
-          g_unit: 0.0005
-    MC:   
+          weight: 0.00023
+    MC:
       type: excitatory
       sections: [apical]
       layers: [IML]
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau1: 0.9
+          tau2: 3.6
           e: 0
-          g_unit: 0.0003
-    HCC:  
+          weight: 0.0002
+    HCC:
       type: inhibitory
       sections: [apical]
       layers: [IML]
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.6
-          tau_offset: 4.78
-          sat: 0.9
+          tau1: 0.6
+          tau2: 4.78
           e: -75
-          g_unit: 0.000664
-    HC:   
+          weight: 0.000664
+    HC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.96, 0.96]
+      proportions: [0.90, 0.90]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau1: 0.46
+          tau2: 4.43
           e: -75
-          g_unit: 0.00214
-    NGFC: 
+          weight: 0.003
+    NGFC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.02, 0.02]
+      proportions: [0.05, 0.05]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau1:   4.2
+          tau2: 14.0
           e:    -75
-          g_unit: 0.000183
+          weight: 0.000183
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau1:  50.0
+          tau2: 200.0
           e:   -90
-          g_unit: 0.000181
-    MOPP: 
+          weight: 0.000181
+    MOPP:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.02, 0.02]
+      proportions: [0.05, 0.05]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau1:   4.2
+          tau2: 14.0
           e:    -75
-          g_unit: 0.0002
+          weight: 0.0002
     IS:
       type: inhibitory
       sections: [basal, soma]
@@ -586,11 +540,10 @@ Synapses:
       proportions: [1.0, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau1: 0.46
+          tau2: 4.43
           e: -75
-          g_unit: 0.00214
+          weight: 0.003
   HCC:
     MPP:
       type: excitatory
@@ -599,11 +552,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.0
           e: 0
-          g_unit: 0.0005
+          weight: 0.0005
     LPP:
       type: excitatory
       sections: [apical]
@@ -611,102 +563,93 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.0
           e: 0
-          g_unit: 0.0005
-    GC:   
+          weight: 0.0005
+    GC:
       type: excitatory
-      sections: [basal]
-      layers: [Hilus]
-      proportions: [0.68]
+      sections: [soma, basal, apical, apical]
+      layers: [Hilus, Hilus, Hilus, GCL]
+      proportions: [0.68, 0.68, 0.68, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau1: 0.3
+          tau2: 6.2
           e: 0
-          g_unit: 0.0047
-    MC:   
+          weight: 0.0047
+    MC:
       type: excitatory
-      sections: [basal, apical]
-      layers: [Hilus, IML]
-      proportions: [0.32, 1.0]
+      sections: [soma, basal, apical, apical]
+      layers: [Hilus, Hilus, Hilus, IML]
+      proportions: [0.32, 0.32, 0.32, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau1: 0.9
+          tau2: 3.6
           e: 0
-          g_unit: 0.00233
-    HCC:  
+          weight: 0.0043
+    HCC:
       type: inhibitory
-      sections: [basal, apical]
-      layers: [Hilus, IML]
-      proportions: [0.3, 1.0]
+      sections: [basal, apical, apical]
+      layers: [Hilus, GCL, IML]
+      proportions: [0.3, 1.0, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau1: 0.72
+          tau2: 4.7
           e: -75
-          g_unit: 0.000325
-    NGFC: 
+          weight: 0.000325
+    NGFC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.56, 0.56]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 16.2
-          sat: 0.9
+          tau1:  4.2
+          tau2: 16.2
           e: -75
-          g_unit: 0.000168
+          weight: 0.000168
         GABA_B:
-          dur_onset:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
-          tau_offset: 200.0  # http://www.jneurosci.org/content/33/18/7961
-          sat: 0.9
+          tau1:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
+          tau2: 200.0  # http://www.jneurosci.org/content/33/18/7961
           e: -90
-          g_unit: 0.000215
-    MOPP: 
+          weight: 0.000215
+    MOPP:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.44, 0.44]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 16.2
-          sat: 0.9
+          tau1:  4.2
+          tau2: 16.2
           e: -75
-          g_unit: 0.000168
-    IS: 
+          weight: 0.000168
+    IS:
       type: inhibitory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
       proportions: [0.7, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau1: 0.46
+          tau2: 4.43
           e: -75
-          g_unit: 0.0005
+          weight: 0.0005
   NGFC:
     MPP:
       type: excitatory
-      sections: [basal]
-      layers: [MML]
-      proportions: [1.0]
+      sections: [soma, basal]
+      layers: [MML, MML]
+      proportions: [1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.0
           e: 0
-          g_unit: 0.00025
+          weight: 0.0008
     LPP:
       type: excitatory
       sections: [apical]
@@ -714,66 +657,60 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.0
           e: 0
-          g_unit: 0.00033
-    HC:  
+          weight: 0.0009
+    HC:
       type: inhibitory
-      sections: [basal, apical]
-      layers: [MML, OML]
-      proportions: [0.86, 0.86]
+      sections: [soma, basal, apical]
+      layers: [MML, MML, OML]
+      proportions: [0.86, 0.86, 0.86]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau1: 0.72
+          tau2: 4.7
           e: -75
-          g_unit: 0.000473
-    NGFC: 
+          weight: 0.000473
+    NGFC:
       type: inhibitory
-      sections: [basal, apical]
-      layers: [MML, OML]
-      proportions: [0.08, 0.08]
+      sections: [soma, basal, apical]
+      layers: [MML, MML, OML]
+      proportions: [0.08, 0.08, 0.08]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau1:  4.2
+          tau2: 14.0
           e: -75
-          g_unit: 0.000113
+          weight: 0.000113
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau1:  50.0
+          tau2: 200.0
           e: -90
-          g_unit: 0.000169
-    MOPP: 
+          weight: 0.000169
+    MOPP:
       type: inhibitory
-      sections: [basal, apical]
-      layers: [MML, OML]
-      proportions: [0.06, 0.06]
+      sections: [soma, basal, apical]
+      layers: [MML, MML, OML]
+      proportions: [0.06, 0.06, 0.06]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau1:  4.2
+          tau2: 14.0
           e: -75
-          g_unit: 0.000113
+          weight: 0.000113
   MOPP:
     MPP:
       type: excitatory
-      sections: [basal]
-      layers: [MML]
-      proportions: [1.0]
+      sections: [basal, apical]
+      layers: [MML, MML]
+      proportions: [1.0, 1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.0
           e: 0
-          g_unit: 0.0010
+          weight: 0.0005
     LPP:
       type: excitatory
       sections: [apical]
@@ -781,102 +718,93 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau1: 0.5
+          tau2: 5.0
           e: 0
-          g_unit: 0.0010
-    MC:   
+          weight: 0.0006
+    MC:
       type: excitatory
-      sections: [basal]
-      layers: [IML]
-      proportions: [1.0]
+      sections: [soma, basal]
+      layers: [IML, IML]
+      proportions: [1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau1: 0.9
+          tau2: 3.6
           e: 0
-          g_unit: 0.0005
-    HC:  
+          weight: 0.0004
+    HC:
       type: inhibitory
       sections: [basal, apical]
       layers: [MML, OML]
       proportions: [1.0, 0.86]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau1: 0.72
+          tau2: 4.7
           e: -75
-          g_unit: 0.000473
-    HCC:  
+          weight: 0.000473
+    HCC:
       type: inhibitory
-      sections: [basal]
-      layers: [IML]
-      proportions: [1.0]
+      sections: [soma, basal]
+      layers: [IML, IML]
+      proportions: [1.0, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau1: 0.72
+          tau2: 4.7
           e: -75
-          g_unit: 0.000325
-    NGFC: 
+          weight: 0.000325
+    NGFC:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.56, 0.08]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau1:  4.2
+          tau2: 14.0
           e: -75
-          g_unit: 0.000113
+          weight: 0.000113
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau1:  50.0
+          tau2: 200.0
           e: -90
-          g_unit: 0.000169
-    MOPP: 
+          weight: 0.000169
+    MOPP:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
       proportions: [0.44, 0.06]
       mechanisms:
         GABA_A:
-          dur_onset:  4.5
-          tau_offset: 13.8
-          sat: 0.9
+          tau1:  4.5
+          tau2: 13.8
           e: -75
-          g_unit: 0.000113
+          weight: 0.000113
   IS:
-    GC:   
+    GC:
       type: excitatory
-      sections: [apical]
-      layers: [Hilus]
-      proportions: [1.0]
+      sections: [soma, basal, apical]
+      layers: [Hilus, Hilus, Hilus]
+      proportions: [1.0, 1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau1: 0.3
+          tau2: 6.2
           e: 0
-          g_unit: 0.0005
-    IS:   
+          weight: 0.0005
+    IS:
       type: inhibitory
-      sections: [apical, soma]
-      layers: [Hilus, Hilus]
-      proportions: [1.0, 1.0]
+      sections: [soma, basal, apical]
+      layers: [Hilus, Hilus, Hilus]
+      proportions: [1.0, 1.0, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
-          sat: 0.9
+          tau1: 0.37
+          tau2: 10.48
           e: -75
-          g_unit: 0.0010
+          weight: 0.0010
 Connection Velocity:
   AAC: 250.0
   BC: 250.0

@@ -26,12 +26,12 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
     # scale/translate the nodes to encompass the arena
     nodes -= 0.5
-    scaled_nodes = (nodes * scale_factor * arena_dimension)
-    
+    nodes = 2 * nodes * arena_dimension
     # evenly disperse the nodes over the domain using maxit iterative steps
     for i in range(maxit):
-        scaled_nodes = disperse(scaled_nodes,vert,smp)
-    nodes = scaled_nodes / scale_factor
+        nodes = disperse(nodes,vert,smp)
+    scaled_nodes = nodes * scale_factor
+    
     return (scaled_nodes, nodes,vert,smp)
 
 
@@ -189,7 +189,7 @@ def module2gid_dictionary(module_dict):
     return gid_dict
         
 
-def read_trajectory (input_path, trajectory_id):
+def read_trajectory(input_path, trajectory_id):
 
     trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
 

@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 """
 Dentate Gyrus model simulation script.
-
-
 """
-
+__author__ = 'See AUTHORS.md'
 import sys, click, os
 from mpi4py import MPI
 import numpy as np
 import dentate.network as network
 from dentate.env import Env
 from dentate.utils import list_find
+
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -42,11 +41,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
                   help='path to directory where output files will be written')
 @click.option("--results-id", type=str, required=False, default=None,
-                  help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
+                  help='identifier that is used to name neuroh5 namespaces that contain output spike and '
+                       'intracellular trace data')
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='name of file specifying assignment of cell gids to MPI ranks')
 @click.option("--io-size", type=int, default=0, help='the number of MPI ranks to be used for I/O operations')
-@click.option("--vrecord-fraction", type=float, default=0.001, help='fraction of cells to record intracellular voltage from')
+@click.option("--vrecord-fraction", type=float, default=0.001,
+              help='fraction of cells to record intracellular voltage from')
 @click.option("--coredat", is_flag=True, help='Save CoreNEURON data')
 @click.option("--tstop", type=int, default=1, help='physical time to simulate (ms)')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
@@ -56,11 +57,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--dt", type=float, default=0.025, help='')
 @click.option("--ldbal", is_flag=True, help='estimate load balance based on cell complexity')
 @click.option("--lptbal", is_flag=True, help='optimize load balancing assignment with LPT algorithm')
+@click.option('--cleanup', type=bool, default=True,
+              help='delete from memory the synapse attributes metadata after specifying connections')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, results_path, results_id, 
          node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours, 
-         results_write_time, dt, ldbal, lptbal, verbose, dry_run):
+         results_write_time, dt, ldbal, lptbal, cleanup, verbose, dry_run):
     """
     :param config_file: str; model configuration file name
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
@@ -81,6 +84,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
     :param dt: float; simulation time step
     :param ldbal: bool; estimate load balance based on cell complexity
     :param lptbal: bool; calculate load balance with LPT algorithm
+    :param cleanup: bool; whether to delete from memory the synapse attributes metadata after specifying connections
     :param verbose: bool; print verbose diagnostic messages while constructing the network
     :param dry_run: bool; whether to actually execute simulation after building network
     """
@@ -89,7 +93,7 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, results_path, results_id,
               node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init, stimulus_onset, max_walltime_hours,
               results_write_time, dt, ldbal, lptbal, verbose=verbose)
-    network.init(env)
+    network.init(env, cleanup)
     if not dry_run:
         network.run(env)
 

@@ -119,8 +119,6 @@ Synapses:
           sat: 0.9
           e: 0
           g_unit: 0.0016
-        NMDA:
-          g_unit: 0.0016
     LPP:
       type: excitatory
       sections: [apical]
@@ -133,8 +131,6 @@ Synapses:
           sat: 0.9
           e: 0
           g_unit: 0.0018
-        NMDA:
-          g_unit: 0.0016
     MC:
       type: excitatory
       sections: [apical]
@@ -147,8 +143,6 @@ Synapses:
           sat: 0.9
           e: 0
           g_unit: 0.00019
-        NMDA:
-          g_unit: 0.0016
     AAC:
       type: inhibitory
       sections: [ais]

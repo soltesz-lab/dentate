@@ -79,7 +79,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_2', show=False,
                                  sec_types=['apical'])
     modify_mech_param(cell, sec_type, 'nas', 'gbar', origin='parent', slope=x['dend.gbar_nas slope'],
-                      min=x['dend.gbar_nas min'], custom={'func': 'custom_filter_by_terminal'}, append=True)
+                      min=x['dend.gbar_nas min'], custom={'func': 'custom_filter_modify_slope_if_terminal'},
+                      append=True)
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_3', show=False,
                                  sec_types=['apical'])
     plot_mech_param_from_file('nas', 'gbar', 'dend_nas.hdf5', param_label='nas conductance',
@@ -215,47 +216,11 @@ def count_spines(cell, env):
     fig.show()
 
 
-def standard_modify_syn_mech_param_tests(cell, env):
-    """
-
-    :param cell:
-    :param env:
-    """
-    gid = cell.gid
-    pop_name = cell.pop_name
-    init_biophysics(cell, env, reset_cable=True, correct_cm=True)
-    config_syns_from_mech_attrs(gid, env, pop_name, insert=True)
-    syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[cell.gid]
-    sec_index_map = syn_attrs.sec_index_map[cell.gid]
-    sec_type = 'apical'
-    syn_name = 'SatAMPA'
-    param_name = 'g_unit'
-
-    plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=False,
-                                         from_target_attrs=True, param_label='AMPA.g_unit', export='syn_attrs.hdf5',
-                                         description='stage0', show=False, overwrite=True)
-    modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
-                          filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
-                          update_targets=True)
-    plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
-                                         from_target_attrs=True, param_label='AMPA.g_unit', export='syn_attrs.hdf5',
-                                         description='stage1', show=False)
-    modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name,
-                          filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
-                          origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
-                          append=True)
-    plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
-                                         from_target_attrs=True, param_label='AMPA.g_unit', export='syn_attrs.hdf5',
-                                         description='stage2', show=False)
-    plot_syn_attr_from_file(syn_name, param_name, 'syn_attrs.hdf5', param_label='AMPA.g_unit')
-
-
 @click.command()
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
-              default='Small_Scale_Control_LN_weights.yaml')
+              default='Small_Scale_Control_LN_weights_Sat.yaml')
 @click.option("--template-paths", type=str, default='../../DGC/Mateos-Aparicio2014:../templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='..')
@@ -263,7 +228,7 @@ def standard_modify_syn_mech_param_tests(cell, env):
               default='../datasets')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../config')
-@click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
+@click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
 @click.option("--load-edges", type=bool, default=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
@@ -296,7 +261,6 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     standard_cable_tests(cell, mech_file_path)
     cm_correction_test(cell, env, mech_file_path)
     count_spines(cell, env)
-    standard_modify_syn_mech_param_tests(cell, env)
 
 
 if __name__ == '__main__':

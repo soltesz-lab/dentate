@@ -4,9 +4,9 @@ Dataset Name: Small_Scale
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_small_scale_tree_syns_weights_20180413.h5
+Cell Data: DG_small_scale_tree_syns_weights_skip_MC_20180413.h5
 Connection Data: DG_GC_test_connections_20180402.h5
-Connection Generator: !include Small_Scale_Connections.yaml
+Connection Generator: !include Small_Scale_Connections_Lin.yaml
 LFP: !include LFP.yaml
 Input: !include Input.yaml
 ## Cell types for dentate gyrus model
@@ -14,7 +14,7 @@ Cell Types:
   GC:
     template: DGC
     templateFile: DGC_Template_minimal.hoc
-    mech_file: 20180605_DG_GC_excitability_mech.yaml
+    mech_file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
       weights: True
