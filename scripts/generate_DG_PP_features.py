@@ -11,8 +11,8 @@ import dentate.utils as utils
 from dentate.utils import list_find, list_argsort, get_script_logger, viewitems
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
 from optimize_DG_PP_features import calculate_field_distribution, \
-     acquire_fields_per_cell, _generate_mesh
-from dentate.stimulus import generate_spatial_offsets
+     acquire_fields_per_cell
+from dentate.stimulus import generate_spatial_offsets, generate_mesh
 
 logger = utils.get_script_logger(os.path.basename(__file__))
 
@@ -239,7 +239,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     max_field_width     = field_width(1.)
     module_widths       = [ field_width(float(module) / np.max(modules)) for module in modules ]
 
-    xp, yp = _generate_mesh()
+    xp, yp = generate_mesh(scale_factor=1., arena_dimension=100., resolution=5.)
     nx, ny = xp.shape
     ratemap_kwargs = {'a': 0.70 , 'b': -1.5, 'c': 0.90}
 
