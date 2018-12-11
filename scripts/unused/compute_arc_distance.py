@@ -30,7 +30,7 @@ def main(config, coords_path, coords_namespace, distance_namespace, layers, npoi
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
     
     max_extents = env.geometry['Parametric Surface']['Minimum Extent']
     min_extents = env.geometry['Parametric Surface']['Maximum Extent']
