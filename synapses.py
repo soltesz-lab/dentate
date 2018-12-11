@@ -775,7 +775,8 @@ def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, uniqu
                     '%i syn_ids' % (presyn_name, postsyn_name, gid, mech_count, nc_count, syn_count))
 
 
-def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False, unique=None, insert_netcons=False, insert_vecstims=False, verbose=False):
+def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False, unique=None, insert_netcons=False,
+                             insert_vecstims=False, verbose=False):
     """
     Configures the given syn_ids, and call config_syn with mechanism
     and netcon parameters (which must not be empty).  If syn_ids=None,
@@ -1378,7 +1379,7 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
     if filters is None:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index])
     else:
-        filtered_syns = syn_attrs.filter_synapses(gid, **filters)
+        filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], **filters)
     if len(filtered_syns) > 0:
         syn_ids = filtered_syns.keys()
         parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,

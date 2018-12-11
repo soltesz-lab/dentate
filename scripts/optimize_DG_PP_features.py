@@ -7,12 +7,12 @@ from dentate.utils import list_find, get_script_logger
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
 
 from nested.optimize_utils import *
-# from optimize_cells_utils import *
 
 
-utils.config_logging(True)
 script_name = 'optimize_DG_PP_features.py'
+utils.config_logging(True)
 logger      = utils.get_script_logger(script_name)
+
 
 context = Context()
 
