@@ -2,13 +2,12 @@ import sys, os, time, random, click, logging
 import numpy as np
 from pprint import pprint
 
-import dentate
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
 
 from nested.optimize_utils import *
-from optimize_cells_utils import *
+# from optimize_cells_utils import *
 
 
 utils.config_logging(True)
@@ -16,6 +15,7 @@ script_name = 'optimize_DG_PP_features.py'
 logger      = utils.get_script_logger(script_name)
 
 context = Context()
+
 
 def _instantiate_place_cell(gid, module, nfields):
     cell = {}
@@ -35,6 +35,7 @@ def _instantiate_place_cell(gid, module, nfields):
     cell['Ny']           = np.array([context.ny], dtype='int32')
     
     return cell 
+
 
 def _instantiate_grid_cell(gid, module, nfields):
     cell    = {}
@@ -59,11 +60,13 @@ def _instantiate_grid_cell(gid, module, nfields):
 
     return cell 
 
+
 def acquire_fields_per_cell(ncells, field_probabilities, generator):
     field_probabilities = np.asarray(field_probabilities, dtype='float32')
     field_set = [i for i in range(field_probabilities.shape[0])]
     return generator.choice(field_set, p=field_probabilities, size=(ncells,))
-    
+
+
 def _build_cells(N, ctype, module, start_gid=1):
 
     cells = {}
@@ -99,6 +102,7 @@ def _build_cells(N, ctype, module, start_gid=1):
             cell['Y Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,1], dtype='float32')
         curr_pos += nf
     return cells, gid + 1
+
 
 def init_context():
 
@@ -137,6 +141,7 @@ def _generate_mesh(scale_factor=1.0, arena_dimension=100., resolution=5.):
     arena_y        = np.arange(arena_y_bounds[0], arena_y_bounds[1], resolution)
     return np.meshgrid(arena_x, arena_y, indexing='ij')
 
+
 @click.command()
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), 
                default="../config/optimize_DG_PP_config_3.yaml")
@@ -159,6 +164,7 @@ def main(config_file_path, output_dir, export, export_file_path, label, run_test
     if run_tests:
         tests(plot=True)
 
+
 def tests(plot=False):
     report_cost(context)
 
@@ -171,6 +177,7 @@ def tests(plot=False):
     kwargs['ctype'] = 'grid'
     plot_group(grid_cells, plot=plot, **kwargs)
 
+
 def plot_group(cells, plot=False, **kwargs):
     from plot_DG_PP_features import plot_rate_maps, plot_xy_offsets, \
                                     plot_fraction_active_map, plot_rate_histogram
@@ -178,6 +185,7 @@ def plot_group(cells, plot=False, **kwargs):
     plot_xy_offsets(cells,plot=False,save=True, **kwargs)
     plot_fraction_active_map(cells,'_fraction_active', plot=False,save=True, **kwargs)
     plot_rate_histogram(cells, plot=plot, save=True, **kwargs)
+
 
 def report_cost(context):
     x0 = context.x0_array
@@ -200,6 +208,7 @@ def report_cost(context):
     for objective in objectives.keys():
         print('Objective: %s has cost %f' % (objective, objectives[objective]))
 
+
 def config_worker():
 
     if 'module' not in context():
@@ -208,6 +217,7 @@ def config_worker():
         raise Exception('Place and grid cell counts must be defined prior to optimization')
     init_context()
     
+
 def get_cell_types_from_context(context):
     cells = None
     if context.cell_type == 'grid':
@@ -217,6 +227,7 @@ def get_cell_types_from_context(context):
     if cells is None:
         raise Exception('Could not find proper cells of type %s' % context.cell_type)
     return cells
+
 
 def calculate_features(parameters, export=False):
     update_source_contexts(parameters, context)
@@ -230,6 +241,7 @@ def calculate_features(parameters, export=False):
     features['fraction active population'] = fraction_active
     features['fraction active'] = np.mean(fraction_active.values())
     return features
+
 
 def get_objectives(features):
     feature_names = context.feature_names
@@ -256,6 +268,7 @@ def get_objectives(features):
 
     return features, objectives
 
+
 def _coefficient_of_variation(cells, eps=1.0e-6):
     rate_maps = []
     for gid in cells:
@@ -270,6 +283,7 @@ def _coefficient_of_variation(cells, eps=1.0e-6):
     std  = np.std(summed_map)
     cov  = np.divide(std, mean + eps)
     return cov
+
 
 def _peak_to_trough(cells):
     rate_maps = []
@@ -287,6 +301,7 @@ def _peak_to_trough(cells):
     var_eval    = 0.0
     return minmax_eval, var_eval 
 
+
 def _fraction_active(cells):
     rate_maps = []
     for gid in cells:
@@ -301,11 +316,13 @@ def _fraction_active(cells):
     factive = lambda px, py: _calculate_fraction_active(rate_maps[:,px,py])
     return {(px,py): factive(px, py) for (px, py) in coords}
 
+
 def _calculate_fraction_active(rates):
     N = len(rates)
     num_active = len(np.where(rates > context.active_threshold)[0])
     fraction_active = np.divide(float(num_active), float(N))
     return fraction_active    
+
 
 def calculate_field_distribution(pi, pr):
     p1 = (1. - pi) / (1. + (7./4.) * pr)
@@ -328,10 +345,12 @@ def update(x, context):
     context.place_cells, _ = _build_cells(context.num_place, 'place', context.module, start_gid=context.place_gid_start)
     _calculate_rate_maps(context.place_cells, context)
 
+
 def merge_cells():
     z = context.grid_cells.copy()
     return z.update(context.place_cells.copy())
     
+
 def _calculate_rate_maps(cells, context):
     xp, yp       = context.mesh
     ratemap_kwargs = dict()
@@ -357,6 +376,7 @@ def _calculate_rate_maps(cells, context):
             cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
         else:
             cell['Rate Map'] = np.zeros( (cell['Nx'][0] * cell['Ny'][0],) ).astype('float32')
+
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
