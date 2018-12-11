@@ -25,7 +25,7 @@ PARAMETER {
 
 ASSIGNED {
 	v		(mV)
-        eca     (mV)
+    eca     (mV)
 	ica	(mA/cm2)
 	gtca		(S/cm2)
 	gnca		(S/cm2)
