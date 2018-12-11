@@ -895,6 +895,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                 this_netcon = None
                 if syn_index in syn.mech_attr_dict:
                     this_pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
+
                     if this_pps is None:
                        raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have point process for mechanism %s' % (gid, syn_id, syn_name))
                     mech_params = syn.mech_attr_dict[syn_index]
@@ -1039,41 +1040,6 @@ def make_unique_synapse_mech(syn_name, seg, syns_dict=None, mech_names=None):
     syn_mech = make_syn_mech(mech_name, seg)
     return syn_mech
 
-
-def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
-    """
-
-    :param syn_name: str
-    :param rules: dict to correctly parse params for specified hoc mechanism
-    :param mech_names: dict to convert syn_name to hoc mechanism name
-    :param syn: synaptic mechanism object
-    :param nc: :class:'h.NetCon'
-    :param params: dict
-    """
-    if mech_names is not None:
-        mech_name = mech_names[syn_name]
-    else:
-        mech_name = syn_name
-    for param, val in viewitems(params):
-        failed = True
-        if param in rules[mech_name]['mech_params']:
-            if syn is None:
-                failed = False
-            elif hasattr(syn, param):
-                setattr(syn, param, val)
-                failed = False
-        elif param in rules[mech_name]['netcon_params']:
-            if nc is None:
-                failed = False
-            else:
-                i = rules[mech_name]['netcon_params'][param]
-
-                if int(nc.wcnt()) >= i:
-                    nc.weight[i] = val
-                    failed = False
-        if failed:
-            raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
-                                 (param, mech_name))
 
 
 def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
