@@ -159,6 +159,8 @@ def configure_hoc_env(env):
     env.pc = h.pc
     h.dt = env.dt
     h.tstop = env.tstop
+    if 'celsius' in env.globals:
+        h.celsius = env.globals['celsius']
 
 
 def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', description=''):

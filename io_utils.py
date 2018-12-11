@@ -43,7 +43,7 @@ def h5_concat_dataset(dset, data):
 def make_h5types(env, output_path, gap_junctions=False):
 
     populations = []
-    for pop_name, pop_idx in viewitems(env.pop_dict):
+    for pop_name, pop_idx in viewitems(env.Populations):
         layer_counts = env.geometry['Cell Layer Counts'][pop_name]
         pop_count = 0
         for layer_name, layer_count in viewitems(layer_counts):
@@ -54,14 +54,14 @@ def make_h5types(env, output_path, gap_junctions=False):
     projections = []
     if gap_junctions:
         for (post, pre), connection_dict in viewitems(env.gapjunctions):
-            projections.append((env.pop_dict[pre], env.pop_dict[post]))
+            projections.append((env.Populations[pre], env.Populations[post]))
     else:
         for post, connection_dict in viewitems(env.connection_config):
             for pre, _ in viewitems(connection_dict):
-                projections.append((env.pop_dict[pre], env.pop_dict[post]))
+                projections.append((env.Populations[pre], env.Populations[post]))
     
     # create an HDF5 enumerated type for the population label
-    mapping = { name: idx for name, idx in viewitems(env.pop_dict) }
+    mapping = { name: idx for name, idx in viewitems(env.Populations) }
     dt_population_labels = h5py.special_dtype(enum=(np.uint16, mapping))
 
     with h5py.File(output_path, "a") as h5:

@@ -1,8 +1,8 @@
 Synapse Mechanisms:
-  AMPA: SatExp2Syn
+  AMPA: LinExp2Syn
   NMDA: FacilNMDA
-  GABA_A: SatExp2Syn
-  GABA_B: SatExp2Syn
+  GABA_A: LinExp2Syn
+  GABA_B: LinExp2Syn
 Synapse Parameter Rules:
   EPSC:
     mech_file: exp2EPSC.mod
@@ -80,7 +80,7 @@ Synapse Parameter Rules:
       - gmax
     netcon_params:
       weight: 0
-Axon Extent: !include Axon_Extent.yaml
+Axon Extent: !include Axon_Extent.yaml      
 Synapses:
   GC:
     MPP:
@@ -90,12 +90,9 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.5
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.5
           e: 0
-          g_unit: 0.0016
-        NMDA:
           g_unit: 0.0016
     LPP:
       type: excitatory
@@ -104,13 +101,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.5
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.5
           e: 0
           g_unit: 0.0018
-        NMDA:
-          g_unit: 0.0016
     MC:
       type: excitatory
       sections: [apical]
@@ -118,13 +112,10 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.5
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.5
           e: 0
           g_unit: 0.00019
-        NMDA:
-          g_unit: 0.0016
     AAC:
       type: inhibitory
       sections: [ais]
@@ -132,9 +123,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.3
-          tau_offset: 2.9
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 2.9
           e: -75
           g_unit: 0.001
     BC:   
@@ -144,9 +134,8 @@ Synapses:
       proportions: [1.0, 0.69]
       mechanisms:
         GABA_A:
-          dur_onset: 0.25
-          tau_offset: 5.5
-          sat: 0.9
+          tau_rise: 0.25
+          tau_decay: 5.5
           e: -75
           g_unit: 0.00065
     HCC:  
@@ -156,9 +145,8 @@ Synapses:
       proportions: [0.31]
       mechanisms:
         GABA_A:
-          dur_onset: 0.4
-          tau_offset: 1.1
-          sat: 0.9
+          tau_rise: 0.4
+          tau_decay: 1.1
           e: -75
           g_unit: 0.003
     HC:   
@@ -168,9 +156,8 @@ Synapses:
       proportions: [0.5, 0.5]
       mechanisms:
         GABA_A:
-          dur_onset: 0.5
-          tau_offset: 6.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 6.0
           e: -75
           g_unit: 0.006
     NGFC: 
@@ -180,15 +167,13 @@ Synapses:
       proportions: [0.28, 0.28]
       mechanisms:
         GABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
-          sat: 0.9
+          tau_rise:  0.1
+          tau_decay: 10.0
           e:   -75
           g_unit: 0.00015
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau_rise:  50.0
+          tau_decay: 200.0
           e:   -90
           g_unit: 0.0001
     MOPP: 
@@ -198,9 +183,8 @@ Synapses:
       proportions: [0.22, 0.22]
       mechanisms:
         GABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
-          sat: 0.9
+          tau_rise:  0.1
+          tau_decay: 10.0
           e:   -75
           g_unit: 0.00015
   MC:
@@ -211,9 +195,8 @@ Synapses:
       proportions: [0.23]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 6.2
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 6.2
           e: 0
           g_unit: 0.0015
     MC:   
@@ -223,9 +206,8 @@ Synapses:
       proportions: [0.77]
       mechanisms:
         AMPA:
-          dur_onset: 0.45
-          tau_offset: 2.2
-          sat: 0.9
+          tau_rise: 0.45
+          tau_decay: 2.2
           e: 0
           g_unit: 0.0005
     HC:   
@@ -235,9 +217,8 @@ Synapses:
       proportions: [0.33]
       mechanisms:
         GABA_A:
-          dur_onset: 0.5
-          tau_offset: 6.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 6.0
           e: -75
           g_unit: 0.001
     BC:   
@@ -247,9 +228,8 @@ Synapses:
       proportions: [1.0, 0.17]
       mechanisms:
         GABA_A:
-          dur_onset: 0.3
-          tau_offset: 3.3
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 3.3
           e: -75
           g_unit: 0.0015
     AAC:  
@@ -259,9 +239,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.3
-          tau_offset: 3.3
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 3.3
           e: -75
           g_unit: 0.003
     HCC:  
@@ -271,9 +250,8 @@ Synapses:
       proportions: [0.5]
       mechanisms:
         GABA_A:
-          dur_onset: 0.6
-          tau_offset: 4.7
-          sat: 0.9
+          tau_rise: 0.6
+          tau_decay: 4.7
           e: -75
           g_unit: 0.0006
   HC:
@@ -284,9 +262,8 @@ Synapses:
       proportions: [0.72]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 6.2
           e: 0
           g_unit: 0.0047
     MC:   
@@ -296,9 +273,8 @@ Synapses:
       proportions: [0.28]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau_rise: 0.9
+          tau_decay: 3.6
           e: 0
           g_unit: 0.0022
     HC:  
@@ -308,9 +284,8 @@ Synapses:
       proportions: [0.99]
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
-          sat: 0.9
+          tau_rise: 0.37
+          tau_decay: 10.48
           e: -75
           g_unit: 0.000623
     IS:  
@@ -320,9 +295,8 @@ Synapses:
       proportions: [0.01, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
-          sat: 0.9
+          tau_rise: 0.37
+          tau_decay: 10.48
           e: -75
           g_unit: 0.0005
   BC:
@@ -333,9 +307,8 @@ Synapses:
       proportions: [1.0, 1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 6.2
           e: 0
           g_unit: 0.0047
     MPP:
@@ -345,9 +318,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau_rise:  0.5
+          tau_decay: 3.0
           e:     0
           g_unit: 0.0005
     LPP:
@@ -357,9 +329,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau_rise:  0.5
+          tau_decay: 3.0
           e:     0
           g_unit: 0.0005
     MC:   
@@ -369,9 +340,8 @@ Synapses:
       proportions: [1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau_rise: 0.9
+          tau_decay: 3.6
           e: 0
           g_unit: 0.0003
     BC:   
@@ -381,9 +351,8 @@ Synapses:
       proportions: [0.67, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.22
-          tau_offset: 3.35
-          sat: 0.9
+          tau_rise: 0.22
+          tau_decay: 3.35
           e: -75
           g_unit: 0.00427
     HCC:  
@@ -393,9 +362,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.6
-          tau_offset: 4.78
-          sat: 0.9
+          tau_rise: 0.6
+          tau_decay: 4.78
           e: -75
           g_unit: 0.000664
     HC:   
@@ -405,9 +373,8 @@ Synapses:
       proportions: [0.96, 0.96]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau_rise: 0.46
+          tau_decay: 4.43
           e: -75
           g_unit: 0.00214
     NGFC: 
@@ -417,15 +384,13 @@ Synapses:
       proportions: [0.02, 0.02]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau_rise:   4.2
+          tau_decay: 14.0
           e:    -75
           g_unit: 0.000183
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau_rise:  50.0
+          tau_decay: 200.0
           e:   -90
           g_unit: 0.000181
     MOPP: 
@@ -435,9 +400,8 @@ Synapses:
       proportions: [0.02, 0.02]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau_rise:   4.2
+          tau_decay: 14.0
           e:    -75
           g_unit: 0.0002
     IS:
@@ -447,9 +411,8 @@ Synapses:
       proportions: [0.33, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau_rise: 0.46
+          tau_decay: 4.43
           e: -75
           g_unit: 0.00214
   AAC:
@@ -460,9 +423,8 @@ Synapses:
       proportions: [1.0, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 6.2
           e: 0
           g_unit: 0.0047
     MPP:
@@ -472,9 +434,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau_rise:  0.5
+          tau_decay: 3.0
           e:     0
           g_unit: 0.0005
     LPP:
@@ -484,9 +445,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset:  0.5
-          tau_offset: 3.0
-          sat: 0.9
+          tau_rise:  0.5
+          tau_decay: 3.0
           e:     0
           g_unit: 0.0005
     MC:   
@@ -496,9 +456,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau_rise: 0.9
+          tau_decay: 3.6
           e: 0
           g_unit: 0.0003
     HCC:  
@@ -508,9 +467,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.6
-          tau_offset: 4.78
-          sat: 0.9
+          tau_rise: 0.6
+          tau_decay: 4.78
           e: -75
           g_unit: 0.000664
     HC:   
@@ -520,9 +478,8 @@ Synapses:
       proportions: [0.96, 0.96]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau_rise: 0.46
+          tau_decay: 4.43
           e: -75
           g_unit: 0.00214
     NGFC: 
@@ -532,15 +489,13 @@ Synapses:
       proportions: [0.02, 0.02]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau_rise:   4.2
+          tau_decay: 14.0
           e:    -75
           g_unit: 0.000183
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau_rise:  50.0
+          tau_decay: 200.0
           e:   -90
           g_unit: 0.000181
     MOPP: 
@@ -550,9 +505,8 @@ Synapses:
       proportions: [0.02, 0.02]
       mechanisms:
         GABA_A:
-          dur_onset:   4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau_rise:   4.2
+          tau_decay: 14.0
           e:    -75
           g_unit: 0.0002
     IS:
@@ -562,9 +516,8 @@ Synapses:
       proportions: [1.0, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau_rise: 0.46
+          tau_decay: 4.43
           e: -75
           g_unit: 0.00214
   HCC:
@@ -575,9 +528,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.0
           e: 0
           g_unit: 0.0005
     LPP:
@@ -587,9 +539,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.0
           e: 0
           g_unit: 0.0005
     GC:   
@@ -599,9 +550,8 @@ Synapses:
       proportions: [0.68]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 6.2
           e: 0
           g_unit: 0.0047
     MC:   
@@ -611,9 +561,8 @@ Synapses:
       proportions: [0.32, 1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau_rise: 0.9
+          tau_decay: 3.6
           e: 0
           g_unit: 0.00233
     HCC:  
@@ -623,9 +572,8 @@ Synapses:
       proportions: [0.3, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau_rise: 0.72
+          tau_decay: 4.7
           e: -75
           g_unit: 0.000325
     NGFC: 
@@ -635,15 +583,13 @@ Synapses:
       proportions: [0.56, 0.56]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 16.2
-          sat: 0.9
+          tau_rise:  4.2
+          tau_decay: 16.2
           e: -75
           g_unit: 0.000168
         GABA_B:
-          dur_onset:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
-          tau_offset: 200.0  # http://www.jneurosci.org/content/33/18/7961
-          sat: 0.9
+          tau_rise:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
+          tau_decay: 200.0  # http://www.jneurosci.org/content/33/18/7961
           e: -90
           g_unit: 0.000215
     MOPP: 
@@ -653,9 +599,8 @@ Synapses:
       proportions: [0.44, 0.44]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 16.2
-          sat: 0.9
+          tau_rise:  4.2
+          tau_decay: 16.2
           e: -75
           g_unit: 0.000168
     IS: 
@@ -665,9 +610,8 @@ Synapses:
       proportions: [0.7, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.46
-          tau_offset: 4.43
-          sat: 0.9
+          tau_rise: 0.46
+          tau_decay: 4.43
           e: -75
           g_unit: 0.0005
   NGFC:
@@ -678,9 +622,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.0
           e: 0
           g_unit: 0.00025
     LPP:
@@ -690,9 +633,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.0
           e: 0
           g_unit: 0.00033
     HC:  
@@ -702,9 +644,8 @@ Synapses:
       proportions: [0.86, 0.86]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau_rise: 0.72
+          tau_decay: 4.7
           e: -75
           g_unit: 0.000473
     NGFC: 
@@ -714,15 +655,13 @@ Synapses:
       proportions: [0.08, 0.08]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau_rise:  4.2
+          tau_decay: 14.0
           e: -75
           g_unit: 0.000113
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau_rise:  50.0
+          tau_decay: 200.0
           e: -90
           g_unit: 0.000169
     MOPP: 
@@ -732,9 +671,8 @@ Synapses:
       proportions: [0.06, 0.06]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau_rise:  4.2
+          tau_decay: 14.0
           e: -75
           g_unit: 0.000113
   MOPP:
@@ -745,9 +683,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.0
           e: 0
           g_unit: 0.0010
     LPP:
@@ -757,9 +694,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 5.0
-          sat: 0.9
+          tau_rise: 0.5
+          tau_decay: 5.0
           e: 0
           g_unit: 0.0010
     MC:   
@@ -769,9 +705,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
-          tau_offset: 3.6
-          sat: 0.9
+          tau_rise: 0.9
+          tau_decay: 3.6
           e: 0
           g_unit: 0.0005
     HC:  
@@ -781,9 +716,8 @@ Synapses:
       proportions: [1.0, 0.86]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau_rise: 0.72
+          tau_decay: 4.7
           e: -75
           g_unit: 0.000473
     HCC:  
@@ -793,9 +727,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.72
-          tau_offset: 4.7
-          sat: 0.9
+          tau_rise: 0.72
+          tau_decay: 4.7
           e: -75
           g_unit: 0.000325
     NGFC: 
@@ -805,15 +738,13 @@ Synapses:
       proportions: [0.56, 0.08]
       mechanisms:
         GABA_A:
-          dur_onset:  4.2
-          tau_offset: 14.0
-          sat: 0.9
+          tau_rise:  4.2
+          tau_decay: 14.0
           e: -75
           g_unit: 0.000113
         GABA_B:
-          dur_onset:  50.0
-          tau_offset: 200.0
-          sat: 0.9
+          tau_rise:  50.0
+          tau_decay: 200.0
           e: -90
           g_unit: 0.000169
     MOPP: 
@@ -823,9 +754,8 @@ Synapses:
       proportions: [0.44, 0.06]
       mechanisms:
         GABA_A:
-          dur_onset:  4.5
-          tau_offset: 13.8
-          sat: 0.9
+          tau_rise:  4.5
+          tau_decay: 13.8
           e: -75
           g_unit: 0.000113
   IS:
@@ -836,9 +766,8 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
-          sat: 0.9
+          tau_rise: 0.3
+          tau_decay: 6.2
           e: 0
           g_unit: 0.0005
     IS:   
@@ -848,9 +777,8 @@ Synapses:
       proportions: [1.0, 1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
-          sat: 0.9
+          tau_rise: 0.37
+          tau_decay: 10.48
           e: -75
           g_unit: 0.0010
 Connection Velocity:

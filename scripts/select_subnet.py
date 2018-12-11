@@ -71,6 +71,7 @@ def main(config, config_prefix, dataset_prefix, selection_path, output_path, pop
 
     yaml_output_dict = {}
     for k, v in utils.viewitems(output_dict):
+        logger.info('Rank %d: population %s: %d cells' % (comm.rank, k, len(v)))
         yaml_output_dict[k] = list(v)
         
     with open(output_path, 'w') as outfile:

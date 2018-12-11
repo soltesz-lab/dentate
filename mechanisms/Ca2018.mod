@@ -17,7 +17,7 @@ UNITS {
 }
 
 PARAMETER {
-	gtcabar = .00015	(S/cm2)
+	gtcabar = .0002625	(S/cm2) : Aradi (1999) was .00015
 	gncabar = .002	(S/cm2)
 	glcabar = .01	(S/cm2)
     gcamult = 1.
@@ -25,7 +25,7 @@ PARAMETER {
 
 ASSIGNED {
 	v		(mV)
-    eca     (mV)
+        eca     (mV)
 	ica	(mA/cm2)
 	gtca		(S/cm2)
 	gnca		(S/cm2)

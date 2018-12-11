@@ -379,7 +379,7 @@ class QuickSim(object):
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
-              default='Small_Scale_Control_LN_weights.yaml')
+              default='Small_Scale_Control_LN_weights_Sat.yaml')
 @click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:../dentate/templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate')
@@ -387,12 +387,13 @@ class QuickSim(object):
               default='../dentate/datasets')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate/config')
-@click.option("--mech-file", required=True, type=str, default='20180605_DG_GC_excitability_mech.yaml')
+@click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
 @click.option("--load-edges", type=bool, default=True)
+@click.option("--load-weights", is_flag=True)
 @click.option("--correct-for-spines", type=bool, default=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
-         load_edges, correct_for_spines, verbose):
+         load_edges, load_weights, correct_for_spines, verbose):
     """
 
     :param gid: int
@@ -403,7 +404,8 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files
     :param mech_file: str; cell mechanism config file name
-    :param load_edges: bool
+    :param load_edges: bool; whether to attempt to load connections from a neuroh5 file
+    :param load_weights: bool; whether to attempt to load connections from a neuroh5 file
     :param correct_for_spines: bool
     :param verbose: bool
     """
@@ -412,7 +414,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_hoc_env(env)
 
-    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
+    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights)
 
     mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())

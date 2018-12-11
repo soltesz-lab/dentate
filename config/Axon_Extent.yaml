@@ -46,3 +46,8 @@ MOPP:
   default:
     width: [2000., 2000.]
     offset: [0., 0.]
+PYR:
+  default:
+    width: [3000., 5000.]
+    offset: [0., 0.]
+    

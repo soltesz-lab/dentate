@@ -38,8 +38,8 @@ class Env:
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0, vrecord_fraction=0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0, results_write_time=0,
-                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection_path=None, spike_input_path=None, spike_input_ns=None,
-                 verbose=False, **kwargs):
+                 dt=0.025, ldbal=False, lptbal=False, transfer_debug=False, cell_selection_path=None, 
+                 spike_input_path=None, spike_input_namespace=None, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -65,7 +65,9 @@ class Env:
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
-
+        self.layers = {}
+        self.globals = {}
+        
         self.gidset = set([])
         self.cells = []
         self.gjlist = []
@@ -76,13 +78,12 @@ class Env:
             self.comm = MPI.COMM_WORLD
         else:
             self.comm = comm
-        if comm is not None:
+        if self.comm is not None:
             self.pc = h.ParallelContext()
         else:
             self.pc = None
 
         # print verbose diagnostic messages
-        self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
         
@@ -143,13 +144,13 @@ class Env:
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
         self.cell_selection_path = cell_selection_path
-        if cell_selection_path:
+        if cell_selection_path is not None:
             with open(cell_selection_path) as fp:
                 self.cell_selection = yaml.load(fp, IncludeLoader)
         
         # Spike input path
         self.spike_input_path = spike_input_path
-        self.spike_input_ns = spike_input_ns
+        self.spike_input_ns = spike_input_namespace
         
         self.node_ranks = None
         if node_rank_file:
@@ -175,11 +176,12 @@ class Env:
         else:
             raise RuntimeError("missing configuration file")
 
-        defs = self.modelConfig['Definitions']
-        self.SWC_Types = defs['SWC Types']
-        self.Synapse_Types = defs['Synapse Types']
-        self.layers = defs['Layers']
-        self.feature_types = defs['Input Features']
+        if 'Definitions' in self.modelConfig:
+            self.parse_definitions()
+
+        if 'Global Parameters' in self.modelConfig:
+            self.parse_globals()
+
         if 'Geometry' in self.modelConfig:
             self.geometry = self.modelConfig['Geometry']
         else:
@@ -201,12 +203,12 @@ class Env:
         else:
             self.results_file_path = "%s_results.h5" % self.modelName
 
-        if 'Definitions' in self.modelConfig:
-            self.parse_definitions()
 
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             self.parse_gapjunction_config()
+
+        self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
 
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
@@ -248,7 +250,7 @@ class Env:
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
         self.recs_dict = {}  # Intracellular samples on this host
-        for pop_name, _ in viewitems(self.pop_dict):
+        for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = {}
 
         # used to calculate model construction times and run time
@@ -261,15 +263,13 @@ class Env:
         self.lfp = {}
 
         self.edge_count = defaultdict(dict)
+        self.syns_set = defaultdict(set)
 
         # stimulus cell templates
         if len(self.template_paths) > 0:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
 
-        if self.hoc_lib_path:
-            # polymorphic hoc value template
-            h.load_file(self.hoc_lib_path + '/templates/Value.hoc')
 
     def parse_input_config(self):
         """
@@ -332,14 +332,15 @@ class Env:
         self.geometry['Parametric Surface']['Origin'] = coords
 
     def parse_definitions(self):
-        populations_dict = self.modelConfig['Definitions']['Populations']
-        self.pop_dict = populations_dict
-        syntypes_dict    = self.modelConfig['Definitions']['Synapse Types']
-        self.syntypes_dict = syntypes_dict
-        swctypes_dict    = self.modelConfig['Definitions']['SWC Types']
-        self.swctypes_dict = swctypes_dict
-        layers_dict      = self.modelConfig['Definitions']['Layers']
-        self.layers_dict = layers_dict
+        defs               = self.modelConfig['Definitions']
+        self.Populations   = defs['Populations']
+        self.SWC_Types     = defs['SWC Types']
+        self.Synapse_Types = defs['Synapse Types']
+        self.layers        = defs['Layers']
+        self.feature_types = defs['Input Features']
+
+    def parse_globals(self):
+        self.globals       = self.modelConfig['Global Parameters']
         
     def parse_connection_config(self):
         """
@@ -368,7 +369,7 @@ class Env:
                       { 'width': extent_config[population][layer_name]['width'], \
                         'offset': extent_config[population][layer_name]['offset'] } 
                 else:
-                    layer_index = self.layers_dict[layer_name]
+                    layer_index = self.layers[layer_name]
                     pop_connection_extents[layer_index] = \
                       { 'width': extent_config[population][layer_name]['width'], \
                         'offset': extent_config[population][layer_name]['offset'] } 
@@ -380,7 +381,7 @@ class Env:
         connection_dict = {}
         
         for (key_postsyn, val_syntypes) in viewitems(synapse_config):
-            connection_dict[key_postsyn]  = {}
+            connection_dict[key_postsyn] = {}
             
             for (key_presyn, syn_dict) in viewitems(val_syntypes):
                 val_type        = syn_dict['type']
@@ -389,13 +390,13 @@ class Env:
                 val_proportions = syn_dict['proportions']
                 val_synparams   = syn_dict['mechanisms']
 
-                res_type = self.syntypes_dict[val_type]
+                res_type = self.Synapse_Types[val_type]
                 res_synsections = []
                 res_synlayers = []
                 for name in val_synsections:
-                    res_synsections.append(self.swctypes_dict[name])
+                    res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
-                    res_synlayers.append(self.layers_dict[name])
+                    res_synlayers.append(self.layers[name])
                 
                 connection_dict[key_postsyn][key_presyn] = \
                   SynapseConfig(res_type, \
@@ -416,7 +417,8 @@ class Env:
                 try:
                     assert(np.isclose(v, 1.0))
                 except Exception as e:
-                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' % (key_postsyn, str(k), v))
+                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
+                                 (key_postsyn, str(k), v))
                     raise e
                     
         self.connection_config = connection_dict
@@ -437,7 +439,7 @@ class Env:
                     pair = (pop_a, pop_b)
                     sec_idxs = []
                     for sec_name in sec_names:
-                        sec_idxs.append(self.swctypes_dict[sec_name])
+                        sec_idxs.append(self.SWC_Types[sec_name])
                     sections[pair] = sec_idxs
 
             gj_connection_probs = gj_config['Connection Probabilities']
@@ -504,22 +506,26 @@ class Env:
         celltypes = self.celltypes
         typenames = sorted(celltypes.keys())
 
+        if rank == 0:
+            self.logger.info('env.data_file_path = %s' % str(self.data_file_path))
         self.comm.Barrier()
 
         (population_ranges, _) = read_population_ranges(self.data_file_path, self.comm)
-        if rank == 0 and self.verbose:
+        if rank == 0:
             self.logger.info('population_ranges = %s' % str(population_ranges))
         
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
+            if 'mechanism file' in celltypes[k]:
+                celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
 
         population_names  = read_population_names(self.data_file_path, self.comm)
-        if rank == 0 and self.verbose:
+        if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
         self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
-        if rank == 0 and self.verbose:
+        if rank == 0:
             self.logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
 
     def load_cell_template(self, popName):
@@ -531,11 +537,11 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-        if 'templateFile' in self.celltypes[popName]:
-            templateFile = self.celltypes[popName]['templateFile']
+        if 'template file' in self.celltypes[popName]:
+            template_file = self.celltypes[popName]['template file']
         else:
-            templateFile = None
-        find_template(self, templateName, template_file=templateFile, path=self.template_paths)
+            template_file = None
+        find_template(self, templateName, template_file=template_file, path=self.template_paths)
         assert(hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class

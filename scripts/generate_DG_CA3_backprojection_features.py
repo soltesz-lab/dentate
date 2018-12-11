@@ -5,15 +5,19 @@ from mpi4py import MPI
 #import matplotlib.pyplot as plt
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
+from nested.utils import Context
 import dentate
 from dentate.env import Env
 import dentate.utils as utils
 from dentate.utils import list_find, list_argsort, get_script_logger, viewitems
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
-from optimize_DG_PP_features import calculate_field_distribution, \
-     acquire_fields_per_cell, _generate_mesh
 from dentate.stimulus import generate_spatial_offsets
 
+from optimize_DG_PP_features import calculate_field_distribution
+from optimize_DG_PP_features import acquire_fields_per_cell
+from optimize_DG_PP_features import _generate_mesh
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
+
+utils.config_logging(True)
 logger = utils.get_script_logger(os.path.basename(__file__))
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
@@ -29,7 +33,7 @@ feature_place = 1
 module_pi = [0.012, 0.313, 0.500, 0.654, 0.723, 0.783, 0.830, 0.852, 0.874, 0.890]
 module_pr = [0.342, 0.274, 0.156, 0.125, 0.045, 0.038, 0.022, 0.018, 0.013, 0.004]
 
-context = None
+context = Context()
 
 
 @click.command()
@@ -62,9 +66,8 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    utils.config_logging(verbose)
 
-    env = Env(comm=comm, config_file=config, template_paths=template_path)
+    env = Env(comm=comm, configFile=config, templatePaths=template_path)
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
@@ -79,7 +82,7 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
             output_file.close()
     comm.barrier()
     population_ranges = read_population_ranges(coords_path, comm)[0]
-    context = dict(locals())
+    context.update(locals())
 
     gid_normed_distances = assign_cells_to_normalized_position() # Assign normalized u,v coordinates
     gid_module_assignments = assign_cells_to_module(gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
@@ -208,7 +211,7 @@ def determine_cell_participation(gid_module_assignments):
                 cell['Num Fields'] = np.array([nfields], dtype='uint8')
             gid_attributes[population][gid] = cell
             total_num_fields += nfields
-            #logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
+            logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
             
     return total_num_fields, gid_attributes
 
@@ -248,8 +251,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     
     for mod in field_module_distribution:
         module_width = module_widths[mod - 1]
-        scale_factor  = (module_width / 100.) + 1.
-
+        scale_factor  = 1. + (module_width * np.cos(np.pi/4.) / 100.)
         xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100., scale_factor=scale_factor)
         local_random.shuffle(xy_offsets)
         xy_offset_module_dict[mod] = np.asarray(xy_offsets, dtype='float32')

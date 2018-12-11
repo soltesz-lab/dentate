@@ -8,28 +8,32 @@ from neuroh5.io import NeuroH5CellAttrGen, read_cell_attributes
 from mpi4py import MPI
 from pprint import pprint
 
-import dentate
 from dentate.utils import list_find
 from dentate.stimulus import gid2module_dictionary, module2gid_dictionary, fraction_active
 
 script_name = os.path.basename(__file__)
+
 
 def add_colorbar(img, ax):
     divider = make_axes_locatable(ax)
     cax     = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(img, cax=cax)
 
+
 def turn_off_xy(axes):
     turn_off_x(axes)
     turn_off_y(axes)
+
 
 def turn_off_x(axes):
     axes.xaxis.set_ticks_position('none')
     axes.get_xaxis().set_visible(False)
 
+
 def turn_off_y(axes):
     axes.yaxis.set_ticks_position('none')
     axes.get_yaxis().set_visible(False)
+
 
 def plot_rate_maps_single_module(cells, plot=False, save=True, **kwargs):
 
@@ -64,6 +68,7 @@ def plot_rate_maps_single_module(cells, plot=False, save=True, **kwargs):
         plt.savefig('%s-module-%d-ratemap.svg' % (ctype, module), {'format': 'svg'})
     if plot:
         plt.show()
+
 
 def plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs):
     assert(len(modules) == 10)
@@ -140,6 +145,7 @@ def plot_xy_offsets_single_module(cells, plot=False, save=True, **kwargs):
     if plot:
         plt.show()
 
+
 def plot_xy_offsets_multiple_modules(modules_dictionary, modules, plot=False, save=False, **kwargs):
     assert(len(modules) == 10)
 
@@ -200,6 +206,7 @@ def plot_fraction_active_single_module(cells, func_name, plot=False,save=True, *
     if plot:
         plt.show()
 
+
 def plot_fraction_active_multiple_modules(modules_dictionary, modules, plot=False, save=True, **kwargs):
     assert(len(modules) == 10)
     ctype     = kwargs.get('ctype', 'place')
@@ -227,8 +234,7 @@ def plot_fraction_active_multiple_modules(modules_dictionary, modules, plot=Fals
         fig.savefig('%s-fraction-active.svg' % (ctype), format='svg')
     if plot:
         plt.show()
-        
-    
+
 
 def plot_rate_histogram_single_module(cells, plot=False, save=True, **kwargs):
     ctype  = kwargs.get('ctype', 'grid')
@@ -268,6 +274,7 @@ def plot_rate_histogram_single_module(cells, plot=False, save=True, **kwargs):
         plt.savefig('%s-module-%d-rate-histogram.png' % (ctype, module))
     if plot:
         plt.show()
+
 
 def plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=False, save=True, **kwargs):
     ctype   = kwargs.get('ctype', 'place')
@@ -312,6 +319,7 @@ def plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=False,
         fig.savefig('%s-rate-histogram.svg' % (ctype), format='svg')
     if plot:
         plt.show()
+
 
 def plot_lambda_activity_histograms(module_dictionary, modules, save=False, plot=False, threshold=2.0, **kwargs):
     
@@ -365,13 +373,13 @@ def read_population_storage(file_path):
         raise Exception('Error occured when loading PopulationStorage object')
     return storage
 
-   
 
 def plot_population_storage(storage):
     try:
         storage.plot()
     except:
         raise Exception('Error occured when loading PopulationStorage object')
+
 
 def plot_population_input(storage, bounds=None):
     individuals = np.asarray([generation for generation in storage.history]).flatten()
@@ -397,12 +405,12 @@ def plot_population_input(storage, bounds=None):
         ax2.set_ylabel('p_r')
 
 
-
 def plot_group(module_dictionary, modules, plot=False, save=False, **kwargs):
     plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save=save, **kwargs)
     plot_fraction_active_multiple_modules(module_dictionary, modules, plot=False, save=save, **kwargs)
     plot_xy_offsets_multiple_modules(module_dictionary, modules, plot=False, save=save, **kwargs)
     plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=plot, save=save, **kwargs)
+
 
 @click.command()
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -433,11 +441,6 @@ def main(features_path, cell_type, show_fig, save_fig):
     kwargs = {'ctype': cell_type}
     plot_group(cells_modules_dictionary, modules, plot=show_fig, save=save_fig, **kwargs)
 
+
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
-
-
-
-
-
-    
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv) + 1):], standalone_mode=False)
