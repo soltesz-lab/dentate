@@ -3,8 +3,8 @@
 
 NEURON {
 	SUFFIX Cacum
-	USEION ca READ ica, cai WRITE cao, cai
-	RANGE depth, tau, cai0, cao0
+	USEION ca READ ica, cai, eca WRITE eca, cai
+	RANGE depth, tau, cai0, cao0, cai, eca
 }
 
 UNITS {
@@ -20,6 +20,7 @@ PARAMETER {
 	depth = 0.2 	(um)  : stuck with depth from Aradi (1999)
 	cai0 = 7e-5 	(mM)
  	cao0 = 1.3 		(mM)
+ 	cao =  cao0 (mM)
 }
 
 ASSIGNED {
@@ -32,7 +33,6 @@ ASSIGNED {
 
 STATE {
 	cai (mM) <1e-5>
- 	cao (mM)
 }
 
 BREAKPOINT {
@@ -41,12 +41,10 @@ BREAKPOINT {
 
 DERIVATIVE state {	: exact when v held constant; integrates over dt step
 	cai' = -ica * B - (cai-cai0)/tau
- 	cao' = 0.
 }
 
 INITIAL {
 	cai = cai0
- 	cao = cao0
 	: From Beining (2017)
 	if (2. * depth >= diam) {
 		VSR = 0.25 * diam : if diameter gets less than double the depth,
