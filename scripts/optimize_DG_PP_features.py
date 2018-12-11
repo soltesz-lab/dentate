@@ -1,14 +1,11 @@
-import sys, os, time, random, click, logging
+from nested.optimize_utils import *
+import sys, os, time, random, click
 import numpy as np
 from pprint import pprint
 
-import dentate
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
-
-from nested.optimize_utils import *
-from optimize_cells_utils import *
 
 
 utils.config_logging(True)
