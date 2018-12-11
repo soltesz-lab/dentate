@@ -128,6 +128,7 @@ def plot_xy_offsets_single_module(cells, plot=False, save=True, **kwargs):
         if 'X Offset Scaled' not in cell or 'Y Offset Scaled' not in cell:
             offsets = zip(cell['X Offset'], cell['Y Offset'])
         else:
+
             offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
         for (x_offset, y_offset) in offsets:
             pop_xy_offsets.append((x_offset, y_offset))
@@ -179,9 +180,9 @@ def plot_xy_offsets_multiple_modules(modules_dictionary, modules, plot=False, sa
         plt.show()
 
 
-def plot_fraction_active_single_module(cells, func_name, plot=False,save=True, **kwargs):
+def plot_fraction_active_single_module(cells, nxny, plot=False,save=True, **kwargs):
     factive = fraction_active(cells, 2.)
-    fraction_active_img = np.zeros((20,20))
+    fraction_active_img = np.zeros(nxny)
     for (i,j) in factive:
         fraction_active_img[i,j] = factive[(i,j)]
 
@@ -207,7 +208,7 @@ def plot_fraction_active_single_module(cells, func_name, plot=False,save=True, *
         plt.show()
 
 
-def plot_fraction_active_multiple_modules(modules_dictionary, modules, plot=False, save=True, **kwargs):
+def plot_fraction_active_multiple_modules(modules_dictionary, modules, nxny, plot=False, save=True, **kwargs):
     assert(len(modules) == 10)
     ctype     = kwargs.get('ctype', 'place')
     fig, axes = plt.subplots(2,5, figsize=[16., 6.])
@@ -221,7 +222,7 @@ def plot_fraction_active_multiple_modules(modules_dictionary, modules, plot=Fals
 
         cells   = modules_dictionary[module]
         factive = fraction_active(cells, 2.)
-        fraction_active_img = np.zeros((20,20))
+        fraction_active_img = np.zeros(nxny)
         for (i,j) in factive:
             fraction_active_img[i,j] = factive[(i,j)]
         img = axes[ax_count1, ax_count2].imshow(fraction_active_img, cmap='inferno')

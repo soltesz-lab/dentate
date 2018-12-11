@@ -4,7 +4,7 @@ from pprint import pprint
 
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
 
 from nested.optimize_utils import *
 # from optimize_cells_utils import *
@@ -90,14 +90,15 @@ def _build_cells(N, ctype, module, start_gid=1):
     xy_insertion_order = context.field_random.permutation(np.arange(len(xy_offsets)))
     xy_offsets = xy_offsets[xy_insertion_order]
 
+
     curr_pos = 0
     for (i,gid) in enumerate(xrange(start_gid, gid)):
         cell = cells[gid]
         nf   = nfields[i]
-        if cell['Cell Type'][0] == 0 and nf > 0:  
+        if cell['Cell Type'][0] == 0:
             cell['X Offset'] = np.array([xy_offsets[curr_pos,0]], dtype='float32')
             cell['Y Offset'] = np.array([xy_offsets[curr_pos,1]], dtype='float32')
-        elif cell['Cell Type'][0] == 1 and nf > 0:
+        elif cell['Cell Type'][0] == 1:
             cell['X Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,0], dtype='float32')
             cell['Y Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,1], dtype='float32')
         curr_pos += nf
@@ -125,7 +126,7 @@ def init_context():
     module_width       = field_width( float(context.module) / np.max(modules))
     scale_factor       = (module_width / 100.) + 1.
 
-    mesh   = _generate_mesh(resolution=resolution)
+    mesh   = generate_mesh(scale_factor=1., arena_dimension=arena_dimension, resolution=resolution)
     nx, ny = mesh[0].shape[0], mesh[0].shape[1]
     grid_cells, place_cells = {}, {}
     place_gid_start = None
@@ -179,12 +180,12 @@ def tests(plot=False):
 
 
 def plot_group(cells, plot=False, **kwargs):
-    from plot_DG_PP_features import plot_rate_maps, plot_xy_offsets, \
-                                    plot_fraction_active_map, plot_rate_histogram
-    plot_rate_maps(cells, plot=False, save=True, **kwargs)
-    plot_xy_offsets(cells,plot=False,save=True, **kwargs)
-    plot_fraction_active_map(cells,'_fraction_active', plot=False,save=True, **kwargs)
-    plot_rate_histogram(cells, plot=plot, save=True, **kwargs)
+    from plot_DG_PP_features import plot_rate_maps_single_module, plot_xy_offsets_single_module, \
+                                    plot_fraction_active_single_module, plot_rate_histogram_single_module
+    plot_rate_maps_single_module(cells, plot=True, save=False, **kwargs)
+    plot_xy_offsets_single_module(cells,plot=True,save=False, **kwargs)
+    plot_fraction_active_single_module(cells,(context.nx, context.ny), plot=True,save=False, **kwargs)
+    plot_rate_histogram_single_module(cells, plot=plot, save=False, **kwargs)
 
 
 def report_cost(context):
@@ -359,10 +360,9 @@ def _calculate_rate_maps(cells, context):
     ratemap_kwargs['c'] = context.c
     
     for gid in cells:
-        cell  = cells[gid]
+        cell = cells[gid]
         if cell['Num Fields'][0] > 0:
             ctype = cell['Cell Type'][0]
-
             if ctype == 0: # Grid
                 orientation = cell['Grid Orientation']
                 spacing     = cell['Grid Spacing']
