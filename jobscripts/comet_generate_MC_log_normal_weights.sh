@@ -31,8 +31,8 @@ mpirun_rsh -export-all -hostfile $nodefile -np 720  \
  python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
  -d MC -s GC -s MC \
  --config=./config/Full_Scale_Control.yaml \
- --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syns_log_normal_weights_20180501.h5 \
- --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180428.h5 \
+ --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syns_log_normal_weights_20181013.h5 \
+ --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180908.h5 \
  --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
 
 

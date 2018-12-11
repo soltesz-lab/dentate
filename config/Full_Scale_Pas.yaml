@@ -15,7 +15,7 @@ Input: !include Input.yaml
 Cell Types:
   GC:
     template: DGC
-    templateFile: DGC.hoc
+    template file: DGC.hoc
     synapses:
       correct_for_spines: True
       density: !include GC_synapse_density.yaml

@@ -208,7 +208,7 @@ def determine_cell_participation(gid_module_assignments):
                 cell['Num Fields'] = np.array([nfields], dtype='uint8')
             gid_attributes[population][gid] = cell
             total_num_fields += nfields
-            logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
+            #logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
             
     return total_num_fields, gid_attributes
 
@@ -248,7 +248,8 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     
     for mod in field_module_distribution:
         module_width = module_widths[mod - 1]
-        scale_factor  = 1. + (module_width * np.cos(np.pi/4.) / 100.)
+        scale_factor  = (module_width / 100.) + 1.
+
         xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100., scale_factor=scale_factor)
         local_random.shuffle(xy_offsets)
         xy_offset_module_dict[mod] = np.asarray(xy_offsets, dtype='float32')

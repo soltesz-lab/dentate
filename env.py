@@ -78,7 +78,7 @@ class Env:
             self.comm = MPI.COMM_WORLD
         else:
             self.comm = comm
-        if comm is not None:
+        if self.comm is not None:
             self.pc = h.ParallelContext()
         else:
             self.pc = None
@@ -144,7 +144,7 @@ class Env:
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
         self.cell_selection_path = cell_selection_path
-        if cell_selection_path:
+        if cell_selection_path is not None:
             with open(cell_selection_path) as fp:
                 self.cell_selection = yaml.load(fp, IncludeLoader)
         
@@ -263,15 +263,13 @@ class Env:
         self.lfp = {}
 
         self.edge_count = defaultdict(dict)
+        self.syns_set = defaultdict(set)
 
         # stimulus cell templates
         if len(self.template_paths) > 0:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
 
-        if self.hoc_lib_path:
-            # polymorphic hoc value template
-            h.load_file(self.hoc_lib_path + '/templates/Value.hoc')
 
     def parse_input_config(self):
         """
@@ -383,7 +381,7 @@ class Env:
         connection_dict = {}
         
         for (key_postsyn, val_syntypes) in viewitems(synapse_config):
-            connection_dict[key_postsyn]  = {}
+            connection_dict[key_postsyn] = {}
             
             for (key_presyn, syn_dict) in viewitems(val_syntypes):
                 val_type        = syn_dict['type']
@@ -419,7 +417,8 @@ class Env:
                 try:
                     assert(np.isclose(v, 1.0))
                 except Exception as e:
-                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' % (key_postsyn, str(k), v))
+                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
+                                 (key_postsyn, str(k), v))
                     raise e
                     
         self.connection_config = connection_dict
@@ -518,6 +517,8 @@ class Env:
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
+            if 'mechanism file' in celltypes[k]:
+                celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
 
         population_names  = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
@@ -536,11 +537,11 @@ class Env:
         if not (popName in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
         templateName = self.celltypes[popName]['template']
-        if 'templateFile' in self.celltypes[popName]:
-            templateFile = self.celltypes[popName]['templateFile']
+        if 'template file' in self.celltypes[popName]:
+            template_file = self.celltypes[popName]['template file']
         else:
-            templateFile = None
-        find_template(self, templateName, template_file=templateFile, path=self.template_paths)
+            template_file = None
+        find_template(self, templateName, template_file=template_file, path=self.template_paths)
         assert(hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class

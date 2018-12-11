@@ -13,8 +13,8 @@ Input: !include Input.yaml
 Cell Types: 
   GC:
     template: DGC
-    templateFile: DGC_Template_minimal.hoc
-    mech_file: 20180605_DG_GC_excitability_mech.yaml
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
       weights: True
@@ -22,7 +22,7 @@ Cell Types:
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
-    templateFile: MossyCell.hoc
+    template file: MossyCell.hoc
     synapses:
       weights: False
       density: !include MC_synapse_density.yaml
@@ -32,8 +32,8 @@ Cell Types:
       density: !include HC_synapse_density.yaml
   BC:
     template: BasketCell
-    templateFile: BasketCell_minimal.hoc
-    mech_file: 20180831_BC_mech.yaml
+    template file: BasketCell_minimal.hoc
+    mechanism file: 20180831_BC_mech.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
