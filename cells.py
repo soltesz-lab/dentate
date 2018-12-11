@@ -1418,7 +1418,8 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     template_class = getattr(h, template_name)
 
     if neurotree_dict:
-        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=dataset_path)
+        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
+                                       dataset_path=dataset_path)
     else:
         if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
@@ -1429,8 +1430,8 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
-
-def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True, load_weights=False):
+def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
+                     load_weights=False):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -1449,32 +1450,30 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     synapse_config = env.celltypes[pop_name]['synapses']
     
     if (synapses_dict is None) and load_synapses:
-    	if 'weights namespace' in synapse_config:
+        if 'weights namespace' in synapse_config:
             weights_namespace = synapse_config['weights namespace']
         else:
             weights_namespace = None
             
         if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
-	    synapses_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
-                                                           'Synapse Attributes', comm=env.comm)
-            
-            if weights_namespace is not None:
-                cell_weights_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
-                                                                   weights_namespace, comm=env.comm)
-            else:
-                cell_weights_iter = None
-	    syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
-            if cell_weights_iter is not None:
-                for gid, cell_weights_dict in cell_weights_iter:
-                    weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values  = cell_weights_dict[syn_name]
-                        syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
-	                                                               zip_longest(weights_syn_ids, \
-                                                                           weights_values))
-                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
-                                    (gid, len(cell_weights_dict[syn_name]), syn_name))
-                                    
+            synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
+                                                           comm=env.comm)
+
+            syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
+
+            if weights_namespace is not None and load_weights:
+                cell_weights_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
+                                                                  weights_namespace, comm=env.comm)
+                if cell_weights_iter is not None:
+                    for gid, cell_weights_dict in cell_weights_iter:
+                        weights_syn_ids = cell_weights_dict['syn_id']
+                        for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                            weights_values = cell_weights_dict[syn_name]
+                            syn_attrs.add_netcon_weights_from_iter(gid, syn_name, zip_longest(weights_syn_ids,
+                                                                                              weights_values))
+                            logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
+                                        (gid, len(cell_weights_dict[syn_name]), syn_name))
+
     else:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(synapses_dict)
@@ -1484,8 +1483,8 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
     if load_edges:
         if os.path.isfile(env.connectivity_file_path):
-            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid], \
-                                            namespaces=['Synapses', 'Connections'])
+            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
+                                              namespaces=['Synapses', 'Connections'])
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
 

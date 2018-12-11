@@ -24,9 +24,8 @@ def standard_modify_syn_mech_param_tests(cell, env, syn_name='AMPA', param_name=
 
     param_label = '%s; %s; %s' % (syn_name, syn_mech_name, 'weight')
     plot_synaptic_attribute_distribution(cell, env, syn_name, 'weight', filters=None, from_mech_attrs=False,
-                                             from_target_attrs=True, param_label=param_label,
-                                             export='syn_weights.hdf5', description='stage0', show=False,
-                                             overwrite=True)
+                                         from_target_attrs=True, param_label=param_label,
+                                         export='syn_weights.hdf5', description='stage0', show=False, overwrite=True)
 
     if param_name in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
         param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
@@ -81,9 +80,9 @@ def standard_modify_syn_mech_param_tests(cell, env, syn_name='AMPA', param_name=
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../config')
 @click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
-@click.option("--load-edges", type=bool, default=True)
+@click.option("--load-edges", is_flag=True)
 @click.option("--load-weights", is_flag=True)
-@click.option("--correct-for-spines", type=bool, default=True)
+@click.option("--correct-for-spines", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
          load_edges, load_weights, correct_for_spines, verbose):
@@ -115,7 +114,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=context.env)
     context.update(locals())
 
-    standard_modify_syn_mech_param_tests(cell, env)
+    # standard_modify_syn_mech_param_tests(cell, env)
 
 
 if __name__ == '__main__':
