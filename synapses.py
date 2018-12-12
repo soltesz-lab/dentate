@@ -40,7 +40,7 @@ Synapse = NamedTupleWithDocstring(
     - mech_attr_dict - dictionary of attributes per synapse mechanism
       (for cases when multiple mechanisms are associated with a
       synapse, e.g. GABA_A and GABA_B)
-    - netcon_weights_dict - dictionary of network connection weights
+    - netcon_attr_dict - dictionary of network connection attributes
     """,
     'Synapse',
     ['syn_type',
@@ -50,7 +50,7 @@ Synapse = NamedTupleWithDocstring(
      'syn_section',
      'source',
      'mech_attr_dict',
-     'netcon_weights_dict',
+     'netcon_attr_dict',
     ])
 
 
@@ -134,7 +134,7 @@ class SynapseAttributes(object):
                                                             swc_type=swc_type, \
                                                             source=SynapseSource(), \
                                                             mech_attr_dict=defaultdict(dict), \
-                                                            netcon_weights_dict={})
+                                                            netcon_attr_dict=defaultdict(dict))
                 self.pps_dict[gid][syn_id] = {}
                 self.netcon_dict[gid][syn_id] = {}
                 self.vecstim_dict[gid][syn_id] = {}
@@ -450,10 +450,11 @@ class SynapseAttributes(object):
             else:
                 mech_attr_dict[k] = v
                 
+                
 
-    def has_netcon_weights(self, gid, syn_id, syn_name):
+    def has_netcon_attrs(self, gid, syn_id, syn_name):
         """
-        Returns True if netcon weights have been specified for the given cell id/synapse id/synapse mechanism.
+        Returns True if netcon attributes have been specified for the given cell id/synapse id/synapse mechanism.
 
         :param gid: cell id
         :param syn_id: synapse id
@@ -463,12 +464,12 @@ class SynapseAttributes(object):
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
         syn = syn_id_dict[syn_id]
-        return (syn_index in syn.netcon_weights_dict)
+        return (syn_index in syn.netcon_attr_dict)
 
   
-    def get_netcon_weights(self, gid, syn_id, syn_name):
+    def get_netcon_attrs(self, gid, syn_id, syn_name):
         """
-        Returns the netcon weights associated with the given cell id/synapse id/synapse mechanism.
+        Returns the netcon attributes associated with the given cell id/synapse id/synapse mechanism.
 
         :param gid: cell id
         :param syn_id: synapse id
@@ -479,13 +480,34 @@ class SynapseAttributes(object):
         syn_id_dict = self.syn_id_attr_dict[gid]
         syn = syn_id_dict[syn_id]
 
-        if syn_index in syn.netcon_weights_dict:
-            return syn.netcon_weights_dict[syn_index]
+        if syn_index in syn.netcon_attr_dict:
+            return syn.netcon_attr_dict[syn_index]
         else:
-            raise RuntimeError('get_netcon_weights: gid %d synapse %d: weights for mechanism %s not found' % (gid, syn_id, syn_name))
+            raise RuntimeError('get_netcon_attrs: gid %d synapse %d: attributes for mechanism %s not found' % (gid, syn_id, syn_name))
         
         
-    def add_netcon_weights(self, gid, syn_name, params):
+    def add_netcon_attrs(self, gid, syn_id, syn_name, params):
+        """
+        Adds netcon attributes for the given cell id/synapse id/synapse mechanism.
+        Assumes the attributes have not been set yet for this synapse.
+
+        :param gid: cell id
+        :param syn_id: synapse id
+        :param syn_name: synapse mechanism name
+        :param params: dict
+        """
+        syn_index = self.syn_name_index_dict[syn_name]
+        syn_id_dict = self.syn_id_attr_dict[gid]
+        syn = syn_id_dict[syn_id]
+        for k, v in viewitems(params):
+            if syn is None:
+                raise RuntimeError('add_netcon_attrs: gid %i synapse id %i has not been created yet' % (gid, syn_id))
+            if syn_index in syn.netcon_attr_dict:
+                raise RuntimeError('add_netcon_attrs: gid %i synapse id %i mechanism %s already has netcon attribute' % (gid, syn_id, syn_name))
+            else:
+                syn.netcon_attr_dict[k] = v
+                
+    def add_netcon_attrs_from_iter(self, gid, syn_name, params_iter):
         """
         Adds netcon weights for the given cell id/synapse id/synapse mechanism.
         Assumes the weights have not been set yet for this synapse.
@@ -497,38 +519,18 @@ class SynapseAttributes(object):
         """
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
-        for syn_id, val in viewitems(params):
+        for syn_id, params_dict in params_iter:
             syn = syn_id_dict[syn_id]
             if syn is None:
-                raise RuntimeError('add_netcon_weights: gid %i synapse id %i has not been created yet' % (gid, syn_id))
-            if syn_index in syn.netcon_weights_dict:
-                raise RuntimeError('add_netcon_weights: gid %i synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
-            else:
-                syn.netcon_weights_dict[syn_index] = val
-                
-    def add_netcon_weights_from_iter(self, gid, syn_name, params_iter):
-        """
-        Adds netcon weights for the given cell id/synapse id/synapse mechanism.
-        Assumes the weights have not been set yet for this synapse.
-
-        :param gid: cell id
-        :param syn_id: synapse id
-        :param syn_name: synapse mechanism name
-        :param params: dict
-        """
-        syn_index = self.syn_name_index_dict[syn_name]
-        syn_id_dict = self.syn_id_attr_dict[gid]
-        for syn_id, val in params_iter:
-            syn = syn_id_dict[syn_id]
-            if syn is None:
-                raise RuntimeError('add_netcon_weights: gid %i synapse id %i has not been created yet' % (gid, syn_id))
-            if syn_index in syn.netcon_weights_dict:
-                raise RuntimeError('add_netcon_weights_from_iter: gid %i Synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
-            else:
-                syn.netcon_weights_dict[syn_index] = val
+                raise RuntimeError('add_netcon_attrs: gid %i synapse id %i has not been created yet' % (gid, syn_id))
+            if syn_index in syn.netcon_attr_dict:
+                raise RuntimeError('add_netcon_attrs_from_iter: gid %i Synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
+            netcon_attr_dict = syn.netcon_attr_dict[syn_index]
+            for k, v in viewitems(params):
+                netcon_attr_dict[k] = v
 
                 
-    def modify_netcon_weights(self, gid, syn_id, syn_name, params, update=lambda (old, new): new):
+    def modify_netcon_attrs(self, gid, syn_id, syn_name, params, update=lambda (old, new): new):
         """
         Modifies netcon weights for the given cell id/synapse id/synapse mechanism.
 
@@ -540,15 +542,53 @@ class SynapseAttributes(object):
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
         syn = syn_id_dict[syn_id]
-        netcon_weights_dict = syn.netcon_weights_dict[syn_index]
+        netcon_attr_dict = syn.netcon_attr_dict[syn_index]
         for k, v in viewitems(params):
-            if k in netcon_weights_dict:
-                netcon_weights_dict[k] = update(netcon_weights_dict[k], v)
+            if k in netcon_attr_dict:
+                netcon_attr_dict[k] = update(netcon_attr_dict[k], v)
             else:
-                netcon_weights_dict[k] = v
+                netcon_attr_dict[k] = v
                 
                 
+                
+    def modify_syn_attrs(self, gid, syn_id, syn_name, params, update=lambda old, new: new):
+        """
+        Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
+
+        :param gid: cell id
+        :param syn_id: synapse id
+        :param syn_name: synapse mechanism name
+        :param params: dict
+        :param update: lambda (old, new)
+        """
         
+        syn_index = self.syn_name_index_dict[syn_name]
+        syn_id_dict = self.syn_id_attr_dict[gid]
+        syn = syn_id_dict[syn_id]
+
+        rules = self.syn_param_rules
+
+        mech_name = self.syn_mech_names[syn_name]
+
+        print 'netcon_attr_dict: ', syn.netcon_attr_dict
+        netcon_attr_dict = syn.netcon_attr_dict[syn_index]
+        mech_attr_dict = syn.mech_attr_dict[syn_index]
+        for k, v in viewitems(params):
+            if k in rules[mech_name]['mech_params']:
+                if k in mech_attr_dict:
+                    mech_attr_dict[k] = update(mech_attr_dict[k], v)
+                else:
+                    mech_attr_dict[k] = v
+            elif k in rules[mech_name]['netcon_params']:
+                if k in netcon_attr_dict:
+                    netcon_attr_dict[k] = update(netcon_attr_dict[k], v)
+                else:
+                    netcon_attr_dict[k] = v
+            else:
+                  raise RuntimeError('modify_syn_attrs: unknown type of parameter %s' % k)
+                  
+
+                
     def filter_synapses(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None, swc_types=None, cache=False):
         """
         Returns a subset of the synapses of the given cell according to the given criteria.
@@ -566,7 +606,7 @@ class SynapseAttributes(object):
         matches = lambda query, item: (query is None) or (item in query)
 
         if cache:
-            args = [syn_sections, syn_indexes, syn_types, layers, sources, swc_types]
+            args = [gid, syn_sections, syn_indexes, syn_types, layers, sources, swc_types]
             if args in self.filter_cache:
                 return self.filter_cache[args]
           
@@ -714,10 +754,10 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
                                      mech_names=syn_attrs.syn_mech_names)
 
             syn_attrs.add_pps(gid, syn_id, syn_name, syn_mech)
-            config_syn(syn_name=syn_name, \
-                       rules=syn_attrs.syn_param_rules, \
-                       mech_names=syn_attrs.syn_mech_names, \
-                       syn=syn_mech, **params)
+            config_mech(syn_name=syn_name, \
+                        rules=syn_attrs.syn_param_rules, \
+                        mech_names=syn_attrs.syn_mech_names, \
+                        syn=syn_mech, **params)
                        
             mech_count += 1
 
@@ -799,11 +839,11 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
     if syn_ids is None:
         syn_ids = syn_id_attr_dict.keys()
 
-    source_syn_ids_dict = syn_attrs.partition_syn_ids_by_source(gid, syn_ids)
 
     if insert:
+        source_syn_ids_dict = syn_attrs.partition_syn_ids_by_source(gid, syn_ids)
         if not (gid in env.biophys_cells[postsyn_name]):
-            raise KeyError('config_syns: insert: BiophysCell with gid %i does not exist' % gid)
+            raise KeyError('config_biophys_cell_syns: insert: BiophysCell with gid %i does not exist' % gid)
         for presyn_name, source_syn_ids in viewitems(source_syn_ids_dict):
             p = generator_peek(source_syn_ids)
             if p is not None:
@@ -899,15 +939,15 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                     if this_pps is None:
                        raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have point process for mechanism %s' % (gid, syn_id, syn_name))
                     mech_params = syn.mech_attr_dict[syn_index]
-                    config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                               mech_names=syn_attrs.syn_mech_names, syn=this_pps, \
-                               **mech_params)
+                    config_mech(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
+                                mech_names=syn_attrs.syn_mech_names, syn=this_pps, \
+                                **mech_params)
                     mech_count += 1
-                if syn_index in syn.netcon_weights_dict:
+                if syn_index in syn.netcon_attr_dict:
                     this_netcon = syn_attrs.get_netcon(gid, syn_id, syn_name, throw_error=False)
                     if this_netcon is None:
                           raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have netcon for mechanism %s' % (gid, syn_id, syn_name))
-                    netcon_params = { 'weight': syn.netcon_weights_dict[syn_index] }
+                    netcon_params = { 'weight': syn.netcon_attr_dict[syn_index] }
                     config_netcon(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
                                   mech_names=syn_attrs.syn_mech_names, nc=this_netcon, \
                                   **netcon_params)
@@ -924,7 +964,45 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
     return len(syn_ids), total_mech_count, total_nc_count
 
 
-def config_syn(syn_name, rules, syn, mech_names=None, **params):
+def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
+    """
+    Initializes synaptic and connection mechanisms with parameters
+    specified in the synapse attribute dictionaries.
+
+    :param syn_name: str
+    :param rules: dict to correctly parse params for specified hoc mechanism
+    :param mech_names: dict to convert syn_name to hoc mechanism name
+    :param syn: synaptic mechanism object
+    :param nc: :class:'h.NetCon'
+    :param params: dict
+
+    """
+    if mech_names is not None:
+        mech_name = mech_names[syn_name]
+    else:
+        mech_name = syn_name
+    for param, val in viewitems(params):
+        failed = True
+        if param in rules[mech_name]['mech_params']:
+            if syn is None:
+                failed = False
+            elif hasattr(syn, param):
+                setattr(syn, param, val)
+                failed = False
+        elif param in rules[mech_name]['netcon_params']:
+            if nc is None:
+                failed = False
+            else:
+                i = rules[mech_name]['netcon_params'][param]
+
+                if int(nc.wcnt()) >= i:
+                    nc.weight[i] = val
+                    failed = False
+        if failed:
+            raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
+                                 (param, mech_name))
+
+def config_mech(syn_name, rules, syn, mech_names=None, **params):
     """
     Initializes synaptic mechanisms with parameters specified in the synapse attribute dictionaries.
 
@@ -943,7 +1021,7 @@ def config_syn(syn_name, rules, syn, mech_names=None, **params):
             if hasattr(syn, param):
                 setattr(syn, param, val)
             else:
-                raise AttributeError('config_syn: point process has no attribute: %s for synaptic mechanism: %s' % \
+                raise AttributeError('config_mech: point process has no attribute: %s for synaptic mechanism: %s' % \
                                      (param, syn_name))
           
             
@@ -1097,7 +1175,7 @@ def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
                          (param_name, mech_name))
 
 def get_syn_filter_dict(env, rules, convert=False):
-    """Used by modify_syn_mech_param. Takes in a series of arguments and
+    """Used by modify_syn_param. Takes in a series of arguments and
     constructs a validated rules dictionary that specifies to which
     sets of synapses a rule applies. Values of filter queries are
     validated by the provided Env.
@@ -1160,9 +1238,9 @@ def validate_syn_mech_param(env, syn_name, param_name):
     return False
 
 
-def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
-                          xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                          append=False, filters=None, origin_filters=None, update_targets=False):
+def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
+                     xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
+                     append=False, filters=None, origin_filters=None, update_targets=False):
     """Modifies a cell's mechanism dictionary to specify attributes of a
     synaptic mechanism by sec_type. This method is meant to be called
     manually during initial model specification, or during parameter
@@ -1249,11 +1327,13 @@ def modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=None, value=
     else:
         cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
-#    try:
     update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets)
+#    try:
+#        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets)
 #    except (KeyError, ValueError, AttributeError, NameError, RuntimeError, IOError) as e:
 #        cell.mech_dict = copy.deepcopy(backup_mech_dict)
-#        raise RuntimeError('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s\n' \
+#        raise RuntimeError('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; '
+#                           'in sec_type: %s\n' \
 #                           '%s\n%s' % (syn_name, param_name, sec_type, e, str(sys.exc_info()[2])))
 
 
@@ -1463,7 +1543,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     syn_attrs = env.synapse_attributes
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
         for syn_id in syn_ids:
-            syn_attrs.modify_mech_attrs(cell.gid, syn_id, syn_name, {param_name: baseline})
+            syn_attrs.modify_syn_attrs(cell.gid, syn_id, syn_name, {param_name: baseline})
     elif donor is None:
         raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in '
                            'sec_type: %s without a provided donor node' % (syn_name, param_name, node.type))
@@ -1490,7 +1570,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
                                               tau, xhalf, outside)
 
             if value is not None:
-                syn_attrs.modify_mech_attrs(cell.gid, syn_id, syn_name, {param_name: value})
+                syn_attrs.modify_syn_attrs(cell.gid, syn_id, syn_name, {param_name: value})
                 
     if update_targets:
         config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False)
