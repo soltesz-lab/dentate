@@ -6,7 +6,7 @@ from dentate.plot import *
 context = Context()
 
 
-def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_unit'):
+def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_unit', verbose=False):
     """
 
     :param cell: :class:'BiophysCell'
@@ -17,16 +17,20 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
     gid = cell.gid
     pop_name = cell.pop_name
     init_syn_mech_attrs(cell, env)
-    config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True,
-                             verbose=context.verbose)
+
     syn_attrs = env.synapse_attributes
     sec_type = 'apical'
     syn_mech_name = syn_attrs.syn_mech_names[syn_name]
 
     param_label = '%s; %s; %s' % (syn_name, syn_mech_name, 'weight')
-    plot_synaptic_attribute_distribution(cell, env, syn_name, 'weight', filters=None, from_mech_attrs=False,
-                                         from_target_attrs=True, param_label=param_label,
+    plot_synaptic_attribute_distribution(cell, env, syn_name, 'weight', filters=None, from_mech_attrs=True,
+                                         from_target_attrs=False, param_label=param_label,
                                          export='syn_weights.hdf5', description='stage0', show=False, overwrite=True)
+    config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True,
+                             verbose=verbose)
+    plot_synaptic_attribute_distribution(cell, env, syn_name, 'weight', filters=None, from_mech_attrs=True,
+                                         from_target_attrs=True, param_label=param_label,
+                                         export='syn_weights.hdf5', description='stage1', show=False)
 
     if param_name in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
         param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
@@ -55,14 +59,14 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
                          update_targets=True)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_weights.hdf5',
-                                             description='stage1', show=False)
+                                             description='stage2', show=False)
         modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name,
                          filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
                          origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
                          append=True)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_weights.hdf5',
-                                             description='stage2', show=False)
+                                             description='stage3', show=False)
     param_name = 'weight'
     param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
     plot_syn_attr_from_file(syn_name, param_name, 'syn_weights.hdf5', param_label=param_label)
@@ -115,7 +119,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=context.env)
     context.update(locals())
 
-    standard_modify_syn_param_tests(cell, env)
+    standard_modify_syn_param_tests(cell, env, verbose=verbose)
 
 
 if __name__ == '__main__':
