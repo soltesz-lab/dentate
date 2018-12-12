@@ -15,11 +15,6 @@ logger      = utils.get_script_logger(script_name)
 
 context = Context()
 
-def acquire_fields_per_cell(ncells, field_probabilities, generator):
-    field_probabilities = np.asarray(field_probabilities, dtype='float32')
-    field_set = [i for i in range(field_probabilities.shape[0])]
-    return generator.choice(field_set, p=field_probabilities, size=(ncells,))
-    
 def _build_cells(N, ctype, module, start_gid=1):
 
     cells = {}
@@ -142,7 +137,7 @@ def report_cost(context):
 
     print('probability inactive: %f' % x0[0])
     print('pr: %0.4f' % x0[1])
-    print(calculate_field_distribution(x0[0], x0[1]))
+    print(_calculate_field_distribution(x0[0], x0[1]))
     print('Module: %d' % context.module)
     print('Place population fraction active: %f' % features['fraction active'])
     print('Grid population fraction active: %f' % grid_fa)
@@ -210,58 +205,22 @@ def get_objectives(features):
 
     return features, objectives
 
-def _coefficient_of_variation(cells, eps=1.0e-6):
-    rate_maps = []
-    for gid in cells:
-        cell     = cells[gid]
-        nx, ny   = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
-        rate_maps.append(rate_map)
-    rate_maps  = np.asarray(rate_maps, dtype='float32')
-    summed_map = np.sum(rate_maps, axis=0)
-    
-    mean = np.mean(summed_map)
-    std  = np.std(summed_map)
-    cov  = np.divide(std, mean + eps)
-    return cov
+def update(x, context):
+    context.local_random = random.Random()
+    context.local_random.seed(context.local_seed)
+    context.field_random = np.random.RandomState(context.local_seed)
+   
+    p_inactive     = x[0] 
+    p_r            = x[1]
+    context.field_probabilities = _calculate_field_distribution(p_inactive, p_r)
+    context.place_cells, _ = _build_cells(context.num_place, 'place', context.module, start_gid=context.place_gid_start)
+    _calculate_rate_maps(context.place_cells, context)
 
-def _peak_to_trough(cells):
-    rate_maps = []
-    for gid in cells:
-        cell     = cells[gid]
-        nx, ny   = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
-        rate_maps.append(rate_map)
-    rate_maps  = np.asarray(rate_maps, dtype='float32')
-    summed_map = np.sum(rate_maps, axis=0)
-    var_map    = np.var(rate_maps, axis=0)
-    #minmax_eval = np.divide(float(np.max(summed_map)), float(np.min(summed_map)))
-    #var_eval    = np.divide(float(np.max(var_map)), float(np.min(var_map)))
-    minmax_eval = 0.0
-    var_eval    = 0.0
-    return minmax_eval, var_eval 
+def _merge_cells():
+    z = context.grid_cells.copy()
+    return z.update(context.place_cells.copy())
 
-def _fraction_active(cells):
-    rate_maps = []
-    for gid in cells:
-        cell     = cells[gid]
-        nx, ny   = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
-        rate_maps.append(rate_map)
-    rate_maps = np.asarray(rate_maps, dtype='float32')
-    nxx, nyy  = np.meshgrid(np.arange(nx), np.arange(ny))
-    coords    = zip(nxx.reshape(-1,), nyy.reshape(-1,))
-    
-    factive = lambda px, py: _calculate_fraction_active(rate_maps[:,px,py])
-    return {(px,py): factive(px, py) for (px, py) in coords}
-
-def _calculate_fraction_active(rates):
-    N = len(rates)
-    num_active = len(np.where(rates > context.active_threshold)[0])
-    fraction_active = np.divide(float(num_active), float(N))
-    return fraction_active    
-
-def calculate_field_distribution(pi, pr):
+def _calculate_field_distribution(pi, pr):
     p1 = (1. - pi) / (1. + (7./4.) * pr)
     p2 = p1 * pr
     p3 = 0.5 * p2
@@ -270,21 +229,19 @@ def calculate_field_distribution(pi, pr):
     assert( np.abs(np.sum(probabilities) - 1.) < 1.e-5)
     return probabilities 
 
+def _fraction_active(rates):
+    from dentate.stimulus import fraction_active
+    return fraction_active(rates, context.active_threshold)
 
-def update(x, context):
-    context.local_random = random.Random()
-    context.local_random.seed(context.local_seed)
-    context.field_random = np.random.RandomState(context.local_seed)
-   
-    p_inactive     = x[0] 
-    p_r            = x[1]
-    context.field_probabilities = calculate_field_distribution(p_inactive, p_r)
-    context.place_cells, _ = _build_cells(context.num_place, 'place', context.module, start_gid=context.place_gid_start)
-    _calculate_rate_maps(context.place_cells, context)
+def _coefficient_of_variation(cells):
+    from dentate.stimulus import coefficient_of_variation
 
-def merge_cells():
-    z = context.grid_cells.copy()
-    return z.update(context.place_cells.copy())
+    return coefficient_of_variation(cells)
+
+def _peak_to_trough(cells):
+    from dentate.stimulus import peak_to_trough
+
+    return peak_to_trough(cells)
     
 def _calculate_rate_maps(cells, context):
     xp, yp       = context.mesh

@@ -17,7 +17,7 @@ def instantiate_place_cell(context, gid, module, nfields):
     return place_cell
 
 def instantiate_grid_cell(context, gid, module, nfields):
-    if 'grid_orientation' not in context() or 'module_width' not in context() or 'local_random' not in context():
+    if 'grid_orientation' not in context() or 'module_width' not in context() or 'local_random' not in context() or 'nx' not in context() or 'ny' not in context():
         raise Exception('Context does not contain module width, orientation, or a Random obj')
     orientation = context.grid_orientation[module]
     spacing = context.module_width
@@ -33,6 +33,11 @@ def instantiate_grid_cell(context, gid, module, nfields):
 
     grid_cell = GridCell(gid, nfields=nfields, module=module, **cell_args)
     return grid_cell
+
+def acquire_fields_per_cell(ncells, field_probabilities, generator):
+    field_probabilities = np.asarray(field_probabilities, dtype='float32')
+    field_set = [i for i in range(field_probabilities.shape[0])]
+    return generator.choice(field_set, p=field_probabilities, size=(ncells,))
     
     
 
