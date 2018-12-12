@@ -194,3 +194,22 @@ def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', de
                     }
                 
         return rec_dict
+
+    
+# Code by Michael Hines from this discussion thread:
+# https://www.neuron.yale.edu/phpBB/viewtopic.php?f=31&t=3628
+def cx(env):
+    """
+    Estimates cell complexity. Uses the LoadBalance class.
+
+    :param env: an instance of the `dentate.Env` class.
+    """
+    rank = int(env.pc.id())
+    lb = h.LoadBalance()
+    if os.path.isfile("mcomplex.dat"):
+        lb.read_mcomplex()
+    cxvec = h.Vector(len(env.gidset))
+    for i, gid in enumerate(env.gidset):
+        cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
+    env.cxvec = cxvec
+    return cxvec

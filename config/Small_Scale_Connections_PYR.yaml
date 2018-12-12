@@ -320,6 +320,20 @@ Synapses:
           e: -75
           g_unit: 0.0005
   BC:
+    PYR:
+      type: excitatory
+      sections: [soma, basal]
+      layers: [Hilus]
+      proportion: []
+      mechanisms:
+        SatAMPA:     
+          dur_onset: 1.0
+          tau_offset: 3.4
+          sat: 0.9
+          e: 0
+          g_unit: 0.0005
+        
+          
     GC:   
       type: excitatory
       sections: [soma, basal]

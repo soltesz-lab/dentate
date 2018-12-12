@@ -10,7 +10,9 @@ GC Structured Weights:             12.0e+6 ## Computing structured weights for G
 Synaptic Integration Optimization: 14.0e+6 ## Choosing synapses and branches for optimization of synaptic integration in GCs.
 EPSC Attenuation Optimization:     16.0e+6 ## Choosing branches for optimization of EPSC attenuation in GCs.
 Synapse Projection Partitions:     18.0e+6 ## Partitioning synapse locations by projection
-Intracellular Voltage Sample:      20.0e+6 ## Selecting cells to sample intracellular voltage from
+# Randomize Spikes:                20.0e+6 ## Randomize assignment of LPP/Vector Stimulus  0 attributes to gids
+PYR Feature Selectivity:           22.0e+6 ## Computing PYR feature selectivity
+Intracellular Voltage Sample:      24.0e+6 ## Selecting cells to sample intracellular voltage from
 Local Field Potential:             30.0e+6 ## Selecting cells to sample extracellular voltage from
 Input Features:                    40.0e+6 ## Input features
 Input Spiketrains:                 50.0e+6 ## Input spike trains
