@@ -6,6 +6,7 @@ from pprint import pprint
 import dentate.utils as utils
 from dentate.utils import list_find, get_script_logger
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
+from dentate.InputCell import *
 
 
 utils.config_logging(True)
@@ -13,48 +14,6 @@ script_name = 'optimize_DG_PP_features.py'
 logger      = utils.get_script_logger(script_name)
 
 context = Context()
-
-def _instantiate_place_cell(gid, module, nfields):
-    cell = {}
-    cell_field_width = []
-    for n in xrange(nfields):
-        this_width = context.module_width 
-        #delta_spacing = context.local_random.gauss(0., 50. * (module+1)/float(np.max(context.modules)))
-        delta_spacing = context.local_random.uniform(-10, 10)
-        cell_field_width.append(this_width + delta_spacing)
-    
-    cell['gid']         = np.array([gid], dtype='int32')
-    cell['Num Fields']  = np.array([nfields], dtype='uint8')
-    cell['Cell Type']   = np.array([context.feature_ctypes['place']], dtype='uint8')
-    cell['Module']      = np.array([module], dtype='uint8')
-    cell['Field Width'] = np.asarray(cell_field_width, dtype='float32')
-    cell['Nx']           = np.array([context.nx], dtype='int32')
-    cell['Ny']           = np.array([context.ny], dtype='int32')
-    
-    return cell 
-
-def _instantiate_grid_cell(gid, module, nfields):
-    cell    = {}
-
-    orientation = context.grid_orientation[module]
-    spacing     = context.module_width #* 0.94
-
-    #delta_spacing     = context.local_random.gauss(0., 50. * (module+1) / float(np.max(context.modules)))
-    #delta_orientation = context.local_random.gauss(0., np.deg2rad(10. * (module+1.) / float(np.max(context.modules))))
-    delta_spacing     = context.local_random.uniform(-10,10)
-    delta_orientation = context.local_random.uniform(-10,10)
-
-
-    cell['gid']          = np.array([gid], dtype='int32')
-    cell['Num Fields']   = np.array([nfields], dtype='uint8')
-    cell['Cell Type']    = np.array([context.feature_ctypes['grid']], dtype='uint8')
-    cell['Module']       = np.array([module], dtype='uint8')
-    cell['Grid Spacing'] = np.array([spacing + delta_spacing], dtype='float32')
-    cell['Grid Orientation']  = np.array([orientation + delta_orientation], dtype='float32')
-    cell['Nx']           = np.array([context.nx], dtype='int32')
-    cell['Ny']           = np.array([context.ny], dtype='int32')
-
-    return cell 
 
 def acquire_fields_per_cell(ncells, field_probabilities, generator):
     field_probabilities = np.asarray(field_probabilities, dtype='float32')
@@ -74,9 +33,9 @@ def _build_cells(N, ctype, module, start_gid=1):
     gid = start_gid
     for i in xrange(N):
         if ctype == 'grid':
-            cells[gid]= _instantiate_grid_cell(gid, module, nfields[i])
+            cells[gid] = instantiate_grid_cell(context, gid, module, nfields[i]).return_attr_dict()
         elif ctype == 'place':
-            cells[gid] = _instantiate_place_cell(gid, module, nfields[i])
+            cells[gid] = instantiate_place_cell(context, gid, module, nfields[i]).return_attr_dict()
         gid += 1
 
     scale_factor = context.scale_factor
@@ -127,14 +86,6 @@ def init_context():
     context.grid_cells, context.place_gid_start  = _build_cells(context.num_grid, 'grid', context.module)
     _calculate_rate_maps(context.grid_cells, context)
 
-
-def _generate_mesh(scale_factor=1.0, arena_dimension=100., resolution=5.):
-    arena_x_bounds = [-arena_dimension * scale_factor / 2., arena_dimension * scale_factor / 2.]
-    arena_y_bounds = [-arena_dimension * scale_factor / 2., arena_dimension * scale_factor / 2.]
-    arena_x        = np.arange(arena_x_bounds[0], arena_x_bounds[1], resolution)
-    arena_y        = np.arange(arena_y_bounds[0], arena_y_bounds[1], resolution)
-    return np.meshgrid(arena_x, arena_y, indexing='ij')
-
 @click.command()
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), 
                default="../config/optimize_DG_PP_config_3.yaml")
@@ -167,7 +118,12 @@ def tests(plot=False):
 
     plot_group(place_cells, plot=plot, **kwargs)
     kwargs['ctype'] = 'grid'
-    plot_group(grid_cells, plot=plot, **kwargs)
+    #plot_group(grid_cells, plot=plot, **kwargs)
+
+    kwargs['ctype'] = 'both'
+    both_cells = grid_cells.copy()
+    both_cells.update(place_cells)
+    plot_group(both_cells, plot=plot, **kwargs)
 
 def plot_group(cells, plot=False, **kwargs):
     from plot_DG_PP_features import plot_rate_maps_single_module, plot_xy_offsets_single_module, \
