@@ -78,6 +78,7 @@ class SynapseAttributes(object):
         self.syn_param_rules = syn_param_rules
         self.syn_name_index_dict = { label: index for index, label in (enumerate(syn_mech_names.keys())) } # int : mech_name dict
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
+        self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: None))
         self.netcon_dict = defaultdict(lambda: defaultdict(lambda: None))
         self.vecstim_dict = defaultdict(lambda: defaultdict(lambda: None))
@@ -119,15 +120,20 @@ class SynapseAttributes(object):
             syn_secs = syn_id_attr_dict['syn_secs']
             syn_locs = syn_id_attr_dict['syn_locs']
 
+            syn_dict = self.syn_id_attr_dict[gid]
+            sec_dict = self.sec_dict[gid]
             for i, (syn_id, syn_layer, syn_type, swc_type, syn_sec, syn_loc) in \
               enumerate(zip_longest(syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)):
-                self.syn_id_attr_dict[gid][syn_id] = Synapse(syn_type=syn_type, \
-                                                            syn_layer=syn_layer, \
-                                                            syn_section=syn_sec, \
-                                                            syn_loc=syn_loc, \
-                                                            swc_type=swc_type, \
-                                                            source=SynapseSource(), \
-                                                            attr_dict=defaultdict(dict))
+                syn = Synapse(syn_type=syn_type, \
+                              syn_layer=syn_layer, \
+                              syn_section=syn_sec, \
+                              syn_loc=syn_loc, \
+                              swc_type=swc_type, \
+                              source=SynapseSource(), \
+                              attr_dict=defaultdict(dict))
+                syn_dict[syn_id] = syn
+                sec_dict[syn_sec].append((syn_id,syn))
+                
                 self.pps_dict[gid][syn_id] = {}
                 self.netcon_dict[gid][syn_id] = {}
                 self.vecstim_dict[gid][syn_id] = {}
@@ -492,7 +498,6 @@ class SynapseAttributes(object):
         :param swc_types: list of enumerated type: swc_type
         :return: dictionary { syn_id: { attribute: value } }
         """
-        syn_id_attr_dict = self.syn_id_attr_dict[gid]
         matches = lambda query, item: (query is None) or (item in query)
 
         if cache:
@@ -504,15 +509,23 @@ class SynapseAttributes(object):
             source_indexes = None
         else:
             source_indexes = set([self.env.Populations(source) for source in sources])
-        syn_dict = {k: v for k, v in viewitems(syn_id_attr_dict) \
-                        if matches(syn_sections, v.syn_section) & \
-                        matches(syn_indexes, k) & \
-                        matches(syn_types, v.syn_type) & \
-                        matches(layers, v.syn_layer) & \
-                        matches(source_indexes, v.source.population) & \
-                        matches(swc_types, v.swc_type)}
 
-        return syn_dict
+        if syn_sections is not None:
+            ## fast path
+            sec_dict = self.sec_dict[gid]
+            it = itertools.chain.from_iterable([ sec_dict[sec_index] for sec_index in syn_sections ])
+            syn_dict = { k: v for (k,v) in it }
+        else:
+            syn_dict = self.syn_id_attr_dict[gid]
+            
+        result = {k: v for k, v in viewitems(syn_dict) \
+                      if matches(syn_indexes, k) & \
+                      matches(syn_types, v.syn_type) & \
+                      matches(layers, v.syn_layer) & \
+                      matches(source_indexes, v.source.population) & \
+                      matches(swc_types, v.swc_type)}
+
+        return result
   
     def partition_synapses_by_source(self, gid, syn_ids=None):
         """
