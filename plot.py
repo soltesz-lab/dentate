@@ -3539,8 +3539,8 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
 
     for attr_type in attr_types:
         if len(attr_vals[attr_type]) == 0 and export is not None:
-            print('Not exporting to %s; mechanism: %s parameter: %s not found in any sec_type' % \
-                  (export, syn_name, param_name))
+            print('Not exporting to %s; mechanism: %s %s parameter: %s not found in any sec_type' % \
+                  (export, syn_name, attr_type, param_name))
             return
     xmax0 = 0.1
     xmin0 = 0.

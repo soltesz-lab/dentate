@@ -6,7 +6,7 @@ from dentate.plot import *
 context = Context()
 
 
-def standard_modify_syn_mech_param_tests(cell, env, syn_name='AMPA', param_name='g_unit'):
+def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_unit'):
     """
 
     :param cell: :class:'BiophysCell'
@@ -33,16 +33,16 @@ def standard_modify_syn_mech_param_tests(cell, env, syn_name='AMPA', param_name=
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_attrs.hdf5',
                                              description='stage0', show=False, overwrite=True)
-        modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
-                              filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
-                              update_targets=True)
+        modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
+                         filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
+                         update_targets=True)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_attrs.hdf5',
                                              description='stage1', show=False)
-        modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name,
-                              filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
-                              origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
-                              append=True)
+        modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name,
+                         filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
+                         origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
+                         append=True)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_attrs.hdf5',
                                              description='stage2', show=False)
@@ -50,16 +50,16 @@ def standard_modify_syn_mech_param_tests(cell, env, syn_name='AMPA', param_name=
     else:
         param_name = 'weight'
         param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
-        modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
-                              filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
-                              update_targets=True)
+        modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
+                         filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
+                         update_targets=True)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_weights.hdf5',
                                              description='stage1', show=False)
-        modify_syn_mech_param(cell, env, sec_type, syn_name, param_name=param_name,
-                              filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
-                              origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
-                              append=True)
+        modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name,
+                         filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
+                         origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
+                         append=True)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_weights.hdf5',
                                              description='stage2', show=False)
@@ -115,7 +115,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=context.env)
     context.update(locals())
 
-    # standard_modify_syn_mech_param_tests(cell, env)
+    standard_modify_syn_param_tests(cell, env)
 
 
 if __name__ == '__main__':
