@@ -171,9 +171,10 @@ def connect_cells(env, cleanup=True):
                                     'configuration' % (postsyn_name, gid, syn_name))
                         raise Exception
                     weights_values  = cell_weights_dict[syn_name]
-                    syn_attrs.add_netcon_attrs_from_iter(gid, syn_name, \
-                                                         zip_longest(weights_syn_ids, \
-                                                                     itertools.imap(lambda x: { 'weight' : x }, weights_values)))
+                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                                       zip_longest(weights_syn_ids, \
+                                                                   itertools.imap(lambda x: { 'weight' : x }, \
+                                                                                  weights_values)))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
@@ -375,9 +376,10 @@ def connect_cell_selection(env, cleanup=True):
                 weights_syn_ids = cell_weights_dict['syn_id']
                 for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
                     weights_values  = cell_weights_dict[syn_name]
-                    syn_attrs.add_netcon_attrs_from_iter(gid, syn_name, \
-                                                         zip_longest(weights_syn_ids, \
-                                                                     itertools.imap(lambda x: { 'weight' : x }, weights_values)))
+                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                                       zip_longest(weights_syn_ids, \
+                                                                   itertools.imap(lambda x: { 'weight' : x }, \
+                                                                                  weights_values)))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
