@@ -570,7 +570,6 @@ class SynapseAttributes(object):
 
         mech_name = self.syn_mech_names[syn_name]
 
-        print 'netcon_attr_dict: ', syn.netcon_attr_dict
         netcon_attr_dict = syn.netcon_attr_dict[syn_index]
         mech_attr_dict = syn.mech_attr_dict[syn_index]
         for k, v in viewitems(params):
@@ -947,7 +946,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                     this_netcon = syn_attrs.get_netcon(gid, syn_id, syn_name, throw_error=False)
                     if this_netcon is None:
                           raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have netcon for mechanism %s' % (gid, syn_id, syn_name))
-                    netcon_params = { 'weight': syn.netcon_attr_dict[syn_index] }
+                    netcon_params = syn.netcon_attr_dict[syn_index]
                     config_netcon(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
                                   mech_names=syn_attrs.syn_mech_names, nc=this_netcon, \
                                   **netcon_params)
