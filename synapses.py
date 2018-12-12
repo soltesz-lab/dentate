@@ -526,7 +526,7 @@ class SynapseAttributes(object):
             if syn_index in syn.netcon_attr_dict:
                 raise RuntimeError('add_netcon_attrs_from_iter: gid %i Synapse id %i mechanism %s already has netcon weight' % (gid, syn_id, syn_name))
             netcon_attr_dict = syn.netcon_attr_dict[syn_index]
-            for k, v in viewitems(params):
+            for k, v in viewitems(params_dict):
                 netcon_attr_dict[k] = v
 
                 
