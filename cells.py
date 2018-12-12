@@ -1471,7 +1471,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                         weights_values  = cell_weights_dict[syn_name]
                         syn_attrs.add_netcon_attrs_from_iter(gid, syn_name, \
                                                              zip_longest(weights_syn_ids, \
-                                                                         weights_values))
+                                                                         itertools.imap(lambda x: { 'weight' : x }, weights_values)))
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
                                     (gid, len(cell_weights_dict[syn_name]), syn_name))
                                     

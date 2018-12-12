@@ -173,7 +173,7 @@ def connect_cells(env, cleanup=True):
                     weights_values  = cell_weights_dict[syn_name]
                     syn_attrs.add_netcon_attrs_from_iter(gid, syn_name, \
                                                          zip_longest(weights_syn_ids, \
-                                                                     weights_values))
+                                                                     itertools.imap(lambda x: { 'weight' : x }, weights_values)))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
@@ -377,7 +377,7 @@ def connect_cell_selection(env, cleanup=True):
                     weights_values  = cell_weights_dict[syn_name]
                     syn_attrs.add_netcon_attrs_from_iter(gid, syn_name, \
                                                          zip_longest(weights_syn_ids, \
-                                                                     weights_values))
+                                                                     itertools.imap(lambda x: { 'weight' : x }, weights_values)))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
