@@ -12,18 +12,20 @@ from collections import namedtuple, defaultdict
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
-"""This class provides information about the presynaptic (source) cell
-connected to a synapse.
-  - gid - gid of source cell (int)
-  - population - population index of source cell (int)
-  - delay - connection delay (float)
-"""
+
 class SynapseSource(object):
-      __slots__ = 'gid', 'population', 'delay'
-      def __init__(self):
-            self.gid = None
-            self.population = None
-            self.delay = None
+    """This class provides information about the presynaptic (source) cell
+    connected to a synapse.
+      - gid - gid of source cell (int)
+      - population - population index of source cell (int)
+      - delay - connection delay (float)
+    """
+    __slots__ = 'gid', 'population', 'delay'
+    def __init__(self):
+        self.gid = None
+        self.population = None
+        self.delay = None
+
 
 Synapse = NamedTupleWithDocstring(
     """A container for synapse configuration, synapse mechanism instantiation,
@@ -171,7 +173,6 @@ class SynapseAttributes(object):
             syn.source.population = presyn_index
             syn.source.delay = delay
 
-
     def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter):
         """
         Initializes edge attributes for all cell gids returned by iterator.
@@ -209,8 +210,6 @@ class SynapseAttributes(object):
 
             self.init_edge_attrs(postsyn_gid, presyn_name, presyn_gids, edge_syn_ids, delays=delays)
 
-
-
     def add_pps(self, gid, syn_id, syn_name, pps):
         """
         Adds mechanism point process for the specified cell/synapse id/mechanism name.
@@ -228,7 +227,6 @@ class SynapseAttributes(object):
         else:
             pps_dict[syn_index] = pps
 
-            
     def has_pps(self, gid, syn_id, syn_name):
         """
         Returns True if the given synapse id already has the named mechanism, False otherwise.
@@ -243,7 +241,6 @@ class SynapseAttributes(object):
         pps_dict = gid_pps_dict[syn_id]
         return (syn_index in pps_dict)
 
-    
     def get_pps(self, gid, syn_id, syn_name, throw_error=True):
         """
         Returns the mechanism for the given synapse id on the given cell.
@@ -264,7 +261,6 @@ class SynapseAttributes(object):
             else:
                 return None
 
-            
     def add_netcon(self, gid, syn_id, syn_name, nc):
         """
         Adds a NetCon object for the specified cell/synapse id/mechanism name.
@@ -282,7 +278,6 @@ class SynapseAttributes(object):
         else:
             netcon_dict[syn_index] = nc
 
-            
     def has_netcon(self, gid, syn_id, syn_name):
         """
         Returns True if a netcon exists for the specified cell/synapse id/mechanism name, False otherwise.
@@ -296,7 +291,6 @@ class SynapseAttributes(object):
         gid_netcon_dict = self.netcon_dict[gid]
         netcon_dict = gid_netcon_dict[syn_id]
         return (syn_index in netcon_dict)
-
     
     def get_netcon(self, gid, syn_id, syn_name, throw_error=True):
         """
@@ -318,7 +312,6 @@ class SynapseAttributes(object):
             else:
                 return None
 
-
     def add_vecstim(self, gid, syn_id, syn_name, vs):
         """
         Adds a VecStim object for the specified cell/synapse id/mechanism name.
@@ -330,11 +323,12 @@ class SynapseAttributes(object):
         """
         syn_index = self.syn_name_index_dict[syn_name]
         gid_vecstim_dict = self.vecstim_dict[gid]
+        print 'getting here: %s' % type(gid_vecstim_dict)
         vecstim_dict = gid_vecstim_dict[syn_id]
         if syn_index in vecstim_dict:
             raise RuntimeError('add_vecstim: gid %i synapse id %i mechanism %s already has vecstim' % (gid, syn_id, syn_name))
         else:
-            self.vecstim_dict[syn_index] = vs
+            vecstim_dict[syn_index] = vs
             
     def has_vecstim(self, gid, syn_id, syn_name):
         """
@@ -349,7 +343,6 @@ class SynapseAttributes(object):
         gid_vecstim_dict = self.vecstim_dict[gid]
         vecstim_dict = gid_vecstim_dict[syn_id]
         return (syn_index in vecstim_dict)
-
     
     def get_vecstim(self, gid, syn_id, syn_name, throw_error=True):
         """
@@ -370,7 +363,6 @@ class SynapseAttributes(object):
                 raise RuntimeError('get_vecstim: gid %d synapse %d: vecstim for mechanism %s not found' % (gid, syn_id, syn_name))
             else:
                 return None
-          
 
     def has_mech_attrs(self, gid, syn_id, syn_name):
         """
@@ -386,7 +378,6 @@ class SynapseAttributes(object):
         syn = syn_id_dict[syn_id]
         return syn_index in syn.attr_dict
 
-  
     def get_mech_attrs(self, gid, syn_id, syn_name, throw_error=True):
         """
         Returns mechanism attribute dictionary associated with the given cell id/synapse id/mechanism name, False otherwise.
@@ -406,8 +397,7 @@ class SynapseAttributes(object):
                 raise RuntimeError('get_mech_attrs: gid %d synapse %d: attributes for mechanism %s not found' % (gid, syn_id, syn_name))
             else:
                 return None
-        
-        
+
     def add_mech_attrs(self, gid, syn_id, syn_name, params):
         """
         Specifies mechanism attribute dictionary for the given cell id/synapse id/mechanism name. Assumes mechanism attributes have not been set yet for this synapse mechanism.
@@ -427,7 +417,6 @@ class SynapseAttributes(object):
             else:
                 attr_dict[k] = v
 
-                
     def modify_mech_attrs(self, gid, syn_id, syn_name, params, update=lambda old, new: new):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
@@ -458,7 +447,6 @@ class SynapseAttributes(object):
                     attr_dict[k] = v
             else:
                   raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
-                
 
     def add_mech_attrs_from_iter(self, gid, syn_name, params_iter):
         """
@@ -483,15 +471,14 @@ class SynapseAttributes(object):
             for k, v in viewitems(params_dict):
                 attr_dict[k] = v
 
-
-
-    def filter_synapses(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None, swc_types=None, cache=False):
+    def filter_synapses(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None,
+                        swc_types=None, cache=False):
         """
         Returns a subset of the synapses of the given cell according to the given criteria.
 
         :param gid: int
         :param syn_sections: array of int
-        :param syn_indexes: array of int
+        :param syn_indexes: array of int: syn_ids
         :param syn_types: list of enumerated type: synapse category
         :param layers: list of enumerated type: layer
         :param sources: list of enumerated type: population names of source projections
@@ -537,7 +524,10 @@ class SynapseAttributes(object):
 
         """
         source_names = {id: name for name, id in viewitems(self.env.Populations)}
-        syn_id_attr_dict = self.syn_id_attr_dict[gid]
+        if syn_ids is None:
+            syn_id_attr_dict = self.syn_id_attr_dict[gid]
+        else:
+            syn_id_attr_dict = {syn_id: self.syn_id_attr_dict[gid][syn_id] for syn_id in syn_ids}
 
         source_iter = partitionn(viewitems(syn_id_attr_dict), \
                                  lambda((syn_id,syn)): syn.source.population, \
@@ -545,15 +535,15 @@ class SynapseAttributes(object):
 
         return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
 
-    def get_filtered_syn_indexes(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None, swc_types=None, cache=False):
+    def get_filtered_syn_ids(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None,
+                                 sources=None, swc_types=None, cache=False):
         """
         Returns a subset of the synapse ids of the given cell according to the given criteria.
         """
         return self.filter_synapses(gid, syn_sections=syn_sections, syn_indexes=syn_indexes, \
-                                    syn_types=syn_types, layers=layers, sources=source, swc_types=swc_types, \
+                                    syn_types=syn_types, layers=layers, sources=sources, swc_types=swc_types, \
                                     cache=cache).keys()
 
-  
     def partition_syn_ids_by_source(self, gid, syn_ids=None):
         """
         Partitions the synapse ids for the given cell based on the
@@ -566,7 +556,9 @@ class SynapseAttributes(object):
         start_time = time.time()
         source_names = {id: name for name, id in viewitems(self.env.Populations)}
         syn_id_attr_dict = self.syn_id_attr_dict[gid]
-        source_iter = partitionn(syn_id_attr_dict.keys(), \
+        if syn_ids is None:
+            syn_ids = syn_id_attr_dict.keys()
+        source_iter = partitionn(syn_ids, \
                                  lambda(syn_id): syn_id_attr_dict[syn_id].source.population, n=len(source_names))
 
         return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
@@ -916,7 +908,6 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
     return (mech_param, nc_param)
 
 
-
 def syn_in_seg(syn_name, seg, syns_dict):
     """
     If a synaptic mechanism of the specified type already exists in the specified segment, it is returned. Otherwise, it returns None.
@@ -986,7 +977,6 @@ def make_unique_synapse_mech(syn_name, seg, syns_dict=None, mech_names=None):
         mech_name = syn_name
     syn_mech = make_syn_mech(mech_name, seg)
     return syn_mech
-
 
 
 def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
