@@ -28,7 +28,6 @@ def hoc_results_to_python(hoc_results):
     return results_dict
 
 
-    
 def simulate(v_init, mainlength, prelength=0, cvode=True):
     """
 

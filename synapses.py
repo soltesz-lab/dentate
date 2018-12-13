@@ -323,7 +323,6 @@ class SynapseAttributes(object):
         """
         syn_index = self.syn_name_index_dict[syn_name]
         gid_vecstim_dict = self.vecstim_dict[gid]
-        print 'getting here: %s' % type(gid_vecstim_dict)
         vecstim_dict = gid_vecstim_dict[syn_id]
         if syn_index in vecstim_dict:
             raise RuntimeError('add_vecstim: gid %i synapse id %i mechanism %s already has vecstim' % (gid, syn_id, syn_name))
