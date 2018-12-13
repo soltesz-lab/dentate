@@ -257,7 +257,8 @@ class SynapseAttributes(object):
             return pps_dict[syn_index]
         else:
             if throw_error:
-                raise RuntimeError('get_pps: gid %i synapse id %i has no point process for mechanism %s' % (gid, syn_id, syn_name))
+                raise RuntimeError('get_pps: gid %i synapse id %i has no point process for mechanism %s' %
+                                   (gid, syn_id, syn_name))
             else:
                 return None
 
@@ -581,7 +582,8 @@ class SynapseAttributes(object):
         return self.syn_id_attr_dict[gid]
 
 
-def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, insert_netcons=False, insert_vecstims=False):
+def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, insert_netcons=False,
+                         insert_vecstims=False):
     """
     Insert mechanisms into given cell according to the synapse objects created in env.synapse_attributes.
     Configures mechanisms according to parameter values specified in syn_params.
@@ -591,10 +593,11 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
     :param gid: cell id (int)
     :param cell: hoc cell object
     :param syn_ids: synapse ids (array of int)
-    :param unique: True, if unique mechanisms are to be inserted for
-    each synapse; False, if synapse mechanisms within a compartment
-    will be shared.
-
+    :param unique: True, if unique mechanisms are to be inserted for each synapse; False, if synapse mechanisms within
+            a compartment will be shared.
+    :param insert_netcons: bool; whether to build new netcons for newly constructed synapses
+    :param insert_vecstims: bool; whether to build new vecstims for newly constructed netcons
+    :param verbose: bool
     :return: number of inserted mechanisms
 
     """
@@ -693,6 +696,9 @@ def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, uniqu
     :param presyn_name: str
     :param syn_ids: array of int
     :param unique: bool; whether to insert synapses if none exist at syn_id
+    :param insert_netcons: bool; whether to build new netcons for newly constructed synapses
+    :param insert_vecstims: bool; whether to build new vecstims for newly constructed netcons
+    :param verbose: bool
     """
 
     if not (gid in env.biophys_cells[postsyn_name]):
@@ -701,18 +707,17 @@ def insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, syn_ids, uniqu
     cell = env.biophys_cells[postsyn_name][gid]
     syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
 
-    syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell.hoc_cell, syn_ids, \
-                                                           unique=unique, insert_netcons=insert_netcons, \
+    syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell.hoc_cell, syn_ids,
+                                                           unique=unique, insert_netcons=insert_netcons,
                                                            insert_vecstims=insert_vecstims)
-
 
     if verbose:
         logger.info('insert_biophys_cell_syns: source: %s target: %s cell %i: created %i mechanisms and %i netcons for '
                     '%i syn_ids' % (presyn_name, postsyn_name, gid, mech_count, nc_count, syn_count))
 
 
-def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False, unique=None, insert_netcons=False,
-                             insert_vecstims=False, verbose=False):
+def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, unique=None, insert=False, insert_netcons=False,
+                             insert_vecstims=False, verbose=False, throw_error=False):
     """
     Configures the given syn_ids, and call config_syn with mechanism
     and netcon parameters (which must not be empty).  If syn_ids=None,
@@ -725,10 +730,12 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
     :param env: :class:'Env'
     :param postsyn_name: str
     :param syn_ids: array of int
-    :param insert: bool; whether to insert synapses if none exist at syn_id
     :param unique: bool; whether newly inserted synapses should be unique or shared per segment
+    :param insert: bool; whether to insert a synaptic point process if none exists at syn_id
+    :param insert_netcons: bool; whether to build new netcons for newly constructed synapses
+    :param insert_vecstims: bool; whether to build new vecstims for newly constructed netcons
     :param verbose: bool
-
+    :param throw_error: bool; whether to require that all encountered syn_ids have inserted synapse
     """
     syn_attrs = env.synapse_attributes
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
@@ -744,13 +751,13 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
             p = generator_peek(source_syn_ids)
             if p is not None:
                first, seq = p
-               insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, seq, unique=unique, \
-                                        insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
+               insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, seq, unique=unique,
+                                        insert_netcons=insert_netcons, insert_vecstims=insert_vecstims, verbose=verbose)
 
     cell = env.biophys_cells[postsyn_name][gid]
-    syn_count, mech_count, nc_count = config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                           cell=cell.hoc_cell, syn_ids=syn_ids, \
-                                                           insert=False, unique=unique)
+    syn_count, mech_count, nc_count = config_hoc_cell_syns(env, gid, postsyn_name, cell=cell.hoc_cell,
+                                                           syn_ids=syn_ids, unique=unique, insert=False,
+                                                           verbose=verbose, throw_error=throw_error)
 
     if verbose:
         logger.info('config_biophys_cell_syns: target: %s; cell %i: set parameters for %i syns and %i '
@@ -760,7 +767,7 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, insert=False,
 
 
 def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique=None, insert=False,
-                         insert_netcons=False, insert_vecstims=False, verbose=False):
+                         insert_netcons=False, insert_vecstims=False, verbose=False, throw_error=False):
     """
     Configures the given syn_ids, and call config_syn with mechanism and netcon parameters (which must not be empty).
     If syn_ids=None, configures all synapses for the cell with the given gid.
@@ -771,8 +778,12 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
     :param gid: int
     :param postsyn_name: str
     :param syn_ids: array of int
-    :param insert: bool; whether to insert synapses if none exist at syn_id
     :param unique: bool; whether newly inserted synapses should be unique or shared per segment
+    :param insert: bool; whether to insert a synaptic point process if none exists at syn_id
+    :param insert_netcons: bool; whether to build new netcons for newly constructed synapses
+    :param insert_vecstims: bool; whether to build new vecstims for newly constructed netcons
+    :param verbose: bool
+    :param throw_error: bool; whether to require that all encountered syn_ids have inserted synapse
     """
     rank = int(env.pc.id())
     syn_attrs = env.synapse_attributes
@@ -802,7 +813,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                 first, seq = p
                 source_syn_ids = [x[0] for x in seq]
                 syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique, \
+                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
                                      insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
         if verbose:
               logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
@@ -817,10 +828,8 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         p = generator_peek(source_syns)
         if p is None:
             continue
-
         first, seq = p
-        
-        last_time = time.time() 
+
         nc_count = 0
         mech_count = 0
 
@@ -828,22 +837,21 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         syn_indexes = [syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names]
         for syn_id, syn in seq:
             for syn_name, syn_index in zip_longest(syn_names, syn_indexes):
-                this_pps = None
-                this_netcon = None
                 if syn_index in syn.attr_dict:
                     this_pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
+                    if this_pps is None and throw_error:
+                       raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have a point '
+                                          'process for mechanism %s' % (gid, syn_id, syn_name))
 
-                    if this_pps is None:
-                       raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have point process for mechanism %s' % (gid, syn_id, syn_name))
                     this_netcon = syn_attrs.get_netcon(gid, syn_id, syn_name, throw_error=False)
-                    if this_netcon is None:
-                          raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have netcon for mechanism %s' % (gid, syn_id, syn_name))
+                    if this_netcon is None and throw_error:
+                          raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i does not have a '
+                                             'netcon for mechanism %s' % (gid, syn_id, syn_name))
 
                     params = syn.attr_dict[syn_index]
-                    (mech_set, nc_set) = \
-                      config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules, \
-                                 mech_names=syn_attrs.syn_mech_names, syn=this_pps, \
-                                 nc=this_netcon, **params)
+                    (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                                    mech_names=syn_attrs.syn_mech_names, syn=this_pps, nc=this_netcon,
+                                                    **params)
                     if mech_set:
                         mech_count += 1
                     if nc_set:
@@ -853,7 +861,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         total_mech_count += mech_count
         
     if verbose:
-          logger.info('config_hoc_cell_syns: population: %s; cell %i: configured %i synapses in %f s' % \
+          logger.info('config_hoc_cell_syns: population: %s; cell %i: configured %i synapses in %.2f s' % \
                       (postsyn_name, gid, len(syn_ids), time.time() - config_time))
 
     return len(syn_ids), total_mech_count, total_nc_count
@@ -861,8 +869,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
 
 def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
     """
-    Initializes synaptic and connection mechanisms with parameters
-    specified in the synapse attribute dictionaries.
+    Initializes synaptic and connection mechanisms with parameters specified in the synapse attribute dictionaries.
 
     :param syn_name: str
     :param rules: dict to correctly parse params for specified hoc mechanism
@@ -909,7 +916,8 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
 
 def syn_in_seg(syn_name, seg, syns_dict):
     """
-    If a synaptic mechanism of the specified type already exists in the specified segment, it is returned. Otherwise, it returns None.
+    If a synaptic mechanism of the specified type already exists in the specified segment, it is returned. Otherwise,
+    it returns None.
     :param syn_name: str
     :param seg: hoc segment
     :param syns_dict: nested defaultdict
