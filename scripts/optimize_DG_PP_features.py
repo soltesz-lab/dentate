@@ -3,15 +3,14 @@ import sys, os, time, random, click
 import numpy as np
 from pprint import pprint
 import yaml
-import dentate.utils as utils
-from dentate.utils import * #list_find, get_script_logger, read_from_yaml
+from dentate.utils import *
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
 from dentate.InputCell import *
 
 
-utils.config_logging(True)
+config_logging(True)
 script_name = 'optimize_DG_PP_features.py'
-logger      = utils.get_script_logger(script_name)
+logger      = get_script_logger(script_name)
 
 context = Context()
 
@@ -62,11 +61,11 @@ def init_context():
     field_probabilities = None
 
     input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
-    nmodules = input_params['kwargs']['number modules']
-    field_width_x1 = input_params['kwargs']['field width params']['x1']
-    field_width_x2 = input_params['kwargs']['field width params']['x2']
-    arena_dimension = input_params['kwargs']['arena dimension']
-    resolution = input_params['kwargs']['resolution']
+    nmodules = input_params['number modules']
+    field_width_x1 = input_params['field width params']['x1']
+    field_width_x2 = input_params['field width params']['x2']
+    arena_dimension = input_params['arena dimension']
+    resolution = input_params['resolution']
         
     modules            = np.arange(nmodules)
     grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
