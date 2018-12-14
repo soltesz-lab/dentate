@@ -38,12 +38,4 @@
     PYR:
       place: 1.0
 
-kwargs:
-  number modules: 10
-  field width params:
-    x1: 35.0
-    x2: 0.32
-  arena dimension: 100.0
-  resolution: 5.0
-
 
