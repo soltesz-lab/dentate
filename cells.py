@@ -1448,21 +1448,23 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
-    
-    if (synapses_dict is None) and load_synapses:
-        if 'weights namespace' in synapse_config:
-            weights_namespace = synapse_config['weights namespace']
-        else:
-            weights_namespace = None
-            
-        if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
+
+    if load_weights and 'weights namespace' in synapse_config:
+        weights_namespace = synapse_config['weights namespace']
+    else:
+        weights_namespace = None
+
+    if load_synapses:
+        if synapses_dict is not None:
+            syn_attrs.init_syn_id_attrs(synapses_dict)
+        elif (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
             synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
-                                                           comm=env.comm)
+                                                          comm=env.comm)
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
 
             if weights_namespace is not None:
                 cell_weights_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
-                                                                   weights_namespace, comm=env.comm)
+                                                                  weights_namespace, comm=env.comm)
             else:
                 cell_weights_iter = None
 
@@ -1471,16 +1473,11 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                     weights_syn_ids = cell_weights_dict['syn_id']
                     for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
                         weights_values  = cell_weights_dict[syn_name]
-                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                           zip_longest(weights_syn_ids, \
-                                                                       itertools.imap(lambda x: { 'weight' : x }, \
-                                                                                      weights_values)))
-                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
+                        syn_attrs.add_mech_attrs_from_iter(
+                            gid, syn_name,
+                            zip_longest(weights_syn_ids, itertools.imap(lambda x: {'weight' : x}, weights_values)))
+                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
                                     (gid, len(cell_weights_dict[syn_name]), syn_name))
-                                    
-    else:
-        if synapses_dict is not None:
-            syn_attrs.init_syn_id_attrs(synapses_dict)
         else:
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
@@ -1491,22 +1488,19 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                               namespaces=['Synapses', 'Connections'], comm=env.comm)
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
-
                     edge_iter = graph[pop_name][presyn_name]
-                    syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
-                    
                     syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter)
             else:
                 logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
                 raise Exception
         else:
-            logger.error('get_biophys_cell: connection file %s not found' % (env.connectivity_file_path))
+            logger.error('get_biophys_cell: connection file %s not found' % env.connectivity_file_path)
             raise Exception
     env.biophys_cells[pop_name][gid] = cell
     return cell
 
 
-def find_spike_threshold_minimum(cell,loc=0.5,sec=None,duration=10.0,delay=100.0,initial_amp=0.001):
+def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """
     Determines minimum stimulus sufficient to induce a spike in a cell. 
     Defines an IClamp with the specified duration, and an APCount to detect spikes.
