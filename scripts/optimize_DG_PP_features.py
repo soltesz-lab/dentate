@@ -2,9 +2,9 @@ from nested.optimize_utils import *
 import sys, os, time, random, click
 import numpy as np
 from pprint import pprint
-
+import yaml
 import dentate.utils as utils
-from dentate.utils import list_find, get_script_logger
+from dentate.utils import * #list_find, get_script_logger, read_from_yaml
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
 from dentate.InputCell import *
 
@@ -60,18 +60,22 @@ def init_context():
     feature_type_random = np.random.RandomState(context.local_seed)
     field_random = np.random.RandomState(context.local_seed)
     field_probabilities = None
-    
-    nmodules           = 10
+
+    input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
+    nmodules = input_params['kwargs']['number modules']
+    field_width_x1 = input_params['kwargs']['field width params']['x1']
+    field_width_x2 = input_params['kwargs']['field width params']['x2']
+    arena_dimension = input_params['kwargs']['arena dimension']
+    resolution = input_params['kwargs']['resolution']
+        
     modules            = np.arange(nmodules)
     grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
-    field_width_params = [35.0, 0.32]
+    field_width_params = [field_width_x1, field_width_x2]
     field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width    = field_width(1.)
     feature_ctypes     = {'grid': 0, 'place': 1}
-    arena_dimension    = 100.
-    resolution         = 5.
     module_width       = field_width( float(context.module) / np.max(modules))
-    scale_factor       = (module_width / 100.) + 1.
+    scale_factor       = (module_width / arena_dimension / 2.) + 1.
 
     mesh   = generate_mesh(scale_factor=1., arena_dimension=arena_dimension, resolution=resolution)
     nx, ny = mesh[0].shape[0], mesh[0].shape[1]
@@ -82,15 +86,15 @@ def init_context():
     _calculate_rate_maps(context.grid_cells, context)
 
 @click.command()
-@click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), 
-               default="../config/optimize_DG_PP_config_3.yaml")
+@click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=True, dir_okay=True), default=None)
 @click.option("--export", is_flag=True, default=False)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
 @click.option("--run-tests", is_flag=True, default=False, required=False)
 @click.option("--verbose", "-v", is_flag=True, default=False)
-def main(config_file_path, output_dir, export, export_file_path, label, run_tests, verbose):
+def main(config_file_path, input_params_file_path, output_dir, export, export_file_path, label, run_tests, verbose):
     context.update(locals())
     disp = verbose > 0
     if disp:
