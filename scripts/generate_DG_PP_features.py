@@ -25,10 +25,6 @@ logger = get_script_logger(os.path.basename(__file__))
 #  custom data type for type of feature feature
 feature_grid  = 0
 feature_place = 1
-
-#module_pi = [0.012, 0.313, 0.500, 0.654, 0.723, 0.783, 0.830, 0.852, 0.874, 0.890]
-#module_pr = [0.342, 0.274, 0.156, 0.125, 0.045, 0.038, 0.022, 0.018, 0.013, 0.004]
-
 context = Context()
 
 
@@ -244,7 +240,6 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     
     local_random        = np.random.RandomState(feature_seed_offset - 1)
     grid_orientation    = [ local_random.uniform(0., np.pi/3.) for i in range(context.nmodules) ]
-    #field_width_params  = [35.0,   0.32]  # slope, tau
     field_width_params  = [context.field_width_x1, context.field_width_x2]
     field_width         = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width     = field_width(1.)
@@ -259,7 +254,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     
     for mod in field_module_distribution:
         module_width = module_widths[mod - 1]
-        scale_factor  = (module_width / 100.) + 1.
+        scale_factor  = (module_width / 100. / 2.) + 1.
 
         xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100., scale_factor=scale_factor)
         local_random.shuffle(xy_offsets)
