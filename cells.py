@@ -1456,15 +1456,16 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             weights_namespace = None
             
         if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
-	    synapses_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
-                                                           'Synapse Attributes', comm=env.comm)
-            
+            synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
+                                                           comm=env.comm)
+            syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
+
             if weights_namespace is not None:
-                cell_weights_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
+                cell_weights_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
                                                                    weights_namespace, comm=env.comm)
             else:
                 cell_weights_iter = None
-	    syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
+
             if cell_weights_iter is not None:
                 for gid, cell_weights_dict in cell_weights_iter:
                     weights_syn_ids = cell_weights_dict['syn_id']
@@ -1487,7 +1488,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if load_edges:
         if os.path.isfile(env.connectivity_file_path):
             (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
-                                              namespaces=['Synapses', 'Connections'])
+                                              namespaces=['Synapses', 'Connections'], comm=env.comm)
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
 
