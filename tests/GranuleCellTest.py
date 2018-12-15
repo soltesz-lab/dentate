@@ -248,7 +248,7 @@ def main(config_path,template_paths,forest_path,synapses_path):
         synapses = None
 
     if env.celltypes[popName].has_key('mech_file'):
-        mech_file_path = env.configPrefix + '/' + env.celltypes[popName]['mech_file']
+        mech_file_path = env.config_prefix + '/' + env.celltypes[popName]['mech_file']
     else:
         mech_file_path = None
 

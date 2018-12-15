@@ -1,4 +1,4 @@
-import sys, click
+import sys, click, os
 from dentate import io_utils, utils, env
 from env import Env
 
@@ -6,10 +6,11 @@ from env import Env
 @click.command()
 @click.option("--config", '-c', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", default='dentate_h5types.h5', type=click.Path(exists=False, file_okay=True, dir_okay=False))
+@click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option('--gap-junctions', is_flag=True)
-def main(config, output_path, gap_junctions):
+def main(config, output_path, template_path, gap_junctions):
 
-    env = Env(config_file=config)
+    env = Env(config_file=config, template_paths=template_path)
     io_utils.make_h5types(env, output_path, gap_junctions=gap_junctions)
 
 

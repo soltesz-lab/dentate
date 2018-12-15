@@ -1,0 +1,61 @@
+## Model configuration of dentate gyrus network
+Model Name: dentatenet
+Dataset Name: Small_Scale
+Definitions: !include Definitions.yaml
+Geometry: !include Geometry.yaml
+Random Seeds: !include Random.yaml
+Cell Data: DG_small_scale_tree_syns_weights_skip_MC_20180413.h5
+Connection Data: DG_GC_test_connections_20180402.h5
+Connection Generator: !include Small_Scale_Connections_Lin.yaml
+LFP: !include LFP.yaml
+Input: !include Input.yaml
+## Cell types for dentate gyrus model
+Cell Types: 
+  GC:
+    template: DGC
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
+    synapses:
+      correct_for_spines: True
+      weights: True
+      weights namespace: Log-Normal Weights
+      density: !include GC_synapse_density.yaml
+  MC:
+    template: MossyCell
+    synapses:
+      weights: False
+      density: !include MC_synapse_density.yaml
+  HC:
+    template: HIPPCell
+    synapses:
+      density: !include HC_synapse_density.yaml
+  BC:
+    template: BasketCell
+    synapses:
+      density: !include BC_synapse_density.yaml
+  AAC:
+    template: AxoAxonicCell
+    synapses:
+      density: !include AAC_synapse_density.yaml
+  HCC:
+    template: HICAPCell
+    synapses: !include HCC_synapse_density.yaml
+  NGFC:
+    template: NGFCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  MOPP:
+    template: MOPPCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  IS:
+    template: ISCell
+    synapses:
+      density: !include IS_synapse_density.yaml
+  MPP:
+    template: MPPCell
+    Vector Stimulus: Vector Stimulus 0
+  LPP:
+    template: LPPCell
+    Vector Stimulus: Vector Stimulus 0
+

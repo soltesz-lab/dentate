@@ -504,17 +504,19 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
-def init_nseg(sec, spatial_res=0):
+def init_nseg(sec, spatial_res=0, verbose=True):
     """
     Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
     whenever basic cable properties Ra or cm are changed. The spatial resolution parameter increases the number of
     segments per section by a factor of an exponent of 3.
     :param sec: :class:'h.Section'
     :param spatial_res: int
+    :param verbose: bool
     """
     sugg_nseg = d_lambda_nseg(sec)
     sugg_nseg *= 3 ** spatial_res
-    logger.info('init_nseg: changed %s.nseg %i --> %i' % (sec.hname(), sec.nseg, sugg_nseg))
+    if verbose:
+        logger.info('init_nseg: changed %s.nseg %i --> %i' % (sec.hname(), sec.nseg, sugg_nseg))
     sec.nseg = int(sugg_nseg)
 
 
@@ -697,7 +699,7 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
 
 
 def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False,
-                    correct_g_pas=False):
+                    correct_g_pas=False, verbose=True):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
     each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance.
@@ -710,6 +712,7 @@ def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_
     :param from_file: bool
     :param correct_cm: bool
     :param correct_g_pas: bool
+    :param verbose: bool
     """
     if from_file:
         import_mech_dict_from_file(cell, mech_file_path)
@@ -720,33 +723,34 @@ def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_
         for sec_type in default_ordered_sec_types:
             if sec_type in cell.mech_dict and sec_type in cell.nodes:
                 for node in cell.nodes[sec_type]:
-                    reset_cable_by_node(cell, node)
+                    reset_cable_by_node(cell, node, verbose=verbose)
     if correct_cm:
-        correct_cell_for_spines_cm(cell, env)
+        correct_cell_for_spines_cm(cell, env, verbose=verbose)
     else:
         for sec_type in default_ordered_sec_types:
             if sec_type in cell.mech_dict and sec_type in cell.nodes:
                 if cell.nodes[sec_type]:
                     update_biophysics_by_sec_type(cell, sec_type)
     if correct_g_pas:
-        correct_cell_for_spines_g_pas(cell, env)
+        correct_cell_for_spines_g_pas(cell, env, verbose=verbose)
 
 
-def reset_cable_by_node(cell, node):
+def reset_cable_by_node(cell, node, verbose=True):
     """
     Consults a dictionary specifying parameters of NEURON cable properties such as axial resistance ('Ra'),
     membrane specific capacitance ('cm'), and a spatial resolution parameter to specify the number of separate
     segments per section in a BiophysCell
     :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
+    :param verbose: bool
     """
     sec_type = node.type
     if sec_type in cell.mech_dict and 'cable' in cell.mech_dict[sec_type]:
         mech_content = cell.mech_dict[sec_type]['cable']
         if mech_content is not None:
-            update_mechanism_by_node(cell, node, 'cable', mech_content)
+            update_mechanism_by_node(cell, node, 'cable', mech_content, verbose=verbose)
     else:
-        init_nseg(node.sec)
+        init_nseg(node.sec, verbose=verbose)
         node.reinit_diam()
 
 
@@ -772,7 +776,7 @@ def count_spines_per_seg(node, env, gid):
         node.content['spine_count'] = [0] * node.sec.nseg
 
 
-def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas):
+def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas, verbose=True):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in this
     dendritic section proportional to the number of excitatory synapses contained in the section.
@@ -780,6 +784,7 @@ def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas):
     :param env: :class:'Env'
     :param gid: int
     :param soma_g_pas: float
+    :param verbose: bool
     """
     SA_spine = math.pi * (1.58 * 0.077 + 0.5 * 0.5)
     if len(node.spine_count) != node.sec.nseg:
@@ -791,16 +796,19 @@ def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas):
         g_pas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
                                  (SA_seg * node.sec(segment.x).g_pas)
         node.sec(segment.x).g_pas *= g_pas_correction_factor
-        logger.info('g_pas_correction_factor for %s seg %i: %.3f' % (node.name, i, g_pas_correction_factor))
+        if verbose:
+            logger.info('g_pas_correction_factor for gid: %i; %s seg %i: %.3f' %
+                        (gid, node.name, i, g_pas_correction_factor))
 
 
-def correct_node_for_spines_cm(node, env, gid):
+def correct_node_for_spines_cm(node, env, gid, verbose=True):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales cm in this
     dendritic section proportional to the number of excitatory synapses contained in the section.
     :param node: :class:'SHocNode'
     :param env:  :class:'Env'
     :param gid: int
+    :param verbose: bool
     """
     # arrived at via optimization. spine neck appears to shield dendrite from spine head contribution to membrane
     # capacitance and time constant:
@@ -813,37 +821,41 @@ def correct_node_for_spines_cm(node, env, gid):
         num_spines = node.spine_count[i]
         cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
+        if verbose:
+            logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
 
 
-def correct_cell_for_spines_g_pas(cell, env):
+def correct_cell_for_spines_g_pas(cell, env, verbose):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
     dendritic sections proportional to the number of excitatory synapses contained in each section.
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
+    :param verbose: bool
     """
     soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         for node in cell.nodes[sec_type]:
-            correct_node_for_spines_g_pas(node, env, cell.gid, soma_g_pas)
+            correct_node_for_spines_g_pas(node, env, cell.gid, soma_g_pas, verbose=verbose)
 
 
-def correct_cell_for_spines_cm(cell, env):
+def correct_cell_for_spines_cm(cell, env, verbose=True):
     """
 
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
+    :param verbose: bool
     """
     loop = 0
     while loop < 2:
         for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
             for node in cell.nodes[sec_type]:
-                correct_node_for_spines_cm(node, env, cell.gid)
+                correct_node_for_spines_cm(node, env, cell.gid, verbose=verbose)
                 if loop == 0:
-                    init_nseg(node.sec)  
+                    init_nseg(node.sec, verbose=verbose)
                     node.reinit_diam()
         loop += 1
-    init_biophysics(cell, env, reset_cable=False)
+    init_biophysics(cell, env, reset_cable=False, verbose=verbose)
 
 
 def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False):
@@ -991,7 +1003,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
                                    (mech_name, node.name, e))
 
 
-def update_mechanism_by_node(cell, node, mech_name, mech_content):
+def update_mechanism_by_node(cell, node, mech_name, mech_content, verbose=True):
     """
     This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
     calls parse_mech_rules to interpret the rules and set the values for the given node.
@@ -999,16 +1011,17 @@ def update_mechanism_by_node(cell, node, mech_name, mech_content):
     :param node: :class:'SHocNode'
     :param mech_name: str
     :param mech_content: dict
+    :param verbose: bool
     """
     if mech_content is not None:
         for param_name in mech_content:
             # accommodate either a dict, or a list of dicts specifying multiple location constraints for
             # a single parameter
             if isinstance(mech_content[param_name], dict):
-                parse_mech_rules(cell, node, mech_name, param_name, mech_content[param_name])
+                parse_mech_rules(cell, node, mech_name, param_name, mech_content[param_name], verbose=verbose)
             elif isinstance(mech_content[param_name], list):
                 for mech_content_entry in mech_content[param_name]:
-                    parse_mech_rules(cell, node, mech_name, param_name, mech_content_entry)
+                    parse_mech_rules(cell, node, mech_name, param_name, mech_content_entry, verbose=verbose)
     else:
         node.sec.insert(mech_name)
 
@@ -1037,7 +1050,7 @@ def get_donor(cell, node, origin_type):
     return donor
 
 
-def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
+def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbose=True):
     """
     Provided a membrane density mechanism, a parameter, a node, and a dict of rules. Interprets the provided rules,
     including complex gradient and inheritance rules. Gradients can be specified as linear, exponential, or sigmoidal.
@@ -1053,6 +1066,7 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
     :param mech_name: str
     :param param_name: str
     :param rules: dict
+    :param verbose: bool
     """
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
@@ -1072,13 +1086,13 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None):
             baseline = inherit_mech_param(donor, mech_name, param_name)
     if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
         if param_name == 'spatial_res':
-            init_nseg(node.sec, baseline)
+            init_nseg(node.sec, baseline, verbose=verbose)
         else:
             setattr(node.sec, param_name, baseline)
-            init_nseg(node.sec, get_spatial_res(cell, node))
+            init_nseg(node.sec, get_spatial_res(cell, node), verbose=verbose)
         node.reinit_diam()
     elif 'custom' in rules:
-        parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor)
+        parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor, verbose=verbose)
     else:
         set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor)
 
@@ -1121,7 +1135,11 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
         if mech_name == 'ions':
             setattr(node.sec, param_name, baseline)
         else:
-            node.sec.insert(mech_name)
+            try:
+                node.sec.insert(mech_name)
+            except Exception:
+                raise RuntimeError('set_mech_param: unable to insert mechanism: %s cell: %s in sec_type: %s ' \
+                                    % (mech_name, str(cell), node.type))
             setattr(node.sec, param_name + "_" + mech_name, baseline)
     elif donor is None:
         raise RuntimeError('set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s '
@@ -1148,8 +1166,8 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
                 min_distance = 0.
             for seg in node.sec:
                 distance = get_distance_to_node(cell, donor, node, seg.x)
-                value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val, max_val,
-                                  tau, xhalf, outside)
+                value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val,
+                                                  max_val, tau, xhalf, outside)
                 if value is not None:
                     if mech_name == 'ions':
                         setattr(seg, param_name, value)
@@ -1213,7 +1231,7 @@ def zero_na(cell):
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
 
 
-def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor):
+def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor, verbose=True):
     """
     If the provided node meets custom criteria, rules are modified and passed back to parse_mech_rules with the
     'custom' item removed. Avoids having to determine baseline and donor over again.
@@ -1224,6 +1242,7 @@ def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     :param baseline: float
     :param rules: dict
     :param donor: :class:'SHocNode' or None
+    :param verbose: bool
     """
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
         raise RuntimeError('parse_custom_mech_rules: no custom function provided for mechanism: %s parameter: %s in '
@@ -1241,7 +1260,7 @@ def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        parse_mech_rules(cell, node, mech_name, param_name, new_rules, donor)
+        parse_mech_rules(cell, node, mech_name, param_name, new_rules, donor, verbose=verbose)
 
 
 def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_order, **kwargs):
@@ -1264,7 +1283,7 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     return rules
 
 
-def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
+def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, **kwargs):
     """
     Allows the provided rule to be applied if the provided node is a terminal branch. Adjusts the specified slope based
     on the length of the associated section.
@@ -1285,7 +1304,7 @@ def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
         end_val = rules['max']
         direction = 1
     else:
-        raise RuntimeError('custom_filter_by_terminal: no min or max target value specified for sec_type: %s' %
+        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: %s' %
                            node.type)
     slope = (end_val - start_val)/node.sec.L
     if 'slope' in rules:
@@ -1294,6 +1313,21 @@ def custom_filter_by_terminal(cell, node, baseline, rules, donor, **kwargs):
         else:
             slope = max(rules['slope'], slope)
     rules['slope'] = slope
+    return rules
+
+
+def custom_filter_if_terminal(cell, node, baseline, rules, donor, **kwargs):
+    """
+    Allows the provided rule to be applied if the provided node is a terminal branch.
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode'
+    :param baseline: float
+    :param rules: dict
+    :param donor: :class:'SHocNode' or None
+    :return: dict or False
+    """
+    if not is_terminal(node):
+        return False
     return rules
 
 
@@ -1311,13 +1345,14 @@ def report_topology(cell, env, node=None):
     syn_attrs = env.synapse_attributes
     num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
                                                  syn_sections=[node.index], \
-                                                 syn_types=[env.syntypes_dict['excitatory']]))
+                                                 syn_types=[env.Synapse_Types['excitatory']]))
     num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, \
                                                  syn_sections=[node.index], \
-                                                 syn_types=[env.syntypes_dict['inhibitory']]))
+                                                 syn_types=[env.Synapse_Types['inhibitory']]))
 
-    report = 'node: %s, L: %.1f, diam: %.2f, children: %i, exc_syns: %i, inh_syns: %i' % \
-             (node.name, node.sec.L, node.sec.diam, len(node.children), num_exc_syns, num_inh_syns)
+    diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
+    report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
+             (node.name, node.sec.L, diams_str, len(node.children), num_exc_syns, num_inh_syns)
     if node.parent is not None:
         report += ', parent: %s' % node.parent.name
     logger.info(report)
@@ -1395,12 +1430,15 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
 
 
 
-def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True):
+def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True, load_weights=False):
     """
-    :param env:
-    :param pop_name:
-    :param gid:
-    :return:
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :return: :class:'BiophysCell'
     """
     env.load_cell_template(pop_name)
     if tree_dict is None:
@@ -1411,54 +1449,47 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     synapse_config = env.celltypes[pop_name]['synapses']
     
     if (synapses_dict is None) and load_synapses:
-        #if pop_name not in syn_attrs.select_cell_attr_index_map:
-        #    syn_attrs.select_cell_attr_index_map[pop_name] = \
-        #        get_cell_attributes_index_map(env.comm, env.data_file_path, pop_name, 'Synapse Attributes')
-        #syn_attrs.load_syn_id_attrs(gid, select_cell_attributes(gid, env.comm, env.data_file_path,
-        #                                                        syn_attrs.select_cell_attr_index_map[pop_name],
-        #                                                        pop_name, 'Synapse Attributes', target_gid_offset))
-        
-        if 'weights namespace' in synapse_config:
+    	if 'weights namespace' in synapse_config:
             weights_namespace = synapse_config['weights namespace']
         else:
             weights_namespace = None
-
+            
         if (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
-            synapses_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
-                                                            'Synapse Attributes', comm=env.comm)
-                                    
+	    synapses_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
+                                                           'Synapse Attributes', comm=env.comm)
+            
             if weights_namespace is not None:
                 cell_weights_iter = read_cell_attribute_selection (env.data_file_path, pop_name, [gid], \
                                                                    weights_namespace, comm=env.comm)
             else:
                 cell_weights_iter = None
-            
-            syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
+	    syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
             if cell_weights_iter is not None:
                 for gid, cell_weights_dict in cell_weights_iter:
                     weights_syn_ids = cell_weights_dict['syn_id']
                     for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
                         weights_values  = cell_weights_dict[syn_name]
-                        syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
-                                                               zip_longest(weights_syn_ids, \
-                                                                           weights_values))
+                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                                           zip_longest(weights_syn_ids, \
+                                                                       itertools.imap(lambda x: { 'weight' : x }, \
+                                                                                      weights_values)))
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' % \
                                     (gid, len(cell_weights_dict[syn_name]), syn_name))
+                                    
+    else:
+        if synapses_dict is not None:
+            syn_attrs.init_syn_id_attrs(synapses_dict)
         else:
-            if synapses_dict is not None:
-                syn_attrs.init_syn_id_attrs(synapses_dict)
-            else:
-                logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
-                raise Exception
-            
+            logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+            raise Exception
 
     if load_edges:
         if os.path.isfile(env.connectivity_file_path):
             (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid], \
-                                                comm=env.comm, namespaces=['Synapses', 'Connections'])
+                                            namespaces=['Synapses', 'Connections'])
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
-                    
+
                     edge_iter = graph[pop_name][presyn_name]
                     syn_params_dict = env.connection_config[pop_name][presyn_name].mechanisms
                     
@@ -1507,7 +1538,5 @@ def find_spike_threshold_minimum(cell,loc=0.5,sec=None,duration=10.0,delay=100.0
     thr = h.threshold(iclamp._ref_amp)
 
     return thr
-
-
 
 

@@ -3,6 +3,7 @@ Model Name: dentatenet_Full_Scale_Pas_LN
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
+Global Parameters: !include Global.yaml
 Random Seeds: !include Random.yaml
 Cell Data: DG_Cells_Full_Scale_20181115.h5
 Connection Data: DG_Connections_Full_Scale_20181115.h5
@@ -14,7 +15,7 @@ Network Clamp: !include Network_Clamp.yaml
 Cell Types:
   GC:
     template: DGC
-    templateFile: DGC.hoc
+    template file: DGC.hoc
     synapses:
       correct_for_spines: True
       weights: True

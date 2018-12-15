@@ -2,6 +2,7 @@
 Model Name: dentatenet_Full_Scale_Control_log_normal_weights
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Cell Data: DG_Cells_Full_Scale_20181003.h5
@@ -13,8 +14,8 @@ Input: !include Input.yaml
 Cell Types:
   GC:
     template: DGC
-    templateFile: DGC_Template_minimal.hoc
-    mech_file_path: 20180605_DG_GC_excitability_mech.yaml
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
       weights: True
