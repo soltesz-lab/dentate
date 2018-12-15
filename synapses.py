@@ -6,6 +6,7 @@ from dentate.cells import get_mech_rules_dict, \
     import_mech_dict_from_file, custom_filter_by_branch_order, \
     custom_filter_modify_slope_if_terminal, \
     custom_filter_if_terminal, make_neurotree_graph
+from neuroh5.io import append_cell_attributes
 import collections
 from collections import namedtuple, defaultdict
 
@@ -470,6 +471,7 @@ class SynapseAttributes(object):
             attr_dict = syn.attr_dict[syn_index]
             for k, v in viewitems(params_dict):
                 attr_dict[k] = v
+
 
     def filter_synapses(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None,
                         swc_types=None, cache=False):
@@ -1507,6 +1509,58 @@ def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, up
                     update_syn_mech_by_sec_type(cell, env, sec_type, syn_name,
                                                 cell.mech_dict[sec_type]['synapses'][syn_name],
                                                 update_targets=update_targets)
+
+def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, append_kwds={}):
+    """
+    Write mechanism attributes for the given cell ids to a NeuroH5 file.
+    Assumes that attributes have been set via config_syn.
+    
+    :param gid: cell ids
+    :param output_path: path to NeuroH5 file
+    :param filters: optional filter for synapses
+    """
+
+    syn_attrs = env.synapse_attributes
+    
+    if syn_names is None:
+        syn_names = syn_attrs.syn_name_index_dict.keys()
+
+    output_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for gid in gids:
+        if filters is None:
+            syns_dict = syn_attrs.syn_id_attr_dict[gid]
+        else:
+            syns_dict = syn_attrs.filter_synapses(gid, **filters)
+        for syn_id, syn in viewitems(syns_dict):
+            for syn_name in syn_names:
+                syn_index = syn_attrs.syn_name_index_dict[syn_name]
+                if syn_index in syn.attr_dict:
+                    attr_keys = syn.attr_dict[syn_index].keys()
+                    output_dict[syn_name][gid]['syn_id'].append(syn_id)
+                    for k in attr_keys:
+                        if (syn_index in syn.pps_dict) and hasattr(syn.pps_dict[syn_index], k):
+                            v = getattr(syn.pps_dict[syn_index], k)
+                        elif (syn_index in syn.netcon_dict) and hasattr(syn.netcon_dict[syn_index], k):
+                            v = getattr(syn.netcon_dict[syn_index], k)
+                        else:
+                            raise RuntimeException('write_syn_mech_attrs: gid %d syn id %d does not have attribute %s '
+                                                   'set in either %s point process or netcon' % (gid, syn_id, k, syn_name))
+                        output_dict[syn_name][gid][k].append(v)
+
+    for syn_name, syn_attrs_dict in viewitems(output_dict):
+
+        this_output_dict = {}
+        for gid, gid_syn_attrs_dict in viewitems(syn_attrs_dict):
+            for attr_name, attr_vals in viewitems(gid_syn_attrs_dict):
+                if attr_name == 'syn_ids':
+                    this_output_dict[gid] = { 'syn_ids': np.asarray(attr_vals, dtype='uint32') }
+                else:
+                    this_output_dict[gid] = { attr_name: np.asarray(attr_vals, dtype='float32') }
+
+        append_cell_attributes(output_path, pop_name, this_output_dict,
+                               namespace='%s Attributes' % syn_name,
+                               **append_kwds)
+                        
 
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
