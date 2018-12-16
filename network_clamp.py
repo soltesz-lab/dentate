@@ -148,8 +148,6 @@ def init_cell(env, pop_name, gid, load_edges=True):
      
     report_topology(cell, env)
 
-    for sec in list(cell.hoc_cell.all):
-        h.psection(sec=sec)
     
     return cell
 
@@ -268,6 +266,10 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
                                                            itertools.imap(lambda x: { 'weight' : x }, \
                                                                           weights_values)))
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
+
+    cell = env.pc.gid2cell(gid)
+    for sec in list(cell.all):
+        h.psection(sec=sec)
 
     env.pc.set_maxstep(10)
     h.stdinit()
