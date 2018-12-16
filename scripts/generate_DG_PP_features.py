@@ -5,16 +5,16 @@ from mpi4py import MPI
 #import matplotlib.pyplot as plt
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
+from nested.utils import Context
 import dentate
 from dentate.env import Env
-import dentate.utils as utils
-from dentate.utils import list_find, list_argsort, get_script_logger, viewitems
+from dentate.utils import *
+from dentate.InputCell import *
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
-from optimize_DG_PP_features import calculate_field_distribution, \
-     acquire_fields_per_cell
+from optimize_DG_PP_features import _calculate_field_distribution
 from dentate.stimulus import generate_spatial_offsets, generate_mesh
 
-logger = utils.get_script_logger(os.path.basename(__file__))
+logger = get_script_logger(os.path.basename(__file__))
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
 #  sample uniformly from 10 modules with spacing that increases exponentially from 40 cm to 8 m. While organized
@@ -25,15 +25,12 @@ logger = utils.get_script_logger(os.path.basename(__file__))
 #  custom data type for type of feature feature
 feature_grid  = 0
 feature_place = 1
-
-module_pi = [0.012, 0.313, 0.500, 0.654, 0.723, 0.783, 0.830, 0.852, 0.874, 0.890]
-module_pr = [0.342, 0.274, 0.156, 0.125, 0.045, 0.038, 0.022, 0.018, 0.013, 0.004]
-
-context = None
+context = Context()
 
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--input-params-file-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--stimulus-id", type=int, default=0)
 @click.option("--template-path",required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -46,7 +43,7 @@ context = None
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, stimulus_id, template_path, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
+def main(config, input_params_file_path, stimulus_id, template_path, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
     """
 
     :param config:
@@ -62,7 +59,7 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    utils.config_logging(verbose)
+    config_logging(verbose)
 
     env = Env(comm=comm, config_file=config, template_paths=template_path)
     if io_size == -1:
@@ -79,7 +76,16 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
             output_file.close()
     comm.barrier()
     population_ranges = read_population_ranges(coords_path, comm)[0]
-    context = dict(locals())
+
+    input_params = read_from_yaml(input_params_file_path)
+    nmodules = input_params['number modules']
+    field_width_x1 = input_params['field width params']['x1']
+    field_width_x2 = input_params['field width params']['x2']
+    arena_dimension = input_params['arena dimension']
+    resolution = input_params['resolution']
+    module_pi = input_params['probability inactive']
+    module_pr = input_params['probability remaining']
+    context.update(locals()) 
 
     gid_normed_distances = assign_cells_to_normalized_position() # Assign normalized u,v coordinates
     gid_module_assignments = assign_cells_to_module(gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
@@ -171,7 +177,8 @@ def determine_cell_participation(gid_module_assignments):
     num_field_random    = np.random.RandomState(feature_seed_offset - 1)
 
     gid_attributes         = {}
-    module_probabilities   = [ calculate_field_distribution(pi, pr) for (pi, pr) in zip(module_pi, module_pr) ]
+    module_probabilities   = [ _calculate_field_distribution(pi, pr) for (pi, pr) \
+                               in zip(context.module_pi, context.module_pr) ]
 
     population_ranges = context.population_ranges
     total_num_fields  = 0
@@ -227,19 +234,18 @@ def _fields_per_module(gid_attributes, modules):
 
 def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields):
     
-    nmodules       = 10
-    modules        = np.arange(nmodules)
+    modules        = np.arange(context.nmodules)
     curr_module    = {mod + 1: int(0) for mod in modules}
     feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
     
     local_random        = np.random.RandomState(feature_seed_offset - 1)
-    grid_orientation    = [ local_random.uniform(0., np.pi/3.) for i in range(nmodules) ]
-    field_width_params  = [35.0,   0.32]  # slope, tau
+    grid_orientation    = [ local_random.uniform(0., np.pi/3.) for i in range(context.nmodules) ]
+    field_width_params  = [context.field_width_x1, context.field_width_x2]
     field_width         = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width     = field_width(1.)
     module_widths       = [ field_width(float(module) / np.max(modules)) for module in modules ]
 
-    xp, yp = generate_mesh(scale_factor=1., arena_dimension=100., resolution=5.)
+    xp, yp = generate_mesh(scale_factor=1., arena_dimension=context.arena_dimension, resolution=context.resolution)
     nx, ny = xp.shape
     ratemap_kwargs = {'a': 0.70 , 'b': -1.5, 'c': 0.90}
 
@@ -248,7 +254,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     
     for mod in field_module_distribution:
         module_width = module_widths[mod - 1]
-        scale_factor  = (module_width / 100.) + 1.
+        scale_factor  = (module_width / 100. / 2.) + 1.
 
         xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100., scale_factor=scale_factor)
         local_random.shuffle(xy_offsets)
@@ -321,4 +327,4 @@ def save_to_h5(cell_attributes):
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

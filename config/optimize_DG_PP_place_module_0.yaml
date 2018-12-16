@@ -46,5 +46,5 @@ target_val:
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  prob_inactive: 0.50
-  pr: 0.34
+  prob_inactive: 0.0153
+  pr: 0.6654
