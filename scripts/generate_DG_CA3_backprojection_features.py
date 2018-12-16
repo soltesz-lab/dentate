@@ -67,7 +67,7 @@ def main(config, stimulus_id, template_path, coords_path, output_path, distances
     rank = comm.rank
 
 
-    env = Env(comm=comm, configFile=config, templatePaths=template_path)
+    env = Env(comm=comm, config_file=config, template_paths=template_path)
     if io_size == -1:
         io_size = comm.size
     if rank == 0:

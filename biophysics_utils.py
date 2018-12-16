@@ -388,9 +388,9 @@ class QuickSim(object):
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../dentate/config')
 @click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
-@click.option("--load-edges", type=bool, default=True)
+@click.option("--load-edges", is_flag=True)
 @click.option("--load-weights", is_flag=True)
-@click.option("--correct-for-spines", type=bool, default=True)
+@click.option("--correct-for-spines", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
          load_edges, load_weights, correct_for_spines, verbose):
@@ -419,7 +419,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())
 
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, \
+    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
                     correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     init_syn_mech_attrs(cell, env)
     config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)

@@ -38,7 +38,7 @@ def main(input_path, output_path, populations, io_size, chunk_size, value_chunk_
         print '%i ranks have been allocated' % comm.size
     sys.stdout.flush()
 
-    env = Env(comm=comm, configFile=config)
+    env = Env(comm=comm, config_file=config)
     
     swc_type_apical = env.SWC_Types['apical']
     

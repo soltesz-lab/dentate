@@ -1418,7 +1418,8 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     template_class = getattr(h, template_name)
 
     if neurotree_dict:
-        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid, dataset_path=dataset_path)
+        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
+                                       dataset_path=dataset_path)
     else:
         if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
@@ -1429,8 +1430,8 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
-
-def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True, load_weights=False):
+def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
+                     load_weights=False):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -1449,7 +1450,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     synapse_config = env.celltypes[pop_name]['synapses']
     
     if (synapses_dict is None) and load_synapses:
-    	if 'weights namespace' in synapse_config:
+        if 'weights namespace' in synapse_config:
             weights_namespace = synapse_config['weights namespace']
         else:
             weights_namespace = None
@@ -1485,8 +1486,8 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
     if load_edges:
         if os.path.isfile(env.connectivity_file_path):
-            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid], \
-                                            namespaces=['Synapses', 'Connections'])
+            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
+                                              namespaces=['Synapses', 'Connections'])
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
 
