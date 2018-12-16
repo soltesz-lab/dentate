@@ -1,5 +1,5 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: dentatenet_Full_Scale_GC_Exc
+Model Name: dentatenet_Full_Scale_GC_Exc_Sat
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
