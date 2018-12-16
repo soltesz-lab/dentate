@@ -1,16 +1,18 @@
-## Model configuration of dentate gyrus network
-Model Name: dentatenet
-Dataset Name: Small_Scale
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: dentatenet_Full_Scale_GC_Exc
+Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_small_scale_tree_syns_weights_20180413.h5
-Connection Data: DG_GC_test_connections_20180402.h5
-Connection Generator: !include Small_Scale_Connections_Sat.yaml
+Cell Data: DG_Cells_Full_Scale_20181115.h5
+Connection Data: DG_Connections_Full_Scale_20181115.h5
+#Gap Junction Data: DG_gapjunctions_20180721.h5
+Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
 Input: !include Input.yaml
 ## Cell types for dentate gyrus model
-Cell Types: 
+Cell Types:
   GC:
     template: DGC
     template file: DGC_Template_minimal.hoc
@@ -39,7 +41,8 @@ Cell Types:
       density: !include AAC_synapse_density.yaml
   HCC:
     template: HICAPCell
-    synapses: !include HCC_synapse_density.yaml
+    synapses:
+      density: !include HCC_synapse_density.yaml
   NGFC:
     template: NGFCell
     synapses:
@@ -54,8 +57,8 @@ Cell Types:
       density: !include IS_synapse_density.yaml
   MPP:
     template: MPPCell
-    Vector Stimulus: Vector Stimulus 0
+    Vector Stimulus: Vector Stimulus 100
   LPP:
     template: LPPCell
-    Vector Stimulus: Vector Stimulus 0
+    Vector Stimulus: Vector Stimulus 100
 

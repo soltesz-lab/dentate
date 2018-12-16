@@ -63,6 +63,7 @@ def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
@@ -74,7 +75,7 @@ def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', type=bool, default=False, is_flag=True)
-def main(config, types_path, output_path, output_namespace, populations, resolution, alpha_radius, nodeiter, optiter, io_size, chunk_size, value_chunk_size, verbose):
+def main(config, types_path, template_path, output_path, output_namespace, populations, resolution, alpha_radius, nodeiter, optiter, io_size, chunk_size, value_chunk_size, verbose):
 
     config_logging(verbose)
     logger = get_script_logger(script_name)
@@ -98,7 +99,11 @@ def main(config, types_path, output_path, output_namespace, populations, resolut
             output_file.close()
     comm.barrier()
 
+<<<<<<< Updated upstream
     env = Env(comm=comm, config_file=config)
+=======
+    env = Env(comm=comm, configFile=config, templatePaths=template_path)
+>>>>>>> Stashed changes
 
     layer_min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     layer_max_extents = env.geometry['Parametric Surface']['Maximum Extent']

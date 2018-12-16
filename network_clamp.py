@@ -263,10 +263,10 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
         weights_syn_ids = weight_params['syn_id']
         for syn_name in (syn_name for syn_name in weight_params if syn_name != 'syn_id'):
             weights_values  = weight_params[syn_name]
-            syn_attrs.add_netcon_weights_from_iter(gid, syn_name, \
-                                                   zip_longest(weights_syn_ids, \
-                                                               weights_values))
-        
+            syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                               zip_longest(weights_syn_ids, \
+                                                           itertools.imap(lambda x: { 'weight' : x }, \
+                                                                          weights_values)))
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
 
     env.pc.set_maxstep(10)
