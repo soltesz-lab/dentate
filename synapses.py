@@ -1512,12 +1512,14 @@ def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, up
                                                 cell.mech_dict[sec_type]['synapses'][syn_name],
                                                 update_targets=update_targets)
 
-def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, append_kwds={}):
+def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, write_kwds={}):
     """
     Write mechanism attributes for the given cell ids to a NeuroH5 file.
     Assumes that attributes have been set via config_syn.
     
-    :param gid: cell ids
+    :param env: instance of env.Env
+    :param pop_name: population name
+    :param gids: cell ids
     :param output_path: path to NeuroH5 file
     :param filters: optional filter for synapses
     """
@@ -1551,17 +1553,40 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, append_
 
     for syn_name, syn_attrs_dict in viewitems(output_dict):
 
-        this_output_dict = {}
+        attr_dict = {}
         for gid, gid_syn_attrs_dict in viewitems(syn_attrs_dict):
             for attr_name, attr_vals in viewitems(gid_syn_attrs_dict):
                 if attr_name == 'syn_ids':
-                    this_output_dict[gid] = { 'syn_ids': np.asarray(attr_vals, dtype='uint32') }
+                    attr_dict[gid] = { 'syn_ids': np.asarray(attr_vals, dtype='uint32') }
                 else:
-                    this_output_dict[gid] = { attr_name: np.asarray(attr_vals, dtype='float32') }
+                    attr_dict[gid] = { attr_name: np.asarray(attr_vals, dtype='float32') }
 
-        append_cell_attributes(output_path, pop_name, this_output_dict,
-                               namespace='%s Attributes' % syn_name,
-                               **append_kwds)
+        write_cell_attributes(output_path, pop_name, attr_dict,
+                              namespace='%s Attributes' % syn_name,
+                              **write_kwds)
+
+def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
+    """
+    Writes mechanism attributes for the given cells and the given rank to a NeuroH5 file.
+    Assumes that attributes have been set via config_syn.
+    
+    :param env: instance of env.Env
+    :param pop_name: population name
+    :param gids: cell ids
+    :param sample_rank: rank id
+    """
+    if rank == sample_rank:
+        color = 1
+    else:
+        color = 0
+
+    comm = env.comm
+    comm0 = comm.Split(color, 0)
+
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, \
+                         write_kwds={ 'comm': comm0 })
+    comm0.Free()
+    env.pc.barrier()
                         
 
 
