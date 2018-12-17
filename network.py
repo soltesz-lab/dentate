@@ -254,7 +254,8 @@ def connect_cells(env, cleanup=True):
                 hoc_cell = env.pc.gid2cell(gid)
                 for sec in list(hoc_cell.all):
                     h.psection(sec=sec)
-                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], sample_rank=rank)
+            if gid == first_gid:
+                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], sample_rank=0)
                 
             env.edge_count[postsyn_name][presyn_name] += syn_count
 
