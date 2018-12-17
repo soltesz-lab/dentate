@@ -201,7 +201,7 @@ Synapses:
           dur_onset: 0.45
           tau_offset: 2.2
           e: 0
-          g_unit: 0.0025
+          g_unit: 0.002
           weight: 1.0
     HC:   
       type: inhibitory

@@ -192,7 +192,9 @@ def recsout(env, output_path):
             attr_dict_by_rec_type[rec['description']][gid] = \
               {'v': np.array(rec['vec'], dtype=np.float32), 't': t_vec} 
 
-        for rec_type, attr_dict in viewitems(attr_dict_by_rec_type):
+        rec_types = sorted(attr_dict_by_rec_type.keys())
+        for rec_type in rec_types:
+            attr_dict = viewitems(attr_dict_by_rec_type)
             namespace_id = "Intracellular Voltage %s" % rec_type
             write_cell_attributes(output_path, pop_name, attr_dict, \
                                 namespace=namespace_id, comm=env.comm)
