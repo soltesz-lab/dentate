@@ -72,6 +72,8 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     trajectory_namespace = 'Trajectory %s' % str(stimulus_id)
     stimulus_id_namespace = '%s %s' % (stimulus_namespace, str(stimulus_id))
 
+    generate_trajectory = stimulus.generate_linear_trajectory
+    
     if rank == 0:
         if (not dry_run):
             if not os.path.isfile(output_path):
@@ -85,8 +87,8 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
             if trajectory_namespace not in f:
                 logger.info('Rank: %i; Creating %s datasets' % (rank, trajectory_namespace))
                 group = f.create_group(trajectory_namespace)
-                t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                                              spatial_resolution=spatial_resolution)
+                t, x, y, d = generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+                                                 spatial_resolution=spatial_resolution)
                 for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
                     dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
                     dataset[:] = value.astype('float32', copy=False)
