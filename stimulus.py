@@ -162,14 +162,21 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
     
     return response
 
-def fraction_active(cells, threshold):
+def get_rate_maps(cells):
     rate_maps = []
     for gid in cells:
         cell = cells[gid]
         nx, ny = cell['Nx'][0], cell['Ny'][0]
         rate_map = cell['Rate Map'].reshape(nx, ny)
         rate_maps.append(rate_map)
-    rate_maps = np.asarray(rate_maps, dtype='float32')
+    return np.asarray(rate_maps, dtype='float32')
+
+def fraction_active(cells, threshold):
+    temp_cell = cells.values()[0]
+    nx, ny = temp_cell['Nx'][0], temp_cell['Ny'][0]
+    del temp_cell
+
+    rate_maps = get_rate_maps(cells)
     nxx, nyy  = np.meshgrid(np.arange(nx), np.arange(ny))
     coords = zip(nxx.reshape(-1,), nyy.reshape(-1,))
   
@@ -181,6 +188,24 @@ def calculate_fraction_active(rates, threshold):
     num_active = len(np.where(rates > threshold)[0])
     fraction_active = np.divide(float(num_active), float(N))
     return fraction_active
+
+def coefficient_of_variation(cells, eps=1.0e-6):
+    rate_maps = get_rate_maps(cells)
+    summed_map = np.sum(rate_maps, axis=0)
+    
+    mean = np.mean(summed_map)
+    std  = np.std(summed_map)
+    cov  = np.divide(std, mean + eps)
+    return cov
+
+def peak_to_trough(cells):
+    rate_maps  = get_rate_maps(cells)
+    summed_map = np.sum(rate_maps, axis=0)
+    var_map    = np.var(rate_maps, axis=0)
+    minmax_eval = 0.0
+    var_eval    = 0.0
+
+    return minmax_eval, var_eval      
 
 
 def gid2module_dictionary(cell_lst, modules):

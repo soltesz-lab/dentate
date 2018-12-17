@@ -67,7 +67,7 @@ def write_to_yaml(file_path, data, convert_scalars=False):
         yaml.dump(data, outfile, default_flow_style=False)
 
 
-def read_from_yaml(file_path):
+def read_from_yaml(file_path, include_loader=None):
     """
 
     :param file_path: str (should end in '.yaml')
@@ -75,7 +75,10 @@ def read_from_yaml(file_path):
     """
     if os.path.isfile(file_path):
         with open(file_path, 'r') as stream:
-            data = yaml.load(stream)
+            if include_loader is None:
+                data = yaml.load(stream)
+            else:
+                data = yaml.load(stream, include_loader)
         return data
     else:
         raise IOError('read_from_yaml: invalid file_path: %s' % file_path)

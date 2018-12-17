@@ -1,5 +1,5 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: dentatenet_Full_Scale_Pas
+Model Name: dentatenet_Full_Scale_GC_Exc
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
@@ -15,9 +15,12 @@ Input: !include Input.yaml
 Cell Types:
   GC:
     template: DGC
-    template file: DGC.hoc
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
+      weights: True
+      weights namespace: Log-Normal Weights
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell

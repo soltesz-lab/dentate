@@ -227,7 +227,7 @@ def count_spines(cell, env):
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='../config')
 @click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
-@click.option("--load-edges", type=bool, default=True)
+@click.option("--load-edges", is_flag=True)
 @click.option('--verbose', '-v', is_flag=True)
 def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, mech_file,
          load_edges, verbose):

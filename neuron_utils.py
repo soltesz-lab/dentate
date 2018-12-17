@@ -28,7 +28,6 @@ def hoc_results_to_python(hoc_results):
     return results_dict
 
 
-    
 def simulate(v_init, mainlength, prelength=0, cvode=True):
     """
 
@@ -141,7 +140,8 @@ def find_template(env, template_name, path=['templates'], template_file=None, ro
             pc.broadcast(s, root)
         h.load_file(s)
     else:
-        raise Exception('find_template: template %s not found: file %s; path is %s' % (template_name, template_file, str(path)))
+        raise Exception('find_template: template %s not found: file %s; path is %s' % 
+                        (template_name, template_file, str(path)))
 
 
 def configure_hoc_env(env):

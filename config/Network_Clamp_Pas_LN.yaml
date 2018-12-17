@@ -5,8 +5,8 @@ Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Global Parameters: !include Global.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20181115.h5
-Connection Data: DG_Connections_Full_Scale_20181115.h5
+Cell Data: DG_Cells_Full_Scale_20181203.h5
+Connection Data: DG_Connections_Full_Scale_20181203.h5
 Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
 Input: !include Input.yaml

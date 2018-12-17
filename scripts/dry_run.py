@@ -92,7 +92,6 @@ def main(config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefi
     np.seterr(all='raise')
     params = dict(locals())
     env = Env(**params)
-              results_write_time, dt, ldbal, lptbal, verbose=verbose)
     network.init(env, cleanup)
     if run_test:
         network.run(env, output=False)

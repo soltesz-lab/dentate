@@ -2,65 +2,18 @@ from nested.optimize_utils import *
 import sys, os, time, random, click
 import numpy as np
 from pprint import pprint
-
-import dentate.utils as utils
-from dentate.utils import list_find, get_script_logger
+import yaml
+from dentate.utils import *
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
+from dentate.InputCell import *
 
 
-utils.config_logging(True)
+config_logging(True)
 script_name = 'optimize_DG_PP_features.py'
-logger      = utils.get_script_logger(script_name)
+logger      = get_script_logger(script_name)
 
 context = Context()
 
-def _instantiate_place_cell(gid, module, nfields):
-    cell = {}
-    cell_field_width = []
-    for n in xrange(nfields):
-        this_width = context.module_width 
-        #delta_spacing = context.local_random.gauss(0., 50. * (module+1)/float(np.max(context.modules)))
-        delta_spacing = context.local_random.uniform(-10, 10)
-        cell_field_width.append(this_width + delta_spacing)
-    
-    cell['gid']         = np.array([gid], dtype='int32')
-    cell['Num Fields']  = np.array([nfields], dtype='uint8')
-    cell['Cell Type']   = np.array([context.feature_ctypes['place']], dtype='uint8')
-    cell['Module']      = np.array([module], dtype='uint8')
-    cell['Field Width'] = np.asarray(cell_field_width, dtype='float32')
-    cell['Nx']           = np.array([context.nx], dtype='int32')
-    cell['Ny']           = np.array([context.ny], dtype='int32')
-    
-    return cell 
-
-def _instantiate_grid_cell(gid, module, nfields):
-    cell    = {}
-
-    orientation = context.grid_orientation[module]
-    spacing     = context.module_width #* 0.94
-
-    #delta_spacing     = context.local_random.gauss(0., 50. * (module+1) / float(np.max(context.modules)))
-    #delta_orientation = context.local_random.gauss(0., np.deg2rad(10. * (module+1.) / float(np.max(context.modules))))
-    delta_spacing     = context.local_random.uniform(-10,10)
-    delta_orientation = context.local_random.uniform(-10,10)
-
-
-    cell['gid']          = np.array([gid], dtype='int32')
-    cell['Num Fields']   = np.array([nfields], dtype='uint8')
-    cell['Cell Type']    = np.array([context.feature_ctypes['grid']], dtype='uint8')
-    cell['Module']       = np.array([module], dtype='uint8')
-    cell['Grid Spacing'] = np.array([spacing + delta_spacing], dtype='float32')
-    cell['Grid Orientation']  = np.array([orientation + delta_orientation], dtype='float32')
-    cell['Nx']           = np.array([context.nx], dtype='int32')
-    cell['Ny']           = np.array([context.ny], dtype='int32')
-
-    return cell 
-
-def acquire_fields_per_cell(ncells, field_probabilities, generator):
-    field_probabilities = np.asarray(field_probabilities, dtype='float32')
-    field_set = [i for i in range(field_probabilities.shape[0])]
-    return generator.choice(field_set, p=field_probabilities, size=(ncells,))
-    
 def _build_cells(N, ctype, module, start_gid=1):
 
     cells = {}
@@ -74,9 +27,9 @@ def _build_cells(N, ctype, module, start_gid=1):
     gid = start_gid
     for i in xrange(N):
         if ctype == 'grid':
-            cells[gid]= _instantiate_grid_cell(gid, module, nfields[i])
+            cells[gid] = instantiate_grid_cell(context, gid, module, nfields[i]).return_attr_dict()
         elif ctype == 'place':
-            cells[gid] = _instantiate_place_cell(gid, module, nfields[i])
+            cells[gid] = instantiate_place_cell(context, gid, module, nfields[i]).return_attr_dict()
         gid += 1
 
     scale_factor = context.scale_factor
@@ -106,18 +59,22 @@ def init_context():
     feature_type_random = np.random.RandomState(context.local_seed)
     field_random = np.random.RandomState(context.local_seed)
     field_probabilities = None
-    
-    nmodules           = 10
+
+    input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
+    nmodules = input_params['number modules']
+    field_width_x1 = input_params['field width params']['x1']
+    field_width_x2 = input_params['field width params']['x2']
+    arena_dimension = input_params['arena dimension']
+    resolution = input_params['resolution']
+        
     modules            = np.arange(nmodules)
     grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
-    field_width_params = [35.0, 0.32]
+    field_width_params = [field_width_x1, field_width_x2]
     field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width    = field_width(1.)
     feature_ctypes     = {'grid': 0, 'place': 1}
-    arena_dimension    = 100.
-    resolution         = 5.
     module_width       = field_width( float(context.module) / np.max(modules))
-    scale_factor       = (module_width / 100.) + 1.
+    scale_factor       = (module_width / arena_dimension / 2.) + 1.
 
     mesh   = generate_mesh(scale_factor=1., arena_dimension=arena_dimension, resolution=resolution)
     nx, ny = mesh[0].shape[0], mesh[0].shape[1]
@@ -127,24 +84,16 @@ def init_context():
     context.grid_cells, context.place_gid_start  = _build_cells(context.num_grid, 'grid', context.module)
     _calculate_rate_maps(context.grid_cells, context)
 
-
-def _generate_mesh(scale_factor=1.0, arena_dimension=100., resolution=5.):
-    arena_x_bounds = [-arena_dimension * scale_factor / 2., arena_dimension * scale_factor / 2.]
-    arena_y_bounds = [-arena_dimension * scale_factor / 2., arena_dimension * scale_factor / 2.]
-    arena_x        = np.arange(arena_x_bounds[0], arena_x_bounds[1], resolution)
-    arena_y        = np.arange(arena_y_bounds[0], arena_y_bounds[1], resolution)
-    return np.meshgrid(arena_x, arena_y, indexing='ij')
-
 @click.command()
-@click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), 
-               default="../config/optimize_DG_PP_config_3.yaml")
+@click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=True, dir_okay=True), default=None)
 @click.option("--export", is_flag=True, default=False)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
 @click.option("--run-tests", is_flag=True, default=False, required=False)
 @click.option("--verbose", "-v", is_flag=True, default=False)
-def main(config_file_path, output_dir, export, export_file_path, label, run_tests, verbose):
+def main(config_file_path, input_params_file_path, output_dir, export, export_file_path, label, run_tests, verbose):
     context.update(locals())
     disp = verbose > 0
     if disp:
@@ -167,7 +116,12 @@ def tests(plot=False):
 
     plot_group(place_cells, plot=plot, **kwargs)
     kwargs['ctype'] = 'grid'
-    plot_group(grid_cells, plot=plot, **kwargs)
+    #plot_group(grid_cells, plot=plot, **kwargs)
+
+    kwargs['ctype'] = 'both'
+    both_cells = grid_cells.copy()
+    both_cells.update(place_cells)
+    plot_group(both_cells, plot=plot, **kwargs)
 
 def plot_group(cells, plot=False, **kwargs):
     from plot_DG_PP_features import plot_rate_maps_single_module, plot_xy_offsets_single_module, \
@@ -186,7 +140,7 @@ def report_cost(context):
 
     print('probability inactive: %f' % x0[0])
     print('pr: %0.4f' % x0[1])
-    print(calculate_field_distribution(x0[0], x0[1]))
+    print(_calculate_field_distribution(x0[0], x0[1]))
     print('Module: %d' % context.module)
     print('Place population fraction active: %f' % features['fraction active'])
     print('Grid population fraction active: %f' % grid_fa)
@@ -254,58 +208,22 @@ def get_objectives(features):
 
     return features, objectives
 
-def _coefficient_of_variation(cells, eps=1.0e-6):
-    rate_maps = []
-    for gid in cells:
-        cell     = cells[gid]
-        nx, ny   = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
-        rate_maps.append(rate_map)
-    rate_maps  = np.asarray(rate_maps, dtype='float32')
-    summed_map = np.sum(rate_maps, axis=0)
-    
-    mean = np.mean(summed_map)
-    std  = np.std(summed_map)
-    cov  = np.divide(std, mean + eps)
-    return cov
+def update(x, context):
+    context.local_random = random.Random()
+    context.local_random.seed(context.local_seed)
+    context.field_random = np.random.RandomState(context.local_seed)
+   
+    p_inactive     = x[0] 
+    p_r            = x[1]
+    context.field_probabilities = _calculate_field_distribution(p_inactive, p_r)
+    context.place_cells, _ = _build_cells(context.num_place, 'place', context.module, start_gid=context.place_gid_start)
+    _calculate_rate_maps(context.place_cells, context)
 
-def _peak_to_trough(cells):
-    rate_maps = []
-    for gid in cells:
-        cell     = cells[gid]
-        nx, ny   = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
-        rate_maps.append(rate_map)
-    rate_maps  = np.asarray(rate_maps, dtype='float32')
-    summed_map = np.sum(rate_maps, axis=0)
-    var_map    = np.var(rate_maps, axis=0)
-    #minmax_eval = np.divide(float(np.max(summed_map)), float(np.min(summed_map)))
-    #var_eval    = np.divide(float(np.max(var_map)), float(np.min(var_map)))
-    minmax_eval = 0.0
-    var_eval    = 0.0
-    return minmax_eval, var_eval 
+def _merge_cells():
+    z = context.grid_cells.copy()
+    return z.update(context.place_cells.copy())
 
-def _fraction_active(cells):
-    rate_maps = []
-    for gid in cells:
-        cell     = cells[gid]
-        nx, ny   = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
-        rate_maps.append(rate_map)
-    rate_maps = np.asarray(rate_maps, dtype='float32')
-    nxx, nyy  = np.meshgrid(np.arange(nx), np.arange(ny))
-    coords    = zip(nxx.reshape(-1,), nyy.reshape(-1,))
-    
-    factive = lambda px, py: _calculate_fraction_active(rate_maps[:,px,py])
-    return {(px,py): factive(px, py) for (px, py) in coords}
-
-def _calculate_fraction_active(rates):
-    N = len(rates)
-    num_active = len(np.where(rates > context.active_threshold)[0])
-    fraction_active = np.divide(float(num_active), float(N))
-    return fraction_active    
-
-def calculate_field_distribution(pi, pr):
+def _calculate_field_distribution(pi, pr):
     p1 = (1. - pi) / (1. + (7./4.) * pr)
     p2 = p1 * pr
     p3 = 0.5 * p2
@@ -314,21 +232,19 @@ def calculate_field_distribution(pi, pr):
     assert( np.abs(np.sum(probabilities) - 1.) < 1.e-5)
     return probabilities 
 
+def _fraction_active(rates):
+    from dentate.stimulus import fraction_active
+    return fraction_active(rates, context.active_threshold)
 
-def update(x, context):
-    context.local_random = random.Random()
-    context.local_random.seed(context.local_seed)
-    context.field_random = np.random.RandomState(context.local_seed)
-   
-    p_inactive     = x[0] 
-    p_r            = x[1]
-    context.field_probabilities = calculate_field_distribution(p_inactive, p_r)
-    context.place_cells, _ = _build_cells(context.num_place, 'place', context.module, start_gid=context.place_gid_start)
-    _calculate_rate_maps(context.place_cells, context)
+def _coefficient_of_variation(cells):
+    from dentate.stimulus import coefficient_of_variation
 
-def merge_cells():
-    z = context.grid_cells.copy()
-    return z.update(context.place_cells.copy())
+    return coefficient_of_variation(cells)
+
+def _peak_to_trough(cells):
+    from dentate.stimulus import peak_to_trough
+
+    return peak_to_trough(cells)
     
 def _calculate_rate_maps(cells, context):
     xp, yp       = context.mesh

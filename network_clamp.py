@@ -140,12 +140,14 @@ def init_cell(env, pop_name, gid, load_edges=True):
     
     env.recs_dict[pop_name][0] = make_rec(0, pop_name, gid, cell, \
                                           sec=cell.soma[0].sec, loc=0.5, param='v', \
-                                          dt=h.dt, description='Soma recording')
+                                          dt=h.dt, description='Soma')
+    if len(cell.hillock) > 0:
+        env.recs_dict[pop_name][1] = make_rec(1, pop_name, gid, cell, \
+                                              sec=cell.hillock[0].sec, loc=0.5, param='v', \
+                                              dt=h.dt, description='Axon hillock')
      
     report_topology(cell, env)
 
-    for sec in list(cell.hoc_cell.all):
-        h.psection(sec=sec)
     
     return cell
 
@@ -264,6 +266,10 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
                                                            itertools.imap(lambda x: { 'weight' : x }, \
                                                                           weights_values)))
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
+
+    cell = env.pc.gid2cell(gid)
+    for sec in list(cell.all):
+        h.psection(sec=sec)
 
     env.pc.set_maxstep(10)
     h.stdinit()
