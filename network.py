@@ -199,8 +199,7 @@ def connect_cells(env, cleanup=True):
                 if rank == 0 and gid == first_gid:
                     logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
-                    for sec in list(hoc_cell.all):
-                        h.psection(sec=sec)
+                    
 
         for presyn_name in presyn_names:
 
@@ -247,6 +246,9 @@ def connect_cells(env, cleanup=True):
             if rank == 0 and gid == first_gid:
                 logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network connections for gid %d' % \
                             (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
+                hoc_cell = env.pc.gid2cell(gid)
+                for sec in list(hoc_cell.all):
+                    h.psection(sec=sec)
             env.edge_count[postsyn_name][presyn_name] += syn_count
 
             if cleanup:
