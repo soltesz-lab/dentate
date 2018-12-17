@@ -167,8 +167,9 @@ def connect_cells(env, cleanup=True):
                 weights_syn_ids = cell_weights_dict['syn_id']
                 for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
                     if syn_name not in syn_attrs.syn_mech_names:
-                        logger.info('*** connect_cells: population: %s; gid: %i; syn_name: %s not found in network '
-                                    'configuration' % (postsyn_name, gid, syn_name))
+                        logger.info('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                    'not found in network configuration' % 
+                                    (postsyn_name, gid, syn_name))
                         raise Exception
                     weights_values  = cell_weights_dict[syn_name]
                     syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
@@ -587,12 +588,11 @@ def make_cells(env):
                 # Record voltages from a subset of cells
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
-                                                                sec=list(model_cell.soma)[0], \
-                                                                dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma')
-
-
+                        rec = make_rec(gid, pop_name, gid, model_cell, \
+                                       sec=list(model_cell.soma)[0], \
+                                       dt=env.dt, loc=0.5, param='v', \
+                                       description='Soma')
+                        env.recs_dict[pop_name]['Soma'].append(rec)
 
                 num_cells += 1
 
@@ -695,10 +695,11 @@ def make_cell_selection(env):
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
-                                                                sec=list(model_cell.soma)[0], \
-                                                                dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma')
+                        rec = make_rec(gid, pop_name, gid, model_cell, \
+                                       sec=list(model_cell.soma)[0], \
+                                       dt=env.dt, loc=0.5, param='v', \
+                                       description='Soma')
+                        env.recs_dict[pop_name]['Soma'].append(rec)
 
 
             if rank == 0:
@@ -736,11 +737,12 @@ def make_cell_selection(env):
                 # Record spikes of this cell
                 env.pc.spike_record(gid, env.t_vec, env.id_vec)
                 if model_cell.is_art() == 0:
-                    if gid in env.v_sample_dict[pop_name]: 
-                        env.recs_dict[pop_name][gid] = make_rec(gid, pop_name, gid, model_cell, \
-                                                                sec=list(model_cell.soma)[0], \
-                                                                dt=env.dt, loc=0.5, param='v', \
-                                                                description='Soma')
+                    if gid in env.v_sample_dict[pop_name]:
+                        rec = make_rec(gid, pop_name, gid, model_cell, \
+                                       sec=list(model_cell.soma)[0], \
+                                       dt=env.dt, loc=0.5, param='v', \
+                                       description='Soma') 
+                        env.recs_dict[pop_name]['Soma'].append(rec)
 
                 i = i + 1
         h.define_shape()
