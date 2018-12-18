@@ -1,10 +1,20 @@
-import sys, random, click, logging
+import sys, os, random, click, logging
 from mpi4py import MPI
 import numpy as np
 from neuroh5.io import read_population_ranges, append_cell_trees, append_cell_attributes, bcast_cell_attributes, NeuroH5TreeGen
-from dentate.utils import *
+import dentate
+from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
+from dentate.geometry import measure_distances
+from dentate.env import Env
+import dentate.utils as utils
+from dentate.neuron_utils import configure_hoc_env
 
-script_name = 'reindex_trees.py'
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -31,8 +41,8 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     :param verbose: bool
     """
     
-    config_logging(verbose)
-    logger = get_script_logger(script_name)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -41,6 +51,8 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
         io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
+
+    random.seed(13)
 
     (pop_ranges, _)  = read_population_ranges(output_path)
 
@@ -84,6 +96,7 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     if comm.rank == 0:
         logger.info('Appended reindexed trees to %s' % output_path)
 
+    MPI.Finalize()
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
