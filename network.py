@@ -4,6 +4,7 @@ Dentate Gyrus network initialization routines.
 __author__ = 'See AUTHORS.md'
 
 import itertools
+import dentate
 from dentate.neuron_utils import *
 from dentate.utils import viewitems, zip_longest, compose_iter
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
