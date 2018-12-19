@@ -16,7 +16,7 @@ module load hdf5
 module load scipy
 module load mpi4py
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME~/.local/lib/python2.7/site-packages:/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
@@ -28,7 +28,7 @@ set -x
 ibrun -np 640 python ./scripts/measure_distances.py \
     --config=./config/Full_Scale_Control.yaml \
      -i GC -i MPP -i LPP -i MC -i BC -i HC -i HCC -i NGFC -i MOPP -i IS -i AAC \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20180516.h5 \
+    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20181218.h5 \
     --coords-namespace=Coordinates \
     --io-size=24 \
     -v

@@ -78,6 +78,8 @@ class Env:
             self.comm = MPI.COMM_WORLD
         else:
             self.comm = comm
+        rank = self.comm.Get_rank()
+
         if self.comm is not None:
             self.pc = h.ParallelContext()
         else:
@@ -208,7 +210,8 @@ class Env:
             self.parse_connection_config()
             self.parse_gapjunction_config()
 
-        self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
+        if rank == 0:
+            self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
 
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
