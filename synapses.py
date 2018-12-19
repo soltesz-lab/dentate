@@ -6,7 +6,7 @@ from dentate.cells import get_mech_rules_dict, \
     import_mech_dict_from_file, custom_filter_by_branch_order, \
     custom_filter_modify_slope_if_terminal, \
     custom_filter_if_terminal, make_neurotree_graph
-from neuroh5.io import append_cell_attributes
+from neuroh5.io import write_cell_attributes
 import collections
 from collections import namedtuple, defaultdict
 
@@ -1512,18 +1512,21 @@ def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, up
                                                 cell.mech_dict[sec_type]['synapses'][syn_name],
                                                 update_targets=update_targets)
 
-def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, append_kwds={}):
+def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_names=None, write_kwds={}):
     """
     Write mechanism attributes for the given cell ids to a NeuroH5 file.
     Assumes that attributes have been set via config_syn.
     
-    :param gid: cell ids
+    :param env: instance of env.Env
+    :param pop_name: population name
+    :param gids: cell ids
     :param output_path: path to NeuroH5 file
     :param filters: optional filter for synapses
     """
 
     syn_attrs = env.synapse_attributes
-    
+    rules=syn_attrs.syn_param_rules
+
     if syn_names is None:
         syn_names = syn_attrs.syn_name_index_dict.keys()
 
@@ -1534,34 +1537,64 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, append_
         else:
             syns_dict = syn_attrs.filter_synapses(gid, **filters)
         for syn_id, syn in viewitems(syns_dict):
+            syn_netcon_dict = syn_attrs.netcon_dict[gid][syn_id]
+            syn_pps_dict = syn_attrs.pps_dict[gid][syn_id]
             for syn_name in syn_names:
+                mech_name = syn_attrs.syn_mech_names[syn_name]
                 syn_index = syn_attrs.syn_name_index_dict[syn_name]
                 if syn_index in syn.attr_dict:
                     attr_keys = syn.attr_dict[syn_index].keys()
                     output_dict[syn_name][gid]['syn_id'].append(syn_id)
                     for k in attr_keys:
-                        if (syn_index in syn.pps_dict) and hasattr(syn.pps_dict[syn_index], k):
-                            v = getattr(syn.pps_dict[syn_index], k)
-                        elif (syn_index in syn.netcon_dict) and hasattr(syn.netcon_dict[syn_index], k):
-                            v = getattr(syn.netcon_dict[syn_index], k)
+                        if (syn_index in syn_netcon_dict) and k in rules[mech_name]['netcon_params']:
+                            i = rules[mech_name]['netcon_params'][k]
+                            v = getattr(syn_netcon_dict[syn_index], 'weight')[i]
+                        elif (syn_index in syn_pps_dict) and hasattr(syn_pps_dict[syn_index], k):
+                            v = getattr(syn_pps_dict[syn_index], k)
+                        elif (syn_index in syn_netcon_dict) and hasattr(syn_netcon_dict[syn_index], k):
+                            v = getattr(syn_netcon_dict[syn_index], k)
                         else:
-                            raise RuntimeException('write_syn_mech_attrs: gid %d syn id %d does not have attribute %s '
+                            raise RuntimeError('write_syn_mech_attrs: gid %d syn id %d does not have attribute %s '
                                                    'set in either %s point process or netcon' % (gid, syn_id, k, syn_name))
                         output_dict[syn_name][gid][k].append(v)
 
     for syn_name, syn_attrs_dict in viewitems(output_dict):
 
-        this_output_dict = {}
+        attr_dict = {}
         for gid, gid_syn_attrs_dict in viewitems(syn_attrs_dict):
             for attr_name, attr_vals in viewitems(gid_syn_attrs_dict):
                 if attr_name == 'syn_ids':
-                    this_output_dict[gid] = { 'syn_ids': np.asarray(attr_vals, dtype='uint32') }
+                    attr_dict[gid] = { 'syn_ids': np.asarray(attr_vals, dtype='uint32') }
                 else:
-                    this_output_dict[gid] = { attr_name: np.asarray(attr_vals, dtype='float32') }
+                    attr_dict[gid] = { attr_name: np.asarray(attr_vals, dtype='float32') }
+        write_cell_attributes(output_path, pop_name, attr_dict,
+                              namespace='%s Attributes' % syn_name,
+                              **write_kwds)
 
-        append_cell_attributes(output_path, pop_name, this_output_dict,
-                               namespace='%s Attributes' % syn_name,
-                               **append_kwds)
+def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
+    """
+    Writes mechanism attributes for the given cells and the given rank to a NeuroH5 file.
+    Assumes that attributes have been set via config_syn.
+    
+    :param env: instance of env.Env
+    :param pop_name: population name
+    :param gids: cell ids
+    :param sample_rank: rank id
+    """
+    rank = int(env.pc.id())
+    if rank == sample_rank:
+        color = 1
+    else:
+        gids = []
+        color = 0
+
+    comm = env.comm
+    comm0 = comm.Split(color, 0)
+
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, \
+                         write_kwds={ 'comm': comm0 })
+    comm0.Free()
+    env.pc.barrier()
                         
 
 

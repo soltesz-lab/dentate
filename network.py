@@ -89,7 +89,11 @@ def register_cell(env, pop_name, gid, cell):
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
+                
+    
 
+    
+    
 def connect_cells(env, cleanup=True):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
@@ -250,6 +254,9 @@ def connect_cells(env, cleanup=True):
                 hoc_cell = env.pc.gid2cell(gid)
                 for sec in list(hoc_cell.all):
                     h.psection(sec=sec)
+            if gid == first_gid:
+                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], sample_rank=0)
+                
             env.edge_count[postsyn_name][presyn_name] += syn_count
 
             if cleanup:
