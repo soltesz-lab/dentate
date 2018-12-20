@@ -565,7 +565,7 @@ class SynapseAttributes(object):
                                  lambda(syn_id): syn_id_attr_dict[syn_id].source.population,
                                  n=len(source_names))
 
-        return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
+        return dict(map(lambda(source_id,x): (source_names[source_id], generator_ifempty (x)), enumerate(source_iter)))
 
     def del_syn_id_attr_dict(self, gid):
         """
