@@ -1288,14 +1288,12 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
     """
     gid = cell.gid
     syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
     if filters is None:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index])
     else:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], **filters)
     if len(filtered_syns) > 0:
-        syn_ids = filtered_syns.keys()
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
+        parse_syn_mech_rules(cell, env, node, filtered_syns.iterkeys(), syn_name, param_name, rules, origin_filters,
                              update_targets=update_targets)
 
 
@@ -1307,7 +1305,7 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     specified as linear, exponential, or sigmoidal. Custom functions
     can also be provided to specify more complex distributions. Calls
     inherit_syn_mech_param to retrieve a value from a donor node, if
-    necessary. Calls set_syn_mech_params to sets placeholder values in
+    necessary. Calls set_syn_mech_param to sets placeholder values in
     the syn_mech_attr_dict of a SynapseAttributes object.
 
     1) A 'value' with no 'origin' requires no further processing
@@ -1317,7 +1315,7 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
     :param node: :class:'SHocNode'
-    :param syn_ids: array of int
+    :param syns_ids: sequence of int
     :param syn_name: str
     :param param_name: str
     :param rules: dict
