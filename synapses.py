@@ -1,6 +1,6 @@
 import time
 from dentate.neuron_utils import *
-from dentate.utils import viewitems, zip_longest, partitionn, generator_peek, NamedTupleWithDocstring
+from dentate.utils import viewitems, zip_longest, partitionn, generator_ifempty, NamedTupleWithDocstring
 from dentate.cells import get_mech_rules_dict, \
     get_donor, get_distance_to_node, get_param_val_by_distance, \
     import_mech_dict_from_file, custom_filter_by_branch_order, \
@@ -535,7 +535,7 @@ class SynapseAttributes(object):
                                  lambda((syn_id,syn)): syn.source.population, \
                                  n=len(source_names))
 
-        return dict(map(lambda(source_id,x): (source_names[source_id], x), enumerate(source_iter)))
+        return dict(map(lambda(source_id,x): (source_names[source_id], generator_ifempty (x)), enumerate(source_iter)))
 
     def get_filtered_syn_ids(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None,
                                  sources=None, swc_types=None, cache=False):
@@ -756,10 +756,8 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, unique=None, 
             raise KeyError('config_biophys_cell_syns: insert: BiophysCell with gid %i does not exist' % gid)
 
         for presyn_name, source_syn_ids in viewitems(source_syn_ids_dict):
-            p = generator_peek(source_syn_ids)
-            if p is not None:
-                first, seq = p
-                insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, seq, unique=unique,
+            if source_syn_ids is not None:
+                insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, source_syn_ids, unique=unique,
                                          insert_netcons=insert_netcons, insert_vecstims=insert_vecstims,
                                          verbose=verbose)
 
@@ -816,10 +814,8 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         if cell is None:
             cell = env.pc.gid2cell(gid)
         for presyn_name, source_syns in viewitems(source_syn_dict):
-            p = generator_peek(source_syns)
-            if p is not None:
-                first, seq = p
-                source_syn_ids = [x[0] for x in seq]
+            if source_syns is not None:
+                source_syn_ids = [x[0] for x in source_syns]
                 syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
                 insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
                                      insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
@@ -833,17 +829,16 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
     total_mech_count = 0
     config_time = time.time()
     for presyn_name, source_syns in viewitems(source_syn_dict):
-        p = generator_peek(source_syns)
-        if p is None:
+
+        if source_syns is None:
             continue
-        first, seq = p
 
         nc_count = 0
         mech_count = 0
 
         syn_names = list(env.connection_config[postsyn_name][presyn_name].mechanisms.keys())
         syn_indexes = [syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names]
-        for syn_id, syn in seq:
+        for syn_id, syn in source_syns:
             for syn_name, syn_index in zip_longest(syn_names, syn_indexes):
                 if syn_index in syn.attr_dict:
                     this_pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
