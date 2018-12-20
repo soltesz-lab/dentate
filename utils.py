@@ -402,6 +402,17 @@ def partitionn(items, predicate=int, n=2):
 
 def generator_peek(iterable):
     """
+    If the iterable is empty, return None, otherwise return a tuple with the
+    first element and the iterable with the first element attached back.
+    """
+    try:
+        first = next(iterable)
+    except StopIteration:
+        return None
+    return first, itertools.chain([first], iterable)
+
+def generator_ifempty(iterable):
+    """
     If the iterable is empty, return None, otherwise return the
     iterable with the first element attached back.
     """
@@ -409,7 +420,7 @@ def generator_peek(iterable):
         first = next(iterable)
     except StopIteration:
         return None
-    return first, itertools.chain([first], iterable)
+    return itertools.chain([first], iterable)
 
 def compose_iter(f, iters):
     """
