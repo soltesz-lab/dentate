@@ -73,15 +73,23 @@ def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset
          stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
          dt, ldbal, lptbal, cleanup, verbose, dry_run):
 
+    profile_time = False
+
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     params = dict(locals())
     env = Env(**params)
-    from dentate.network import init
-    import cProfile
-    cProfile.runctx('init(env, cleanup)', None, locals(), filename='dentate_profile')
-    if not dry_run:
-        network.run(env)
+
+    if profile_time:
+        from dentate.network import init, run
+        import cProfile
+        cProfile.runctx('init(env, cleanup)', None, locals(), filename='dentate_profile_init')
+        if not dry_run:
+            cProfile.runctx('run(env)', None, locals(), filename='dentate_profile_run')
+    else:
+        network.init(env, cleanup)
+        if not dry_run:
+            network.run(env)
 
 
 if __name__ == '__main__':
