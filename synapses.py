@@ -490,9 +490,9 @@ class SynapseAttributes(object):
         matches = lambda query, item: (query is None) or (item in query)
 
         if cache:
-            args = [gid, syn_sections, syn_indexes, syn_types, layers, sources, swc_types]
-            if args in self.filter_cache:
-                return self.filter_cache[args]
+            cache_args = tuple([gid, tuple(syn_sections), tuple(syn_indexes), tuple(syn_types), tuple(layers), tuple(sources), tuple(swc_types)])
+            if cache_args in self.filter_cache:
+                return self.filter_cache[cache_args]
           
         if sources is None:
             source_indexes = None
@@ -513,6 +513,8 @@ class SynapseAttributes(object):
                       matches(layers, v.syn_layer) & \
                       matches(source_indexes, v.source.population) & \
                       matches(swc_types, v.swc_type)}
+        if cache:
+            self.filter_cache[cache_args] = result
 
         return result
   
@@ -1695,10 +1697,11 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
             if layer_label == 'default':
                 layer = layer_label
             else:
-                layer = layer_dict[layer_label]
+                layer = int(layer_dict[layer_label])
             rans[layer] = ran
         segdensity = defaultdict(list)
         layers = defaultdict(list)
+        total_seg_density = 0.
         for sec_index, seg_list in viewitems(seg_dict):
             for seg in seg_list:
                 L = seg.sec.L
@@ -1710,29 +1713,34 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
                     layer = -1
                 layers[sec_index].append(layer)
 
-                ran = None
+                this_ran = None
 
                 if layer > -1:
                     if layer in rans:
-                        ran = rans[layer]
+                        this_ran = rans[layer]
                     elif 'default' in rans:
-                        ran = rans['default']
+                        this_ran = rans['default']
                     else:
-                        ran = None
+                        this_ran = None
                 elif 'default' in rans:
-                    ran = rans['default']
+                    this_ran = rans['default']
                 else:
-                    ran = None
-                if ran is not None:
+                    this_ran = None
+                if this_ran is not None:
                     while True:
-                        dens = ran.normal(density_dict['mean'], density_dict['variance'])
+                        dens = this_ran.normal(density_dict['mean'], density_dict['variance'])
                         if dens > 0.0:
                             break
                 else:
-                    dens = 0
+                    dens = 0.
+                total_seg_density += dens
                 segdensity[sec_index].append(dens)
 
+        if total_seg_density < 1e-6:
+            logger.warning("sections with zero %s synapse density: %s; rans: %s; density_dict: %s; morphology: %s" % (syn_type_label, str(segdensity), str(rans), str(density_dict), str(neurotree_dict)))
+                
         segdensity_dict[syn_type] = segdensity
+        
         layers_dict[syn_type] = layers
     return (segdensity_dict, layers_dict)
 
