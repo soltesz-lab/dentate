@@ -6,6 +6,7 @@ __author__ = 'See AUTHORS.md'
 import sys, click, os
 from mpi4py import MPI
 import numpy as np
+import dentate
 import dentate.network as network
 from dentate.env import Env
 from dentate.utils import list_find
@@ -76,7 +77,9 @@ def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset
     np.seterr(all='raise')
     params = dict(locals())
     env = Env(**params)
-    network.init(env, cleanup)
+    from dentate.network import init
+    import cProfile
+    cProfile.runctx('init(env, cleanup)', None, locals(), filename='dentate_profile')
     if not dry_run:
         network.run(env)
 

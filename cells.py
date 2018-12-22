@@ -125,6 +125,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
         """
         btmorph.btstructs2.SNode2.__init__(self, index)
         self.content['spine_count'] = []
+        self._connection_loc = None
 
     def get_sec(self):
         """
@@ -269,13 +270,15 @@ class SHocNode(btmorph.btstructs2.SNode2):
         is spine_head, in which case it reports the connection_loc of the spine neck.
         :return: int or float
         """
-        if self.type == 'spine_head':
-            self.parent.sec.push()
-        else:
-            self.sec.push()
-        loc = h.parent_connection()
-        h.pop_section()
-        return loc
+        if self._connection_loc is None:
+            if self.type == 'spine_head':
+                self.parent.sec.push()
+            else:
+                self.sec.push()
+                loc = h.parent_connection()
+                h.pop_section()
+            self._connection_loc = loc
+        return self._connection_loc
 
 
 # ----------------------------- Methods to specify cell morphology --------------------------------------------------- #
@@ -573,8 +576,7 @@ def node_in_subtree(cell, root, node):
     :param node: 'class':SNode2 or SHocNode
     :return: boolean
     """
-    nodelist = []
-    cell.tree._gather_nodes(root, nodelist)
+    nodelist = iter(cell.tree)
     if node in nodelist:
         return True
     else:
