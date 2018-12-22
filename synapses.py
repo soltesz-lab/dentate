@@ -496,7 +496,8 @@ class SynapseAttributes(object):
         matches = lambda query, item: (query is None) or (item in query)
 
         if cache:
-            cache_args = tuple([gid, tuple(syn_sections), tuple(syn_indexes), tuple(syn_types), tuple(layers), tuple(sources), tuple(swc_types)])
+            cache_args = tuple(map(lambda x: tuple(x) if isinstance(x,list) else x,
+                                   [gid, syn_sections, syn_indexes, syn_types, layers, sources, swc_types]))
             if cache_args in self.filter_cache:
                 return self.filter_cache[cache_args]
           
