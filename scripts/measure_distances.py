@@ -23,7 +23,6 @@ script_name = 'measure_distances.py'
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
@@ -35,7 +34,7 @@ script_name = 'measure_distances.py'
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, template_path, coords_path, coords_namespace, populations, interp_chunk_size, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, populations, interp_chunk_size, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -43,11 +42,7 @@ def main(config, template_path, coords_path, coords_namespace, populations, inte
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-<<<<<<< Updated upstream
     env = Env(comm=comm, config_file=config)
-=======
-    env = Env(comm=comm, configFile=config, templatePaths=template_path)
->>>>>>> Stashed changes
     output_path = coords_path
 
     soma_coords = {}

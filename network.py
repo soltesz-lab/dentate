@@ -4,6 +4,7 @@ Dentate Gyrus network initialization routines.
 __author__ = 'See AUTHORS.md'
 
 import itertools
+import dentate
 from dentate.neuron_utils import *
 from dentate.utils import viewitems, zip_longest, compose_iter
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
@@ -89,11 +90,7 @@ def register_cell(env, pop_name, gid, cell):
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
-                
-    
 
-    
-    
 def connect_cells(env, cleanup=True):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
@@ -176,9 +173,9 @@ def connect_cells(env, cleanup=True):
                                     (postsyn_name, gid, syn_name))
                         raise Exception
                     weights_values  = cell_weights_dict[syn_name]
-                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                       zip_longest(weights_syn_ids, \
-                                                                   itertools.imap(lambda x: { 'weight' : x }, \
+                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                       zip_longest(weights_syn_ids,
+                                                                   itertools.imap(lambda x: {'weight': x},
                                                                                   weights_values)))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
@@ -194,9 +191,10 @@ def connect_cells(env, cleanup=True):
                 hoc_cell = env.pc.gid2cell(gid)
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=hoc_cell, env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, \
-                                          reset_cable=True, from_file=True, correct_cm=correct_for_spines, \
-                                          correct_g_pas=correct_for_spines, env=env, verbose=((rank == 0) and (first_gid==gid)))
+                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True,
+                                          from_file=True, correct_cm=correct_for_spines,
+                                          correct_g_pas=correct_for_spines, env=env,
+                                          verbose=((rank == 0) and (first_gid==gid)))
                 except IndexError:
                     raise IndexError('*** connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -204,7 +202,6 @@ def connect_cells(env, cleanup=True):
                 if rank == 0 and gid == first_gid:
                     logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
-                    
 
         for presyn_name in presyn_names:
 
@@ -226,8 +223,6 @@ def connect_cells(env, cleanup=True):
             logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
             edge_iter = graph[postsyn_name][presyn_name]
 
-            syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
-
             last_time = time.time()
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
             logger.info('Rank %i: took %f s to initialize edge attributes for projection %s -> %s' % \
@@ -241,22 +236,45 @@ def connect_cells(env, cleanup=True):
             if first_gid is None:
                 first_gid = gid
 
+            if gid in env.biophys_cells[postsyn_name]:
+                biophys_cell = env.biophys_cells[postsyn_name][gid]
+                synapses.init_syn_mech_attrs(biophys_cell, env)
+
             postsyn_cell = env.pc.gid2cell(gid)
             
             last_time = time.time()
-            syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                                            cell=postsyn_cell, unique=unique, \
-                                                                            insert=True, \
-                                                                            insert_netcons=True)
+            syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(
+                env, gid, postsyn_name, cell=postsyn_cell, unique=unique, insert=True, insert_netcons=True)
             if rank == 0 and gid == first_gid:
-                logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network connections for gid %d' % \
+                logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
+                            'connections for gid %d' % \
                             (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
                 hoc_cell = env.pc.gid2cell(gid)
                 for sec in list(hoc_cell.all):
                     h.psection(sec=sec)
             if gid == first_gid:
                 synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], sample_rank=0)
-                
+                """
+                if rank == 0 and 'AMPA' in syn_attrs.syn_mech_names and gid in env.biophys_cells[postsyn_name]:
+                    biophys_cell = env.biophys_cells[postsyn_name][gid]
+                    from dentate.plot import plot_synaptic_attribute_distribution
+                    results_file = 'example_syn_attrs.h5'
+                    overwrite = True
+                    syn_mech_name = syn_attrs.syn_mech_names['AMPA']
+                    if 'g_unit' in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
+                        param_label = 'AMPA: g_unit'
+                        plot_synaptic_attribute_distribution(
+                            biophys_cell, env, 'AMPA', 'g_unit', from_mech_attrs=True, from_target_attrs=True,
+                            param_label=param_label, export=results_file, description='gid %i; after' % gid,
+                            show=False, overwrite=overwrite, data_dir=env.results_path)
+                    overwrite = False
+                    param_label = 'AMPA: weight'
+                    plot_synaptic_attribute_distribution(
+                        biophys_cell, env, 'AMPA', 'weight', from_mech_attrs=True, from_target_attrs=True,
+                        param_label=param_label, export=results_file, description='gid %i; after' % gid,
+                        show=False, overwrite=overwrite, data_dir=env.results_path)
+                """
+
             env.edge_count[postsyn_name][presyn_name] += syn_count
 
             if cleanup:
@@ -264,48 +282,9 @@ def connect_cells(env, cleanup=True):
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
-        # At this point, all synaptic point processes and netcons for
-        # this post-synaptic cell population have been instantiated
-        # with the default parameters specified for each
-        # projection. If a weights namespace was provided, weight
-        # multipliers have been loaded into the
-        # env.synapse_attributes.syn_mech_attr_dict. These weights can
-        # be updated directly by config_syns_from_mech_attrs. However,
-        # if a gid has an associated BiophysCell, additional synaptic
-        # configuration rules can be applied from the provided
-        # mech_file with init_syn_mech_attrs.
-
-        # for gid in postsyn_gids:
-        #     if gid in env.biophys_cells[postsyn_name]:
-        #         synapses.init_syn_mech_attrs(env.biophys_cells[postsyn_name][gid], env=env)
-        #     synapses.config_syns_from_mech_attrs(gid, env, postsyn_name, verbose=(gid == first_gid))
-
-        #     if gid in env.biophys_cells[postsyn_name]:
-        #         # TODO: May want to keep a version of this here, but wrap it in a debug flag, and load from the
-        #         # config_file an export_file_name and a list of gids to export syn_attr data.
-        #         if rank == 0 and gid == first_gid and 'AMPA' in syn_attrs.syn_mech_names:
-        #             biophys_cell = env.biophys_cells[postsyn_name][gid]
-        #             from dentate.plot import plot_synaptic_attribute_distribution
-        #             results_file = 'example_syn_attrs.h5'
-        #             overwrite = True
-        #             syn_mech_name = syn_attrs.syn_mech_names['AMPA']
-        #             if 'g_unit' in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
-        #                 param_label = 'AMPA: g_unit'
-        #                 plot_synaptic_attribute_distribution(biophys_cell, env, 'AMPA', 'g_unit',
-        #                                                      from_mech_attrs=True, from_target_attrs=True,
-        #                                                      param_label=param_label, export=results_file,
-        #                                                      description='gid %i; after' % gid, show=False,
-        #                                                      overwrite=overwrite, data_dir=env.resultsPath)
-        #                 overwrite = False
-        #             param_label = 'AMPA: weight'
-        #             plot_synaptic_attribute_distribution(biophys_cell, env, 'AMPA', 'weight',
-        #                                                  from_mech_attrs=True, from_target_attrs=True,
-        #                                                  param_label=param_label, export=results_file,
-        #                                                  description='gid %i; after' % gid, show=False,
-        #                                                  overwrite=overwrite, data_dir=env.resultsPath)
-
         if rank == 0:
-            logger.info('Rank %i: took %f s to configure synapses for population %s' % (rank, time.time() - pop_last_time, postsyn_name))
+            logger.info('Rank %i: took %f s to configure synapses for population %s' %
+                        (rank, time.time() - pop_last_time, postsyn_name))
 
 
 def connect_cell_selection(env, cleanup=True):

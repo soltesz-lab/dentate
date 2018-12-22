@@ -120,7 +120,8 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
             
         
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--template-path", type=str)
 @click.option("--output-path", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -132,11 +133,12 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
 @click.option("--cache-size", type=int, default=10000)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
+def main(config, config_prefix, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
          cache_size, verbose, dry_run):
     """
 
     :param config:
+    :param config_prefix:
     :param template_path:
     :param forest_path:
     :param populations:
@@ -156,10 +158,9 @@ def main(config, template_path, output_path, forest_path, populations, distribut
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    logger.info('rank %i: before environment' % rank)
     comm.barrier()
-    env = Env(comm=MPI.COMM_WORLD, config_file=config, template_paths=template_path)
-    logger.info('rank %i: environment configured' % rank)
+    env = Env(comm=MPI.COMM_WORLD, config_file=config, config_prefix=config_prefix, template_paths=template_path)
+
     configure_hoc_env(env)
     
     if io_size == -1:

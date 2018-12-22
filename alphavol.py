@@ -54,22 +54,25 @@ def circumcenters(simplices, points):
     return ((x0, y0, z0), r)
     
 def free_boundary(simplices):
-    """Returns the facets that are referenced only by simplex of the given triangulation.
+    """
+    Returns the facets that are referenced only by simplex of the given triangulation.
     """
 
     ## Sort the facet indices in the triangulation
-    simplices = np.sort(simplices,axis=1)
+    simplices = np.sort(simplices, axis=1)
     facets = np.vstack((simplices[:,[0, 1, 2]], \
                         simplices[:,[0, 1, 3]], \
                         simplices[:,[0, 2, 3]], \
                         simplices[:,[1, 2, 3]]))
 
     ## Find unique facets                    
-    ufacets, counts = np.unique(facets,return_counts=True,axis=0)
+    ufacets, counts = np.unique(facets, return_counts=True, axis=0)
 
     ## Determine which facets are part of only one simplex
     bidxs = np.where(counts == 1)[0]
 
+    if len(bidxs) == 0:
+        raise RuntimeError("alpha.free_boundary: unable to determine facets that belong only to one simplex")
     return ufacets[bidxs]
     
 

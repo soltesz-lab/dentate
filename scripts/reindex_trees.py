@@ -1,10 +1,20 @@
-import sys, random, click, logging
+import sys, gc, os, random, click, logging
 from mpi4py import MPI
 import numpy as np
 from neuroh5.io import read_population_ranges, append_cell_trees, append_cell_attributes, bcast_cell_attributes, NeuroH5TreeGen
-from dentate.utils import *
+import dentate
+from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
+from dentate.geometry import measure_distances
+from dentate.env import Env
+import dentate.utils as utils
+from dentate.neuron_utils import configure_hoc_env
 
-script_name = 'reindex_trees.py'
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -31,8 +41,8 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     :param verbose: bool
     """
     
-    config_logging(verbose)
-    logger = get_script_logger(script_name)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -42,28 +52,57 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
+    random.seed(13)
+
+    (forest_pop_ranges, _)  = read_population_ranges(forest_path)
+    (forest_population_start, forest_population_count) = forest_pop_ranges[population]
+
+
     (pop_ranges, _)  = read_population_ranges(output_path)
 
     (population_start, population_count) = pop_ranges[population]
-     
+
+    if rank == 0:
+        logger.info('reading new cell index map...')
     reindex_map1 = {}
-    reindex_map_gen = bcast_cell_attributes(index_path, population, 0, namespace=index_namespace)
+    reindex_map_gen = bcast_cell_attributes(index_path, population, namespace=index_namespace, 
+                                            root=0, comm=comm)
     for gid, attr_dict in reindex_map_gen:
         reindex_map1[gid] = attr_dict['New Cell Index'][0]
 
+
+    if rank == 0:
+        logger.info('reading cell coordinates...')
     old_coords_dict = {}
-    coords_map_gen = bcast_cell_attributes(index_path, population, 0, namespace=coords_namespace)
+    coords_map_gen = bcast_cell_attributes(index_path, population, namespace=coords_namespace,
+                                           root=0, comm=comm)
     for gid, attr_dict in coords_map_gen:
         old_coords_dict[gid] = attr_dict
 
-    reindex_keys = None
+    gc.collect()
     if rank == 0:
-        reindex_keys = random.sample(list(reindex_map1), population_count)
-    reindex_keys = comm.bcast(reindex_keys, root=0)
-        
-    reindex_map = { k : reindex_map1[k] for k in reindex_keys }
+        logger.info('sampling cell population reindex...')
+        from guppy import hpy
+        h = hpy()
+        logger.info(h.heap())
 
-    gid_map = { k: i+population_start for i,k in enumerate(reindex_keys) }
+    reindex_map = None
+    if rank == 0:
+        reindex_map = {}
+        N = len(reindex_map1)
+        K = 0
+        while K < population_count:
+            i = random.randint(forest_population_start, forest_population_start+N-1)
+            if i in reindex_map1:
+                reindex_map[i] = reindex_map1[i]
+                del(reindex_map1[i])
+                K = K+1
+    reindex_map = comm.bcast(reindex_map, root=0)
+
+    if rank == 0:
+        logger.info('computing new population index...')
+
+    gid_map = { k: i+population_start for i,k in enumerate(sorted(reindex_map.keys())) }
     
     new_coords_dict = {}
     new_trees_dict = {}
@@ -84,6 +123,7 @@ def main(population, forest_path, output_path, index_path, index_namespace, coor
     if comm.rank == 0:
         logger.info('Appended reindexed trees to %s' % output_path)
 
+    MPI.Finalize()
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
