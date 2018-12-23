@@ -1936,6 +1936,16 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     sec_graph = make_neurotree_graph(neurotree_dict)
 
+    debug_flag = False
+    secnodes_dict = neurotree_dict['section_topology']['nodes']
+    for sec, secnodes in viewitems(secnodes_dict):
+        if len(secnodes) < 2:
+            debug_flag = True
+
+    if debug_flag:
+        print 'sec_graph: ', list(sec_graph.edges)
+        print 'neurotree_dict: ', neurotree_dict
+    
     seg_density_per_sec = {}
     r = np.random.RandomState()
     r.seed(int(density_seed))
