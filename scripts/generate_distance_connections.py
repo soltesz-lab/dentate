@@ -26,7 +26,8 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-path", required=True, type=click.Path())
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
@@ -43,8 +44,8 @@ sys.excepthook = mpi_excepthook
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, forest_path, connectivity_path, connectivity_namespace, coords_path, coords_namespace,
-         synapses_namespace, distances_namespace, resolution, interp_chunk_size, io_size,
+def main(config, config_prefix, forest_path, connectivity_path, connectivity_namespace, coords_path,
+         coords_namespace, synapses_namespace, distances_namespace, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
     utils.config_logging(verbose)
@@ -53,7 +54,7 @@ def main(config, forest_path, connectivity_path, connectivity_namespace, coords_
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
     configure_hoc_env(env)
 
     connection_config = env.connection_config
