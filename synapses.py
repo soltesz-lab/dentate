@@ -493,7 +493,7 @@ class SynapseAttributes(object):
         :param swc_types: list of enumerated type: swc_type
         :return: dictionary { syn_id: { attribute: value } }
         """
-        matches = lambda query, item: (query is None) or (item in query)
+        matches = lambda items: all([ (query is None) or (item in query) for (query,item) in items ])
 
         if cache:
             cache_args = tuple(map(lambda x: tuple(x) if isinstance(x,list) else x,
@@ -515,11 +515,11 @@ class SynapseAttributes(object):
             syn_dict = self.syn_id_attr_dict[gid]
 
         result = {k: v for k, v in viewitems(syn_dict) \
-                      if matches(syn_indexes, k) & \
-                      matches(syn_types, v.syn_type) & \
-                      matches(layers, v.syn_layer) & \
-                      matches(source_indexes, v.source.population) & \
-                      matches(swc_types, v.swc_type)}
+                      if matches([(syn_indexes, k),
+                                  (syn_types, v.syn_type),
+                                  (layers, v.syn_layer),
+                                  (source_indexes, v.source.population),
+                                  (swc_types, v.swc_type)])}
         if cache:
             self.filter_cache[cache_args] = result
 
@@ -1230,16 +1230,20 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
     :param update_targets: bool
 
     """
-    for param_name in mech_content:
+    for param_name, param_content in viewitems(mech_content):
         # accommodate either a dict, or a list of dicts specifying rules for a single parameter
-        if isinstance(mech_content[param_name], dict):
-            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content[param_name],
+        if isinstance(param_content, dict):
+            mech_content = [param_content]
+        elif isinstance(param_content, list):
+            mech_content = param_content
+        else:
+            raise RuntimeError("update_syn_mech_by_sec_type: invalid parameter %s" % param_name)
+        
+        for mech_content_entry in mech_content:
+            # print mech_content_entry
+            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name,
+                                              param_name, mech_content_entry,
                                               update_targets)
-        elif isinstance(mech_content[param_name], list):
-            for mech_content_entry in mech_content[param_name]:
-                # print mech_content_entry
-                update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry,
-                                                  update_targets)
 
 
 def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False):
@@ -1272,8 +1276,8 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
         origin_filters = None
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
-            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
-                                          update_targets)
+            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules,
+                                          filters, origin_filters, update_targets)
 
 
 def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
@@ -1303,8 +1307,10 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index])
     else:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], **filters)
+        
     if len(filtered_syns) > 0:
-        parse_syn_mech_rules(cell, env, node, filtered_syns.iterkeys(), syn_name, param_name, rules, origin_filters,
+        syn_ids = filtered_syns.iterkeys()
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
                              update_targets=update_targets)
 
 
@@ -1348,6 +1354,7 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
                            'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
+        
     if 'custom' in rules:
         parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
                                     update_targets)
