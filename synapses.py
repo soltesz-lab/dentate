@@ -493,7 +493,7 @@ class SynapseAttributes(object):
         :param swc_types: list of enumerated type: swc_type
         :return: dictionary { syn_id: { attribute: value } }
         """
-        matches = lambda query, item: (query is None) or (item in query)
+        matches = lambda items: all(itertools.imap (lambda (query, item): (query is None) or (item in query), items))
 
         if cache:
             cache_args = tuple(map(lambda x: tuple(x) if isinstance(x,list) else x,
@@ -515,11 +515,11 @@ class SynapseAttributes(object):
             syn_dict = self.syn_id_attr_dict[gid]
 
         result = {k: v for k, v in viewitems(syn_dict) \
-                      if matches(syn_indexes, k) & \
-                      matches(syn_types, v.syn_type) & \
-                      matches(layers, v.syn_layer) & \
-                      matches(source_indexes, v.source.population) & \
-                      matches(swc_types, v.swc_type)}
+                      if matches([(syn_indexes, k),
+                                  (syn_types, v.syn_type),
+                                  (layers, v.syn_layer),
+                                  (source_indexes, v.source.population),
+                                  (swc_types, v.swc_type)])}
         if cache:
             self.filter_cache[cache_args] = result
 
@@ -906,7 +906,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
         if param in mech_rules['mech_params']:
             if syn is None:
                 failed = False
-            elif hasattr(syn, param):
+            else:
                 setattr(syn, param, val)
                 mech_param = True
                 failed = False
@@ -952,10 +952,7 @@ def make_syn_mech(mech_name, seg):
     :param seg: hoc segment
     :return: hoc point process
     """
-    if hasattr(h, mech_name):
-        syn = getattr(h, mech_name)(seg)
-    else:
-        raise ValueError('make_syn_mech: unrecognized synaptic mechanism name %s' % mech_name)
+    syn = getattr(h, mech_name)(seg)
     return syn
 
 
@@ -998,32 +995,6 @@ def make_unique_synapse_mech(syn_name, seg, syns_dict=None, mech_names=None):
         mech_name = syn_name
     syn_mech = make_syn_mech(mech_name, seg)
     return syn_mech
-
-
-def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
-    """
-
-    :param syn_name: str
-    :param rules: dict to correctly parse params for specified hoc mechanism
-    :param param_name: str
-    :param mech_names: dict to convert syn_name to hoc mechanism name
-    :param nc: :class:'h.NetCon'
-    """
-    if mech_names is not None:
-        mech_name = mech_names[syn_name]
-    else:
-        mech_name = syn_name
-    if nc is not None:
-        syn = nc.syn()
-        if param_name in rules[mech_name]['mech_params']:
-            if syn is not None and hasattr(syn, param_name):
-                return getattr(syn, param_name)
-        elif param_name in rules[mech_name]['netcon_params']:
-            i = rules[mech_name]['netcon_params'][param_name]
-            if nc.wcnt() >= i:
-                return nc.weight[i]
-    raise AttributeError('get_syn_mech_param: problem setting attribute: %s for synaptic mechanism: %s' %
-                         (param_name, mech_name))
 
 
 
@@ -1230,16 +1201,20 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
     :param update_targets: bool
 
     """
-    for param_name in mech_content:
+    for param_name, param_content in viewitems(mech_content):
         # accommodate either a dict, or a list of dicts specifying rules for a single parameter
-        if isinstance(mech_content[param_name], dict):
-            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content[param_name],
+        if isinstance(param_content, dict):
+            mech_content = [param_content]
+        elif isinstance(param_content, list):
+            mech_content = param_content
+        else:
+            raise RuntimeError("update_syn_mech_by_sec_type: invalid parameter %s" % param_name)
+        
+        for mech_content_entry in mech_content:
+            # print mech_content_entry
+            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name,
+                                              param_name, mech_content_entry,
                                               update_targets)
-        elif isinstance(mech_content[param_name], list):
-            for mech_content_entry in mech_content[param_name]:
-                # print mech_content_entry
-                update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry,
-                                                  update_targets)
 
 
 def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False):
@@ -1272,8 +1247,8 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
         origin_filters = None
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
-            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
-                                          update_targets)
+            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules,
+                                          filters, origin_filters, update_targets)
 
 
 def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
@@ -1303,8 +1278,10 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index])
     else:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], **filters)
+        
     if len(filtered_syns) > 0:
-        parse_syn_mech_rules(cell, env, node, filtered_syns.iterkeys(), syn_name, param_name, rules, origin_filters,
+        syn_ids = filtered_syns.iterkeys()
+        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
                              update_targets=update_targets)
 
 
@@ -1348,6 +1325,7 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
                            'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
+        
     if 'custom' in rules:
         parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
                                     update_targets)
@@ -1936,6 +1914,16 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     sec_graph = make_neurotree_graph(neurotree_dict)
 
+    debug_flag = False
+    secnodes_dict = neurotree_dict['section_topology']['nodes']
+    for sec, secnodes in viewitems(secnodes_dict):
+        if len(secnodes) < 2:
+            debug_flag = True
+
+    if debug_flag:
+        print 'sec_graph: ', list(sec_graph.edges)
+        print 'neurotree_dict: ', neurotree_dict
+    
     seg_density_per_sec = {}
     r = np.random.RandomState()
     r.seed(int(density_seed))
