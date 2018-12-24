@@ -14,11 +14,12 @@ logger      = get_script_logger(script_name)
 
 context = Context()
 
-def _build_cells(N, ctype, start_gid=1):
+def _build_cells(N, mod_jitter, ctype, start_gid=1):
 
     assert(ctype == 'place')
     cells = {}
-    nfields          = acquire_fields_per_cell(N, context.field_probabilities, context.field_random)
+    nfields          = acquire_fields_per_cell(N, context.field_probabilities.values(), context.field_random)
+
     pseudo_positions = context.field_random.uniform(0., 1., size=(N,))
     expected_field_width = np.interp(pseudo_positions, context.positions, context.mean_expected_width)
     total_fields = np.sum(nfields)
@@ -32,7 +33,7 @@ def _build_cells(N, ctype, start_gid=1):
         gid_to_module[pseudo_module].append((gid, nfields[i]))
         fields_per_module[pseudo_module] += nfields[i]
         expected_cell_width = expected_field_width[i]
-        kwargs = {'field width':  expected_cell_width}
+        kwargs = {'field width':  expected_cell_width, 'jitter': mod_jitter[pseudo_module]}
         cells[gid] = instantiate_place_cell(context, gid, pseudo_module, nfields[i], **kwargs).return_attr_dict()
         gid += 1
 
@@ -50,10 +51,6 @@ def _build_cells(N, ctype, start_gid=1):
             cell['X Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+gid_nfields,0], dtype='float32')
             cell['Y Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+gid_nfields,1], dtype='float32')
             curr_pos += gid_nfields
-            
-
-    print(cells)
-
     return cells, gid + 1
 
 def init_context():
@@ -63,15 +60,19 @@ def init_context():
 
     feature_type_random = np.random.RandomState(context.local_seed)
     field_random = np.random.RandomState(context.local_seed)
-    field_probabilities = None
 
-    input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
+    if 'input_params_file_path' in context():
+        input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
+    else:
+        input_params = read_from_yaml('../config/Input_Features.yaml', include_loader=IncludeLoader)
     nmodules = input_params['number modules']
     field_width_x1 = input_params['field width params']['x1']
     field_width_x2 = input_params['field width params']['x2']
     arena_dimension = input_params['arena dimension']
     resolution = input_params['resolution']
+    field_probabilities = input_params['field probs']['PYR']
         
+    ctype = 1 # place
     modules            = np.arange(nmodules, dtype='float32')
     field_width_params = [field_width_x1, field_width_x2]
     field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
@@ -116,7 +117,7 @@ def tests(plot=False):
     report_cost(context)
 
     place_cells = context.place_cells
-    kwargs = {'ctype': 'place', 'module': context.module, \
+    kwargs = {'ctype': 'place', 'module': 0, \
               'target': context.fraction_active_target, 'nbins': 40}
     plot_group(place_cells, plot=plot, **kwargs)
 
@@ -134,15 +135,8 @@ def report_cost(context):
     features = calculate_features(x0)
     _, objectives = get_objectives(features)
 
-    grid_fa = np.mean(_fraction_active(context.grid_cells).values())
-
-    print('probability inactive: %f' % x0[0])
-    print('pr: %0.4f' % x0[1])
-    print(_calculate_field_distribution(x0[0], x0[1]))
-    print('Module: %d' % context.module)
+    print(x0)
     print('Place population fraction active: %f' % features['fraction active'])
-    print('Grid population fraction active: %f' % grid_fa)
-    #print('Total population fraction active: %f' % pop_fa)
 
     for feature in features.keys():
         if feature in context.feature_names:
@@ -204,10 +198,8 @@ def update(x, context):
     context.local_random.seed(context.local_seed)
     context.field_random = np.random.RandomState(context.local_seed)
    
-    p_inactive     = x[0] 
-    p_r            = x[1]
-    context.field_probabilities = _calculate_field_distribution(p_inactive, p_r)
-    context.place_cells, _ = _build_cells(context.num_place, 'place', start_gid=context.place_gid_start)
+    mod_jitter = x[0:context.nmodules]
+    context.place_cells, _ = _build_cells(context.num_place, mod_jitter, 'place', start_gid=context.place_gid_start)
     _calculate_rate_maps(context.place_cells, context)
 
 def _merge_cells():
@@ -249,7 +241,7 @@ def _calculate_rate_maps(cells, context):
         if cell['Num Fields'][0] > 0:
             spacing     = cell['Field Width']
             orientation = [0.0 for _ in range(len(spacing))]
-            rate_map = generate_spatial_ratemap(context.ctype, cell, None, xp, yp, context.grid_peak_rate, \
+            rate_map = generate_spatial_ratemap(context.ctype, cell, None, xp, yp, 0.0, \
                                                 context.place_peak_rate, None, **ratemap_kwargs)
             cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
         else:

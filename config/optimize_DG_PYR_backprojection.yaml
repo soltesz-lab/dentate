@@ -1,10 +1,34 @@
 bounds:
-  prob_inactive: !!python/tuple
+  m1: !!python/tuple
   - 0.0
-  - 1.0
-  pr: !!python/tuple
+  - 10.0
+  m2: !!python/tuple
   - 0.0
-  - 0.67
+  - 20.0
+  m3:
+  - 0.0
+  - 40.0
+  m4:
+  - 0.0
+  - 60.0
+  m5:
+  - 0.0
+  - 80.0
+  m6:
+  - 0.0
+  - 100.0
+  m7:
+  - 0.0
+  - 150.0
+  m8:
+  - 0.0
+  - 150.0
+  m9:
+  - 0.0
+  - 150.0
+  m10:
+  - 0.0
+  - 200.0
 feature_names:
 - fraction active
 - coefficient of variation
@@ -17,7 +41,7 @@ get_features_stages:
 get_objectives:
   optimize_PYR_backprojection_features: get_objectives
 kwargs:
-  num_place: 67000
+  num_place: 10000
   local_seed: 64
   fraction_active_target: 0.014
   active_threshold: 2.0
@@ -32,8 +56,16 @@ objective_names:
 optimization_title: optimize_PYR_backprojection_features
 param_gen: PopulationAnnealing
 param_names:
-- prob_inactive
-- pr
+- m1
+- m2
+- m3
+- m4
+- m5
+- m6
+- m7
+- m8
+- m9
+- m10
 target_range:
   variation error: 0.05
   fraction active mean error: 0.01
@@ -43,5 +75,13 @@ target_val:
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  prob_inactive: 0.0153
-  pr: 0.6654
+  m1: 5
+  m2: 10
+  m3: 20
+  m4: 30
+  m5: 40
+  m6: 50
+  m7: 50
+  m8: 50
+  m9: 50
+  m10: 50
