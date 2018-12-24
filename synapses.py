@@ -493,7 +493,7 @@ class SynapseAttributes(object):
         :param swc_types: list of enumerated type: swc_type
         :return: dictionary { syn_id: { attribute: value } }
         """
-        matches = lambda items: all([ (query is None) or (item in query) for (query,item) in items ])
+        matches = lambda items: all(itertools.imap (lambda (query, item): (query is None) or (item in query), items))
 
         if cache:
             cache_args = tuple(map(lambda x: tuple(x) if isinstance(x,list) else x,
