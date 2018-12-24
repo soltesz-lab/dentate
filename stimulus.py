@@ -14,6 +14,20 @@ except ImportError as e:
 selectivity_grid = 0
 selectivity_place_field = 1
 
+def generate_expected_width(field_width_params, module_widths, offsets, positions=None):
+    if positions is None:
+        positions = np.linspace(0, 1, 1000)
+
+    p_module = lambda width, offset: lambda x: np.exp(-((x - offset) / (width / 3. / np.sqrt(2.))) ** 2.)
+    p_modules = [p_module(2./3, offset)(positions) for offset in offsets]
+    p_sum = np.sum(p_modules, axis=0)
+
+    expected_width = np.multiply(module_widths, np.transpose(p_modules / p_sum))
+    mean_expected_width = np.sum(expected_width, axis=1)
+  
+    return mean_expected_width, positions
+
+
 
 def generate_mesh(scale_factor=1., arena_dimension=100., resolution=5.):
     arena_x_bounds = [-arena_dimension * scale_factor, arena_dimension * scale_factor]
