@@ -23,11 +23,7 @@ set -x
 cd $PBS_O_WORKDIR
 
 export prefix=/projects/sciteam/baqc/Full_Scale_Control
-export input=$prefix/DGC_forest_syns_20180812.h5
+export input=$prefix/DGC_forest_syns_20181222.h5
+export output=$prefix/DGC_forest_syns_20181222_compressed.h5
 
 aprun h5repack -v -f SHUF -f GZIP=9 -i $input -o $output
-aprun  -n 256 $HOME/src/neuroh5/build/neurograph_vertex_metrics --indegree --outdegree -i 128 \
-    $input
-
-
-
