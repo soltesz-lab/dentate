@@ -24,9 +24,9 @@ cd $PBS_O_WORKDIR
 
 set -x
 
-export forest_path=$SCRATCH/Full_Scale_Control/DGC_forest_extended_20181217_compressed.h5
+export forest_path=$SCRATCH/Full_Scale_Control/DGC_forest_extended_20181222_compressed.h5
 export index_path=$SCRATCH/Full_Scale_Control/dentate_GC_coords_20180418.h5
-export output_path=$SCRATCH/Full_Scale_Control/DGC_forest_reindex_20181218.h5
+export output_path=$SCRATCH/Full_Scale_Control/DGC_forest_reindex_20181222.h5
 
 cp $HOME/model/dentate/datasets/dentate_h5types.h5 $output_path
 

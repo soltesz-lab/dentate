@@ -13,8 +13,8 @@ LPP:
     offset: [0., 0.]
 MC:
   IML:
-    width:  [5000., 5000.]
-    offset: [750., 750.]
+    width:  [5000., 4000.]
+    offset: [750., 0.]
   Hilus:
     width:  [1500., 1500.]
     offset: [0., 0.]
