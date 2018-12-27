@@ -420,9 +420,10 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     context.update(locals())
 
     init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
-                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env, verbose=verbose)
     init_syn_mech_attrs(cell, env)
-    config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
+    config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True,
+                             verbose=verbose)
     if verbose:
         report_topology(cell, env)
 
