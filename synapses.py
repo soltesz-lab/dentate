@@ -127,13 +127,8 @@ class SynapseAttributes(object):
             sec_dict = self.sec_dict[gid]
             for i, (syn_id, syn_layer, syn_type, swc_type, syn_sec, syn_loc) in \
               enumerate(zip_longest(syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)):
-                syn = Synapse(syn_type=syn_type, \
-                              syn_layer=syn_layer, \
-                              syn_section=syn_sec, \
-                              syn_loc=syn_loc, \
-                              swc_type=swc_type, \
-                              source=SynapseSource(), \
-                              attr_dict=defaultdict(dict))
+                syn = Synapse(syn_type=syn_type, syn_layer=syn_layer, syn_section=syn_sec, syn_loc=syn_loc,
+                              swc_type=swc_type, source=SynapseSource(), attr_dict=defaultdict(dict))
                 syn_dict[syn_id] = syn
                 sec_dict[syn_sec].append((syn_id,syn))
 
@@ -472,7 +467,6 @@ class SynapseAttributes(object):
             for k, v in viewitems(params_dict):
                 attr_dict[k] = v
 
-
     def filter_synapses(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None,
                         swc_types=None, cache=False):
         """
@@ -485,6 +479,7 @@ class SynapseAttributes(object):
         :param layers: list of enumerated type: layer
         :param sources: list of enumerated type: population names of source projections
         :param swc_types: list of enumerated type: swc_type
+        :param cache: bool
         :return: dictionary { syn_id: { attribute: value } }
         """
         matches = lambda query, item: (query is None) or (item in query)
@@ -531,20 +526,18 @@ class SynapseAttributes(object):
         else:
             syn_id_attr_dict = {syn_id: self.syn_id_attr_dict[gid][syn_id] for syn_id in syn_ids}
 
-        source_iter = partitionn(viewitems(syn_id_attr_dict), \
-                                 lambda((syn_id,syn)): syn.source.population, \
+        source_iter = partitionn(viewitems(syn_id_attr_dict), lambda((syn_id,syn)): syn.source.population,
                                  n=len(source_names))
 
         return dict(map(lambda(source_id,x): (source_names[source_id], generator_ifempty (x)), enumerate(source_iter)))
 
     def get_filtered_syn_ids(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None,
-                                 sources=None, swc_types=None, cache=False):
+                             sources=None, swc_types=None, cache=False):
         """
         Returns a subset of the synapse ids of the given cell according to the given criteria.
         """
-        return self.filter_synapses(gid, syn_sections=syn_sections, syn_indexes=syn_indexes, \
-                                    syn_types=syn_types, layers=layers, sources=sources, swc_types=swc_types, \
-                                    cache=cache).keys()
+        return self.filter_synapses(gid, syn_sections=syn_sections, syn_indexes=syn_indexes, syn_types=syn_types,
+                                    layers=layers, sources=sources, swc_types=swc_types, cache=cache).keys()
 
     def partition_syn_ids_by_source(self, gid, syn_ids=None):
         """
@@ -561,8 +554,7 @@ class SynapseAttributes(object):
         if syn_ids is None:
             syn_ids = syn_id_attr_dict.keys()
 
-        source_iter = partitionn(syn_ids, \
-                                 lambda(syn_id): syn_id_attr_dict[syn_id].source.population,
+        source_iter = partitionn(syn_ids, lambda(syn_id): syn_id_attr_dict[syn_id].source.population,
                                  n=len(source_names))
 
         return dict(map(lambda(source_id,x): (source_names[source_id], generator_ifempty (x)), enumerate(source_iter)))
@@ -1043,6 +1035,7 @@ def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
     raise AttributeError('get_syn_mech_param: problem setting attribute: %s for synaptic mechanism: %s' %
                          (param_name, mech_name))
 
+
 def get_syn_filter_dict(env, rules, convert=False):
     """Used by modify_syn_param. Takes in a series of arguments and
     constructs a validated rules dictionary that specifies to which
@@ -1288,14 +1281,12 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
     """
     gid = cell.gid
     syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
     if filters is None:
-        filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index])
+        filtered_syn_ids = list(syn_attrs.get_filtered_syn_ids(gid, syn_sections=[node.index]))
     else:
-        filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], **filters)
-    if len(filtered_syns) > 0:
-        syn_ids = filtered_syns.keys()
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
+        filtered_syn_ids = list(syn_attrs.get_filtered_syn_ids(gid, syn_sections=[node.index], **filters))
+    if len(filtered_syn_ids) > 0:
+        parse_syn_mech_rules(cell, env, node, filtered_syn_ids, syn_name, param_name, rules, origin_filters,
                              update_targets=update_targets)
 
 
@@ -1363,21 +1354,19 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
     """
     gid = cell.gid
     syn_attrs = env.synapse_attributes
-    syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
     if origin_filters is None:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[donor.index])
     else:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[donor.index], **origin_filters)
 
-    if len(filtered_syns) > 0:
-        valid_syns = []
-        for syn_id, syn in viewitems(filtered_syns):
-            if syn_attrs.has_mech_attrs(gid, syn_id, syn_name):
-                valid_syns.append((syn_id,syn))
-        if len(valid_syns) > 0:
-            valid_syns.sort(key=lambda x: x[1].syn_loc)
-            syn_id = valid_syns[-1][0]
-            return syn_attrs.get_mech_attrs(gid, syn_id, syn_name)[param_name]
+    valid_syns = []
+    for syn_id, syn in viewitems(filtered_syns):
+        if syn_attrs.has_mech_attrs(gid, syn_id, syn_name):
+            valid_syns.append((syn_id,syn))
+    if len(valid_syns) > 0:
+        valid_syns.sort(key=lambda x: x[1].syn_loc)
+        syn_id = valid_syns[-1][0]
+        return syn_attrs.get_mech_attrs(gid, syn_id, syn_name)[param_name]
     if donor is cell.tree.root:
         return
     else:
@@ -1433,8 +1422,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
             syn = syn_id_attr_dict[syn_id]
             syn_loc = syn.syn_loc
             distance = get_distance_to_node(cell, donor, node, syn_loc)
-            value = get_param_val_by_distance(distance, baseline, slope, \
-                                              min_distance, max_distance, min_val, max_val, \
+            value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val, max_val,
                                               tau, xhalf, outside)
 
             if value is not None:
@@ -1507,6 +1495,7 @@ def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, up
                                                 cell.mech_dict[sec_type]['synapses'][syn_name],
                                                 update_targets=update_targets)
 
+
 def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_names=None, write_kwds={}):
     """
     Write mechanism attributes for the given cell ids to a NeuroH5 file.
@@ -1549,8 +1538,8 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                         elif (syn_index in syn_netcon_dict) and hasattr(syn_netcon_dict[syn_index], k):
                             v = getattr(syn_netcon_dict[syn_index], k)
                         else:
-                            raise RuntimeError('write_syn_mech_attrs: gid %d syn id %d does not have attribute %s '
-                                                   'set in either %s point process or netcon' % (gid, syn_id, k, syn_name))
+                            raise RuntimeError('write_syn_mech_attrs: gid %d syn id %d does not have attribute %s set '
+                                               'in either %s point process or netcon' % (gid, syn_id, k, syn_name))
                         output_dict[syn_name][gid][k].append(v)
 
     for syn_name, syn_attrs_dict in viewitems(output_dict):
@@ -1565,6 +1554,7 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
         write_cell_attributes(output_path, pop_name, attr_dict,
                               namespace='%s Attributes' % syn_name,
                               **write_kwds)
+
 
 def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
     """
@@ -1586,8 +1576,7 @@ def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
     comm = env.comm
     comm0 = comm.Split(color, 0)
 
-    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, \
-                         write_kwds={ 'comm': comm0 })
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm0})
     comm0.Free()
     env.pc.barrier()
                         
