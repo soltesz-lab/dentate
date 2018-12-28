@@ -5,6 +5,17 @@ field width params:
 arena dimension: 100.0
 resolution: 5.0
 
+field probs:
+  PYR:
+    0: 0.38
+    1: 0.21
+    2: 0.17
+    3: 0.13
+    4: 0.08
+    5: 0.02
+    6: 0.01
+
+
 probability inactive:
   - 0.001589
   - 0.03277
