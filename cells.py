@@ -1,4 +1,4 @@
-import os, itertools, collections
+import os, itertools, collections, traceback
 from dentate.utils import viewitems
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
@@ -6,6 +6,7 @@ from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 try:
     import btmorph
 except Exception:
+    print 'dentate.cells: problem importing btmorph'
     pass
 
 
@@ -468,7 +469,8 @@ def import_morphology_from_hoc(cell, hoc_cell):
     try:
         root_node = append_section(cell, 'soma', root_index, root_sec)
     except Exception as e:
-        raise KeyError('import_morphology_from_hoc: problem locating soma section to act as root\n%s' % e)
+        print 'import_morphology_from_hoc: problem locating soma section to act as root'
+        raise e
     append_child_sections(cell, root_node, root_sec.children(), sec_type_map)
 
 
@@ -571,12 +573,14 @@ def get_distance_to_node(cell, root, node, loc=None):
 
 def node_in_subtree(cell, root, node):
     """
+    TODO: this has to gather nodes below the variable root
     Checks if a node is contained within a subtree of root.
     :param root: 'class':SNode2 or SHocNode
     :param node: 'class':SNode2 or SHocNode
     :return: boolean
     """
-    nodelist = iter(cell.tree)
+    nodelist = []
+    cell.tree._gather_nodes(root, nodelist)
     if node in nodelist:
         return True
     else:
@@ -956,8 +960,8 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         if value is None and origin is None:
             raise ValueError('modify_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
                              'sec_type: %s' % (mech_name, param_name, sec_type))
-        rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min, max=max,
-                                    min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
+        rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min,
+                                    max=max, min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
         mech_content = {param_name: rules}
 
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
@@ -991,18 +995,17 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
                 raise AttributeError('modify_mech_param: unknown cable property: %s' % param_name)
         else:
             for node in cell.nodes[sec_type]:
-                try:
-                    update_mechanism_by_node(cell, node, mech_name, mech_content)
-                except (AttributeError, NameError, ValueError, KeyError, RuntimeError, IOError) as e:
-                    raise RuntimeError('%s\n%s' %(str(e), str(sys.exc_info()[2])))
-    except RuntimeError as e:
+                update_mechanism_by_node(cell, node, mech_name, mech_content)
+
+    except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
+        traceback.print_tb(sys.exc_info()[2])
         if param_name is not None:
-            raise RuntimeError('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s\n%s' % \
-                               (mech_name, param_name, node.name, e))
+            print 'modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' % \
+                  (mech_name, param_name, node.name)
         else:
-            raise RuntimeError('modify_mech_param: problem modifying mechanism: %s in node: %s\n%s' % \
-                                   (mech_name, node.name, e))
+            print 'modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name)
+        raise e
 
 
 def update_mechanism_by_node(cell, node, mech_name, mech_content, verbose=True):
@@ -1118,9 +1121,10 @@ def inherit_mech_param(donor, mech_name, param_name):
                 return getattr(donor.sec(loc), param_name)
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
-    except (AttributeError, NameError, KeyError, ValueError, RuntimeError, IOError) as e:
-        raise RuntimeError('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from ' \
-                               'sec_type: %s\n%s' % (mech_name, param_name, donor.type, e))
+    except Exception as e:
+        print 'inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' % \
+              (mech_name, param_name, donor.type)
+        raise e
 
 
 def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=None):
@@ -1306,8 +1310,8 @@ def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, *
         end_val = rules['max']
         direction = 1
     else:
-        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: %s' %
-                           node.type)
+        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
+                           '%s' % node.type)
     slope = (end_val - start_val)/node.sec.L
     if 'slope' in rules:
         if direction < 0.:
