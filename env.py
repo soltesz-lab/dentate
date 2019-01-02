@@ -40,7 +40,7 @@ class Env:
                  vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0,
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, verbose=False,
-                 cache_queries=False, **kwargs):
+                 cache_queries=False, profile_memory=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -62,6 +62,7 @@ class Env:
         :param dt: float; simulation time step
         :param ldbal: bool; estimate load balance based on cell complexity
         :param lptbal: bool; calculate load balance with LPT algorithm
+        :param profile: bool; profile memory usage
         :param verbose: bool; print verbose diagnostic messages while constructing the network
         :param cache_queries: bool; whether to use a cache to speed up queries to filter_synapses
         """
@@ -87,6 +88,10 @@ class Env:
         else:
             self.pc = None
 
+        # If true, compute and print memory usage at various points
+        # during simulation initialization
+        self.profile_memory = profile_memory
+            
         # print verbose diagnostic messages
         config_logging(verbose)
         self.logger = get_root_logger()
@@ -316,7 +321,7 @@ class Env:
         for (template_name, params) in viewitems(template_param_rules_dict):
             template_params[template_name] = params
 
-        self.netclampConfig = NetclampConfig(template_params, input_generator_dict, weight_generator_dict)
+        self.netclamp_config = NetclampConfig(template_params, input_generator_dict, weight_generator_dict)
 
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']

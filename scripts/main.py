@@ -66,12 +66,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--lptbal", is_flag=True, help='optimize load balancing assignment with LPT algorithm')
 @click.option('--cleanup', type=bool, default=True,
               help='delete from memory the synapse attributes metadata after specifying connections')
+@click.option('--profile-memory', is_flag=True, help='calculate and print heap usage while constructing the network')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
          results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init,
          stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
-         dt, ldbal, lptbal, cleanup, verbose, dry_run):
+         dt, ldbal, lptbal, cleanup, profile_memory, verbose, dry_run):
 
     profile_time = False
 
