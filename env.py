@@ -39,7 +39,8 @@ class Env:
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0,
                  vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0,
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, verbose=False, **kwargs):
+                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, verbose=False,
+                 cache_queries=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -62,6 +63,7 @@ class Env:
         :param ldbal: bool; estimate load balance based on cell complexity
         :param lptbal: bool; calculate load balance with LPT algorithm
         :param verbose: bool; print verbose diagnostic messages while constructing the network
+        :param cache_queries: bool; whether to use a cache to speed up queries to filter_synapses
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
@@ -142,6 +144,9 @@ class Env:
 
         # Save CoreNEURON data
         self.coredat = coredat
+
+        # cache queries to filter_synapses
+        self.cache_queries = cache_queries
 
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
@@ -272,7 +277,6 @@ class Env:
         if len(self.template_paths) > 0:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
-
 
     def parse_input_config(self):
         """
