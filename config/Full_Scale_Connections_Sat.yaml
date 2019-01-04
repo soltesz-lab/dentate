@@ -67,6 +67,8 @@ Synapses:
           e: 0
           g_unit: 0.0016
           weight: 1.0
+        NMDA:
+          g_unit: 0.0016
     LPP:
       type: excitatory
       sections: [apical]
@@ -80,6 +82,8 @@ Synapses:
           e: 0
           g_unit: 0.0018
           weight: 1.0
+        NMDA:
+          g_unit: 0.0018
     MC:
       type: excitatory
       sections: [apical]
@@ -93,6 +97,8 @@ Synapses:
           e: 0
           g_unit: 0.00019
           weight: 1.0
+        NMDA:
+          g_unit: 0.00019
     AAC:
       type: inhibitory
       sections: [ais]

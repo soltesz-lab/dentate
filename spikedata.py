@@ -17,6 +17,48 @@ logger = utils.get_module_logger(__name__)
 def consecutive(data):
     return np.split(data, np.where(np.diff(data) != 1)[0]+1)
 
+
+def get_env_spike_dict(env):
+    """
+    Constructs  a dictionary with per-gid spike times from the output vectors with spike times and gids contained in env.
+    """
+    
+    t_vec = np.array(env.t_vec, dtype=np.float32)
+    id_vec = np.array(env.id_vec, dtype=np.uint32)
+
+    binlst  = []
+    typelst = list(env.celltypes.keys())
+    for k in typelst:
+        binlst.append(env.celltypes[k]['start'])
+
+    binvect  = np.array(binlst)
+    sort_idx = np.argsort(binvect,axis=0)
+    bins     = binvect[sort_idx][1:]
+    types    = [ typelst[i] for i in sort_idx ]
+    inds     = np.digitize(id_vec, bins)
+
+    pop_spkdict = {}
+    for i in range(0,len(types)):
+        pop_name = types[i]
+        spkdict  = {}
+        sinds    = np.where(inds == i)
+        if len(sinds) > 0:
+            ids      = id_vec[sinds]
+            ts       = t_vec[sinds]
+            for j in range(0,len(ids)):
+                id = ids[j]
+                t  = ts[j]
+                if id in spkdict:
+                    spkdict[id]['t'].append(t)
+                else:
+                    spkdict[id]= {'t': [t]}
+            for j in list(spkdict.keys()):
+                spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
+        pop_spkdict[pop_name] = spkdict
+
+    return pop_spkdict
+
+
 def read_spike_events(input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None):
 
     spkpoplst        = []

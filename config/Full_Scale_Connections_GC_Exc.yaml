@@ -74,6 +74,8 @@ Synapses:
           tau_decay: 5.5
           e: 0
           g_unit: 0.002
+        NMDA:
+          g_unit: 0.002
     LPP:
       type: excitatory
       sections: [apical]
@@ -85,6 +87,8 @@ Synapses:
           tau_decay: 5.5
           e: 0
           g_unit: 0.0022
+        NMDA:
+          g_unit: 0.0022
     MC:   
       type: excitatory
       sections: [apical]
@@ -95,6 +99,8 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
+          g_unit: 0.00035
+        NMDA:
           g_unit: 0.00035
     AAC:
       type: inhibitory

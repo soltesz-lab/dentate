@@ -33,5 +33,41 @@ Weight Generator:
       params:
         mu: 0.
         sigma: 1.0
-
+Synaptic Optimization:
+  GC:
+    Parameter ranges:
+      inhibitory:
+        soma:
+          GABA_A:
+            weight: [0.0001, 0.01]
+        ais:
+          GABA_A:
+            weight: [0.0001, 0.01]
+        apical:
+          GABA_A:
+            weight: [0.0001, 0.01]
+          GABA_B:
+            weight: [0.0001, 0.01]
+    Target firing rate: 0.1
+  MC:
+    Parameter ranges:
+      inhibitory:
+        soma:
+          GABA_A:
+            weight: [0.0001, 0.01]
+        ais:
+          GABA_A:
+            weight: [0.0001, 0.01]
+        apical:
+          GABA_A:
+            weight: [0.0001, 0.01]
+          GABA_B:
+            weight: [0.0001, 0.01]
+        basal:
+          GABA_A:
+            weight: [0.0001, 0.01]
+          GABA_B:
+            weight: [0.0001, 0.01]
+    Target firing rate: 1.0
+      
 
