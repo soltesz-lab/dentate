@@ -265,7 +265,7 @@ class Env:
         self.id_vec = h.Vector()  # Ids of spike times on this host
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
-            self.recs_dict[pop_name] = { 'Soma': [] } 
+            self.recs_dict[pop_name] = { 'Soma': [], 'Axon hillock': [] } 
 
         # used to calculate model construction times and run time
         self.mkcellstime = 0

@@ -152,7 +152,10 @@ def make_spike_dict (spkinds, spkts):
 def interspike_intervals (spkdict):
     isi_dict = {}
     for ind, lst in viewitems(spkdict):
-        isi_dict[ind] = np.diff(np.asarray(lst))
+        if len(lst) > 1:
+            isi_dict[ind] = np.diff(np.asarray(lst))
+        else:
+            isi_dict[ind] = np.asarray([], dtype=np.float32)
     return isi_dict
 
 
@@ -163,7 +166,10 @@ def spike_rates (spkdict, t):
         if isiv.size > 0:
             rate = isiv.size / (t / 1000.0)
         else:
-            rate = 0.0
+            if len(spkdict[ind]) > 0:
+                rate = 1.0
+            else:
+                rate = 0.0
         rate_dict[ind] = rate
     return rate_dict
 

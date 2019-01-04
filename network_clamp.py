@@ -93,6 +93,8 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
         init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
                         correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
     synapses.init_syn_mech_attrs(cell, env)
+
+    env.biophys_cells[pop_name][gid] = cell
     
     return cell
 
@@ -152,14 +154,15 @@ def init_cell(env, pop_name, gid, load_edges=True):
                      load_edges=load_edges)
     register_cell(env, pop_name, gid, cell)
 
-    
-    env.recs_dict[pop_name][0] = make_rec(0, pop_name, gid, cell, \
-                                          sec=cell.soma[0].sec, loc=0.5, param='v', \
-                                          dt=h.dt, description='Soma')
+    rec = make_rec(0, pop_name, gid, cell, \
+                                            sec=cell.soma[0].sec, loc=0.5, param='v', \
+                                            dt=h.dt, description='Soma')
+    env.recs_dict[pop_name]['Soma'].append(rec)
     if len(cell.hillock) > 0:
-        env.recs_dict[pop_name][1] = make_rec(1, pop_name, gid, cell, \
+        rec = make_rec(1, pop_name, gid, cell, \
                                               sec=cell.hillock[0].sec, loc=0.5, param='v', \
                                               dt=h.dt, description='Axon hillock')
+        env.recs_dict[pop_name]['Axon hillock'].append(rec)
      
     report_topology(cell, env)
 
@@ -351,17 +354,21 @@ def run_with(env, param_dict):
     nhosts = int(env.pc.nhost())
 
     for pop_name, gid_param_dict in viewitems(param_dict):
-        for gid, params_tuples in viewitems(param_dict):
-            biophys_cell = env.biophys_cells[pop_name][gid]
+        biophys_cell_dict = env.biophys_cells[pop_name]
+        for gid, params_tuples in viewitems(gid_param_dict):
+            biophys_cell = biophys_cell_dict[gid]
             for syn_type, sec_type, syn_name, param_name, param_value in params_tuples:
                 synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
                                           param_name=param_name, value=param_value,
                                           filters={'syn_types': [syn_type]},
                                           origin='soma', update_targets=True)
+            cell = env.pc.gid2cell(gid)
 
 
     env.t_vec.resize(0)
     env.id_vec.resize(0)
+
+    h.cvode_active(1)
 
     h.t = 0.0
     h.tstop = env.tstop
@@ -370,6 +377,8 @@ def run_with(env, param_dict):
     
     if rank == 0:
         logger.info("*** Running simulation with dt = %f and tstop = %f" % (h.dt, h.tstop))
+        logger.info("*** Parameters: %s" % str(param_dict))
+
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)
@@ -398,11 +407,17 @@ def run_with(env, param_dict):
 def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
     
     def gid_firing_rate(spkdict, gid):
-        spkdict1 = { gid: spkdict[pop_name][gid] }
+        if gid in spkdict[pop_name]:
+            spkdict1 = { gid: spkdict[pop_name][gid]['t'] }
+        else:
+            spkdict1 = { gid: np.asarray([], dtype=np.float32) }
         rate_dict = spikedata.spike_rates (spkdict1, env.tstop)
+        if gid in spkdict[pop_name]:
+            print 'spikes = ', spkdict[pop_name][gid]['t']
+        print 'rate = ', rate_dict[gid]
         return rate_dict[gid]
-    
-    f = lambda v: (gid_firing_rate(run_with(env, { pop_name: { gid: from_param_vector(v) } }), gid) - target_rate)
+
+    f = lambda *v: (abs(gid_firing_rate(run_with(env, { pop_name: { gid: from_param_vector(v) } }), gid) - target_rate))
     
     return f
 
@@ -419,14 +434,14 @@ def optimize_rate(env, pop_name, gid, opt_iter=10):
         raise RuntimeError("network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
 
     param_range_tuples = []
-    for syn_type, syn_type_dict in sorted(viewitems(params), key=lambda (k,v): k):
+    for syn_type, syn_type_dict in sorted(viewitems(param_ranges), key=lambda (k,v): k):
         for sec_type, sec_type_dict in sorted(viewitems(syn_type_dict), key=lambda (k,v): k):
             for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda (k,v): k):
                 for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda (k,v): k):
                     param_range_tuples.append((syn_type, sec_type, syn_name, param_name, param_range))
 
-    min_values = [ param_range[0] for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
-    max_values = [ param_range[1] for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
+    min_values = [ (syn_type, sec_type, syn_name, param_name, param_range[0]) for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
+    max_values = [ (syn_type, sec_type, syn_name, param_name, param_range[1]) for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
                     
     def from_param_vector(params):
         result = []
@@ -439,15 +454,19 @@ def optimize_rate(env, pop_name, gid, opt_iter=10):
         result = []
         for (syn_type, sec_type, syn_name, param_name, param_value) in params:
             result.append(param_value)
-        return np.asarray(result, dtype=np.float32)
+        return result
     
-    f_firing_rate = make_firing_rate_target(env, gid, opt_target, from_param_vector)
+    f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, from_param_vector)
     opt_params, outputs = dlib.find_min_global(f_firing_rate, to_param_vector(min_values), to_param_vector(max_values), opt_iter)
 
+    logger.info('Optimized parameters: %s' % str(from_param_vector(opt_params)))
+    logger.info('Optimized objective function: %s' % str(outputs))
+    
     return opt_params, outputs
     
     
 def write_output(env):
+    rank = env.comm.rank
     if rank == 0:
         logger.info("*** Writing spike data")
     io_utils.spikeout(env, env.results_file_path)
@@ -517,15 +536,15 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
                   help='path to directory where output files will be written')
 @click.option("--results-id", type=str, required=False, default=None, \
                   help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
-@click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the target cell and its connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
-def go(config_file, population, gid, generate_inputs, generate_weights, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, verbose, profile):
+def go(config_file, population, gid, generate_inputs, generate_weights, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, profile_memory):
     """
     Runs network clamp simulation for the specified cell.
     """
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
+    verbose = True
     params = dict(locals())
     env = Env(**params)
     configure_hoc_env(env)
@@ -565,15 +584,16 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
               help='namespace containing spike times')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
                   help='path to directory where output files will be written')
-@click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the target cell and its connections')
 @click.argument('target')
-def optimize(config_file, population, gid, generate_inputs, generate_weights, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, verbose, profile, target):
+def optimize(config_file, population, gid, generate_inputs, generate_weights, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
+    verbose = True
+    cache_queries=True
     params = dict(locals())
     env = Env(**params)
     configure_hoc_env(env)
