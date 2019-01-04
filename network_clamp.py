@@ -13,22 +13,24 @@ from dentate import spikedata, io_utils, synapses
 
 
 def generate_weights(env, weight_source_rules, this_syn_attrs):
-
+    """
+    Generates synaptic weights according to the rules specified in the
+    Weight Generator section of network clamp configuration.
+    """
     weights_dict = {}
 
     if len(weight_source_rules) > 0:
 
         for presyn_id, weight_rule in viewitems(weight_source_rules):
-            if weight_rule['class'] == 'Log-Normal':
-                
-                source_syn_dict = defaultdict(list)
+            source_syn_dict = defaultdict(list)
     
-                for syn_id, syn in viewitems(this_syn_attrs):
-                    this_presyn_id = syn.source.population
-                    this_presyn_gid = syn.source.gid
-                    if this_presyn_id == presyn_id:
-                        source_syn_dict[this_presyn_gid].append(syn_id)
-
+            for syn_id, syn in viewitems(this_syn_attrs):
+                this_presyn_id = syn.source.population
+                this_presyn_gid = syn.source.gid
+                if this_presyn_id == presyn_id:
+                    source_syn_dict[this_presyn_gid].append(syn_id)
+                    
+            if weight_rule['class'] == 'Log-Normal':
                 weights_name = weight_rule['name']
                 rule_params = weight_rule['params']
                 mu = rule_params['mu']
@@ -37,6 +39,15 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 seed = int(seed_offset + 1)
                 weights_dict[presyn_id] = \
                   synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
+            elif weight_rule['class'] == 'Normal':
+                weights_name = weight_rule['name']
+                rule_params = weight_rule['params']
+                mu = rule_params['mu']
+                sigma = rule_params['sigma']
+                seed_offset = int(env.modelConfig['Random Seeds']['GC Normal Weights'])
+                seed = int(seed_offset + 1)
+                weights_dict[presyn_id] = \
+                  synapses.generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
             else:
                 raise RuntimeError('network_clamp.generate_weights: unknown weight generator rule class %s' % \
                                    weight_rule['class'])
@@ -45,12 +56,16 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
         
 
 def make_input_cell(env, gid, gen):
+    """
+    Instantiates an input generator according to the given cell template.
+    """
     template_name = gen['template']
     param_values  = gen['params']
     template = getattr(h, template_name)
     params = [ param_values[p] for p in env.netclamp_config.template_params[template_name] ]
     cell = template(gid, *params)
     return cell
+
 
 def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None, synapses_dict=None):
     """
@@ -108,7 +123,7 @@ def register_cell(env, population, gid, cell):
     
 def init_cell(env, pop_name, gid, load_edges=True):
     """
-    Instantiates a cell and all its synapses
+    Instantiates a cell and all its synapses.
 
     :param env: an instance of env.Env
     :param pop_name: population name
@@ -152,7 +167,8 @@ def init_cell(env, pop_name, gid, load_edges=True):
     return cell
 
 def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), generate_weights_pops=set([]), spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None):
-    """Instantiates a cell and all its synapses and connections and loads
+    """
+    Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
 
     :param env: an instance of env.Env
@@ -335,13 +351,13 @@ def run_with(env, param_dict):
     nhosts = int(env.pc.nhost())
 
     for pop_name, gid_param_dict in viewitems(param_dict):
-        for gid, params in viewitems(param_dict):
+        for gid, params_tuples in viewitems(param_dict):
             biophys_cell = env.biophys_cells[pop_name][gid]
-            for syn_type, sec_type, syn_name, param_name, param_value in params:
+            for syn_type, sec_type, syn_name, param_name, param_value in params_tuples:
                 synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
                                           param_name=param_name, value=param_value,
-                                          filters={'syn_types': [syn_type]}, origin='soma', 
-                                          update_targets=True)
+                                          filters={'syn_types': [syn_type]},
+                                          origin='soma', update_targets=True)
 
 
     env.t_vec.resize(0)
@@ -379,14 +395,14 @@ def run_with(env, param_dict):
     return spikedata.get_env_spike_dict(env)
 
 
-def make_firing_rate_target(env, pop_name, gid, target_rate):
+def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
     
     def gid_firing_rate(spkdict, gid):
         spkdict1 = { gid: spkdict[pop_name][gid] }
         rate_dict = spikedata.spike_rates (spkdict1, env.tstop)
         return rate_dict[gid]
     
-    f = lambda params: (gid_firing_rate(run_with(env, { pop_name: { gid: to_param_dict(params) } }), gid) - target_rate)
+    f = lambda v: (gid_firing_rate(run_with(env, { pop_name: { gid: from_param_vector(v) } }), gid) - target_rate)
     
     return f
 
@@ -397,14 +413,36 @@ def optimize_rate(env, pop_name, gid, opt_iter=10):
 
     if (pop_name in env.netclamp_config.optimize_parameters):
         opt_params = env.netclamp_config.optimize_parameters[pop_name]
-        min_values = opt_params['Minimum parameter values']
-        max_values = opt_params['Maximum parameter values']
+        param_ranges = opt_params['Parameter ranges']
         opt_target = opt_params['Target firing rate']
     else:
         raise RuntimeError("network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
+
+    param_range_tuples = []
+    for syn_type, syn_type_dict in sorted(viewitems(params), key=lambda (k,v): k):
+        for sec_type, sec_type_dict in sorted(viewitems(syn_type_dict), key=lambda (k,v): k):
+            for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda (k,v): k):
+                for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda (k,v): k):
+                    param_range_tuples.append((syn_type, sec_type, syn_name, param_name, param_range))
+
+    min_values = [ param_range[0] for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
+    max_values = [ param_range[1] for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
+                    
+    def from_param_vector(params):
+        result = []
+        assert(len(params) == len(param_range_tuples))
+        for i, (syn_type, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+            result.append((syn_type, sec_type, syn_name, param_name, params[i]))
+        return result
+
+    def to_param_vector(params):
+        result = []
+        for (syn_type, sec_type, syn_name, param_name, param_value) in params:
+            result.append(param_value)
+        return np.asarray(result, dtype=np.float32)
     
-    f_firing_rate = make_firing_rate_target(env, gid, opt_target)
-    opt_params, outputs = dlib.find_min_global(f_firing_rate, from_param_dict(min_values), from_param_dict(max_values), opt_iter)
+    f_firing_rate = make_firing_rate_target(env, gid, opt_target, from_param_vector)
+    opt_params, outputs = dlib.find_min_global(f_firing_rate, to_param_vector(min_values), to_param_vector(max_values), opt_iter)
 
     return opt_params, outputs
     

@@ -28,7 +28,8 @@ GapjunctionConfig = namedtuple('GapjunctionConfig',
 NetclampConfig = namedtuple('NetclampConfig',
                             ['template_params',
                              'input_generators',
-                             'weight_generators'])
+                             'weight_generators',
+                             'optimize_parameters'])
 
 
 class Env:
@@ -316,12 +317,13 @@ class Env:
         input_generator_dict = netclamp_config_dict['Input Generator']
         weight_generator_dict = netclamp_config_dict['Weight Generator']
         template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
+        opt_param_rules_dict = netclamp_config_dict['Synaptic Optimization']
         
         template_params = {}
         for (template_name, params) in viewitems(template_param_rules_dict):
             template_params[template_name] = params
 
-        self.netclamp_config = NetclampConfig(template_params, input_generator_dict, weight_generator_dict)
+        self.netclamp_config = NetclampConfig(template_params, input_generator_dict, weight_generator_dict, opt_param_rules_dict)
 
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']
