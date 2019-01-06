@@ -1576,19 +1576,21 @@ def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
     :param gids: cell ids
     :param sample_rank: rank id
     """
-    rank = int(env.pc.id())
+    comm = env.comm
+    rank = comm.rank
     if rank == sample_rank:
         color = 1
     else:
         gids = []
         color = 0
 
-    comm = env.comm
     comm0 = comm.Split(color, 0)
 
-    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm0})
+    if rank == sample_rank:
+        write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm0})
+
     comm0.Free()
-    env.pc.barrier()
+    comm.barrier()
 
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
