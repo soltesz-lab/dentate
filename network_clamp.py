@@ -155,14 +155,21 @@ def init_cell(env, pop_name, gid, load_edges=True):
     register_cell(env, pop_name, gid, cell)
 
     rec = make_rec(0, pop_name, gid, cell, \
-                                            sec=cell.soma[0].sec, loc=0.5, param='v', \
-                                            dt=h.dt, description='Soma')
+                   sec=cell.soma[0].sec, loc=0.5, param='v', \
+                   dt=h.dt, description='Soma')
     env.recs_dict[pop_name]['Soma'].append(rec)
     if len(cell.hillock) > 0:
         rec = make_rec(1, pop_name, gid, cell, \
-                                              sec=cell.hillock[0].sec, loc=0.5, param='v', \
-                                              dt=h.dt, description='Axon hillock')
+                       sec=cell.hillock[0].sec, loc=0.5, param='v', \
+                       dt=h.dt, description='Axon hillock')
         env.recs_dict[pop_name]['Axon hillock'].append(rec)
+    if len(cell.apical) > 0:
+        n = len(cell.apical)
+        for i in xrange(n):
+            rec = make_rec(i+2, pop_name, gid, cell, \
+                           sec=cell.apical[i].sec, loc=0.5, param='v', \
+                           dt=h.dt, description='Apical dendrite')
+            env.recs_dict[pop_name]['Apical dendrite'].append(rec)
      
     report_topology(cell, env)
 
@@ -372,7 +379,7 @@ def run_with(env, param_dict):
 
     h.t = 0.0
     h.tstop = env.tstop
-
+    
     h.finitialize(env.v_init)
     
     if rank == 0:

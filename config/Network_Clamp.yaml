@@ -2,6 +2,14 @@ Template Parameter Rules:
   StimCell:
     - rate
 Input Generator:
+  MPP:
+    template: StimCell
+    params:
+      rate: 10.
+  LPP:
+    template: StimCell
+    params:
+      rate: 10.
   BC:
     template: StimCell
     params:
@@ -59,15 +67,15 @@ Synaptic Optimization:
       inhibitory:
         soma:
           GABA_A:
-            g_unit: [0.0001, 0.01]
+            g_unit: [0.0001, 0.004]
         ais:
           GABA_A:
-            g_unit: [0.0001, 0.01]
+            g_unit: [0.0001, 0.004]
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.01]
+            g_unit: [0.0001, 0.004]
           GABA_B:
-            g_unit: [0.0001, 0.01]
+            g_unit: [0.0001, 0.004]
     Target firing rate: 1.0
   MC:
     Parameter ranges:
