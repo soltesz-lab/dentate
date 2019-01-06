@@ -6,7 +6,7 @@ __author__ = 'See AUTHORS.md'
 import itertools, gc
 import dentate
 from dentate.neuron_utils import *
-from dentate.utils import viewitems, zip_longest, compose_iter
+from dentate.utils import viewitems, zip_longest, compose_iter, profile_memory
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, \
@@ -853,13 +853,12 @@ def make_stimulus_selection(env, vecstim_sources):
                 stim_cell.play(cell_spikes)
                 register_cell(env, pop_name, gid, stim_cell)
 
-def init(env, cleanup=True, profile=False):
+def init(env, cleanup=True):
     """
     Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
     If env.optldbal or env.optlptbal are specified, performs load balancing.
 
     :param env: an instance of the `dentate.Env` class
-    :param profile: if true, print heap profile information as the cells and network connections are constructed.
     """
     from neuron import h
     configure_hoc_env(env)
@@ -881,10 +880,8 @@ def init(env, cleanup=True, profile=False):
         make_cells(env)
     else:
         make_cell_selection(env)
-    if profile and rank == 0:
-        from guppy import hpy
-        h = hpy()
-        logger.info(h.heap())
+    if env.profile_memory and rank == 0:
+        profile_memory(logger)
     env.pc.barrier()
     env.mkcellstime = h.stopsw()
     if rank == 0:
@@ -898,11 +895,11 @@ def init(env, cleanup=True, profile=False):
         env.connectgjstime = h.stopsw()
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
-    if profile and rank == 0:
-        from guppy import hpy
-        h = hpy()
-        logger.info(h.heap())
+            
     h.startsw()
+    if env.profile_memory and rank == 0:
+        profile_memory(logger)
+        
     if env.cell_selection is None:
         connect_cells(env, cleanup)
         vecstim_selection = None
@@ -911,10 +908,10 @@ def init(env, cleanup=True, profile=False):
     env.pc.set_maxstep(10.0)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
-    if profile and rank == 0:
-        from guppy import hpy
-        h = hpy()
-        logger.info(h.heap())
+    
+    if env.profile_memory and rank == 0:
+        profile_memory(logger)
+
     if rank == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
@@ -943,7 +940,6 @@ def init(env, cleanup=True, profile=False):
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
-    h.finitialize(env.v_init)
     if env.optldbal or env.optlptbal:
         cx(env)
         ld_bal(env)
@@ -965,7 +961,15 @@ def run(env, output=True):
 
     if rank == 0:
         logger.info("*** Running simulation")
+        
+    env.t_vec.resize(0)
+    env.id_vec.resize(0)
+    
+    h.t = 0
+    h.tstop = env.tstop
 
+    h.finitialize(env.v_init)
+    
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 

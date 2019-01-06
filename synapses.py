@@ -924,10 +924,10 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 i = mech_rules['netcon_params'][param]
 
                 if int(nc.wcnt()) >= i:
+                    old = nc.weight[i]
                     nc.weight[i] = val
                     nc_param = True
                     failed = False
-
         if failed:
             raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
                                  (param, mech_name))
@@ -1287,7 +1287,7 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], cache=cache_queries, **filters)
 
     if len(filtered_syns) > 0:
-        syn_ids = filtered_syns.iterkeys()
+        syn_ids = filtered_syns.keys()
         parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
                              update_targets=update_targets)
 
@@ -1319,6 +1319,7 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param update_targets: bool
 
     """
+
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:

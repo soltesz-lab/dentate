@@ -74,6 +74,8 @@ Synapses:
           tau_decay: 5.5
           e: 0
           g_unit: 0.002
+        NMDA:
+          g_unit: 0.002
     LPP:
       type: excitatory
       sections: [apical]
@@ -85,6 +87,8 @@ Synapses:
           tau_decay: 5.5
           e: 0
           g_unit: 0.0022
+        NMDA:
+          g_unit: 0.0022
     MC:   
       type: excitatory
       sections: [apical]
@@ -95,6 +99,8 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
+          g_unit: 0.00035
+        NMDA:
           g_unit: 0.00035
     AAC:
       type: inhibitory
@@ -114,10 +120,10 @@ Synapses:
       proportions: [1.0, 1.0, 0.69]
       mechanisms:
         GABA_A:
-          tau_rise: 0.25
-          tau_decay: 5.5
+          tau_rise: 0.5
+          tau_decay: 6.0
           e: -75
-          g_unit: 0.001
+          g_unit: 0.002
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -125,8 +131,8 @@ Synapses:
       proportions: [0.31]
       mechanisms:
         GABA_A:
-          tau_rise: 0.4
-          tau_decay: 1.1
+          tau_rise: 0.5
+          tau_decay: 6.0
           e: -75
           g_unit: 0.004
     HC:   
@@ -139,7 +145,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.0
           e: -75
-          g_unit: 0.006
+          g_unit: 0.004
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -150,12 +156,12 @@ Synapses:
           tau_rise:  0.1
           tau_decay: 10.0
           e:   -75
-          g_unit: 0.0002
+          g_unit: 0.002
         GABA_B:
           tau_rise:  50.0
           tau_decay: 200.0
           e:   -90
-          g_unit: 0.00015
+          g_unit: 0.0015
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -166,7 +172,7 @@ Synapses:
           tau_rise:  0.1
           tau_decay: 10.0
           e:   -75
-          g_unit: 0.0002
+          g_unit: 0.002
   MC:
     GC:   
       type: excitatory
@@ -178,7 +184,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.2
           e: 0
-          g_unit: 0.003
+          g_unit: 0.002
     MC:   
       type: excitatory
       sections: [apical]
@@ -189,7 +195,7 @@ Synapses:
           tau_rise: 0.45
           tau_decay: 2.2
           e: 0
-          g_unit: 0.002
+          g_unit: 0.00075
     HC:   
       type: inhibitory
       sections: [apical]
@@ -200,29 +206,29 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.0
           e: -75
-          g_unit: 0.0001
+          g_unit: 0.00665
     BC:   
       type: inhibitory
       sections: [soma, apical]
       layers: [Hilus, Hilus]
-      proportions: [1.0, 0.17]
+      proportions: [0.5, 0.17]
       mechanisms:
         GABA_A:
           tau_rise: 0.3
           tau_decay: 3.3
           e: -75
-          g_unit: 0.001
+          g_unit: 0.00665
     AAC:  
       type: inhibitory
-      sections: [ais]
+      sections: [soma]
       layers: [Hilus]
-      proportions: [1.0]
+      proportions: [0.5]
       mechanisms:
         GABA_A:
           tau_rise: 0.3
           tau_decay: 3.3
           e: -75
-          g_unit: 0.001
+          g_unit: 0.00025
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -233,7 +239,7 @@ Synapses:
           tau_rise: 0.6
           tau_decay: 4.7
           e: -75
-          g_unit: 0.0006
+          g_unit: 0.00665
   HC:
     GC:   
       type: excitatory

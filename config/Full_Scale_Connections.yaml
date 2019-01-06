@@ -73,7 +73,9 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.002
+          g_unit: 0.001
+        NMDA:
+          g_unit: 0.001
     LPP:
       type: excitatory
       sections: [apical]
@@ -84,7 +86,9 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.0022
+          g_unit: 0.0011
+        NMDA:
+          g_unit: 0.0011
     MC:   
       type: excitatory
       sections: [apical]
@@ -95,7 +99,9 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.00035
+          g_unit: 0.00018
+        NMDA:
+          g_unit: 0.00017
     AAC:
       type: inhibitory
       sections: [ais]
@@ -178,7 +184,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.2
           e: 0
-          g_unit: 0.003
+          g_unit: 0.002
     MC:   
       type: excitatory
       sections: [apical]
@@ -189,7 +195,7 @@ Synapses:
           tau_rise: 0.45
           tau_decay: 2.2
           e: 0
-          g_unit: 0.002
+          g_unit: 0.00075
     HC:   
       type: inhibitory
       sections: [apical]
@@ -200,7 +206,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.0
           e: -75
-          g_unit: 0.0001
+          g_unit: 0.005
     BC:   
       type: inhibitory
       sections: [soma, apical]
@@ -211,18 +217,18 @@ Synapses:
           tau_rise: 0.3
           tau_decay: 3.3
           e: -75
-          g_unit: 0.002
+          g_unit: 0.00665
     AAC:  
       type: inhibitory
-      sections: [ais]
+      sections: [soma]
       layers: [Hilus]
-      proportions: [1.0]
+      proportions: [0.5]
       mechanisms:
         GABA_A:
           tau_rise: 0.3
           tau_decay: 3.3
           e: -75
-          g_unit: 0.002
+          g_unit: 0.0665
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -233,7 +239,7 @@ Synapses:
           tau_rise: 0.6
           tau_decay: 4.7
           e: -75
-          g_unit: 0.0006
+          g_unit: 0.005
   HC:
     GC:   
       type: excitatory
