@@ -5,7 +5,27 @@ Input Generator:
   BC:
     template: StimCell
     params:
-      rate: 1
+      rate: 25.
+  AAC:
+    template: StimCell
+    params:
+      rate: 25.
+  HC:
+    template: StimCell
+    params:
+      rate: 20.
+  HCC:
+    template: StimCell
+    params:
+      rate: 5.
+  MC:
+    template: StimCell
+    params:
+      rate: 10.
+  GC:
+    template: StimCell
+    params:
+      rate: 1.0
 Weight Generator:
   MC:
     GC:
@@ -33,5 +53,34 @@ Weight Generator:
       params:
         mu: 0.
         sigma: 1.0
-
+Synaptic Optimization:
+  GC:
+    Parameter ranges:
+      inhibitory:
+        soma:
+          GABA_A:
+            g_unit: [0.0001, 0.01]
+        ais:
+          GABA_A:
+            g_unit: [0.0001, 0.01]
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.01]
+          GABA_B:
+            g_unit: [0.0001, 0.01]
+    Target firing rate: 1.0
+  MC:
+    Parameter ranges:
+      inhibitory:
+        soma:
+          GABA_A:
+            g_unit: [0.0001, 0.01]
+#        ais:
+#          GABA_A:
+#            g_unit: [0.0001, 0.003]
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.01]
+    Target firing rate: 10.0
+      
 

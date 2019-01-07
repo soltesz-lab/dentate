@@ -431,3 +431,9 @@ def compose_iter(f, iters):
     x = next(iters[0])
     f(x)
     return next(iters[1])
+
+def profile_memory(logger):
+    from guppy import hpy
+    hprof = hpy()
+    logger.info(hprof.heap())
+

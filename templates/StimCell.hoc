@@ -20,7 +20,7 @@ proc init() {
     if (numarg() > 5) {
         noise = $7
     } else {
-        noise = 0
+        noise = 1
     }
     setup(rate,number,start,noise) 	
 }
