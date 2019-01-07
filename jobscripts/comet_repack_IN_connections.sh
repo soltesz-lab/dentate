@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J repack_GC_connections
-#SBATCH -o ./results/repack_GC_connections.%j.o
+#SBATCH -J repack_IN_connections
+#SBATCH -o ./results/repack_IN_connections.%j.o
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=12
 #SBATCH -p shared
