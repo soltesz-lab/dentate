@@ -164,12 +164,9 @@ def spike_rates (spkdict, t):
     isidict = interspike_intervals(spkdict)
     for ind, isiv in viewitems(isidict):
         if isiv.size > 0:
-            rate = isiv.size / (t / 1000.0)
+            rate = 1.0 / (np.mean(isiv) / 1000.0)
         else:
-            if len(spkdict[ind]) > 0:
-                rate = 1.0
-            else:
-                rate = 0.0
+            rate = 0.0
         rate_dict[ind] = rate
     return rate_dict
 

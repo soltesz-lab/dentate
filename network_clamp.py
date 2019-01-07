@@ -155,14 +155,21 @@ def init_cell(env, pop_name, gid, load_edges=True):
     register_cell(env, pop_name, gid, cell)
 
     rec = make_rec(0, pop_name, gid, cell, \
-                                            sec=cell.soma[0].sec, loc=0.5, param='v', \
-                                            dt=h.dt, description='Soma')
+                   sec=cell.soma[0].sec, loc=0.5, param='v', \
+                   dt=h.dt, description='Soma')
     env.recs_dict[pop_name]['Soma'].append(rec)
     if len(cell.hillock) > 0:
         rec = make_rec(1, pop_name, gid, cell, \
-                                              sec=cell.hillock[0].sec, loc=0.5, param='v', \
-                                              dt=h.dt, description='Axon hillock')
+                       sec=cell.hillock[0].sec, loc=0.5, param='v', \
+                       dt=h.dt, description='Axon hillock')
         env.recs_dict[pop_name]['Axon hillock'].append(rec)
+    if len(cell.apical) > 0:
+        n = len(cell.apical)
+        for i in xrange(n):
+            rec = make_rec(i+2, pop_name, gid, cell, \
+                           sec=cell.apical[i].sec, loc=0.5, param='v', \
+                           dt=h.dt, description='Apical dendrite')
+            env.recs_dict[pop_name]['Apical dendrite'].append(rec)
      
     report_topology(cell, env)
 
@@ -332,8 +339,6 @@ def run(env):
 
     if rank == 0:
         logger.info("Host %i  ran simulation in %g seconds" % (rank, comptime))
-        if maxcw > 0:
-            logger.info("  load balance = %g" % (avgcomp/maxcw))
 
     env.pc.runworker()
     env.pc.done()
@@ -357,10 +362,10 @@ def run_with(env, param_dict):
         biophys_cell_dict = env.biophys_cells[pop_name]
         for gid, params_tuples in viewitems(gid_param_dict):
             biophys_cell = biophys_cell_dict[gid]
-            for syn_type, sec_type, syn_name, param_name, param_value in params_tuples:
+            for source, sec_type, syn_name, param_name, param_value in params_tuples:
                 synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
                                           param_name=param_name, value=param_value,
-                                          filters={'syn_types': [syn_type]},
+                                          filters={'sources': [source]},
                                           origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
 
@@ -368,11 +373,11 @@ def run_with(env, param_dict):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    h.cvode_active(1)
+    #h.cvode_active(1)
 
     h.t = 0.0
     h.tstop = env.tstop
-
+    
     h.finitialize(env.v_init)
     
     if rank == 0:
@@ -395,8 +400,6 @@ def run_with(env, param_dict):
 
     if rank == 0:
         logger.info("Host %i  ran simulation in %g seconds" % (rank, comptime))
-        if maxcw > 0:
-            logger.info("  load balance = %g" % (avgcomp/maxcw))
 
     env.pc.runworker()
     env.pc.done()
@@ -413,8 +416,8 @@ def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
             spkdict1 = { gid: np.asarray([], dtype=np.float32) }
         rate_dict = spikedata.spike_rates (spkdict1, env.tstop)
         if gid in spkdict[pop_name]:
-            print 'spikes = ', spkdict[pop_name][gid]['t']
-        print 'rate = ', rate_dict[gid]
+            logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid]['t'])))
+        logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))
         return rate_dict[gid]
 
     f = lambda *v: (abs(gid_firing_rate(run_with(env, { pop_name: { gid: from_param_vector(v) } }), gid) - target_rate))
@@ -434,25 +437,25 @@ def optimize_rate(env, pop_name, gid, opt_iter=10):
         raise RuntimeError("network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
 
     param_range_tuples = []
-    for syn_type, syn_type_dict in sorted(viewitems(param_ranges), key=lambda (k,v): k):
-        for sec_type, sec_type_dict in sorted(viewitems(syn_type_dict), key=lambda (k,v): k):
+    for source, source_dict in sorted(viewitems(param_ranges), key=lambda (k,v): k):
+        for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda (k,v): k):
             for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda (k,v): k):
                 for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda (k,v): k):
-                    param_range_tuples.append((syn_type, sec_type, syn_name, param_name, param_range))
+                    param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
 
-    min_values = [ (syn_type, sec_type, syn_name, param_name, param_range[0]) for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
-    max_values = [ (syn_type, sec_type, syn_name, param_name, param_range[1]) for syn_type, sec_type, syn_name, param_name, param_range in param_range_tuples ]
+    min_values = [ (source, sec_type, syn_name, param_name, param_range[0]) for source, sec_type, syn_name, param_name, param_range in param_range_tuples ]
+    max_values = [ (source, sec_type, syn_name, param_name, param_range[1]) for source, sec_type, syn_name, param_name, param_range in param_range_tuples ]
                     
     def from_param_vector(params):
         result = []
         assert(len(params) == len(param_range_tuples))
-        for i, (syn_type, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((syn_type, sec_type, syn_name, param_name, params[i]))
+        for i, (source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+            result.append((source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
         result = []
-        for (syn_type, sec_type, syn_name, param_name, param_value) in params:
+        for (source, sec_type, syn_name, param_name, param_value) in params:
             result.append(param_value)
         return result
     
