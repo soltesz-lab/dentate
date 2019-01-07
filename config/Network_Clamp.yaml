@@ -79,16 +79,28 @@ Synaptic Optimization:
     Target firing rate: 1.0
   MC:
     Parameter ranges:
-      inhibitory:
+      HC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      HCC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      BC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
         soma:
           GABA_A:
-            g_unit: [0.0001, 0.01]
+            g_unit: [0.0001, 0.002]
+      AAC:
+        soma:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
 #        ais:
 #          GABA_A:
 #            g_unit: [0.0001, 0.003]
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.01]
     Target firing rate: 10.0
       
 

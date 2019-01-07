@@ -494,11 +494,11 @@ class SynapseAttributes(object):
                                    [gid, syn_sections, syn_indexes, syn_types, layers, sources, swc_types]))
             if cache_args in self.filter_cache:
                 return self.filter_cache[cache_args]
-          
+        
         if sources is None:
             source_indexes = None
         else:
-            source_indexes = set([self.env.Populations(source) for source in sources])
+            source_indexes = set(sources)
 
         if syn_sections is not None:
             # Fast path
@@ -660,7 +660,10 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
             raise RuntimeError("insert_hoc_cell_syns: unsupported synapse SWC type %d for synapse %d" %
                                (swc_type, syn_id))
 
-        for syn_name, params in viewitems(syn_params):
+        mech_params = syn_params[swc_type]
+        
+        for syn_name, params in viewitems(mech_params):
+
             syn_mech = make_syn_mech(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
                                      mech_names=syn_attrs.syn_mech_names)
 
@@ -849,8 +852,10 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         nc_count = 0
         mech_count = 0
 
-        syn_names = list(env.connection_config[postsyn_name][presyn_name].mechanisms.keys())
-        syn_indexes = [syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names]
+        mech_config_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
+        sec_indexes = mech_config_dict.keys()
+        syn_names = set(itertools.chain.from_iterable([ mech_config_dict[sec_index].keys() for sec_index in sec_indexes ]))
+        syn_indexes = set([syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names])
         for syn_id, syn in source_syns:
             total_syn_id_count += 1
             for syn_name, syn_index in zip_longest(syn_names, syn_indexes):

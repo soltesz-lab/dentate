@@ -398,26 +398,31 @@ class Env:
             connection_dict[key_postsyn] = {}
             
             for (key_presyn, syn_dict) in viewitems(val_syntypes):
-                val_type        = syn_dict['type']
-                val_synsections = syn_dict['sections']
-                val_synlayers   = syn_dict['layers']
-                val_proportions = syn_dict['proportions']
-                val_synparams   = syn_dict['mechanisms']
+                val_type         = syn_dict['type']
+                val_synsections  = syn_dict['sections']
+                val_synlayers    = syn_dict['layers']
+                val_proportions  = syn_dict['proportions']
+                val_mechparams   = syn_dict['mechanisms']
 
                 res_type = self.Synapse_Types[val_type]
                 res_synsections = []
                 res_synlayers = []
+                res_mechparams = {}
+
                 for name in val_synsections:
                     res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
                     res_synlayers.append(self.layers[name])
-                
+                for swc_type in val_mechparams:
+                    swc_type_index = self.SWC_Types[swc_type]
+                    res_mechparams[swc_type_index] = val_mechparams[swc_type]
+                    
                 connection_dict[key_postsyn][key_presyn] = \
                   SynapseConfig(res_type, \
                                 res_synsections, \
                                 res_synlayers, \
                                 val_proportions, \
-                                val_synparams)
+                                res_mechparams)
                                     
 
             config_dict = defaultdict(lambda: 0.0)
