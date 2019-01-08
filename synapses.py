@@ -1595,6 +1595,7 @@ def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
     if rank == sample_rank:
         write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm0})
 
+    comm0.barrier()
     comm0.Free()
     comm.barrier()
 
