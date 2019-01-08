@@ -68,6 +68,12 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
                                     layers=[layer_IML, layer_MML, layer_OML],
                                     swc_types=[swc_type_apical],
                                     cache=True)
+        exc_dend_synapses_PP = \
+        syn_attrs.filter_synapses(gid,
+                                    syn_types=[syn_type_excitatory],
+                                    swc_types=[swc_type_apical],
+                                    sources=['MPP', 'LPP'],
+                                    cache=True)
 
         end_time = time.time()
         print("time to filter %d excitatory and %d inhibitory synapses (iteration %i): %f s" % \

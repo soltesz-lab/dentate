@@ -405,8 +405,6 @@ def connect_cell_selection(env, cleanup=True):
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
             
-            syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
-
             edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
