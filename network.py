@@ -261,7 +261,10 @@ def connect_cells(env, cleanup=True):
                     h.psection(sec=sec)
 
             if gid == first_gid:
-                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], sample_rank=0)
+                if rank == 0:
+                    synapses.sample_syn_mech_attrs(env, postsyn_name, [gid])
+                else:
+                    synapses.sample_syn_mech_attrs(env, postsyn_name, [])
                 """
                 if rank == 0 and 'AMPA' in syn_attrs.syn_mech_names and gid in env.biophys_cells[postsyn_name]:
                     biophys_cell = env.biophys_cells[postsyn_name][gid]
