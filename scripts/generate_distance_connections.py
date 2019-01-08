@@ -94,7 +94,7 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
     destination_populations = read_population_names(forest_path)
 
     if len(soma_distances) == 0:
-        soma_distances = measure_distances(env, comm, soma_coords, allgather=True)
+        soma_distances = measure_distances(env, soma_coords, allgather=True)
 
     for destination_population in destination_populations:
 
