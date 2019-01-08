@@ -27,11 +27,12 @@ set -x
 
 
 ibrun -np 240 python ./scripts/generate_distance_connections.py \
-       --config=./config/Full_Scale_Control.yaml \
-       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20180908.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20181128.h5 \
+       --config-prefix=./config \
+       --config=Full_Scale_Pas.yaml \
+       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20181226_compressed.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20181227.h5 \
        --connectivity-namespace=Connections \
-       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20180717.h5 \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20181223.h5 \
        --coords-namespace=Coordinates \
        --io-size=12 --cache-size=20 --write-size=40 -v
 

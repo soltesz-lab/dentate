@@ -3,7 +3,7 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import itertools
+import itertools, gc
 import dentate
 from dentate.neuron_utils import *
 from dentate.utils import viewitems, zip_longest, compose_iter, profile_memory
@@ -25,7 +25,7 @@ def ld_bal(env):
     For given cxvec on each rank, calculates the fractional load balance.
 
     :param env: an instance of the `dentate.Env` class.
-    """
+   """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     cxvec = env.cxvec
@@ -110,6 +110,9 @@ def connect_cells(env, cleanup=True):
 
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
+        if rank == 0:
+            logger.info('*** Reading projections of population %s' % postsyn_name)
+
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
             correct_for_spines = synapse_config['correct_for_spines']
@@ -156,8 +159,8 @@ def connect_cells(env, cleanup=True):
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
                                                                 node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
-        cell_synapses_iter = cell_attributes_dict['Synapse Attributes']
-        syn_attrs.init_syn_id_attrs_from_iter(cell_synapses_iter)
+        syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
+        del cell_attributes_dict['Synapse Attributes']
         
         if weights_namespace in cell_attributes_dict:
             syn_weights_iter = cell_attributes_dict[weights_namespace]
@@ -181,7 +184,7 @@ def connect_cells(env, cleanup=True):
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
 
-        del cell_attributes_dict
+            del cell_attributes_dict[weights_namespace]
 
         first_gid = None
         for gid in syn_attrs.gids():
@@ -241,10 +244,14 @@ def connect_cells(env, cleanup=True):
                 synapses.init_syn_mech_attrs(biophys_cell, env)
 
             postsyn_cell = env.pc.gid2cell(gid)
+
+            if rank == 0 and gid == first_gid:
+                logger.info('Rank %i: configuring synapses for gid %i' % (rank, gid))
             
             last_time = time.time()
             syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(
                 env, gid, postsyn_name, cell=postsyn_cell, unique=unique, insert=True, insert_netcons=True)
+
             if rank == 0 and gid == first_gid:
                 logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
                             'connections for gid %d' % \
@@ -252,6 +259,7 @@ def connect_cells(env, cleanup=True):
                 hoc_cell = env.pc.gid2cell(gid)
                 for sec in list(hoc_cell.all):
                     h.psection(sec=sec)
+
             if gid == first_gid:
                 synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], sample_rank=0)
                 """
@@ -282,10 +290,11 @@ def connect_cells(env, cleanup=True):
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
+        gc.collect()
+
         if rank == 0:
             logger.info('Rank %i: took %f s to configure synapses for population %s' %
                         (rank, time.time() - pop_last_time, postsyn_name))
-
 
 def connect_cell_selection(env, cleanup=True):
     """
@@ -579,6 +588,7 @@ def make_cells(env):
                         env.recs_dict[pop_name]['Soma'].append(rec)
 
                 num_cells += 1
+            del trees
 
         elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
             if rank == 0:

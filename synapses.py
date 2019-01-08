@@ -581,6 +581,7 @@ class SynapseAttributes(object):
         Removes the synapse attributes associated with the given cell gid.
         """
         del self.syn_id_attr_dict[gid]
+        del self.sec_dict[gid]
 
     def clear_filter_cache(self):
         self.filter_cache.clear()
@@ -1529,7 +1530,7 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
     if syn_names is None:
         syn_names = syn_attrs.syn_name_index_dict.keys()
 
-    output_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    output_dict = { syn_name: defaultdict(lambda: defaultdict(list)) for syn_name in syn_names }
     for gid in gids:
         if filters is None:
             syns_dict = syn_attrs.syn_id_attr_dict[gid]
@@ -1571,29 +1572,20 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                               **write_kwds)
 
 
-def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
+def sample_syn_mech_attrs(env, pop_name, gids):
     """
-    Writes mechanism attributes for the given cells and the given rank to a NeuroH5 file.
+    Writes mechanism attributes for the given cells to a NeuroH5 file.
     Assumes that attributes have been set via config_syn.
     
     :param env: instance of env.Env
     :param pop_name: population name
     :param gids: cell ids
-    :param sample_rank: rank id
     """
     rank = int(env.pc.id())
-    if rank == sample_rank:
-        color = 1
-    else:
-        gids = []
-        color = 0
 
     comm = env.comm
-    comm0 = comm.Split(color, 0)
-
-    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm0})
-    comm0.Free()
-    env.pc.barrier()
+        
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': env.comm})
 
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
