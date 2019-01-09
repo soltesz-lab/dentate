@@ -1572,7 +1572,7 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                               **write_kwds)
 
 
-def sample_syn_mech_attrs(env, pop_name, gids):
+def sample_syn_mech_attrs(env, pop_name, gids, comm=None):
     """
     Writes mechanism attributes for the given cells to a NeuroH5 file.
     Assumes that attributes have been set via config_syn.
@@ -1581,11 +1581,10 @@ def sample_syn_mech_attrs(env, pop_name, gids):
     :param pop_name: population name
     :param gids: cell ids
     """
-    rank = int(env.pc.id())
-
-    comm = env.comm
+    if comm is None:
+        comm = env.comm
         
-    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': env.comm})
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm})
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
 

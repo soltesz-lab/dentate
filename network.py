@@ -234,7 +234,11 @@ def connect_cells(env, cleanup=True):
 
         first_gid = None
         pop_last_time = time.time()
-        for gid in syn_attrs.gids():
+
+        gids = syn_attrs.gids()
+        comm0 = env.comm.Split(2 if len(gids) > 0 else 0, 0)
+        
+        for gid in gids:
 
             if first_gid is None:
                 first_gid = gid
@@ -261,10 +265,7 @@ def connect_cells(env, cleanup=True):
                     h.psection(sec=sec)
 
             if gid == first_gid:
-                if rank == 0:
-                    synapses.sample_syn_mech_attrs(env, postsyn_name, [gid])
-                else:
-                    synapses.sample_syn_mech_attrs(env, postsyn_name, [])
+                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], comm=comm0)
                 """
                 if rank == 0 and 'AMPA' in syn_attrs.syn_mech_names and gid in env.biophys_cells[postsyn_name]:
                     biophys_cell = env.biophys_cells[postsyn_name][gid]
@@ -293,6 +294,7 @@ def connect_cells(env, cleanup=True):
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
+        comm0.Free()
         gc.collect()
 
         if rank == 0:
