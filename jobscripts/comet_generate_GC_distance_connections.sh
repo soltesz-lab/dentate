@@ -26,10 +26,11 @@ ulimit -c unlimited
 set -x
 
 ibrun -np 768 python ./scripts/generate_distance_connections.py \
-       --config=./config/Full_Scale_Control.yaml \
-       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20180812_compressed.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20181128.h5 \
+       --config-prefix=./config \
+       --config=Full_Scale_Pas.yaml \
+       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20181222_compressed.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20181225.h5 \
        --connectivity-namespace=Connections \
-       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20180717.h5 \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20181223.h5 \
        --coords-namespace=Coordinates \
        --io-size=160 --cache-size=20 --write-size=40 --value-chunk-size=200000 --chunk-size=50000 -v

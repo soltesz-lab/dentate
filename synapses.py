@@ -581,6 +581,7 @@ class SynapseAttributes(object):
         Removes the synapse attributes associated with the given cell gid.
         """
         del self.syn_id_attr_dict[gid]
+        del self.sec_dict[gid]
 
     def clear_filter_cache(self):
         self.filter_cache.clear()
