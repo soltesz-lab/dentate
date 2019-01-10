@@ -146,7 +146,7 @@ Synapses:
             tau_rise: 0.5
             tau_decay: 6.0
             e: -75
-            g_unit: 0.004
+            g_unit: 0.003
     HC:   
       type: inhibitory
       sections: [apical, apical]
@@ -158,7 +158,7 @@ Synapses:
             tau_rise: 0.5
             tau_decay: 6.0
             e: -75
-            g_unit: 0.004
+            g_unit: 0.003
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -212,7 +212,7 @@ Synapses:
             tau_rise: 0.45
             tau_decay: 2.2
             e: 0
-            g_unit: 0.00075
+            g_unit: 0.001
     HC:   
       type: inhibitory
       sections: [apical]
@@ -327,13 +327,13 @@ Synapses:
             tau_rise: 0.37
             tau_decay: 10.48
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.00075
         apical:
           GABA_A:
             tau_rise: 0.37
             tau_decay: 10.48
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.00075
   BC:
     GC:   
       type: excitatory
@@ -735,13 +735,13 @@ Synapses:
             tau_rise: 0.46
             tau_decay: 4.43
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.00075
         soma:
           GABA_A:
             tau_rise: 0.46
             tau_decay: 4.43
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.00075
   NGFC:
     MPP:
       type: excitatory
@@ -1010,19 +1010,19 @@ Synapses:
             tau_rise: 0.37
             tau_decay: 10.48
             e: -75
-            g_unit: 0.0010
+            g_unit: 0.0005
         basal:
           GABA_A:
             tau_rise: 0.37
             tau_decay: 10.48
             e: -75
-            g_unit: 0.0010
+            g_unit: 0.0005
         apical:
           GABA_A:
             tau_rise: 0.37
             tau_decay: 10.48
             e: -75
-            g_unit: 0.0010
+            g_unit: 0.0005
 Connection Velocity:
   AAC: 250.0
   BC: 250.0
