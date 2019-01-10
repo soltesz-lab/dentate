@@ -660,7 +660,10 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
             raise RuntimeError("insert_hoc_cell_syns: unsupported synapse SWC type %d for synapse %d" %
                                (swc_type, syn_id))
 
-        mech_params = syn_params[swc_type]
+        if 'default' in syn_params:
+            mech_params = syn_params['default']
+        else:
+            mech_params = syn_params[swc_type]
         
         for syn_name, params in viewitems(mech_params):
 
@@ -832,8 +835,10 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
             if source_syns is not None:
                 source_syn_ids = [x[0] for x in source_syns]
                 syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
+                syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
                                      insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
+                if verbose:
+                    logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted %i mechanisms for source %s' % (postsyn_name, gid, mech_count, presyn_name))
         if verbose:
               logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
                           (postsyn_name, gid, time.time() - last_time))

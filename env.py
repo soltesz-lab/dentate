@@ -402,7 +402,12 @@ class Env:
                 val_synsections  = syn_dict['sections']
                 val_synlayers    = syn_dict['layers']
                 val_proportions  = syn_dict['proportions']
-                val_mechparams   = syn_dict['mechanisms']
+                val_mechparams    = None
+                val_swctype_mechparams    = None
+                if 'mechanisms' in syn_dict:
+                    val_mechparams   = syn_dict['mechanisms']
+                else:
+                    val_swctype_mechparams = syn_dict['swctype mechanisms']
 
                 res_type = self.Synapse_Types[val_type]
                 res_synsections = []
@@ -413,10 +418,13 @@ class Env:
                     res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
                     res_synlayers.append(self.layers[name])
-                for swc_type in val_mechparams:
-                    swc_type_index = self.SWC_Types[swc_type]
-                    res_mechparams[swc_type_index] = val_mechparams[swc_type]
-                    
+                if val_swctype_mechparams is not None:
+                    for swc_type in val_swctype_mechparams:
+                        swc_type_index = self.SWC_Types[swc_type]
+                        res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
+                else:
+                    res_mechparams['default'] = val_mechparams
+                        
                 connection_dict[key_postsyn][key_presyn] = \
                   SynapseConfig(res_type, \
                                 res_synsections, \
