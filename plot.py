@@ -1878,12 +1878,19 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     
     timeRange = [tmin, tmax]
 
+
+    histo_dict = {}
     # Calculate spike histogram if requested
     if spikeHist:
         all_spkts = np.concatenate(spktlst, axis=0)
         histoCount, bin_edges = np.histogram(all_spkts, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
         histoT = bin_edges[:-1]+spikeHistBin/2
-
+        for pop_name, spkts in itertools.izip(spkpoplst, spktlst):
+            
+            histoCount, bin_edges = np.histogram(spkts1, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
+            histoT = bin_edges[:-1]+spikeHistBin/2
+            histo_dict[pop_name] = (histoCount, histoT)
+        
     maxN = 0
     minN = N
 
@@ -1978,6 +1985,8 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             ax2.set_ylabel('Spike count', fontsize=fontSize)
             ax2.set_xlim(timeRange)
 
+            
+            
         # Plot intracellular state
         ax3=plt.subplot(gs[2])
         ax3.set_xlabel('Time (ms)', fontsize=fontSize)

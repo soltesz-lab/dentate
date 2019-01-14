@@ -67,7 +67,7 @@ def make_input_cell(env, gid, gen):
     return cell
 
 
-def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None, synapses_dict=None):
+def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None, load_synapses=True, synapses_dict=None):
     """
     Instantiates the mechanisms of a single cell.
 
@@ -87,7 +87,8 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
     configure_hoc_env(env)
     
     cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
-                            tree_dict=tree_dict, synapses_dict=synapses_dict)
+                            tree_dict=tree_dict, load_synapses=load_synapses,
+                            synapses_dict=synapses_dict)
 
     if mech_file_path is not None:
         init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,

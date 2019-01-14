@@ -943,6 +943,8 @@ def init(env, cleanup=True):
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
+    if env.coredat:
+        env.pc.nrnbbcore_write("dentate.coredat")
     if env.optldbal or env.optlptbal:
         cx(env)
         ld_bal(env)
