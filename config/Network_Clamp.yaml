@@ -64,18 +64,35 @@ Weight Generator:
 Synaptic Optimization:
   GC:
     Parameter ranges:
-      inhibitory:
-        soma:
+      AAC:
+        ais:
           GABA_A:
             g_unit: [0.0001, 0.004]
-        ais:
+      BC:
+        soma:
           GABA_A:
             g_unit: [0.0001, 0.004]
         apical:
           GABA_A:
             g_unit: [0.0001, 0.004]
+      HC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      HCC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      MOPP:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      NGFC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
           GABA_B:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0001, 0.002]
     Target firing rate: 1.0
   MC:
     Parameter ranges:
