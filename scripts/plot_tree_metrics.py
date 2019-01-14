@@ -5,9 +5,12 @@ import click
 import dentate
 from dentate import plot, utils
 
-script_name = 'plot_tree_metrics.py'
+script_name = os.path.basename(__file__)
+
 
 @click.command()
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", '-p', required=True, type=click.Path())
 @click.option("--coords-path", '-c', required=True, type=click.Path())
 @click.option("--population", type=str)
@@ -19,8 +22,11 @@ script_name = 'plot_tree_metrics.py'
 #@click.option("--normed", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(forest_path, coords_path, population, metric_namespace, distances_namespace, metric, metric_index, percentile, font_size, verbose):
-    plot.plot_tree_metrics (forest_path, coords_path, population, metric_namespace, distances_namespace,
+def main(config, config_prefix, forest_path, coords_path, population, metric_namespace, distances_namespace, metric, metric_index, percentile, font_size, verbose):
+
+    env = Env(config_file=config, config_prefix=config_prefix)
+
+    plot.plot_tree_metrics (env, forest_path, coords_path, population, metric_namespace, distances_namespace,
                                 metric=metric, metric_index=metric_index, percentile=percentile, fontSize=font_size, saveFig=True, verbose=verbose)
 
 if __name__ == '__main__':

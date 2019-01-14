@@ -12,6 +12,7 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--connectivity-path", '-p', required=True, type=click.Path())
@@ -25,7 +26,6 @@ sys.excepthook = mpi_excepthook
 def main(connectivity_path, coords_path, distances_namespace, destination, source, bin_size, font_size, verbose):
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(os.path.basename(__file__))
     comm = MPI.COMM_WORLD
 
     plot.plot_vertex_dist (connectivity_path, coords_path, distances_namespace,
@@ -36,5 +36,5 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
 

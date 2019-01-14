@@ -1592,7 +1592,6 @@ def sample_syn_mech_attrs(env, pop_name, gids):
         
     write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': env.comm})
 
-
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
 
 

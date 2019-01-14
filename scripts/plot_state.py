@@ -6,6 +6,8 @@ import dentate
 from dentate import utils, plot
 
 
+script_name = os.path.basename(__file__)
+
 @click.command()
 @click.option("--state-path", '-p', required=True, type=click.Path())
 @click.option("--state-namespace", '-n', type=str, default='Intracellular Voltage')
@@ -49,4 +51,4 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])

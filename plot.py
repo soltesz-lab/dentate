@@ -33,11 +33,10 @@ except ImportError as e:
     print('dentate.plot: problem importing module required by dentate.spikedata:', e)
 try:
     import dentate.stimulus as stimulus
-    from dentate.geometry import DG_volume
 except ImportError as e:
     print('dentate.plot: problem importing module required by dentate.stimulus:', e)
 try:
-    from dentate.geometry import DG_volume
+    from dentate.geometry import DG_volume, measure_distance_extents
 except ImportError as e:
     print('dentate.plot: problem importing module required by dentate.geometry:', e)
 
@@ -158,11 +157,11 @@ def add_bins(bins1, bins2, datatype):
     return bins1
 
 
-def plot_PP_metrics(coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=250.,
+def plot_PP_metrics(env, coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', binSize=250.,
                     metric='spacing', normed=False, graphType = 'histogram2d', fontSize=14, showFig = True,
                     saveFig = False):
     """
-
+    :param env:
     :param coords_path:
     :param features_path:
     :param distances_namespace:
@@ -225,12 +224,16 @@ def plot_PP_metrics(coords_path, features_path, distances_namespace, population=
 
     distance_U = np.asarray(distance_U, dtype='float32')
     distance_V = np.asarray(distance_V, dtype='float32')
- 
-    x_min, y_min = np.min(distance_U), np.min(distance_V)
-    x_max, y_max = np.max(distance_U), np.max(distance_V)
 
-    dx = int((x_max - x_min) / binSize)
-    dy = int((y_max - y_min) / binSize)
+    distance_x_min = np.min(distance_U_array)
+    distance_x_max = np.max(distance_U_array)
+    distance_y_min = np.min(distance_V_array)
+    distance_y_max = np.max(distance_V_array)
+ 
+    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
+
+    dx = int((distance_x_max - distance_x_min) / binSize)
+    dy = int((distance_y_max - distance_y_min) / binSize)
 
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -311,13 +314,15 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
     distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
 
-    x_min = np.min(distance_U)
-    x_max = np.max(distance_U)
-    y_min = np.min(distance_V)
-    y_max = np.max(distance_V)
+    distance_x_min = np.min(distance_U_array)
+    distance_x_max = np.max(distance_U_array)
+    distance_y_min = np.min(distance_V_array)
+    distance_y_max = np.max(distance_V_array)
 
-    dx = int((x_max - x_min) / binSize)
-    dy = int((y_max - y_min) / binSize)
+    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
+
+    dx = int((distance_x_max - distance_x_min) / binSize)
+    dy = int((distance_y_max - distance_y_min) / binSize)
 
     for source, degrees in viewitems(degrees_dict):
         
@@ -507,7 +512,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     comm.barrier()
 
 
-def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace, destination_gid,
+def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_namespace, destination_gid,
                             destination, source, extent_type='local',
                             bin_size=20.0, fontSize=14, showFig = True, saveFig = False):
     """
@@ -530,10 +535,8 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
     source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
     destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
 
-    total_x_min = float('inf')
-    total_x_max = 0
-    total_y_min = float('inf')
-    total_y_max = 0
+    ((total_x_min,total_x_max),(total_y_min,total_y_max)) = measure_distance_extents(env)
+
     source_soma_distance_U = {}
     source_soma_distance_V = {}
     destination_soma_distance_U = {}
@@ -541,17 +544,9 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
     for k,v in source_soma_distances:
         source_soma_distance_U[k] = v['U Distance'][0]
         source_soma_distance_V[k] = v['V Distance'][0]
-        total_x_min = min(total_x_min, v['U Distance'][0])
-        total_x_max = max(total_x_max, v['U Distance'][0])
-        total_y_min = min(total_y_min, v['V Distance'][0])
-        total_y_max = max(total_y_max, v['V Distance'][0])
     for k,v in destination_soma_distances:
         destination_soma_distance_U[k] = v['U Distance'][0]
         destination_soma_distance_V[k] = v['V Distance'][0]
-        total_x_min = min(total_x_min, v['U Distance'][0])
-        total_x_max = max(total_x_max, v['U Distance'][0])
-        total_y_min = min(total_y_min, v['V Distance'][0])
-        total_y_max = max(total_y_max, v['V Distance'][0])
 
     del(source_soma_distances)
     del(destination_soma_distances)
@@ -596,6 +591,7 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
 
     dx = int((source_x_max - source_x_min) / bin_size)
     dy = int((source_y_max - source_y_min) / bin_size)
+
     (H, xedges, yedges) = np.histogram2d(source_dist_u_array, \
                                          source_dist_v_array, \
                                          bins=[dx, dy])
@@ -639,7 +635,7 @@ def plot_single_vertex_dist(connectivity_path, coords_path, distances_namespace,
         show_figure()
     
 
-def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
+def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
                        metric='dendrite_length', metric_index=0, percentile=None, fontSize=14, showFig = True, saveFig = False):
     """
     Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
@@ -686,10 +682,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     distance_U_array = np.array([distance_U[k] for k in sorted_keys])
     distance_V_array = np.array([distance_V[k] for k in sorted_keys])
 
-    x_min = np.min(distance_U_array)
-    x_max = np.max(distance_U_array)
-    y_min = np.min(distance_V_array)
-    y_max = np.max(distance_V_array)
+    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
     (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, \
                                          bins=[dx, dy], weights=tree_metrics_array)
@@ -719,7 +712,7 @@ def plot_tree_metrics(forest_path, coords_path, population, metric_namespace='Tr
     return ax
 
 
-def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, graphType ='kde'):
+def plot_positions(env, label, distances, binSize=50., fontSize=14, showFig = True, saveFig = False, graphType ='kde'):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -740,15 +733,16 @@ def plot_positions(label, distances, binSize=50., fontSize=14, showFig = True, s
     distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
     distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
 
-    x_min = np.min(distance_U_array)
-    x_max = np.max(distance_U_array)
-    y_min = np.min(distance_V_array)
-    y_max = np.max(distance_V_array)
-    
+    distance_x_min = np.min(distance_U_array)
+    distance_x_max = np.max(distance_U_array)
+    distance_y_min = np.min(distance_V_array)
+    distance_y_max = np.max(distance_V_array)
+
+    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
     ax.axis([x_min, x_max, y_min, y_max])
 
-    dx = int((x_max - x_min) / binSize)
-    dy = int((y_max - y_min) / binSize)
+    dx = int((distance_x_max - distance_x_min) / binSize)
+    dy = int((distance_y_max - distance_y_min) / binSize)
     if graphType == 'histogram1d':
         bins_U = np.linspace(x_min, x_max, dx)
         bins_V = np.linspace(y_min, y_max, dy)
@@ -945,7 +939,7 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
     return ax
 
 
-def plot_reindex_positions(coords_path, population, distances_namespace='Arc Distances',
+def plot_reindex_positions(env, coords_path, population, distances_namespace='Arc Distances',
                            reindex_namespace='Tree Reindex', reindex_attribute='New Cell Index', 
                            fontSize=14, showFig = True, saveFig = False):
     """
@@ -981,13 +975,9 @@ def plot_reindex_positions(coords_path, population, distances_namespace='Arc Dis
     distance_U_array = np.asarray([distance_U[k] for k in sorted(distance_U.keys())])
     distance_V_array = np.asarray([distance_V[k] for k in sorted(distance_V.keys())])
 
-    x_min = np.min(distance_U_array)
-    x_max = np.max(distance_U_array)
-    y_min = np.min(distance_V_array)
-    y_max = np.max(distance_V_array)
+    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
     (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
-
 
     ax.axis([x_min, x_max, y_min, y_max])
 
@@ -1888,12 +1878,19 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     
     timeRange = [tmin, tmax]
 
+
+    histo_dict = {}
     # Calculate spike histogram if requested
     if spikeHist:
         all_spkts = np.concatenate(spktlst, axis=0)
         histoCount, bin_edges = np.histogram(all_spkts, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
         histoT = bin_edges[:-1]+spikeHistBin/2
-
+        for pop_name, spkts in itertools.izip(spkpoplst, spktlst):
+            
+            histoCount, bin_edges = np.histogram(spkts1, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
+            histoT = bin_edges[:-1]+spikeHistBin/2
+            histo_dict[pop_name] = (histoCount, histoT)
+        
     maxN = 0
     minN = N
 
@@ -1988,6 +1985,8 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             ax2.set_ylabel('Spike count', fontsize=fontSize)
             ax2.set_xlim(timeRange)
 
+            
+            
         # Plot intracellular state
         ax3=plt.subplot(gs[2])
         ax3.set_xlabel('Time (ms)', fontsize=fontSize)
@@ -3129,7 +3128,7 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
         show_figure()
 
 
-def plot_stimulus_spatial_rate_map(input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace,
+def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace,
                                     include, binSize = 100., fromSpikes = True, normed = False, figSize = (8,8),
                                     fontSize = 14, saveFig = None, showFig = True, verbose=False):
     """
@@ -3182,15 +3181,17 @@ def plot_stimulus_spatial_rate_map(input_path, coords_path, trajectory_id, stimu
         distance_U = np.asarray(distance_U, dtype='float32')
         distance_V = np.asarray(distance_V, dtype='float32')
         
-
+        distance_x_min = np.min(distance_U_array)
+        distance_x_max = np.max(distance_U_array)
+        distance_y_min = np.min(distance_V_array)
+        distance_y_max = np.max(distance_V_array)
+        
         logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
-        x_min = np.min(distance_U)
-        x_max = np.max(distance_U)
-        y_min = np.min(distance_V)
-        y_max = np.max(distance_V)
 
-        dx = int((x_max - x_min) / binSize)
-        dy = int((y_max - y_min) / binSize)
+        ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
+
+        dx = int((distance_x_max - distance_x_min) / binSize)
+        dy = int((distance_y_max - distance_y_min) / binSize)
 
         (H1, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spikes)
         (H2, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy])

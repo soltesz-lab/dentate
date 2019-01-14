@@ -2,7 +2,10 @@
 import sys, gc, os
 from mpi4py import MPI
 import click
-import utils, plot
+import dentate
+from dentate import utils, plot
+
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
@@ -21,7 +24,6 @@ import utils, plot
 def main(spike_events_path, spike_events_namespace, populations, bin_size, t_variable, t_max, t_min, quantity, graph_type, font_size, overlay, unit, verbose):
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(os.path.basename(__file__))
     
     if t_max is None:
         timeRange = None
@@ -44,7 +46,7 @@ def main(spike_events_path, spike_events_namespace, populations, bin_size, t_var
                                                overlay=overlay, saveFig=True)
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
 
 
     
