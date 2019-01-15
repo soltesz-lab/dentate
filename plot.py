@@ -1885,11 +1885,10 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
         all_spkts = np.concatenate(spktlst, axis=0)
         histoCount, bin_edges = np.histogram(all_spkts, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
         histoT = bin_edges[:-1]+spikeHistBin/2
-        for pop_name, spkts in itertools.izip(spkpoplst, spktlst):
-            
-            histoCount, bin_edges = np.histogram(spkts1, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
-            histoT = bin_edges[:-1]+spikeHistBin/2
-            histo_dict[pop_name] = (histoCount, histoT)
+#        for pop_name, spkts in itertools.izip(spkpoplst, spktlst):
+#            histoCount, bin_edges = np.histogram(spkts1, bins = np.arange(timeRange[0], timeRange[1], spikeHistBin))
+#            histoT = bin_edges[:-1]+spikeHistBin/2
+#            histo_dict[pop_name] = (histoCount, histoT)
         
     maxN = 0
     minN = N
