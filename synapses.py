@@ -498,11 +498,11 @@ class SynapseAttributes(object):
                                    [gid, syn_sections, syn_indexes, syn_types, layers, sources, swc_types]))
             if cache_args in self.filter_cache:
                 return self.filter_cache[cache_args]
-          
+        
         if sources is None:
             source_indexes = None
         else:
-            source_indexes = set([self.env.Populations(source) for source in sources])
+            source_indexes = set(sources)
 
         if syn_sections is not None:
             # Fast path
@@ -585,6 +585,7 @@ class SynapseAttributes(object):
         Removes the synapse attributes associated with the given cell gid.
         """
         del self.syn_id_attr_dict[gid]
+        del self.sec_dict[gid]
 
     def clear_filter_cache(self):
         self.filter_cache.clear()
@@ -664,7 +665,13 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
             raise RuntimeError("insert_hoc_cell_syns: unsupported synapse SWC type %d for synapse %d" %
                                (swc_type, syn_id))
 
-        for syn_name, params in viewitems(syn_params):
+        if 'default' in syn_params:
+            mech_params = syn_params['default']
+        else:
+            mech_params = syn_params[swc_type]
+        
+        for syn_name, params in viewitems(mech_params):
+
             syn_mech = make_syn_mech(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
                                      mech_names=syn_attrs.syn_mech_names)
 
@@ -833,8 +840,10 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
             if source_syns is not None:
                 source_syn_ids = [x[0] for x in source_syns]
                 syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
+                syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
                                      insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
+                if verbose:
+                    logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted %i mechanisms for source %s' % (postsyn_name, gid, mech_count, presyn_name))
         if verbose:
               logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
                           (postsyn_name, gid, time.time() - last_time))
@@ -853,8 +862,10 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         nc_count = 0
         mech_count = 0
 
-        syn_names = list(env.connection_config[postsyn_name][presyn_name].mechanisms.keys())
-        syn_indexes = [syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names]
+        mech_config_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
+        sec_indexes = mech_config_dict.keys()
+        syn_names = set(itertools.chain.from_iterable([ mech_config_dict[sec_index].keys() for sec_index in sec_indexes ]))
+        syn_indexes = set([syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names])
         for syn_id, syn in source_syns:
             total_syn_id_count += 1
             for syn_name, syn_index in zip_longest(syn_names, syn_indexes):
@@ -927,10 +938,10 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 i = mech_rules['netcon_params'][param]
 
                 if int(nc.wcnt()) >= i:
+                    old = nc.weight[i]
                     nc.weight[i] = val
                     nc_param = True
                     failed = False
-
         if failed:
             raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
                                  (param, mech_name))
@@ -1290,7 +1301,7 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], cache=cache_queries, **filters)
 
     if len(filtered_syns) > 0:
-        syn_ids = filtered_syns.iterkeys()
+        syn_ids = filtered_syns.keys()
         parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
                              update_targets=update_targets)
 
@@ -1322,6 +1333,7 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param update_targets: bool
 
     """
+
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
@@ -1527,7 +1539,7 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
     if syn_names is None:
         syn_names = syn_attrs.syn_name_index_dict.keys()
 
-    output_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    output_dict = { syn_name: defaultdict(lambda: defaultdict(list)) for syn_name in syn_names }
     for gid in gids:
         if filters is None:
             syns_dict = syn_attrs.syn_id_attr_dict[gid]
@@ -1569,30 +1581,19 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                               **write_kwds)
 
 
-def sample_syn_mech_attrs(env, pop_name, gids, sample_rank=0):
+def sample_syn_mech_attrs(env, pop_name, gids, comm=None):
     """
-    Writes mechanism attributes for the given cells and the given rank to a NeuroH5 file.
+    Writes mechanism attributes for the given cells to a NeuroH5 file.
     Assumes that attributes have been set via config_syn.
     
     :param env: instance of env.Env
     :param pop_name: population name
     :param gids: cell ids
-    :param sample_rank: rank id
     """
-    rank = int(env.pc.id())
-    if rank == sample_rank:
-        color = 1
-    else:
-        gids = []
-        color = 0
-
-    comm = env.comm
-    comm0 = comm.Split(color, 0)
-
-    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm0})
-    comm0.Free()
-    env.pc.barrier()
-
+    if comm is None:
+        comm = env.comm
+        
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm})
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
 

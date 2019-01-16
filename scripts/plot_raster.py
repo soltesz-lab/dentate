@@ -4,6 +4,7 @@ import click
 import dentate
 from dentate import utils, plot
 
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
@@ -31,8 +32,9 @@ def main(spike_events_path, spike_events_namespace, populations, max_spikes, spi
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, popRates=True, spikeHist='subplot', maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True)
+    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable,
+                            popRates=True, spikeHist='subplot', maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True)
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])

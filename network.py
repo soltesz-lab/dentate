@@ -3,10 +3,10 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import itertools
+import itertools, gc
 import dentate
 from dentate.neuron_utils import *
-from dentate.utils import viewitems, zip_longest, compose_iter
+from dentate.utils import viewitems, zip_longest, compose_iter, profile_memory
 from dentate import cells, synapses, lpt, lfp, simtime, io_utils
 import h5py
 from neuroh5.io import scatter_read_graph, bcast_graph, \
@@ -25,7 +25,7 @@ def ld_bal(env):
     For given cxvec on each rank, calculates the fractional load balance.
 
     :param env: an instance of the `dentate.Env` class.
-    """
+   """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     cxvec = env.cxvec
@@ -110,6 +110,9 @@ def connect_cells(env, cleanup=True):
 
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
+        if rank == 0:
+            logger.info('*** Reading projections of population %s' % postsyn_name)
+
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
             correct_for_spines = synapse_config['correct_for_spines']
@@ -156,8 +159,8 @@ def connect_cells(env, cleanup=True):
                                                                 namespaces=cell_attr_namespaces, comm=env.comm,
                                                                 node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
-        cell_synapses_iter = cell_attributes_dict['Synapse Attributes']
-        syn_attrs.init_syn_id_attrs_from_iter(cell_synapses_iter)
+        syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
+        del cell_attributes_dict['Synapse Attributes']
         
         if weights_namespace in cell_attributes_dict:
             syn_weights_iter = cell_attributes_dict[weights_namespace]
@@ -181,7 +184,7 @@ def connect_cells(env, cleanup=True):
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
                                     (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
 
-        del cell_attributes_dict
+            del cell_attributes_dict[weights_namespace]
 
         first_gid = None
         for gid in syn_attrs.gids():
@@ -231,7 +234,11 @@ def connect_cells(env, cleanup=True):
 
         first_gid = None
         pop_last_time = time.time()
-        for gid in syn_attrs.gids():
+
+        gids = syn_attrs.gids()
+        comm0 = env.comm.Split(2 if len(gids) > 0 else 0, 0)
+        
+        for gid in gids:
 
             if first_gid is None:
                 first_gid = gid
@@ -241,10 +248,14 @@ def connect_cells(env, cleanup=True):
                 synapses.init_syn_mech_attrs(biophys_cell, env)
 
             postsyn_cell = env.pc.gid2cell(gid)
+
+            if rank == 0 and gid == first_gid:
+                logger.info('Rank %i: configuring synapses for gid %i' % (rank, gid))
             
             last_time = time.time()
             syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(
                 env, gid, postsyn_name, cell=postsyn_cell, unique=unique, insert=True, insert_netcons=True)
+
             if rank == 0 and gid == first_gid:
                 logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
                             'connections for gid %d' % \
@@ -252,8 +263,9 @@ def connect_cells(env, cleanup=True):
                 hoc_cell = env.pc.gid2cell(gid)
                 for sec in list(hoc_cell.all):
                     h.psection(sec=sec)
+
             if gid == first_gid:
-                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], sample_rank=0)
+                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], comm=comm0)
                 """
                 if rank == 0 and 'AMPA' in syn_attrs.syn_mech_names and gid in env.biophys_cells[postsyn_name]:
                     biophys_cell = env.biophys_cells[postsyn_name][gid]
@@ -282,10 +294,12 @@ def connect_cells(env, cleanup=True):
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
 
+        comm0.Free()
+        gc.collect()
+
         if rank == 0:
             logger.info('Rank %i: took %f s to configure synapses for population %s' %
                         (rank, time.time() - pop_last_time, postsyn_name))
-
 
 def connect_cell_selection(env, cleanup=True):
     """
@@ -405,8 +419,6 @@ def connect_cell_selection(env, cleanup=True):
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
             
-            syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
-
             edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
@@ -581,6 +593,7 @@ def make_cells(env):
                         env.recs_dict[pop_name]['Soma'].append(rec)
 
                 num_cells += 1
+            del trees
 
         elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
@@ -843,13 +856,12 @@ def make_stimulus_selection(env, vecstim_sources):
                 stim_cell.play(cell_spikes)
                 register_cell(env, pop_name, gid, stim_cell)
 
-def init(env, cleanup=True, profile=False):
+def init(env, cleanup=True):
     """
     Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
     If env.optldbal or env.optlptbal are specified, performs load balancing.
 
     :param env: an instance of the `dentate.Env` class
-    :param profile: if true, print heap profile information as the cells and network connections are constructed.
     """
     from neuron import h
     configure_hoc_env(env)
@@ -871,10 +883,8 @@ def init(env, cleanup=True, profile=False):
         make_cells(env)
     else:
         make_cell_selection(env)
-    if profile and rank == 0:
-        from guppy import hpy
-        h = hpy()
-        logger.info(h.heap())
+    if env.profile_memory and rank == 0:
+        profile_memory(logger)
     env.pc.barrier()
     env.mkcellstime = h.stopsw()
     if rank == 0:
@@ -888,11 +898,11 @@ def init(env, cleanup=True, profile=False):
         env.connectgjstime = h.stopsw()
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
-    if profile and rank == 0:
-        from guppy import hpy
-        h = hpy()
-        logger.info(h.heap())
+            
     h.startsw()
+    if env.profile_memory and rank == 0:
+        profile_memory(logger)
+        
     if env.cell_selection is None:
         connect_cells(env, cleanup)
         vecstim_selection = None
@@ -901,10 +911,10 @@ def init(env, cleanup=True, profile=False):
     env.pc.set_maxstep(10.0)
     env.pc.barrier()
     env.connectcellstime = h.stopsw()
-    if profile and rank == 0:
-        from guppy import hpy
-        h = hpy()
-        logger.info(h.heap())
+    
+    if env.profile_memory and rank == 0:
+        profile_memory(logger)
+
     if rank == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
@@ -933,7 +943,8 @@ def init(env, cleanup=True, profile=False):
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
-    h.finitialize(env.v_init)
+    if env.coredat:
+        env.pc.nrnbbcore_write("dentate.coredat")
     if env.optldbal or env.optlptbal:
         cx(env)
         ld_bal(env)
@@ -955,7 +966,15 @@ def run(env, output=True):
 
     if rank == 0:
         logger.info("*** Running simulation")
+        
+    env.t_vec.resize(0)
+    env.id_vec.resize(0)
+    
+    h.t = 0
+    h.tstop = env.tstop
 
+    h.finitialize(env.v_init)
+    
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 

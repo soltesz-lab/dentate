@@ -23,9 +23,6 @@ logger = utils.get_module_logger(__name__)
 max_u = 11690.
 max_v = 2956.
 
-DG_u_extent = (-0.016*np.pi, 1.01*np.pi)
-DG_v_extent = (-0.23*np.pi, 1.425*np.pi)
-DG_l_extent = (-3.95, 3.1)
 
 def DG_volume(u, v, l, rotate=None):
     """Parametric equations of the dentate gyrus volume."""
@@ -360,9 +357,9 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
     return soma_distances
 
 
-def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
+def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
 
-    rank = comm.rank
+    rank = env.comm.rank
 
     min_u = float('inf')
     max_u = 0.0
@@ -428,9 +425,9 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
         coeff_dist_v = ip_dist_v._coeff
         logger.info('Broadcasting volume distance interpolants...')
         
-    obs_uv = comm.bcast(obs_uv, root=0)
-    coeff_dist_u = comm.bcast(coeff_dist_u, root=0)
-    coeff_dist_v = comm.bcast(coeff_dist_v, root=0)
+    obs_uv = env.comm.bcast(obs_uv, root=0)
+    coeff_dist_u = env.comm.bcast(coeff_dist_u, root=0)
+    coeff_dist_v = env.comm.bcast(coeff_dist_v, root=0)
     
     ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
                                penalty=interp_penalty)
@@ -438,12 +435,70 @@ def measure_distances(env, comm, soma_coords, resolution=[30, 30, 10], interp_ch
                                penalty=interp_penalty)
 
     
-    soma_distances = interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
+    soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=allgather)
 
     return soma_distances
 
 
+def measure_distance_extents(env):
+
+    min_u = float('inf')
+    max_u = 0.0
+
+    min_v = float('inf')
+    max_v = 0.0
+
+    min_l = float('inf')
+    max_l = 0.0
+    
+    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
+        min_u = min(min_extent[0], min_u)
+        min_v = min(min_extent[1], min_v)
+        min_l = min(min_extent[2], min_l)
+        
+    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
+        max_u = max(max_extent[0], max_u)
+        max_v = max(max_extent[1], max_v)
+        max_l = max(max_extent[2], max_l)
+        
+    rotate = env.geometry['Parametric Surface']['Rotation']
+    origin_spec = env.geometry['Parametric Surface']['Origin']
+
+    span_U = np.linspace(min_u, max_u, num=2000)
+    span_V = np.linspace(min_v, max_v, num=1000)
+    span_L = np.linspace(min_l, max_l, num=1000)
+
+    if origin_spec is None:
+        coord_U = np.median(span_U)
+        coord_V = np.median(span_V)
+        coord_L = np.median(span_L)
+    else:
+        coord_U = origin_spec['U'](span_U)
+        coord_V = origin_spec['V'](span_V)
+        coord_L = origin_spec['L'](span_L)
+
+    span1_U = np.linspace(min_u, coord_U, num=2000)
+    span2_U = np.linspace(coord_U, max_u, num=2000)
+    span1_V = np.linspace(min_v, coord_V, num=1000)
+    span2_V = np.linspace(coord_V, max_v, num=1000)
+    
+    u, v, l = np.meshgrid(span1_U, coord_V, coord_L, indexing='ij')
+    u1_xyz = DG_volume(u, v, l, rotate=rotate)
+    u, v, l = np.meshgrid(span2_U, coord_V, coord_L, indexing='ij')
+    u2_xyz = DG_volume(u, v, l, rotate=rotate)
+    u_dist_extent = (-np.sum(euclidean_distance(u1_xyz[:-1,:], u1_xyz[1:,:])),
+                      np.sum(euclidean_distance(u2_xyz[:-1,:], u2_xyz[1:,:])))
+    
+    u, v, l = np.meshgrid(coord_U, span1_V, coord_L, indexing='ij')
+    v1_xyz = DG_volume(u, v, l, rotate=rotate)
+    u, v, l = np.meshgrid(coord_U, span2_V, coord_L, indexing='ij')
+    v2_xyz = DG_volume(u, v, l, rotate=rotate)
+    
+    v_dist_extent = (-np.sum(euclidean_distance(v1_xyz[:-1,:], v1_xyz[1:,:])),
+                      np.sum(euclidean_distance(v2_xyz[:-1,:], v2_xyz[1:,:])))
+
+    return u_dist_extent, v_dist_extent
 
 def icp_transform(comm, env, soma_coords, projection_ls, population_extents, rotate=None, populations=None, icp_iter=1000, opt_iter=100):
     """

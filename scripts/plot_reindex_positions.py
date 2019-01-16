@@ -1,19 +1,15 @@
-import sys
-from mpi4py import MPI
+import sys, os
 import numpy as np
-from dentate import plot
+import dentate
+from dentate import plot, utils
 import click
 
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
+script_name = os.path.basename(__file__)
+
 
 @click.command()
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--population", '-i', type=str, required=True)
 @click.option("--distances-namespace", '-d', type=str, default='Arc Distances')
@@ -22,8 +18,13 @@ def list_find (f, lst):
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(coords_path, population, distances_namespace, reindex_namespace, reindex_attribute, verbose):
         
-    plot.plot_reindex_positions (coords_path, population, distances_namespace, reindex_namespace, reindex_attribute, verbose=verbose)
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(script_name))
+
+    env = Env(config_file=config, config_prefix=config_prefix)
+
+    plot.plot_reindex_positions (env, coords_path, population, distances_namespace, reindex_namespace, reindex_attribute)
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("plot_reindex_positions.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(script_name), sys.argv)+1):])

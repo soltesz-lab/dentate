@@ -4,6 +4,7 @@ import click
 import dentate
 from dentate import utils, plot
 
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
@@ -39,4 +40,4 @@ def main(spike_events_path, spike_events_namespace, coords_path, distances_names
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
