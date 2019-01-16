@@ -415,7 +415,7 @@ def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
             spkdict1 = { gid: spkdict[pop_name][gid]['t'] }
         else:
             spkdict1 = { gid: np.asarray([], dtype=np.float32) }
-        rate_dict = spikedata.spike_rates (spkdict1, env.tstop)
+        rate_dict = spikedata.spike_rates (spkdict1)
         if gid in spkdict[pop_name]:
             logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid]['t'])))
         logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))

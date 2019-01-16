@@ -18,7 +18,7 @@ def consecutive(data):
     return np.split(data, np.where(np.diff(data) != 1)[0]+1)
 
 
-def get_env_spike_dict(env):
+def get_env_spike_dict(env, t_start=0.0):
     """
     Constructs  a dictionary with per-gid spike times from the output vectors with spike times and gids contained in env.
     """
@@ -26,6 +26,11 @@ def get_env_spike_dict(env):
     t_vec = np.array(env.t_vec, dtype=np.float32)
     id_vec = np.array(env.id_vec, dtype=np.uint32)
 
+    if t_start > 0.0:
+        inds = np.where(t_vec >= t_start)
+        t_vec = t_vec[inds]
+        id_vec = id_vec[inds]
+    
     binlst  = []
     typelst = list(env.celltypes.keys())
     for k in typelst:
@@ -159,7 +164,7 @@ def interspike_intervals (spkdict):
     return isi_dict
 
 
-def spike_rates (spkdict, t):
+def spike_rates (spkdict):
     rate_dict = {}
     isidict = interspike_intervals(spkdict)
     for ind, isiv in viewitems(isidict):

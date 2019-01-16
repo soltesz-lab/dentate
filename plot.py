@@ -2397,7 +2397,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         sorted_count_idxs = np.argsort(counts)[::-1]
         if quantity == 'rate':
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            rate_dict = spikedata.spike_rates(spkdict, tmax-tmin)
+            rate_dict = spikedata.spike_rates(spkdict)
             rates = np.asarray([rate_dict[ind] for ind in u if rate_dict[ind] > 0])
             sorted_rate_idxs = np.argsort(rates)[::-1]
             
