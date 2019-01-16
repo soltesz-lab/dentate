@@ -1437,14 +1437,17 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
-                     load_weights=False):
+                     load_weights=False, set_edge_delays=True):
     """
     :param env: :class:'Env'
     :param pop_name: str
     :param gid: int
+    :param tree_dict: dict
+    :param synapses_dict: dict
     :param load_synapses: bool
     :param load_edges: bool
     :param load_weights: bool
+    :param set_edge_delays: bool
     :return: :class:'BiophysCell'
     """
     env.load_cell_template(pop_name)
@@ -1495,7 +1498,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             if pop_name in env.projection_dict:
                 for presyn_name in env.projection_dict[pop_name]:
                     edge_iter = graph[pop_name][presyn_name]
-                    syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter)
+                    syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)
             else:
                 logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
                 raise Exception

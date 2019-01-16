@@ -169,7 +169,7 @@ class SynapseAttributes(object):
             syn.source.population = presyn_index
             syn.source.delay = delay
 
-    def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter):
+    def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter, set_edge_delays=True):
         """
         Initializes edge attributes for all cell gids returned by iterator.
 
@@ -177,6 +177,7 @@ class SynapseAttributes(object):
         :param source_name: name of presynaptic (source) population (string)
         :param attr_info: dictionary mapping attribute name to indices in iterator tuple
         :param edge_iter: edge attribute iterator
+        :param set_edge_delays: bool
         """
         connection_velocity = float(self.env.connection_velocity[presyn_name])
         if pop_name in attr_info and presyn_name in attr_info[pop_name]:
@@ -200,7 +201,10 @@ class SynapseAttributes(object):
             edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
             edge_dists = edge_attrs['Connections'][distance_attr_index]
 
-            delays = [((distance / connection_velocity) + h.dt) for distance in edge_dists]
+            if set_edge_delays:
+                delays = [((distance / connection_velocity) + h.dt) for distance in edge_dists]
+            else:
+                delays = None
 
             self.init_edge_attrs(postsyn_gid, presyn_name, presyn_gids, edge_syn_ids, delays=delays)
 
