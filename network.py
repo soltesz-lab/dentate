@@ -856,6 +856,7 @@ def make_stimulus_selection(env, vecstim_sources):
                 stim_cell.play(cell_spikes)
                 register_cell(env, pop_name, gid, stim_cell)
 
+
 def init(env, cleanup=True):
     """
     Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.

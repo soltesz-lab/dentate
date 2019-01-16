@@ -9,6 +9,7 @@ from neuron import h
 from dentate.utils import *
 from dentate.neuron_utils import find_template
 
+
 SynapseConfig = namedtuple('SynapseConfig',
                                ['type',
                                 'sections',
@@ -94,6 +95,7 @@ class Env:
         self.profile_memory = profile_memory
             
         # print verbose diagnostic messages
+        self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
         
@@ -425,18 +427,11 @@ class Env:
                     res_mechparams['default'] = val_mechparams
                         
                 connection_dict[key_postsyn][key_presyn] = \
-                  SynapseConfig(res_type, \
-                                res_synsections, \
-                                res_synlayers, \
-                                val_proportions, \
-                                res_mechparams)
-                                    
+                    SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, res_mechparams)
 
             config_dict = defaultdict(lambda: 0.0)
             for (key_presyn, conn_config) in viewitems(connection_dict[key_postsyn]):
-                for (s,l,p) in zip(conn_config.sections, \
-                                   conn_config.layers, \
-                                   conn_config.proportions):
+                for (s,l,p) in zip(conn_config.sections, conn_config.layers, conn_config.proportions):
                     config_dict[(conn_config.type, s, l)] += p
                                               
             for (k,v) in viewitems(config_dict):
