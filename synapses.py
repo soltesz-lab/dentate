@@ -169,7 +169,7 @@ class SynapseAttributes(object):
             syn.source.population = presyn_index
             syn.source.delay = delay
 
-    def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter, set_edge_delays):
+    def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter, set_edge_delays=True):
         """
         Initializes edge attributes for all cell gids returned by iterator.
 
