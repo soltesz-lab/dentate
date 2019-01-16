@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Dentate Gyrus model simulation script for interactive debugging.
+Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
 import sys, click, os

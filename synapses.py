@@ -840,10 +840,12 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
             if source_syns is not None:
                 source_syn_ids = [x[0] for x in source_syns]
                 syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-                syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
-                                     insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
+                syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids,
+                                                                       unique=unique, insert_netcons=insert_netcons,
+                                                                       insert_vecstims=insert_vecstims)
                 if verbose:
-                    logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted %i mechanisms for source %s' % (postsyn_name, gid, mech_count, presyn_name))
+                    logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted %i mechanisms for source %s' %
+                                (postsyn_name, gid, mech_count, presyn_name))
         if verbose:
               logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
                           (postsyn_name, gid, time.time() - last_time))
@@ -864,11 +866,12 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
 
         mech_config_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
         sec_indexes = mech_config_dict.keys()
-        syn_names = set(itertools.chain.from_iterable([ mech_config_dict[sec_index].keys() for sec_index in sec_indexes ]))
-        syn_indexes = set([syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names])
+        syn_names = set(itertools.chain.from_iterable([mech_config_dict[sec_index].keys()
+                                                       for sec_index in sec_indexes]))
         for syn_id, syn in source_syns:
             total_syn_id_count += 1
-            for syn_name, syn_index in zip_longest(syn_names, syn_indexes):
+            for syn_name in syn_names:
+                syn_index = syn_attrs.syn_name_index_dict[syn_name]
                 if syn_index in syn.attr_dict:
                     this_pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                     if this_pps is None and throw_error:
