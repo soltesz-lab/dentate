@@ -22,7 +22,10 @@ Layers:
   GCL:   1
   IML:   2
   MML:   3
-  OML:   4 
+  OML:   4
+  Oriens: 5
+  Pyramidal: 6
+  Lucidum: 7
 Populations:
   GC:   0
   MC:   1
