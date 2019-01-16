@@ -24,9 +24,9 @@ kwargs:
   config_file: Small_Scale_Control_test_load_LN_weights_Sat.yaml
   template_paths: ../../DGC/Mateos-Aparicio2014:../templates
   hoc_lib_path: ..
-  dataset_prefix: ../datasets
+  dataset_prefix: /global/cscratch1/sd/aaronmil/dentate
   config_prefix: ../config
-  results_path: ../data
+  results_path: /global/cscratch1/sd/aaronmil/dentate/results
   tstop: 10.
   v_init: -77.
   max_walltime_hours: 1.
