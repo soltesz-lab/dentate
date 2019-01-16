@@ -100,7 +100,7 @@ def compute_features_network_walltime(x, export=False):
     update_source_contexts(x, context)
     results['modify_network_time'] = time.time() - start_time
     start_time = time.time()
-    network.run(context.env, output=export)
+    network.run(context.env, output=context.output_results)
     results['sim_network_time'] = time.time() - start_time
 
     return results

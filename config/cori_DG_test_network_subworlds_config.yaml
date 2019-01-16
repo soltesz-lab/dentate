@@ -35,6 +35,7 @@ kwargs:
   cleanup: False
   verbose: True
   cache_queries: True
+  output_results: True
 target_range:
   modify_network_time: 1.
   sim_network_time: 10.
