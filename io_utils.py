@@ -126,6 +126,7 @@ def mkout(env, results_filename):
     data_file.close()
     results_file.close()
 
+
 def spikeout(env, output_path):
     """
     Writes spike time to specified NeuroH5 output file.

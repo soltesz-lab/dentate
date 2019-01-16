@@ -206,10 +206,9 @@ class Env:
         self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
-            self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
+            self.results_file_path = "%s/%s_%s_results.h5" % (self.results_path, self.modelName, self.results_id)
         else:
-            self.results_file_path = "%s_results.h5" % self.modelName
-
+            self.results_file_path = "%s_%s_results.h5" % (self.modelName, self.results_id)
 
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
