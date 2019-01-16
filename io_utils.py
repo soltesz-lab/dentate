@@ -191,8 +191,11 @@ def recsout(env, output_path):
             attr_dict = {}
             for rec in recs:
                 gid = rec['gid']
-                attr_dict[gid] = {'v': np.array(rec['vec'], dtype=np.float32), 't': t_vec} 
-            namespace_id = "Intracellular Voltage %s" % rec_type
+                attr_dict[gid] = {'v': np.array(rec['vec'], dtype=np.float32), 't': t_vec}
+            if env.results_id is None:
+                namespace_id = "Intracellular Voltage %s" % rec_type
+            else:
+                namespace_id = "Intracellular Voltage %s %s" % (rec_type, str(env.results_id))
             write_cell_attributes(output_path, pop_name, attr_dict, \
                                   namespace=namespace_id, comm=env.comm)
 
@@ -209,7 +212,10 @@ def lfpout(env, output_path):
 
     for lfp in env.lfp.values():
 
-        namespace_id = "Local Field Potential %s" % str(lfp.label)
+        if env.results_id is None:
+            namespace_id = "Local Field Potential %s" % str(lfp.label)
+        else:
+            namespace_id = "Local Field Potential %s %s" % (str(lfp.label), str(env.results_id))
         import h5py
         output = h5py.File(output_path)
         
