@@ -51,7 +51,7 @@ aprun -n 16384 -b -- bwpy-environ -- \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=2500 \
+    --tstop=1200 \
     --v-init=-75 \
     --stimulus-onset=50.0 \
     --max-walltime-hours=3.9 \
