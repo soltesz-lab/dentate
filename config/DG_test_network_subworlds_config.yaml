@@ -31,6 +31,7 @@ kwargs:
   v_init: -77.
   max_walltime_hours: 1.
   results_write_time: 360.
+  vrecord_fraction: 0.1
   dt: 0.025
   cleanup: False
   verbose: True
