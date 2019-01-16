@@ -27,7 +27,7 @@ kwargs:
   dataset_prefix: ../datasets
   config_prefix: ../config
   results_path: ../data
-  tstop: 10.
+  tstop: 0.
   v_init: -77.
   max_walltime_hours: 1.
   results_write_time: 360.
@@ -36,7 +36,7 @@ kwargs:
   cleanup: False
   verbose: True
   cache_queries: True
-  output_results: True
+  output_results: False
 target_range:
   modify_network_time: 1.
   sim_network_time: 10.

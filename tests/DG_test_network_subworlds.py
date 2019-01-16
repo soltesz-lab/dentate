@@ -85,7 +85,6 @@ def update_network(x, context=None):
     if context is None:
         raise RuntimeError('update_network: missing required Context object')
     x_dict = param_array_to_dict(x, context.param_names)
-    print x_dict
 
 
 def compute_features_network_walltime(x, export=False):
@@ -100,7 +99,7 @@ def compute_features_network_walltime(x, export=False):
     update_source_contexts(x, context)
     results['modify_network_time'] = time.time() - start_time
     start_time = time.time()
-    network.run(context.env, output=context.output_results)
+    network.run(context.env, output=context.output_results, shutdown=False)
     results['sim_network_time'] = time.time() - start_time
 
     return results
@@ -116,7 +115,12 @@ def get_objectives_network_walltime(features):
     for feature_key in context.feature_names:
         objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
                                    context.target_range[feature_key]) ** 2.
-
+    if context.comm.rank == 0:
+        print 'worker_id: %i' % context.interface.worker_id
+        print 'features:'
+        pprint.pprint(features)
+        print 'objectives:'
+        pprint.pprint(objectives)
     return features, objectives
 
 
