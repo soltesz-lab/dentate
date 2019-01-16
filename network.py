@@ -952,7 +952,7 @@ def init(env, cleanup=True):
             lpt_bal(env)
 
 
-def run(env, output=True):
+def run(env, output=True, shutdown=True):
     """
     Runs network simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
@@ -980,7 +980,10 @@ def run(env, output=True):
 
     if rank == 0:
         logger.info("*** Simulation completed")
-    del env.cells
+
+    if shutdown:
+        del env.cells
+
     env.pc.barrier()
     if output:
         if rank == 0:
@@ -1026,6 +1029,7 @@ def run(env, output=True):
             for i in range(nhosts):
                 logger.info("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
 
-    env.pc.runworker()
-    env.pc.done()
-    h.quit()
+    if shutdown:
+        env.pc.runworker()
+        env.pc.done()
+        h.quit()
