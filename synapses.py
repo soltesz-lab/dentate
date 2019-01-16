@@ -669,9 +669,9 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
             mech_params = syn_params['default']
         else:
             mech_params = syn_params[swc_type]
-        
-        for syn_name, params in viewitems(mech_params):
 
+        for syn_name, params in viewitems(mech_params):
+            
             syn_mech = make_syn_mech(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
                                      mech_names=syn_attrs.syn_mech_names)
 
