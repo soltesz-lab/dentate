@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 """
-Dentate Gyrus model simulation script for interactive debugging.
+Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
 import sys, click, os
 from mpi4py import MPI
 import numpy as np
 import dentate.network as network
-from dentate.env import Env
-from dentate.utils import list_find
+from dentate.biophysics_utils import *
 from nested.optimize_utils import *
 
 
@@ -62,7 +61,7 @@ def config_worker():
     """
     if 'results_id' not in context():
         context.results_id = 'DG_test_network_subworlds_%s_%s' % \
-                             (datetime.datetime.today().strftime('%Y%m%d_%H%M'), context.interface.worker_id)
+                             (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         init_network()
 
@@ -85,6 +84,27 @@ def update_network(x, context=None):
     if context is None:
         raise RuntimeError('update_network: missing required Context object')
     x_dict = param_array_to_dict(x, context.param_names)
+    for postsyn_name in ['GC']:
+        first_gid = True
+        for gid in context.env.biophys_cells[postsyn_name]:
+            if context.comm.rank == 0 and first_gid and context.verbose:
+                verbose = True
+                first_gid = False
+            else:
+                verbose = False
+            cell = context.env.biophys_cells[postsyn_name][gid]
+            for presyn_name, param_name, syn_name, syn_param_name in \
+                    zip(['BC'], ['BC_GC.GABA_A.g_unit'], ['GABA_A'], ['g_unit']):
+                sec_types = \
+                    context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['sections']
+                layers = \
+                    context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['layers']
+                syn_types = \
+                    [context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['type']]
+                for sec_type in sec_types:
+                    modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, param_name=syn_param_name,
+                                     filters={'syn_types': syn_types, 'sources': [presyn_name], 'layers': layers},
+                                     value=x_dict[param_name], update_targets=True, verbose=verbose)
 
 
 def compute_features_network_walltime(x, export=False):
@@ -99,6 +119,7 @@ def compute_features_network_walltime(x, export=False):
     update_source_contexts(x, context)
     results['modify_network_time'] = time.time() - start_time
     start_time = time.time()
+    context.env.results_id = '%s_%s' % (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     network.run(context.env, output=context.output_results, shutdown=False)
     results['sim_network_time'] = time.time() - start_time
 
@@ -115,12 +136,7 @@ def get_objectives_network_walltime(features):
     for feature_key in context.feature_names:
         objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
                                    context.target_range[feature_key]) ** 2.
-    if context.comm.rank == 0:
-        print 'worker_id: %i' % context.interface.worker_id
-        print 'features:'
-        pprint.pprint(features)
-        print 'objectives:'
-        pprint.pprint(objectives)
+
     return features, objectives
 
 
