@@ -69,10 +69,10 @@ def config_worker():
 
 def init_network():
     """
-
+    
     """
     np.seterr(all='raise')
-    context.env = Env(comm=context.comm, **context.kwargs)
+    context.env = Env(comm=context.comm, results_id=context.results_id, **context.kwargs)
     network.init(context.env, context.cleanup)
 
 
