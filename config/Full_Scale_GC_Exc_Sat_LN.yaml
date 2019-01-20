@@ -21,7 +21,7 @@ Cell Types:
       correct_for_spines: True
       weights: True
       weights namespace: Log-Normal Weights
-     density: !include GC_synapse_density.yaml
+      density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
     synapses:
