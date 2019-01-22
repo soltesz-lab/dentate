@@ -253,9 +253,9 @@ Synapses:
             weight: 1.0
     AAC:  
       type: inhibitory
-      sections: [soma]
+      sections: [ais]
       layers: [Hilus]
-      proportions: [0.5]
+      proportions: [1.0]
       mechanisms:
         GABA_A:
           dur_onset: 0.3
