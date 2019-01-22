@@ -218,7 +218,7 @@ Synapses:
           tau_offset: 3.2
           e: 0
           sat: 0.9
-          g_unit: 0.00125
+          g_unit: 0.00175
     HC:   
       type: inhibitory
       sections: [apical]
