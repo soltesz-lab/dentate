@@ -208,6 +208,7 @@ class SynapseAttributes(object):
 
             self.init_edge_attrs(postsyn_gid, presyn_name, presyn_gids, edge_syn_ids, delays=delays)
 
+
     def add_pps(self, gid, syn_id, syn_name, pps):
         """
         Adds mechanism point process for the specified cell/synapse id/mechanism name.
