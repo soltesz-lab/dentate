@@ -196,8 +196,7 @@ def recsout(env, output_path):
                 namespace_id = "Intracellular Voltage %s" % rec_type
             else:
                 namespace_id = "Intracellular Voltage %s %s" % (rec_type, str(env.results_id))
-            write_cell_attributes(output_path, pop_name, attr_dict, \
-                                  namespace=namespace_id, comm=env.comm)
+            write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
 
 
 def lfpout(env, output_path):

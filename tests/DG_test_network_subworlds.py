@@ -51,8 +51,8 @@ def main(optimize_config_file_path, output_dir, export, export_file_path, label,
     """
     # requires a global variable context: :class:'Context'
     context.update(locals())
-    config_interactive(context, __file__, config_file_path=optimize_config_file_path, output_dir=output_dir,
-                       export=export, export_file_path=export_file_path, label=label, disp=verbose)
+    config_optimize_interactive(__file__, config_file_path=optimize_config_file_path, output_dir=output_dir,
+                                export=export, export_file_path=export_file_path, label=label, disp=verbose)
 
 
 def config_worker():
@@ -119,17 +119,19 @@ def compute_features_network_walltime(x, export=False):
     update_source_contexts(x, context)
     results['modify_network_time'] = time.time() - start_time
     start_time = time.time()
-    context.env.results_id = '%s_%s' % (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
+    context.env.results_id = '%s_%s' % \
+                             (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
     network.run(context.env, output=context.output_results, shutdown=False)
     results['sim_network_time'] = time.time() - start_time
 
     return results
 
 
-def get_objectives_network_walltime(features):
+def get_objectives_network_walltime(features, export=False):
     """
 
     :param features: dict
+    :param export: bool
     :return: tuple of dict
     """
     objectives = dict()

@@ -121,8 +121,8 @@ Synapses:
       proportions: [1.0, 1.0, 0.69]
       mechanisms:
         GABA_A:
-          tau_rise: 0.5
-          tau_decay: 6.0
+          tau_rise: 0.25
+          tau_decay: 9.0
           e: -75
           g_unit: 0.002
     HCC:  
@@ -133,7 +133,7 @@ Synapses:
       mechanisms:
         GABA_A:
           tau_rise: 0.5
-          tau_decay: 6.0
+          tau_decay: 9.0
           e: -75
           g_unit: 0.004
     HC:   
@@ -143,8 +143,8 @@ Synapses:
       proportions: [0.5, 0.5]
       mechanisms:
         GABA_A:
-          tau_rise: 0.5
-          tau_decay: 6.0
+          tau_rise: 2.5
+          tau_decay: 11.0
           e: -75
           g_unit: 0.004
     NGFC: 
@@ -155,8 +155,8 @@ Synapses:
       swctype mechanisms:
         apical:
           GABA_A:
-            tau_rise:  0.1
-            tau_decay: 10.0
+            tau_rise:  6.0
+            tau_decay: 15.0
             e:   -75
             g_unit: 0.002
           GABA_B:
@@ -171,8 +171,8 @@ Synapses:
       proportions: [0.22, 0.22]
       mechanisms:
         GABA_A:
-          tau_rise:  0.1
-          tau_decay: 10.0
+          tau_rise:  6.0
+          tau_decay: 15.0
           e:   -75
           g_unit: 0.002
   MC:
