@@ -51,8 +51,8 @@ def main(optimize_config_file_path, output_dir, export, export_file_path, label,
     """
     # requires a global variable context: :class:'Context'
     context.update(locals())
-    config_interactive(context, __file__, config_file_path=optimize_config_file_path, output_dir=output_dir,
-                       export=export, export_file_path=export_file_path, label=label, disp=verbose)
+    config_optimize_interactive(__file__, config_file_path=optimize_config_file_path, output_dir=output_dir,
+                                export=export, export_file_path=export_file_path, label=label, disp=verbose)
 
 
 def config_worker():
@@ -127,10 +127,11 @@ def compute_features_network_walltime(x, export=False):
     return results
 
 
-def get_objectives_network_walltime(features):
+def get_objectives_network_walltime(features, export=False):
     """
 
     :param features: dict
+    :param export: bool
     :return: tuple of dict
     """
     objectives = dict()
