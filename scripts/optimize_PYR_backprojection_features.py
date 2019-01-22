@@ -168,7 +168,14 @@ def calculate_features(parameters, export=False):
     features['fraction active'] = np.mean(fraction_active.values())
     return features
 
-def get_objectives(features):
+
+def get_objectives(features, export=False):
+    """
+
+    :param features: dict
+    :param export: bool
+    :return: tuple of dict
+    """
     feature_names = context.feature_names
     for feature in feature_names:
         if feature not in features:

@@ -127,10 +127,11 @@ def compute_features_network_walltime(x, export=False):
     return results
 
 
-def get_objectives_network_walltime(features):
+def get_objectives_network_walltime(features, export=False):
     """
 
     :param features: dict
+    :param export: bool
     :return: tuple of dict
     """
     objectives = dict()
