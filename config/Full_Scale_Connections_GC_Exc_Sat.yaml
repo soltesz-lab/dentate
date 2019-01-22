@@ -138,7 +138,7 @@ Synapses:
             dur_onset: 0.25
             tau_offset: 9.0
             e: -75
-            g_unit: 0.00012
+            g_unit: 0.001
             weight: 1.0
     HCC:  
       type: inhibitory
@@ -150,7 +150,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 9.0
           e: -75
-          g_unit: 0.0037
+          g_unit: 0.003
           weight: 1.0
     HC:   
       type: inhibitory
@@ -162,7 +162,7 @@ Synapses:
           dur_onset: 2.5
           tau_offset: 11.0
           e: -75
-          g_unit: 0.002
+          g_unit: 0.003
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -175,12 +175,12 @@ Synapses:
             dur_onset:  6.0
             tau_offset: 15.0
             e:   -75
-            g_unit: 0.0011
+            g_unit: 0.0005
           GABA_B:
             dur_onset:  50.0
             tau_offset: 200.0
             e:   -80
-            g_unit: 0.0004
+            g_unit: 0.003
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -191,7 +191,7 @@ Synapses:
           dur_onset:  6.0
           tau_offset: 15.0
           e:   -75
-          g_unit: 0.0038
+          g_unit: 0.004
           weight: 1.0
   MC:
     GC:   
@@ -218,7 +218,7 @@ Synapses:
           tau_offset: 3.2
           e: 0
           sat: 0.9
-          g_unit: 0.00125
+          g_unit: 0.00175
     HC:   
       type: inhibitory
       sections: [apical]
@@ -229,7 +229,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 6.0
           e: -75
-          g_unit: 0.00025
+          g_unit: 0.002
           weight: 1.0
     BC:   
       type: inhibitory
@@ -242,26 +242,26 @@ Synapses:
             dur_onset: 0.3
             tau_offset: 6.0
             e: -75
-            g_unit: 0.0018
+            g_unit: 0.002
             weight: 1.0
         apical:
           GABA_A:
             dur_onset: 0.3
             tau_offset: 6.0
             e: -75
-            g_unit: 0.0015
+            g_unit: 0.00175
             weight: 1.0
     AAC:  
       type: inhibitory
-      sections: [soma]
+      sections: [ais]
       layers: [Hilus]
-      proportions: [0.5]
+      proportions: [1.0]
       mechanisms:
         GABA_A:
           dur_onset: 0.3
           tau_offset: 6.0
           e: -75
-          g_unit: 0.00085
+          g_unit: 0.002
           weight: 1.0
     HCC:  
       type: inhibitory
@@ -273,7 +273,7 @@ Synapses:
           dur_onset: 0.6
           tau_offset: 4.7
           e: -75
-          g_unit: 0.001
+          g_unit: 0.0015
           weight: 1.0
   HC:
     GC:   
