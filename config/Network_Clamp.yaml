@@ -29,7 +29,7 @@ Input Generator:
   MC:
     template: StimCell
     params:
-      rate: 10.
+      rate: 2.
   GC:
     template: StimCell
     params:
@@ -37,11 +37,15 @@ Input Generator:
 Weight Generator:
   MC:
     GC:
-      class: Log-Normal
+      class: Sparse
       name: AMPA
       params:
-        mu: 0.
-        sigma: 1.0
+        fraction: 0.01
+    MC:
+      class: Sparse
+      name: AMPA
+      params:
+        fraction: 0.1
   GC:
     MPP:
       class: Log-Normal
