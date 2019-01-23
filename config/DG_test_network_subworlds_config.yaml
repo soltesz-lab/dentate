@@ -22,15 +22,8 @@ get_objectives:
   DG_test_network_subworlds: get_objectives_network_walltime
 kwargs:
   config_file: Small_Scale_Control_test_load_LN_weights_Sat.yaml
-  template_paths: ../../DGC/Mateos-Aparicio2014:../templates
-  hoc_lib_path: ..
-  dataset_prefix: ../datasets
-  config_prefix: ../config
-  results_path: ../data
   tstop: 0.
   v_init: -77.
-  max_walltime_hours: 1.
-  results_write_time: 360.
   vrecord_fraction: 0.1
   dt: 0.025
   cleanup: False
