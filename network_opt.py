@@ -14,14 +14,18 @@ logger = utils.get_module_logger(__name__)
 
 
 class NetworkOptimizer():
+    """
+    Network optimizer based on dlib's global function search
+
+    `<http://dlib.net/optimization.html#global_function_search>`
+
+    Creates a global optimizer for optimizing the network firing rate as a
+    function of synaptic conductances.  
+    """
     def __init__(self, env, dt_opt=125.0, fname=None):
+
         """
-        Network optimizer based on dlib's global function search
-
-        `<http://dlib.net/optimization.html#global_function_search>`
-
-        Creates a global optimizer for optimizing the network firing rate as a
-        function of synaptic conductances.  
+        Default constructor for the network optimizer.
 
         :param dict opt_params: parameters to optimize over.
 
