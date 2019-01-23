@@ -2,6 +2,7 @@ import sys, os, gc
 import click
 import dentate
 from dentate import utils, plot
+from dentate.env import Env
 from neuroh5.io import read_cell_attributes
 
 script_name = os.path.basename(__file__)
