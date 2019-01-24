@@ -26,8 +26,8 @@ set -x
 
 mpirun -np 640 python ./scripts/measure_distances.py \
     --config=./config/Full_Scale_Pas.yaml \
-     -i GC -i MPP -i LPP -i MC -i BC -i HC -i HCC -i NGFC -i MOPP -i IS -i AAC \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20181223.h5 \
+     -i GC -i MPP -i LPP -i MC -i BC -i HC -i HCC -i NGFC -i MOPP -i IS -i AAC -i PYR \
+    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190122.h5 \
     --coords-namespace=Coordinates \
     --io-size=24 \
     -v
