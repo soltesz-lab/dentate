@@ -46,7 +46,9 @@ aprun -n 32 -b -- bwpy-environ -- \
      --path-length=1 \
      --disp \
      --procs-per-worker=16 \
-     --template-paths $MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
-     --dataset-prefix="$SCRATCH" \
-     --config-prefix=$DG_HOME/config \
-     --results-path=$results_path 
+     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
+     --dataset_prefix="$SCRATCH" \
+     --config_prefix=$DG_HOME/config \
+     --results_path=$results_path \
+     --cell_selection_path=$DG_HOME/datasets/GC_subnet.yaml \
+     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LN_9533687.bw
