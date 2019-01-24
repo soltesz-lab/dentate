@@ -1610,6 +1610,8 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
                         return content[name][secnodes[i]]
                     else:
                         return content[name][secnodes[i-1]]
+                else:
+                    prev = pos
     else:
         return None
 
