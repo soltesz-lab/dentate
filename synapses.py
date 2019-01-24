@@ -1602,9 +1602,14 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
         elif sec.n3d() == 0:
             return content[name][0]
         else:
+            prev = None
             for i in range(sec.n3d()):
-                if sec.arc3d(i)/sec.L >= x:
-                    return content[name][secnodes[i]]
+                pos = sec.arc3d(i)/sec.L
+                if pos >= x:
+                    if (prev is None) or (abs(pos - x) < abs(prev - x)):
+                        return content[name][secnodes[i]]
+                    else:
+                        return content[name][secnodes[i-1]]
     else:
         return None
 
