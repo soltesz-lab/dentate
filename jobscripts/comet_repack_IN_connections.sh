@@ -13,8 +13,8 @@
 module load hdf5
 
 export prefix=/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control
-export copy=$prefix/DG_IN_connections_20181227.h5
-export output=$prefix/DG_IN_connections_20181227_compressed.h5
+export copy=$prefix/DG_Ext_IN_connections_20190122.h5
+export output=$prefix/DG_Ext_IN_connections_20190122_compressed.h5
 
 set -x
 
