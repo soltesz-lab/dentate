@@ -30,7 +30,15 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 if this_presyn_id == presyn_id:
                     source_syn_dict[this_presyn_gid].append(syn_id)
                     
-            if weight_rule['class'] == 'Log-Normal':
+            if weight_rule['class'] == 'Sparse':
+                weights_name = weight_rule['name']
+                rule_params = weight_rule['params']
+                fraction = rule_params['fraction']
+                seed_offset = int(env.modelConfig['Random Seeds']['Sparse Weights'])
+                seed = int(seed_offset + 1)
+                weights_dict[presyn_id] = \
+                  synapses.generate_sparse_weights(weights_name, fraction, seed, source_syn_dict)
+            elif weight_rule['class'] == 'Log-Normal':
                 weights_name = weight_rule['name']
                 rule_params = weight_rule['params']
                 mu = rule_params['mu']
