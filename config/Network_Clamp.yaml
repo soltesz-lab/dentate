@@ -40,12 +40,12 @@ Weight Generator:
       class: Sparse
       name: AMPA
       params:
-        fraction: 0.01
+        fraction: 0.1
     MC:
       class: Sparse
       name: AMPA
       params:
-        fraction: 0.1
+        fraction: 0.5
   GC:
     MPP:
       class: Log-Normal
