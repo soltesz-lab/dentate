@@ -17,12 +17,12 @@ DG_GC_forest_file = "DGC_forest_reindex_20181222_compressed.h5"
 DG_IN_forest_file = "DG_IN_forest_20181226.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20181222_compressed.h5"
-DG_IN_forest_syns_file = "DG_IN_forest_syns_20180123_compressed.h5"
+DG_IN_forest_syns_file = "DG_IN_forest_syns_20190123_compressed.h5"
 
 DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20181227_compressed.h5"
 #DG_IN_syn_weights_file = "DG_IN_syns_log_normal_weights_20181011_compressed.h5"
 
-DG_IN_connectivity_file = "DG_IN_connections_20180124_compressed.h5"
+DG_IN_connectivity_file = "DG_IN_connections_20190124_compressed.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20181225_compressed.h5"
 
 DG_vecstim_file_dict = { 

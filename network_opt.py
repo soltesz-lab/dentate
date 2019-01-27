@@ -14,14 +14,18 @@ logger = utils.get_module_logger(__name__)
 
 
 class NetworkOptimizer():
+    """
+    Network optimizer based on dlib's global function search
+
+    `<http://dlib.net/optimization.html#global_function_search>`
+
+    Creates a global optimizer for optimizing the network firing rate as a
+    function of synaptic conductances.  
+    """
     def __init__(self, env, dt_opt=125.0, fname=None):
+
         """
-        Network optimizer based on dlib's global function search
-
-        `<http://dlib.net/optimization.html#global_function_search>`
-
-        Creates a global optimizer for optimizing the network firing rate as a
-        function of synaptic conductances.  
+        Default constructor for the network optimizer.
 
         :param dict opt_params: parameters to optimize over.
 
@@ -82,6 +86,10 @@ class NetworkOptimizer():
         self.fih = h.FInitializeHandler(1, self.run)
         
     def run(self):
+        """
+        Simulate the network; pause at every dt_opt ms, evaluate the
+        firing rates and select new set of parameters.
+        """
         if self.opt_coords:
             this_coords = self.opt_coords
             distance = self.pop_firing_distance()
@@ -109,6 +117,11 @@ class NetworkOptimizer():
 
         
     def from_param_vector(self, pop_name, params):
+        """
+        Given a list of parameter values, use param_range_tuples
+        structure to construct tuples of the form
+        (source, section_type, syn_name, param_name, param_value).
+        """
         result = []
         param_range_tuples = self.param_range_tuples[pop_name]
         assert(len(params) == len(param_range_tuples))
@@ -118,6 +131,9 @@ class NetworkOptimizer():
 
     
     def to_param_vector(self, pop_name, params):
+        """
+        Given a list of parameter tuples, return a list of parameter values.
+        """
         result = []
         for (source, sec_type, syn_name, param_name, param_value) in params:
             result.append(param_value)
@@ -125,6 +141,9 @@ class NetworkOptimizer():
 
     
     def pop_firing_rates(self):
+        """
+        Computes the mean firing rate for each population in the network.
+        """
         pop_spike_dict = spikedata.get_env_spike_dict(self.env)
 
         rate_dict = { pop_name: spikedata.spike_rates (spike_dict)
@@ -133,6 +152,10 @@ class NetworkOptimizer():
         return rate_dict
     
     def pop_firing_distance(self):
+        """
+        Computes the distance vector between target firing rates
+        and actual mean firing rates of the populations in the network.
+        """
 
         rate_dict = self.pop_firing_rates()
         opt_targets = self.opt_targets

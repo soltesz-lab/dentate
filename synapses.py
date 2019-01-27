@@ -2062,3 +2062,20 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
       { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
         weights_name: normed_weights }
     return weights_dict
+
+def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
+    local_random = np.random.RandomState()
+    local_random.seed(int(seed))
+    source_weights = [ 1.0 if x <= fraction else 0.0 for x in local_random.uniform(size=len(source_syn_dict)) ]
+    print 'source_weights = ', source_weights
+    syn_weight_dict = {}
+    # weights are synchronized across all inputs from the same source_gid
+    for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
+        for this_syn_id in source_syn_dict[this_source_gid]:
+            syn_weight_dict[this_syn_id] = this_weight
+    weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
+    normed_weights = weights 
+    weights_dict = \
+      { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
+        weights_name: normed_weights }
+    return weights_dict
