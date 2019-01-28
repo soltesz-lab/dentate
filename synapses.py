@@ -2049,7 +2049,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     return (syn_dict, seg_density_per_sec)
 
 
-def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
+def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=None):
     """
     Generates log-normal synaptic weights by random sampling from a
     log-normal distribution with the given mu and sigma.
@@ -2057,6 +2057,7 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
     :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
     :param mu: mean of log-normal distribution
     :param sigma: standard deviation of log-normal distribution
+    :param clip: if provided, specify min and max range for weight values
     :param seed: seed for random number generator
     :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
     :return: dictionary of the form:
@@ -2075,6 +2076,9 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
         for this_syn_id in source_syn_dict[this_source_gid]:
             syn_weight_dict[this_syn_id] = this_weight
     weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
+    if clip is not None:
+        clip_min, clip_max = clip
+        np.clip(weights, clip_min, clip_max, out=weights)
     normed_weights = weights 
     weights_dict = \
       { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
