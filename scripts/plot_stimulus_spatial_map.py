@@ -26,12 +26,13 @@ def main(config, config_prefix, features_path, coords_path, features_namespace, 
          from_spikes, normed, font_size, verbose, show_fig, save_fig):
 
     utils.config_logging(verbose)
+    
     logger = utils.get_script_logger(os.path.basename(script_name))
 
     env = Env(config_file=config, config_prefix=config_prefix)
 
     plot.plot_stimulus_spatial_rate_map (env, features_path, coords_path, trajectory_id, features_namespace,
-        distances_namespace, include, binSize=bin_size, fromSpikes=from_spikes, normed=normed, fontSize=font_size,
+        distances_namespace, include, bin_size=bin_size, from_spikes=from_spikes, normed=normed, fontSize=font_size,
         saveFig=save_fig, showFig=show_fig, verbose=verbose)
 
 
