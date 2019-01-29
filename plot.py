@@ -27,6 +27,7 @@ from dentate.cells import *
 from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
 from dentate.utils import get_module_logger, viewitems
 
+
 try:
     import dentate.spikedata as spikedata
 except ImportError as e:
@@ -768,7 +769,7 @@ def plot_positions(env, label, distances, binSize=50., fontSize=14, showFig = Tr
         p = ax.contourf(X[:-1,:-1] + binSize/2, Y[:-1,:-1]+binSize/2, H.T, levels=levels, cmap=cmap)
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     elif graphType == 'kde':
-        X, Y, Z    = utils.kde_scipy(distance_U_array, distance_V_array, binSize)
+        X, Y, Z    = sigproc.gaussian_kde(distance_U_array, distance_V_array, binSize)
         p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     else:
@@ -2018,7 +2019,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
 ## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', orderInverse = False, labels = 'legend', 
-                      spikeRateBin = 25.0, sigma = 0.05, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+                      kernel_size = 100., lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2063,17 +2064,13 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
     timeRange = [tmin, tmax]
 
-    # Calculate binned spike rates
-    
-    time_bins  = np.arange(timeRange[0], timeRange[1], spikeRateBin)
-
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_inst_rates(subset, spkdict, timeRange=timeRange, sigma=sigma)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, timeRange=timeRange)
         i = 0
         rate_dict = {}
-        for ind, dct in viewitems(rate_bin_dict):
+        for ind, dct in viewitems(sdf_dict):
             rates       = np.asarray(dct['rate'], dtype=np.float32)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
@@ -2122,8 +2119,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], timeRange
 
         cbar = plt.colorbar(im)
         cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fontSize)
-        
-
                 
     # show fig 
     if showFig:

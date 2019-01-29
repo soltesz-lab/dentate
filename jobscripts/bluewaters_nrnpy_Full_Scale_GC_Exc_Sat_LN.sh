@@ -3,7 +3,7 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=1024:ppn=16:xe
 ### which queue to use
-#PBS -q high
+#PBS -q normal
 ### set the wallclock time
 #PBS -l walltime=4:00:00
 ### set the job name
@@ -51,7 +51,7 @@ aprun -n 16384 -b -- bwpy-environ -- \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=600 \
+    --tstop=1200 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \

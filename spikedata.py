@@ -1,10 +1,11 @@
 import math, sys
 import itertools
 from collections import defaultdict
-from pathos.multiprocessing import ProcessPool
 import numpy as np
-import neo, elephant
-from quantities import s, ms, Hz
+import neo
+import spykeutils.rate_estimation as re
+import spykeutils.signal_processing as sigproc
+import quantities as pq
 from dentate import utils
 from utils import viewitems
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
@@ -175,58 +176,36 @@ def spike_rates (spkdict):
         rate_dict[ind] = rate
     return rate_dict
 
-def spike_inst_rates_func (item,t_start,t_stop,sampling_period,sigma,kernel,bin_steps=5):
-    (ind, lst) = item
-    spkts = np.asarray(lst, dtype=np.float32)
-    spktrain      = neo.core.SpikeTrain(spkts*ms, t_start=t_start*ms, t_stop=t_stop*ms)
-    spkrates_r    = elephant.statistics.instantaneous_rate(spktrain, sampling_period, kernel=kernel).ravel()
-    spkrates_x    = np.linspace(t_start, t_stop, spkrates_r.size)
+
+def spike_density_estimate (population, spkdict, timeRange, kernel_size = 100., save=False):
+
     
-    return (ind, { 'x': np.asarray(spkrates_x, dtype=np.float32),
-                   'rate': np.asarray(spkrates_r, dtype=np.float32)
-                 })
+    def make_spktrain (lst, t_start, t_stop, kernel):
+        spkts         = np.asarray(lst, dtype=np.float32)
+        spktrain      = neo.core.SpikeTrain(times=spkts*pq.ms, t_start=t_start, t_stop=t_stop)
+        return spktrain
 
+    kernel  = sigproc.GaussianKernel(kernel_size * pq.ms)
+    t_start = timeRange[0] * pq.ms
+    t_stop  = timeRange[1] * pq.ms
 
-def spike_inst_rates (population, spkdict, timeRange, sampling_period=2.0*ms, sigma = 0.05, nprocs=1, saveData=False):
+    spktrains = { ind: [make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop, kernel)] for (ind, lst) in viewitems(spkdict) }
+    sdf_rate_dict, _, sdf_time = re.spike_density_estimation(spktrains, kernel=kernel, start=t_start, stop=t_stop)
 
-    kernel = elephant.kernels.GaussianKernel(sigma = sigma*s, invert = True)
-
-    t_start = timeRange[0]
-    t_stop = timeRange[1]
-
-    pool = ProcessPool(nprocs)
-    spk_rate_dict = dict(pool.map(lambda item: spike_inst_rates_func(item,t_start,t_stop,sampling_period,sigma,kernel), viewitems(spkdict)))
-
-    if saveData:
-        if isinstance(saveData, str):
-            filename = saveData
+    if save:
+        if isinstance(save, str):
+            filename = save
         else:
-            filename = '%s_spike_inst_rates.h5' % population
+            filename = '%s_spike_density.h5' % population
 
-        write_cell_attributes(filename, population, spk_rate_dict, namespace='Instantaneous Rate')
-        
-    return spk_rate_dict
+        write_cell_attributes(filename, population, spk_rate_dict, namespace='Spike Density Function')
+
+    result = { ind: { 'rate': rate, 'time': sdf_time } for ind, rate in viewitems(sdf_rate_dict) }
+    return result
             
 
-def spike_bin_counts(spkdict, bins):
-    count_bin_dict = {}
-    for (ind, lst) in viewitems(spkdict):
 
-        spkts = np.asarray(lst, dtype=np.float32)
-        bin_inds      = np.digitize(spkts, bins = bins)
-        count_bins    = []
-    
-        for ibin in range(1, len(bins)+1):
-            bin_spks  = spkts[bin_inds == ibin]
-            count    = bin_spks.size
-            count_bins.append(count)
-        
-        count_bin_dict[ind] = np.asarray(count_bins, dtype=np.uint32)
-
-    return count_bin_dict
-
-
-def spatial_information (population, trajectory, spkdict, timeRange, positionBinSize, saveData = False):
+def spatial_information (population, trajectory, spkdict, timeRange, positionBinSize, save = False):
 
     tmin = timeRange[0]
     tmax = timeRange[1]
@@ -259,7 +238,7 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_inst_rates(population, spkdict, time_bins, timeRange, saveData=saveData)
+    rate_bin_dict = spike_density_estimate(population, spkdict, timeRange, save=save)
     MI_dict = {}
     for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
         MI = 0.
@@ -275,12 +254,12 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
             
         MI_dict[ind] = MI
 
-    if saveData:
-        write_cell_attributes(saveData, population, MI_dict, namespace='Spatial Mutual Information')
+    if save:
+        write_cell_attributes(save, population, MI_dict, namespace='Spatial Mutual Information')
 
     return MI_dict
 
-def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, saveData = False):
+def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, save = False):
 
     pf_dict = {}
     pf_total_count = 0
@@ -323,8 +302,8 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
                          'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
 
     print('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
-    if saveData:
-        write_cell_attributes(saveData, population, pf_dict, namespace='Place Fields')
+    if save:
+        write_cell_attributes(save, population, pf_dict, namespace='Place Fields')
 
     return pf_dict
             
