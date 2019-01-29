@@ -187,7 +187,7 @@ def spike_inst_rates_func (item,t_start,t_stop,sampling_period,sigma,kernel,bin_
                  })
 
 
-def spike_inst_rates (population, spkdict, timeRange, sampling_period=2.0*ms, sigma = 0.05, nprocs=1, saveData=False):
+def spike_inst_rates (population, spkdict, timeRange, sampling_period=1.0*ms, sigma = 0.05, nprocs=1, saveData=False):
 
     kernel = elephant.kernels.GaussianKernel(sigma = sigma*s, invert = True)
 

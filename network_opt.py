@@ -7,7 +7,7 @@ import numpy as np
 import dentate
 from dentate.neuron_utils import *
 from dentate import utils, spikedata, synapses
-from utils import viewitems
+from utils import viewitems, mpi_mean
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = utils.get_module_logger(__name__)
@@ -22,7 +22,7 @@ class NetworkOptimizer():
     Creates a global optimizer for optimizing the network firing rate as a
     function of synaptic conductances.  
     """
-    def __init__(self, env, dt_opt=125.0, fname=None):
+    def __init__(self, env, dt_opt=125.0, fname=None, objective=lambda (env, opt_targets): -pop_firing_distance(env, opt_targets), objreduce=mpi_mean):
 
         """
         Default constructor for the network optimizer.
@@ -84,6 +84,8 @@ class NetworkOptimizer():
         self.spec = spec
         self.opt_coords = None
         self.fih = h.FInitializeHandler(1, self.run)
+        self.objective = objective
+        self.objreduce = objreduce
         
     def run(self):
         """
@@ -92,8 +94,9 @@ class NetworkOptimizer():
         """
         if self.opt_coords:
             this_coords = self.opt_coords
-            distance = self.pop_firing_distance()
-            this_coords.set(distance)
+            local_obj = self.objective(self.env, self.opt_targets)
+            global_obj = self.objreduce(self.env.comm, local_obj)
+            this_coords.set(global_obj)
             specs, evals = self.optimizer.get_function_evaluations() 
             e = evals[0]
             
@@ -140,31 +143,35 @@ class NetworkOptimizer():
         return result
 
     
-    def pop_firing_rates(self):
-        """
-        Computes the mean firing rate for each population in the network.
-        """
-        pop_spike_dict = spikedata.get_env_spike_dict(self.env)
-
-        rate_dict = { pop_name: spikedata.spike_rates (spike_dict)
-                      for pop_name, spike_dict in viewitems(pop_spike_dict) }
-
-        return rate_dict
+def pop_firing_rates(env):
+    """
+    Computes the mean firing rate for each population in the network.
+    """
+    pop_spike_dict = spikedata.get_env_spike_dict(env)
     
-    def pop_firing_distance(self):
-        """
-        Computes the distance vector between target firing rates
-        and actual mean firing rates of the populations in the network.
-        """
+    rate_dict = { pop_name: spikedata.spike_rates (spike_dict)
+                  for pop_name, spike_dict in viewitems(pop_spike_dict) }
 
-        rate_dict = self.pop_firing_rates()
-        opt_targets = self.opt_targets
+    return rate_dict
+    
+def pop_firing_distance(env, opt_targets):
+    """
+    Computes the distance vector between target firing rates
+    and actual mean firing rates of the populations in the network.
+    """
 
-        a = np.asarray([ opt_targets[pop_name] for pop_name in sorted(self.pop_index.keys()) ])
-        b = np.asarray([ np.mean(np.asarray([rate for _, rate in viewitems(rate_dict[pop_name])
-                                                 for pop_name in sorted(self.pop_index.keys()) ])) ])
-        
-        distance = np.sum((a-b)**2,axis=1)
+    rate_dict = pop_firing_rates(env)
 
-        return distance
-        
+    a = np.asarray([ opt_targets[pop_name] for pop_name in sorted(self.pop_index.keys()) ])
+    sqdist = np.asarray([(a[self.pop_index[pop_name]] - rate) ** 2 for _, rate in viewitems(rate_dict[pop_name])
+                        for pop_name in sorted(self.pop_index.keys()) ])
+    
+    return sqdist
+
+
+def mpi_mean(comm, value):
+    
+    global_sum = np.zeros(value.shape, dtype='float32')
+    comm.Allreduce(value, global_sum, op=MPI.SUM)
+    count = comm.size
+    return global_sum / count

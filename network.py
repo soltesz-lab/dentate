@@ -319,11 +319,14 @@ def connect_cell_selection(env, cleanup=True):
         logger.info('*** Connectivity file path is %s' % connectivity_file_path)
         logger.info('*** Reading projections: ')
 
-    pop_names = set([ s[0] for s in env.cell_selection ])
+    pop_names = env.cell_selection.keys()
     
     vecstim_sources = defaultdict(list)
     
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
+
+        if rank == 0:
+            logger.info('*** Postsynaptic population: %s' % postsyn_name)
 
         if postsyn_name not in pop_names:
             continue
@@ -359,16 +362,14 @@ def connect_cell_selection(env, cleanup=True):
         if rank == 0:
                 logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
-        syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                            namespace='Synapse Attributes', comm=env.comm,
-                                                            io_size=env.io_size)
+        syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
+                                                            namespace='Synapse Attributes', comm=env.comm)
         syn_attrs.init_syn_id_attrs_from_iter(syn_attributes_iter)
         del(syn_attributes_iter)
         
         if has_weights:
-            weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                    namespace=weights_namespace, comm=env.comm,
-                                                                    io_size=env.io_size)
+            weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
+                                                                    namespace=weights_namespace, comm=env.comm)
         else:
             weight_attributes_iter = None
 
@@ -423,7 +424,7 @@ def connect_cell_selection(env, cleanup=True):
             edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
-                                                compose_iter(lambda edge: vecstim_sources.append(edge[0]), \
+                                                compose_iter(lambda edge: vecstim_sources[presyn_name].append(edge[0]), \
                                                              edge_iters))
             del graph[postsyn_name][presyn_name]
 
