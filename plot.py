@@ -2937,8 +2937,8 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
 
 
 
-def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = None, timeVariable='t', 
-                   binSize = 5, Fs = 200, nperseg = 128, smooth = 0, overlay = True,
+def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
+                   bin_size = 1., sliding_window = 256, overlap=0.5, kernel_size=10., smooth = 0, overlay = True,
                    figSize = (8,8), fontSize = 14, lw = 3, saveFig = None, showFig = True):
     ''' 
     Plots firing rate power spectral density (PSD). Returns figure handle.
@@ -2946,9 +2946,9 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
         - namespace_id: attribute namespace for spike events
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
-        - timeRange ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-        - timeVariable: Name of variable containing spike times (default: 't')
-        - binSize (int): Size in ms of each bin (default: 5)
+        - time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+        - time_variable: Name of variable containing spike times (default: 't')
+        - bin_size (int): Size in ms of each bin (default: 1)
         - Fs (float): sampling frequency
         - nperseg (int): Length of each segment. 
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
@@ -2990,33 +2990,66 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], timeRange = 
     # create fig
     fig, ax1 = plt.subplots(figsize=figSize)
 
+    time_bins  = np.arange(time_range[0], time_range[1], bin_size)
+    nperseg    = sliding_window
+    n_overlap  = sliding_window * overlap
+    win        = signal.get_window('hanning', nperseg)
+    
     psds = []
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
         spkts = spktlst[iplot]
 
-        histoCount, bin_edges = np.histogram(spkts, bins = np.arange(timeRange[0], timeRange[1], binSize))
-
-        if smooth:
-            hsignal = signal.savgol_filter(histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])),
-                                           window_length=nperseg/2 + 1, polyorder=smooth) # smoothen and convert to firing rate
-        else:
-            hsignal = histoCount * (1000.0 / binSize) / (len(pop_active_cells[subset])) # convert to firing rate
-            
-        win = signal.get_window('hanning',nperseg)
-        freqs, psd = signal.welch(hsignal, fs=Fs, nperseg=nperseg, noverlap=(nperseg // 2),
-                                  scaling='density', window=win)
+        spkdict = spikedata.make_spike_dict(spkinds, spkts)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
+        psd_dict = {}
+        min_freq   = float('inf')
+        max_freq   = float('-inf')
+        n_units    = len(sdf_dict)
         
-        psd = 10*np.log10(psd)
-        peak_index  = np.where(psd == np.max(psd))[0]
+        for (ind, dct) in viewitems(sdf_dict):
+            interp_rate = np.interp(time_bins, np.asarray(dct['time']), dct['rate'])
+                
+            if smooth:
+                # smoothen firing rate histogram
+                hsignal = signal.savgol_filter(interp_rate, window_length=nperseg/2 + 1, polyorder=smooth) 
+            else:
+                hsignal = interp_rate
+
+            Fs = 1000.0/bin_size
+            freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, window=win,
+                                      noverlap=n_overlap, return_onesided=True)
+        
+            psd = 10*np.log10(psd)
+            peak_index  = np.where(psd == np.max(psd))[0]
+            
+            psd_dict[ind] = { 'rate': hsignal, 'psd': psd, 'freqs': freqs }
+
+            min_freq = min(np.min(freqs), min_freq)
+            max_freq = max(np.max(freqs), max_freq)
+
+
+        freq_span = max_freq - min_freq
+        freq_bins = np.arange(min_freq, max_freq, 0.1)
+
+        psd_bin_array = np.zeros((len(freq_bins),))
+        for (ind, dct) in viewitems(psd_dict):
+            interp_psd = np.interp(freq_bins, dct['freqs'], dct['psd'])
+            for ibin in range(0, len(freq_bins)):
+                bin_psd = interp_psd[ibin]
+                psd_bin_array[ibin] += bin_psd
+
+        
+        psd_bin_mean = psd_bin_array / n_units
+        peak_index  = np.where(psd_bin_mean == np.max(psd_bin_mean))[0][0]
         
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
             label = str(subset)
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title ('%s (peak: %.3g Hz)' % (label, freqs[peak_index]), fontsize=fontSize)
+            plt.title ('%s (peak: %.3g Hz)' % (label, freq_bins[peak_index]), fontsize=fontSize)
 
         plt.plot(freqs, psd, linewidth=lw, color=color)
         
