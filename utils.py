@@ -336,48 +336,6 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
     return y[s].ravel()
 
 
-def kde_sklearn(x, y, binSize, bandwidth=1.0, **kwargs):
-    """Kernel Density Estimation with Scikit-learn"""
-    from sklearn.neighbors import KernelDensity
-
-    # create grid of sample locations
-    xx, yy = np.mgrid[x.min():x.max():binSize, 
-                      y.min():y.max():binSize]
-
-    data_grid = np.vstack([xx.ravel(), yy.ravel()]).T
-    data  = np.vstack([x, y]).T
-    
-    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
-    kde_skl.fit(data)
-
-    # score_samples() returns the log-likelihood of the samples
-    z = np.exp(kde_skl.score_samples(data_grid))
-    return xx, yy, np.reshape(z, xx.shape)
-
-
-def kde_scipy(x, y, binSize, **kwargs):
-    """Kernel Density Estimation with Scipy"""
-    from scipy.stats import gaussian_kde
-
-    data  = np.vstack([x, y])
-    kde   = gaussian_kde(data, **kwargs)
-
-    x_min = np.min(x)
-    x_max = np.max(x)
-    y_min = np.min(y)
-    y_max = np.max(y)
-
-    dx = int((x_max - x_min) / binSize)
-    dy = int((y_max - x_min) / binSize)
-
-    xx, yy = np.meshgrid(np.linspace(x_min, x_max, dx), \
-                         np.linspace(y_min, y_max, dy))
-
-    data_grid = np.vstack([xx.ravel(), yy.ravel()])
-    z    = kde.evaluate(data_grid)
-    
-    return xx, yy, np.reshape(z, xx.shape)
-
 def NamedTupleWithDocstring(docstring, *ntargs):
     """
     A convenience wrapper to add docstrings to named tuples. This is only needed in
