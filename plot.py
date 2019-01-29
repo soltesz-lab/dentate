@@ -2229,7 +2229,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict      = defaultdict(lambda: {'counts':0, 'active': 0})
             for (ind, counts) in viewitems(count_bin_dict):
-                for ibin in range(0, time_bins.size):
+                for ibin in range(0, len(time_bins)):
                     if counts[ibin] > 0:
                         d = bin_dict[ibin]
                         d['counts'] += counts[ibin]
@@ -2247,11 +2247,12 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
         bin_dict = hist_dict[subset]
 
         if quantity=='rate':
-            histoCount = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active'] for ibin in range(0, time_bins.size)])
+            histoCount = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active']  if bin_dict[ibin]['active'] > 0 else 0.
+                                     for ibin in range(0, len(time_bins))])
         elif quantity=='active':
             histoCount = np.asarray([bin_dict[ibin]['active'] for ibin in range(0, time_bins.size)])
         else:
-            histoCount = np.asarray([bin_dict[ibin]['counts'] for ibin in range(0, time_bins.size)])
+            histoCount = np.asarray([bin_dict[ibin]['counts'] for ibin in range(0, len(time_bins))])
 
         del bin_dict
         del hist_dict[subset]
