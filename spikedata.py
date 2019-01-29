@@ -233,23 +233,23 @@ def spike_rates (spkdict):
     return rate_dict
 
 
-def spike_density_estimate (population, spkdict, time_range, kernel_size = 100., save=False):
+def spike_density_estimate (population, spkdict, time_range, kernel_size = 10., save=False):
     """
     Calculates spike density function for the given spike trains using the spike density
     estimator from spykeutils and a Gaussian kernel.
     """
     
-    def make_spktrain (lst, t_start, t_stop, kernel):
+    def make_spktrain (lst, t_start, t_stop):
         spkts         = np.asarray(lst, dtype=np.float32)
         spktrain      = neo.core.SpikeTrain(times=spkts*pq.ms, t_start=t_start, t_stop=t_stop)
         return spktrain
 
-    kernel  = sigproc.GaussianKernel(kernel_size * pq.ms)
+    kernel  = sigproc.GaussianKernel(kernel_size=kernel_size * pq.ms, normalize=False)
     t_start = time_range[0] * pq.ms
     t_stop  = time_range[1] * pq.ms
 
-    spktrains = { ind: [make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop, kernel)] for (ind, lst) in viewitems(spkdict) }
-    sdf_rate_dict, _, sdf_time = re.spike_density_estimation(spktrains, kernel=kernel, start=t_start, stop=t_stop)
+    spktrains = { ind: [make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop)] for (ind, lst) in viewitems(spkdict) }
+    sdf_rate_dict, _, sdf_time = re.spike_density_estimation(spktrains, kernel=kernel, kernel_size=kernel_size * pq.ms, start=t_start, stop=t_stop)
 
     if save:
         if isinstance(save, str):
