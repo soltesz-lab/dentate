@@ -1,10 +1,10 @@
 
-import sys, gc
+import sys, os
 from mpi4py import MPI
 import click
 import utils, plot
 
-script_name = 'plot_spatial_information.py'
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
@@ -22,24 +22,25 @@ script_name = 'plot_spatial_information.py'
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(spike_events_path, spike_events_namespace, include, bins, t_variable, t_max, t_min, trajectory_path, trajectory_id, load_file, position_bin_size, font_size, verbose):
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not include:
         include = ['eachPop']
 
     plot.plot_spatial_information (spike_events_path, spike_events_namespace, 
                                     trajectory_path, trajectory_id, include = include,
-                                    loadData = load_file, positionBinSize = position_bin_size, binCount = bins,
-                                    timeVariable=t_variable, timeRange = timeRange, 
+                                    load_data = load_file, position_bin_size = position_bin_size, bin_count = bins,
+                                    time_variable=t_variable, time_range = time_range, 
                                     fontSize = font_size, verbose = verbose, saveData = True)
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
+
 
 
     

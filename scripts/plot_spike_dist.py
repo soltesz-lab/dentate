@@ -26,23 +26,23 @@ def main(spike_events_path, spike_events_namespace, populations, bin_size, t_var
     utils.config_logging(verbose)
     
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
 
     if unit == 'cell':
-        plot.plot_spike_distribution_per_cell (spike_events_path, spike_events_namespace, include=populations, timeVariable=t_variable,
-                                               timeRange=timeRange, quantity=quantity, fontSize=font_size, graphType = graph_type,
+        plot.plot_spike_distribution_per_cell (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
+                                               time_range=time_range, quantity=quantity, fontSize=font_size, graph_type = graph_type,
                                                overlay=overlay, saveFig=True)
     elif unit == 'time':
-        plot.plot_spike_distribution_per_time (spike_events_path, spike_events_namespace, include=populations, timeVariable=t_variable,
-                                               timeRange=timeRange, timeBinSize=bin_size, quantity=quantity, fontSize=font_size,
+        plot.plot_spike_distribution_per_time (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
+                                               time_range=time_range, time_bin_size=bin_size, quantity=quantity, fontSize=font_size,
                                                overlay=overlay, saveFig=True)
 
 if __name__ == '__main__':
