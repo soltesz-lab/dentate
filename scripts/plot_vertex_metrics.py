@@ -30,8 +30,8 @@ def main(config, config_prefix, connectivity_path, coords_path, vertex_metrics_n
     env = Env(config_file=config, config_prefix=config_prefix)
 
     plot.plot_vertex_metrics (env, connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace,
-                              destination, sources, metric=metric, normed=normed, binSize=bin_size,
-                              fontSize=font_size, graphType=graph_type, saveFig=True)
+                              destination, sources, metric=metric, normed=normed, bin_size=bin_size,
+                              fontSize=font_size, graph_type=graph_type, saveFig=True)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(script_name), sys.argv)+1):])

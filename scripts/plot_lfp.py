@@ -19,14 +19,14 @@ def main(config_path, input_path, t_max, t_min, font_size, verbose):
     utils.config_logging(verbose)
 
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
-    plot.plot_lfp (config_path, input_path, timeRange=timeRange, \
+    plot.plot_lfp (config_path, input_path, time_range=time_range, \
                    fontSize=font_size, saveFig=True)
     
     

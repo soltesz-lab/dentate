@@ -21,17 +21,17 @@ def main(spike_events_path, spike_events_namespace, populations, t_variable, t_m
     utils.config_logging(verbose)
 
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, 
+    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, 
                            kernel_size=kernel_size, fontSize=font_size, saveFig=True)
     
 

@@ -24,18 +24,18 @@ def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin,
     utils.config_logging(verbose)
 
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
             
     if not populations:
         populations = ['eachPop']
 
-    plot.plot_rate_PSD (spike_events_path, spike_events_namespace, populations, timeRange=timeRange, 
-                        binSize=spike_hist_bin, nperseg=nperseg, smooth=smooth, fontSize=font_size, overlay=overlay,
+    plot.plot_rate_PSD (spike_events_path, spike_events_namespace, populations, time_range=time_range, 
+                        bin_size=spike_hist_bin, nperseg=nperseg, smooth=smooth, fontSize=font_size, overlay=overlay,
                         saveFig=True)
     
 

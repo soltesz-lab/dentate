@@ -27,19 +27,19 @@ def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin,
     utils.config_logging(verbose)
 
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, timeVariable=t_variable,
-                               timeRange=timeRange, popRates=True, binSize=spike_hist_bin, smooth=smooth, quantity=quantity, fontSize=font_size,
-                               overlay=overlay, graphType=graph_type, saveFig=True)
+    plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
+                               time_range=time_range, pop_rates=True, bin_size=spike_hist_bin, smooth=smooth, quantity=quantity, fontSize=font_size,
+                               overlay=overlay, graph_type=graph_type, saveFig=True)
     
 
 if __name__ == '__main__':
