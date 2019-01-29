@@ -40,8 +40,7 @@ def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin,
         
     plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
                                time_range=time_range, pop_rates=True, kernel_size=kernel_size, bin_size=spike_hist_bin, smooth=smooth,
-                               quantity=quantity, fontSize=font_size,
-                               overlay=overlay, graph_type=graph_type, saveFig=True)
+                               quantity=quantity, fontSize=font_size, overlay=overlay, graph_type=graph_type, saveFig=True)
     
 
 if __name__ == '__main__':
