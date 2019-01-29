@@ -849,14 +849,17 @@ def make_stimulus_selection(env, vecstim_sources):
         if env.spike_input_ns is None:
             raise RuntimeError("Spike input namespace not provided")
         for pop_name, gid_range_stim in viewitems(vecstim_sources):
-            gid_range1 = set(gid_range_stim).difference(gid_range_inst)
-            cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, list(gid_range1), \
-                                                             namespace=env.spike_input_ns, \
-                                                             comm=env.comm)
-            for gid, cell_spikes in cell_spikes_iter:
-                stim_cell = h.VecStim()
-                stim_cell.play(cell_spikes)
-                register_cell(env, pop_name, gid, stim_cell)
+            if len(gid_range_stim) > 0:
+                gid_range1 = set(gid_range_stim).difference(gid_range_inst)
+                if rank == 0:
+                    logger.info("*** reading spike train for population %s gids %s" % (pop_name, str(gid_range1)))
+                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, list(gid_range1), \
+                                                                 namespace=env.spike_input_ns, \
+                                                                 comm=env.comm)
+                for gid, cell_spikes in cell_spikes_iter:
+                    stim_cell = h.VecStim()
+                    stim_cell.play(cell_spikes)
+                    register_cell(env, pop_name, gid, stim_cell)
 
 
 def init(env, cleanup=True):

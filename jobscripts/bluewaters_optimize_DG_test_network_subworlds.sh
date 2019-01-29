@@ -51,5 +51,5 @@ aprun -n 64 -b -- bwpy-environ -- \
      --config_prefix=$DG_HOME/config \
      --results_path=$results_path \
      --cell_selection_path=$DG_HOME/datasets/GC_subnet.yaml \
-     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LN_9533687.bw \
+     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LN_9533687.bw/dentatenet_Full_Scale_GC_Exc_Sat_LN_results.h5 \
      --spike_input_namespace='Spike Events'
