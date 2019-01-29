@@ -387,7 +387,7 @@ def connect_cell_selection(env, cleanup=True):
                                                                                   weights_values)))
                     if rank == 0 and gid == first_gid:
                         logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[gid][syn_name]), syn_name))
+                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
             del weight_attributes_iter
 
         first_gid = None
@@ -843,13 +843,13 @@ def make_stimulus_selection(env, vecstim_sources):
 
     env.pc.barrier()
     if vecstim_sources is not None:
-        gid_range_inst = list(itertools.chain.from_iterable([ s[1] for s in viewitems(env.cell_selection) ]))
+        gid_range_inst = set(itertools.chain.from_iterable([ s[1] for s in viewitems(env.cell_selection) ]))
         if env.spike_input_path is None:
             raise RuntimeError("Spike input path not provided")
         if env.spike_input_ns is None:
             raise RuntimeError("Spike input namespace not provided")
         for pop_name, gid_range_stim in viewitems(vecstim_sources):
-            gid_range1 = gid_range_stim.difference(gid_range_inst)
+            gid_range1 = set(gid_range_stim).difference(gid_range_inst)
             cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, list(gid_range1), \
                                                              namespace=env.spike_input_ns, \
                                                              comm=env.comm)
