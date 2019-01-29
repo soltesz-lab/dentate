@@ -2127,7 +2127,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
-                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate',
+                          pop_rates = False, bin_size = 5., kernel_size=100., smooth = 0, quantity = 'rate',
                           figSize = (15,8), overlay=True, graph_type='bar',
                           fontSize = 14, lw = 3, saveFig = None, showFig = True):
     ''' 
@@ -2212,16 +2212,15 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'counts':0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
-                rate = dct['rate']
-                for ibin in range(0, len(dct['time'])):
+                interp_rate = np.interp(time_bins, np.asarray(dct['time']), dct['rate'])
+                for ibin in range(0, len(time_bins)):
                     d = bin_dict[ibin]
-                    bin_rate = rate[ibin].item()
-                    if bin_rate > 0.:
-                        d['rates']  += bin_rate
-                        d['active'] += 1
+                    bin_rate = interp_rate[ibin]
+                    d['rates']  += bin_rate
+                    d['active'] += 1
             hist_dict[subset] = bin_dict
             logger.info(('Calculated spike rates for %i cells in population %s' % (len(sdf_dict), subset)))
     else:
