@@ -24,18 +24,18 @@ def main(spike_events_path, spike_events_namespace, coords_path, distances_names
     utils.config_logging(verbose)
     
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
         
     plot.plot_spatial_spike_raster (spike_events_path, spike_events_namespace, coords_path, distances_namespace, include=populations, \
-                                    timeRange=timeRange, timeVariable=t_variable, timeStep=t_step, maxSpikes=max_spikes, \
+                                    time_range=time_range, time_variable=t_variable, time_step=t_step, max_spikes=max_spikes, \
                                     fontSize=font_size, saveFig=True)
     
 

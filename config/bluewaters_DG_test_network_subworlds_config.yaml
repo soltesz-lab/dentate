@@ -26,7 +26,7 @@ kwargs:
   hoc_lib_path: ..
   dataset_prefix: /global/cscratch1/sd/aaronmil/dentate
   config_prefix: ../config
-  tstop: 10.
+  tstop: 100.
   v_init: -77.
   max_walltime_hours: 1.
   results_write_time: 360.
