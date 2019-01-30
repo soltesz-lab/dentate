@@ -3016,7 +3016,6 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
                                       noverlap=n_overlap, return_onesided=True)
         
             psd = 10*np.log10(psd)
-            peak_index  = np.where(psd == np.max(psd))[0]
             
             psd_dict[ind] = { 'rate': hsignal, 'psd': psd, 'freqs': freqs }
 
@@ -3036,7 +3035,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
 
         
         psd_bin_mean = psd_bin_array / n_units
-        peak_index  = np.where(psd_bin_mean == np.max(psd_bin_mean))[0][0]
+        peak_index = np.where(psd_bin_mean == np.max(psd_bin_mean))[0]
         
         color = color_list[iplot%len(color_list)]
 
@@ -3045,7 +3044,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
             plt.subplot(len(spkpoplst),1,iplot+1)
             plt.title ('%s (peak: %.3g Hz)' % (label, freq_bins[peak_index]), fontsize=fontSize)
 
-        plt.plot(freqs, psd, linewidth=lw, color=color)
+        plt.plot(freq_bins, psd_bin_mean, linewidth=lw, color=color)
         
         if iplot == 0:
             plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fontSize) # add yaxis in opposite side
