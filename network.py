@@ -333,7 +333,7 @@ def connect_cell_selection(env, cleanup=True):
 
         vecstim_sources[postsyn_name] = set([])
         
-        gid_range = list(env.cell_selection[postsyn_name])
+        gid_range = [ gid for gid in env.cell_selection[postsyn_name] if gid % rank == 0]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -661,7 +661,7 @@ def make_cell_selection(env):
         v_sample_set = set([])
         env.v_sample_dict[pop_name] = v_sample_set
 
-        gid_range = list(env.cell_selection[pop_name])
+        gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % rank == 0 ]
         
         for gid in gid_range:
             v_sample_set.add(gid)
@@ -688,15 +688,8 @@ def make_cell_selection(env):
                 if rank == 0 and first_gid == gid:
                     for sec in list(model_cell.all):
                         h.psection(sec=sec)
-                env.gidset.add(gid)
-                env.cells.append(model_cell)
-                env.pc.set_gid2node(gid, rank)
-                # Tell the ParallelContext that this cell is a spike source
-                # for all other hosts. NetCon is temporary.
-                nc = model_cell.connect2target(h.nil)
-                env.pc.cell(gid, nc, 1)
-                # Record spikes of this cell
-                env.pc.spike_record(gid, env.t_vec, env.id_vec)
+
+                register_cell(env, pop_name, gid, model_cell)
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]: 
                         rec = make_rec(gid, pop_name, gid, model_cell, \
@@ -731,16 +724,7 @@ def make_cell_selection(env):
                 cell_y = cell_coords_dict['Y Coordinate'][0]
                 cell_z = cell_coords_dict['Z Coordinate'][0]
                 model_cell.position(cell_x, cell_y, cell_z)
-
-                env.gidset.add(gid)
-                env.cells.append(model_cell)
-                env.pc.set_gid2node(gid, rank)
-                # Tell the ParallelContext that this cell is a spike source
-                # for all other hosts. NetCon is temporary.
-                nc = model_cell.connect2target(h.nil)
-                env.pc.cell(gid, nc, 1)
-                # Record spikes of this cell
-                env.pc.spike_record(gid, env.t_vec, env.id_vec)
+                register_cell(env, pop_name, gid, model_cell)
                 if model_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
                         rec = make_rec(gid, pop_name, gid, model_cell, \
@@ -822,9 +806,9 @@ def make_stimulus_selection(env, vecstim_sources):
         if 'Vector Stimulus' in env.celltypes[pop_name]:
             vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
 
-            gid_range = list(env.cell_selection[pop_name])
+            gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % rank == 0 ]
 
-            cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, list(gid_range), \
+            cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
                                                               namespace=vecstim_namespace, \
                                                               comm=env.comm)
 
