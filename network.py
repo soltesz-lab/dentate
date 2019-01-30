@@ -321,7 +321,7 @@ def connect_cell_selection(env, cleanup=True):
 
     pop_names = env.cell_selection.keys()
     
-    vecstim_sources = defaultdict(list)
+    vecstim_sources = defaultdict(set)
     
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
@@ -424,7 +424,7 @@ def connect_cell_selection(env, cleanup=True):
             edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
-                                                compose_iter(lambda edge: vecstim_sources[presyn_name].append(edge[0]), \
+                                                compose_iter(lambda edge: vecstim_sources[presyn_name].add(edge[0]), \
                                                              edge_iters))
             del graph[postsyn_name][presyn_name]
 
@@ -843,17 +843,16 @@ def make_stimulus_selection(env, vecstim_sources):
 
     env.pc.barrier()
     if vecstim_sources is not None:
-        gid_range_inst = set(itertools.chain.from_iterable([ s[1] for s in viewitems(env.cell_selection) ]))
         if env.spike_input_path is None:
             raise RuntimeError("Spike input path not provided")
         if env.spike_input_ns is None:
             raise RuntimeError("Spike input namespace not provided")
         for pop_name, gid_range_stim in viewitems(vecstim_sources):
             if len(gid_range_stim) > 0:
-                gid_range1 = set(gid_range_stim).difference(gid_range_inst)
+                gid_range = gid_range_stim.difference(set(env.cell_selection[pop_name]))
                 if rank == 0:
-                    logger.info("*** reading spike train for population %s gids %s" % (pop_name, str(gid_range1)))
-                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, list(gid_range1), \
+                    logger.info("*** reading spike train for population %s gids %s" % (pop_name, str(gid_range)))
+                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, list(gid_range), \
                                                                  namespace=env.spike_input_ns, \
                                                                  comm=env.comm)
                 for gid, cell_spikes in cell_spikes_iter:
