@@ -1,10 +1,10 @@
 
-import sys, gc
+import sys, gc, os
 from mpi4py import MPI
 import click
 import utils, plot
 
-script_name = 'plot_spike_corr.py'
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
@@ -19,13 +19,16 @@ script_name = 'plot_spike_corr.py'
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin, t_variable, t_max, t_min, max_cells, graph_type, font_size, verbose):
+
+    utils.config_logging(verbose)
+
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
@@ -35,12 +38,10 @@ def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin,
     else:
         graphType = 'matrix'
         
-    plot.plot_spike_histogram_corr (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, 
-                                    binSize=spike_hist_bin, maxCells=max_cells, graphType=graphType, fontSize=font_size, saveFig=True, verbose=verbose)
+    plot.plot_spike_histogram_corr (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, 
+                                    bin_size=spike_hist_bin, max_cells=max_cells, graph_type=graph_type, fontSize=font_size, saveFig=True)
         
+    
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
-
-
-    
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])

@@ -34,13 +34,13 @@ def main(config, config_prefix, coords_path, features_path, distances_namespace,
     env = Env(config_file=config, config_prefix=config_prefix)
     
     plot_PP_metrics(env, coords_path, features_path, distances_namespace, population=population, cellType=cell_type, 
-                    binSize=bin_size, metric="spacing", normed=normed, graphType="histogram2d", saveFig=save_fig,
+                    bin_size=bin_size, metric="spacing", normed=normed, graphType="histogram2d", saveFig=save_fig,
                     showFig=show_fig)
     plot_PP_metrics(env, coords_path, features_path, distances_namespace, population=population, cellType=cell_type,
-                    binSize=bin_size, metric="num-fields", normed=normed, graphType="histogram2d", saveFig=save_fig,
+                    bin_size=bin_size, metric="num-fields", normed=normed, graphType="histogram2d", saveFig=save_fig,
                     showFig=show_fig)
     plot_PP_metrics(env, coords_path, features_path, distances_namespace, population=population, cellType=cell_type,
-                    binSize=bin_size, metric="orientation", normed=normed, graphType="histogram2d", saveFig=save_fig,
+                    bin_size=bin_size, metric="orientation", normed=normed, graph_type="histogram2d", saveFig=save_fig,
                     showFig=show_fig)
 
 
