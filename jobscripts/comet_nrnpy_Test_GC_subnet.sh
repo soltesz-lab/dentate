@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=12
 #SBATCH -p shared
-#SBATCH -t 1:00:00
+#SBATCH -t 2:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
@@ -22,6 +22,7 @@ export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
+ulimit -c unlimited
 
 results_path=$SCRATCH/dentate/results/Test_GC_subnet_$SLURM_JOB_ID
 export results_path
