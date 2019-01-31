@@ -42,10 +42,8 @@ ibrun -np 12 python2.7 ./scripts/main.py \
     --tstop=10 \
     --v-init=-75 \
     --max-walltime-hours=1.0 \
-    --dry-run \
     --cell-selection-path ./datasets/GC_subnet.yaml \
     --spike-input-path=$SCRATCH/dentate/results/Full_Scale_GC_Exc_Sat_LN_9533687.bw/dentatenet_Full_Scale_GC_Exc_Sat_LN_results.h5 \
     --spike-input-namespace='Spike Events' \
-    --dry-run \
     --verbose
 

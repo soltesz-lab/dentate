@@ -206,9 +206,9 @@ def connect_cells(env, cleanup=True):
                     logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                 (postsyn_name, gid, mech_file_path))
 
+        env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
 
-            env.edge_count[postsyn_name][presyn_name] = 0
 
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
@@ -287,7 +287,7 @@ def connect_cells(env, cleanup=True):
                         show=False, overwrite=overwrite, data_dir=env.results_path)
                 """
 
-            env.edge_count[postsyn_name][presyn_name] += syn_count
+            env.edge_count[postsyn_name] += syn_count
 
             if cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
@@ -301,6 +301,17 @@ def connect_cells(env, cleanup=True):
             logger.info('Rank %i: took %f s to configure synapses for population %s' %
                         (rank, time.time() - pop_last_time, postsyn_name))
 
+def find_gid_pop(celltypes, gid):
+    """
+    Given a celltypes structure and a gid, find the population to which the gid belongs.
+    """
+    for pop_name in celltypes.keys():
+        start = celltypes[pop_name]['start']
+        num = celltypes[pop_name]['num']
+        if (start <= gid) and (gid < (start + num)):
+           return pop_name
+
+    return None
 
 def connect_cell_selection(env, cleanup=True):
     """
@@ -320,16 +331,16 @@ def connect_cell_selection(env, cleanup=True):
         logger.info('*** Connectivity file path is %s' % connectivity_file_path)
         logger.info('*** Reading projections: ')
 
-    pop_names = env.cell_selection.keys()
+    selection_pop_names = env.cell_selection.keys()
     
-    vecstim_sources = defaultdict(set)
+    vecstim_sources = { pop_name: set([]) for pop_name in env.celltypes.keys() }
     
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
         if rank == 0:
             logger.info('*** Postsynaptic population: %s' % postsyn_name)
 
-        if postsyn_name not in pop_names:
+        if postsyn_name not in selection_pop_names:
             continue
 
         vecstim_sources[postsyn_name] = set([])
@@ -417,9 +428,8 @@ def connect_cell_selection(env, cleanup=True):
 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                           comm=env.comm, namespaces=['Synapses', 'Connections'])
+        env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
-
-            env.edge_count[postsyn_name][presyn_name] = 0
 
             if rank == 0:
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
@@ -427,21 +437,36 @@ def connect_cell_selection(env, cleanup=True):
             edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
-                                                compose_iter(lambda edge: vecstim_sources[presyn_name].add(edge[0]), \
+                                                compose_iter(lambda edgeset: vecstim_sources[presyn_name].update(edgeset[1][0]), \
                                                              edge_iters))
             del graph[postsyn_name][presyn_name]
 
-        for gid in syn_attrs.gids():
+    for pop_name, stim_gid_range in viewitems(vecstim_sources):
 
-            postsyn_cell = env.pc.gid2cell(gid)
-            syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, postsyn_name, \
-                                                                            cell=postsyn_cell, unique=unique, \
-                                                                            insert=True, insert_netcons=True)
-            env.edge_count[postsyn_name][presyn_name] += syn_count
-            if cleanup:
-                syn_attrs.del_syn_id_attr_dict(gid)
-                if gid in env.biophys_cells[postsyn_name]:
-                    del env.biophys_cells[postsyn_name][gid]
+        if pop_name in env.cell_selection:
+            local_stim_gid_range = stim_gid_range.difference(set(env.cell_selection[pop_name]))
+        else:
+            local_stim_gid_range = stim_gid_range
+        stim_gid_ranges = env.comm.allgather(local_stim_gid_range)
+        for gid_range in stim_gid_ranges:
+            for gid in gid_range:
+                if (gid % nhosts == rank) and not env.pc.gid_exists(gid):
+                    stim_cell = h.VecStimCell(gid)
+                    register_cell(env, pop_name, gid, stim_cell)
+
+    for gid in syn_attrs.gids():
+
+        cell = env.pc.gid2cell(gid)
+        pop_name = find_gid_pop(env.celltypes, gid)
+        syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
+                                                                        cell=cell, unique=unique, \
+                                                                        insert=True, insert_netcons=True)
+        env.edge_count[pop_name] += syn_count
+        if cleanup:
+            syn_attrs.del_syn_id_attr_dict(gid)
+            if gid in env.biophys_cells[pop_name]:
+                del env.biophys_cells[pop_name][gid]
+
 
     return vecstim_sources
 
@@ -830,30 +855,29 @@ def make_stimulus_selection(env, vecstim_sources):
             if rank == 0:
                 logger.info("*** Initialized stimulus population %s" % pop_name)
 
-    env.pc.barrier()
     if vecstim_sources is not None:
         if env.spike_input_path is None:
             raise RuntimeError("Spike input path not provided")
         if env.spike_input_ns is None:
             raise RuntimeError("Spike input namespace not provided")
         for pop_name, stim_gid_range in viewitems(vecstim_sources):
-            local_stim_gid_range = stim_gid_range.difference(set(env.cell_selection[pop_name]))
+            if pop_name in env.cell_selection:
+                local_stim_gid_range = stim_gid_range.difference(set(env.cell_selection[pop_name]))
+            else:
+                local_stim_gid_range = stim_gid_range
             stim_gid_ranges = env.comm.allgather(local_stim_gid_range)
-            stim_gid_range = []
+            this_stim_gid_range = []
             for gid_range in stim_gid_ranges:
                 for gid in gid_range:
                     if gid % nhosts == rank:
-                        stim_gid_range.append(gid)
-                        stim_cell = h.VecStim()
-                        register_cell(env, pop_name, gid, stim_cell)
-            if rank == 0:
-                logger.info("*** reading spike train for population %s gids %s" % (pop_name, str(stim_gid_range)))
-            cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, stim_gid_range, \
+                        this_stim_gid_range.append(gid)
+
+            cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, this_stim_gid_range, \
                                                              namespace=env.spike_input_ns, \
                                                              comm=env.comm)
-            for gid, cell_spikes in cell_spikes_iter:
+            for gid, cell_spikes_dict in cell_spikes_iter:
                 stim_cell = env.pc.gid2cell(gid)
-                stim_cell.play(cell_spikes)
+                stim_cell.play(h.Vector(cell_spikes_dict['t']))
 
 def init(env, cleanup=True):
     """
@@ -916,7 +940,7 @@ def init(env, cleanup=True):
 
     if rank == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
-    edge_count = int(sum([env.edge_count[dest][source] for dest in env.edge_count for source in env.edge_count[dest]]))
+    edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
     h.startsw()
     if env.cell_selection is None:

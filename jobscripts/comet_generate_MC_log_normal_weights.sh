@@ -29,7 +29,7 @@ nodefile=`generate_pbs_nodefile`
 
 mpirun_rsh -export-all -hostfile $nodefile -np 720  \
  python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
- -d MC -s GC -s MC \
+ -d MC -s GC \
  --config=./config/Full_Scale_Control.yaml \
  --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syns_log_normal_weights_20181013.h5 \
  --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180908.h5 \
