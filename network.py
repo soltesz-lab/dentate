@@ -313,6 +313,7 @@ def connect_cell_selection(env, cleanup=True):
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
     rank = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
     syn_attrs = env.synapse_attributes
 
     if rank == 0:
@@ -333,7 +334,7 @@ def connect_cell_selection(env, cleanup=True):
 
         vecstim_sources[postsyn_name] = set([])
         
-        gid_range = [ gid for gid in env.cell_selection[postsyn_name] if gid % rank == 0]
+        gid_range = [ gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -661,7 +662,7 @@ def make_cell_selection(env):
         v_sample_set = set([])
         env.v_sample_dict[pop_name] = v_sample_set
 
-        gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % rank == 0 ]
+        gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank ]
         
         for gid in gid_range:
             v_sample_set.add(gid)
@@ -806,7 +807,7 @@ def make_stimulus_selection(env, vecstim_sources):
         if 'Vector Stimulus' in env.celltypes[pop_name]:
             vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
 
-            gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % rank == 0 ]
+            gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank ]
 
             cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
                                                               namespace=vecstim_namespace, \
@@ -836,7 +837,7 @@ def make_stimulus_selection(env, vecstim_sources):
         if env.spike_input_ns is None:
             raise RuntimeError("Spike input namespace not provided")
         for pop_name, gid_range_stim in viewitems(vecstim_sources):
-            gid_range = gid_range_stim.difference(set(env.cell_selection[pop_name]))
+            gid_range = [ gid for gid in gid_range_stim if not env.pc.gid_exists(gid) ]
             for gid in gid_range:
                 stim_cell = h.VecStim()
                 register_cell(env, pop_name, gid, stim_cell)
