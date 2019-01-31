@@ -836,14 +836,19 @@ def make_stimulus_selection(env, vecstim_sources):
             raise RuntimeError("Spike input path not provided")
         if env.spike_input_ns is None:
             raise RuntimeError("Spike input namespace not provided")
-        for pop_name, gid_range_stim in viewitems(vecstim_sources):
-            gid_range = [ gid for gid in gid_range_stim if not env.pc.gid_exists(gid) ]
-            for gid in gid_range:
-                stim_cell = h.VecStim()
-                register_cell(env, pop_name, gid, stim_cell)
+        for pop_name, stim_gid_range in viewitems(vecstim_sources):
+            local_stim_gid_range = stim_gid_range.difference(set(env.cell_selection[pop_name]))
+            stim_gid_ranges = env.comm.allgather(local_stim_gid_range)
+            stim_gid_range = []
+            for gid_range in stim_gid_ranges:
+                for gid in gid_range:
+                    if gid % nhosts == rank:
+                        stim_gid_range.append(gid)
+                        stim_cell = h.VecStim()
+                        register_cell(env, pop_name, gid, stim_cell)
             if rank == 0:
-                logger.info("*** reading spike train for population %s gids %s" % (pop_name, str(gid_range)))
-            cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, list(gid_range), \
+                logger.info("*** reading spike train for population %s gids %s" % (pop_name, str(stim_gid_range)))
+            cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, stim_gid_range, \
                                                              namespace=env.spike_input_ns, \
                                                              comm=env.comm)
             for gid, cell_spikes in cell_spikes_iter:
