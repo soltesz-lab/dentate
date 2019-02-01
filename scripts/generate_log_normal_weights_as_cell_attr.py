@@ -104,7 +104,7 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
                     this_syn_id = conn_attr_dict['Synapses']['syn_id'][j]
                     source_syn_dict[this_source_gid].append(this_syn_id)
             weights_dict[destination_gid] = \
-              synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
+              synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=(0.0, 3.0))
             logger.info('Rank %i; destination: %s; destination gid %i; sources: %s; generated log-normal weights for %i inputs in ' \
                         '%.2f s' % (rank, destination, destination_gid, \
                                     [source.encode('ascii') for source in list(sources)], \

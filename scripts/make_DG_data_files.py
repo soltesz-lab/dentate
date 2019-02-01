@@ -20,7 +20,7 @@ DG_GC_forest_syns_file = "DGC_forest_syns_20181222_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20190123_compressed.h5"
 
 DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20181227_compressed.h5"
-#DG_IN_syn_weights_file = "DG_IN_syns_log_normal_weights_20181011_compressed.h5"
+DG_IN_syn_weights_file = "DG_IN_syns_log_normal_weights_20190131_compressed.h5"
 
 DG_IN_connectivity_file = "DG_IN_connections_20190124_compressed.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20181225_compressed.h5"
@@ -90,7 +90,8 @@ forest_syns_files = {
 }
 
 syn_weight_files = {
-     'GC': { "Log-Normal Weights": DG_GC_syn_weights_file }
+     'GC': { "Log-Normal Weights": DG_GC_syn_weights_file },
+     'MC': { "Log-Normal Weights": DG_IN_syn_weights_file }
 }
 
 ## Creates H5Types entries
