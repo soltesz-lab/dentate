@@ -441,6 +441,13 @@ def connect_cell_selection(env, cleanup=True):
                                                              edge_iters))
             del graph[postsyn_name][presyn_name]
 
+    ##
+    ## This section instantiates cells that are not part of the
+    ## selection, but are presynaptic sources for cells that _are_
+    ## part of the selection. It is necessary to do this here, as
+    ## NEURON's ParallelContext does not allow the creation of gids 
+    ## after netcons including those gids are created.
+    ##
     for pop_name, stim_gid_range in viewitems(vecstim_sources):
 
         if pop_name in env.cell_selection:
@@ -454,6 +461,9 @@ def connect_cell_selection(env, cleanup=True):
                     stim_cell = h.VecStimCell(gid)
                     register_cell(env, pop_name, gid, stim_cell)
 
+    ##
+    ## This section instantiates the synaptic mechanisms and netcons for each connection.
+    ##
     for gid in syn_attrs.gids():
 
         cell = env.pc.gid2cell(gid)
