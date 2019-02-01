@@ -100,16 +100,22 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
 
     a = kwargs.get('a', 0.3)
     b = kwargs.get('b', -1.5)
- 
-    if 'X Offset Scaled' and 'Y Offset Scaled' in features_dict:
-        x_offset = features_dict['X Offset Scaled']
-        y_offset = features_dict['Y Offset Scaled']
-    else:
-        x_offset = features_dict['X Offset']
-        y_offset = features_dict['Y Offset']
+
+    try:
+        if 'X Offset Scaled' and 'Y Offset Scaled' in features_dict:
+            x_offset = features_dict['X Offset Scaled']
+            y_offset = features_dict['Y Offset Scaled']
+        else:
+            x_offset = features_dict['X Offset']
+            y_offset = features_dict['Y Offset']
+    except:
+        print "selectivity: ", selectivity_type
+        print "features: ", features_dict
+        raise
 
     rate_map = None
     if selectivity_type == selectivity_grid:
+
         grid_orientation = features_dict['Grid Orientation'][0]
         grid_spacing = features_dict['Grid Spacing'][0]
         theta_k   = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
