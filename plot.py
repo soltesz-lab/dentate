@@ -1822,8 +1822,8 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 
 ## Plot netclamp results (intracellular trace of target cell + spike raster of presynaptic inputs)
-def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unitNo, include='eachPop', timeRange = None, timeVariable='t',
-                        intracellularVariable='v', orderInverse = False, labels = 'legend', spikeHist = None, spikeHistBin = 5,
+def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop', time_range = None, time_variable='t',
+                        intracellular_variable='v', orderInverse = False, labels = 'legend', spike_hist = None, spike_hist_bin = 5,
                         lw = 3, marker = ',', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
     ''' 
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
@@ -1864,9 +1864,9 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
-                                           timeVariable=timeVariable, timeRange=timeRange)
-    indata  = statedata.read_state (input_path, [popName], intracellular_namespace, timeVariable=timeVariable, \
-                                    variable=intracellularVariable, timeRange=timeRange, unitNo = [unitNo])
+                                           time_variable=time_variable, time_range=time_range)
+    indata  = statedata.read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
+                                    variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1989,8 +1989,8 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
         # Plot intracellular state
         ax3=plt.subplot(gs[2])
         ax3.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax3.set_ylabel(intracellularVariable, fontsize=fontSize)
-        ax3.set_xlim(timeRange)
+        ax3.set_ylabel(intracellular_variable, fontsize=fontSize)
+        ax3.set_xlim(time_range)
 
         states = indata['states']
         stplots = []
