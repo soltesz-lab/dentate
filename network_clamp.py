@@ -227,8 +227,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     spkdata = spikedata.read_spike_events (spike_events_path, \
                                            presyn_names, \
                                            spike_events_namespace, \
-                                           timeVariable=t_var, \
-                                           timeRange=t_range)
+                                           time_variable=t_var, \
+                                           time_range=t_range)
     spkindlst = spkdata['spkindlst']
     spktlst   = spkdata['spktlst']
     spkpoplst = spkdata['spkpoplst']
