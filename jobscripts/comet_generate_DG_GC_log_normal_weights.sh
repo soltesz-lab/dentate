@@ -32,7 +32,7 @@ mpirun_rsh -export-all -hostfile $nodefile -np 768  \
  -d GC -s MPP -s LPP -s MC \
  --config=Full_Scale_Pas.yaml \
  --config-prefix=./config \
- --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_LN_20181227.h5 \
+ --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_LN_20190131.h5 \
  --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20181225_compressed.h5 \
  --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=40 -v 
 
