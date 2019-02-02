@@ -43,10 +43,13 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 rule_params = weight_rule['params']
                 mu = rule_params['mu']
                 sigma = rule_params['sigma']
+                clip = None
+                if 'clip' in rule_params:
+                    clip = rule_params['clip']
                 seed_offset = int(env.modelConfig['Random Seeds']['GC Log-Normal Weights 1'])
                 seed = int(seed_offset + 1)
                 weights_dict[presyn_id] = \
-                  synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
+                  synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=clip)
             elif weight_rule['class'] == 'Normal':
                 weights_name = weight_rule['name']
                 rule_params = weight_rule['params']
