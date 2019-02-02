@@ -5,6 +5,8 @@ import dentate
 from dentate import utils, plot
 
 
+script_name = os.path.basename(__file__)
+
 @click.command()
 @click.option("--input-path", '-p', required=True, type=click.Path())
 @click.option("--spike-namespace", type=str, default='Spike Events')
@@ -23,18 +25,20 @@ def main(input_path, spike_namespace, state_namespace, populations, unit_no, spi
     utils.config_logging(verbose)
     
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_network_clamp (input_path, spike_namespace, state_namespace, unitNo=unit_no, include=populations, timeRange=timeRange, timeVariable=t_variable, intracellularVariable=state_variable, spikeHist='subplot', spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True)
+    plot.plot_network_clamp (input_path, spike_namespace, state_namespace, unit_no=unit_no, include=populations,
+                             time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
+                             spike_hist='subplot', spike_hist_bin=spike_hist_bin, fontSize=font_size, saveFig=True)
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])

@@ -16,7 +16,7 @@ from rbf.nodes import snap_to_boundary, disperse, menodes
 from rbf.geometry import contains
 from alphavol import alpha_shape
 
-script_name = "generate_soma_coordinates.py"
+script_name = os.path.basename(__file__)
 logger = get_script_logger(script_name)
 
 def mpi_excepthook(type, value, traceback):
@@ -99,11 +99,7 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
             output_file.close()
     comm.barrier()
 
-<<<<<<< Updated upstream
     env = Env(comm=comm, config_file=config)
-=======
-    env = Env(comm=comm, configFile=config, templatePaths=template_path)
->>>>>>> Stashed changes
 
     layer_min_extents = env.geometry['Parametric Surface']['Minimum Extent']
     layer_max_extents = env.geometry['Parametric Surface']['Maximum Extent']

@@ -65,8 +65,10 @@ Synapses:
           tau_offset: 5.5
           sat: 0.9
           e: 0
-          g_unit: 0.0016
+          g_unit: 0.0008
           weight: 1.0
+        NMDA:
+          g_unit: 0.0008
     LPP:
       type: excitatory
       sections: [apical]
@@ -78,8 +80,10 @@ Synapses:
           tau_offset: 5.5
           sat: 0.9
           e: 0
-          g_unit: 0.0018
+          g_unit: 0.0009
           weight: 1.0
+        NMDA:
+          g_unit: 0.0009
     MC:
       type: excitatory
       sections: [apical]
@@ -91,8 +95,10 @@ Synapses:
           tau_offset: 5.5
           sat: 0.9
           e: 0
-          g_unit: 0.00019
+          g_unit: 0.0001
           weight: 1.0
+        NMDA:
+          g_unit: 0.0001
     AAC:
       type: inhibitory
       sections: [ais]
@@ -114,7 +120,7 @@ Synapses:
       mechanisms:
         SatGABA_A:
           dur_onset: 0.25
-          tau_offset: 5.5
+          tau_offset: 9.0
           sat: 0.9
           e: -75
           g_unit: 0.00065
@@ -126,8 +132,8 @@ Synapses:
       proportions: [0.31]
       mechanisms:
         SatGABA_A:
-          dur_onset: 0.4
-          tau_offset: 1.1
+          dur_onset: 0.5
+          tau_offset: 9.0
           sat: 0.9
           e: -75
           g_unit: 0.003
@@ -139,8 +145,8 @@ Synapses:
       proportions: [0.5, 0.5]
       mechanisms:
         SatGABA_A:
-          dur_onset: 0.5
-          tau_offset: 6.0
+          dur_onset: 2.5
+          tau_offset: 11.0
           sat: 0.9
           e: -75
           g_unit: 0.006
@@ -152,8 +158,8 @@ Synapses:
       proportions: [0.28, 0.28]
       mechanisms:
         SatGABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
+          dur_onset:  6.0
+          tau_offset: 15.0
           sat: 0.9
           e:   -75
           g_unit: 0.00015
@@ -172,8 +178,8 @@ Synapses:
       proportions: [0.22, 0.22]
       mechanisms:
         SatGABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
+          dur_onset:  6.0
+          tau_offset: 15.0
           sat: 0.9
           e:   -75
           g_unit: 0.00015
@@ -216,7 +222,7 @@ Synapses:
           tau_offset: 6.0
           sat: 0.9
           e: -75
-          g_unit: 0.001
+          g_unit: 0.005
           weight: 1.0
     BC:   
       type: inhibitory
@@ -229,7 +235,7 @@ Synapses:
           tau_offset: 3.3
           sat: 0.9
           e: -75
-          g_unit: 0.003
+          g_unit: 0.008
           weight: 1.0
     AAC:  
       type: inhibitory
@@ -242,7 +248,7 @@ Synapses:
           tau_offset: 3.3
           sat: 0.9
           e: -75
-          g_unit: 0.003
+          g_unit: 0.008
           weight: 1.0
     HCC:  
       type: inhibitory
@@ -255,7 +261,7 @@ Synapses:
           tau_offset: 4.7
           sat: 0.9
           e: -75
-          g_unit: 0.0006
+          g_unit: 0.005
           weight: 1.0
   HC:
     GC:   

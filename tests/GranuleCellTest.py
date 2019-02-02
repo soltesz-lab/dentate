@@ -13,7 +13,7 @@ from dentate import neuron_utils, utils, cells, synapses, network_clamp
 
     
 
-def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, v_init, tstart = 200.):
+def synapse_group_test (env, presyn_name, gid, cell, syn_params_dict, group_size, v_init, tstart = 200.):
 
     syn_attrs = env.synapse_attributes
     
@@ -98,7 +98,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
         f.close()
 
 
-def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, rate, tstart = 200.):
+def synapse_group_rate_test (env, presyn_name, gid, cell, syn_params_dict, group_size, rate, tstart = 200.):
 
     syn_attrs = env.synapse_attributes
     ranstream = np.random.RandomState(0)
@@ -174,7 +174,7 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
     postsyn_name = 'GC'
     presyn_names = ['MPP', 'LPP', 'MC', 'HC', 'BC', 'AAC', 'HCC']
 
-    cell = network_clamp.load_cell(env, postsyn_name, gid, mech_file=mech_file_path, \
+    cell = network_clamp.load_cell(env, postsyn_name, gid, mech_file_path=mech_file_path, \
                                    tree_dict=tree, synapses_dict=synapses, \
                                    correct_for_spines=True, load_edges=False)
 
@@ -199,17 +199,17 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
         syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
         rate = 40
         
-        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
-        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
-        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 50, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_params_dict, 1, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_params_dict, 10, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_params_dict, 50, rate)
 
-        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, v_init)
-        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, v_init)
-        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 40, v_init)
-        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 50, v_init)
-        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 100, v_init)
-        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 200, v_init)
-        synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 400, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_params_dict, 1, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_params_dict, 10, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_params_dict, 40, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_params_dict, 50, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_params_dict, 100, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_params_dict, 200, v_init)
+        synapse_group_test(env, presyn_name, gid, cell, syn_params_dict, 400, v_init)
         
  
     

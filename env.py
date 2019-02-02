@@ -9,6 +9,7 @@ from neuron import h
 from dentate.utils import *
 from dentate.neuron_utils import find_template
 
+
 SynapseConfig = namedtuple('SynapseConfig',
                                ['type',
                                 'sections',
@@ -28,7 +29,8 @@ GapjunctionConfig = namedtuple('GapjunctionConfig',
 NetclampConfig = namedtuple('NetclampConfig',
                             ['template_params',
                              'input_generators',
-                             'weight_generators'])
+                             'weight_generators',
+                             'optimize_parameters'])
 
 
 class Env:
@@ -39,7 +41,8 @@ class Env:
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0,
                  vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0,
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, verbose=False, **kwargs):
+                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, verbose=False,
+                 cache_queries=False, profile_memory=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -61,7 +64,9 @@ class Env:
         :param dt: float; simulation time step
         :param ldbal: bool; estimate load balance based on cell complexity
         :param lptbal: bool; calculate load balance with LPT algorithm
+        :param profile: bool; profile memory usage
         :param verbose: bool; print verbose diagnostic messages while constructing the network
+        :param cache_queries: bool; whether to use a cache to speed up queries to filter_synapses
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
@@ -85,7 +90,12 @@ class Env:
         else:
             self.pc = None
 
+        # If true, compute and print memory usage at various points
+        # during simulation initialization
+        self.profile_memory = profile_memory
+            
         # print verbose diagnostic messages
+        self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
         
@@ -142,6 +152,9 @@ class Env:
 
         # Save CoreNEURON data
         self.coredat = coredat
+
+        # cache queries to filter_synapses
+        self.cache_queries = cache_queries
 
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
@@ -201,10 +214,12 @@ class Env:
         self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
-            self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
+            if self.results_id is None:
+                self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
+            else:
+                self.results_file_path = "%s/%s_%s_results.h5" % (self.results_path, self.modelName, self.results_id)
         else:
-            self.results_file_path = "%s_results.h5" % self.modelName
-
+            self.results_file_path = "%s_%s_results.h5" % (self.modelName, self.results_id)
 
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
@@ -240,6 +255,8 @@ class Env:
         if self.dataset_prefix is not None:
             for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
                 self.projection_dict[dst].append(src)
+        if rank == 0:
+            self.logger.info('projection_dict = %s' % str(self.projection_dict))
 
         self.lfpConfig = {}
         if 'LFP' in self.modelConfig:
@@ -254,7 +271,7 @@ class Env:
         self.id_vec = h.Vector()  # Ids of spike times on this host
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
-            self.recs_dict[pop_name] = { 'Soma': [] } 
+            self.recs_dict[pop_name] = { 'Soma': [], 'Axon hillock': [], 'Apical dendrite': [], 'Basal dendrite': [] } 
 
         # used to calculate model construction times and run time
         self.mkcellstime = 0
@@ -272,7 +289,6 @@ class Env:
         if len(self.template_paths) > 0:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
-
 
     def parse_input_config(self):
         """
@@ -307,12 +323,13 @@ class Env:
         input_generator_dict = netclamp_config_dict['Input Generator']
         weight_generator_dict = netclamp_config_dict['Weight Generator']
         template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
+        opt_param_rules_dict = netclamp_config_dict['Synaptic Optimization']
         
         template_params = {}
         for (template_name, params) in viewitems(template_param_rules_dict):
             template_params[template_name] = params
 
-        self.netclampConfig = NetclampConfig(template_params, input_generator_dict, weight_generator_dict)
+        self.netclamp_config = NetclampConfig(template_params, input_generator_dict, weight_generator_dict, opt_param_rules_dict)
 
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']
@@ -387,33 +404,39 @@ class Env:
             connection_dict[key_postsyn] = {}
             
             for (key_presyn, syn_dict) in viewitems(val_syntypes):
-                val_type        = syn_dict['type']
-                val_synsections = syn_dict['sections']
-                val_synlayers   = syn_dict['layers']
-                val_proportions = syn_dict['proportions']
-                val_synparams   = syn_dict['mechanisms']
+                val_type         = syn_dict['type']
+                val_synsections  = syn_dict['sections']
+                val_synlayers    = syn_dict['layers']
+                val_proportions  = syn_dict['proportions']
+                val_mechparams    = None
+                val_swctype_mechparams    = None
+                if 'mechanisms' in syn_dict:
+                    val_mechparams   = syn_dict['mechanisms']
+                else:
+                    val_swctype_mechparams = syn_dict['swctype mechanisms']
 
                 res_type = self.Synapse_Types[val_type]
                 res_synsections = []
                 res_synlayers = []
+                res_mechparams = {}
+
                 for name in val_synsections:
                     res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
                     res_synlayers.append(self.layers[name])
-                
+                if val_swctype_mechparams is not None:
+                    for swc_type in val_swctype_mechparams:
+                        swc_type_index = self.SWC_Types[swc_type]
+                        res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
+                else:
+                    res_mechparams['default'] = val_mechparams
+                        
                 connection_dict[key_postsyn][key_presyn] = \
-                  SynapseConfig(res_type, \
-                                res_synsections, \
-                                res_synlayers, \
-                                val_proportions, \
-                                val_synparams)
-                                    
+                    SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, res_mechparams)
 
             config_dict = defaultdict(lambda: 0.0)
             for (key_presyn, conn_config) in viewitems(connection_dict[key_postsyn]):
-                for (s,l,p) in zip(conn_config.sections, \
-                                   conn_config.layers, \
-                                   conn_config.proportions):
+                for (s,l,p) in zip(conn_config.sections, conn_config.layers, conn_config.proportions):
                     config_dict[(conn_config.type, s, l)] += p
                                               
             for (k,v) in viewitems(config_dict):

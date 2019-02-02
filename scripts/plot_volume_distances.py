@@ -6,21 +6,22 @@ from dentate import plot, utils
 from dentate.geometry import make_volume, get_volume_distances
 from dentate.env import Env
 
-script_name = 'plot_volume_distances.py'
+script_name = os.path.basename(__file__)
 
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--resolution", type=(int,int,int), default=(33,33,10))
 @click.option("--resample", type=int, default=7)
 @click.option("--alpha-radius", type=float, default=120.)
 @click.option("--graph-type", type=str, default='scatter')
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, resolution, resample, alpha_radius, graph_type, verbose):
+def main(config, config_prefix, resolution, resample, alpha_radius, graph_type, verbose):
     
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
 
-    env = Env(config_file=config)
+    env = Env(config_file=config, config_prefix=config_prefix)
 
     layers = env.layers
     rotate = env.geometry['Parametric Surface']['Rotation']
@@ -60,4 +61,4 @@ def main(config, resolution, resample, alpha_radius, graph_type, verbose):
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])

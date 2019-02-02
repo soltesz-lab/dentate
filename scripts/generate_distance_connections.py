@@ -27,7 +27,7 @@ sys.excepthook = mpi_excepthook
 
 @click.command()
 @click.option("--config", required=True, type=str)
-@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-path", required=True, type=click.Path())
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
@@ -44,7 +44,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, forest_path, connectivity_path, connectivity_namespace, coords_path,
+def main(config, config_prefix, forest_path, connectivity_path, connectivity_namespace, coords_path, 
          coords_namespace, synapses_namespace, distances_namespace, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
@@ -94,7 +94,7 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
     destination_populations = read_population_names(forest_path)
 
     if len(soma_distances) == 0:
-        soma_distances = measure_distances(env, comm, soma_coords, allgather=True)
+        soma_distances = measure_distances(env, soma_coords, allgather=True)
 
     for destination_population in destination_populations:
 

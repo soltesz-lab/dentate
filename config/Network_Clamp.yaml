@@ -2,10 +2,38 @@ Template Parameter Rules:
   StimCell:
     - rate
 Input Generator:
+  MPP:
+    template: StimCell
+    params:
+      rate: 10.
+  LPP:
+    template: StimCell
+    params:
+      rate: 10.
   BC:
     template: StimCell
     params:
-      rate: 1
+      rate: 25.
+  AAC:
+    template: StimCell
+    params:
+      rate: 25.
+  HC:
+    template: StimCell
+    params:
+      rate: 20.
+  HCC:
+    template: StimCell
+    params:
+      rate: 5.
+  MC:
+    template: StimCell
+    params:
+      rate: 2.
+  GC:
+    template: StimCell
+    params:
+      rate: 1.0
 Weight Generator:
   MC:
     GC:
@@ -14,6 +42,12 @@ Weight Generator:
       params:
         mu: 0.
         sigma: 1.0
+        clip: [0.0, 3.0]
+    MC:
+      class: Sparse
+      name: AMPA
+      params:
+        fraction: 0.5
   GC:
     MPP:
       class: Log-Normal
@@ -21,17 +55,71 @@ Weight Generator:
       params:
         mu: 0.
         sigma: 1.0
+        clip: [0.0, 3.0]
     LPP:
       class: Log-Normal
       name: AMPA
       params:
         mu: 0.
         sigma: 1.0
-    MC:
-      class: Log-Normal
-      name: AMPA
-      params:
-        mu: 0.
-        sigma: 1.0
-
+        clip: [0.0, 3.0]
+Synaptic Optimization:
+  GC:
+    Parameter ranges:
+      AAC:
+        ais:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+      BC:
+        soma:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+      HC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+      HCC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+      MOPP:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+      NGFC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+          GABA_B:
+            g_unit: [0.0001, 0.004]
+    Target firing rate: 1.0
+  MC:
+    Parameter ranges:
+      HC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      HCC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      BC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+        soma:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      AAC:
+        soma:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+#        ais:
+#          GABA_A:
+#            g_unit: [0.0001, 0.003]
+    Target firing rate: 10.0
+      
 

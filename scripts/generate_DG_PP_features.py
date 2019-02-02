@@ -32,7 +32,6 @@ context = Context()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--input-params-file-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--stimulus-id", type=int, default=0)
-@click.option("--template-path",required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", type=str, default='Arc Distances')
@@ -43,7 +42,7 @@ context = Context()
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, input_params_file_path, stimulus_id, template_path, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
+def main(config, input_params_file_path, stimulus_id, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
     """
 
     :param config:
@@ -61,7 +60,7 @@ def main(config, input_params_file_path, stimulus_id, template_path, coords_path
 
     config_logging(verbose)
 
-    env = Env(comm=comm, config_file=config, template_paths=template_path)
+    env = Env(comm=comm, config_file=config)
     if io_size == -1:
         io_size = comm.size
     if rank == 0:

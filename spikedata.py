@@ -1,10 +1,11 @@
 import math, sys
 import itertools
 from collections import defaultdict
-from pathos.multiprocessing import ProcessPool
 import numpy as np
-import neo, elephant
-from quantities import s, ms, Hz
+import neo
+import spykeutils.rate_estimation as re
+import spykeutils.signal_processing as sigproc
+import quantities as pq
 from dentate import utils
 from utils import viewitems
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
@@ -13,12 +14,90 @@ from neuroh5.io import read_cell_attributes, write_cell_attributes, read_populat
 ## which is created in module env
 logger = utils.get_module_logger(__name__)
 
-## Returns a list of arrays with consecutive values from data
+
 def consecutive(data):
+    """
+    Returns a list of arrays with consecutive values from data.
+    """
     return np.split(data, np.where(np.diff(data) != 1)[0]+1)
 
-def read_spike_events(input_file, population_names, namespace_id, timeVariable='t', timeRange = None, maxSpikes = None):
+def mvcorrcoef(X,y):
+    """
+    Multivariate correlation coefficient.
+    """
+    Xm = np.reshape(np.mean(X,axis=1),(X.shape[0],1))
+    ym = np.mean(y)
+    r_num = np.sum(np.multiply(X-Xm,y-ym),axis=1)
+    r_den = np.sqrt(np.sum(np.square(X-Xm),axis=1)*np.sum(np.square(y-ym)))
+    with np.errstate(divide='ignore', invalid='ignore'):
+        r = np.true_divide(r_num, r_den)
+        r[r == np.inf] = 0
+        r = np.nan_to_num(r)
+    return r
 
+
+def autocorr (y, lag):
+    leny = y.shape[1]
+    a = y[0,0:leny-lag].reshape(-1)
+    b = y[0,lag:leny].reshape(-1)
+    m = np.vstack((a[0,:].reshape(-1), b[0,:].reshape(-1)))
+    r = np.corrcoef(m)[0,1]
+    if math.isnan(r):
+        return 0.
+    else:
+        return r
+
+def get_env_spike_dict(env, t_start=0.0):
+    """
+    Constructs  a dictionary with per-gid spike times from the output vectors with spike times and gids contained in env.
+    """
+    
+    t_vec = np.array(env.t_vec, dtype=np.float32)
+    id_vec = np.array(env.id_vec, dtype=np.uint32)
+
+    if t_start > 0.0:
+        inds = np.where(t_vec >= t_start)
+        t_vec = t_vec[inds]
+        id_vec = id_vec[inds]
+    
+    binlst  = []
+    typelst = list(env.celltypes.keys())
+    for k in typelst:
+        binlst.append(env.celltypes[k]['start'])
+
+    binvect  = np.array(binlst)
+    sort_idx = np.argsort(binvect,axis=0)
+    bins     = binvect[sort_idx][1:]
+    types    = [ typelst[i] for i in sort_idx ]
+    inds     = np.digitize(id_vec, bins)
+
+    pop_spkdict = {}
+    for i in range(0,len(types)):
+        pop_name = types[i]
+        spkdict  = {}
+        sinds    = np.where(inds == i)
+        if len(sinds) > 0:
+            ids      = id_vec[sinds]
+            ts       = t_vec[sinds]
+            for j in range(0,len(ids)):
+                id = ids[j]
+                t  = ts[j]
+                if id in spkdict:
+                    spkdict[id]['t'].append(t)
+                else:
+                    spkdict[id]= {'t': [t]}
+            for j in list(spkdict.keys()):
+                spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
+        pop_spkdict[pop_name] = spkdict
+
+    return pop_spkdict
+
+
+def read_spike_events(input_file, population_names, namespace_id, time_variable='t', time_range = None, max_spikes = None):
+    """
+    Reads spike trains from a NeuroH5 file, and returns a dictionary with spike times and cell indices.
+    """
+    
     spkpoplst        = []
     spkindlst        = []
     spktlst          = []
@@ -31,10 +110,10 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
 
     for pop_name in population_names:
 
-        if timeRange is None:
+        if time_range is None:
             logger.info('Reading spike data for population %s...' % pop_name)
         else:
-            logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(timeRange)))
+            logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(time_range)))
 
         spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id)
         this_num_cell_spks = 0
@@ -44,9 +123,9 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
         pop_spktlst   = []
 
         # Time Range
-        if timeRange is None:
+        if time_range is None:
             for spkind,spkts in spkiter:
-                for spkt in spkts[timeVariable]:
+                for spkt in spkts[time_variable]:
                     pop_spkindlst.append(spkind)
                     pop_spktlst.append(spkt)
                     if spkt < tmin:
@@ -57,8 +136,8 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
                     active_set.add(spkind)
         else:
             for spkind,spkts in spkiter:
-                for spkt in spkts[timeVariable]:
-                    if timeRange[0] <= spkt <= timeRange[1]:
+                for spkt in spkts[time_variable]:
+                    if time_range[0] <= spkt <= time_range[1]:
                         pop_spkindlst.append(spkind)
                         pop_spktlst.append(spkt)
                         if spkt < tmin:
@@ -79,10 +158,10 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
         pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
         del(pop_spkindlst)
                         
-        # Limit to maxSpikes
-        if (maxSpikes is not None) and (len(pop_spkts)>maxSpikes):
-            logger.warn('  Reading only randomly sampled %i out of %i spikes for population %s' % (maxSpikes, len(pop_spkts), pop_name))
-            sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(maxSpikes))
+        # Limit to max_spikes
+        if (max_spikes is not None) and (len(pop_spkts)>max_spikes):
+            logger.warn('  Reading only randomly sampled %i out of %i spikes for population %s' % (max_spikes, len(pop_spkts), pop_name))
+            sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(max_spikes))
             pop_spkts   = pop_spkts[sample_inds]
             pop_spkinds = pop_spkinds[sample_inds]
             tmax = max(tmax, max(pop_spkts))
@@ -101,6 +180,9 @@ def read_spike_events(input_file, population_names, namespace_id, timeVariable='
 
 
 def make_spike_dict (spkinds, spkts):
+    """
+    Given arrays with cell indices and spike times, returns a dictionary with per-cell spike times.
+    """
     spk_dict = defaultdict(list)
     for spkind, spkt in zip(np.nditer(spkinds), np.nditer(spkts)):
         spk_dict[int(spkind)].append(spkt)
@@ -108,55 +190,16 @@ def make_spike_dict (spkinds, spkts):
 
     
 def interspike_intervals (spkdict):
+    """
+    Calculates interspike intervals from the given spike dictionary.
+    """
     isi_dict = {}
     for ind, lst in viewitems(spkdict):
-        isi_dict[ind] = np.diff(np.asarray(lst))
+        if len(lst) > 1:
+            isi_dict[ind] = np.diff(np.asarray(lst))
+        else:
+            isi_dict[ind] = np.asarray([], dtype=np.float32)
     return isi_dict
-
-
-def spike_rates (spkdict, t):
-    rate_dict = {}
-    isidict = interspike_intervals(spkdict)
-    for ind, isiv in viewitems(isidict):
-        if isiv.size > 0:
-            rate = isiv.size / (t / 1000.0)
-        else:
-            rate = 0.0
-        rate_dict[ind] = rate
-    return rate_dict
-
-def spike_inst_rates_func (item,t_start,t_stop,sampling_period,sigma,kernel,bin_steps=5):
-    (ind, lst) = item
-    spkts = np.asarray(lst, dtype=np.float32)
-    spktrain      = neo.core.SpikeTrain(spkts*ms, t_start=t_start*ms, t_stop=t_stop*ms)
-    spkrates_r    = elephant.statistics.instantaneous_rate(spktrain, sampling_period, kernel=kernel).ravel()
-    spkrates_x    = np.linspace(t_start, t_stop, spkrates_r.size)
-    
-    return (ind, { 'x': np.asarray(spkrates_x, dtype=np.float32),
-                   'rate': np.asarray(spkrates_r, dtype=np.float32)
-                 })
-
-
-def spike_inst_rates (population, spkdict, timeRange, sampling_period=2.0*ms, sigma = 0.05, nprocs=1, saveData=False):
-
-    kernel = elephant.kernels.GaussianKernel(sigma = sigma*s, invert = True)
-
-    t_start = timeRange[0]
-    t_stop = timeRange[1]
-
-    pool = ProcessPool(nprocs)
-    spk_rate_dict = dict(pool.map(lambda item: spike_inst_rates_func(item,t_start,t_stop,sampling_period,sigma,kernel), viewitems(spkdict)))
-
-    if saveData:
-        if isinstance(saveData, str):
-            filename = saveData
-        else:
-            filename = '%s_spike_inst_rates.h5' % population
-
-        write_cell_attributes(filename, population, spk_rate_dict, namespace='Instantaneous Rate')
-        
-    return spk_rate_dict
-            
 
 def spike_bin_counts(spkdict, bins):
     count_bin_dict = {}
@@ -175,11 +218,59 @@ def spike_bin_counts(spkdict, bins):
 
     return count_bin_dict
 
+def spike_rates (spkdict):
+    """
+    Calculates firing rates based on interspike intervals computed from the given spike dictionary.
+    """
+    rate_dict = {}
+    isidict = interspike_intervals(spkdict)
+    for ind, isiv in viewitems(isidict):
+        if isiv.size > 0:
+            rate = 1.0 / (np.mean(isiv) / 1000.0)
+        else:
+            rate = 0.0
+        rate_dict[ind] = rate
+    return rate_dict
 
-def spatial_information (population, trajectory, spkdict, timeRange, positionBinSize, saveData = False):
 
-    tmin = timeRange[0]
-    tmax = timeRange[1]
+def spike_density_estimate (population, spkdict, time_range, kernel_size = 10., save=False):
+    """
+    Calculates spike density function for the given spike trains using the spike density
+    estimator from spykeutils and a Gaussian kernel.
+    """
+    
+    def make_spktrain (lst, t_start, t_stop):
+        spkts         = np.asarray(lst, dtype=np.float32)
+        spktrain      = neo.core.SpikeTrain(times=spkts*pq.ms, t_start=t_start, t_stop=t_stop)
+        return spktrain
+
+    kernel  = sigproc.GaussianKernel(kernel_size=kernel_size * pq.ms, normalize=False)
+    t_start = time_range[0] * pq.ms
+    t_stop  = time_range[1] * pq.ms
+
+    spktrains = { ind: [make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop)] for (ind, lst) in viewitems(spkdict) }
+    sdf_rate_dict, _, sdf_time = re.spike_density_estimation(spktrains, kernel=kernel, kernel_size=kernel_size * pq.ms, start=t_start, stop=t_stop)
+
+    if save:
+        if isinstance(save, str):
+            filename = save
+        else:
+            filename = '%s_spike_density.h5' % population
+
+        write_cell_attributes(filename, population, spk_rate_dict, namespace='Spike Density Function')
+
+    result = { ind: { 'rate': rate, 'time': sdf_time } for ind, rate in viewitems(sdf_rate_dict) }
+    return result
+            
+
+
+def spatial_information (population, trajectory, spkdict, time_range, position_bin_size, save = False):
+    """
+    Calculates mutual information for the given spatial trajectory and spike trains.
+    """
+
+    tmin = time_range[0]
+    tmax = time_range[1]
     
     (x, y, d, t)  = trajectory
 
@@ -188,7 +279,7 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
     d = d[t_inds]
         
     d_extent       = np.max(d) - np.min(d)
-    position_bins  = np.arange(np.min(d), np.max(d), positionBinSize)
+    position_bins  = np.arange(np.min(d), np.max(d), position_bin_size)
     d_bin_inds     = np.digitize(d, bins = position_bins)
     t_bin_ind_lst  = [0]
     for ibin in range(1, len(position_bins)+1):
@@ -209,7 +300,7 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_inst_rates(population, spkdict, time_bins, timeRange, saveData=saveData)
+    rate_bin_dict = spike_density_estimate(population, spkdict, time_range, save=save)
     MI_dict = {}
     for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
         MI = 0.
@@ -225,12 +316,15 @@ def spatial_information (population, trajectory, spkdict, timeRange, positionBin
             
         MI_dict[ind] = MI
 
-    if saveData:
-        write_cell_attributes(saveData, population, MI_dict, namespace='Spatial Mutual Information')
+    if save:
+        write_cell_attributes(save, population, MI_dict, namespace='Spatial Mutual Information')
 
     return MI_dict
 
-def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, saveData = False):
+def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, save = False):
+    """
+    Estimates place fields from the given instantaneous spike rate dictionary.
+    """
 
     pf_dict = {}
     pf_total_count = 0
@@ -273,8 +367,8 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
                          'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
 
     print('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
-    if saveData:
-        write_cell_attributes(saveData, population, pf_dict, namespace='Place Fields')
+    if save:
+        write_cell_attributes(save, population, pf_dict, namespace='Place Fields')
 
     return pf_dict
             
@@ -283,19 +377,8 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
     
 
 
-def mvcorrcoef(X,y):
-    Xm = np.reshape(np.mean(X,axis=1),(X.shape[0],1))
-    ym = np.mean(y)
-    r_num = np.sum(np.multiply(X-Xm,y-ym),axis=1)
-    r_den = np.sqrt(np.sum(np.square(X-Xm),axis=1)*np.sum(np.square(y-ym)))
-    with np.errstate(divide='ignore', invalid='ignore'):
-        r = np.true_divide(r_num, r_den)
-        r[r == np.inf] = 0
-        r = np.nan_to_num(r)
-    return r
 
-
-def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
+def histogram_correlation(spkdata, bin_size=1., quantity='count', max_elems=None):
     """Compute correlation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -306,7 +389,7 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
 
-    bins  = np.arange(tmin, tmax, binSize)
+    bins  = np.arange(tmin, tmax, bin_size)
     
     corr_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
@@ -319,7 +402,7 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
             spkv  = np.asarray(lst)
             count, bin_edges = np.histogram(spkv, bins = bins)
             if quantity == 'rate':
-                q = count * (1000.0 / binSize) # convert to firing rate
+                q = count * (1000.0 / bin_size) # convert to firing rate
             else:
                 q = count
             x_lst.append(q)
@@ -328,10 +411,10 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
         x_matrix = np.matrix(x_lst)
         del(x_lst)
         
-        # Limit to maxElems
-        if (maxElems is not None) and (x_matrix.shape[0]>maxElems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], subset))
-            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(maxElems))
+        # Limit to max_elems
+        if (max_elems is not None) and (x_matrix.shape[0]>max_elems):
+            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (max_elems, x_matrix.shape[0], subset))
+            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(max_elems))
             x_matrix = x_matrix[sample_inds,:]
 
 
@@ -342,18 +425,7 @@ def histogram_correlation(spkdata, binSize=1., quantity='count', maxElems=None):
     
     return corr_dict
 
-def autocorr (y, lag):
-    leny = y.shape[1]
-    a = y[0,0:leny-lag].reshape(-1)
-    b = y[0,lag:leny].reshape(-1)
-    m = np.vstack((a[0,:].reshape(-1), b[0,:].reshape(-1)))
-    r = np.corrcoef(m)[0,1]
-    if math.isnan(r):
-        return 0.
-    else:
-        return r
-
-def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxElems=None):
+def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count', max_elems=None):
     """Compute autocorrelation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -364,7 +436,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
 
-    bins  = np.arange(tmin, tmax, binSize)
+    bins  = np.arange(tmin, tmax, bin_size)
     
     corr_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
@@ -377,7 +449,7 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
             spkv  = np.asarray(lst)
             count, bin_edges = np.histogram(spkv, bins = bins)
             if quantity == 'rate':
-                q = count * (1000.0 / binSize) # convert to firing rate
+                q = count * (1000.0 / bin_size) # convert to firing rate
             else:
                 q = count
             x_lst.append(q)
@@ -386,10 +458,10 @@ def histogram_autocorrelation(spkdata, binSize=1., lag=1, quantity='count', maxE
         x_matrix = np.matrix(x_lst)
         del(x_lst)
         
-        # Limit to maxElems
-        if (maxElems is not None) and (x_matrix.shape[0]>maxElems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (maxElems, x_matrix.shape[0], subset))
-            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(maxElems))
+        # Limit to max_elems
+        if (max_elems is not None) and (x_matrix.shape[0]>max_elems):
+            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (max_elems, x_matrix.shape[0], subset))
+            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(max_elems))
             x_matrix = x_matrix[sample_inds,:]
 
 

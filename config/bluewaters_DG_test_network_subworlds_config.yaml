@@ -1,0 +1,46 @@
+optimization_title: DG_test_network_subworlds
+param_gen: PopulationAnnealing
+bounds:
+  BC_GC.GABA_A.g_unit: !!python/tuple
+  - 0.000065
+  - 0.0065
+param_names:
+- BC_GC.GABA_A.g_unit
+feature_names:
+- modify_network_time
+- sim_network_time
+objective_names:
+- modify_network_time
+- sim_network_time
+update_context:
+- - DG_test_network_subworlds
+  - update_network
+get_features_stages:
+- source: DG_test_network_subworlds
+  compute_features: compute_features_network_walltime
+get_objectives:
+  DG_test_network_subworlds: get_objectives_network_walltime
+kwargs:
+  config_file: Small_Scale_Control_test_load_LN_weights_Sat.yaml
+  template_paths: ../../DGC/Mateos-Aparicio2014:../templates
+  hoc_lib_path: ..
+  dataset_prefix: /global/cscratch1/sd/aaronmil/dentate
+  config_prefix: ../config
+  tstop: 100.
+  v_init: -77.
+  max_walltime_hours: 1.
+  results_write_time: 360.
+  vrecord_fraction: 0.1
+  dt: 0.025
+  cleanup: False
+  verbose: True
+  cache_queries: True
+  output_results: True
+target_range:
+  modify_network_time: 1.
+  sim_network_time: 10.
+target_val:
+  modify_network_time: 60.
+  sim_network_time: 600.
+x0:
+  BC_GC.GABA_A.g_unit: 0.00065

@@ -6,6 +6,8 @@ import dentate
 from dentate import utils, plot
 
 
+script_name = os.path.basename(__file__)
+
 @click.command()
 @click.option("--state-path", '-p', required=True, type=click.Path())
 @click.option("--state-namespace", '-n', type=str, default='Intracellular Voltage')
@@ -24,12 +26,12 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
     utils.config_logging(verbose)
 
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
@@ -39,9 +41,9 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
     if len(unit_no) == 0:
         unit_no = None
 
-    plot.plot_intracellular_state (state_path, state_namespace, include=populations, timeRange=timeRange,
-                                   timeVariable=t_variable, variable=variable,
-                                   maxUnits=max_units, unitNo=unit_no,
+    plot.plot_intracellular_state (state_path, state_namespace, include=populations, time_range=time_range,
+                                   time_variable=t_variable, variable=variable,
+                                   max_units=max_units, unit_no=unit_no,
                                    fontSize=font_size, saveFig=True, query=query)
     
 
@@ -49,4 +51,4 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])

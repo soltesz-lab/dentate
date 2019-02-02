@@ -19,10 +19,15 @@ Synapse Mechanisms:
   NMDA:    30
 Layers:
   Hilus: 0
-  GCL:   1
+  GCL:   1 
   IML:   2
   MML:   3
-  OML:   4 
+  OML:   4
+  SO: 5  ## Oriens
+  SP: 6  ## Pyramidale
+  SL: 7  ## Lucidum
+  SR: 8  ## Radiatum
+  SLM: 9 ## Lacunosum-moleculare
 Populations:
   GC:   0
   MC:   1

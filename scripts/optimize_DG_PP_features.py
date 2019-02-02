@@ -98,7 +98,7 @@ def main(config_file_path, input_params_file_path, output_dir, export, export_fi
     disp = verbose > 0
     if disp:
         print('... config interactive underway..')
-    config_interactive(context, __file__, config_file_path=config_file_path, output_dir=output_dir, export=export,
+    config_optimize_interactive(__file__, config_file_path=config_file_path, output_dir=output_dir, export=export,
                        export_file_path=export_file_path, label=label, disp=disp)
     if disp:
         print('... config interactive complete...')
@@ -183,7 +183,14 @@ def calculate_features(parameters, export=False):
     features['fraction active'] = np.mean(fraction_active.values())
     return features
 
-def get_objectives(features):
+
+def get_objectives(features, export=False):
+    """
+
+    :param features: dict
+    :param export: bool
+    :return: tuple of dict
+    """
     feature_names = context.feature_names
     for feature in feature_names:
         if feature not in features:
