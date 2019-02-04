@@ -3,16 +3,16 @@ import itertools
 
 h5types_file = 'dentate_h5types.h5'
 
-DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP"]
+DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP", "PYR"]
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
-DG_EXT_populations = ["MPP", "LPP"]
+DG_EXT_populations = ["MPP", "LPP", "PYR"]
 
-DG_coords_file = "DG_coords_20180717.h5"
+DG_coords_file = "DG_coords_20190122.h5"
 
-DG_GC_coordinate_file  = "DGC_forest_reindex_20180418.h5"
+DG_GC_coordinate_file  = "DGC_forest_reindex_20181222_compressed.h5"
 DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
 DG_EXT_coordinate_file = "dentate_Full_Scale_Control_coords_20180717.h5"
-     
+DG_PYR_coordinate_file = "dentate_PYR_coords_20190122.h5"
 
 
 coordinate_files = {
@@ -26,7 +26,8 @@ coordinate_files = {
      'MOPP': DG_IN_coordinate_file,
      'NGFC': DG_IN_coordinate_file,
      'MPP':  DG_EXT_coordinate_file,
-     'LPP':  DG_EXT_coordinate_file
+     'LPP':  DG_EXT_coordinate_file,
+     'PYR':  DG_PYR_coordinate_file
 }
 
 coordinate_ns_generated = 'Generated Coordinates'
@@ -42,7 +43,8 @@ coordinate_namespaces = {
      'MOPP': coordinate_ns_generated,
      'NGFC': coordinate_ns_generated,
      'MPP':  coordinate_ns_generated,
-     'LPP':  coordinate_ns_generated
+     'LPP':  coordinate_ns_generated,
+     'PYR':  coordinate_ns_generated
 }
 
 ## Creates H5Types entries

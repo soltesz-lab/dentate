@@ -1,8 +1,9 @@
 import sys, os
 import click
-import dentate.utils as utils
-import dentate.plot as plot
+import dentate
+from dentate import plot, utils
 
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--features-path", '-p', required=True, type=click.Path())
@@ -28,6 +29,7 @@ def main(features_path, features_namespace, trajectory_id, include, font_size, v
     """
     utils.config_logging(verbose)
     fig_filename = None
+    
     for population in include:
         if save_fig:
             fig_filename = 'population-%s.png' % population
@@ -36,7 +38,7 @@ def main(features_path, features_namespace, trajectory_id, include, font_size, v
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):], 
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):], 
          standalone_mode=False)
 
 

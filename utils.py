@@ -402,6 +402,17 @@ def partitionn(items, predicate=int, n=2):
 
 def generator_peek(iterable):
     """
+    If the iterable is empty, return None, otherwise return a tuple with the
+    first element and the iterable with the first element attached back.
+    """
+    try:
+        first = next(iterable)
+    except StopIteration:
+        return None
+    return first, itertools.chain([first], iterable)
+
+def generator_ifempty(iterable):
+    """
     If the iterable is empty, return None, otherwise return the
     iterable with the first element attached back.
     """
@@ -409,7 +420,7 @@ def generator_peek(iterable):
         first = next(iterable)
     except StopIteration:
         return None
-    return first, itertools.chain([first], iterable)
+    return itertools.chain([first], iterable)
 
 def compose_iter(f, iters):
     """
@@ -419,4 +430,10 @@ def compose_iter(f, iters):
     """
     x = next(iters[0])
     f(x)
-    return next(iters[1])
+    yield next(iters[1])
+
+def profile_memory(logger):
+    from guppy import hpy
+    hprof = hpy()
+    logger.info(hprof.heap())
+

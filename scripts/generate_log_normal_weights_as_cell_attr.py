@@ -20,7 +20,8 @@ mu = 0.
 sigma = 1.0
 
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--weights-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--weights-namespace", type=str, default='Log-Normal Weights')
 @click.option("--weights-name", type=str, default='AMPA')
@@ -34,7 +35,7 @@ sigma = 1.0
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, weights_path, weights_namespace, weights_name, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
+def main(config, config_prefix, weights_path, weights_namespace, weights_name, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
     """
 
     :param weights_path: str
@@ -54,7 +55,7 @@ def main(config, weights_path, weights_namespace, weights_name, connections_path
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
 
     if io_size == -1:
         io_size = comm.size

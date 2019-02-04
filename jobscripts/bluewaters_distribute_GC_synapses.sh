@@ -24,10 +24,10 @@ cd $PBS_O_WORKDIR
 
 aprun -n 2048 -b -- bwpy-environ -- python2.7 ./scripts/distribute_synapse_locs.py \
     --distribution=poisson \
-    --config=./config/Full_Scale_Control.yaml \
-    --template-path=$HOME/model/dgc/Mateos-Aparicio2014 --populations=GC \
-    --forest-path=$SCRATCH/Full_Scale_Control/DGC_forest_20180425.h5 \
-    --output-path=$SCRATCH/Full_Scale_Control/DGC_forest_syns_20180812.h5 \
+    --config=Full_Scale_Pas.yaml \
+    --template-path=./templates:$HOME/model/dgc/Mateos-Aparicio2014 --populations=GC \
+    --forest-path=$SCRATCH/Full_Scale_Control/DGC_forest_reindex_20181222_compressed.h5 \
+    --output-path=$SCRATCH/Full_Scale_Control/DGC_forest_syns_20181222.h5 \
     --io-size=256 --cache-size=50 \
     --chunk-size=50000 --value-chunk-size=200000 -v
 
