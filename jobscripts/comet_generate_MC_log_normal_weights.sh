@@ -25,14 +25,13 @@ ulimit -c unlimited
 
 set -x
 
-nodefile=`generate_pbs_nodefile`
-
-mpirun_rsh -export-all -hostfile $nodefile -np 720  \
- python $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
- -d MC -s GC \
- --config=./config/Full_Scale_Control.yaml \
- --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syns_log_normal_weights_20181013.h5 \
- --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20180908.h5 \
- --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
+ibrun -np 720  \
+ python2.7 $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
+    -d MC -s GC \
+    --config-prefix=./config \
+    --config=Full_Scale_Control.yaml \
+    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syns_log_normal_weights_20190131.h5 \
+    --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190124_compressed.h5 \
+    --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
 
 
