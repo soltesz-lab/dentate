@@ -2,17 +2,13 @@ import sys, os, time, gc, random, click, logging
 from pprint import pprint
 import numpy as np
 from mpi4py import MPI
-#import matplotlib.pyplot as plt
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
-from nested.utils import Context
 import dentate
 from dentate.env import Env
 from dentate.utils import *
 from dentate.InputCell import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
-from optimize_DG_PP_features import _calculate_field_distribution
-from dentate.stimulus import generate_spatial_offsets, generate_mesh
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
 
 logger = get_script_logger(os.path.basename(__file__))
 
@@ -25,8 +21,17 @@ logger = get_script_logger(os.path.basename(__file__))
 #  custom data type for type of feature feature
 feature_grid  = 0
 feature_place = 1
-context = Context()
+          
 
+
+def calculate_field_distribution(pi, pr):
+    p1 = (1. - pi) / (1. + (7./4.) * pr)
+    p2 = p1 * pr
+    p3 = 0.5 * p2
+    p4 = 0.5 * p3
+    probabilities = np.array([pi, p1, p2, p3, p4], dtype='float32')
+    assert( np.abs(np.sum(probabilities) - 1.) < 1.e-5)
+    return probabilities 
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -84,18 +89,19 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
     resolution = input_params['resolution']
     module_pi = input_params['probability inactive']
     module_pr = input_params['probability remaining']
-    context.update(locals()) 
 
-    gid_normed_distances = assign_cells_to_normalized_position() # Assign normalized u,v coordinates
-    gid_module_assignments = assign_cells_to_module(gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
-    total_num_fields, gid_attributes = determine_cell_participation(gid_module_assignments) # Determine if a cell is 1) active and; 2) how many fields? 
-    cell_attributes = build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields) # Determine additional cell properties (lambda, field_width, orientation, jitter, and rate map. This will also build the data structure ({<pop>: {<cell type>: <cells>}}) containing all cells.
+    context = Struct(**dict(locals()))
+
+    gid_normed_distances = assign_cells_to_normalized_position(context) # Assign normalized u,v coordinates
+    gid_module_assignments = assign_cells_to_module(context, gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
+    total_num_fields, gid_attributes = determine_cell_participation(context, gid_module_assignments) # Determine if a cell is 1) active and; 2) how many fields? 
+    cell_attributes = build_cell_attributes(context, gid_attributes, gid_normed_distances, total_num_fields) # Determine additional cell properties (lambda, field_width, orientation, jitter, and rate map. This will also build the data structure ({<pop>: {<cell type>: <cells>}}) containing all cells.
 
     if not dry_run and rank == 0:
-        save_to_h5(cell_attributes)
+        save_to_h5(context, cell_attributes)
 
         
-def assign_cells_to_normalized_position():
+def assign_cells_to_normalized_position(context):
     
     rank = context.comm.rank
     population_distances  = []
@@ -127,7 +133,7 @@ def assign_cells_to_normalized_position():
     return gid_normed_distances
 
     
-def assign_cells_to_module(gid_normed_distances, p_width=2./3, displace=0.1):
+def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace=0.1):
 
     offsets   = np.linspace(-displace, 1. + displace, 10)
     positions = np.linspace(0., 1., 1000)
@@ -167,7 +173,7 @@ def assign_cells_to_module(gid_normed_distances, p_width=2./3, displace=0.1):
     return gid_module_assignments
         
 
-def determine_cell_participation(gid_module_assignments):
+def determine_cell_participation(context, gid_module_assignments):
 
     input_config        = context.env.inputConfig[context.stimulus_id]
     feature_type_dict   = input_config['feature type']
@@ -176,7 +182,7 @@ def determine_cell_participation(gid_module_assignments):
     num_field_random    = np.random.RandomState(feature_seed_offset - 1)
 
     gid_attributes         = {}
-    module_probabilities   = [ _calculate_field_distribution(pi, pr) for (pi, pr) \
+    module_probabilities   = [ calculate_field_distribution(pi, pr) for (pi, pr) \
                                in zip(context.module_pi, context.module_pr) ]
 
     population_ranges = context.population_ranges
@@ -231,7 +237,7 @@ def _fields_per_module(gid_attributes, modules):
             fields_per_module_dict[module][1] += nfields
     return fields_per_module_dict
 
-def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields):
+def build_cell_attributes(context, gid_attributes, gid_normed_distances, total_num_fields):
     
     modules        = np.arange(context.nmodules)
     curr_module    = {mod + 1: int(0) for mod in modules}
@@ -296,8 +302,12 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
                 cell['Field Width'] = np.asarray(cell_width, dtype='float32')
 
             curr_n = curr_module[module]
-            cell['X Offset'] = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,0], dtype='float32')
-            cell['Y Offset'] = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,1], dtype='float32')
+            x_offset = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,0], dtype='float32')
+            y_offset = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,1], dtype='float32')
+            ##print "gid %d: curr_n: %d nfields: %d: " % (gid, curr_n, nfields), x_offset, " ", y_offset
+            
+            cell['X Offset'] = x_offset
+            cell['Y Offset'] = y_offset
             curr_module[module] += nfields
             
             rate_map = generate_spatial_ratemap(cell['Feature Type'][0], cell, None, xp, yp, 20., 20., ramp_up_period=None, **ratemap_kwargs)
@@ -305,7 +315,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
 
     return gid_attributes
         
-def save_to_h5(cell_attributes):
+def save_to_h5(context, cell_attributes):
 
     for population in cell_attributes.keys():
         place_cells, grid_cells = {}, {}

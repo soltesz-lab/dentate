@@ -120,7 +120,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
 
     population_ranges = read_population_ranges(features_path, comm=comm)[0]
 
-    for population in ['MPP', 'LPP']:
+    for population in ['LPP', 'MPP']:
         population_start = population_ranges[population][0]
   
         for features_type, features_namespace in enumerate(features_namespaces):
@@ -136,7 +136,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
             append_cell_attributes(output_path, population, cells, namespace='Cell Attributes', comm=comm, \
                                    io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
-    for population in ['MPP', 'LPP']:
+    for population in ['LPP', 'MPP']:
         population_start = population_ranges[population][0]
 
         count = 0
@@ -155,6 +155,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
                     if verbose:
                         logger.info('Rank %i received attributes for gid %i' % (rank, gid))
                     local_time = time.time()
+                    print "gid %d: " % gid, features_dict
                     response = stimulus.generate_spatial_ratemap(features_type, features_dict, t, x, y, 
                                                                 grid_peak_rate=20., place_peak_rate=20.)
                     local_random.seed(int(input_spiketrain_offset + gid))

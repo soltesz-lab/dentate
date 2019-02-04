@@ -5,6 +5,13 @@ import yaml
 import numpy as np
 
 
+class Struct:
+    def __init__(self, **items):
+        self.__dict__.update(items)
+
+    def update(self, items):
+        self.__dict__.update(items)
+
 class IncludeLoader(yaml.Loader):
     """
     YAML loader with `!include` handler.
