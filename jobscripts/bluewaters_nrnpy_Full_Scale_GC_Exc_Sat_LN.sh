@@ -3,7 +3,7 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=1024:ppn=16:xe
 ### which queue to use
-#PBS -q high
+#PBS -q normal
 ### set the wallclock time
 #PBS -l walltime=4:00:00
 ### set the job name

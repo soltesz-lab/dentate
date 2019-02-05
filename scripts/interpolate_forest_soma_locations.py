@@ -6,15 +6,14 @@ import dlib
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
 from dentate.geometry import DG_volume, make_volume, make_uvl_distance
 from dentate.env import Env
-from dentate.utils import list_find, list_argsort, config_logging, get_script_logger
+from dentate.utils import list_find, list_argsort, config_logging, get_script_logger, op_concat
 
 script_name = 'interpolate_forest_soma_locations.py'
 
 def list_concat(a, b, datatype):
     return a+b
 
-concatOp = MPI.Op.Create(list_concat, commute=True)
-
+mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
     
 
 @click.command()
@@ -148,7 +147,7 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
         del coords_dict
         gc.collect()
 
-        all_coords = comm.reduce(coords, root=0, op=concatOp)
+        all_coords = comm.reduce(coords, root=0, op=mpi_op_concat)
             
         if rank == 0:
             if len(all_coords) > 0:

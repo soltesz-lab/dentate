@@ -2,6 +2,7 @@ import sys, os, gc
 import click
 import dentate
 from dentate import utils, plot
+from dentate.env import Env
 from neuroh5.io import read_cell_attributes
 
 script_name = os.path.basename(__file__)
@@ -23,7 +24,7 @@ def main(config, config_prefix, coords_path, distances_namespace, population, gr
     
     env = Env(config_file=config, config_prefix=config_prefix)
     
-    plot.plot_positions (env, population, soma_distances, binSize=bin_size, graphType=graph_type, saveFig=True)
+    plot.plot_positions (env, population, soma_distances, bin_size=bin_size, graph_type=graph_type, saveFig=True)
         
 
 if __name__ == '__main__':

@@ -1,13 +1,13 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=2048:ppn=16:xe
+#PBS -l nodes=512:ppn=16:xe
 ### which queue to use
 #PBS -q high
 ### set the wallclock time
-#PBS -l walltime=4:00:00
+#PBS -l walltime=0:30:00
 ### set the job name
-#PBS -N dentate_Full_Scale_GC_Exc_Sat
+#PBS -N dentate_Full_Scale_GC_Exc_Sat_dbg
 ### set the job stdout and stderr
 #PBS -e ./results/dentate.$PBS_JOBID.err
 #PBS -o ./results/dentate.$PBS_JOBID.out
@@ -30,7 +30,7 @@ export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export SCRATCH=/projects/sciteam/baqc
 
 echo python is `which python`
-results_path=./results/Full_Scale_GC_Exc_Sat_$PBS_JOBID
+results_path=./results/Full_Scale_GC_Exc_Sat_dbg_$PBS_JOBID
 export results_path
 
 cd $PBS_O_WORKDIR
@@ -44,7 +44,7 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ##export PMI_NO_FORK=1
 ##export PMI_NO_PREINITIALIZE=1
 
-aprun -n 32768 -b -- bwpy-environ -- \
+aprun -n 8192 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
@@ -55,8 +55,7 @@ aprun -n 32768 -b -- bwpy-environ -- \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
-    --max-walltime-hours=3.9 \
+    --max-walltime-hours=0.5 \
     --vrecord-fraction=0.001 \
-    --node-rank-file=parts_GC_Exc.32768 \
     --verbose
 

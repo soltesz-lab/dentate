@@ -30,7 +30,15 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 if this_presyn_id == presyn_id:
                     source_syn_dict[this_presyn_gid].append(syn_id)
                     
-            if weight_rule['class'] == 'Log-Normal':
+            if weight_rule['class'] == 'Sparse':
+                weights_name = weight_rule['name']
+                rule_params = weight_rule['params']
+                fraction = rule_params['fraction']
+                seed_offset = int(env.modelConfig['Random Seeds']['Sparse Weights'])
+                seed = int(seed_offset + 1)
+                weights_dict[presyn_id] = \
+                  synapses.generate_sparse_weights(weights_name, fraction, seed, source_syn_dict)
+            elif weight_rule['class'] == 'Log-Normal':
                 weights_name = weight_rule['name']
                 rule_params = weight_rule['params']
                 mu = rule_params['mu']
@@ -216,8 +224,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     spkdata = spikedata.read_spike_events (spike_events_path, \
                                            presyn_names, \
                                            spike_events_namespace, \
-                                           timeVariable=t_var, \
-                                           timeRange=t_range)
+                                           time_variable=t_var, \
+                                           time_range=t_range)
     spkindlst = spkdata['spkindlst']
     spktlst   = spkdata['spktlst']
     spkpoplst = spkdata['spkpoplst']
@@ -415,7 +423,7 @@ def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
             spkdict1 = { gid: spkdict[pop_name][gid]['t'] }
         else:
             spkdict1 = { gid: np.asarray([], dtype=np.float32) }
-        rate_dict = spikedata.spike_rates (spkdict1, env.tstop)
+        rate_dict = spikedata.spike_rates (spkdict1)
         if gid in spkdict[pop_name]:
             logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid]['t'])))
         logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))

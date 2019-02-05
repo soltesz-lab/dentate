@@ -29,7 +29,7 @@ Input Generator:
   MC:
     template: StimCell
     params:
-      rate: 10.
+      rate: 2.
   GC:
     template: StimCell
     params:
@@ -37,11 +37,15 @@ Input Generator:
 Weight Generator:
   MC:
     GC:
-      class: Log-Normal
+      class: Sparse
       name: AMPA
       params:
-        mu: 0.
-        sigma: 1.0
+        fraction: 0.1
+    MC:
+      class: Sparse
+      name: AMPA
+      params:
+        fraction: 0.5
   GC:
     MPP:
       class: Log-Normal
@@ -78,21 +82,21 @@ Synaptic Optimization:
       HC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0001, 0.004]
       HCC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0001, 0.004]
       MOPP:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0001, 0.004]
       NGFC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0001, 0.004]
           GABA_B:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0001, 0.004]
     Target firing rate: 1.0
   MC:
     Parameter ranges:

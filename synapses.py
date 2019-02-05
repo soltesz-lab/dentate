@@ -208,6 +208,7 @@ class SynapseAttributes(object):
 
             self.init_edge_attrs(postsyn_gid, presyn_name, presyn_gids, edge_syn_ids, delays=delays)
 
+
     def add_pps(self, gid, syn_id, syn_name, pps):
         """
         Adds mechanism point process for the specified cell/synapse id/mechanism name.
@@ -1619,9 +1620,16 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
         elif sec.n3d() == 0:
             return content[name][0]
         else:
+            prev = None
             for i in range(sec.n3d()):
-                if sec.arc3d(i)/sec.L >= x:
-                    return content[name][secnodes[i]]
+                pos = sec.arc3d(i)/sec.L
+                if pos >= x:
+                    if (prev is None) or (abs(pos - x) < abs(prev - x)):
+                        return content[name][secnodes[i]]
+                    else:
+                        return content[name][secnodes[i-1]]
+                else:
+                    prev = pos
     else:
         return None
 
@@ -1818,6 +1826,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                 neurotree_dict, cell_sec_dict, cell_secidx_dict):
     """
     Computes uniformly-spaced synapse locations.
+
     :param density_seed:
     :param syn_type_dict:
     :param swc_type_dict:
@@ -1905,7 +1914,8 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
                                 neurotree_dict, cell_sec_dict, cell_secidx_dict):
     """
-    Computes synapse locations according to a Poisson distribution.
+    Computes synapse locations distributed according to a Poisson distribution.
+
     :param density_seed:
     :param syn_type_dict:
     :param swc_type_dict:
@@ -2040,9 +2050,56 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
 
 def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
+    """
+    Generates log-normal synaptic weights by random sampling from a
+    log-normal distribution with the given mu and sigma.
+
+    :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
+    :param mu: mean of log-normal distribution
+    :param sigma: standard deviation of log-normal distribution
+    :param seed: seed for random number generator
+    :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :return: dictionary of the form:
+    { 'syn_id': <numpy uint32 array of synapse ids>,
+      weight_name: <numpy float array of weights>
+    }
+
+    """
+    
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
     source_weights = local_random.lognormal(mu, sigma, len(source_syn_dict))
+    syn_weight_dict = {}
+    # weights are synchronized across all inputs from the same source_gid
+    for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
+        for this_syn_id in source_syn_dict[this_source_gid]:
+            syn_weight_dict[this_syn_id] = this_weight
+    weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
+    normed_weights = weights 
+    weights_dict = \
+      { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
+        weights_name: normed_weights }
+    return weights_dict
+
+def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
+    """
+    Generates sparse synaptic weights by random sampling where the given fraction of weights
+    is 1 (and uniformly distributed) and the rest of the weights are 0.
+
+    :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
+    :param fraction: fraction of weights to be 1.
+    :param seed: seed for random number generator
+    :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :return: dictionary of the form:
+    { 'syn_id': <numpy uint32 array of synapse ids>,
+      weight_name: <numpy float array of weights>
+    }
+
+    """
+    local_random = np.random.RandomState()
+    local_random.seed(int(seed))
+    source_weights = [ 1.0 if x <= fraction else 0.0 for x in local_random.uniform(size=len(source_syn_dict)) ]
+    print 'source_weights (fraction %f) = ' % fraction, source_weights
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
     for this_source_gid, this_weight in zip(source_syn_dict, source_weights):

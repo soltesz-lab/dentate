@@ -7,6 +7,7 @@ Random Connectivity:               6.0e+6 ## Computing random connectivity (not 
 GC Log-Normal Weights 1:           8.0e+6 ## Computing log-normal weights for GC
 GC Log-Normal Weights 2:           10.0e+6 ## Computing log-normal weights for GC
 GC Structured Weights:             12.0e+6 ## Computing structured weights for GC
+Sparse Weights:                    13.0e+6 ## Sparse weights
 Synaptic Integration Optimization: 14.0e+6 ## Choosing synapses and branches for optimization of synaptic integration in GCs.
 EPSC Attenuation Optimization:     16.0e+6 ## Choosing branches for optimization of EPSC attenuation in GCs.
 Synapse Projection Partitions:     18.0e+6 ## Partitioning synapse locations by projection

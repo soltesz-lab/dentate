@@ -1,4 +1,4 @@
-## Model configuration of dentate gyrus network
+Network Clamp:  !include Network_Clamp.yaml
 Model Name: dentatenet_Full_Scale_GC_Exc_Sat_LN
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
@@ -25,6 +25,7 @@ Cell Types:
   MC:
     template: MossyCell
     synapses:
+      weights: False
       density: !include MC_synapse_density.yaml
   HC:
     template: HIPPCell

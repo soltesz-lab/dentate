@@ -111,7 +111,7 @@ Synapses:
         ais:
           GABA_A:
             tau_rise: 0.3
-            tau_decay: 2.9
+            tau_decay: 10.0
             e: -75
             g_unit: 0.001
     BC:   
@@ -180,7 +180,18 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.23]
+      proportions: [0.13]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.5
+          tau_decay: 6.2
+          e: 0
+          g_unit: 0.002
+    PYR:   
+      type: excitatory
+      sections: [apical]
+      layers: [Hilus]
+      proportions: [0.1]
       mechanisms:
         AMPA:
           tau_rise: 0.5
@@ -254,7 +265,18 @@ Synapses:
       type: excitatory
       sections: [soma, apical]
       layers: [Hilus, Hilus]
-      proportions: [0.72, 0.72]
+      proportions: [0.52, 0.52]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.3
+          tau_decay: 6.2
+          e: 0
+          g_unit: 0.0047
+    PYR:   
+      type: excitatory
+      sections: [soma, apical]
+      layers: [Hilus, Hilus]
+      proportions: [0.2, 0.2]
       mechanisms:
         AMPA:
           tau_rise: 0.3
@@ -299,20 +321,13 @@ Synapses:
       type: excitatory
       sections: [soma, basal]
       layers: [Hilus, Hilus]
-      proportions: [1.0, 1.0, 1.0]
+      proportions: [1.0, 0.9]
       mechanisms:
-        soma:
-          AMPA:
-            tau_rise: 0.3
-            tau_decay: 6.2
-            e: 0
-            g_unit: 0.0047
-        basal:
-          AMPA:
-            tau_rise: 0.3
-            tau_decay: 6.2
-            e: 0
-            g_unit: 0.0047
+        AMPA:
+          tau_rise: 0.3
+          tau_decay: 6.2
+          e: 0
+          g_unit: 0.0047
     MPP:
       type: excitatory
       sections: [apical]
@@ -345,7 +360,18 @@ Synapses:
           tau_rise: 0.9
           tau_decay: 3.6
           e: 0
-          g_unit: 0.0003
+          g_unit: 0.0005
+    PYR:   
+      type: excitatory
+      sections: [basal]
+      layers: [Hilus]
+      proportions: [0.1]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.3
+          tau_decay: 6.2
+          e: 0
+          g_unit: 0.0005
     BC:   
       type: inhibitory
       sections: [basal, soma]
@@ -461,7 +487,7 @@ Synapses:
           tau_rise: 0.9
           tau_decay: 3.6
           e: 0
-          g_unit: 0.0003
+          g_unit: 0.0005
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -560,7 +586,18 @@ Synapses:
       type: excitatory
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, IML]
-      proportions: [0.32, 0.32, 0.32, 1.0]
+      proportions: [0.16, 0.16, 0.16, 1.0]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.9
+          tau_decay: 3.6
+          e: 0
+          g_unit: 0.0043
+    PYR:   
+      type: excitatory
+      sections: [soma, basal, apical]
+      layers: [Hilus, Hilus, Hilus]
+      proportions: [0.16, 0.16, 0.16]
       mechanisms:
         AMPA:
           tau_rise: 0.9
@@ -795,4 +832,5 @@ Connection Velocity:
   LPP: 250.0
   IS: 250.0
   GC: 250.0
+  PYR: 250.0
 Gap Junctions: !include Gap_Junctions_Control.yaml

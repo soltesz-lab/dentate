@@ -214,7 +214,10 @@ class Env:
         self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
-            self.results_file_path = "%s/%s_%s_results.h5" % (self.results_path, self.modelName, self.results_id)
+            if self.results_id is None:
+                self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
+            else:
+                self.results_file_path = "%s/%s_%s_results.h5" % (self.results_path, self.modelName, self.results_id)
         else:
             self.results_file_path = "%s_%s_results.h5" % (self.modelName, self.results_id)
 
@@ -252,6 +255,8 @@ class Env:
         if self.dataset_prefix is not None:
             for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
                 self.projection_dict[dst].append(src)
+        if rank == 0:
+            self.logger.info('projection_dict = %s' % str(self.projection_dict))
 
         self.lfpConfig = {}
         if 'LFP' in self.modelConfig:

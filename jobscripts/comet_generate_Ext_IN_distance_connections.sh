@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J generate_IN_distance_connections
-#SBATCH -o ./results/generate_IN_distance_connections.%j.o
+#SBATCH -J generate_Ext_IN_distance_connections
+#SBATCH -o ./results/generate_Ext_IN_distance_connections.%j.o
 #SBATCH --nodes=10
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 2:00:00
@@ -28,9 +28,9 @@ set -x
 
 ibrun -np 240 python ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
-       --config=Full_Scale_Pas.yaml \
+       --config=Full_Scale_Ext.yaml \
        --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20190123_compressed.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190124.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_Ext_IN_connections_20190128.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190122.h5 \
        --coords-namespace=Coordinates \
