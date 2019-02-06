@@ -229,18 +229,18 @@ def spike_rates (spkdict):
     return rate_dict
 
 
-def baks (spktimes, time, a=4., b=1.):
+def baks (spktimes, time, a=4., b=None):
     """
     Bayesian Adaptive Kernel Smoother (BAKS)
     BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
     with adaptive bandwidth determined using a Bayesian approach
     ---------------INPUT---------------
-    - spktimes : spike event times
-    - time : time points at which the firing rate is estimated
+    - spktimes : spike event times (ms)
+    - time : time points at which the firing rate is estimated (ms)
     - a : shape parameter (alpha) 
     - b : scale parameter (beta)
     ---------------OUTPUT---------------
-    - rate : estimated firing rate [nTime x 1]
+    - rate : estimated firing rate [nTime x 1] (Hz)
     - h : adaptive bandwidth [nTime x 1]
 
     Based on "Estimation of neuronal firing rate using Bayesian adaptive kernel smoother (BAKS)"
@@ -253,7 +253,10 @@ def baks (spktimes, time, a=4., b=1.):
     n = len(spktimes)
     sumnum = 0
     sumdenom = 0;
-    
+
+    if b is None:
+        b = float(len(spktimes)) ** 4./5.
+        
     for i in xrange(n):
         
         numerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a)
