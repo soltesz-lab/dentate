@@ -279,14 +279,14 @@ def spike_density_estimate (population, spkdict, time_bins, save=False):
     """
     
     def make_spktrain (lst, t_start, t_stop):
-        spkts         = np.asarray(lst, dtype=np.float32)
-        return spkts
+        spkts = np.asarray(lst, dtype=np.float32)
+        return spkts[(spkts >= t_start) & (spkts <= t_stop)]
 
     t_start = time_bins[0]
-    t_stop = time_bins[-11]
+    t_stop = time_bins[-1]
     
     spktrains = { ind: make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
-    spk_rate_dict = { ind: baks(spkts, time_bins)[0] for ind, spkts in viewitems(spktrains) }
+    spk_rate_dict = { ind: baks(spkts, time_bins)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 0 }
 
 
     if save:

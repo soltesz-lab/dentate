@@ -1655,7 +1655,6 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     
     
 def update_spatial_rasters(frame, scts, timebins, data, distances_U_dict, distances_V_dict, lgd):
-    print 'frame: ',frame
     if frame > 0:
         t0 = timebins[frame]
         t1 = timebins[frame+1]
@@ -2017,7 +2016,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
 ## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', orderInverse = False, labels = 'legend', 
-                      kernel_size = 100., lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+                      bin_size = 100., lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2060,11 +2059,12 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     tmax             = spkdata['tmax']
 
     time_range = [tmin, tmax]
+    time_bins  = np.arange(time_range[0], time_range[1], bin_size)
 
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
