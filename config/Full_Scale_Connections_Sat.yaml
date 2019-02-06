@@ -40,6 +40,7 @@ Synapse Parameter Rules:
       - mg
       - Kd
       - gamma
+      - vshift
     netcon_params:
       weight: 0
       g_unit: 1
