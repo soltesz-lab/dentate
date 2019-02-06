@@ -2027,7 +2027,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     time_variable: Name of variable containing spike times (default: 't')
     orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
-    kernel_size (float): Size in ms of spike train convolution kernel
     lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
     fontSize (integer): Size of text font (default: 14)
@@ -2126,7 +2125,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
-                          pop_rates = False, bin_size = 5., kernel_size=10., smooth = 0, quantity = 'rate',
+                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate',
                           figSize = (15,8), overlay=True, graph_type='bar',
                           fontSize = 14, lw = 3, saveFig = None, showFig = True):
     ''' 
@@ -2206,12 +2205,13 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
         
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
+
     
     hist_dict = {}
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
@@ -2987,16 +2987,13 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     fig, ax1 = plt.subplots(figsize=figSize)
 
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
-    nperseg    = sliding_window
-    n_overlap  = sliding_window * overlap
-    win        = signal.get_window('hanning', nperseg)
     
     psds = []
     # Plot separate line for each entry in include
     for iplot, (subset, spkinds, spkts) in enumerate(zip(spkpoplst, spkindlst, spktlst)):
 
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
         psd_dict = {}
         min_freq   = float('inf')
         max_freq   = float('-inf')

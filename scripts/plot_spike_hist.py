@@ -13,7 +13,6 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--spike-hist-bin", type=float, default=5.0)
-@click.option("--kernel-size", type=float, default=10.)
 @click.option("--smooth", type=int)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
@@ -23,7 +22,7 @@ script_name = os.path.basename(__file__)
 @click.option("--graph-type", type=str, default='bar')
 @click.option("--overlay", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin, kernel_size, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, verbose):
+def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, verbose):
 
     utils.config_logging(verbose)
 
@@ -39,8 +38,8 @@ def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin,
         populations = ['eachPop']
         
     plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
-                               time_range=time_range, pop_rates=True, kernel_size=kernel_size, bin_size=spike_hist_bin, smooth=smooth,
-                               quantity=quantity, fontSize=font_size, overlay=overlay, graph_type=graph_type, saveFig=True)
+                               time_range=time_range, pop_rates=True, bin_size=spike_hist_bin,
+                               smooth=smooth, quantity=quantity, fontSize=font_size, overlay=overlay, graph_type=graph_type, saveFig=True)
     
 
 if __name__ == '__main__':
