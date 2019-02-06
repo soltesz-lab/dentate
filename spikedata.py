@@ -252,16 +252,16 @@ def baks (spktimes, time, a=4., b=1.):
     
     n = len(spktimes)
     sumnum = 0
-    sumdenum = 0;
+    sumdenom = 0;
     
     for i in xrange(n):
         
         numerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a)
-        denumerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a-0.5)
+        denominator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a-0.5)
         sumnum = sumnum + numerator
-        sumdenum = sumdenum + denumerator
+        sumdenom = sumdenom + denominator
 
-    h = (gamma(a)/gamma(a + 0.5)) * (sumnum / sumdenum)
+    h = (gamma(a)/gamma(a + 0.5)) * (sumnum / sumdenom)
 
     rate = np.zeros((len(time),))
     for j in xrange(n):
