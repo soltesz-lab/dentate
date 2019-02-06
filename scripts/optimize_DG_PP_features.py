@@ -1,4 +1,3 @@
-from nested.optimize_utils import *
 import sys, os, time, random, click
 import numpy as np
 from pprint import pprint
@@ -9,10 +8,10 @@ from dentate.InputCell import *
 
 
 config_logging(True)
-script_name = 'optimize_DG_PP_features.py'
+script_name = os.path.basename(__file__))
 logger      = get_script_logger(script_name)
 
-context = Context()
+context = Struct()
 
 def _build_cells(N, ctype, module, start_gid=1):
 

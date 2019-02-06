@@ -1,6 +1,5 @@
 
 import sys, gc, os
-from mpi4py import MPI
 import click
 import dentate
 from dentate import utils, plot
