@@ -255,7 +255,8 @@ def baks (spktimes, time, a=4., b=None):
     sumdenom = 0;
 
     if b is None:
-        b = float(len(spktimes)) ** 4./5.
+        interval = np.max(time) - np.min(time)
+        b = float(len(spktimes)) / interval
         
     for i in xrange(n):
         
