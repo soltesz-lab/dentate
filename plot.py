@@ -1655,7 +1655,6 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     
     
 def update_spatial_rasters(frame, scts, timebins, data, distances_U_dict, distances_V_dict, lgd):
-    print 'frame: ',frame
     if frame > 0:
         t0 = timebins[frame]
         t1 = timebins[frame+1]
@@ -1822,7 +1821,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 ## Plot netclamp results (intracellular trace of target cell + spike raster of presynaptic inputs)
 def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop', time_range = None, time_variable='t',
-                        intracellularVariable='v', orderInverse = False, labels = 'legend', spike_hist = None, spike_hist_bin = 5,
+                        intracellular_variable='v', orderInverse = False, labels = 'legend', spike_hist = None, spike_hist_bin = 5,
                         lw = 3, marker = ',', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
     ''' 
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
@@ -1865,7 +1864,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
                                            time_variable=time_variable, time_range=time_range)
     indata  = statedata.read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
-                                    variable=intracellularVariable, time_range=time_range, unit_no = [unit_no])
+                                    variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1988,7 +1987,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
         # Plot intracellular state
         ax3=plt.subplot(gs[2])
         ax3.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax3.set_ylabel(intracellularVariable, fontsize=fontSize)
+        ax3.set_ylabel(intracellular_variable, fontsize=fontSize)
         ax3.set_xlim(time_range)
 
         states = indata['states']
@@ -2017,7 +2016,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
 ## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', orderInverse = False, labels = 'legend', 
-                      kernel_size = 100., lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+                      bin_size = 100., lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2027,7 +2026,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     time_variable: Name of variable containing spike times (default: 't')
     orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
-    kernel_size (float): Size in ms of spike train convolution kernel
     lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
     fontSize (integer): Size of text font (default: 14)
@@ -2061,11 +2059,12 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     tmax             = spkdata['tmax']
 
     time_range = [tmin, tmax]
+    time_bins  = np.arange(time_range[0], time_range[1], bin_size)
 
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
@@ -2126,7 +2125,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
-                          pop_rates = False, bin_size = 5., kernel_size=10., smooth = 0, quantity = 'rate',
+                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate',
                           figSize = (15,8), overlay=True, graph_type='bar',
                           fontSize = 14, lw = 3, saveFig = None, showFig = True):
     ''' 
@@ -2206,19 +2205,20 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
         
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
+
     
     hist_dict = {}
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
-                interp_rate = np.interp(time_bins, np.asarray(dct['time']), dct['rate'])
+                rate = dct['rate']
                 for ibin in range(0, len(time_bins)):
                     d = bin_dict[ibin]
-                    bin_rate = interp_rate[ibin]
+                    bin_rate = rate[ibin]
                     d['rates']  += bin_rate
                     d['active'] += 1
             hist_dict[subset] = bin_dict
@@ -2934,7 +2934,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
 
 
 def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
-                   bin_size = 1., sliding_window = 256, overlap=0.5, kernel_size=10., smooth = 0, overlay = True,
+                   bin_size = 1., sliding_window = 256, overlap=0.0, smooth = 0, overlay = True,
                    figSize = (8,8), fontSize = 14, lw = 3, saveFig = None, showFig = True):
     ''' 
     Plots firing rate power spectral density (PSD). Returns figure handle.
@@ -2987,42 +2987,43 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     fig, ax1 = plt.subplots(figsize=figSize)
 
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
+
     nperseg    = sliding_window
     n_overlap  = sliding_window * overlap
     win        = signal.get_window('hanning', nperseg)
-    
+ 
     psds = []
     # Plot separate line for each entry in include
     for iplot, (subset, spkinds, spkts) in enumerate(zip(spkpoplst, spkindlst, spktlst)):
 
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
-        psd_dict = {}
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
         min_freq   = float('inf')
         max_freq   = float('-inf')
         n_units    = len(sdf_dict)
-        
+
+        psd_dict = {}
         for (ind, dct) in viewitems(sdf_dict):
-            interp_rate = np.interp(time_bins, np.asarray(dct['time']), dct['rate'])
-                
+            rate = dct['rate']
+
             if smooth:
                 # smoothen firing rate histogram
-                hsignal = signal.savgol_filter(interp_rate, window_length=nperseg/2 + 1, polyorder=smooth) 
+                hsignal = signal.savgol_filter(rate, window_length=nperseg/2 + 1, polyorder=smooth) 
             else:
-                hsignal = interp_rate
+                hsignal = rate
 
             Fs = 1000.0/bin_size
+
             freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, window=win,
-                                      noverlap=n_overlap, return_onesided=True)
+                                       noverlap=n_overlap, return_onesided=True)
         
             psd = 10*np.log10(psd)
-            
-            psd_dict[ind] = { 'rate': hsignal, 'psd': psd, 'freqs': freqs }
-
+        
             min_freq = min(np.min(freqs), min_freq)
             max_freq = max(np.max(freqs), max_freq)
 
-
+            psd_dict[ind] = { 'psd': psd, 'freqs': freqs }
+            
         freq_span = max_freq - min_freq
         freq_bins = np.arange(min_freq, max_freq, 0.1)
 
@@ -3033,7 +3034,6 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
                 bin_psd = interp_psd[ibin]
                 psd_bin_array[ibin] += bin_psd
 
-        
         psd_bin_mean = psd_bin_array / n_units
         peak_index = np.where(psd_bin_mean == np.max(psd_bin_mean))[0]
         
@@ -3052,7 +3052,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
             plt.xlabel('Frequency (Hz)', fontsize=fontSize)
         plt.xlim([0, (Fs/2)-1])
 
-        psds.append(psd)
+        psds.append(psd_bin_mean)
         
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
         try:

@@ -464,13 +464,27 @@ def connect_cell_selection(env, cleanup=True):
     ##
     ## This section instantiates the synaptic mechanisms and netcons for each connection.
     ##
+    first_gid = None
     for gid in syn_attrs.gids():
+
+        last_time = time.time()
+        if first_gid is None:
+            first_gid = gid
 
         cell = env.pc.gid2cell(gid)
         pop_name = find_gid_pop(env.celltypes, gid)
         syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
                                                                         cell=cell, unique=unique, \
                                                                         insert=True, insert_netcons=True)
+
+        if rank == 0 and gid == first_gid:
+            logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
+                        'connections for gid %d' % \
+                         (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
+                hoc_cell = env.pc.gid2cell(gid)
+                for sec in list(hoc_cell.all):
+                    h.psection(sec=sec)
+
         env.edge_count[pop_name] += syn_count
         if cleanup:
             syn_attrs.del_syn_id_attr_dict(gid)
