@@ -200,7 +200,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.23]
+      proportions: [0.8]
       mechanisms:
         AMPA:
           dur_onset: 0.5
@@ -216,14 +216,14 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.77]
+      proportions: [0.2]
       mechanisms:
         AMPA:
           dur_onset: 0.5
           tau_offset: 3.2
           e: 0
           sat: 0.9
-          g_unit: 0.002
+          g_unit: 0.004
           weight: 1.0
     HC:   
       type: inhibitory
