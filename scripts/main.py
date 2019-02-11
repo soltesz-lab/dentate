@@ -64,7 +64,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--dt", type=float, default=0.025, help='')
 @click.option("--ldbal", is_flag=True, help='estimate load balance based on cell complexity')
 @click.option("--lptbal", is_flag=True, help='optimize load balancing assignment with LPT algorithm')
-@click.option('--cleanup', type=bool, default=True,
+@click.option('--cleanup/--no-cleanup', default=True,
               help='delete from memory the synapse attributes metadata after specifying connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage while constructing the network')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
