@@ -84,11 +84,11 @@ def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset
     if profile_time:
         from dentate.network import init, run
         import cProfile
-        cProfile.runctx('init(env, cleanup)', None, locals(), filename='dentate_profile_init')
+        cProfile.runctx('init(env)', None, locals(), filename='dentate_profile_init')
         if not dry_run:
             cProfile.runctx('run(env)', None, locals(), filename='dentate_profile_run')
     else:
-        network.init(env, cleanup)
+        network.init(env)
         if not dry_run:
             network.run(env)
 

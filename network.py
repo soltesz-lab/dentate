@@ -91,13 +91,12 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
 
-def connect_cells(env, cleanup=True):
+def connect_cells(env):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for each postsynaptic cell.
 
     :param env: an instance of the `dentate.Env` class
-    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
@@ -289,7 +288,7 @@ def connect_cells(env, cleanup=True):
 
             env.edge_count[postsyn_name] += syn_count
 
-            if cleanup:
+            if env.cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
@@ -313,13 +312,12 @@ def find_gid_pop(celltypes, gid):
 
     return None
 
-def connect_cell_selection(env, cleanup=True):
+def connect_cell_selection(env):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for the selected postsynaptic cells.
 
     :param env: an instance of the `dentate.Env` class
-    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
@@ -481,12 +479,12 @@ def connect_cell_selection(env, cleanup=True):
             logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
                         'connections for gid %d' % \
                          (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
-                hoc_cell = env.pc.gid2cell(gid)
-                for sec in list(hoc_cell.all):
-                    h.psection(sec=sec)
+            hoc_cell = env.pc.gid2cell(gid)
+            for sec in list(hoc_cell.all):
+                h.psection(sec=sec)
 
         env.edge_count[pop_name] += syn_count
-        if cleanup:
+        if env.cleanup:
             syn_attrs.del_syn_id_attr_dict(gid)
             if gid in env.biophys_cells[pop_name]:
                 del env.biophys_cells[pop_name][gid]
@@ -903,7 +901,7 @@ def make_stimulus_selection(env, vecstim_sources):
                 stim_cell = env.pc.gid2cell(gid)
                 stim_cell.play(h.Vector(cell_spikes_dict['t']))
 
-def init(env, cleanup=True):
+def init(env):
     """
     Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
     If env.optldbal or env.optlptbal are specified, performs load balancing.
@@ -951,7 +949,7 @@ def init(env, cleanup=True):
         profile_memory(logger)
         
     if env.cell_selection is None:
-        connect_cells(env, cleanup)
+        connect_cells(env)
         vecstim_selection = None
     else:
         vecstim_selection = connect_cell_selection(env)

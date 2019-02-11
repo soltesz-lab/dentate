@@ -41,8 +41,8 @@ class Env:
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0,
                  vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0,
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, verbose=False,
-                 cache_queries=False, profile_memory=False, **kwargs):
+                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
+                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -64,9 +64,10 @@ class Env:
         :param dt: float; simulation time step
         :param ldbal: bool; estimate load balance based on cell complexity
         :param lptbal: bool; calculate load balance with LPT algorithm
+        :param cleanup: bool; clean up auxiliary cell and synapse structures after network init
         :param profile: bool; profile memory usage
-        :param verbose: bool; print verbose diagnostic messages while constructing the network
         :param cache_queries: bool; whether to use a cache to speed up queries to filter_synapses
+        :param verbose: bool; print verbose diagnostic messages while constructing the network
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
@@ -90,6 +91,10 @@ class Env:
         else:
             self.pc = None
 
+        # If true, the biophysical cells and synapses dictionary will be freed
+        # as synapses and connections are instantiated.
+        self.cleanup = cleanup
+        
         # If true, compute and print memory usage at various points
         # during simulation initialization
         self.profile_memory = profile_memory
