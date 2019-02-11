@@ -924,7 +924,7 @@ def init(env, cleanup=True):
         io_utils.mkout(env, env.results_file_path)
     if rank == 0:
         logger.info("*** Creating cells...")
-    h.startsw()
+    st = env.pc.time()
     env.pc.barrier()
     if env.cell_selection is None:
         make_cells(env)
@@ -933,20 +933,20 @@ def init(env, cleanup=True):
     if env.profile_memory and rank == 0:
         profile_memory(logger)
     env.pc.barrier()
-    env.mkcellstime = h.stopsw()
+    env.mkcellstime = env.pc.time() - st
     if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
     logger.info("*** Rank %i created %i cells" % (rank, len(env.cells)))
     if env.cell_selection is None:
-        h.startsw()
+        st = env.pc.time()
         connect_gjs(env)
         env.pc.setup_transfer()
         env.pc.barrier()
-        env.connectgjstime = h.stopsw()
+        env.connectgjstime = env.pc.time() - st
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
             
-    h.startsw()
+    st = env.pc.time()
     if env.profile_memory and rank == 0:
         profile_memory(logger)
         
@@ -957,7 +957,7 @@ def init(env, cleanup=True):
         vecstim_selection = connect_cell_selection(env)
     env.pc.set_maxstep(10.0)
     env.pc.barrier()
-    env.connectcellstime = h.stopsw()
+    env.connectcellstime = env.pc.time() - st
     
     if env.profile_memory and rank == 0:
         profile_memory(logger)
@@ -966,15 +966,15 @@ def init(env, cleanup=True):
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
-    h.startsw()
+    st = env.pc.time()
     if env.cell_selection is None:
         make_stimulus(env)
     else:
         make_stimulus_selection(env, vecstim_selection)
-    env.mkstimtime = h.stopsw()
+    env.mkstimtime = env.pc.time() - st
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
-    h.startsw()
+    st = env.pc.time()
     if env.cell_selection is None:
         for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
             env.lfp[lfp_label] = \
@@ -984,7 +984,7 @@ def init(env, cleanup=True):
                         seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
         if rank == 0:
             logger.info("*** LFP objects instantiated")
-    lfp_time = h.stopsw()
+    lfp_time = env.pc.time() - st
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
@@ -1013,6 +1013,7 @@ def run(env, output=True, shutdown=True):
 
     if rank == 0:
         logger.info("*** Running simulation")
+
         
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -1020,6 +1021,7 @@ def run(env, output=True, shutdown=True):
     h.t = 0
     h.tstop = env.tstop
 
+    env.simtime.reset()
     h.finitialize(env.v_init)
     
     env.pc.barrier()
