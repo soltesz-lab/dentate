@@ -102,7 +102,7 @@ def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset
     np.seterr(all='raise')
     params = dict(locals())
     env = Env(**params)
-    network.init(env, cleanup)
+    network.init(env)
     if run_test:
         network.run(env, output=False)
 

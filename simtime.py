@@ -10,7 +10,7 @@ class SimTimeEvent:
 
     def __init__(self, pc, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
         self.pc  = pc
-        self.walltime_status = h.startsw()
+        self.walltime_status = self.pc.time()
         self.dt_status = dt_status
         self.setup_time = setup_time
         self.tcsum = 0.
@@ -26,8 +26,17 @@ class SimTimeEvent:
             logger.info("tstop = %g" % h.tstop)
         self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
 
+    def reset(self):
+        self.walltime_status = self.pc.time()
+        self.tcsum = 0.
+        self.tcma = 0.
+        self.nsimsteps = 0
+        self.walltime_checksimtime = 0
+        self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
+        self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
+    
     def simstatus(self):
-        wt = h.startsw()
+        wt = self.pc.time()
         if h.t > 0.:
             if (int(self.pc.id()) == 0):
                 logger.info("*** rank 0 computation time at t=%g ms was %g s" % (h.t, wt-self.walltime_status))
@@ -40,7 +49,7 @@ class SimTimeEvent:
             h.cvode.event(h.t + self.dt_status, self.simstatus)
 
     def checksimtime(self):
-        wt = h.startsw()
+        wt = self.pc.time()
         if (h.t > 0):
             tt = wt - self.walltime_checksimtime
             ## cumulative moving average simulation time per dt_checksimtime

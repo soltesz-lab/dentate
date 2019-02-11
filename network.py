@@ -91,13 +91,12 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
 
-def connect_cells(env, cleanup=True):
+def connect_cells(env):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for each postsynaptic cell.
 
     :param env: an instance of the `dentate.Env` class
-    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
@@ -289,7 +288,7 @@ def connect_cells(env, cleanup=True):
 
             env.edge_count[postsyn_name] += syn_count
 
-            if cleanup:
+            if env.cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
@@ -313,13 +312,12 @@ def find_gid_pop(celltypes, gid):
 
     return None
 
-def connect_cell_selection(env, cleanup=True):
+def connect_cell_selection(env):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for the selected postsynaptic cells.
 
     :param env: an instance of the `dentate.Env` class
-    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
@@ -464,15 +462,29 @@ def connect_cell_selection(env, cleanup=True):
     ##
     ## This section instantiates the synaptic mechanisms and netcons for each connection.
     ##
+    first_gid = None
     for gid in syn_attrs.gids():
+
+        last_time = time.time()
+        if first_gid is None:
+            first_gid = gid
 
         cell = env.pc.gid2cell(gid)
         pop_name = find_gid_pop(env.celltypes, gid)
         syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
                                                                         cell=cell, unique=unique, \
                                                                         insert=True, insert_netcons=True)
+
+        if rank == 0 and gid == first_gid:
+            logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
+                        'connections for gid %d' % \
+                         (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
+            hoc_cell = env.pc.gid2cell(gid)
+            for sec in list(hoc_cell.all):
+                h.psection(sec=sec)
+
         env.edge_count[pop_name] += syn_count
-        if cleanup:
+        if env.cleanup:
             syn_attrs.del_syn_id_attr_dict(gid)
             if gid in env.biophys_cells[pop_name]:
                 del env.biophys_cells[pop_name][gid]
@@ -889,7 +901,7 @@ def make_stimulus_selection(env, vecstim_sources):
                 stim_cell = env.pc.gid2cell(gid)
                 stim_cell.play(h.Vector(cell_spikes_dict['t']))
 
-def init(env, cleanup=True):
+def init(env):
     """
     Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
     If env.optldbal or env.optlptbal are specified, performs load balancing.
@@ -910,7 +922,7 @@ def init(env, cleanup=True):
         io_utils.mkout(env, env.results_file_path)
     if rank == 0:
         logger.info("*** Creating cells...")
-    h.startsw()
+    st = env.pc.time()
     env.pc.barrier()
     if env.cell_selection is None:
         make_cells(env)
@@ -919,31 +931,31 @@ def init(env, cleanup=True):
     if env.profile_memory and rank == 0:
         profile_memory(logger)
     env.pc.barrier()
-    env.mkcellstime = h.stopsw()
+    env.mkcellstime = env.pc.time() - st
     if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
     logger.info("*** Rank %i created %i cells" % (rank, len(env.cells)))
     if env.cell_selection is None:
-        h.startsw()
+        st = env.pc.time()
         connect_gjs(env)
         env.pc.setup_transfer()
         env.pc.barrier()
-        env.connectgjstime = h.stopsw()
+        env.connectgjstime = env.pc.time() - st
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
             
-    h.startsw()
+    st = env.pc.time()
     if env.profile_memory and rank == 0:
         profile_memory(logger)
         
     if env.cell_selection is None:
-        connect_cells(env, cleanup)
+        connect_cells(env)
         vecstim_selection = None
     else:
         vecstim_selection = connect_cell_selection(env)
     env.pc.set_maxstep(10.0)
     env.pc.barrier()
-    env.connectcellstime = h.stopsw()
+    env.connectcellstime = env.pc.time() - st
     
     if env.profile_memory and rank == 0:
         profile_memory(logger)
@@ -952,15 +964,15 @@ def init(env, cleanup=True):
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
-    h.startsw()
+    st = env.pc.time()
     if env.cell_selection is None:
         make_stimulus(env)
     else:
         make_stimulus_selection(env, vecstim_selection)
-    env.mkstimtime = h.stopsw()
+    env.mkstimtime = env.pc.time() - st
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
-    h.startsw()
+    st = env.pc.time()
     if env.cell_selection is None:
         for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
             env.lfp[lfp_label] = \
@@ -970,7 +982,7 @@ def init(env, cleanup=True):
                         seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
         if rank == 0:
             logger.info("*** LFP objects instantiated")
-    lfp_time = h.stopsw()
+    lfp_time = env.pc.time() - st
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
@@ -999,6 +1011,7 @@ def run(env, output=True, shutdown=True):
 
     if rank == 0:
         logger.info("*** Running simulation")
+
         
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -1006,6 +1019,7 @@ def run(env, output=True, shutdown=True):
     h.t = 0
     h.tstop = env.tstop
 
+    env.simtime.reset()
     h.finitialize(env.v_init)
     
     env.pc.barrier()
