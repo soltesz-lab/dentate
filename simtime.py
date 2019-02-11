@@ -27,7 +27,6 @@ class SimTimeEvent:
         self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
 
     def reset(self):
-        self.walltime_status = self.pc.time()
         self.tcsum = 0.
         self.tcma = 0.
         self.nsimsteps = 0
