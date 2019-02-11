@@ -46,6 +46,7 @@ aprun -n 64 -b -- bwpy-environ -- \
      --path-length=1 \
      --disp \
      --procs-per-worker=32 \
+     --verbose \
      --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
      --dataset_prefix="$SCRATCH" \
      --config_prefix=$DG_HOME/config \

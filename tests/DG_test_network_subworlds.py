@@ -104,7 +104,7 @@ def update_network(x, context=None):
                 for sec_type in sec_types:
                     modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, param_name=syn_param_name,
                                      filters={'syn_types': syn_types, 'sources': [presyn_name], 'layers': layers},
-                                     value=x_dict[param_name], update_targets=True, verbose=verbose)
+                                     value=x_dict[param_name], update_targets=True, verbose=True)
 
 
 def compute_features_network_walltime(x, export=False):
