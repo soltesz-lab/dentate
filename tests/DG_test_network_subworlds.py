@@ -90,7 +90,7 @@ def update_network(x, context=None):
     for postsyn_name in ['GC']:
         first_gid = True
         if context.comm.rank == 0:
-            context.logger.info('rank %d: update_network: %s gids: %s' % (rank, postsyn_name, context.env.biophys_cells[postsyn_name].keys()))
+            context.logger.info('rank %d: update_network: %s gids: %s' % (context.comm.rank, postsyn_name, context.env.biophys_cells[postsyn_name].keys()))
         for gid in context.env.biophys_cells[postsyn_name]:
             if context.comm.rank == 0 and first_gid and context.verbose:
                 verbose = True
