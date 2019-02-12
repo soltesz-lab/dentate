@@ -23,7 +23,7 @@ get_objectives:
 kwargs:
   config_file: Full_Scale_GC_Exc_Sat_LN.yaml
 ## config_file: Small_Scale_Control_test_load_LN_weights_Sat.yaml
-  tstop: 10.
+  tstop: 500.
   v_init: -77.
   vrecord_fraction: 0.1
   dt: 0.025
@@ -33,7 +33,7 @@ kwargs:
   output_results: False
 target_range:
   modify_network_time: 1.
-  sim_network_time: 10.
+  sim_network_time: 500.
 target_val:
   modify_network_time: 60.
   sim_network_time: 600.
