@@ -64,6 +64,8 @@ def config_worker():
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         init_network()
+        utils.config_logging(context.verbose)
+        context.logger = utils.get_script_logger(os.path.basename(__file__))
 
 
 def init_network():

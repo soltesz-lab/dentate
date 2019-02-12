@@ -30,7 +30,7 @@ class SimTimeEvent:
         self.tcsum = 0.
         self.tcma = 0.
         self.nsimsteps = 0
-        self.walltime_checksimtime = 0
+        self.walltime_status = self.pc.time()
         self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
         self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
     
