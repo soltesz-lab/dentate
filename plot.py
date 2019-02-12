@@ -1519,8 +1519,8 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     # Calculate spike histogram if requested
     if spike_hist:
         all_spkts = np.concatenate(spktlst, axis=0)
-        hist_vals, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-        histoT = bin_edges[:-1]+spike_hist_bin/2
+        sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
+        sphist_x = bin_edges[:-1]+spike_hist_bin/2
 
     maxN = 0
     minN = N
@@ -1621,15 +1621,20 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
             
         
-        # Plot spike hist
+        # Plot spike histogram
+        pch = interpolate.pchip(sphist_x, sphist_y)
+        res_npts = int((sphist_x.max() - sphist_x.min()))
+        sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+        sphist_y_res = pch(sphist_x_res)
+
         if spike_hist == 'overlay':
             ax2 = ax1.twinx()
-            ax2.plot (histoT, hist_vals, linewidth=0.5)
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
             ax2.set_ylabel('Spike count', fontsize=fontSize) # add yaxis label in opposite side
             ax2.set_xlim(time_range)
         elif spike_hist == 'subplot':
             ax2=plt.subplot(gs[1])
-            ax2.plot (histoT, hist_vals, linewidth=1.0)
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
             ax2.set_xlabel('Time (ms)', fontsize=fontSize)
             ax2.set_ylabel('Spike count', fontsize=fontSize)
             ax2.set_xlim(time_range)
@@ -1881,12 +1886,9 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     # Calculate spike histogram if requested
     if spike_hist:
         all_spkts = np.concatenate(spktlst, axis=0)
-        hist_vals, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-        histoT = bin_edges[:-1]+spike_hist_bin/2
-#        for pop_name, spkts in itertools.izip(spkpoplst, spktlst):
-#            hist_vals, bin_edges = np.histogram(spkts1, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-#            histoT = bin_edges[:-1]+spike_hist_bin/2
-#            histo_dict[pop_name] = (hist_vals, histoT)
+        sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
+        sphist_x = bin_edges[:-1]+spike_hist_bin/2
+
         
     maxN = 0
     minN = N
@@ -1968,21 +1970,23 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             shift = 1 - (lgd_xmax - ax_xmax)
             plt.gcf().tight_layout(rect=(0, 0, shift, 1))
 
+        pch = interpolate.pchip(sphist_x, sphist_y)
+        res_npts = int((sphist_x.max() - sphist_x.min()))
+        sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+        sphist_y_res = pch(sphist_x_res)
         
         # Plot spike hist
         if spike_hist == 'overlay':
             ax2 = ax1.twinx()
-            ax2.plot (histoT, hist_vals, linewidth=0.5)
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
             ax2.set_ylabel('Spike count', fontsize=fontSize) # add yaxis label in opposite side
             ax2.set_xlim(time_range)
         elif spike_hist == 'subplot':
             ax2=plt.subplot(gs[1])
-            ax2.plot (histoT, hist_vals, linewidth=1.0)
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
             ax2.set_xlabel('Time (ms)', fontsize=fontSize)
             ax2.set_ylabel('Spike count', fontsize=fontSize)
             ax2.set_xlim(time_range)
-
-            
             
         # Plot intracellular state
         ax3=plt.subplot(gs[2])
@@ -2242,16 +2246,16 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        histoT = time_bins+bin_size/2
+        hist_x = time_bins+bin_size/2
         bin_dict = hist_dict[subset]
 
         if quantity=='rate':
-            hist_vals = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active']  if bin_dict[ibin]['active'] > 0 else 0.
+            hist_y = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active']  if bin_dict[ibin]['active'] > 0 else 0.
                                      for ibin in range(0, len(time_bins))])
         elif quantity=='active':
-            hist_vals = np.asarray([bin_dict[ibin]['active'] for ibin in range(0, len(time_bins))])
+            hist_y = np.asarray([bin_dict[ibin]['active'] for ibin in range(0, len(time_bins))])
         else:
-            hist_vals = np.asarray([bin_dict[ibin]['counts'] for ibin in range(0, len(time_bins))])
+            hist_y = np.asarray([bin_dict[ibin]['counts'] for ibin in range(0, len(time_bins))])
 
         del bin_dict
         del hist_dict[subset]
@@ -2267,14 +2271,14 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
             plt.title (label, fontsize=fontSize)
             
         if smooth:
-            hsignal = signal.savgol_filter(hist_vals, window_length=2*(len(hist_vals)/16) + 1, polyorder=smooth) 
+            hsignal = signal.savgol_filter(hist_y, window_length=2*(len(hist_y)/16) + 1, polyorder=smooth) 
         else:
-            hsignal = hist_vals
+            hsignal = hist_y
         
         if graph_type == 'line':
-            plt.plot (histoT, hsignal, linewidth=lw, color = color)
+            plt.plot (hist_x, hsignal, linewidth=lw, color = color)
         elif graph_type == 'bar':
-            plt.bar(histoT, hsignal, width = bin_size, color = color)
+            plt.bar(hist_x, hsignal, width = bin_size, color = color)
 
         if iplot == 0:
             plt.ylabel(yaxisLabel, fontsize=fontSize)
@@ -2413,10 +2417,10 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
             yaxisLabel = quantityLabel
             xaxisLabel = 'Cell index'
         elif graph_type == 'histogram':
-            hist_vals, bin_edges = np.histogram(np.asarray(y), bins = 40)
+            hist_y, bin_edges = np.histogram(np.asarray(y), bins = 40)
             bin_size = bin_edges[1] - bin_edges[0]
             hist_X = bin_edges[:-1]+bin_size/2
-            b = plt.bar(hist_X, hist_vals, width=bin_size)
+            b = plt.bar(hist_X, hist_y, width=bin_size)
             yaxisLabel = 'Cell count'
             xaxisLabel = quantityLabel
         else:
@@ -2548,10 +2552,10 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
             counts = d['counts']
             rates = d['rates']
             if quantity == 'rate':
-                hist_vals, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin-1])))
+                hist_y, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin-1])))
             else:
-                hist_vals, bin_edges = np.histogram(np.asarray(counts), bins = binCount, range=(0.0, float(max_count[ibin-1])))
-            histlst.append(hist_vals)
+                hist_y, bin_edges = np.histogram(np.asarray(counts), bins = binCount, range=(0.0, float(max_count[ibin-1])))
+            histlst.append(hist_y)
 
             
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
@@ -3317,14 +3321,14 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
         elif graph_type == 'histogram':
-            hist_vals, bin_edges = np.histogram(pop_corr, bins = 100)
+            hist_y, bin_edges = np.histogram(pop_corr, bins = 100)
             corr_bin_size = bin_edges[1] - bin_edges[0]
             hist_X = bin_edges[:-1]+corr_bin_size/2
             color = color_list[iplot%len(color_list)]
             if len(spkpoplst) > 1:
-                b = axes[iplot].bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes[iplot].bar(hist_X, hist_y, width = corr_bin_size, color = color)
             else:
-                b = axes.bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes.bar(hist_X, hist_y, width = corr_bin_size, color = color)
             if X_max is None:
                 X_max = bin_edges[-1]
             else:
@@ -3423,14 +3427,14 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
         elif graph_type == 'histogram':
             np.fill_diagonal(pop_corr, 0.)
             mean_corr = np.apply_along_axis(lambda y: np.mean(y), 1, pop_corr)
-            hist_vals, bin_edges = np.histogram(mean_corr, bins = 100)
+            hist_y, bin_edges = np.histogram(mean_corr, bins = 100)
             corr_bin_size = bin_edges[1] - bin_edges[0]
             hist_X = bin_edges[:-1]+corr_bin_size/2
             color = color_list[iplot%len(color_list)]
             if len(spkpoplst) > 1:
-                b = axes[iplot].bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes[iplot].bar(hist_X, hist_y, width = corr_bin_size, color = color)
             else:
-                b = axes.bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes.bar(hist_X, hist_y, width = corr_bin_size, color = color)
             if X_max is None:
                 X_max = bin_edges[-1]
             else:
