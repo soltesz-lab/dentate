@@ -3,11 +3,12 @@
 Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
-import sys, click, os
+import sys, click, os, logging
 from mpi4py import MPI
 import numpy as np
 import dentate.network as network
 from dentate.biophysics_utils import *
+from dentate import utils
 from nested.optimize_utils import *
 
 
@@ -74,7 +75,7 @@ def init_network():
     """
     np.seterr(all='raise')
     context.env = Env(comm=context.comm, results_id=context.results_id, **context.kwargs)
-    network.init(context.env, context.cleanup)
+    network.init(context.env)
 
 
 def update_network(x, context=None):
@@ -88,6 +89,8 @@ def update_network(x, context=None):
     x_dict = param_array_to_dict(x, context.param_names)
     for postsyn_name in ['GC']:
         first_gid = True
+        if context.comm.rank == 0:
+            context.logger.info('rank %d: update_network: %s gids: %s' % (rank, postsyn_name, context.env.biophys_cells[postsyn_name].keys()))
         for gid in context.env.biophys_cells[postsyn_name]:
             if context.comm.rank == 0 and first_gid and context.verbose:
                 verbose = True
@@ -106,7 +109,7 @@ def update_network(x, context=None):
                 for sec_type in sec_types:
                     modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, param_name=syn_param_name,
                                      filters={'syn_types': syn_types, 'sources': [presyn_name], 'layers': layers},
-                                     value=x_dict[param_name], update_targets=True, verbose=verbose)
+                                     value=x_dict[param_name], update_targets=True, verbose=True)
 
 
 def compute_features_network_walltime(x, export=False):
