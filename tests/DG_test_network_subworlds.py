@@ -68,7 +68,7 @@ def config_worker():
         init_network()
         utils.config_logging(context.verbose)
         context.logger = utils.get_script_logger(os.path.basename(__file__))
-
+        context.bin_size = 5.0
 
 def init_network():
     """
@@ -158,7 +158,7 @@ def compute_features_firing_rate(x, export=False):
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
     network.run(context.env, output=context.output_results, shutdown=False)
 
-    pop_spike_dict = spikedata.get_env_spike_dict(env)
+    pop_spike_dict = spikedata.get_env_spike_dict(context.env)
 
     t_start = 0.
     t_stop = context.env.tstop

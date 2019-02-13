@@ -30,10 +30,8 @@ kwargs:
   cache_queries: True
   output_results: False
 target_range:
-  modify_network_time: 1.
-  sim_network_time: 500.
+  firing_rate: 1.
 target_val:
-  modify_network_time: 60.
-  sim_network_time: 600.
+  firing_rate: 1.
 x0:
   BC_GC.GABA_A.g_unit: 0.00065
