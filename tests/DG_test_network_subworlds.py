@@ -6,9 +6,9 @@ __author__ = 'See AUTHORS.md'
 import sys, click, os, logging
 from mpi4py import MPI
 import numpy as np
-import dentate.network as network
+import dentate
 from dentate.biophysics_utils import *
-from dentate import utils
+from dentate import utils, spikedata, network
 from nested.optimize_utils import *
 
 
@@ -39,8 +39,9 @@ context = Context()
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
+@click.option("--bin-size", type=float, default=5.0)
 @click.option("--verbose", is_flag=True)
-def main(optimize_config_file_path, output_dir, export, export_file_path, label, verbose):
+def main(optimize_config_file_path, output_dir, export, export_file_path, label, bin_size, verbose):
     """
 
     :param optimize_config_file_path: str
@@ -133,6 +134,45 @@ def compute_features_network_walltime(x, export=False):
 
 
 def get_objectives_network_walltime(features, export=False):
+    """
+
+    :param features: dict
+    :param export: bool
+    :return: tuple of dict
+    """
+    objectives = dict()
+    for feature_key in context.feature_names:
+        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
+                                   context.target_range[feature_key]) ** 2.
+
+    return features, objectives
+
+def compute_features_firing_rate(x, export=False):
+    """
+
+    :param x: array
+    :param export: bool
+    :return: dict
+    """
+    results = dict()
+    update_source_contexts(x, context)
+    context.env.results_id = '%s_%s' % \
+                             (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
+    network.run(context.env, output=context.output_results, shutdown=False)
+
+    pop_spike_dict = spikedata.get_env_spike_dict(env)
+
+    t_start = 0.
+    t_stop = context.env.tstop
+    
+    time_bins  = np.arange(t_start, t_stop, context.bin_size)
+    pop_name = 'GC'
+    results['firing_rate'] = np.mean(spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins))
+
+    return results
+
+
+def get_objectives(features, export=False):
     """
 
     :param features: dict
