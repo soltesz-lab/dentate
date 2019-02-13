@@ -3,7 +3,7 @@ import sys, os, time, gc, click, logging, yaml, pprint
 from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
-from neuroh5.io import read_graph_selection, read_population_ranges
+from neuroh5.io import read_cell_attributes, read_graph_selection, read_population_ranges
 import h5py
 from dentate.env import Env
 import dentate.utils as utils
@@ -22,12 +22,14 @@ sys.excepthook = mpi_excepthook
               default='config', help='path to directory containing network config files')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
                 help='path to directory containing required neuroh5 data files')
+@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--coords-namespace", type=str, default='Coordinates')
 @click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
-@click.option("--distance-limits", type=(float,float), default=(-1,-1))
+@click.option("--distance-limits", type=(float,float))
 @click.option("--output-path", '-o', required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, config_prefix, dataset_prefix, distances_namespace, distance_limits, output_path, population, io_size, verbose):
+def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, distances_namespace, distance_limits, output_path, io_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -49,14 +51,15 @@ def main(config, config_prefix, dataset_prefix, distances_namespace, distance_li
     range_U_dict = {}
     range_V_dict = {}
 
-    gid_ranges = {}
+    output_dict = defaultdict(set)
     
     for population in pop_ranges.keys():
         distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
         
-        logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
+        logger.info('read %s distances (%i elements)' % (population, len(list(soma_distances.keys()))))
+
         distance_U_array = np.asarray([soma_distances[gid][0] for gid in soma_distances])
         distance_V_array = np.asarray([soma_distances[gid][1] for gid in soma_distances])
 
@@ -75,33 +78,14 @@ def main(config, config_prefix, dataset_prefix, distances_namespace, distance_li
         distance_V_dict[population] = distance_V
 
         min_dist = U_min
-        if distance_limits[0] > -1:
-            min_dist = distance_limits[0]
         max_dist = U_max 
-        if distance_limits[1] > -1:
+        if distance_limits:
+            min_dist = distance_limits[0]
             max_dist = distance_limits[1]
 
-        gid_ranges[population] = [ k if (distance_U[k] >= min_dist) and
-                                    (distance_U[k] <= max_dist) for k in distance_U ]
-
-    output_dict = defaultdict(set)
-    for population in gid_ranges:
-        postsyn_name = population
-        presyn_names = env.projection_dict[population]
-        selection_projections = [ (presyn_name, postsyn_name) for presyn_name in presyn_names ]
-        
-        (graph, a) = read_graph_selection(env.connectivity_file_path, 
-                                          selection=gid_ranges[population], comm=env.comm)
-
-
+        output_dict[population] = set([ k for k in distance_U if (distance_U[k] >= min_dist) and 
+                                                   (distance_U[k] <= max_dist)  ])
     
-        for presyn_name in presyn_names:
-            edge_iter = graph[postsyn_name][presyn_name]
-            for (postsyn_gid, edges) in edge_iter:
-                presyn_gids, edge_attrs = edges
-                output_dict[postsyn_name].add(int(postsyn_gid))
-                output_dict[presyn_name].update(np.asarray(presyn_gids,dtype=np.intp).tolist())
-
     yaml_output_dict = {}
     for k, v in utils.viewitems(output_dict):
         logger.info('Rank %d: population %s: %d cells' % (comm.rank, k, len(v)))
@@ -110,7 +94,6 @@ def main(config, config_prefix, dataset_prefix, distances_namespace, distance_li
     with open(output_path, 'w') as outfile:
         yaml.dump(yaml_output_dict, outfile)
 
-    MPI.Finalize()
 
 
 if __name__ == '__main__':
