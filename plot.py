@@ -1501,7 +1501,8 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         pop_start_inds[k] = population_ranges[k][0]
         pop_num_cells[k] = population_ranges[k][1]
         total_num_cells += population_ranges[k][1]
-        
+
+    include = list(include)
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include: 
         include.remove('eachPop')
@@ -1551,9 +1552,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     pop_spk_dict = { pop_name: (pop_spkinds, pop_spkts) for (pop_name, pop_spkinds, pop_spkts) in zip(spkpoplst, spkindlst, spktlst) }
 
     if spike_hist is None:
-        fig, axes = plt.subplots(len(spkpoplst), sharex=True, figsize=figSize)
+        fig, axes = plt.subplots(nrows=len(spkpoplst), sharex=True, figsize=figSize)
     elif spike_hist == 'subplot':
-        fig, axes = plt.subplots(len(spkpoplst)+1, sharex=True, figsize=figSize,
+        fig, axes = plt.subplots(nrows=len(spkpoplst)+1, sharex=True, figsize=figSize,
                                  gridspec_kw={'height_ratios': [1]*len(spkpoplst) + [2]})
 
     sctplots = []
@@ -1600,35 +1601,6 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     else:
         lgd_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))  for pop_name in spkpoplst if pop_name in avg_rates]
             
-    if labels == 'legend':
-       # Add legend
-       lgd = plt.legend(sctplots, lgd_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.,
-                        loc='upper right', bbox_to_anchor=(1.2, 1.0))
-       ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
-       ## draw the legend on the canvas to assign it real pixel coordinates:
-       plt.gcf().canvas.draw()
-       ## transformation from pixel coordinates to Figure coordinates:
-       transfig = plt.gcf().transFigure.inverted()
-       ## Get the legend extents in pixels and convert to Figure coordinates.
-       ## Pull out the farthest extent in the x direction
-       ## since that is the canvas direction we need to adjust:
-       lgd_pos = lgd.get_window_extent()
-       lgd_coord = transfig.transform(lgd_pos)
-       lgd_xmax = lgd_coord[1, 0]
-       ## Do the same for the axes:
-       ax_pos = plt.gca().get_window_extent()
-       ax_coord = transfig.transform(ax_pos)
-       ax_xmax = ax_coord[1, 0]
-       ## Adjust the Figure canvas using tight_layout for
-       ## axes that must move over to allow room for the legend to fit within the canvas:
-       shift = 1 - (lgd_xmax - ax_xmax)
-       plt.gcf().tight_layout(rect=(0, 0, shift, 1))
-    
-    elif labels == 'overlay':
-        for i, (pop_name, lgd_label) in enumerate(zip(spkpoplst, lgd_labels)):
-                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fontSize))
-                axes[i].add_artist(at)
-        max_label_len = max([len(l) for l in lgd_labels])
 
         
     # Plot spike histogram
@@ -1648,6 +1620,24 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         ax2.set_xlabel('Time (ms)', fontsize=fontSize)
         ax2.set_ylabel('Spike count', fontsize=fontSize)
         ax2.set_xlim(time_range)
+
+    
+    if labels == 'legend':
+       # Shrink axes by 15%
+       for ax in axes:
+           box = ax.get_position()
+           ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+       # Add legend
+       lgd = fig.legend(sctplots, lgd_labels, loc = 'center right', 
+                        fontsize='small', scatterpoints=1, markerscale=5.,
+                        bbox_to_anchor=(1.002, 0.5), bbox_transform=plt.gcf().transFigure)
+       fig.artists.append(lgd)
+       
+    elif labels == 'overlay':
+        for i, (pop_name, lgd_label) in enumerate(zip(spkpoplst, lgd_labels)):
+                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fontSize))
+                axes[i].add_artist(at)
+        max_label_len = max([len(l) for l in lgd_labels])
         
     # save figure
     if saveFig: 
