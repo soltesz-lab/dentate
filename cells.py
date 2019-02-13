@@ -579,7 +579,8 @@ def node_in_subtree(cell, root, node):
     :param node: 'class':SNode2 or SHocNode
     :return: boolean
     """
-    nodelist = iter(cell.tree)
+    nodelist = []
+    cell.tree._gather_nodes(root, nodelist)
     if node in nodelist:
         return True
     else:
