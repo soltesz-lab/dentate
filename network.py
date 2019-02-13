@@ -477,8 +477,8 @@ def connect_cell_selection(env):
 
         if rank == 0 and gid == first_gid:
             logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
-                        'connections for gid %d' % \
-                         (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
+                        'connections for gid %d; cleanup flag is %s' % \
+                         (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid, str(env.cleanup)))
             hoc_cell = env.pc.gid2cell(gid)
             for sec in list(hoc_cell.all):
                 h.psection(sec=sec)
@@ -680,8 +680,7 @@ def make_cells(env):
                 num_cells += 1
 
         h.define_shape()
-        if rank == 0:
-            logger.info("*** Created %i cells" % num_cells)
+        logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
         
 def make_cell_selection(env):
@@ -714,6 +713,7 @@ def make_cell_selection(env):
         for gid in gid_range:
             v_sample_set.add(gid)
 
+        num_cells = 0
         if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
@@ -723,7 +723,6 @@ def make_cell_selection(env):
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
             first_gid = None
-            num_cells = 0
             for i, (gid, tree) in enumerate(trees):
                 
                 if rank == 0:
@@ -747,9 +746,6 @@ def make_cell_selection(env):
                         env.recs_dict[pop_name]['Soma'].append(rec)
 
                 num_cells += 1
-
-            if rank == 0:
-                logger.info("*** Created %i cells" % num_cells)
 
         elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
@@ -783,6 +779,7 @@ def make_cell_selection(env):
 
                 i = i + 1
         h.define_shape()
+        logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
 
 def make_stimulus(env):
