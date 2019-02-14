@@ -3106,6 +3106,7 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
         for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
+        print 'rate_lst size: %d' % len(rate_lst)
         col = (module - 1) % 5
         row = (module - 1) / 5
         M = max(M, len(rate_lst))
@@ -3119,10 +3120,11 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
             extent=[t[0], t[-1], 0, N]
         title = 'Module: %i' % module
         axes[row][col].set_title(title, fontsize=fontSize)
+        print 'rate matrix: ', rate_matrix
         img = axes[row][col].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm,
                                     extent=extent)
-        axes[row][col].set_xlim([extent[0], extent[1]])
-        axes[row][col].set_ylim(-1, N+1)
+        #axes[row][col].set_xlim([extent[0], extent[1]])
+        #axes[row][col].set_ylim(-1, N+1)
         if col == 0:
             axes[row][col].set_ylabel('Sorted input ID', fontsize=fontSize)
         if row == 1:
@@ -3132,7 +3134,6 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
     cbar.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
 
     fig.suptitle(population, fontsize=fontSize)
-    fig.tight_layout()
 
     # save figure
     if saveFig:
