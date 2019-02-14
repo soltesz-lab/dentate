@@ -7,19 +7,20 @@ from dentate.utils import *
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, generate_expected_width
 from dentate.InputCell import *
 
-
 config_logging(True)
 script_name = os.path.basename(__file__)
 logger      = get_script_logger(script_name)
 
 context = Context()
 
-def _build_cells(N, mod_jitter, ctype, start_gid=1):
+def _build_cells(N, start_gid=1):
 
-    assert(ctype == 'place')
+    # Acquire the number of fields each place cell will have, given the field probability distribution
+  
     cells = {}
-    nfields          = acquire_fields_per_cell(N, context.field_probabilities.values(), context.field_random)
-
+    nfields = acquire_fields_per_cell(N, context.field_probabilities, context.field_random)
+    
+    # Assign a septo-temporal position for each cell, followed by the expected field width of that cell
     pseudo_positions = context.field_random.uniform(0., 1., size=(N,))
     expected_field_width = np.interp(pseudo_positions, context.positions, context.mean_expected_width)
     total_fields = np.sum(nfields)
@@ -27,25 +28,26 @@ def _build_cells(N, mod_jitter, ctype, start_gid=1):
     gid = start_gid
     gid_to_module     = {int(mod): [] for mod in context.modules}
     fields_per_module = {int(mod): 0 for mod in context.modules}
-    
+
+    # Given septo-temporal position, assign a 'module' to the cell, and finally instantiate the place cell    
     for i in xrange(N):
         pseudo_module = np.where(pseudo_positions[i] < context.offsets)[0][0] - 1
         gid_to_module[pseudo_module].append((gid, nfields[i]))
         fields_per_module[pseudo_module] += nfields[i]
         expected_cell_width = expected_field_width[i]
-        kwargs = {'field width':  expected_cell_width, 'jitter': mod_jitter[pseudo_module]}
-        cells[gid] = instantiate_place_cell(context, gid, pseudo_module, nfields[i], **kwargs).return_attr_dict()
+        cells[gid] = instantiate_place_cell(context, gid, pseudo_module, nfields[i], expected_cell_width).return_attr_dict()
         gid += 1
 
 
     for mod in sorted(gid_to_module.keys()):
         gids_in_mod  = gid_to_module[mod]
-        this_scale_factor = context.scale_factors[mod]
-        xy_offsets, _, _, _ = generate_spatial_offsets(fields_per_module[mod], arena_dimension=context.arena_dimension, scale_factor=this_scale_factor)
+        this_scale_factor = context.scale_factors[mod] # Scale the super arena based off which 'module' we are in
+        xy_offsets, _, _, _ = generate_spatial_offsets(fields_per_module[mod], arena_dimension=context.arena_dimension, scale_factor=this_scale_factor) # For cells in each 'module', acquire xy offsets in super arena
         xy_insertion_order = context.field_random.permutation(np.arange(len(xy_offsets)))
         xy_offsets = xy_offsets[xy_insertion_order]
 
         curr_pos = 0
+        # Add xy offsets to cells
         for (gid, gid_nfields) in gid_to_module[mod]:
             cell = cells[gid]
             cell['X Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+gid_nfields,0], dtype='float32')
@@ -70,30 +72,27 @@ def init_context():
     field_width_x2 = input_params['field width params']['x2']
     arena_dimension = input_params['arena dimension']
     resolution = input_params['resolution']
-    field_probabilities = input_params['field probs']['PYR']
-        
-    ctype = 1 # place
+    
+    ctype = 1    
     modules            = np.arange(nmodules, dtype='float32')
     field_width_params = [field_width_x1, field_width_x2]
     field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width    = field_width(1.)
-    feature_ctypes     = {'grid': 0, 'place': 1}
     offsets            = np.divide(modules, np.max(modules))
     module_widths      = field_width(offsets)
     scale_factors      = (module_widths / arena_dimension / 2.) + 1.
 
     mean_expected_width, positions = generate_expected_width(field_width_params, module_widths, offsets, positions=None)
 
-
     mesh   = generate_mesh(scale_factor=1., arena_dimension=arena_dimension, resolution=resolution)
-    nx, ny = mesh[0].shape[0], mesh[0].shape[1]
+    nx, ny = mesh[0].shape
     place_cells = {}
     place_gid_start = 1
     context.update(locals())
 
 @click.command()
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default='../config/Input_Features.yaml')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=True, dir_okay=True), default=None)
 @click.option("--export", is_flag=True, default=False)
 @click.option("--export-file-path", type=str, default=None)
@@ -105,7 +104,7 @@ def main(config_file_path, input_params_file_path, output_dir, export, export_fi
     disp = verbose > 0
     if disp:
         print('... config interactive underway..')
-    config_optimize_interactive(__file__, config_file_path=config_file_path, output_dir=output_dir, export=export,
+    config_interactive(context, __file__, config_file_path=config_file_path, output_dir=output_dir, export=export,
                        export_file_path=export_file_path, label=label, disp=disp)
     if disp:
         print('... config interactive complete...')
@@ -205,8 +204,10 @@ def update(x, context):
     context.local_random.seed(context.local_seed)
     context.field_random = np.random.RandomState(context.local_seed)
    
-    mod_jitter = x[0:context.nmodules]
-    context.place_cells, _ = _build_cells(context.num_place, mod_jitter, 'place', start_gid=context.place_gid_start)
+    p_inactive = x[0]
+    p_r        = x[1]
+    context.field_probabilities = _calculate_field_distribution(p_inactive, p_r)
+    context.place_cells, _ = _build_cells(context.num_place, start_gid=context.place_gid_start)
     _calculate_rate_maps(context.place_cells, context)
 
 def _merge_cells():
