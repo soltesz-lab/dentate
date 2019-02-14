@@ -10,9 +10,7 @@ import dentate
 from dentate.env import Env
 from dentate.utils import *
 from dentate.InputCell import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
-from optimize_DG_PP_features import _calculate_field_distribution
-from dentate.stimulus import generate_spatial_offsets, generate_mesh
+from dentate.stimulus import generate_spatial_ratemap, generate_spatial_offsets, generate_mesh, calculate_field_distribution
 
 logger = get_script_logger(os.path.basename(__file__))
 
@@ -176,7 +174,7 @@ def determine_cell_participation(gid_module_assignments):
     num_field_random    = np.random.RandomState(feature_seed_offset - 1)
 
     gid_attributes         = {}
-    module_probabilities   = [ _calculate_field_distribution(pi, pr) for (pi, pr) \
+    module_probabilities   = [ calculate_field_distribution(pi, pr) for (pi, pr) \
                                in zip(context.module_pi, context.module_pr) ]
 
     population_ranges = context.population_ranges
