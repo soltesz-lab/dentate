@@ -80,8 +80,8 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
     field_width_x2 = input_params['field width params']['x2']
     arena_dimension = input_params['arena dimension']
     resolution = input_params['resolution']
-    module_pi = input_params['probability inactive']
-    module_pr = input_params['probability remaining']
+    module_pi = input_params['Perforant Path']['probability inactive']
+    module_pr = input_params['Perforant Path']['probability remaining']
     context.update(locals()) 
 
     gid_normed_distances = assign_cells_to_normalized_position() # Assign normalized u,v coordinates
