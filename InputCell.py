@@ -1,15 +1,13 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-def instantiate_place_cell(context, gid, module, nfields):
-    if 'module_width' not in context() or 'local_random' not in context() or 'nx' not in context() or 'ny' not in context():
-        raise Exception('Context does not contain the necessary attributes to continue..')
+def instantiate_place_cell(context, gid, module, nfields, this_width, **kwargs):
     cell_args = {}
     cell_field_width = []
-    this_width = context.module_width
+    mod_jitter = kwargs.get('jitter', 0.0)
     for n in xrange(nfields):
-        delta_spacing = context.local_random.uniform(-10, 10)
-        cell_field_width.append(this_width + delta_spacing)
+        curr_width = this_width + context.local_random.uniform(-mod_jitter, mod_jitter)
+        cell_field_width.append(curr_width)
     cell_args['Nx'] = context.nx
     cell_args['Ny'] = context.ny
     cell_args['Field Width'] = cell_field_width
@@ -17,8 +15,6 @@ def instantiate_place_cell(context, gid, module, nfields):
     return place_cell
 
 def instantiate_grid_cell(context, gid, module, nfields):
-    if 'grid_orientation' not in context() or 'module_width' not in context() or 'local_random' not in context() or 'nx' not in context() or 'ny' not in context():
-        raise Exception('Context does not contain module width, orientation, or a Random obj')
     orientation = context.grid_orientation[module]
     spacing = context.module_width
 
