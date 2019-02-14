@@ -9,7 +9,7 @@ from dentate.InputCell import *
 
 
 config_logging(True)
-script_name = 'optimize_DG_PP_features.py'
+script_name = os.path.basename(__file__)
 logger      = get_script_logger(script_name)
 
 context = Context()
@@ -86,7 +86,7 @@ def init_context():
 
 @click.command()
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),default='../config/Input_Features.yaml')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=True, dir_okay=True), default=None)
 @click.option("--export", is_flag=True, default=False)
 @click.option("--export-file-path", type=str, default=None)
@@ -98,8 +98,8 @@ def main(config_file_path, input_params_file_path, output_dir, export, export_fi
     disp = verbose > 0
     if disp:
         print('... config interactive underway..')
-    config_optimize_interactive(__file__, config_file_path=config_file_path, output_dir=output_dir, export=export,
-                       export_file_path=export_file_path, label=label, disp=disp)
+    config_interactive(context, __file__, config_file_path=config_file_path, output_dir=output_dir, \
+                       export=export, export_file_path=export_file_path, label=label, disp=disp)
     if disp:
         print('... config interactive complete...')
  
