@@ -164,8 +164,21 @@ def compute_features_firing_rate(x, export=False):
     t_stop = context.env.tstop
     
     time_bins  = np.arange(t_start, t_stop, context.bin_size)
+
     pop_name = 'GC'
-    results['firing_rate'] = np.mean(spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins))
+
+    mean_rate_sum = 0.
+    spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
+    for gid, dens_dict in utils.viewitems(spike_density_dict):
+        mean_rate_sum += np.mean(dens_dict['rate'])
+
+    n = len(spike_density_dict)
+    if n > 0:
+        mean_rate = mean_rate_sum / n 
+    else:
+        mean_rate = 0.
+
+    results['firing_rate'] = mean_rate
 
     return results
 
