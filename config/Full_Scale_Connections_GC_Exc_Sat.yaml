@@ -223,7 +223,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.004
+          g_unit: 0.003
           weight: 1.0
     HC:   
       type: inhibitory
@@ -245,14 +245,14 @@ Synapses:
       swctype mechanisms:
         soma:
           GABA_A:
-            dur_onset: 0.25
+            dur_onset: 0.6
             tau_offset: 9.0
             e: -75
             g_unit: 0.0003
             weight: 1.0
         apical:
           GABA_A:
-            dur_onset: 0.25
+            dur_onset: 0.6
             tau_offset: 9.0
             e: -75
             g_unit: 0.0008
@@ -264,7 +264,7 @@ Synapses:
       proportions: [1.0]
       mechanisms:
         GABA_A:
-          dur_onset: 0.3
+          dur_onset: 0.6
           tau_offset: 9.0
           e: -75
           g_unit: 0.0012
