@@ -444,3 +444,36 @@ def profile_memory(logger):
     hprof = hpy()
     logger.info(hprof.heap())
 
+
+def update_bins(bins, binsize, x):
+    i = math.floor(x / binsize)
+    if i in bins:
+        bins[i] += 1
+    else:
+        bins[i] = 1
+
+        
+def finalize_bins(bins, binsize):
+    imin = int(min(bins.keys()))
+    imax = int(max(bins.keys()))
+    a = [0] * (imax - imin + 1)
+    b = [binsize * k for k in range(imin, imax + 1)]
+    for i in range(imin, imax + 1):
+        if i in bins:
+            a[i - imin] = bins[i]
+    return np.asarray(a), np.asarray(b)
+
+
+def merge_bins(bins1, bins2, datatype):
+    for i, count in viewitems(bins2):
+        bins1[i] += count
+    return bins1
+
+
+def add_bins(bins1, bins2, datatype):
+    for item in bins2:
+        if item in bins1:
+            bins1[item] += bins2[item]
+        else:
+            bins1[item] = bins2[item]
+    return bins1
