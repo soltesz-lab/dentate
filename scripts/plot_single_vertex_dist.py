@@ -20,8 +20,9 @@ script_name = os.path.basename(__file__)
 @click.option("--extent-type", type=str, default='local')
 @click.option("--bin-size", type=float, default=20.0)
 @click.option("--font-size", type=float, default=14)
+@click.option("--save-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config, config_prefix, connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, extent_type, bin_size, font_size, verbose):
+def main(config, config_prefix, connectivity_path, coords_path, distances_namespace, destination_gid, destination, source, extent_type, bin_size, font_size, save_format, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(script_name))
@@ -31,7 +32,7 @@ def main(config, config_prefix, connectivity_path, coords_path, distances_namesp
     plot.plot_single_vertex_dist (env, connectivity_path, coords_path, distances_namespace, \
                                   destination_gid, destination, source, \
                                   extent_type=extent_type, bin_size=bin_size, fontSize=font_size, \
-                                  saveFig=True)
+                                  saveFig=True, figFormat=save_format)
     
 
 if __name__ == '__main__':

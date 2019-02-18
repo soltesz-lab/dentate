@@ -229,7 +229,7 @@ def spike_rates (spkdict):
     return rate_dict
 
 
-def baks (spktimes, time, a=4., b=None):
+def baks (spktimes, time, a=1.5, b=None):
     """
     Bayesian Adaptive Kernel Smoother (BAKS)
     BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
