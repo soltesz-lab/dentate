@@ -59,7 +59,7 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
 
 
-def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1.):  # cm
+def generate_linear_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1.):  # cm
 
     # arena_dimension - minimum distance from origin to boundary (cm)
 
@@ -73,6 +73,63 @@ def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resoluti
     d = interp_distance
 
     return t, interp_x, interp_y, d
+
+
+def generate_concentric_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., 
+                                   origin_X = 0., origin_Y = 0., radius_range = np.arange(100, 5, -5),
+                                   initial_theta = np.deg2rad(180.), theta_step = np.deg2rad(300)):
+
+    # arena_dimension - minimum distance from origin to boundary (cm)
+
+    start_theta = initial_theta
+    start_x = origin_X + np.cos(start_theta) * arena_dimension
+    start_y = origin_Y + np.sin(start_theta) * arena_dimension
+
+    xs = []
+    ys = []
+    for radius in radius_range[1:]:
+
+        end_theta = start_theta + theta_step
+        theta = np.arange(start_theta, end_theta, np.deg2rad(spatial_resolution))
+
+        end_x = origin_X + np.cos(start_theta) * radius
+        end_y = origin_Y + np.sin(start_theta) * radius
+
+        xsteps = abs(end_x - start_x)  / spatial_resolution
+        ysteps = abs(end_y - start_y)  / spatial_resolution
+        nsteps = max(xsteps, ysteps)
+        
+        linear_x = np.linspace(start_x, end_x, nsteps)
+        linear_y = np.linspace(start_y, end_y, nsteps)
+
+        radial_x = origin_X + np.cos(theta) * radius
+        radial_y = origin_Y + np.sin(theta) * radius
+
+        x = np.concatenate([linear_x, radial_x])
+        y = np.concatenate([linear_y, radial_y])
+
+        xs.append(x)
+        ys.append(y)
+    
+        start_theta = end_theta
+        start_x = x[-1]
+        start_y = y[-1]
+
+    x = np.concatenate(xs)
+    y = np.concatenate(ys)
+    
+    distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
+    interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
+    
+    t = (interp_distance / velocity * 1000.)  # ms
+    
+    interp_x = np.interp(interp_distance, distance, x)
+    interp_y = np.interp(interp_distance, distance, y)
+    
+    d = interp_distance
+
+    return t, interp_x, interp_y, d
+
 
 def fwhm2sigma(fwhm):
     return fwhm / np.sqrt(8 * np.log(2))
@@ -101,17 +158,12 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
     a = kwargs.get('a', 0.3)
     b = kwargs.get('b', -1.5)
 
-    try:
-        if 'X Offset Scaled' and 'Y Offset Scaled' in features_dict:
-            x_offset = features_dict['X Offset Scaled']
-            y_offset = features_dict['Y Offset Scaled']
-        else:
-            x_offset = features_dict['X Offset']
-            y_offset = features_dict['Y Offset']
-    except:
-        print "selectivity: ", selectivity_type
-        print "features: ", features_dict
-        raise
+    if 'X Offset Scaled' and 'Y Offset Scaled' in features_dict:
+        x_offset = features_dict['X Offset Scaled']
+        y_offset = features_dict['Y Offset Scaled']
+    else:
+        x_offset = features_dict['X Offset']
+        y_offset = features_dict['Y Offset']
 
     rate_map = None
     if selectivity_type == selectivity_grid:
