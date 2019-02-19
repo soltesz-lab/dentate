@@ -227,6 +227,14 @@ def peak_to_trough(cells):
 
     return minmax_eval, var_eval      
 
+def calculate_field_distribution(pi, pr):
+    p1 = (1. - pi) / (1. + (7./4.) * pr)
+    p2 = p1 * pr
+    p3 = 0.5 * p2
+    p4 = 0.5 * p3
+    probabilities = np.array([pi, p1, p2, p3, p4], dtype='float32')
+    assert(np.abs(np.sum(probabilities) - 1.) < 1.e-5)
+    return probabilities
 
 def gid2module_dictionary(cell_lst, modules):
     module_dict = {module: {} for module in modules}
