@@ -6,7 +6,6 @@ from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 try:
     import btmorph
 except Exception:
-    print 'dentate.cells: problem importing btmorph'
     pass
 
 
@@ -469,7 +468,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     try:
         root_node = append_section(cell, 'soma', root_index, root_sec)
     except Exception as e:
-        print 'import_morphology_from_hoc: problem locating soma section to act as root'
+        print('import_morphology_from_hoc: problem locating soma section to act as root')
         raise e
     append_child_sections(cell, root_node, root_sec.children(), sec_type_map)
 
@@ -1001,10 +1000,10 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         traceback.print_tb(sys.exc_info()[2])
         if param_name is not None:
-            print 'modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' % \
-                  (mech_name, param_name, node.name)
+            print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' % \
+                  (mech_name, param_name, node.name))
         else:
-            print 'modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name)
+            print('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
         raise e
 
 
@@ -1122,8 +1121,8 @@ def inherit_mech_param(donor, mech_name, param_name):
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
     except Exception as e:
-        print 'inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' % \
-              (mech_name, param_name, donor.type)
+        print('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' % \
+              (mech_name, param_name, donor.type))
         raise e
 
 
