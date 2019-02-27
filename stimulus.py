@@ -59,18 +59,26 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
 
 
-def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1.):  # cm
+def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
+    xy_offset, t_offset, d_offset = 0., 0., 0.
+    if ramp_up_period is not None:
+        ramp_up_distance = (ramp_up_period / 1000.) * velocity  # cm
+        xy_offset = ramp_up_distance / np.sqrt(2)
+        t_offset = ramp_up_period
+        d_offset = ramp_up_distance
 
-    # arena_dimension - minimum distance from origin to boundary (cm)
+    x = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
+    y = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
 
-    x = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-    y = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
     t = interp_distance / velocity * 1000.  # ms
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
+    
+    t -= t_offset
+    d -= d_offset
 
     return t, interp_x, interp_y, d
 
@@ -171,13 +179,12 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
 
     if ramp_up_period is not None:
         import scipy.signal as signal
-        timestep = interp_t[1] - interp_t[0]
-        fwhm = int(ramp_up_period*2 / timestep)
-        ramp_up_region = np.where(interp_t <= ramp_up_period)[0]
+        ramp_up_region = np.where(interp_t <= 0.0)[0]
+        nsteps = len(ramp_up_region)
+        window = signal.hann(nsteps*2, sym=False)
+        half_window = window[:int(nsteps)]
+        half_window /= np.max(half_window)
         orig_response = response[ramp_up_region].copy()
-        sigma = fwhm2sigma(fwhm)
-        window = signal.gaussian(len(ramp_up_region)*2, std=sigma)
-        half_window = window[:int(len(window)/2)]
         response[ramp_up_region] = response[ramp_up_region] * half_window
     
     return response
