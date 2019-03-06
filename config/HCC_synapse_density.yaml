@@ -2,27 +2,27 @@
 apical:
   excitatory:
     default:
-      mean: 8.0
+      mean: 2.0
       variance: 0.1
   inhibitory:
     default:
-      mean: 2.0
+      mean: 0.5
       variance: 0.1
 basal:
   excitatory:
     default:
-      mean: 8.0
+      mean: 2.0
       variance: 0.1
   inhibitory:
     default:
-      mean: 2.0
+      mean: 0.5
       variance: 0.1
 soma:
   inhibitory:
     default:
-      mean: 0.4
+      mean: 0.2
       variance: 0.1
   excitatory:
     default:
-      mean: 0.4
+      mean: 0.8
       variance: 0.1
