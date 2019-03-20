@@ -236,7 +236,7 @@ Synapses:
           dur_onset: 1.5
           tau_offset: 10.0
           e: -75
-          g_unit: 0.00125
+          g_unit: 0.00175
           weight: 1.0
     BC:   
       type: inhibitory
@@ -256,7 +256,7 @@ Synapses:
             dur_onset: 0.6
             tau_offset: 9.0
             e: -75
-            g_unit: 0.0008
+            g_unit: 0.0012
             weight: 1.0
     AAC:  
       type: inhibitory
@@ -280,7 +280,7 @@ Synapses:
           dur_onset: 1.5
           tau_offset: 10.0
           e: -75
-          g_unit: 0.00075
+          g_unit: 0.00225
           weight: 1.0
   HC:
     GC:   
@@ -617,7 +617,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.0047
+          g_unit: 0.004
           weight: 1.0
     MC:   
       type: excitatory
@@ -630,7 +630,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0043
+          g_unit: 0.003
           weight: 1.0
     HCC:  
       type: inhibitory
@@ -642,7 +642,7 @@ Synapses:
           dur_onset: 0.72
           tau_offset: 4.7
           e: -75
-          g_unit: 0.000325
+          g_unit: 0.0006
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -684,7 +684,7 @@ Synapses:
           dur_onset: 0.46
           tau_offset: 4.43
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.0015
           weight: 1.0
   NGFC:
     MPP:
