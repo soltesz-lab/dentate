@@ -21,8 +21,16 @@ def passive_test (tree, v_init):
     mainlength = 2000
 
     tstop = prelength+mainlength
-    
+
     stimdur = 500.0
+
+    dend_length = 0.
+    for sec in cell.apical:
+        dend_length += sec.L
+    for sec in cell.basal:
+        dend_length += sec.L
+
+    print "passive_test: total dendritic length is %.02f um" % dend_length
     
     stim1 = h.IClamp(cell.sections[0](0.5))
     stim1.delay = prelength
