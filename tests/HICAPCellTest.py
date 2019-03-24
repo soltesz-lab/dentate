@@ -9,20 +9,28 @@ from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection
 from env import Env
-import utils, cells
+import neuron_utils, utils, cells
 
     
 def passive_test (tree, v_init):
 
-    cell = cells.make_neurotree_cell ("HICAPCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (getattr(h,"HICAPCell"), neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
     mainlength = 2000
 
     tstop = prelength+mainlength
-    
+
     stimdur = 500.0
+
+    dend_length = 0.
+    for sec in cell.apical:
+        dend_length += sec.L
+    for sec in cell.basal:
+        dend_length += sec.L
+
+    print "passive_test: total dendritic length is %.02f um" % dend_length
     
     stim1 = h.IClamp(cell.sections[0](0.5))
     stim1.delay = prelength
@@ -37,7 +45,7 @@ def passive_test (tree, v_init):
     
     h.tstop = tstop
 
-    utils.simulate(h, v_init, prelength,mainlength)
+    neuron_utils.simulate(v_init, prelength,mainlength)
 
     ## compute membrane time constant
     vrest  = h.Vlog.x[int(h.tlog.indwhere(">=",prelength-1))]
@@ -61,7 +69,7 @@ def passive_test (tree, v_init):
 
 def ap_rate_test (tree, v_init):
 
-    cell = cells.make_neurotree_cell ("HICAPCell", neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (getattr(h,"HICAPCell"), neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
@@ -95,7 +103,7 @@ def ap_rate_test (tree, v_init):
     ## or up to 5 steps
     while (h.spikelog.size() < 60):
 
-        utils.simulate(h, v_init, prelength,mainlength)
+        neuron_utils.simulate(v_init, prelength,mainlength)
         
         if ((h.spikelog.size() < 50) & (it < 5)):
             print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
@@ -238,15 +246,14 @@ def main(template_path,forest_path):
 
     h('objref nil, pc, tlog, Vlog, spikelog')
     h.load_file("nrngui.hoc")
-    h.xopen("./lib.hoc")
     h.xopen ("./tests/rn.hoc")
     h.xopen(template_path+'/HICAPCell.hoc')
     h.pc = h.ParallelContext()
     
     popName = "HCC"
-    (trees,_) = read_tree_selection (comm, forest_path, popName, [1043250])
+    (trees,_) = read_tree_selection (forest_path, popName, [1043250])
     
-    tree = trees.itervalues().next()
+    gid, tree = next(trees)
     
     passive_test(tree,-70)
     ap_rate_test(tree,-70)

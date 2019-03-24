@@ -91,7 +91,7 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
     module_pr = input_params['Perforant Path']['probability remaining']
     context.update(locals()) 
 
-    context = Struct(**dict(locals()))
+    context = Context(**dict(locals()))
 
     gid_normed_distances = assign_cells_to_normalized_position(context) # Assign normalized u,v coordinates
     gid_module_assignments = assign_cells_to_module(context, gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
