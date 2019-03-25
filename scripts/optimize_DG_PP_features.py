@@ -3,7 +3,7 @@ import numpy as np
 from pprint import pprint
 import yaml
 from dentate.utils import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, calculate_field_distribution
 from dentate.InputCell import *
 
 
@@ -141,7 +141,7 @@ def report_cost(context):
 
     print('probability inactive: %f' % x0[0])
     print('pr: %0.4f' % x0[1])
-    print(_calculate_field_distribution(x0[0], x0[1]))
+    print(calculate_field_distribution(x0[0], x0[1]))
     print('Module: %d' % context.module)
     print('Place population fraction active: %f' % features['fraction active'])
     print('Grid population fraction active: %f' % grid_fa)
@@ -223,7 +223,7 @@ def update(x, context):
    
     p_inactive     = x[0] 
     p_r            = x[1]
-    context.field_probabilities = _calculate_field_distribution(p_inactive, p_r)
+    context.field_probabilities = calculate_field_distribution(p_inactive, p_r)
     context.place_cells, _ = _build_cells(context.num_place, 'place', context.module, start_gid=context.place_gid_start)
     _calculate_rate_maps(context.place_cells, context)
 
@@ -231,27 +231,16 @@ def _merge_cells():
     z = context.grid_cells.copy()
     return z.update(context.place_cells.copy())
 
-def _calculate_field_distribution(pi, pr):
-    p1 = (1. - pi) / (1. + (7./4.) * pr)
-    p2 = p1 * pr
-    p3 = 0.5 * p2
-    p4 = 0.5 * p3
-    probabilities = np.array([pi, p1, p2, p3, p4], dtype='float32')
-    assert( np.abs(np.sum(probabilities) - 1.) < 1.e-5)
-    return probabilities 
-
 def _fraction_active(rates):
     from dentate.stimulus import fraction_active
     return fraction_active(rates, context.active_threshold)
 
 def _coefficient_of_variation(cells):
     from dentate.stimulus import coefficient_of_variation
-
     return coefficient_of_variation(cells)
 
 def _peak_to_trough(cells):
     from dentate.stimulus import peak_to_trough
-
     return peak_to_trough(cells)
     
 def _calculate_rate_maps(cells, context):

@@ -1,7 +1,9 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-def instantiate_place_cell(context, gid, module, nfields, this_width, **kwargs):
+def instantiate_place_cell(context, gid, module, nfields, this_width=None, **kwargs):
+    if this_width is None:
+        this_width = context.module_width
     cell_args = {}
     cell_field_width = []
     mod_jitter = kwargs.get('jitter', 0.0)

@@ -8,7 +8,7 @@ import dentate
 from dentate.env import Env
 from dentate.utils import *
 from dentate.InputCell import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh
+from dentate.stimulus import generate_spatial_ratemap, generate_spatial_offsets, generate_mesh, calculate_field_distribution
 
 logger = get_script_logger(os.path.basename(__file__))
 
@@ -87,8 +87,9 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
     field_width_x2 = input_params['field width params']['x2']
     arena_dimension = input_params['arena dimension']
     resolution = input_params['resolution']
-    module_pi = input_params['probability inactive']
-    module_pr = input_params['probability remaining']
+    module_pi = input_params['Perforant Path']['probability inactive']
+    module_pr = input_params['Perforant Path']['probability remaining']
+    context.update(locals()) 
 
     context = Struct(**dict(locals()))
 
