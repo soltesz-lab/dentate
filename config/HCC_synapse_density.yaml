@@ -13,6 +13,9 @@ apical:
     GCL:
       mean: 3.27
       variance: 0.1
+    Hilus:
+      mean: 2.0
+      variance: 0.1
   inhibitory:
     default:
       mean: 0.5
