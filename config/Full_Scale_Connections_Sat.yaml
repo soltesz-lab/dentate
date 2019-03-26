@@ -635,9 +635,9 @@ Synapses:
           weight: 1.0
     HCC:  
       type: inhibitory
-      sections: [basal, apical]
-      layers: [Hilus, IML]
-      proportions: [0.3, 1.0]
+      sections: [basal, apical, apical]
+      layers: [Hilus, Hilus, IML]
+      proportions: [0.3, 0.3, 1.0]
       mechanisms:
         SatGABA_A:
           dur_onset: 0.72
@@ -681,9 +681,9 @@ Synapses:
           weight: 1.0
     IS: 
       type: inhibitory
-      sections: [basal, soma]
-      layers: [Hilus, Hilus]
-      proportions: [0.7, 1.0]
+      sections: [basal, apical, soma]
+      layers: [Hilus, Hilus, Hilus]
+      proportions: [0.7, 0.7, 1.0]
       mechanisms:
         SatGABA_A:
           dur_onset: 0.46
