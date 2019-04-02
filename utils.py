@@ -124,6 +124,7 @@ def list_index(element, lst):
     except ValueError:
         return None
 
+
 def list_find(f, lst):
     """
 
