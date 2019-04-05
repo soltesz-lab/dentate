@@ -5,8 +5,8 @@ mpirun.mpich -np 8 python ./scripts/distribute_synapse_locs.py \
                --config-prefix=./config \
                --template-path=./templates \
                -i AAC -i BC -i MC -i IS -i HC -i HCC -i MOPP -i NGFC \
-               --forest-path=./datasets/DG_IN_forest_20181226.h5 \
-               --output-path=./datasets/DG_IN_forest_syns_20181226.h5 \
+               --forest-path=./datasets/DG_IN_forest_20190306.h5 \
+               --output-path=./datasets/DG_IN_forest_syns_20190306.h5 \
                --io-size=4 -v
               
 

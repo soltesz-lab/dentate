@@ -172,6 +172,8 @@ class QuickSim(object):
             self.recs[name]['units'] = units
         if node is not None:
             self.recs[name]['node'] = node
+            if node.sec.cell() is not self.recs[name]['cell']:
+                self.recs[name]['cell'] = node.sec.cell()
         if loc is not None:
             self.recs[name]['loc'] = loc
         if object is None:
@@ -240,8 +242,10 @@ class QuickSim(object):
         :param description: str
         """
         if not (node is None and loc is None):
-            if not node is None:
+            if node is not None:
                 self.stims[name]['node'] = node
+                if node.sec.cell() is not self.stims[name]['cell']:
+                    self.stims[name]['cell'] = node.sec.cell()
             if loc is None:
                 loc = self.stims[name]['stim'].get_segment().x
             self.stims[name]['stim'].loc(self.stims[name]['node'].sec(loc))
@@ -254,14 +258,15 @@ class QuickSim(object):
         if description is not None:
             self.stims[name]['description'] = description
 
-    def plot(self):
+    def plot(self, axes=None, show=True):
         """
 
         """
         import matplotlib.pyplot as plt
         if len(self.recs) == 0:
             return
-        fig, axes = plt.subplots()
+        if axes is None:
+            fig, axes = plt.subplots()
         for name, rec_dict in viewitems(self.recs):
             description = str(rec_dict['description'])
             axes.plot(self.tvec, rec_dict['vec'],
@@ -280,8 +285,11 @@ class QuickSim(object):
         if title is not None:
             axes.set_title(title)
         clean_axes(axes)
-        fig.tight_layout()
-        fig.show()
+        if show:
+            fig.tight_layout()
+            fig.show()
+        else:
+            return axes
 
     def export_to_file(self, file_path, append=True):
         """
