@@ -91,7 +91,7 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
     module_pr = input_params['Perforant Path']['probability remaining']
     context.update(locals()) 
 
-    context = Struct(**dict(locals()))
+    context = Context(**dict(locals()))
 
     gid_normed_distances = assign_cells_to_normalized_position(context) # Assign normalized u,v coordinates
     gid_module_assignments = assign_cells_to_module(context, gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
@@ -101,7 +101,11 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
     if not dry_run and rank == 0:
         save_to_h5(context, cell_attributes)
 
-        
+##
+## Normalize u,v coordinates to [0,1] relative to max u / max v
+## u, v here are actually u,v _distances_
+## This gives ;
+##
 def assign_cells_to_normalized_position(context):
     
     rank = context.comm.rank
@@ -133,7 +137,9 @@ def assign_cells_to_normalized_position(context):
 
     return gid_normed_distances
 
-    
+##
+## 
+##
 def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace=0.1):
 
     offsets   = np.linspace(-displace, 1. + displace, 10)
@@ -173,7 +179,8 @@ def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace
         
     return gid_module_assignments
         
-
+## pi - probability inactive
+## pr - probability 
 def determine_cell_participation(context, gid_module_assignments):
 
     input_config        = context.env.inputConfig[context.stimulus_id]
