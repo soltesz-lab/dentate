@@ -506,7 +506,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
 
 def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_namespace, target_gid,
                             destination, source, extent_type='local', direction='in',
-                            bin_size=20.0, comm=None, **kwargs):
+                            bin_size=20.0, normed=False, comm=None, **kwargs):
     """
     Plot vertex distribution with respect to septo-temporal distance for a single postsynaptic cell
 
@@ -550,10 +550,9 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
     del(source_soma_distances)
     del(destination_soma_distances)
                 
-    g = NeuroH5ProjectionGen (connectivity_path, source, destination, comm=comm, cache_size=1)
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, comm=comm, cache_size=20)
 
-    dist_u_bins = {}
-    dist_v_bins = {}
+    dist_bins = {}
 
     if direction == 'in':
         for (destination_gid,rest) in g:
@@ -562,8 +561,7 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
                 for source_gid in source_indexes:
                     dist_u = source_soma_distance_U[source_gid]
                     dist_v = source_soma_distance_V[source_gid]
-                    update_bins(dist_u_bins, bin_size, dist_u)
-                    update_bins(dist_v_bins, bin_size, dist_v)
+                    update_bins(dist_bins, bin_size, dist_u, dist_v)
                 break
     elif direction == 'out':
         for (destination_gid,rest) in g:
@@ -573,19 +571,16 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
                     if source_gid == target_gid:
                         dist_u = destination_soma_distance_U[destination_gid]
                         dist_v = destination_soma_distance_V[destination_gid]
-                        update_bins(dist_u_bins, bin_size, dist_u)
-                        update_bins(dist_v_bins, bin_size, dist_v)
+                        update_bins(dist_bins, bin_size, dist_u, dist_v)
     else:
         raise RuntimeError('Unknown direction type %s' % str(direction))
 
     add_bins_op = MPI.Op.Create(add_bins, commute=True)
-    dist_u_bins = comm.reduce(dist_u_bins, op=add_bins_op)
-    dist_v_bins = comm.reduce(dist_v_bins, op=add_bins_op)
+    dist_bins = comm.reduce(dist_bins, op=add_bins_op)
 
     if rank == 0:
 
-        dist_u_hist_vals, dist_u_bin_edges = finalize_bins(dist_u_bins[source], bin_size)
-        dist_v_hist_vals, dist_v_bin_edges = finalize_bins(dist_v_bins[source], bin_size)
+        dist_hist_vals, dist_u_bin_edges, dist_v_bin_edges = finalize_bins(dist_bins, bin_size)
 
         dist_x_min = dist_u_bin_edges[0]
         dist_x_max = dist_u_bin_edges[-1]
@@ -605,12 +600,7 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
         else:
             raise RuntimeError('Unknown extent type %s' % str(extent_type))
 
-        dx = int((dist_x_max - dist_x_min) / bin_size)
-        dy = int((dist_y_max - dist_y_min) / bin_size)
-
-        (H, xedges, yedges) = np.histogram2d(dist_u_array, dist_v_array, bins=[dx, dy])
-    
-        X, Y = np.meshgrid(xedges, yedges)
+        X, Y = np.meshgrid(dist_u_bin_edges, dist_v_bin_edges)
 
         fig = plt.figure(figsize=options.figSize)
 
@@ -627,18 +617,24 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
                     'r+', markersize=12, mew=3)
         else:
             raise RuntimeError('Unknown direction type %s' % str(direction))
-    
+
+        H = np.array(dist_hist_vals.todense())
+        if normed:
+            H = np.divide(H.astype(float), float(np.max(H)))
         pcm_boundaries = np.arange(0, np.max(H), .1)
         cmap_pls = plt.cm.get_cmap('PuBu',len(pcm_boundaries))
         pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
         pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
         pcm_cmap.set_under(pcm_colors[0], alpha=0.0)
         
-        pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
-                                norm = mpl.colors.BoundaryNorm(pcm_boundaries, ncolors=len(pcm_boundaries)-1,
-                                                        clip=False))
-    
-        clb = fig.colorbar(pcm, ax=ax, shrink=0.5, label='Number of connections')
+        pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap)
+
+#        pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
+#                            norm = mpl.colors.BoundaryNorm(pcm_boundaries, ncolors=len(pcm_boundaries)-1,
+#                                                            clip=False))
+
+        clb_label = 'Normalized number of connections' if normed else 'Number of connections'
+        clb = fig.colorbar(pcm, ax=ax, shrink=0.5, label=clb_label)
         clb.ax.tick_params(labelsize=options.fontSize)
     
         ax.set_aspect('equal')
@@ -649,15 +645,16 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
         ax.set_title('Connectivity distribution (%s) of %s to %s for gid: %i' % (direction, source, destination, target_gid), \
                     fontsize=options.fontSize)
         
+
+        if options.showFig:
+            show_figure()
+
         if options.saveFig: 
             if isinstance(options.saveFig, str):
                 filename = options.saveFig
             else:
                 filename = 'Connection distance %s %s to %s gid %i.%s' % (direction, source, destination, target_gid, options.figFormat)
                 plt.savefig(filename)
-
-        if options.showFig:
-            show_figure()
     
     
 

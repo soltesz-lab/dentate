@@ -4,6 +4,7 @@ import copy, pprint, logging
 import yaml
 import numpy as np
 import scipy
+from scipy import sparse
 
 class Struct:
     def __init__(self, **items):
@@ -470,7 +471,7 @@ def finalize_bins(bins, binsize):
     bin_ranges = [ (int(min(ks)), int(max(ks))) for ks in bin_keys ]
     dims = tuple( (imax - imin + 1) for imin, imax in bin_ranges )
     if len(dims) > 1:
-        grid = sp.dok_matrix( dims, dtype=np.int )
+        grid = sparse.dok_matrix( dims, dtype=np.int )
     else:
         grid = np.zeros(dims)
     bin_edges = [ [binsize * k for k in range(imin, imax + 1)] for imin, imax in bin_ranges ]
