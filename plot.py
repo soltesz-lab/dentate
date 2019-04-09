@@ -274,17 +274,23 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
             degrees_dict[source] = f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][0:destination_count]
             
     for source in sources:
-        logger.info('projection: %s -> %s: max: %i min: %i mean: %i stdev: %i' % (source, destination, \
-                                                                                  np.max(degrees_dict[source]), \
-                                                                                  np.min(degrees_dict[source]), \
-                                                                                  np.mean(degrees_dict[source]), \
-                                                                                  np.std(degrees_dict[source])))
-        
-    distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
-    
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
-    del distances
+        logger.info('projection: %s -> %s: max: %i min: %i mean: %i stdev: %i (%d units)' % \
+                        (source, destination, \
+                         np.max(degrees_dict[source]), \
+                         np.min(degrees_dict[source]), \
+                         np.mean(degrees_dict[source]), \
+                         np.std(degrees_dict[source]), \
+                         len(degrees_dict[source])))
 
+    if metric == 'Indegree':
+        distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+    elif metric == 'Outdegree':
+        distances = read_cell_attributes(coords_path, sources[0], namespace=distances_namespace)
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+        
     gids = sorted(soma_distances.keys())
     distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
     distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
@@ -437,7 +443,6 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
                             (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
 
         if destination_gid is not None:
-            logger.info('reading connections of gid %i' % destination_gid)
             for (source, (this_destination_gid,rest)) in utils.zip_longest(sources, prj_gen_tuple):
                 this_source_soma_distance_U = source_soma_distance_U[source]
                 this_source_soma_distance_V = source_soma_distance_V[source]
@@ -480,6 +485,10 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
             
             ax3.bar(dist_v_bin_edges, dist_v_hist_vals, width=bin_size)
             ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=options.fontSize)
+
+            ax1.tick_params(labelsize=options.fontSize)
+            ax2.tick_params(labelsize=options.fontSize)
+            ax3.tick_params(labelsize=options.fontSize)
             
             if options.saveFig: 
                 if isinstance(options.saveFig, str):
@@ -493,10 +502,11 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
                 
     comm.barrier()
 
+    
 
-def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_namespace, destination_gid,
-                            destination, source, extent_type='local',
-                            bin_size=20.0, **kwargs):
+def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_namespace, target_gid,
+                            destination, source, extent_type='local', direction='in',
+                            bin_size=20.0, comm=None, **kwargs):
     """
     Plot vertex distribution with respect to septo-temporal distance for a single postsynaptic cell
 
@@ -516,8 +526,13 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
     destination_start = population_ranges[destination][0]
     destination_count = population_ranges[destination][1]
 
-    source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
-    destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+    if comm is None:
+        comm = MPI.COMM_WORLD
+
+    rank = comm.Get_rank()
+
+    source_soma_distances = bcast_cell_attributes(coords_path, source, namespace=distances_namespace, comm=comm, root=0)
+    destination_soma_distances = bcast_cell_attributes(coords_path, destination, namespace=distances_namespace, comm=comm, root=0)
 
     ((total_x_min,total_x_max),(total_y_min,total_y_max)) = measure_distance_extents(env)
 
@@ -535,92 +550,115 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
     del(source_soma_distances)
     del(destination_soma_distances)
                 
-    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, comm=comm, cache_size=1)
 
-    source_dist_u = []
-    source_dist_v = []
-    for (this_destination_gid,rest) in g:
-        if this_destination_gid == destination_gid:
-            (source_indexes, attr_dict) = rest
-            for source_gid in source_indexes:
-                dist_u = source_soma_distance_U[source_gid]
-                dist_v = source_soma_distance_V[source_gid]
-                source_dist_u.append(dist_u)
-                source_dist_v.append(dist_v)
+    dist_u_bins = {}
+    dist_v_bins = {}
 
-            break
-
-    source_dist_u_array = np.asarray(source_dist_u)
-    source_dist_v_array = np.asarray(source_dist_v)
-
-    source_x_min = np.min(source_dist_u_array)
-    source_x_max = np.max(source_dist_u_array)
-    source_y_min = np.min(source_dist_v_array)
-    source_y_max = np.max(source_dist_v_array)
-                          
-    if extent_type == 'local':
-        x_min = source_x_min
-        x_max = source_x_max
-        y_min = source_y_min
-        y_max = source_y_max
-    elif extent_type == 'global':
-        x_min = total_x_min
-        x_max = total_x_max
-        y_min = total_y_min
-        y_max = total_y_max
+    if direction == 'in':
+        for (destination_gid,rest) in g:
+            if destination_gid == target_gid:
+                (source_indexes, attr_dict) = rest
+                for source_gid in source_indexes:
+                    dist_u = source_soma_distance_U[source_gid]
+                    dist_v = source_soma_distance_V[source_gid]
+                    update_bins(dist_u_bins, bin_size, dist_u)
+                    update_bins(dist_v_bins, bin_size, dist_v)
+                break
+    elif direction == 'out':
+        for (destination_gid,rest) in g:
+            if rest is not None:
+                (source_indexes, attr_dict) = rest
+                for source_gid in source_indexes:
+                    if source_gid == target_gid:
+                        dist_u = destination_soma_distance_U[destination_gid]
+                        dist_v = destination_soma_distance_V[destination_gid]
+                        update_bins(dist_u_bins, bin_size, dist_u)
+                        update_bins(dist_v_bins, bin_size, dist_v)
     else:
-        raise RuntimeError('Unknown extent type %s' % str(extent_type))
+        raise RuntimeError('Unknown direction type %s' % str(direction))
+
+    add_bins_op = MPI.Op.Create(add_bins, commute=True)
+    dist_u_bins = comm.reduce(dist_u_bins, op=add_bins_op)
+    dist_v_bins = comm.reduce(dist_v_bins, op=add_bins_op)
+
+    if rank == 0:
+
+        dist_u_hist_vals, dist_u_bin_edges = finalize_bins(dist_u_bins[source], bin_size)
+        dist_v_hist_vals, dist_v_bin_edges = finalize_bins(dist_v_bins[source], bin_size)
+
+        dist_x_min = dist_u_bin_edges[0]
+        dist_x_max = dist_u_bin_edges[-1]
+        dist_y_min = dist_v_bin_edges[0]
+        dist_y_max = dist_v_bin_edges[-1]
         
-                          
-
-    dx = int((source_x_max - source_x_min) / bin_size)
-    dy = int((source_y_max - source_y_min) / bin_size)
-
-    (H, xedges, yedges) = np.histogram2d(source_dist_u_array, \
-                                         source_dist_v_array, \
-                                         bins=[dx, dy])
-
-    X, Y = np.meshgrid(xedges, yedges)
-
-    fig = plt.figure(figsize=options.figSize)
-
-    ax = plt.gca()
-    ax.axis([x_min, x_max, y_min, y_max])
-    
-    ax.plot(destination_soma_distance_U[destination_gid], \
-            destination_soma_distance_V[destination_gid], \
-            'r+', markersize=12, mew=3)
-    
-    pcm_boundaries = np.arange(0, np.max(H), .1)
-    cmap_pls = plt.cm.get_cmap('PuBu',len(pcm_boundaries))
-    pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
-    pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
-    pcm_cmap.set_under(pcm_colors[0])
-    
-    pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
-                        norm = mpl.colors.BoundaryNorm(pcm_boundaries, ncolors=len(pcm_boundaries)-1,
-                                                       clip=False))
-    
-    clb = fig.colorbar(pcm, ax=ax, shrink=0.5, label='Number of connections')
-    clb.ax.tick_params(labelsize=options.fontSize)
-    
-    ax.set_aspect('equal')
-    ax.set_facecolor(pcm_colors[0])
-    ax.tick_params(labelsize=options.fontSize)
-    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
-    ax.set_title('Connectivity distribution of %s to %s for gid: %i' % (source, destination, destination_gid), \
-                 fontsize=options.fontSize)
-        
-    if options.saveFig: 
-        if isinstance(options.saveFig, str):
-            filename = options.saveFig
+        if extent_type == 'local':
+            x_min = dist_x_min
+            x_max = dist_x_max
+            y_min = dist_y_min
+            y_max = dist_y_max
+        elif extent_type == 'global':
+            x_min = total_x_min
+            x_max = total_x_max
+            y_min = total_y_min
+            y_max = total_y_max
         else:
-            filename = 'Connection distance %s to %s gid %i.%s' % (source, destination, destination_gid, options.figFormat)
-            plt.savefig(filename)
+            raise RuntimeError('Unknown extent type %s' % str(extent_type))
 
-    if options.showFig:
-        show_figure()
+        dx = int((dist_x_max - dist_x_min) / bin_size)
+        dy = int((dist_y_max - dist_y_min) / bin_size)
+
+        (H, xedges, yedges) = np.histogram2d(dist_u_array, dist_v_array, bins=[dx, dy])
+    
+        X, Y = np.meshgrid(xedges, yedges)
+
+        fig = plt.figure(figsize=options.figSize)
+
+        ax = plt.gca()
+        ax.axis([x_min, x_max, y_min, y_max])
+
+        if direction == 'in':
+            ax.plot(destination_soma_distance_U[target_gid], \
+                    destination_soma_distance_V[target_gid], \
+                    'r+', markersize=12, mew=3)
+        elif direction == 'out':
+            ax.plot(source_soma_distance_U[target_gid], \
+                    source_soma_distance_V[target_gid], \
+                    'r+', markersize=12, mew=3)
+        else:
+            raise RuntimeError('Unknown direction type %s' % str(direction))
+    
+        pcm_boundaries = np.arange(0, np.max(H), .1)
+        cmap_pls = plt.cm.get_cmap('PuBu',len(pcm_boundaries))
+        pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
+        pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
+        pcm_cmap.set_under(pcm_colors[0], alpha=0.0)
+        
+        pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
+                                norm = mpl.colors.BoundaryNorm(pcm_boundaries, ncolors=len(pcm_boundaries)-1,
+                                                        clip=False))
+    
+        clb = fig.colorbar(pcm, ax=ax, shrink=0.5, label='Number of connections')
+        clb.ax.tick_params(labelsize=options.fontSize)
+    
+        ax.set_aspect('equal')
+        ax.set_facecolor(pcm_colors[0])
+        ax.tick_params(labelsize=options.fontSize)
+        ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+        ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+        ax.set_title('Connectivity distribution (%s) of %s to %s for gid: %i' % (direction, source, destination, target_gid), \
+                    fontsize=options.fontSize)
+        
+        if options.saveFig: 
+            if isinstance(options.saveFig, str):
+                filename = options.saveFig
+            else:
+                filename = 'Connection distance %s %s to %s gid %i.%s' % (direction, source, destination, target_gid, options.figFormat)
+                plt.savefig(filename)
+
+        if options.showFig:
+            show_figure()
+    
     
 
 def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', metric='dendrite_length', metric_index=0, percentile=None, **kwargs):
@@ -2123,6 +2161,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
                         extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
 
+        im.axes.tick_params(labelsize=options.fontSize)
+        
         if iplot == 0: 
             plt.ylabel('Relative Cell Index', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
@@ -2130,6 +2170,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
         cbar = plt.colorbar(im)
         cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=options.fontSize)
+        cbar.ax.tick_params(labelsize=options.fontSize)
 
     if options.saveFig: 
         if isinstance(options.saveFig, str):
@@ -2287,6 +2328,8 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
 
         ax = plt.subplot(len(spkpoplst),1,(iplot+1))
         plt.title (label, fontsize=options.fontSize)
+        ax.tick_params(labelsize=options.fontSize)            
+        #axes[iplot].xaxis.set_visible(False)
             
         if smooth:
             hsignal = signal.savgol_filter(hist_y, window_length=2*(len(hist_y)/16) + 1, polyorder=smooth) 
@@ -2305,8 +2348,6 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
         else:
             ax.tick_params(labelbottom='off')
 
-        ax.tick_params(labelsize=options.fontSize)            
-        #axes[iplot].xaxis.set_visible(False)
             
         ax.set_xlim(time_range)
 
