@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1024:ppn=16:xe
+#PBS -l nodes=2048:ppn=16:xe
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
@@ -44,19 +44,19 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 ##export PMI_NO_FORK=1
 ##export PMI_NO_PREINITIALIZE=1
 
-aprun -n 16384 -b -- bwpy-environ -- \
+aprun -n 32768 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat_LN.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=1200 \
+    --tstop=2400 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
     --max-walltime-hours=3.9 \
     --vrecord-fraction=0.001 \
-    --node-rank-file=parts_GC_Exc.16384 \
+    --node-rank-file=parts_GC_Exc.32768 \
     --verbose
 
