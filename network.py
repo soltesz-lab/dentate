@@ -149,7 +149,7 @@ def connect_cells(env):
 
         cell_attr_namespaces = ['Synapse Attributes']
         if has_weights:
-            cell_attr_namespaces.extent(weights_namespaces)
+            cell_attr_namespaces.extend(weights_namespaces)
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
