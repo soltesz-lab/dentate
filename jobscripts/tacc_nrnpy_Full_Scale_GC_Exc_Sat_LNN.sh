@@ -6,7 +6,7 @@
 #SBATCH -p skx-normal      # Queue (partition) name
 #SBATCH -N 128             # Total # of nodes 
 #SBATCH -n 6144            # Total # of mpi tasks
-#SBATCH -t 03:30:00        # Run time (hh:mm:ss)
+#SBATCH -t 04:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -34,11 +34,11 @@ ibrun python2.7 ./scripts/main.py  \
     --dataset-prefix="$WORK/dentate" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=1000 \
+    --tstop=1200 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
-    --max-walltime-hours=3.5 \
+    --max-walltime-hours=4.0 \
     --vrecord-fraction=0.001 \
     --verbose
 
