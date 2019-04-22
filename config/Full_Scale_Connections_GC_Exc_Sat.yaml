@@ -207,7 +207,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 6.2
           e: 0
-          g_unit: 0.004
+          g_unit: 0.005
           weight: 1.0
           sat: 0.9
         NMDA:
@@ -224,7 +224,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.006
+          g_unit: 0.007
           weight: 1.0
     HC:   
       type: inhibitory
@@ -294,7 +294,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.0047
+          g_unit: 0.005
           weight: 1.0
     MC:   
       type: excitatory
@@ -303,11 +303,11 @@ Synapses:
       proportions: [0.28, 0.28]
       mechanisms:
         AMPA:
-          dur_onset: 0.9
+          dur_onset: 0.5
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0045
+          g_unit: 0.005
           weight: 1.0
     HC:  
       type: inhibitory
@@ -630,7 +630,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.003
+          g_unit: 0.002
           weight: 1.0
     HCC:  
       type: inhibitory
