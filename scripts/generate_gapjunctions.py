@@ -49,14 +49,6 @@ def main(config, template_path, types_path, forest_path, connectivity_path, conn
 
     env = Env(comm=comm, config_file=config, template_paths=template_path)
 
-    h('objref nil, pc, templatePaths')
-    h.load_file("nrngui.hoc")
-    h.load_file("./templates/Value.hoc")
-    h.xopen("./lib.hoc")
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePaths.append(h.Value(1,path))
-
     gj_config = env.gapjunctions
     gj_seed = int(env.modelConfig['Random Seeds']['Gap Junctions'])
 

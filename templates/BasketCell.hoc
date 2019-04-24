@@ -439,7 +439,7 @@ proc position() { local i
   xx = $1  yy = $2  zz = $3
 }
 
-external cvode_active, continuerun
+external continuerun
 
 
 proc write_state_trace() { local logsize  localobj logfile, tlog, xlog, ylog
@@ -498,7 +498,7 @@ obfunc syntest_exc() { local vec_size, i_holding, idx localobj logfile, se, vec_
     tlog = new Vector(vec_size)
     tlog.record(&t)
     
-    cvode_active(1)
+    cvode.active(1)
 
     finitialize(v_init)
     fadvance()
@@ -590,7 +590,7 @@ obfunc syntest_inh() { local vec_size, i_holding, t_holding, t_holding_index, id
     tlog = new Vector(vec_size)
     tlog.record(&t)
     
-    cvode_active(1)
+    cvode.active(1)
     //cvode.use_daspk(1)
     //cvode.dae_init_dteps(1e-9, 2)
     finitialize(v_init)
@@ -670,7 +670,7 @@ obfunc syntest_rate() { local vec_size, rate, idx localobj vec, synlist, results
     tlog = new Vector(vec_size)
     tlog.record(&t)
     
-    cvode_active(1)
+    cvode.active(1)
     //cvode.use_daspk(1)
     //cvode.dae_init_dteps(1e-9, 2)
     finitialize(v_init)
