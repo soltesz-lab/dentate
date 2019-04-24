@@ -2,10 +2,6 @@ import math, sys
 import itertools
 from collections import defaultdict
 import numpy as np
-import neo
-import spykeutils.rate_estimation as re
-import spykeutils.signal_processing as sigproc
-import quantities as pq
 from dentate import utils
 from utils import viewitems
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
@@ -233,23 +229,66 @@ def spike_rates (spkdict):
     return rate_dict
 
 
-def spike_density_estimate (population, spkdict, time_range, kernel_size = 10., save=False):
+def baks (spktimes, time, a=1.5, b=None):
     """
-    Calculates spike density function for the given spike trains using the spike density
-    estimator from spykeutils and a Gaussian kernel.
+    Bayesian Adaptive Kernel Smoother (BAKS)
+    BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
+    with adaptive bandwidth determined using a Bayesian approach
+    ---------------INPUT---------------
+    - spktimes : spike event times (ms)
+    - time : time points at which the firing rate is estimated (ms)
+    - a : shape parameter (alpha) 
+    - b : scale parameter (beta)
+    ---------------OUTPUT---------------
+    - rate : estimated firing rate [nTime x 1] (Hz)
+    - h : adaptive bandwidth [nTime x 1]
+
+    Based on "Estimation of neuronal firing rate using Bayesian adaptive kernel smoother (BAKS)"
+    https://github.com/nurahmadi/BAKS
+    """
+
+    import scipy
+    from scipy.special import gamma
+    
+    n = len(spktimes)
+    sumnum = 0
+    sumdenom = 0;
+
+    if b is None:
+        interval = np.max(time) - np.min(time)
+        b = float(len(spktimes)) / interval
+        
+    for i in xrange(n):
+        
+        numerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a)
+        denominator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a-0.5)
+        sumnum = sumnum + numerator
+        sumdenom = sumdenom + denominator
+
+    h = (gamma(a)/gamma(a + 0.5)) * (sumnum / sumdenom)
+
+    rate = np.zeros((len(time),))
+    for j in xrange(n):
+        K = (1000./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
+        rate = rate + K
+
+    return (rate, h)
+
+def spike_density_estimate (population, spkdict, time_bins, save=False):
+    """
+    Calculates spike density function for the given spike trains.
     """
     
     def make_spktrain (lst, t_start, t_stop):
-        spkts         = np.asarray(lst, dtype=np.float32)
-        spktrain      = neo.core.SpikeTrain(times=spkts*pq.ms, t_start=t_start, t_stop=t_stop)
-        return spktrain
+        spkts = np.asarray(lst, dtype=np.float32)
+        return spkts[(spkts >= t_start) & (spkts <= t_stop)]
 
-    kernel  = sigproc.GaussianKernel(kernel_size=kernel_size * pq.ms, normalize=False)
-    t_start = time_range[0] * pq.ms
-    t_stop  = time_range[1] * pq.ms
+    t_start = time_bins[0]
+    t_stop = time_bins[-1]
+    
+    spktrains = { ind: make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
+    spk_rate_dict = { ind: baks(spkts, time_bins)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 0 }
 
-    spktrains = { ind: [make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop)] for (ind, lst) in viewitems(spkdict) }
-    sdf_rate_dict, _, sdf_time = re.spike_density_estimation(spktrains, kernel=kernel, kernel_size=kernel_size * pq.ms, start=t_start, stop=t_stop)
 
     if save:
         if isinstance(save, str):
@@ -259,7 +298,7 @@ def spike_density_estimate (population, spkdict, time_range, kernel_size = 10., 
 
         write_cell_attributes(filename, population, spk_rate_dict, namespace='Spike Density Function')
 
-    result = { ind: { 'rate': rate, 'time': sdf_time } for ind, rate in viewitems(sdf_rate_dict) }
+    result = { ind: { 'rate': rate, 'time': time_bins } for ind, rate in viewitems(spk_rate_dict) }
     return result
             
 

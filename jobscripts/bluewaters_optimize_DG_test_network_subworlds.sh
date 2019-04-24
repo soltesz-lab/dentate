@@ -1,5 +1,5 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=8:ppn=8:xe
+#PBS -l nodes=72:ppn=8:xe
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
@@ -37,19 +37,22 @@ mkdir -p $results_path
 
 cd tests
 
-aprun -n 64 -b -- bwpy-environ -- \
+aprun -n 576 -b -- bwpy-environ -- \
     python2.7 -m nested.optimize  \
      --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
      --output-dir=$results_path \
      --pop-size=2 \
-     --max-iter=2 \
+     --max-iter=5 \
      --path-length=1 \
      --disp \
-     --procs-per-worker=32 \
+     --procs-per-worker=288 \
+     --no-cleanup \
+     --verbose \
      --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
      --dataset_prefix="$SCRATCH" \
      --config_prefix=$DG_HOME/config \
      --results_path=$results_path \
-     --cell_selection_path=$DG_HOME/datasets/GC_subnet.yaml \
-     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LN_9533687.bw/dentatenet_Full_Scale_GC_Exc_Sat_LN_results.h5 \
-     --spike_input_namespace='Spike Events'
+     --cell_selection_path=$DG_HOME/datasets/DG_slice.yaml \
+     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LN_9600226.bw/dentatenet_Full_Scale_GC_Exc_Sat_LN_results.h5 \
+     --spike_input_namespace='Spike Events' \
+     --max-walltime-hours 3.75

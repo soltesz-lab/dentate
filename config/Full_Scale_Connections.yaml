@@ -40,6 +40,7 @@ Synapse Parameter Rules:
       - mg
       - Kd
       - gamma
+      - vshift
     netcon_params:
       weight: 0
       g_unit: 1
@@ -180,7 +181,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.23]
+      proportions: [0.8]
       mechanisms:
         AMPA:
           tau_rise: 0.5
@@ -191,7 +192,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.77]
+      proportions: [0.2]
       mechanisms:
         AMPA:
           tau_rise: 0.45
@@ -569,9 +570,9 @@ Synapses:
           g_unit: 0.0043
     HCC:  
       type: inhibitory
-      sections: [basal, apical, apical]
-      layers: [Hilus, GCL, IML]
-      proportions: [0.3, 1.0, 1.0]
+      sections: [basal, apical, apical, apical]
+      layers: [Hilus, Hilus, GCL, IML]
+      proportions: [0.3, 0.3, 1.0, 1.0]
       mechanisms:
         GABA_A:
           tau_rise: 0.72
@@ -607,9 +608,9 @@ Synapses:
           g_unit: 0.000168
     IS: 
       type: inhibitory
-      sections: [basal, soma]
-      layers: [Hilus, Hilus]
-      proportions: [0.7, 1.0]
+      sections: [basal, apical, soma]
+      layers: [Hilus, Hilus, Hilus]
+      proportions: [0.7, 0.7, 1.0]
       mechanisms:
         GABA_A:
           tau_rise: 0.46

@@ -1,5 +1,5 @@
 
-import itertools, math, numbers
+import itertools, math, numbers, textwrap
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
@@ -10,6 +10,7 @@ import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.tri as tri
 import matplotlib.lines as mlines
+from matplotlib.offsetbox import AnchoredText
 from matplotlib import gridspec, mlab, rcParams
 from matplotlib.colors import BoundaryNorm
 from matplotlib.colors import LogNorm
@@ -25,7 +26,7 @@ import dentate.statedata as statedata
 from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
-from dentate.utils import get_module_logger, viewitems
+from dentate.utils import Struct, get_module_logger, viewitems, update_bins, add_bins, merge_bins, finalize_bins
 
 
 try:
@@ -44,6 +45,8 @@ except ImportError as e:
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
+# Default figure configuration
+default_fig_options =  Struct(figFormat='png', lw=3, figSize = (15,8), fontSize=14, saveFig=None, showFig=True)
 
 color_list = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -56,6 +59,8 @@ color_list = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", 
 
 rainbow_color_list = ["#9400D3", "#4B0082", "#00FF00", "#FFFF00", "#FF7F00", "#FF0000"]
 
+raster_color_list = ['#8dd3c7', '#ffed6f', '#bebada', '#fb8072', '#80b1d3', '#fdb462',
+                    '#b3de69', '#fccde5', '#d9d9d9', '#bc80bd', '#ccebc5']
 
 def hex2rgb(hexcode):
     return tuple([ float(b)/255.0 for b in map(ord,hexcode[1:].decode('hex')) ])
@@ -123,86 +128,54 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     return vec
 
 
-def update_bins(bins, binsize, x):
-    i = math.floor(x / binsize)
-    if i in bins:
-        bins[i] += 1
-    else:
-        bins[i] = 1
 
-        
-def finalize_bins(bins, binsize):
-    imin = int(min(bins.keys()))
-    imax = int(max(bins.keys()))
-    a = [0] * (imax - imin + 1)
-    b = [binsize * k for k in range(imin, imax + 1)]
-    for i in range(imin, imax + 1):
-        if i in bins:
-            a[i - imin] = bins[i]
-    return np.asarray(a), np.asarray(b)
+def plot_PP_metrics(env, coords_path, features_path, distances_namespace, population='MPP',
+                    cell_type = 'grid', bin_size=250., metric='spacing', normed=False,
+                    graph_type = 'histogram2d', **kwargs):
 
-
-def merge_bins(bins1, bins2, datatype):
-    for i, count in viewitems(bins2):
-        bins1[i] += count
-    return bins1
-
-
-def add_bins(bins1, bins2, datatype):
-    for item in bins2:
-        if item in bins1:
-            bins1[item] += bins2[item]
-        else:
-            bins1[item] = bins2[item]
-    return bins1
-
-
-def plot_PP_metrics(env, coords_path, features_path, distances_namespace, population='MPP', cellType = 'grid', bin_size=250.,
-                    metric='spacing', normed=False, graph_type = 'histogram2d', fontSize=14, showFig = True,
-                    saveFig = False):
     """
     :param env:
     :param coords_path:
     :param features_path:
     :param distances_namespace:
     :param population:
-    :param cellType:
+    :param cell_type:
     :param bin_size:
     :param metric:
     :param normed:
     :param graph_type:
-    :param fontSize:
-    :param showFig:
-    :param saveFig:
     """
-    if cellType == 'grid':
+    options = default_fig_options
+    options.update(kwargs)
+
+    if cell_type == 'grid':
         input_features = 'Grid Input Features'
-        cellType_label = 'grid input'
-    elif cellType == 'place':
+        cell_type_label = 'grid input'
+    elif cell_type == 'place':
         input_features = 'Place Input Features'
-        cellType_label = 'spatial input'
-    if metric == 'spacing' and cellType == 'grid':
+        cell_type_label = 'spatial input'
+    if metric == 'spacing' and cell_type == 'grid':
         attribute = 'Grid Spacing'
         cbar_label = 'Mean grid spacing (cm)'
         feature_label = 'grid spacing'
-    elif metric == 'spacing' and cellType == 'place':
+    elif metric == 'spacing' and cell_type == 'place':
         attribute = 'Field Width'
         cbar_label = 'Mean field width (cm)'
         feature_label = 'spatial field width'
     if metric == 'num-fields':
-        if cellType == 'grid':
+        if cell_type == 'grid':
             return
-        elif cellType == 'place':
+        elif cell_type == 'place':
             attribute = 'Num Fields'
             cbar_label = 'Mean number of spatial fields'
             feature_label = 'number of spatial fields'
-    if metric == 'orientation' and cellType == 'grid':
+    if metric == 'orientation' and cell_type == 'grid':
         attribute = 'Grid Orientation'
         cbar_label = 'Mean grid orientation (rad)'
         feature_label = 'grid orientation'
-    elif metric == 'orientation' and cellType == 'place':
+    elif metric == 'orientation' and cell_type == 'place':
         return 
-
+    
     attr_gen = read_cell_attributes(features_path, population, input_features)
     attr_dict = {}
     for (gid, features_dict) in attr_gen:
@@ -225,10 +198,10 @@ def plot_PP_metrics(env, coords_path, features_path, distances_namespace, popula
     distance_U = np.asarray(distance_U, dtype='float32')
     distance_V = np.asarray(distance_V, dtype='float32')
 
-    distance_x_min = np.min(distance_U_array)
-    distance_x_max = np.max(distance_U_array)
-    distance_y_min = np.min(distance_V_array)
-    distance_y_max = np.max(distance_V_array)
+    distance_x_min = np.min(distance_U)
+    distance_x_max = np.max(distance_U)
+    distance_y_min = np.min(distance_V)
+    distance_y_max = np.max(distance_V)
  
     ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
@@ -254,24 +227,23 @@ def plot_PP_metrics(env, coords_path, features_path, distances_namespace, popula
     cbar = fig.colorbar(pcm, ax=ax, shrink=0.48, aspect=20)
     cbar.set_label(cbar_label, rotation=270., labelpad=20.)
     
-    ax.set_ylabel('Transverse distance (um)', fontsize=fontSize)
-    ax.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=fontSize)
-    ax.set_title('%s %s: %s' % (population, cellType_label, feature_label), fontsize=fontSize)
+    ax.set_ylabel('Transverse distance (um)', fontsize=options.fontSize)
+    ax.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=options.fontSize)
+    ax.set_title('%s %s: %s' % (population, cell_type_label, feature_label), fontsize=options.fontSize)
     ax.set_aspect('equal')
     
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = '%s-%s-%s.png' % (population, cellType, metric)
+            filename = '%s-%s-%s.%s' % (population, cell_type, metric, options.figFormat)
         plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
 
 
-def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources,
-                        bin_size = 50., metric='Indegree', normed = False, graph_type = 'histogram2d', fontSize=14, showFig = True, saveFig = False):
+def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, bin_size = 50., metric='Indegree', normed = False, graph_type = 'histogram2d', **kwargs):
     """
     Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
 
@@ -281,7 +253,10 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
     :param destination_pop: 
 
     """
-    
+
+    options = default_fig_options
+    options.update(kwargs)
+
     (population_ranges, _) = read_population_ranges(coords_path)
 
     destination_start = population_ranges[destination][0]
@@ -299,25 +274,31 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
             degrees_dict[source] = f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][0:destination_count]
             
     for source in sources:
-        logger.info('projection: %s -> %s: max: %i min: %i mean: %i stdev: %i' % (source, destination, \
-                                                                                  np.max(degrees_dict[source]), \
-                                                                                  np.min(degrees_dict[source]), \
-                                                                                  np.mean(degrees_dict[source]), \
-                                                                                  np.std(degrees_dict[source])))
-        
-    distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
-    
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
-    del distances
+        logger.info('projection: %s -> %s: max: %i min: %i mean: %i stdev: %i (%d units)' % \
+                        (source, destination, \
+                         np.max(degrees_dict[source]), \
+                         np.min(degrees_dict[source]), \
+                         np.mean(degrees_dict[source]), \
+                         np.std(degrees_dict[source]), \
+                         len(degrees_dict[source])))
 
+    if metric == 'Indegree':
+        distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+    elif metric == 'Outdegree':
+        distances = read_cell_attributes(coords_path, sources[0], namespace=distances_namespace)
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+        
     gids = sorted(soma_distances.keys())
     distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
     distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
 
-    distance_x_min = np.min(distance_U_array)
-    distance_x_max = np.max(distance_U_array)
-    distance_y_min = np.min(distance_V_array)
-    distance_y_max = np.max(distance_V_array)
+    distance_x_min = np.min(distance_U)
+    distance_x_max = np.max(distance_U)
+    distance_y_min = np.min(distance_V)
+    distance_y_max = np.max(distance_V)
 
     ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
@@ -326,7 +307,7 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
 
     for source, degrees in viewitems(degrees_dict):
         
-        fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
+        fig = plt.figure(figsize=options.figSize)
         ax = plt.gca()
         ax.axis([x_min, x_max, y_min, y_max])
 
@@ -335,16 +316,19 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
             bins_V = np.linspace(y_min, y_max, dy)
             hist_vals_U, bin_edges_U = np.histogram(distance_U, bins = bins_U, weights=degrees)
             hist_vals_V, bin_edges_V = np.histogram(distance_V, bins = bins_V, weights=degrees)
-            gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
+            gs  = gridspec.GridSpec(3, 1, height_ratios=[2,1,2])
             ax1 = plt.subplot(gs[0])
-            ax1.bar (bin_edges_U[:-1], hist_vals_U, linewidth=1.0)
-            ax1.set_title('Vertex metric distribution for %s' % (destination), fontsize=fontSize)
-            ax2 = plt.subplot(gs[1])
-            ax2.bar (bin_edges_V[:-1], hist_vals_V, linewidth=1.0)
-            ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-            ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-            ax1.set_ylabel('Number of edges', fontsize=fontSize)
-            ax2.set_ylabel('Number of edges', fontsize=fontSize)
+            ax1.plot (bin_edges_U[:-1], hist_vals_U)
+            ax1.set_title('%s distribution for destination: %s source: %s' % (metric, destination, source), fontsize=options.fontSize)
+            ax2 = plt.subplot(gs[2])
+            ax2.plot (bin_edges_V[:-1], hist_vals_V)
+            ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+            ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+            ax1.set_ylabel('Number of edges', fontsize=options.fontSize)
+            ax2.set_ylabel('Number of edges', fontsize=options.fontSize)
+            ax1.tick_params(labelsize=options.fontSize)
+            ax2.tick_params(labelsize=options.fontSize)
+            plt.subplot(gs[1]).remove()
         elif graph_type == 'histogram2d':
             if normed:
                 (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=degrees, normed=normed)
@@ -358,30 +342,32 @@ def plot_vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace
                  
             X, Y = np.meshgrid(xedges, yedges)
             pcm = ax.pcolormesh(X, Y, H.T)
-            fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+            cb = fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
+            cb.ax.tick_params(labelsize=options.fontSize)
         else:
             raise ValueError('Unknown graph type %s' % graph_type)
-        
-        ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-        ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-        ax.set_title('%s distribution for destination: %s source: %s' % (metric, destination, source), fontsize=fontSize)
+
+        ax.tick_params(labelsize=options.fontSize)
+        ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+        ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+        ax.set_title('%s distribution for destination: %s source: %s' % (metric, destination, source), fontsize=options.fontSize)
         ax.set_aspect('equal')
     
-        if saveFig: 
-            if isinstance(saveFig, str):
-                filename = saveFig
+        if options.saveFig: 
+            if isinstance(options.saveFig, str):
+                filename = options.saveFig
             else:
-                filename = '%s to %s %s.png' % (source, destination, metric)
+                filename = '%s to %s %s %s.%s' % (source, destination, metric, graph_type, options.figFormat)
                 plt.savefig(filename)
 
-        if showFig:
+        if options.showFig:
             show_figure()
     
 
 
 
 def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, sources, 
-                        bin_size=20.0, cache_size=100, fontSize=14, showFig = True, saveFig = False, comm = None):
+                        bin_size=20.0, cache_size=100, comm=None, **kwargs):
     """
     Plot vertex distribution with respect to septo-temporal distance
 
@@ -392,6 +378,8 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     :param source: 
 
     """
+    options = default_fig_options
+    options.update(kwargs)
 
     if comm is None:
         comm = MPI.COMM_WORLD
@@ -455,8 +443,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
                             (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
 
         if destination_gid is not None:
-            logger.info('reading connections of gid %i' % destination_gid)
-            for (source, (this_destination_gid,rest)) in itertools.izip(sources, prj_gen_tuple):
+            for (source, (this_destination_gid,rest)) in utils.zip_longest(sources, prj_gen_tuple):
                 this_source_soma_distance_U = source_soma_distance_U[source]
                 this_source_soma_distance_V = source_soma_distance_V[source]
                 this_dist_bins = dist_bins[source]
@@ -487,34 +474,39 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
             dist_v_hist_vals, dist_v_bin_edges = finalize_bins(dist_v_bins[source], bin_size)
 
             fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10,6))
-            fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fontSize)
+            fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=options.fontSize)
 
             ax1.bar(dist_bin_edges, dist_hist_vals, width=bin_size)
-            ax1.set_xlabel('Total distance (um)', fontsize=fontSize)
-            ax1.set_ylabel('Number of connections', fontsize=fontSize)
+            ax1.set_xlabel('Total distance (um)', fontsize=options.fontSize)
+            ax1.set_ylabel('Number of connections', fontsize=options.fontSize)
         
             ax2.bar(dist_u_bin_edges, dist_u_hist_vals, width=bin_size)
-            ax2.set_xlabel('Septal - temporal (um)', fontsize=fontSize)
+            ax2.set_xlabel('Septal - temporal (um)', fontsize=options.fontSize)
             
             ax3.bar(dist_v_bin_edges, dist_v_hist_vals, width=bin_size)
-            ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fontSize)
+            ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=options.fontSize)
+
+            ax1.tick_params(labelsize=options.fontSize)
+            ax2.tick_params(labelsize=options.fontSize)
+            ax3.tick_params(labelsize=options.fontSize)
             
-            if saveFig: 
-                if isinstance(saveFig, str):
-                    filename = saveFig
+            if options.saveFig: 
+                if isinstance(options.saveFig, str):
+                    filename = options.saveFig
                 else:
-                    filename = 'Connection distance %s to %s.png' % (source, destination)
+                    filename = 'Connection distance %s to %s.%s' % (source, destination, options.figFormat)
                     plt.savefig(filename)
                     
-            if showFig:
+            if options.showFig:
                 show_figure()
                 
     comm.barrier()
 
+    
 
-def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_namespace, destination_gid,
-                            destination, source, extent_type='local',
-                            bin_size=20.0, fontSize=14, showFig = True, saveFig = False):
+def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_namespace, target_gid,
+                            destination, source, extent_type='local', direction='in',
+                            bin_size=20.0, normed=False, comm=None, **kwargs):
     """
     Plot vertex distribution with respect to septo-temporal distance for a single postsynaptic cell
 
@@ -526,14 +518,21 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
     :param source: 
 
     """
+    options = default_fig_options
+    options.update(kwargs)
     
     (population_ranges, _) = read_population_ranges(coords_path)
 
     destination_start = population_ranges[destination][0]
     destination_count = population_ranges[destination][1]
 
-    source_soma_distances = read_cell_attributes(coords_path, source, namespace=distances_namespace)
-    destination_soma_distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
+    if comm is None:
+        comm = MPI.COMM_WORLD
+
+    rank = comm.Get_rank()
+
+    source_soma_distances = bcast_cell_attributes(coords_path, source, namespace=distances_namespace, comm=comm, root=0)
+    destination_soma_distances = bcast_cell_attributes(coords_path, destination, namespace=distances_namespace, comm=comm, root=0)
 
     ((total_x_min,total_x_max),(total_y_min,total_y_max)) = measure_distance_extents(env)
 
@@ -551,92 +550,115 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
     del(source_soma_distances)
     del(destination_soma_distances)
                 
-    g = NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=50)
+    g = NeuroH5ProjectionGen (connectivity_path, source, destination, comm=comm, cache_size=20)
 
-    source_dist_u = []
-    source_dist_v = []
-    for (this_destination_gid,rest) in g:
-        if this_destination_gid == destination_gid:
-            (source_indexes, attr_dict) = rest
-            for source_gid in source_indexes:
-                dist_u = source_soma_distance_U[source_gid]
-                dist_v = source_soma_distance_V[source_gid]
-                source_dist_u.append(dist_u)
-                source_dist_v.append(dist_v)
+    dist_bins = {}
 
-            break
-
-    source_dist_u_array = np.asarray(source_dist_u)
-    source_dist_v_array = np.asarray(source_dist_v)
-
-    source_x_min = np.min(source_dist_u_array)
-    source_x_max = np.max(source_dist_u_array)
-    source_y_min = np.min(source_dist_v_array)
-    source_y_max = np.max(source_dist_v_array)
-                          
-    if extent_type == 'local':
-        x_min = source_x_min
-        x_max = source_x_max
-        y_min = source_y_min
-        y_max = source_y_max
-    elif extent_type == 'global':
-        x_min = total_x_min
-        x_max = total_x_max
-        y_min = total_y_min
-        y_max = total_y_max
+    if direction == 'in':
+        for (destination_gid,rest) in g:
+            if destination_gid == target_gid:
+                (source_indexes, attr_dict) = rest
+                for source_gid in source_indexes:
+                    dist_u = source_soma_distance_U[source_gid]
+                    dist_v = source_soma_distance_V[source_gid]
+                    update_bins(dist_bins, bin_size, dist_u, dist_v)
+                break
+    elif direction == 'out':
+        for (destination_gid,rest) in g:
+            if rest is not None:
+                (source_indexes, attr_dict) = rest
+                for source_gid in source_indexes:
+                    if source_gid == target_gid:
+                        dist_u = destination_soma_distance_U[destination_gid]
+                        dist_v = destination_soma_distance_V[destination_gid]
+                        update_bins(dist_bins, bin_size, dist_u, dist_v)
     else:
-        raise RuntimeError('Unknown extent type %s' % str(extent_type))
+        raise RuntimeError('Unknown direction type %s' % str(direction))
+
+    add_bins_op = MPI.Op.Create(add_bins, commute=True)
+    dist_bins = comm.reduce(dist_bins, op=add_bins_op)
+
+    if rank == 0:
+
+        dist_hist_vals, dist_u_bin_edges, dist_v_bin_edges = finalize_bins(dist_bins, bin_size)
+
+        dist_x_min = dist_u_bin_edges[0]
+        dist_x_max = dist_u_bin_edges[-1]
+        dist_y_min = dist_v_bin_edges[0]
+        dist_y_max = dist_v_bin_edges[-1]
         
-                          
-
-    dx = int((source_x_max - source_x_min) / bin_size)
-    dy = int((source_y_max - source_y_min) / bin_size)
-
-    (H, xedges, yedges) = np.histogram2d(source_dist_u_array, \
-                                         source_dist_v_array, \
-                                         bins=[dx, dy])
-
-    X, Y = np.meshgrid(xedges, yedges)
-
-    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
-    ax = plt.gca()
-    ax.axis([x_min, x_max, y_min, y_max])
-    
-    ax.plot(destination_soma_distance_U[destination_gid], \
-            destination_soma_distance_V[destination_gid], \
-            'r+', markersize=12, mew=3)
-    
-    pcm_boundaries = np.arange(0, np.max(H), .1)
-    cmap_pls = plt.cm.get_cmap('PuBu',len(pcm_boundaries))
-    pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
-    pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
-    pcm_cmap.set_under(pcm_colors[0])
-    
-    pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
-                        norm = mpl.colors.BoundaryNorm(pcm_boundaries, ncolors=len(pcm_boundaries)-1,
-                                                       clip=False))
-    clb = fig.colorbar(pcm, ax=ax, shrink=0.5, label='Number of connections')
-    
-    ax.set_aspect('equal')
-    ax.set_facecolor(pcm_colors[0])
-    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('Connectivity distribution of %s to %s for gid: %i' % (source, destination, destination_gid), \
-                 fontsize=fontSize)
-        
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+        if extent_type == 'local':
+            x_min = dist_x_min
+            x_max = dist_x_max
+            y_min = dist_y_min
+            y_max = dist_y_max
+        elif extent_type == 'global':
+            x_min = total_x_min
+            x_max = total_x_max
+            y_min = total_y_min
+            y_max = total_y_max
         else:
-            filename = 'Connection distance %s to %s gid %i.png' % (source, destination, destination_gid)
-            plt.savefig(filename)
+            raise RuntimeError('Unknown extent type %s' % str(extent_type))
 
-    if showFig:
-        show_figure()
+        X, Y = np.meshgrid(dist_u_bin_edges, dist_v_bin_edges)
+
+        fig = plt.figure(figsize=options.figSize)
+
+        ax = plt.gca()
+        ax.axis([x_min, x_max, y_min, y_max])
+
+        if direction == 'in':
+            ax.plot(destination_soma_distance_U[target_gid], \
+                    destination_soma_distance_V[target_gid], \
+                    'r+', markersize=12, mew=3)
+        elif direction == 'out':
+            ax.plot(source_soma_distance_U[target_gid], \
+                    source_soma_distance_V[target_gid], \
+                    'r+', markersize=12, mew=3)
+        else:
+            raise RuntimeError('Unknown direction type %s' % str(direction))
+
+        H = np.array(dist_hist_vals.todense())
+        if normed:
+            H = np.divide(H.astype(float), float(np.max(H)))
+        pcm_boundaries = np.arange(0, np.max(H), .1)
+        cmap_pls = plt.cm.get_cmap('PuBu',len(pcm_boundaries))
+        pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
+        pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
+        pcm_cmap.set_under(pcm_colors[0], alpha=0.0)
+        
+        pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap)
+
+#        pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
+#                            norm = mpl.colors.BoundaryNorm(pcm_boundaries, ncolors=len(pcm_boundaries)-1,
+#                                                            clip=False))
+
+        clb_label = 'Normalized number of connections' if normed else 'Number of connections'
+        clb = fig.colorbar(pcm, ax=ax, shrink=0.5, label=clb_label)
+        clb.ax.tick_params(labelsize=options.fontSize)
+    
+        ax.set_aspect('equal')
+        ax.set_facecolor(pcm_colors[0])
+        ax.tick_params(labelsize=options.fontSize)
+        ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+        ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+        ax.set_title('Connectivity distribution (%s) of %s to %s for gid: %i' % (direction, source, destination, target_gid), \
+                    fontsize=options.fontSize)
+        
+
+        if options.showFig:
+            show_figure()
+
+        if options.saveFig: 
+            if isinstance(options.saveFig, str):
+                filename = options.saveFig
+            else:
+                filename = 'Connection distance %s %s to %s gid %i.%s' % (direction, source, destination, target_gid, options.figFormat)
+                plt.savefig(filename)
+    
     
 
-def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', 
-                       metric='dendrite_length', metric_index=0, percentile=None, fontSize=14, showFig = True, saveFig = False):
+def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespace='Tree Measurements', distances_namespace='Arc Distances', metric='dendrite_length', metric_index=0, percentile=None, **kwargs):
     """
     Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
 
@@ -650,7 +672,9 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
 
     dx = 50
     dy = 50
-    
+
+    options = default_fig_options
+    options.update(kwargs)
         
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
     
@@ -693,26 +717,26 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
     X, Y = np.meshgrid(xedges, yedges)
     pcm = ax.pcolormesh(X, Y, H.T)
     
-    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('%s distribution for population: %s' % (metric, population), fontsize=fontSize)
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+    ax.set_title('%s distribution for population: %s' % (metric, population), fontsize=options.fontSize)
     ax.set_aspect('equal')
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = population+' %s.png' % metric
+            filename = population+' %s.%s' % (metric, options.figFormat)
             plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return ax
 
 
-def plot_positions(env, label, distances, bin_size=50., fontSize=14, showFig = True, saveFig = False, graph_type ='kde'):
+def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwargs):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -721,6 +745,9 @@ def plot_positions(env, label, distances, bin_size=50., fontSize=14, showFig = T
 
     """
         
+    options = default_fig_options
+    options.update(kwargs)
+
     fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
 
@@ -751,13 +778,13 @@ def plot_positions(env, label, distances, bin_size=50., fontSize=14, showFig = T
         gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
         ax1 = plt.subplot(gs[0])
         ax1.bar (bin_edges_U[:-1], hist_vals_U, linewidth=1.0)
-        ax1.set_title('Position distribution for %s' % (label), fontsize=fontSize)
+        ax1.set_title('Position distribution for %s' % (label), fontsize=options.fontSize)
         ax2 = plt.subplot(gs[1])
         ax2.bar (bin_edges_V[:-1], hist_vals_V, linewidth=1.0)
-        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-        ax1.set_ylabel('Number of cells', fontsize=fontSize)
-        ax2.set_ylabel('Number of cells', fontsize=fontSize)
+        ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+        ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+        ax1.set_ylabel('Number of cells', fontsize=options.fontSize)
+        ax2.set_ylabel('Number of cells', fontsize=options.fontSize)
     elif graph_type == 'histogram2d':
         (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy])
         X, Y = np.meshgrid(xedges, yedges)
@@ -773,26 +800,25 @@ def plot_positions(env, label, distances, bin_size=50., fontSize=14, showFig = T
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     else:
         raise ValueError('Unknown graph type %s' % graph_type)
-    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('Position distribution for %s' % (label), fontsize=fontSize)
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+    ax.set_title('Position distribution for %s' % (label), fontsize=options.fontSize)
     ax.set_aspect('equal')
     
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = label+' Positions.png' 
+            filename = label+' Positions.%s' % options.figFormat
             plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return ax
 
 
-def plot_coordinates(coords_path, population, namespace, index = 0, graph_type = 'scatter', bin_size = 0.01, xyz = False,
-                        fontSize=14, showFig = True, saveFig = False):
+def plot_coordinates(coords_path, population, namespace, index = 0, graph_type = 'scatter', bin_size = 0.01, xyz = False, **kwargs):
     """
     Plot coordinates
 
@@ -801,7 +827,8 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graph_type =
     :param population: 
 
     """
-    
+    options = default_fig_options
+    options.update(kwargs)
         
     soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
     
@@ -847,29 +874,28 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graph_type =
         raise ValueError('Unknown graph type %s' % graph_type)
 
     if xyz:
-        ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
-        ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+        ax.set_xlabel('X coordinate (um)', fontsize=options.fontSize)
+        ax.set_ylabel('Y coordinate (um)', fontsize=options.fontSize)
     else:
-        ax.set_xlabel('U coordinate (septal - temporal)', fontsize=fontSize)
-        ax.set_ylabel('V coordinate (supra - infrapyramidal)', fontsize=fontSize)
+        ax.set_xlabel('U coordinate (septal - temporal)', fontsize=options.fontSize)
+        ax.set_ylabel('V coordinate (supra - infrapyramidal)', fontsize=options.fontSize)
         
-    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=options.fontSize)
     
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = population+' Coordinates.png' 
+            filename = population+' Coordinates.%s' % options.figFormat
             plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return ax
 
 
-def plot_projected_coordinates(coords_path, population, namespace, index = 0, graph_type = 'scatter', bin_size = 10.0, project = 3.1, rotate = None,
-                               fontSize=14, showFig = True, saveFig = False):
+def plot_projected_coordinates(coords_path, population, namespace, index = 0, graph_type = 'scatter', bin_size = 10.0, project = 3.1, rotate = None, **kwargs):
     """
     Plot coordinates
 
@@ -879,7 +905,9 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
 
     """
     
-        
+    options = default_fig_options
+    options.update(kwargs)
+
     soma_coords = read_cell_attributes(coords_path, population, namespace=namespace)
     
         
@@ -921,19 +949,19 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
     else:
         raise ValueError('Unknown graph type %s' % graph_type)
 
-    ax.set_xlabel('X coordinate (um)', fontsize=fontSize)
-    ax.set_ylabel('Y coordinate (um)', fontsize=fontSize)
+    ax.set_xlabel('X coordinate (um)', fontsize=options.fontSize)
+    ax.set_ylabel('Y coordinate (um)', fontsize=options.fontSize)
         
-    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=options.fontSize)
     
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = population+' Coordinates.png' 
+            filename = population+' Coordinates.%s' % options.figFormat
             plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return ax
@@ -941,7 +969,7 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
 
 def plot_reindex_positions(env, coords_path, population, distances_namespace='Arc Distances',
                            reindex_namespace='Tree Reindex', reindex_attribute='New Cell Index', 
-                           fontSize=14, showFig = True, saveFig = False):
+                           **kwargs):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
 
@@ -953,7 +981,9 @@ def plot_reindex_positions(env, coords_path, population, distances_namespace='Ar
 
     dx = 50
     dy = 50
-    
+
+    options = default_fig_options
+    options.update(kwargs)
         
     soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
     cell_reindex = read_cell_attributes(coords_path, population, namespace=reindex_namespace)
@@ -984,20 +1014,20 @@ def plot_reindex_positions(env, coords_path, population, distances_namespace='Ar
     X, Y = np.meshgrid(xedges, yedges)
     pcm = ax.pcolormesh(X, Y, H.T)
     
-    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=fontSize)
-    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=fontSize)
-    ax.set_title('Position distribution for population: %s' % (population), fontsize=fontSize)
+    ax.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
+    ax.set_ylabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
+    ax.set_title('Position distribution for population: %s' % (population), fontsize=options.fontSize)
     ax.set_aspect('equal')
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = population+' Reindex Positions.png' 
+            filename = population+' Reindex Positions.%s' % options.figFormat
             plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return ax
@@ -1235,7 +1265,7 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
     mlab.show()
 
 
-def plot_population_density(population, soma_coords, distances_namespace, max_u, max_v, bin_size=100., showFig = True, saveFig = False):
+def plot_population_density(population, soma_coords, distances_namespace, max_u, max_v, bin_size=100., **kwargs):
     """
 
     :param population: str
@@ -1249,6 +1279,10 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     :param bin_size: float
     :return:
     """
+
+    options = default_fig_options
+    options.update(kwargs)
+    
     fig1 = plt.figure()
     ax = fig1.add_subplot(111, projection='3d')
     pop_size = len(soma_coords[population]['x'])
@@ -1282,20 +1316,20 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     cbar = plt.colorbar(pcm, cax=cax)
     cbar.ax.set_ylabel('Counts')
 
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = distances_namespace+' '+'density.png'
+            filename = distances_namespace+' '+'density.%s' % options.options.figFormat
             plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
 
     return ax
 
 
-def plot_lfp(config, input_path, time_range = None, lw = 3, figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+def plot_lfp(config, input_path, time_range = None, **kwargs):
     '''
     Line plot of LFP state variable (default: v). Returns the figure handle.
 
@@ -1303,16 +1337,13 @@ def plot_lfp(config, input_path, time_range = None, lw = 3, figSize = (15,8), fo
     input_path: file with LFP trace data
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
-    lw (integer): Line width (default: 3)
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     '''
+    options = default_fig_options
+    options.update(kwargs)
 
     env = Env(config_file=config)
 
-    fig = plt.figure(figsize=figSize)
+    fig = plt.figure(figsize=options.figSize)
     ax = plt.gca()
 
     for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
@@ -1336,28 +1367,26 @@ def plot_lfp(config, input_path, time_range = None, lw = 3, figSize = (15,8), fo
         
         ax.plot(t, v, label=lfp_label)
         
-        ax.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax.set_ylabel('Field Potential (mV)', fontsize=fontSize)
+        ax.set_xlabel('Time (ms)', fontsize=options.fontSize)
+        ax.set_ylabel('Field Potential (mV)', fontsize=options.fontSize)
 
         # save figure
-        if saveFig:
-            if isinstance(saveFig, str):
-                filename = saveFig
+        if options.saveFig:
+            if isinstance(options.saveFig, str):
+                filename = options.saveFig
             else:
-                filename = namespace_id+'.png'
+                filename = namespace_id+'.%s' % options.figFormat
                 plt.savefig(filename)
                 
         # show fig
-        if showFig:
+        if options.showFig:
             show_figure()
 
         
 
 
 ## Plot intracellular state trace 
-def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', variable='v', max_units = 1, unit_no = None,
-                              orderInverse = False, labels = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, 
-                              showFig = True, query = False): 
+def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', variable='v', max_units = 1, unit_no = None, query = False, labels = None, marker = '|', **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1367,15 +1396,12 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
     time_variable: Name of variable containing spike times (default: 't')
     variable: Name of state variable (default: 'v')
     max_units (int): maximum number of units from each population that will be plotted  (default: 1)
-    orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
-    lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     '''
+
+    options = default_fig_options
+    options.update(kwargs)
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
@@ -1403,23 +1429,17 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
     
     stplots = []
     
-    fig, ax1 = plt.subplots(figsize=figSize,sharex='all',sharey='all')
+    fig, ax1 = plt.subplots(figsize=options.figSize,sharex='all',sharey='all')
         
     for (pop_name, pop_states) in viewitems(states):
         
         for (gid, cell_states) in viewitems(pop_states):
-
-            print cell_states[0]
-            print cell_states[1]
-
-            print len(cell_states[0])
-            print len(cell_states[1])
             
-            stplots.append(ax1.plot(cell_states[0], cell_states[1], linewidth=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+            stplots.append(ax1.plot(cell_states[0], cell_states[1], linewidth=options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
             
 
-    ax1.set_xlabel('Time (ms)', fontsize=fontSize)
-    ax1.set_ylabel(variable, fontsize=fontSize)
+    ax1.set_xlabel('Time (ms)', fontsize=options.fontSize)
+    ax1.set_ylabel(variable, fontsize=options.fontSize)
     #ax1.set_xlim(time_range)
     
     # Add legend
@@ -1427,7 +1447,7 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
     
     if labels == 'legend':
         legend_labels = pop_labels
-        lgd = plt.legend(stplots, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.,
+        lgd = plt.legend(stplots, legend_labels, fontsize=options.fontSize, scatterpoints=1, markerscale=5.,
                          loc='upper right', bbox_to_anchor=(1.2, 1.0))
         ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
         ## draw the legend on the canvas to assign it real pixel coordinates:
@@ -1448,28 +1468,23 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
         shift = 1 - (lgd_xmax - ax_xmax)
         plt.gcf().tight_layout(rect=(0, 0, shift, 1))
         
-    if orderInverse:
-        plt.gca().invert_yaxis()
-
     # save figure
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+' '+'state.png'
+            filename = namespace_id+' '+'state.%s' % options.figFormat
             plt.savefig(filename)
                 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return fig
 
 
 ## Plot spike raster
-def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6),
-                       orderInverse = False, labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5,
-                       lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
+def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6), labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker='|', **kwargs):
     ''' 
     Raster plot of network spike times. Returns the figure handle.
 
@@ -1478,32 +1493,37 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
     max_spikes (int): maximum number of spikes that will be plotted  (default: 1e6)
-    orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
     pop_rates = (True|False): Include population rates (default: False)
     spike_hist (None|'overlay'|'subplot'): overlay line over raster showing spike histogram (spikes/bin) (default: False)
     spike_hist_bin (int): Size of bin in ms to use for histogram (default: 5)
-    lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     '''
+
+    options = default_fig_options
+    options.update(kwargs)
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
+    total_num_cells = 0
     pop_num_cells = {}
+    pop_start_inds = {}
     for k in population_names:
+        pop_start_inds[k] = population_ranges[k][0]
         pop_num_cells[k] = population_ranges[k][1]
+        total_num_cells += population_ranges[k][1]
 
+    include = list(include)
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include: 
         include.remove('eachPop')
         for pop in population_names:
             include.append(pop)
-
+            
+    # sort according to start index        
+    include.sort(key=lambda x: pop_start_inds[x])
+    
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable, time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -1513,14 +1533,15 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     pop_active_cells = spkdata['pop_active_cells']
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
+    fraction_active  = { pop_name: float(len(pop_active_cells[pop_name])) / float(pop_num_cells[pop_name]) for pop_name in include }
     
     time_range = [tmin, tmax]
 
     # Calculate spike histogram if requested
     if spike_hist:
         all_spkts = np.concatenate(spktlst, axis=0)
-        hist_vals, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-        histoT = bin_edges[:-1]+spike_hist_bin/2
+        sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
+        sphist_x = bin_edges[:-1]+spike_hist_bin/2
 
     maxN = 0
     minN = N
@@ -1538,115 +1559,136 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
                 avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
         
     
-    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
-    
-    # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
+    pop_colors = { pop_name: color_list[ipop%len(raster_color_list)] for ipop, pop_name in enumerate(spkpoplst) }
+
+    pop_spk_dict = { pop_name: (pop_spkinds, pop_spkts) for (pop_name, pop_spkinds, pop_spkts) in zip(spkpoplst, spkindlst, spktlst) }
+
+    if spike_hist is None:
+        fig, axes = plt.subplots(nrows=len(spkpoplst), sharex=True, figsize=options.figSize)
+    elif spike_hist == 'subplot':
+        fig, axes = plt.subplots(nrows=len(spkpoplst)+1, sharex=True, figsize=options.figSize,
+                                 gridspec_kw={'height_ratios': [1]*len(spkpoplst) + [2]})
+    fig.suptitle ('DG Spike Raster', fontsize=options.fontSize)
 
     sctplots = []
     
-    if spike_hist is None:
+    for i, pop_name in enumerate(include):
+        pop_spkinds, pop_spkts = pop_spk_dict[pop_name]
 
-        for (pop_name, pop_spkinds, pop_spkts) in zip (spkpoplst, spkindlst, spktlst):
+        if max_spikes is not None:
+            if int(max_spikes) < len(pop_spkinds):
+               logger.info(('  Displaying only randomly sampled %i out of %i spikes for population %s' % (max_spikes, len(pop_spkts), pop_name)))
+               sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(max_spikes))
+               pop_spkts   = pop_spkts[sample_inds]
+               pop_spkinds = pop_spkinds[sample_inds]
 
-            if max_spikes is not None:
-                if int(max_spikes) < len(pop_spkinds):
-                    logger.info(('  Displaying only randomly sampled %i out of %i spikes for population %s' % (max_spikes, len(pop_spkts), pop_name)))
-                    sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(max_spikes))
-                    pop_spkts   = pop_spkts[sample_inds]
-                    pop_spkinds = pop_spkinds[sample_inds]
+        sct = axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name)
+        axes[i].spines["top"].set_visible(False)
+        axes[i].spines["bottom"].set_visible(False)
+        axes[i].spines["left"].set_visible(False)
+        axes[i].spines["right"].set_visible(False)
+        sctplots.append(sct)
 
-            sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        N = pop_num_cells[pop_name]
+        S = pop_start_inds[pop_name]
+        axes[i].set_ylim(S, S+N-1)
         
-        ax1.set_xlim(time_range)
-
-        ax1.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax1.set_ylabel('Cell Index', fontsize=fontSize)
-        ax1.set_xlim([tmin, tmax])
-        ax1.set_ylim(minN-1, maxN+1)
+    lgd_info = [(100. * fraction_active[pop_name], avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
+            
+    # set raster plot y tick labels to the middle of the index range for each population
+    for pop_name, a in utils.zip_longest(include, fig.axes[:-1]):
+        maxN = max(pop_active_cells[pop_name])
+        minN = min(pop_active_cells[pop_name])
+        loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
+        yaxis = a.get_yaxis()
+        yaxis.set_ticks([loc])
+        yaxis.set_ticklabels([pop_name])
+        yaxis.set_tick_params(length=0)
+        a.get_xaxis().set_tick_params(length=0)
         
+    # Plot spike histogram
+    pch = interpolate.pchip(sphist_x, sphist_y)
+    res_npts = int((sphist_x.max() - sphist_x.min()))
+    sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+    sphist_y_res = pch(sphist_x_res)
+
+    if spike_hist == 'overlay':
+        ax2 = axes[-1].twinx()
+        ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
+        ax2.set_ylabel('Spike count', fontsize=options.fontSize) # add yaxis label in opposite side
+        ax2.set_xlim(time_range)
     elif spike_hist == 'subplot':
-
-        gs = gridspec.GridSpec(2, 1, height_ratios=[2,1])
-        ax1=plt.subplot(gs[0])
+        ax2=axes[-1]
+        ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
+        ax2.set_xlabel('Time (ms)', fontsize=options.fontSize)
+        ax2.set_ylabel('Spikes', fontsize=options.fontSize)
+        ax2.set_xlim(time_range)
         
-        for (pop_name, pop_spkinds, pop_spkts) in zip (spkpoplst, spkindlst, spktlst):
-
-            if max_spikes is not None:
-                if int(max_spikes) < len(pop_spkinds):
-                    logger.info(('  Displaying only randomly sampled %i out of %i spikes for population %s' % (max_spikes, len(pop_spkts), pop_name)))
-                    sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(max_spikes))
-                    pop_spkts   = pop_spkts[sample_inds]
-                    pop_spkinds = pop_spkinds[sample_inds]
-
-            sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
-            
-        ax1.set_xlim(time_range)
-
-        ax1.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax1.set_ylabel('Cell Index', fontsize=fontSize)
-        ax1.set_xlim(time_range)
-        ax1.set_ylim(minN-1, maxN+1)
-
-        ax1.tick_params(axis='both', which='major', labelsize=fontSize)
-        ax1.tick_params(axis='both', which='minor', labelsize=fontSize)
-        # Add legend
+#    locator=MaxNLocator(prune='both', nbins=10)
+#    ax2.xaxis.set_major_locator(locator)
+    
+    if labels == 'legend':
+        # Shrink axes by 15%
+        for ax in axes:
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
         if pop_rates:
-            pop_labels = [pop_name + ' (%i active; %.3g Hz)' % (len(pop_active_cells[pop_name]), avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
         else:
-            pop_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))  for pop_name in spkpoplst if pop_name in avg_rates]
-            
-        if labels == 'legend':
-            legend_labels = pop_labels
-            lgd = plt.legend(sctplots, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.,
-                             loc='upper right', bbox_to_anchor=(1.2, 1.0))
-            ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
-            ## draw the legend on the canvas to assign it real pixel coordinates:
-            plt.gcf().canvas.draw()
-            ## transformation from pixel coordinates to Figure coordinates:
-            transfig = plt.gcf().transFigure.inverted()
-            ## Get the legend extents in pixels and convert to Figure coordinates.
-            ## Pull out the farthest extent in the x direction since that is the canvas direction we need to adjust:
-            lgd_pos = lgd.get_window_extent()
-            lgd_coord = transfig.transform(lgd_pos)
-            lgd_xmax = lgd_coord[1, 0]
-            ## Do the same for the Axes:
-            ax_pos = plt.gca().get_window_extent()
-            ax_coord = transfig.transform(ax_pos)
-            ax_xmax = ax_coord[1, 0]
-            ## Adjust the Figure canvas using tight_layout for
-            ## Axes that must move over to allow room for the legend to fit within the canvas:
-            shift = 1 - (lgd_xmax - ax_xmax)
-            plt.gcf().tight_layout(rect=(0, 0, shift, 1))
-
-            
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+        # Add legend
+        lgd = fig.legend(sctplots, lgd_labels, loc = 'center right', 
+                         fontsize='small', scatterpoints=1, markerscale=5.,
+                         bbox_to_anchor=(1.002, 0.5), bbox_transform=plt.gcf().transFigure)
+        fig.artists.append(lgd)
+       
+    elif labels == 'overlay':
+        if pop_rates:
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+        else:
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+        for i, (pop_name, lgd_info) in enumerate(zip(spkpoplst, lgd_info)):
+                at = AnchoredText(pop_name + ' ' + lgd_label,
+                                  loc='upper right', borderpad=0.01, prop=dict(size=options.fontSize))
+                axes[i].add_artist(at)
+        max_label_len = max([len(l) for l in lgd_labels])
         
-        # Plot spike hist
-        if spike_hist == 'overlay':
-            ax2 = ax1.twinx()
-            ax2.plot (histoT, hist_vals, linewidth=0.5)
-            ax2.set_ylabel('Spike count', fontsize=fontSize) # add yaxis label in opposite side
-            ax2.set_xlim(time_range)
-        elif spike_hist == 'subplot':
-            ax2=plt.subplot(gs[1])
-            ax2.plot (histoT, hist_vals, linewidth=1.0)
-            ax2.set_xlabel('Time (ms)', fontsize=fontSize)
-            ax2.set_ylabel('Spike count', fontsize=fontSize)
-            ax2.set_xlim(time_range)
-
-        if orderInverse:
-            plt.gca().invert_yaxis()
-
-        # save figure
-        if saveFig: 
-            if isinstance(saveFig, str):
-                filename = saveFig
+    elif labels == 'yticks':
+        for pop_name, info, a in utils.zip_longest(include, lgd_info, fig.axes[:-1]):
+            if pop_rates:
+                label = '%.02f%%\n%.2g Hz' % (info[0], info[1])
             else:
-                filename = namespace_id+' '+'raster.png'
-                plt.savefig(filename)
+                label = '%.02f%%\n' % (info[0])
+
+            maxN = max(pop_active_cells[pop_name])
+            minN = min(pop_active_cells[pop_name])
+            loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
+            a.set_yticks([loc, loc])
+            a.set_yticklabels([pop_name, label])
+            yticklabels = a.get_yticklabels()
+            # Create offset transform in x direction
+            dx = -66/72.; dy = 0/72. 
+            offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            # apply offset transform to labels.
+            yticklabels[0].set_transform(yticklabels[0].get_transform() + offset)
+            dx = -55/72.; dy = 0/72. 
+            offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
+            yticklabels[1].set_ha('left')    
+            yticklabels[1].set_transform(yticklabels[1].get_transform() + offset)
+
+            
+    plt.subplots_adjust(wspace=0.2, hspace=0.2)
+    
+    # save figure
+    if options.saveFig: 
+       if isinstance(options.saveFig, str):
+           filename = options.saveFig
+       else:
+           filename = namespace_id+' '+'raster.%s' % options.figFormat
+           plt.savefig(filename)
                 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return fig
@@ -1655,7 +1697,6 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     
     
 def update_spatial_rasters(frame, scts, timebins, data, distances_U_dict, distances_V_dict, lgd):
-    print 'frame: ',frame
     if frame > 0:
         t0 = timebins[frame]
         t1 = timebins[frame+1]
@@ -1671,7 +1712,11 @@ def update_spatial_rasters(frame, scts, timebins, data, distances_U_dict, distan
             scts[-1].set_text('t = %f ms' % t1)
     return scts
         
-def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, fontSize, lw, marker, pop_colors):
+def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, marker, pop_colors, **kwargs):
+
+    options = default_fig_options
+    options.update(kwargs)
+
     scts = []
     t0 = timebins[0]
     t1 = timebins[1]
@@ -1686,7 +1731,7 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
         cinds = spkinds[rinds]
         x = np.asarray([distances_U[ind] for ind in cinds])
         y = np.asarray([distances_V[ind] for ind in cinds])
-        #scts.append(ax.scatter(x, y, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        #scts.append(ax.scatter(x, y, linewidths=options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
         scts = scts + plt.plot([], [], marker, animated=True, alpha=0.5)
         if min_U is None:
             min_U = range_U_dict[pop_name][0]
@@ -1707,14 +1752,13 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
     ax.set_xlim((min_U, max_U))
     ax.set_ylim((min_V, max_V))
     
-    return scts + [lgd(scts), plt.text(0.05, 0.95, 't = %f ms' % t0, fontsize=fontSize, transform=ax.transAxes)]
+    return scts + [lgd(scts), plt.text(0.05, 0.95, 't = %f ms' % t0, fontsize=options.fontSize, transform=ax.transAxes)]
         
 aniplots = []
         
 ## Plot spike raster
 def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_namespace='Arc Distances',
-                               include = ['eachPop'], time_step = 5.0, time_range = None, time_variable='t', max_spikes = int(1e6),
-                               lw = 3, marker = 'o', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
+                               include = ['eachPop'], time_step = 5.0, time_range = None, time_variable='t', max_spikes = int(1e6), marker = 'o', **kwargs): 
     ''' 
     Spatial raster plot of network spike times. Returns the figure handle.
 
@@ -1723,15 +1767,11 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
     max_spikes (int): maximum number of spikes that will be plotted  (default: 1e6)
-    orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
-    lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     '''
+    options = default_fig_options
+    options.update(kwargs)
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
@@ -1789,41 +1829,39 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
     
     # Plot spikes
-    fig, ax = plt.subplots(figsize=figSize)
+    fig, ax = plt.subplots(figsize=options.figSize)
 
     pop_labels = [ pop_name for pop_name in spkpoplst ]
     legend_labels = pop_labels
-    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=2., \
+    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=options.fontSize, scatterpoints=1, markerscale=2., \
                                     loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
     timebins = np.linspace(tmin, tmax, (tmax-tmin) / time_step)
     
     data = zip (spkpoplst, spkindlst, spktlst)
-    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, fontSize, lw, marker, pop_colors)
+    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, marker, pop_colors, **options)
     ani = FuncAnimation(fig, func=update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
                         blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
     aniplots.append(ani)
 
 
         # save figure
-        #if saveFig: 
-        #    if isinstance(saveFig, str):
-        #        filename = saveFig
+        #if options.saveFig: 
+        #    if isinstance(options.saveFig, str):
+        #        filename = options.saveFig
         #    else:
         #        filename = namespace_id+' '+'raster.png'
         #        plt.savefig(filename)
                 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return fig
 
 
 ## Plot netclamp results (intracellular trace of target cell + spike raster of presynaptic inputs)
-def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop', time_range = None, time_variable='t',
-                        intracellular_variable='v', orderInverse = False, labels = 'legend', spike_hist = None, spike_hist_bin = 5,
-                        lw = 3, marker = ',', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
+def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop', time_range = None, time_variable='t', intracellular_variable='v', labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker = ',', **kwargs): 
     ''' 
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
 
@@ -1832,35 +1870,38 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     intracellular_namespace: attribute namespace for intracellular trace
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
-    orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
     pop_rates = (True|False): Include population rates (default: False)
     spike_hist (None|'overlay'|'subplot'): overlay line over raster showing spike histogram (spikes/bin) (default: False)
     spike_hist_bin (int): Size of bin in ms to use for histogram (default: 5)
-    lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     '''
+    options = default_fig_options
+    options.update(kwargs)
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
     popName = None
     pop_num_cells = {}
+    pop_start_inds = {}
     for k in population_names:
+        pop_start_inds[k] = population_ranges[k][0]
         pop_range = population_ranges[k]
         pop_num_cells[k] = pop_range[1]
         if (unit_no >= pop_range[0]) and (unit_no < pop_range[0] + pop_range[1]):
            popName = k
 
+    include = list(include)
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include: 
         include.remove('eachPop')
         for pop in population_names:
             include.append(pop)
+
+    # sort according to start index        
+    include.sort(key=lambda x: pop_start_inds[x])
+    include.reverse()
 
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
                                            time_variable=time_variable, time_range=time_range)
@@ -1882,12 +1923,9 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     # Calculate spike histogram if requested
     if spike_hist:
         all_spkts = np.concatenate(spktlst, axis=0)
-        hist_vals, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-        histoT = bin_edges[:-1]+spike_hist_bin/2
-#        for pop_name, spkts in itertools.izip(spkpoplst, spktlst):
-#            hist_vals, bin_edges = np.histogram(spkts1, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-#            histoT = bin_edges[:-1]+spike_hist_bin/2
-#            histo_dict[pop_name] = (hist_vals, histoT)
+        sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
+        sphist_x = bin_edges[:-1]+spike_hist_bin/2
+
         
     maxN = 0
     minN = N
@@ -1906,118 +1944,125 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
         
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
+
+    pop_spk_dict = { pop_name: (pop_spkinds, pop_spkts) for (pop_name, pop_spkinds, pop_spkts) in zip(spkpoplst, spkindlst, spktlst) }
     
     # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
+    if spike_hist is None:
+        fig, axes = plt.subplots(nrows=len(spkpoplst)+1, sharex=True, figsize=options.figSize,
+                                 gridspec_kw={'height_ratios': [1]*len(spkpoplst) + [2]})
+    elif spike_hist == 'subplot':
+        fig, axes = plt.subplots(nrows=len(spkpoplst)+2, sharex=True, figsize=options.figSize,
+                                 gridspec_kw={'height_ratios': [1]*len(spkpoplst) + [2, 2]})
 
     sctplots = []
     
-    if spike_hist is None:
+    for i, pop_name in enumerate(include):
+        pop_spkinds, pop_spkts = pop_spk_dict[pop_name]
 
-        for (pop_name, pop_spkinds, pop_spkts) in zip (spkpoplst, spkindlst, spktlst):
+        sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
 
-            sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        N = pop_num_cells[pop_name]
+        S = pop_start_inds[pop_name]
+        axes[i].set_ylim(S, S+N-1)
         
-        ax1.set_xlim(time_range)
+    axes[0].set_xlim(time_range)
 
-        ax1.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax1.set_ylabel('Cell Index', fontsize=fontSize)
-        ax1.set_xlim([tmin, tmax])
-        ax1.set_ylim(minN-1, maxN+1)
+    axes[0].set_xlabel('Time (ms)', fontsize=options.fontSize)
+    axes[0].set_ylabel('Cell Index', fontsize=options.fontSize)
+
+    axes[0].tick_params(axis='x', which='major', labelsize=options.fontSize)
+    axes[0].tick_params(axis='x', which='minor', labelsize=options.fontSize)
+
+    fig.subplots_adjust(hspace=0)
+    plt.setp([a.get_xticklabels() for a in fig.axes[:-2]], visible=False)
+
+    # set raster plot ticks to the end of the index range for each population
+    for i, pop_name in enumerate(include):
+        a = fig.axes[i]
+        start, end = a.get_ylim()
+        a.get_yaxis().set_ticks([end])
+
+    # set raster plot ticks to start and end of index range for first population
+    a = fig.axes[len(include)-1]
+    start, end = a.get_ylim()
+    a.get_yaxis().set_ticks([start, end])
         
+    if pop_rates:
+        lgd_labels = [pop_name + ' (%i active; %.3g Hz)' % (len(pop_active_cells[pop_name]), avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
+    else:
+        lgd_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))  for pop_name in spkpoplst if pop_name in avg_rates]
+
+    # Plot spike histogram
+    pch = interpolate.pchip(sphist_x, sphist_y)
+    res_npts = int((sphist_x.max() - sphist_x.min()))
+    sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+    sphist_y_res = pch(sphist_x_res)
+
+    if spike_hist == 'overlay':
+        ax2 = axes[-2].twinx()
+        ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
+        ax2.set_ylabel('Spike count', fontsize=options.fontSize) # add yaxis label in opposite side
+        ax2.set_xlim(time_range)
     elif spike_hist == 'subplot':
-
-        gs = gridspec.GridSpec(3, 1, height_ratios=[2,1,1])
-        ax1=plt.subplot(gs[0])
-        
-        for (pop_name, pop_spkinds, pop_spkts) in zip (spkpoplst, spkindlst, spktlst):
-
-            sctplots.append(ax1.scatter(pop_spkts, pop_spkinds, s=10, linewidths=lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        ax2=axes[-2]
+        ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
+        ax2.set_xlabel('Time (ms)', fontsize=options.fontSize)
+        ax2.set_ylabel('Spike count', fontsize=options.fontSize)
+        ax2.set_xlim(time_range)
             
-        ax1.set_xlim(time_range)
+    # Plot intracellular state
+    ax3 = axes[-1]
+    ax3.set_xlabel('Time (ms)', fontsize=options.fontSize)
+    ax3.set_ylabel(intracellular_variable, fontsize=options.fontSize)
+    ax3.set_xlim(time_range)
 
-        ax1.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax1.set_ylabel('Cell Index', fontsize=fontSize)
-        ax1.set_xlim(time_range)
-        ax1.set_ylim(minN-1, maxN+1)
+    states = indata['states']
+    stplots = []
+    print 'states: ', states
+    for (pop_name, pop_states) in viewitems(states):
+        for (gid, cell_states) in viewitems(pop_states):
+            st_x, st_y = cell_states
+            pch = interpolate.pchip(st_x, st_y)
+            res_npts = int((st_x.max() - st_x.min()))
+            st_x_res = np.linspace(st_x.min(), st_x.max(), res_npts, endpoint=True)
+            st_y_res = pch(st_x_res)
+            stplots.append(ax3.plot(st_x_res, st_y_res, linewidth=options.lw, marker=marker, alpha=0.5, label=pop_name))
 
-        ax1.tick_params(axis='both', which='major', labelsize=fontSize)
-        ax1.tick_params(axis='both', which='minor', labelsize=fontSize)
-        # Add legend
-        pop_labels = [pop_name  for pop_name in spkpoplst if pop_name in avg_rates]
+    if labels == 'legend':
+       # Shrink axes by 15%
+       for ax in axes:
+           box = ax.get_position()
+           ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+       # Add legend
+       lgd = fig.legend(sctplots, lgd_labels, loc = 'center right', 
+                        fontsize='small', scatterpoints=1, markerscale=5.,
+                        bbox_to_anchor=(1.002, 0.5), bbox_transform=plt.gcf().transFigure)
+       fig.artists.append(lgd)
+       
+    elif labels == 'overlay':
+        for i, (pop_name, lgd_label) in enumerate(zip(spkpoplst, lgd_labels)):
+                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=options.fontSize))
+                axes[i].add_artist(at)
+        max_label_len = max([len(l) for l in lgd_labels])
             
-        if labels == 'legend':
-            legend_labels = pop_labels
-            lgd = plt.legend(sctplots, legend_labels, fontsize=fontSize, scatterpoints=1, markerscale=5.,
-                             loc='upper right', bbox_to_anchor=(1.2, 1.0))
-            ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
-            ## draw the legend on the canvas to assign it real pixel coordinates:
-            plt.gcf().canvas.draw()
-            ## transformation from pixel coordinates to Figure coordinates:
-            transfig = plt.gcf().transFigure.inverted()
-            ## Get the legend extents in pixels and convert to Figure coordinates.
-            ## Pull out the farthest extent in the x direction since that is the canvas direction we need to adjust:
-            lgd_pos = lgd.get_window_extent()
-            lgd_coord = transfig.transform(lgd_pos)
-            lgd_xmax = lgd_coord[1, 0]
-            ## Do the same for the Axes:
-            ax_pos = plt.gca().get_window_extent()
-            ax_coord = transfig.transform(ax_pos)
-            ax_xmax = ax_coord[1, 0]
-            ## Adjust the Figure canvas using tight_layout for
-            ## Axes that must move over to allow room for the legend to fit within the canvas:
-            shift = 1 - (lgd_xmax - ax_xmax)
-            plt.gcf().tight_layout(rect=(0, 0, shift, 1))
-
-        
-        # Plot spike hist
-        if spike_hist == 'overlay':
-            ax2 = ax1.twinx()
-            ax2.plot (histoT, hist_vals, linewidth=0.5)
-            ax2.set_ylabel('Spike count', fontsize=fontSize) # add yaxis label in opposite side
-            ax2.set_xlim(time_range)
-        elif spike_hist == 'subplot':
-            ax2=plt.subplot(gs[1])
-            ax2.plot (histoT, hist_vals, linewidth=1.0)
-            ax2.set_xlabel('Time (ms)', fontsize=fontSize)
-            ax2.set_ylabel('Spike count', fontsize=fontSize)
-            ax2.set_xlim(time_range)
-
-            
-            
-        # Plot intracellular state
-        ax3=plt.subplot(gs[2])
-        ax3.set_xlabel('Time (ms)', fontsize=fontSize)
-        ax3.set_ylabel(intracellular_variable, fontsize=fontSize)
-        ax3.set_xlim(time_range)
-
-        states = indata['states']
-        stplots = []
-        for (pop_name, pop_states) in viewitems(states):
-            for (gid, cell_states) in viewitems(pop_states):
-                stplots.append(ax3.plot(cell_states[0], cell_states[1], linewidth=lw, marker=marker, alpha=0.5, label=pop_name))
-            
-        if orderInverse:
-            plt.gca().invert_yaxis()
-
-        # save figure
-        if saveFig: 
-            if isinstance(saveFig, str):
-                filename = saveFig
-            else:
-                filename = 'Network Clamp %s %i.png' % (popName, unit_no)
-                plt.savefig(filename)
+    # save figure
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
+        else:
+            filename = 'Network Clamp %s %i.%s' % (popName, unit_no, options.figFormat)
+            plt.savefig(filename)
                 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return fig
 
 
 ## Plot spike rates
-def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', orderInverse = False, labels = 'legend', 
-                      kernel_size = 100., lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, labels = 'legend', bin_size = 100., marker = '|', **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2025,16 +2070,11 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     namespace_id: attribute namespace for spike events
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
-    orderInverse (True|False): Invert the y-axis order (default: False)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
-    kernel_size (float): Size in ms of spike train convolution kernel
-    lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     '''
+    options = default_fig_options
+    options.update(kwargs)
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
@@ -2061,25 +2101,27 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     tmax             = spkdata['tmax']
 
     time_range = [tmin, tmax]
+    time_bins  = np.arange(time_range[0], time_range[1], bin_size)
 
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
             rates       = np.asarray(dct['rate'], dtype=np.float32)
+            meansub_rates = rates - np.mean(rates)
             peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
-            rate_dict[i] = { 'rate': rates, 'peak': peak, 'peak index': peak_index }
+            rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
             i = i+1
         spkrate_dict[subset] = rate_dict
         logger.info(('Calculated spike rates for %i cells in population %s' % (len(rate_dict), subset)))
 
                     
     # Plot spikes
-    fig, ax1 = plt.subplots(figsize=figSize)
+    fig, ax1 = plt.subplots(figsize=options.figSize)
 
 
     for (iplot, subset) in enumerate(spkpoplst):
@@ -2094,9 +2136,12 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
         ind_peak_lst = list(enumerate(peak_lst))
         del(peak_lst)
-        ind_peak_lst.sort(key=lambda i_x: i_x[1], reverse=orderInverse)
+        ind_peak_lst.sort(key=lambda i_x: i_x[1])
 
-        rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
+        if meansub:
+            rate_lst = [ pop_rates[i]['meansub'] for i, _ in ind_peak_lst ]
+        else:
+            rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
         del(ind_peak_lst)
         
         rate_matrix = np.matrix(rate_lst, dtype=np.float32)
@@ -2105,30 +2150,45 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         color = color_list[iplot%len(color_list)]
 
         plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
-        plt.title (str(subset), fontsize=fontSize)
+        if meansub:
+            plt.title ('%s Mean-subtracted Instantaneous Firing Rate' % str(subset), fontsize=options.fontSize)
+        else:
+            plt.title ('%s Instantaneous Firing Rate' % str(subset), fontsize=options.fontSize)
 
         im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
                         extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
 
+        im.axes.tick_params(labelsize=options.fontSize)
+        
         if iplot == 0: 
-            plt.ylabel('Relative Cell Index', fontsize=fontSize)
+            plt.ylabel('Relative Cell Index', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('Time (ms)', fontsize=fontSize)
+            plt.xlabel('Time (ms)', fontsize=options.fontSize)
 
         cbar = plt.colorbar(im)
-        cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fontSize)
+        cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=options.fontSize)
+        cbar.ax.tick_params(labelsize=options.fontSize)
+
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
+        else:
+            if meansub:
+                filename = '%s meansub firing rate.%s' % (namespace_id, options.figFormat)
+            else:
+                filename = '%s firing rate.%s' % (namespace_id, options.figFormat)
+        plt.savefig(filename)
                 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return fig
 
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
-                          pop_rates = False, bin_size = 5., kernel_size=10., smooth = 0, quantity = 'rate',
-                          figSize = (15,8), overlay=True, graph_type='bar',
-                          fontSize = 14, lw = 3, saveFig = None, showFig = True):
+                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate',
+                          overlay=True, graph_type='bar', **kwargs):
     ''' 
     Plots spike histogram. Returns figure handle.
 
@@ -2142,13 +2202,10 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
         - graph_type ('line'|'bar'): Type of graph to use (line graph or bar plot) (default: 'line')
         - quantity ('rate'|'count'): Quantity of y axis (firing rate in Hz, or spike count) (default: 'rate')
-        - figSize ((width, height)): Size of figure (default: (10,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
     '''
+    options = default_fig_options
+    options.update(kwargs)
+
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
@@ -2162,7 +2219,8 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
         include.remove('eachPop')
         for pop in population_names:
             include.append(pop)
-
+        include.reverse()
+        
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
                                            time_range=time_range)
 
@@ -2203,22 +2261,23 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
         return
 
     # create fig
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
         
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
+
     
     hist_dict = {}
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
-                interp_rate = np.interp(time_bins, np.asarray(dct['time']), dct['rate'])
+                rate = dct['rate']
                 for ibin in range(0, len(time_bins)):
                     d = bin_dict[ibin]
-                    bin_rate = interp_rate[ibin]
+                    bin_rate = rate[ibin]
                     d['rates']  += bin_rate
                     d['active'] += 1
             hist_dict[subset] = bin_dict
@@ -2242,16 +2301,16 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        histoT = time_bins+bin_size/2
+        hist_x = time_bins+bin_size/2
         bin_dict = hist_dict[subset]
 
         if quantity=='rate':
-            hist_vals = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active']  if bin_dict[ibin]['active'] > 0 else 0.
+            hist_y = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active']  if bin_dict[ibin]['active'] > 0 else 0.
                                      for ibin in range(0, len(time_bins))])
         elif quantity=='active':
-            hist_vals = np.asarray([bin_dict[ibin]['active'] for ibin in range(0, len(time_bins))])
+            hist_y = np.asarray([bin_dict[ibin]['active'] for ibin in range(0, len(time_bins))])
         else:
-            hist_vals = np.asarray([bin_dict[ibin]['counts'] for ibin in range(0, len(time_bins))])
+            hist_y = np.asarray([bin_dict[ibin]['counts'] for ibin in range(0, len(time_bins))])
 
         del bin_dict
         del hist_dict[subset]
@@ -2263,53 +2322,52 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
                 label = str(subset)  + ' (%i active; %.3g Hz)' % (len(pop_active_cells[subset]), avg_rates[subset])
             else:
                 label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
-            plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title (label, fontsize=fontSize)
-            
-        if smooth:
-            hsignal = signal.savgol_filter(hist_vals, window_length=2*(len(hist_vals)/16) + 1, polyorder=smooth) 
-        else:
-            hsignal = hist_vals
-        
-        if graph_type == 'line':
-            plt.plot (histoT, hsignal, linewidth=lw, color = color)
-        elif graph_type == 'bar':
-            plt.bar(histoT, hsignal, width = bin_size, color = color)
 
-        if iplot == 0:
-            plt.ylabel(yaxisLabel, fontsize=fontSize)
-        if iplot == len(spkpoplst)-1:
-            plt.xlabel('Time (ms)', fontsize=fontSize)
-        else:
-            plt.tick_params(labelbottom='off')
-
+        ax = plt.subplot(len(spkpoplst),1,(iplot+1))
+        plt.title (label, fontsize=options.fontSize)
+        ax.tick_params(labelsize=options.fontSize)            
         #axes[iplot].xaxis.set_visible(False)
             
-        plt.xlim(time_range)
+        if smooth:
+            hsignal = signal.savgol_filter(hist_y, window_length=2*(len(hist_y)/16) + 1, polyorder=smooth) 
+        else:
+            hsignal = hist_y
+        
+        if graph_type == 'line':
+            ax.plot (hist_x, hsignal, linewidth=options.lw, color = color)
+        elif graph_type == 'bar':
+            ax.bar(hist_x, hsignal, width = bin_size, color = color)
 
-    if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
-        try:
-            plt.tight_layout()
-        except:
-            pass
+        if iplot == 0:
+            ax.set_ylabel(yaxisLabel, fontsize=options.fontSize)
+        if iplot == len(spkpoplst)-1:
+            ax.set_xlabel('Time (ms)', fontsize=options.fontSize)
+        else:
+            ax.tick_params(labelbottom='off')
+
+            
+        ax.set_xlim(time_range)
+
+
+    plt.tight_layout()
 
     # Add legend
     if overlay:
         for i,subset in enumerate(spkpoplst):
             plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
-        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
         maxLabelLen = min(10,max([len(str(l)) for l in include]))
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
 
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+' '+'histogram.png'
+            filename = namespace_id+' '+'histogram.%s' % options.figFormat
         plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
 
     return fig
@@ -2317,9 +2375,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
 
 
 ## Plot spike distribution per cell
-def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
-                                      overlay=True, quantity = 'rate', graph_type = 'point', figSize = (15,8),
-                                      fontSize = 14, lw = 3, saveFig = None, showFig = True): 
+def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, overlay=True, quantity = 'rate', graph_type = 'point', **kwargs):
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
 
@@ -2331,13 +2387,11 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         - time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
         - quantity ('rate'|'count'): Quantity of y axis (firing rate in Hz, or spike count) (default: 'rate')
-        - figSize ((width, height)): Size of figure (default: (10,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
     '''
+
+    options = default_fig_options
+    options.update(kwargs)
+
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
@@ -2375,7 +2429,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 
 
     # create fig
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
 
         
     # Plot separate line for each entry in include
@@ -2397,7 +2451,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         if not overlay:
             label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title (label, fontsize=fontSize)
+            plt.title (label, fontsize=options.fontSize)
             
         if quantity == 'rate':
             x = u[sorted_rate_idxs]
@@ -2413,10 +2467,10 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
             yaxisLabel = quantityLabel
             xaxisLabel = 'Cell index'
         elif graph_type == 'histogram':
-            hist_vals, bin_edges = np.histogram(np.asarray(y), bins = 40)
+            hist_y, bin_edges = np.histogram(np.asarray(y), bins = 40)
             bin_size = bin_edges[1] - bin_edges[0]
             hist_X = bin_edges[:-1]+bin_size/2
-            b = plt.bar(hist_X, hist_vals, width=bin_size)
+            b = plt.bar(hist_X, hist_y, width=bin_size)
             yaxisLabel = 'Cell count'
             xaxisLabel = quantityLabel
         else:
@@ -2424,9 +2478,9 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
             
         
         if iplot == 0:
-            plt.ylabel(yaxisLabel, fontsize=fontSize)
+            plt.ylabel(yaxisLabel, fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel(xaxisLabel, fontsize=fontSize)
+            plt.xlabel(xaxisLabel, fontsize=options.fontSize)
 
 
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
@@ -2439,19 +2493,19 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
     if overlay:
         for i,subset in enumerate(spkpoplst):
             plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
-        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
         maxLabelLen = min(10,max([len(str(l)) for l in include]))
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
 
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+' '+'distribution.png'
+            filename = namespace_id+' '+'distribution.%s' % options.figFormat
         plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
 
     return fig
@@ -2461,8 +2515,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 def plot_spike_distribution_per_time (input_path, namespace_id, include = ['eachPop'],
                                       time_bin_size = 50.0, binCount = 10,
                                       time_variable='t', time_range = None, 
-                                      overlay=True, quantity = 'rate', alpha_fill = 0.2, figSize = (15,8),
-                                      fontSize = 14, lw = 3, saveFig = None, showFig = True): 
+                                      overlay=True, quantity = 'rate', alpha_fill = 0.2, **kwargs):
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
 
@@ -2474,13 +2527,11 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         - time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
         - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
-        - figSize ((width, height)): Size of figure (default: (10,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
     '''
+
+    options = default_fig_options
+    options.update(kwargs)
+
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
@@ -2518,7 +2569,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         return
 
     # create fig
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
 
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
@@ -2548,10 +2599,10 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
             counts = d['counts']
             rates = d['rates']
             if quantity == 'rate':
-                hist_vals, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin-1])))
+                hist_y, bin_edges = np.histogram(np.asarray(rates), bins = binCount, range=(0.0, float(max_rate[ibin-1])))
             else:
-                hist_vals, bin_edges = np.histogram(np.asarray(counts), bins = binCount, range=(0.0, float(max_count[ibin-1])))
-            histlst.append(hist_vals)
+                hist_y, bin_edges = np.histogram(np.asarray(counts), bins = binCount, range=(0.0, float(max_count[ibin-1])))
+            histlst.append(hist_y)
 
             
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
@@ -2559,7 +2610,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         if not overlay:
             label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title (label, fontsize=fontSize)
+            plt.title (label, fontsize=options.fontSize)
 
         hist_mean = []
         hist_std  = []
@@ -2581,9 +2632,9 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         plt.fill_between(x, ymax_smooth, ymin_smooth, color=color, alpha=alpha_fill)
         
         if iplot == 0:
-            plt.ylabel('Cell Count', fontsize=fontSize)
+            plt.ylabel('Cell Count', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel(xaxisLabel, fontsize=fontSize)
+            plt.xlabel(xaxisLabel, fontsize=options.fontSize)
         else:
             plt.tick_params(labelbottom='off')
         plt.autoscale(enable=True, axis='both', tight=True)
@@ -2599,19 +2650,19 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
     if overlay:
         for i,subset in enumerate(spkpoplst):
             plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
-        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
         maxLabelLen = min(10,max([len(str(l)) for l in include]))
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
 
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+' '+'distribution.png'
+            filename = namespace_id+' '+'distribution.%s' % options.figFormat
         plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
 
     return fig
@@ -2622,9 +2673,8 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
                               trajectory_path, trajectory_id, include = ['eachPop'],
                               position_bin_size = 5.0, bin_count = 50,
                               time_variable='t', time_range = None, 
-                              alpha_fill = 0.2, figSize = (15,8), overlay = False,
-                              fontSize = 14, lw = 3, load_data = None, save_data = None,
-                              saveFig = None, showFig = True): 
+                              alpha_fill = 0.2, load_data = None, save_data = None,
+                              **kwargs):
     ''' 
     Plots distributions of spatial information per cell. Returns figure handle.
 
@@ -2636,13 +2686,10 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
         - time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
         - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
-        - figSize ((width, height)): Size of figure (default: (10,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
     '''
+    options = default_fig_options
+    options.update(kwargs)
+
     trajectory = stimulus.read_trajectory (trajectory_path, trajectory_id)
 
     (population_ranges, N) = read_population_ranges(spike_input_path)
@@ -2676,7 +2723,7 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
         spkpoplst = include
             
     # create fig
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
 
     histlst = []
     # Plot separate line for each entry in include
@@ -2712,7 +2759,7 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
             else:
                 label = str(subset)  + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]),np.mean(MI_array))
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title (label, fontsize=fontSize)
+            plt.title (label, fontsize=options.fontSize)
             
         color = color_list[iplot%len(color_list)]
 
@@ -2721,12 +2768,12 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
         #plt.bar(bin_centers, MI_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
 
         n, bins, patches = plt.hist(MI_array, bins=bin_count, alpha=0.75, rwidth=1, color=color)
-        plt.xticks(fontsize=fontSize)
+        plt.xticks(fontsize=options.fontSize)
                    
         if iplot == 0:
-            plt.ylabel('Cell Index', fontsize=fontSize)
+            plt.ylabel('Cell Index', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('Mutual Information [bits]', fontsize=fontSize)
+            plt.xlabel('Mutual Information [bits]', fontsize=options.fontSize)
         else:
             plt.tick_params(labelbottom='off')
         plt.autoscale(enable=True, axis='both', tight=True)
@@ -2741,24 +2788,27 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
     if overlay:
         for i,subset in enumerate(spkpoplst):
             plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
-        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
         maxLabelLen = min(10,max([len(str(l)) for l in include]))
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
 
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+' '+'information.png'
+            filename = namespace_id+' '+'information.%s' % options.figFormat
         plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
 
     return fig
 
-def plot_place_cells(features_path, population, nfields=1, to_plot=100, showFig = True, saveFig = True):
+def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs):
+
+    options = default_fig_options
+    options.update(kwargs)
 
     attr_gen = read_cell_attributes(features_path, population, namespace='Place Input Features')
     place_cells = {}
@@ -2783,14 +2833,14 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, showFig 
         img = axes[i%axes_dim, i/axes_dim].imshow(cells_to_plot[i], cmap='viridis')
         plt.colorbar(img, ax=axes[i%axes_dim, i/axes_dim])
  
-    if saveFig:
-        if isinstance(saveFig, str):
-            title = saveFig
+    if options.saveFig:
+        if isinstance(options.saveFig, str):
+            title = options.saveFig
         else:
             title = 'Place-Fields.png'
         plt.savefig(title)
 
-    if showFig:
+    if options.showFig:
         plt.show()
 
 
@@ -2798,9 +2848,8 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
                        trajectory_path, trajectory_id, include = ['eachPop'],
                        position_bin_size = 5.0, bin_count = 50,
                        time_variable='t', time_range = None, 
-                       alpha_fill = 0.2, figSize = (15,8), overlay = False,
-                       fontSize = 14, lw = 3, load_data = None, save_data = None,
-                       saveFig = None, showFig = True): 
+                       alpha_fill = 0.2, overlay = False,
+                       load_data = None, save_data = None, **kwargs):
     ''' 
     Plots distributions of place fields per cell. Returns figure handle.
 
@@ -2812,13 +2861,11 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         - time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
         - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
-        - figSize ((width, height)): Size of figure (default: (10,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
     '''
+
+    options = default_fig_options
+    options.update(kwargs)
+
     trajectory = stimulus.read_trajectory (trajectory_path, trajectory_id)
 
     (population_ranges, N) = read_population_ranges(spike_input_path)
@@ -2852,7 +2899,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         spkpoplst = include
             
     # create fig
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
 
     histlst = []
     # Plot separate line for each entry in include
@@ -2888,17 +2935,17 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
             else:
                 label = str(subset)  + ' (%i active; mean %i place fields)' % (len(pop_active_cells[subset]),np.mean(PF_array))
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title (label, fontsize=fontSize)
+            plt.title (label, fontsize=options.fontSize)
             
         color = color_list[iplot%len(color_list)]
 
         n, bins, patches = plt.hist(PF_array, bins=bin_count, alpha=0.75, rwidth=1, color=color)
-        plt.xticks(fontsize=fontSize)
+        plt.xticks(fontsize=options.fontSize)
                    
         if iplot == 0:
-            plt.ylabel('Cell Index', fontsize=fontSize)
+            plt.ylabel('Cell Index', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('# Place fields', fontsize=fontSize)
+            plt.xlabel('# Place fields', fontsize=options.fontSize)
         else:
             plt.tick_params(labelbottom='off')
         plt.autoscale(enable=True, axis='both', tight=True)
@@ -2913,19 +2960,19 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
     if overlay:
         for i,subset in enumerate(spkpoplst):
             plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
-        plt.legend(fontsize=fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
         maxLabelLen = min(10,max([len(str(l)) for l in include]))
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
 
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+' '+'information.png'
+            filename = namespace_id+' '+'information.%s' % options.figFormat
         plt.savefig(filename)
 
-    if showFig:
+    if options.showFig:
         show_figure()
 
     return fig
@@ -2934,8 +2981,8 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
 
 
 def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
-                   bin_size = 1., sliding_window = 256, overlap=0.5, kernel_size=10., smooth = 0, overlay = True,
-                   figSize = (8,8), fontSize = 14, lw = 3, saveFig = None, showFig = True):
+                   bin_size = 1., sliding_window = 256, overlap=0.0, smooth = 0, overlay = True,
+                   **kwargs):
     ''' 
     Plots firing rate power spectral density (PSD). Returns figure handle.
         - input_path: file with spike data
@@ -2948,14 +2995,12 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
         - Fs (float): sampling frequency
         - nperseg (int): Length of each segment. 
         - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
-        - figSize ((width, height)): Size of figure (default: (8,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
 
     '''
+
+    options = default_fig_options
+    options.update(kwargs)
+
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
@@ -2984,45 +3029,46 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     time_range = [tmin, tmax]
 
     # create fig
-    fig, ax1 = plt.subplots(figsize=figSize)
+    fig, ax1 = plt.subplots(figsize=options.figSize)
 
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
+
     nperseg    = sliding_window
     n_overlap  = sliding_window * overlap
     win        = signal.get_window('hanning', nperseg)
-    
+ 
     psds = []
     # Plot separate line for each entry in include
     for iplot, (subset, spkinds, spkts) in enumerate(zip(spkpoplst, spkindlst, spktlst)):
 
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_range=time_range, kernel_size=kernel_size)
-        psd_dict = {}
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
         min_freq   = float('inf')
         max_freq   = float('-inf')
         n_units    = len(sdf_dict)
-        
+
+        psd_dict = {}
         for (ind, dct) in viewitems(sdf_dict):
-            interp_rate = np.interp(time_bins, np.asarray(dct['time']), dct['rate'])
-                
+            rate = dct['rate']
+
             if smooth:
                 # smoothen firing rate histogram
-                hsignal = signal.savgol_filter(interp_rate, window_length=nperseg/2 + 1, polyorder=smooth) 
+                hsignal = signal.savgol_filter(rate, window_length=nperseg/2 + 1, polyorder=smooth) 
             else:
-                hsignal = interp_rate
+                hsignal = rate
 
             Fs = 1000.0/bin_size
+
             freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, window=win,
-                                      noverlap=n_overlap, return_onesided=True)
+                                       noverlap=n_overlap, return_onesided=True)
         
             psd = 10*np.log10(psd)
-            
-            psd_dict[ind] = { 'rate': hsignal, 'psd': psd, 'freqs': freqs }
-
+        
             min_freq = min(np.min(freqs), min_freq)
             max_freq = max(np.max(freqs), max_freq)
 
-
+            psd_dict[ind] = { 'psd': psd, 'freqs': freqs }
+            
         freq_span = max_freq - min_freq
         freq_bins = np.arange(min_freq, max_freq, 0.1)
 
@@ -3033,7 +3079,6 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
                 bin_psd = interp_psd[ibin]
                 psd_bin_array[ibin] += bin_psd
 
-        
         psd_bin_mean = psd_bin_array / n_units
         peak_index = np.where(psd_bin_mean == np.max(psd_bin_mean))[0]
         
@@ -3042,17 +3087,17 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
         if not overlay:
             label = str(subset)
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title ('%s (peak: %.3g Hz)' % (label, freq_bins[peak_index]), fontsize=fontSize)
+            plt.title ('%s (peak: %.3g Hz)' % (label, freq_bins[peak_index]), fontsize=options.fontSize)
 
-        plt.plot(freq_bins, psd_bin_mean, linewidth=lw, color=color)
+        plt.plot(freq_bins, psd_bin_mean, linewidth=options.lw, color=color)
         
         if iplot == 0:
-            plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fontSize) # add yaxis in opposite side
+            plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=options.fontSize) # add yaxis in opposite side
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('Frequency (Hz)', fontsize=fontSize)
+            plt.xlabel('Frequency (Hz)', fontsize=options.fontSize)
         plt.xlim([0, (Fs/2)-1])
 
-        psds.append(psd)
+        psds.append(psd_bin_mean)
         
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
         try:
@@ -3061,34 +3106,31 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
             pass
 
     # save figure
-    if saveFig: 
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig: 
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+'_'+'ratePSD.png'
+            filename = namespace_id+'_'+'ratePSD.%s' % options.figFormat
         plt.savefig(filename)
 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
 
     return fig, psds
 
 
-def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None, figSize = (12,9),
-                       fontSize = 14, saveFig = None, showFig = True):
+def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None, **kwargs):
     """
 
         - input_path: file with stimulus data
         - namespace_id: attribute namespace for stimulus
         - population: str name of a valid cell population
-        - figSize ((width, height)): Size of figure (default: (8,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - lw (integer): Line width for each spike (default: 3)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig (True|False): Whether to show the figure or not (default: True)
     """
+
+    options = default_fig_options
+    options.update(kwargs)
+
     if trajectory_id is not None:
         trajectory = stimulus.read_trajectory(input_path, trajectory_id)
         (_, _, _, t)  = trajectory
@@ -3107,6 +3149,7 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
         for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
+        print 'rate_lst size: %d' % len(rate_lst)
         col = (module - 1) % 5
         row = (module - 1) / 5
         M = max(M, len(rate_lst))
@@ -3119,38 +3162,36 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
         else:
             extent=[t[0], t[-1], 0, N]
         title = 'Module: %i' % module
-        axes[row][col].set_title(title, fontsize=fontSize)
+        axes[row][col].set_title(title, fontsize=options.fontSize)
+        print 'rate matrix: ', rate_matrix
         img = axes[row][col].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm,
                                     extent=extent)
-        axes[row][col].set_xlim([extent[0], extent[1]])
-        axes[row][col].set_ylim(-1, N+1)
+        #axes[row][col].set_xlim([extent[0], extent[1]])
+        #axes[row][col].set_ylim(-1, N+1)
         if col == 0:
-            axes[row][col].set_ylabel('Sorted input ID', fontsize=fontSize)
+            axes[row][col].set_ylabel('Sorted input ID', fontsize=options.fontSize)
         if row == 1:
-            axes[row][col].set_xlabel('Time (ms)', fontsize=fontSize)
+            axes[row][col].set_xlabel('Time (ms)', fontsize=options.fontSize)
     cax, kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
     cbar = plt.colorbar(img, cax=cax, **kw)
     cbar.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
 
-    fig.suptitle(population, fontsize=fontSize)
-    fig.tight_layout()
+    fig.suptitle(population, fontsize=options.fontSize)
 
     # save figure
-    if saveFig:
-        if isinstance(saveFig, str):
-            filename = saveFig
+    if options.saveFig:
+        if isinstance(options.saveFig, str):
+            filename = options.saveFig
         else:
-            filename = namespace_id+'_'+'ratemap.png'
+            filename = namespace_id+'_'+'ratemap.%s' % options.figFormat
         plt.savefig(filename)
 
     # show fig
-    if showFig:
+    if options.showFig:
         show_figure()
 
 
-def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace,
-                                    include, bin_size = 100., from_spikes = True, normed = False, figSize = (8,8),
-                                    fontSize = 14, saveFig = None, showFig = True, verbose=False):
+def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace, include, bin_size = 100., from_spikes = True, **kwargs):
     """
         - input_path: path to file with stimulus data (str)
         - coords_path: path to file with cell position coordinates (str)
@@ -3161,14 +3202,11 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, 
             (default: ['eachPop'] - expands to the name of each population)
         - bin_size: length of square edge for 2D histogram (float)
         - fromSpikes: bool; whether to compute rate maps from stored spikes, or from target function
-        - normed: bool; TODO: unused argument
-        - figSize ((width, height)): Size of figure (default: (8,8))
-        - fontSize (integer): Size of text font (default: 14)
-        - saveFig (None|True|'fileName'): File name where to save the figure;
-            if set to True uses filename from simConfig (default: None)
-        - showFig: bool; whether to show the figure or not (default: True)
-        - verbose: bool; unused
     """
+
+    options = default_fig_options
+    options.update(kwargs)
+
     _, _, _, t = stimulus.read_trajectory(input_path, trajectory_id)
     dt = float(t[1] - t[0]) / 1000. # ms -> s
     T  = float(t[-1] - t[0]) / 1000. # ms -> s
@@ -3201,10 +3239,10 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, 
         distance_U = np.asarray(distance_U, dtype='float32')
         distance_V = np.asarray(distance_V, dtype='float32')
         
-        distance_x_min = np.min(distance_U_array)
-        distance_x_max = np.max(distance_U_array)
-        distance_y_min = np.min(distance_V_array)
-        distance_y_max = np.max(distance_V_array)
+        distance_x_min = np.min(distance_U)
+        distance_x_max = np.max(distance_U)
+        distance_y_min = np.min(distance_V)
+        distance_y_max = np.max(distance_V)
         
         logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
 
@@ -3235,28 +3273,28 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, 
             title = '%s input firing rate\nTrial: %i' % (population, trajectory_id)
         else:
             title = '%s expected input firing rate' % population
-        axes.set_title(title, fontsize=fontSize)
-        axes.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=fontSize)
-        axes.set_ylabel('Transverse distance (um)', fontsize=fontSize)
+        axes.set_title(title, fontsize=options.fontSize)
+        axes.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=options.fontSize)
+        axes.set_ylabel('Transverse distance (um)', fontsize=options.fontSize)
         cbar = fig.colorbar(pcm, ax=axes, shrink=0.48, aspect=20)
         cbar.set_label('Mean input firing rate (Hz)', rotation=270., labelpad=20.)
 
         # save figure
-        if saveFig:
-            if isinstance(saveFig, str):
-                filename = saveFig
+        if options.saveFig:
+            if isinstance(options.saveFig, str):
+                filename = options.saveFig
             else:
-                filename = '%s %s spatial ratemap.png' % (population, stimulus_namespace)
+                filename = '%s %s spatial ratemap.%s' % (population, stimulus_namespace, options.figFormat)
             plt.savefig(filename)
 
         # show fig
-        if showFig:
+        if options.showFig:
             show_figure()
 
 
 def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t',
-                                   bin_size = 25, graph_type = 'matrix', lag=1, max_cells = None, xlim = None, lw = 3,
-                                   marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True):
+                                   bin_size = 25, graph_type = 'matrix', lag=1, max_cells = None, xlim = None, 
+                                   marker = '|', **kwargs):
     """
     Plot of spike histogram correlations. Returns the figure handle.
 
@@ -3265,13 +3303,12 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
     bin_size (int): Size of bin in ms to use for spike count and rate computations (default: 5)
-    lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     """
+
+    options = default_fig_options
+    options.update(kwargs)
+
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
@@ -3299,7 +3336,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
     corr_dict = spikedata.histogram_autocorrelation(spkdata, bin_size=bin_size, max_elems=max_cells, lag=lag)
         
     # Plot spikes
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
 
     X_max = None
     X_min = None
@@ -3308,23 +3345,23 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
         pop_corr = corr_dict[subset]
         
         if len(spkpoplst) > 1:
-            axes[iplot].set_title (str(subset), fontsize=fontSize)
+            axes[iplot].set_title (str(subset), fontsize=options.fontSize)
         else:
-            axes.set_title (str(subset), fontsize=fontSize)
+            axes.set_title (str(subset), fontsize=options.fontSize)
 
         if graph_type == 'matrix':
             im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
             cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
         elif graph_type == 'histogram':
-            hist_vals, bin_edges = np.histogram(pop_corr, bins = 100)
+            hist_y, bin_edges = np.histogram(pop_corr, bins = 100)
             corr_bin_size = bin_edges[1] - bin_edges[0]
             hist_X = bin_edges[:-1]+corr_bin_size/2
             color = color_list[iplot%len(color_list)]
             if len(spkpoplst) > 1:
-                b = axes[iplot].bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes[iplot].bar(hist_X, hist_y, width = corr_bin_size, color = color)
             else:
-                b = axes.bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes.bar(hist_X, hist_y, width = corr_bin_size, color = color)
             if X_max is None:
                 X_max = bin_edges[-1]
             else:
@@ -3341,25 +3378,24 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
         else:
             im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
             cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
 
         if graph_type == 'matrix':
             if iplot == 0:
-                axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
+                axes[iplot].ylabel('Relative Cell Index', fontsize=options.fontSize)
             if iplot == len(spkpoplst)-1:
-                axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)
+                axes[iplot].xlabel('Relative Cell Index', fontsize=options.fontSize)
 
                 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return fig
 
 
 ## Plot spike cross-correlation
-def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', bin_size = 25, graph_type = 'matrix',
-                               max_cells = None, lw = 3, marker = '|', figSize = (15,8), fontSize = 14, saveFig = None, showFig = True): 
+def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', bin_size = 25, graph_type = 'matrix', max_cells = None, marker = '|', **kwargs): 
     ''' 
     Plot of spike histogram correlations. Returns the figure handle.
 
@@ -3368,13 +3404,11 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
     bin_size (int): Size of bin in ms to use for spike count and rate computations (default: 5)
-    lw (integer): Line width for each spike (default: 3)
     marker (char): Marker for each spike (default: '|')
-    fontSize (integer): Size of text font (default: 14)
-    figSize ((width, height)): Size of figure (default: (15,8))
-    saveFig (None|True|'fileName'): File name where to save the figure (default: None)
-    showFig (True|False): Whether to show the figure or not (default: True)
     '''
+
+    options = default_fig_options
+    options.update(kwargs)
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
@@ -3403,7 +3437,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
     corr_dict = spikedata.histogram_correlation(spkdata, bin_size=bin_size, max_elems=max_cells)
         
     # Plot spikes
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=figSize, sharex=True)
+    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
 
     X_max = None
     X_min = None
@@ -3412,25 +3446,25 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
         pop_corr = corr_dict[subset]
 
         if len(spkpoplst) > 1:
-            axes[iplot].set_title (str(subset), fontsize=fontSize)
+            axes[iplot].set_title (str(subset), fontsize=options.fontSize)
         else:
-            axes.set_title (str(subset), fontsize=fontSize)
+            axes.set_title (str(subset), fontsize=options.fontSize)
             
         if graph_type == 'matrix':
             im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
             cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
         elif graph_type == 'histogram':
             np.fill_diagonal(pop_corr, 0.)
             mean_corr = np.apply_along_axis(lambda y: np.mean(y), 1, pop_corr)
-            hist_vals, bin_edges = np.histogram(mean_corr, bins = 100)
+            hist_y, bin_edges = np.histogram(mean_corr, bins = 100)
             corr_bin_size = bin_edges[1] - bin_edges[0]
             hist_X = bin_edges[:-1]+corr_bin_size/2
             color = color_list[iplot%len(color_list)]
             if len(spkpoplst) > 1:
-                b = axes[iplot].bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes[iplot].bar(hist_X, hist_y, width = corr_bin_size, color = color)
             else:
-                b = axes.bar(hist_X, hist_vals, width = corr_bin_size, color = color)
+                b = axes.bar(hist_X, hist_y, width = corr_bin_size, color = color)
             if X_max is None:
                 X_max = bin_edges[-1]
             else:
@@ -3448,17 +3482,17 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
         else:
             im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
             cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fontSize)
+            cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
 
         if graph_type == 'matrix':
             if iplot == 0: 
-                axes[iplot].ylabel('Relative Cell Index', fontsize=fontSize)
+                axes[iplot].ylabel('Relative Cell Index', fontsize=options.fontSize)
             if iplot == len(spkpoplst)-1:
-                axes[iplot].xlabel('Relative Cell Index', fontsize=fontSize)
+                axes[iplot].xlabel('Relative Cell Index', fontsize=options.fontSize)
 
                 
     # show fig 
-    if showFig:
+    if options.showFig:
         show_figure()
     
     return fig

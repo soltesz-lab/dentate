@@ -2,28 +2,26 @@ optimization_title: DG_test_network_subworlds
 param_gen: PopulationAnnealing
 bounds:
   BC_GC.GABA_A.g_unit: !!python/tuple
-  - 0.000065
-  - 0.0065
+  - 0.00001
+  - 0.01
 param_names:
 - BC_GC.GABA_A.g_unit
 feature_names:
-- modify_network_time
-- sim_network_time
+- firing_rate
 objective_names:
-- modify_network_time
-- sim_network_time
+- firing_rate
 update_context:
 - - DG_test_network_subworlds
   - update_network
 get_features_stages:
 - source: DG_test_network_subworlds
-  compute_features: compute_features_network_walltime
+  compute_features: compute_features_firing_rate
 get_objectives:
-  DG_test_network_subworlds: get_objectives_network_walltime
+  DG_test_network_subworlds: get_objectives
 kwargs:
   config_file: Full_Scale_GC_Exc_Sat_LN.yaml
 ## config_file: Small_Scale_Control_test_load_LN_weights_Sat.yaml
-  tstop: 10.
+  tstop: 500.
   v_init: -77.
   vrecord_fraction: 0.1
   dt: 0.025
@@ -32,10 +30,8 @@ kwargs:
   cache_queries: True
   output_results: False
 target_range:
-  modify_network_time: 1.
-  sim_network_time: 10.
+  firing_rate: 1.
 target_val:
-  modify_network_time: 60.
-  sim_network_time: 600.
+  firing_rate: 1.
 x0:
   BC_GC.GABA_A.g_unit: 0.00065

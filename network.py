@@ -91,13 +91,12 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
 
-def connect_cells(env, cleanup=True):
+def connect_cells(env):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for each postsynaptic cell.
 
     :param env: an instance of the `dentate.Env` class
-    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
@@ -124,15 +123,18 @@ def connect_cells(env, cleanup=True):
         else:
             unique = False
 
+        weights_namespaces = []
         if 'weights' in synapse_config:
             has_weights = synapse_config['weights']
+            if has_weights:
+                if 'weights namespace' in synapse_config:
+                    weights_namespaces.append(synapse_config['weights namespace'])
+                elif 'weights namespaces' in synapse_config:
+                    weights_namespaces.extend(synapse_config['weights namespaces'])
+                else:
+                    weights_namespaces.append('Weights')
         else:
             has_weights = False
-
-        if 'weights namespace' in synapse_config:
-            weights_namespace = synapse_config['weights namespace']
-        else:
-            weights_namespace = 'Weights'
 
         if 'mech_file_path' in env.celltypes[postsyn_name]:
             mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
@@ -145,10 +147,9 @@ def connect_cells(env, cleanup=True):
         if rank == 0:
             logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
+        cell_attr_namespaces = ['Synapse Attributes']
         if has_weights:
-            cell_attr_namespaces = ['Synapse Attributes', weights_namespace]
-        else:
-            cell_attr_namespaces = ['Synapse Attributes']
+            cell_attr_namespaces.extent(weights_namespaces)
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
@@ -161,30 +162,30 @@ def connect_cells(env, cleanup=True):
                                                                 io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
         del cell_attributes_dict['Synapse Attributes']
-        
-        if weights_namespace in cell_attributes_dict:
-            syn_weights_iter = cell_attributes_dict[weights_namespace]
-            first_gid = None
-            for gid, cell_weights_dict in syn_weights_iter:
-                if first_gid is None:
-                    first_gid = gid
-                weights_syn_ids = cell_weights_dict['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                    if syn_name not in syn_attrs.syn_mech_names:
-                        logger.info('*** connect_cells: population: %s; gid: %i; syn_name: %s '
-                                    'not found in network configuration' % 
-                                    (postsyn_name, gid, syn_name))
-                        raise Exception
-                    weights_values  = cell_weights_dict[syn_name]
-                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
-                                                       zip_longest(weights_syn_ids,
-                                                                   itertools.imap(lambda x: {'weight': x},
-                                                                                  weights_values)))
-                    if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
 
-            del cell_attributes_dict[weights_namespace]
+        for weights_namespace in weights_namespaces:
+            if weights_namespace in cell_attributes_dict:
+                syn_weights_iter = cell_attributes_dict[weights_namespace]
+                first_gid = None
+                for gid, cell_weights_dict in syn_weights_iter:
+                    if first_gid is None:
+                        first_gid = gid
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        if syn_name not in syn_attrs.syn_mech_names:
+                            logger.info('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                            'not found in network configuration' % 
+                                            (postsyn_name, gid, syn_name))
+                            raise Exception
+                        weights_values  = cell_weights_dict[syn_name]
+                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                           zip_longest(weights_syn_ids,
+                                                                       itertools.imap(lambda x: {'weight': x}, weights_values)))
+                    if rank == 0 and gid == first_gid:
+                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+
+                del cell_attributes_dict[weights_namespace]
 
         first_gid = None
         for gid in syn_attrs.gids():
@@ -266,30 +267,10 @@ def connect_cells(env, cleanup=True):
 
             if gid == first_gid:
                 synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], comm=comm0)
-                """
-                if rank == 0 and 'AMPA' in syn_attrs.syn_mech_names and gid in env.biophys_cells[postsyn_name]:
-                    biophys_cell = env.biophys_cells[postsyn_name][gid]
-                    from dentate.plot import plot_synaptic_attribute_distribution
-                    results_file = 'example_syn_attrs.h5'
-                    overwrite = True
-                    syn_mech_name = syn_attrs.syn_mech_names['AMPA']
-                    if 'g_unit' in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
-                        param_label = 'AMPA: g_unit'
-                        plot_synaptic_attribute_distribution(
-                            biophys_cell, env, 'AMPA', 'g_unit', from_mech_attrs=True, from_target_attrs=True,
-                            param_label=param_label, export=results_file, description='gid %i; after' % gid,
-                            show=False, overwrite=overwrite, data_dir=env.results_path)
-                    overwrite = False
-                    param_label = 'AMPA: weight'
-                    plot_synaptic_attribute_distribution(
-                        biophys_cell, env, 'AMPA', 'weight', from_mech_attrs=True, from_target_attrs=True,
-                        param_label=param_label, export=results_file, description='gid %i; after' % gid,
-                        show=False, overwrite=overwrite, data_dir=env.results_path)
-                """
 
             env.edge_count[postsyn_name] += syn_count
 
-            if cleanup:
+            if env.cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
                 if gid in env.biophys_cells[postsyn_name]:
                     del env.biophys_cells[postsyn_name][gid]
@@ -313,13 +294,12 @@ def find_gid_pop(celltypes, gid):
 
     return None
 
-def connect_cell_selection(env, cleanup=True):
+def connect_cell_selection(env):
     """
     Loads NeuroH5 connectivity file, instantiates the corresponding
     synapse and network connection mechanisms for the selected postsynaptic cells.
 
     :param env: an instance of the `dentate.Env` class
-    :param cleanup: if true, free synapse attribute dictionaries after synapses and netcons are instantiated.
     """
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
@@ -363,10 +343,18 @@ def connect_cell_selection(env, cleanup=True):
         else:
             has_weights = False
 
-        if 'weights namespace' in synapse_config:
-            weights_namespace = synapse_config['weights namespace']
+        weights_namespaces = []
+        if 'weights' in synapse_config:
+            has_weights = synapse_config['weights']
+            if has_weights:
+                if 'weights namespace' in synapse_config:
+                    weights_namespaces.append(synapse_config['weights namespace'])
+                elif 'weights namespaces' in synapse_config:
+                    weights_namespaces.extend(synapse_config['weights namespaces'])
+                else:
+                    weights_namespaces.append('Weights')
         else:
-            weights_namespace = 'Weights'
+            has_weights = False
 
         if 'mech file_path' in env.celltypes[postsyn_name]:
             mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
@@ -382,27 +370,24 @@ def connect_cell_selection(env, cleanup=True):
         del(syn_attributes_iter)
         
         if has_weights:
-            weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
-                                                                    namespace=weights_namespace, comm=env.comm)
-        else:
-            weight_attributes_iter = None
-
-        if weight_attributes_iter is not None:
-            first_gid = None
-            for gid, cell_weights_dict in weight_attributes_iter:
-                if first_gid is None:
-                    first_gid = gid
-                weights_syn_ids = cell_weights_dict['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                    weights_values  = cell_weights_dict[syn_name]
-                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                       zip_longest(weights_syn_ids, \
-                                                                   itertools.imap(lambda x: { 'weight' : x }, \
-                                                                                  weights_values)))
+            for weights_namespace in weights_namespaces:
+                weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
+                                                                        namespace=weights_namespace, comm=env.comm)
+                first_gid = None
+                for gid, cell_weights_dict in weight_attributes_iter:
+                    if first_gid is None:
+                        first_gid = gid
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        weights_values  = cell_weights_dict[syn_name]
+                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                                           zip_longest(weights_syn_ids, \
+                                                                       itertools.imap(lambda x: { 'weight' : x }, \
+                                                                                        weights_values)))
                     if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
-            del weight_attributes_iter
+                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                del weight_attributes_iter
 
         first_gid = None
         for gid in syn_attrs.gids():
@@ -464,15 +449,29 @@ def connect_cell_selection(env, cleanup=True):
     ##
     ## This section instantiates the synaptic mechanisms and netcons for each connection.
     ##
+    first_gid = None
     for gid in syn_attrs.gids():
+
+        last_time = time.time()
+        if first_gid is None:
+            first_gid = gid
 
         cell = env.pc.gid2cell(gid)
         pop_name = find_gid_pop(env.celltypes, gid)
         syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
                                                                         cell=cell, unique=unique, \
                                                                         insert=True, insert_netcons=True)
+
+        if rank == 0 and gid == first_gid:
+            logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
+                        'connections for gid %d; cleanup flag is %s' % \
+                         (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid, str(env.cleanup)))
+            hoc_cell = env.pc.gid2cell(gid)
+            for sec in list(hoc_cell.all):
+                h.psection(sec=sec)
+
         env.edge_count[pop_name] += syn_count
-        if cleanup:
+        if env.cleanup:
             syn_attrs.del_syn_id_attr_dict(gid)
             if gid in env.biophys_cells[pop_name]:
                 del env.biophys_cells[pop_name][gid]
@@ -668,8 +667,7 @@ def make_cells(env):
                 num_cells += 1
 
         h.define_shape()
-        if rank == 0:
-            logger.info("*** Created %i cells" % num_cells)
+        logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
         
 def make_cell_selection(env):
@@ -702,6 +700,7 @@ def make_cell_selection(env):
         for gid in gid_range:
             v_sample_set.add(gid)
 
+        num_cells = 0
         if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
@@ -711,7 +710,6 @@ def make_cell_selection(env):
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
             first_gid = None
-            num_cells = 0
             for i, (gid, tree) in enumerate(trees):
                 
                 if rank == 0:
@@ -735,9 +733,6 @@ def make_cell_selection(env):
                         env.recs_dict[pop_name]['Soma'].append(rec)
 
                 num_cells += 1
-
-            if rank == 0:
-                logger.info("*** Created %i cells" % num_cells)
 
         elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
@@ -771,6 +766,7 @@ def make_cell_selection(env):
 
                 i = i + 1
         h.define_shape()
+        logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
 
 def make_stimulus(env):
@@ -889,7 +885,7 @@ def make_stimulus_selection(env, vecstim_sources):
                 stim_cell = env.pc.gid2cell(gid)
                 stim_cell.play(h.Vector(cell_spikes_dict['t']))
 
-def init(env, cleanup=True):
+def init(env):
     """
     Initializes the network by calling make_cells, make_stimulus, connect_cells, connect_gjs.
     If env.optldbal or env.optlptbal are specified, performs load balancing.
@@ -910,7 +906,7 @@ def init(env, cleanup=True):
         io_utils.mkout(env, env.results_file_path)
     if rank == 0:
         logger.info("*** Creating cells...")
-    h.startsw()
+    st = env.pc.time()
     env.pc.barrier()
     if env.cell_selection is None:
         make_cells(env)
@@ -919,31 +915,31 @@ def init(env, cleanup=True):
     if env.profile_memory and rank == 0:
         profile_memory(logger)
     env.pc.barrier()
-    env.mkcellstime = h.stopsw()
+    env.mkcellstime = env.pc.time() - st
     if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
     logger.info("*** Rank %i created %i cells" % (rank, len(env.cells)))
     if env.cell_selection is None:
-        h.startsw()
+        st = env.pc.time()
         connect_gjs(env)
         env.pc.setup_transfer()
         env.pc.barrier()
-        env.connectgjstime = h.stopsw()
+        env.connectgjstime = env.pc.time() - st
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
             
-    h.startsw()
+    st = env.pc.time()
     if env.profile_memory and rank == 0:
         profile_memory(logger)
         
     if env.cell_selection is None:
-        connect_cells(env, cleanup)
+        connect_cells(env)
         vecstim_selection = None
     else:
         vecstim_selection = connect_cell_selection(env)
     env.pc.set_maxstep(10.0)
     env.pc.barrier()
-    env.connectcellstime = h.stopsw()
+    env.connectcellstime = env.pc.time() - st
     
     if env.profile_memory and rank == 0:
         profile_memory(logger)
@@ -952,15 +948,15 @@ def init(env, cleanup=True):
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
-    h.startsw()
+    st = env.pc.time()
     if env.cell_selection is None:
         make_stimulus(env)
     else:
         make_stimulus_selection(env, vecstim_selection)
-    env.mkstimtime = h.stopsw()
+    env.mkstimtime = env.pc.time() - st
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
-    h.startsw()
+    st = env.pc.time()
     if env.cell_selection is None:
         for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
             env.lfp[lfp_label] = \
@@ -970,7 +966,7 @@ def init(env, cleanup=True):
                         seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
         if rank == 0:
             logger.info("*** LFP objects instantiated")
-    lfp_time = h.stopsw()
+    lfp_time = env.pc.time() - st
     setup_time           = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time       = env.pc.allreduce(setup_time, 2) ## maximum value
     env.simtime          = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
@@ -999,6 +995,7 @@ def run(env, output=True, shutdown=True):
 
     if rank == 0:
         logger.info("*** Running simulation")
+
         
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -1006,6 +1003,7 @@ def run(env, output=True, shutdown=True):
     h.t = 0
     h.tstop = env.tstop
 
+    env.simtime.reset()
     h.finitialize(env.v_init)
     
     env.pc.barrier()
