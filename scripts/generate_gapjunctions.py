@@ -13,6 +13,7 @@ import dentate
 from dentate.gapjunctions import generate_gj_connections
 from dentate.env import Env
 import dentate.utils as utils
+from dentate.neuron_utils import configure_hoc_env
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -48,6 +49,7 @@ def main(config, template_path, types_path, forest_path, connectivity_path, conn
     rank = comm.rank
 
     env = Env(comm=comm, config_file=config, template_paths=template_path)
+    configure_hoc_env(env)
 
     gj_config = env.gapjunctions
     gj_seed = int(env.modelConfig['Random Seeds']['Gap Junctions'])

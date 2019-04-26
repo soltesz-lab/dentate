@@ -414,7 +414,10 @@ class Env:
                 val_synsections  = syn_dict['sections']
                 val_synlayers    = syn_dict['layers']
                 val_proportions  = syn_dict['proportions']
-                val_contacts     = syn_dict['contacts']
+                if 'contacts' in syn_dict:
+                    val_contacts     = syn_dict['contacts']
+                else:
+                    val_contacts = 1
                 val_mechparams   = None
                 val_swctype_mechparams    = None
                 if 'mechanisms' in syn_dict:
@@ -439,7 +442,7 @@ class Env:
                     res_mechparams['default'] = val_mechparams
                         
                 connection_dict[key_postsyn][key_presyn] = \
-                    SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, val_connections, \
+                    SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, val_contacts, \
                                   res_mechparams)
 
             config_dict = defaultdict(lambda: 0.0)

@@ -149,7 +149,7 @@ def configure_hoc_env(env):
 
     :param env: :class:'Env'
     """
-    h.load_file("nrngui.hoc")
+    h.load_file("stdrun.hoc")
     h.load_file("loadbal.hoc")
     h('objref pc, nc, nil')
     h('strdef dataset_path')
