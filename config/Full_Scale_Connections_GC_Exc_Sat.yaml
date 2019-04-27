@@ -271,19 +271,19 @@ Synapses:
             e: -75
             g_unit: 0.0012
             weight: 1.0
-    AAC:  
-      type: inhibitory
-      sections: [ais]
-      layers: [Hilus]
-      proportions: [1.0]
-      contacts: 4.0
-      mechanisms:
-        GABA_A:
-          dur_onset: 0.6
-          tau_offset: 9.0
-          e: -75
-          g_unit: 0.0012
-          weight: 1.0
+#    AAC:  
+#      type: inhibitory
+#      sections: [ais]
+#      layers: [Hilus]
+#      proportions: [1.0]
+#      contacts: 4.0
+#      mechanisms:
+#        GABA_A:
+#          dur_onset: 0.6
+#          tau_offset: 9.0
+#          e: -75
+#          g_unit: 0.0012
+#          weight: 1.0
     HCC:  
       type: inhibitory
       sections: [apical]
