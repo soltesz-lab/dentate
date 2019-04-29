@@ -9,9 +9,6 @@ from mpi4py import MPI
 from neuron import h
 
 
-# This test requires an even number of gids 
-ngids = 2
-
 cells = []
 gjlist = []
 vrecs = []
@@ -60,8 +57,8 @@ def mkcells(pc, ngids):
         if gid % nranks == myrank:
         
             cell=MyCell()
+            nc = h.NetCon(cell.soma(0.5)._ref_v, None, sec=cell.soma)
             pc.set_gid2node(gid, myrank)
-            nc = h.NetCon(cell.soma(1.0)._ref_v, None)
             pc.cell(gid, nc, 1)
             cells.append(cell)
             
@@ -122,14 +119,16 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--result-prefix', default='.',
                         help='place output files in given directory')
+    parser.add_argument('--ngids', default=2, type=int,
+                        help='number of gids to create (must be even)')
 
     args = parser.parse_args()
 
     pc = h.ParallelContext()
     myrank = int(pc.id())
 
-    mkcells(pc, ngids)
-    mkgjs(pc, ngids)
+    mkcells(pc, args.ngids)
+    mkgjs(pc, args.ngids)
     
     pc.setup_transfer()
 
