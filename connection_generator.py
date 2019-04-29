@@ -1,7 +1,7 @@
 
 """Classes and procedures related to neuronal connectivity generation. """
 
-import sys, time, gc, itertools
+import sys, time, gc, itertools, math
 from collections import defaultdict
 import numpy as np
 from scipy.stats import norm
@@ -195,7 +195,7 @@ def choose_synapse_projection (ranstream_syn, syn_layer, swc_type, syn_type, pop
     ivd = { v:k for k,v in viewitems(population_dict) }
     projection_lst = []
     projection_prob_lst = []
-    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions) in viewitems(projection_synapse_dict):
+    for k, (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions, syn_config_contacts) in viewitems(projection_synapse_dict):
         if (syn_type == syn_config_type) and (swc_type in syn_config_sections):
             ord_indices = list_find_all(lambda x: x == swc_type, syn_config_sections)
             for ord_index in ord_indices:
@@ -303,6 +303,8 @@ def generate_synaptic_connections(rank,
     ## Choose source connections based on distance-weighted probability
     count = 0
     for projection, prj_layer_dict in viewitems(synapse_prj_partition):
+        (syn_config_type, syn_config_layers, syn_config_sections, syn_config_proportions, syn_config_contacts) = \
+          projection_synapse_dict[projection]
         gid_dict = connection_dict[projection]
         prj_source_vertices = []
         prj_syn_ids = []
@@ -314,7 +316,14 @@ def generate_synaptic_connections(rank,
                                 for (source_gid,distance_u,distance_v) in \
                                   zip(source_gids, distances_u, distances_v) }
             if len(source_gids) > 0:
-                source_gid_counts = random_choice(ranstream_con, len(syn_ids), source_probs)
+                n_syn_groups = int(math.ceil(float(len(syn_ids)) / float(syn_config_contacts)))
+                source_gid_counts = random_choice(ranstream_con, n_syn_groups, source_probs)
+                total_count = 0
+                if syn_config_contacts > 1:
+                    ncontacts = int(math.ceil(syn_config_contacts))
+                    for i in xrange(0, len(source_gid_counts)):
+                        if source_gid_counts[i] > 0:
+                            source_gid_counts[i] *= ncontacts
                 if len(source_gid_counts) == 0:
                     logger.warning('Rank %i: source vertices list is empty for gid: %i projection: %s layer: %s ' \
                                    'source probs: %s distances_u: %s distances_v: %s' % \
@@ -327,7 +336,7 @@ def generate_synaptic_connections(rank,
                                                                       center_ids=source_gids, \
                                                                       cluster_std=2.0, \
                                                                       random_seed=cluster_seed), \
-                                             dtype=np.uint32)
+                                             dtype=np.uint32)[0:len(syn_ids)]
                 assert(len(source_vertices) == len(syn_ids))
                 distances = np.asarray([ distance_dict[gid] for gid in source_vertices ], \
                                        dtype=np.float32).reshape(-1,)
@@ -338,6 +347,7 @@ def generate_synaptic_connections(rank,
                                                 { 'Synapses' : { 'syn_id': np.asarray ([], dtype=np.uint32) },
                                                   'Connections' : { 'distance': np.asarray ([], dtype=np.float32) }
                                                 } )
+                cluster_seed += 1
         prj_source_vertices_array = np.concatenate(prj_source_vertices)
         del(prj_source_vertices)
         prj_syn_ids_array = np.concatenate(prj_syn_ids)
@@ -407,7 +417,8 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                (projection_config[source_population].type,
                                 projection_config[source_population].layers,
                                 projection_config[source_population].sections,
-                                projection_config[source_population].proportions)
+                                projection_config[source_population].proportions,
+                                projection_config[source_population].contacts)
                                 for source_population in source_populations}
     total_count = 0
     gid_count   = 0

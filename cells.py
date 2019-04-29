@@ -1534,7 +1534,7 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
     h.tstop = duration+delay
     h.cvode_active (1)
 
-    h.load_file("nrngui.hoc")  
+    h.load_file("stdrun.hoc")  
     h.load_file("thresh.hoc")  ## nrn/lib/hoc
     thr = h.threshold(iclamp._ref_amp)
 
