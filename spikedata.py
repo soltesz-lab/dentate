@@ -79,11 +79,11 @@ def get_env_spike_dict(env, t_start=0.0):
                 id = ids[j]
                 t  = ts[j]
                 if id in spkdict:
-                    spkdict[id]['t'].append(t)
+                    spkdict[id].append(t)
                 else:
-                    spkdict[id]= {'t': [t]}
+                    spkdict[id]= [t]
             for j in list(spkdict.keys()):
-                spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
+                spkdict[j] = np.array(spkdict[j], dtype=np.float32)
         pop_spkdict[pop_name] = spkdict
 
     return pop_spkdict
@@ -281,12 +281,12 @@ def spike_density_estimate (population, spkdict, time_bins, save=False):
     
     def make_spktrain (lst, t_start, t_stop):
         spkts = np.asarray(lst, dtype=np.float32)
-        return spkts[(spkts >= t_start) & (spkts <= t_stop)]
+        return res
 
     t_start = time_bins[0]
     t_stop = time_bins[-1]
     
-    spktrains = { ind: make_spktrain(np.asarray(lst, dtype=np.float32), t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
+    spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
     spk_rate_dict = { ind: baks(spkts, time_bins)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 0 }
 
 

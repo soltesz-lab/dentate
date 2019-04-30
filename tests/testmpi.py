@@ -1,5 +1,9 @@
+import mpi4py
 from mpi4py import MPI
 from neuron import h
+
+print mpi4py.get_config()
+print mpi4py.get_include()
 
 h.load_file("stdlib.hoc")
 h.load_file("stdrun.hoc")
