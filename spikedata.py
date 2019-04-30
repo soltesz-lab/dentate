@@ -281,7 +281,7 @@ def spike_density_estimate (population, spkdict, time_bins, save=False):
     
     def make_spktrain (lst, t_start, t_stop):
         spkts = np.asarray(lst, dtype=np.float32)
-        return res
+        return spkts[(spkts >= t_start) & (spkts <= t_stop)]
 
     t_start = time_bins[0]
     t_stop = time_bins[-1]
