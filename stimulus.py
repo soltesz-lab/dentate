@@ -59,20 +59,85 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
 
 
-def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1.):  # cm
+def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
+    xy_offset, t_offset, d_offset = 0., 0., 0.
+    if ramp_up_period is not None:
+        ramp_up_distance = (ramp_up_period / 1000.) * velocity  # cm
+        xy_offset = ramp_up_distance / np.sqrt(2)
+        t_offset = ramp_up_period
+        d_offset = ramp_up_distance
 
-    # arena_dimension - minimum distance from origin to boundary (cm)
+    x = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
+    y = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
 
-    x = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
-    y = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
     t = interp_distance / velocity * 1000.  # ms
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
+    
+    t -= t_offset
+    d -= d_offset
 
     return t, interp_x, interp_y, d
+
+
+def generate_concentric_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., 
+                                   origin_X = 0., origin_Y = 0., radius_range = np.arange(100, 5, -5),
+                                   initial_theta = np.deg2rad(180.), theta_step = np.deg2rad(300)):
+
+    # arena_dimension - minimum distance from origin to boundary (cm)
+
+    start_theta = initial_theta
+    start_x = origin_X + np.cos(start_theta) * arena_dimension
+    start_y = origin_Y + np.sin(start_theta) * arena_dimension
+
+    xs = []
+    ys = []
+    for radius in radius_range[1:]:
+
+        end_theta = start_theta + theta_step
+        theta = np.arange(start_theta, end_theta, np.deg2rad(spatial_resolution))
+
+        end_x = origin_X + np.cos(start_theta) * radius
+        end_y = origin_Y + np.sin(start_theta) * radius
+
+        xsteps = abs(end_x - start_x)  / spatial_resolution
+        ysteps = abs(end_y - start_y)  / spatial_resolution
+        nsteps = max(xsteps, ysteps)
+        
+        linear_x = np.linspace(start_x, end_x, nsteps)
+        linear_y = np.linspace(start_y, end_y, nsteps)
+
+        radial_x = origin_X + np.cos(theta) * radius
+        radial_y = origin_Y + np.sin(theta) * radius
+
+        x = np.concatenate([linear_x, radial_x])
+        y = np.concatenate([linear_y, radial_y])
+
+        xs.append(x)
+        ys.append(y)
+    
+        start_theta = end_theta
+        start_x = x[-1]
+        start_y = y[-1]
+
+    x = np.concatenate(xs)
+    y = np.concatenate(ys)
+    
+    distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
+    interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
+    
+    t = (interp_distance / velocity * 1000.)  # ms
+    
+    interp_x = np.interp(interp_distance, distance, x)
+    interp_y = np.interp(interp_distance, distance, y)
+    
+    d = interp_distance
+
+    return t, interp_x, interp_y, d
+
 
 def fwhm2sigma(fwhm):
     return fwhm / np.sqrt(8 * np.log(2))
@@ -100,7 +165,7 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
 
     a = kwargs.get('a', 0.3)
     b = kwargs.get('b', -1.5)
- 
+
     if 'X Offset Scaled' and 'Y Offset Scaled' in features_dict:
         x_offset = features_dict['X Offset Scaled']
         y_offset = features_dict['Y Offset Scaled']
@@ -110,6 +175,7 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
 
     rate_map = None
     if selectivity_type == selectivity_grid:
+
         grid_orientation = features_dict['Grid Orientation'][0]
         grid_spacing = features_dict['Grid Spacing'][0]
         theta_k   = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
@@ -165,13 +231,12 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
 
     if ramp_up_period is not None:
         import scipy.signal as signal
-        timestep = interp_t[1] - interp_t[0]
-        fwhm = int(ramp_up_period*2 / timestep)
-        ramp_up_region = np.where(interp_t <= ramp_up_period)[0]
+        ramp_up_region = np.where(interp_t <= 0.0)[0]
+        nsteps = len(ramp_up_region)
+        window = signal.hann(nsteps*2, sym=False)
+        half_window = window[:int(nsteps)]
+        half_window /= np.max(half_window)
         orig_response = response[ramp_up_region].copy()
-        sigma = fwhm2sigma(fwhm)
-        window = signal.gaussian(len(ramp_up_region)*2, std=sigma)
-        half_window = window[:int(len(window)/2)]
         response[ramp_up_region] = response[ramp_up_region] * half_window
     
     return response
@@ -221,6 +286,14 @@ def peak_to_trough(cells):
 
     return minmax_eval, var_eval      
 
+def calculate_field_distribution(pi, pr):
+    p1 = (1. - pi) / (1. + (7./4.) * pr)
+    p2 = p1 * pr
+    p3 = 0.5 * p2
+    p4 = 0.5 * p3
+    probabilities = np.array([pi, p1, p2, p3, p4], dtype='float32')
+    assert(np.abs(np.sum(probabilities) - 1.) < 1.e-5)
+    return probabilities
 
 def gid2module_dictionary(cell_lst, modules):
     module_dict = {module: {} for module in modules}

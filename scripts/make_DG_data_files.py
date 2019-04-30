@@ -6,23 +6,23 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20190124.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20190124.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20190306.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20190306.h5"
 
 DG_GC_coordinate_file  = "DGC_forest_reindex_20181222_compressed.h5"
 DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
 DG_EXT_coordinate_file = "dentate_Full_Scale_Control_coords_20180717.h5"
 
 DG_GC_forest_file = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_forest_file = "DG_IN_forest_20181226.h5"
+DG_IN_forest_file = "DG_IN_forest_20190306.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20181222_compressed.h5"
-DG_IN_forest_syns_file = "DG_IN_forest_syns_20190123_compressed.h5"
+DG_IN_forest_syns_file = "DG_IN_forest_syns_20190306_compressed.h5"
 
-DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20181227_compressed.h5"
-#DG_IN_syn_weights_file = "DG_IN_syns_log_normal_weights_20181011_compressed.h5"
+DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20190131_compressed.h5"
+DG_IN_syn_weights_file = "DG_IN_syn_weights_LN_20190306_compressed.h5"
 
-DG_IN_connectivity_file = "DG_IN_connections_20190124_compressed.h5"
+DG_IN_connectivity_file = "DG_IN_connections_20190306_compressed.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20181225_compressed.h5"
 
 DG_vecstim_file_dict = { 
@@ -90,7 +90,8 @@ forest_syns_files = {
 }
 
 syn_weight_files = {
-     'GC': { "Log-Normal Weights": DG_GC_syn_weights_file }
+     'GC': { "Log-Normal Weights": DG_GC_syn_weights_file },
+     'MC': { "Log-Normal Weights": DG_IN_syn_weights_file }
 }
 
 ## Creates H5Types entries

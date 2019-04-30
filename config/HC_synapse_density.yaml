@@ -1,5 +1,4 @@
 ## HC synapse density configuration
-## This configuration uses scaled up density values to account for short dendritic length in the model.
 apical:
   excitatory:
     default:
@@ -12,7 +11,7 @@ apical:
 soma:
   inhibitory:
     default:
-      mean: 0.1
+      mean: 0.2
       variance: 0.1
   excitatory:
     default:

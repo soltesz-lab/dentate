@@ -36,8 +36,8 @@ def main(input_path, spike_namespace, state_namespace, populations, unit_no, spi
         populations = ['eachPop']
         
     plot.plot_network_clamp (input_path, spike_namespace, state_namespace, unit_no=unit_no, include=populations,
-                             time_range=time_range, time_variable=t_variable, intracellularVariable=state_variable,
-                             spikeHist='subplot', spike_hist_bin=spike_hist_bin, fontSize=font_size, saveFig=True)
+                             time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
+                             spike_hist='subplot', spike_hist_bin=spike_hist_bin, fontSize=font_size, saveFig=True)
     
 
 if __name__ == '__main__':

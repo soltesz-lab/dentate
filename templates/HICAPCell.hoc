@@ -194,7 +194,8 @@ proc biophys() {
     
     g_na = 0.079
     g_k = 0.0035
-    g_leak  = 0.0000318
+    g_leak_soma  = 0.00005
+    g_leak_dend  = 0.00001
     forsec all {Ra=100}
     
     forsec all {
@@ -214,28 +215,28 @@ proc biophys() {
 	insert hyperde3
 	ghyfbar_hyperde3=0.000035
 	ghysbar_hyperde3=0.000035
-	cm = 0.95
+	cm = 0.75
     }
     
     forsec soma {
         insert ichan2  //ildikos ichan
 	gnatbar_ichan2=g_na
 	gkfbar_ichan2=g_k
-	gl_ichan2 = g_leak
+	gl_ichan2 = g_leak_soma
     } 
     
     forsec apical {
         insert ichan2
 	gnatbar_ichan2=g_na
 	gkfbar_ichan2=g_k
-	gl_ichan2 = g_leak
+	gl_ichan2 = g_leak_dend
     }
     
     forsec basal {
         insert ichan2
 	gnatbar_ichan2=0.0
 	gkfbar_ichan2=0.00
-	gl_ichan2 = g_leak
+	gl_ichan2 = g_leak_dend
     }	
     
     forsec all {
@@ -245,7 +246,7 @@ proc biophys() {
         ek=-90  
         esk=-90 
         elca=130
-        el_ichan2 =-64	
+        el_ichan2 =-60
         ehyf=-40 ehys=-40
         cao_ccanl=2 
         

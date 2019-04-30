@@ -2,12 +2,13 @@ TITLE hyperde3.mod
  
 COMMENT
 Chen K, Aradi I, Thon N, Eghbal-Ahmadi M, Baram TZ, Soltesz I: Persistently
-modified
-h-channels after complex febrile seizures convert the seizure-induced
-enhancement of
-inhibition to hyperexcitability. Nature Medicine, 7(3) pp. 331-337, 2001.
+modified h-channels after complex febrile seizures convert the seizure-induced
+enhancement of inhibition to hyperexcitability. Nature Medicine, 7(3) pp. 331-337, 2001.
 (modeling by Ildiko Aradi, iaradi@uci.edu)
-distal dendritic Ih channel kinetics for both HT and Control anlimals
+Distal dendritic Ih channel kinetics for both HT and Control animals
+
+20190320 Aaron Milstein removed use of exotic ions, modern version of NEURON did not allow
+previous semantic which used the same variable name for ions and state variables.
 ENDCOMMENT
  
 UNITS {
@@ -24,55 +25,45 @@ UNITS {
  
 ? interface 
 NEURON { 
-SUFFIX hyperde3 
-USEION hyf READ ehyf WRITE ihyf VALENCE 1
-USEION hys READ ehys WRITE ihys VALENCE 1
-USEION hyhtf READ ehyhtf WRITE ihyhtf VALENCE 1
-USEION hyhts READ ehyhts WRITE ihyhts VALENCE 1
-RANGE  ghyf, ghys, ghyhtf, ghyhts
-RANGE ghyfbar, ghysbar, ghyhtfbar, ghyhtsbar
+SUFFIX hyperde3
+NONSPECIFIC_CURRENT i
+RANGE ehyf, ehys
+RANGE  ghyf, ghys
+RANGE ghyfbar, ghysbar
 RANGE hyfinf, hysinf, hyftau, hystau
-RANGE hyhtfinf, hyhtsinf, hyhtftau, hyhtstau, ihyf, ihys
+RANGE ihyf, ihys
 }
  
 :INDEPENDENT {t FROM 0 TO 100 WITH 100 (ms)}
  
 PARAMETER {
 
-	ghyfbar (mho/cm2)
-	ghysbar (mho/cm2)
-	ghyhtfbar (mho/cm2)
-	ghyhtsbar (mho/cm2)
+	ghyfbar = 0.000015 (mho/cm2)
+	ghysbar = 0.000015 (mho/cm2)
+	ehyf = -40. (mV)
+	ehys = -40. (mV)
+	ehyhtf = -40. (mV)
+	ehyhts = -40. (mV)
 }
  
 STATE {
-	hyf hys hyhtf hyhts
+	hyf hys
 }
  
 ASSIGNED {
-      v (mV) 
+      v (mV)
       celsius (degC)
-      
-      
+
       ghyf (mho/cm2)
       ghys (mho/cm2)
-      
-      ghyhtf (mho/cm2)
-      ghyhts (mho/cm2)
-      
-      ehyf (mV)
-      ehys (mV)
-      ehyhtf (mV)
-      ehyhts (mV)
-      
+
       ihyf (mA/cm2)
       ihys (mA/cm2)
-      ihyhtf (mA/cm2)
-      ihyhts (mA/cm2)
-      
-      hyfinf hysinf hyhtfinf hyhtsinf
-      hyftau (ms) hystau (ms) hyhtftau (ms) hyhtstau (ms)
-      hyfexp hysexp hyhtfexp hyhtsexp     
+	  i    (mA/cm2)
+      hyfinf
+	  hysinf
+      hyftau (ms)
+	  hystau (ms)
 } 
 
 ? currents
@@ -85,11 +76,7 @@ BREAKPOINT {
 	ghys = ghysbar * hys*hys
 	ihys = ghys * (v-ehys)
 
-	ghyhtf = ghyhtfbar * hyhtf* hyhtf
-	ihyhtf = ghyhtf * (v-ehyhtf)
-	ghyhts = ghyhtsbar * hyhts* hyhts
-	ihyhts = ghyhts * (v-ehyhts)
-	
+	i = ihyf + ihys
     }
  
 UNITSOFF
@@ -98,9 +85,7 @@ INITIAL {
 	trates(v)
 	
 	hyf = hyfinf
-        hys = hysinf
-	hyhtf = hyhtfinf
-	hyhts = hyhtsinf
+	hys = hysinf
 }
 
 ? states
@@ -109,9 +94,6 @@ DERIVATIVE states {	:Computes state variables m, h, and n
         
         hyf' = (hyfinf-hyf) / hyftau
         hys' = (hysinf-hys) / hystau
-        hyhtf' = (hyhtfinf-hyhtf) / hyhtftau
-	hyhts' = (hyhtsinf-hyhts) / hyhtstau
-
 }
  
 ? rates
@@ -128,13 +110,6 @@ PROCEDURE rates(v) {  :Computes rate and other constants at current v.
 	hysinf =  1 / (1 + exptrap(3, (v+91)/10 ))
 	hystau = 80 + 172.7 / (1+exptrap(4, -(v+59.3)/-0.83))
 
-		:"hyhtf" FAST HT Hypeht activation system
-	hyhtfinf =  1 / (1 + exptrap(5, (v+87)/10 ))
-	hyhtftau = 23.2 + 16.1 / (1+exptrap(6, -(v+91.2)/0.83))
-
-		:"hyhts" SLOW HT Hypeht activation system
-	hyhtsinf =  1 / (1 + exptrap(7, (v+87)/10 ))
-	hyhtstau = 227.3 + 170.7*exptrap(8, -0.5*((v+80.4)/11)^2)
 }
  
 PROCEDURE trates(v) {  :Computes rate and other constants at current v.

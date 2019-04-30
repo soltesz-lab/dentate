@@ -22,7 +22,7 @@ class NetworkOptimizer():
     Creates a global optimizer for optimizing the network firing rate as a
     function of synaptic conductances.  
     """
-    def __init__(self, env, dt_opt=125.0, fname=None, objective=lambda (env, opt_targets): -pop_firing_distance(env, opt_targets), objreduce=mpi_mean):
+    def __init__(self, env, dt_opt=125.0, fname=None, bin_size=5.0, objective=lambda (env, opt_targets): -pop_firing_distance(env, opt_targets), objreduce=mpi_mean):
 
         """
         Default constructor for the network optimizer.
@@ -45,6 +45,7 @@ class NetworkOptimizer():
         self.fname = fname
         self.dt_opt = dt_opt
         self.t_start = h.t
+        self.bin_size = bin_size
         
         self.param_range_tuples = defaultdict(list)
         self.opt_targets = {}
@@ -148,8 +149,12 @@ def pop_firing_rates(env):
     Computes the mean firing rate for each population in the network.
     """
     pop_spike_dict = spikedata.get_env_spike_dict(env)
+
+    t_start = self.t_start
+    t_stop = h.t
     
-    rate_dict = { pop_name: spikedata.spike_rates (spike_dict)
+    time_bins  = np.arange(t_start, t_stop, self.bin_size)
+    rate_dict = { pop_name: np.mean(spikedata.spike_density_estimate (pop_name, spike_dict, time_bins))
                   for pop_name, spike_dict in viewitems(pop_spike_dict) }
 
     return rate_dict
