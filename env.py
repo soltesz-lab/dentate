@@ -251,9 +251,6 @@ class Env:
             self.forest_file_path = None
             self.gapjunctions_file_path = None
                 
-        if 'Input' in self.modelConfig:
-            self.parse_input_config()
-
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
 
@@ -295,29 +292,6 @@ class Env:
         if len(self.template_paths) > 0:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
-
-    def parse_input_config(self):
-        """
-
-        :return:
-        """
-        features_type_dict = self.modelConfig['Definitions']['Input Features']
-        input_dict = self.modelConfig['Input']
-        input_config = {}
-        
-        for (id,dvals) in viewitems(input_dict):
-            config_dict = {}
-            config_dict['trajectory'] = dvals['trajectory']
-            feature_type_dict = {}
-            for (pop,pdvals) in viewitems(dvals['feature type']):
-                pop_feature_type_dict = {}
-                for (feature_type_name,feature_type_fraction) in viewitems(pdvals):
-                    pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)
-                feature_type_dict[pop] = pop_feature_type_dict
-            config_dict['feature type'] = feature_type_dict
-            input_config[int(id)] = config_dict
-
-        self.inputConfig = input_config
 
 
     def parse_netclamp_config(self):

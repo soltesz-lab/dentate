@@ -1061,7 +1061,7 @@ def run(env, output=True, shutdown=True):
         if meangj > 0:
             logger.info("Mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
             for i in range(nhosts):
-                logger.info("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
+                logger.debug("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
 
     if shutdown:
         env.pc.runworker()

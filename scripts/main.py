@@ -11,7 +11,6 @@ import dentate.network as network
 from dentate.env import Env
 from dentate.utils import list_find
 
-
 def mpi_excepthook(type, value, traceback):
     """
 
@@ -76,9 +75,11 @@ def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset
 
     profile_time = False
 
+    
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     params = dict(locals())
+
     env = Env(**params)
 
     if profile_time:
