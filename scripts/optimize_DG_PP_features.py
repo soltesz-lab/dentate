@@ -1,19 +1,35 @@
 import sys, os, time, random, click
+from mpi4py import MPI
 import numpy as np
 from pprint import pprint
 import yaml
+from nested.optimize_utils import *
 from dentate.utils import *
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, calculate_field_distribution
 from dentate.InputCell import *
 
+def mpi_excepthook(type, value, traceback):
+    """
+
+    :param type:
+    :param value:
+    :param traceback:
+    :return:
+    """
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+
+
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
+
 
 config_logging(True)
 
-script_name = os.path.basename(__file__))
-
+script_name = os.path.basename(__file__)
 logger      = get_script_logger(script_name)
-
-context = Struct()
+context = Context()
 
 def _build_cells(N, ctype, module, start_gid=1):
 
@@ -62,6 +78,7 @@ def init_context():
     field_probabilities = None
 
     input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
+
     nmodules = input_params['number modules']
     field_width_x1 = input_params['field width params']['x1']
     field_width_x2 = input_params['field width params']['x2']
