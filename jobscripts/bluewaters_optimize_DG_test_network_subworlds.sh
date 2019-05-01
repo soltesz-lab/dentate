@@ -1,5 +1,5 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=72:ppn=8:xe
+#PBS -l nodes=288:ppn=16:xe
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
@@ -41,7 +41,7 @@ aprun -n 576 -b -- bwpy-environ -- \
     python2.7 -m nested.optimize  \
      --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
      --output-dir=$results_path \
-     --pop-size=2 \
+     --pop-size=16 \
      --max-iter=5 \
      --path-length=1 \
      --disp \
