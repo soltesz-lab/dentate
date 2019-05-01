@@ -3,12 +3,6 @@ import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
 from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
-try:
-    import rbf
-    from rbf.nodes import disperse
-    from rbf.halton import halton
-except ImportError as e:
-    print('dentate.stimulus: problem importing rbf module:', e)
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
@@ -38,7 +32,11 @@ def generate_mesh(scale_factor=1., arena_dimension=100., resolution=5.):
     return np.meshgrid(arena_x, arena_y, indexing='ij')
 
 
-def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10): 
+def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10):
+    import rbf
+    from rbf.nodes import disperse
+    from rbf.halton import halton
+
     # Define the problem domain with line segments.
     vert = np.array([[-arena_dimension,-arena_dimension],[-arena_dimension,arena_dimension],
                     [arena_dimension,arena_dimension],[arena_dimension,-arena_dimension]])
