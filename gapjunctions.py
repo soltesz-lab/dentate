@@ -258,7 +258,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         for gid, v in viewitems(gj_prob_dict):
             if gid % size == rank:
                 (nngids,nndists,nnprobs) = v
-                gids_a.append(np.full(nngids.shape,gid,dtype=np.int32))
+                gids_a.append(np.full(nngids.shape,gid,np.int32))
                 gids_b.append(nngids)
                 gj_probs.append(nnprobs)
                 gj_distances.append(nndists)
