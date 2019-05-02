@@ -68,7 +68,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     default_run_vel = int(input_config['Arena'][arena_id]['Trajectory'][trajectory_id]['run velocity'])  # cm/s
     spatial_resolution = float(input_config['Arena'][arena_id]['resolution'])  # cm
 
-    trajectory_namespace = 'Trajectory %s %s' % (arena_id, str(stimulus_id))
+    trajectory_namespace = 'Trajectory %s %s' % (arena_id, str(trajectory_id))
     stimulus_id_namespace = '%s %s %s' % (stimulus_namespace, str(arena_id), str(trajectory_id))
 
     generate_trajectory = stimulus.generate_linear_trajectory
