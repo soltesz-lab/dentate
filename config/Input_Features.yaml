@@ -6,7 +6,7 @@
 ## Spatial Location and Environmental Features with Complementary
 ## Coding Schemes. 
 ## Neuron Volume 94, Issue 1, 5 April 2017, pp 83-92.
-Feature Type:
+Feature Distribution:
   MPP:
     grid: 0.3
     place: 0.7
@@ -15,41 +15,48 @@ Feature Type:
   PYR:
     place: 1.0
 
-trajectory: !include Trajectory.yaml
-
-Perforant Path:
-  probability inactive:
-    - 0.006
-    - 0.051
-    - 0.040
-    - 0.001
-    - 0.311
-    - 0.514
-    - 0.636
-    - 0.717
-    - 0.768
-    - 0.804
-
-  probability remaining:
-    - 0.94
-    - 0.938
-    - 0.582
-    - 0.026
-    - 0.0007
-    - 0.005
-    - 0.0001
-    - 0.0026
-    - 0.0058
-    - 0.012
+Arena:
+  A: 
+    Perforant Path:
+      probability inactive:
+        - 0.006
+        - 0.051
+        - 0.040
+        - 0.001
+        - 0.311
+        - 0.514
+        - 0.636
+        - 0.717
+        - 0.768
+        - 0.804
+        
+      probability remaining:
+        - 0.94
+        - 0.938
+        - 0.582
+        - 0.026
+        - 0.0007
+        - 0.005
+        - 0.0001
+        - 0.0026
+        - 0.0058
+        - 0.012
     
-    
-number modules: 10
-field width params:
-  x1: 35.0
-  x2: 0.32
-arena dimension: 100.0
-resolution: 5.0
+    number modules: 10
+    field width params:
+      x1: 35.0
+      x2: 0.32
+      
+    arena dimension: 100.0
+    resolution: 5.0
 
+    boundary:
+    
+    Trajectory:
+      Diag:
+        path:
+        run velocity: 30. # cm/s
+    
 field probs:
   PYR:
     0: 0.38

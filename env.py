@@ -297,15 +297,12 @@ class Env:
             find_template(self, 'VecStimCell', path=self.template_paths)
 
     def parse_input_config(self):
-        """
-        :return:                                                                                                                                                                          
-        """                                                                                                                                                                               
-        features_type_dict = self.modelConfig['Definitions']['Input Features']                                                                                                            
+        features_type_dict = self.modelConfig['Definitions']['Input Features']
         input_dict = self.modelConfig['Input']
         input_config = {}
 
         for k,v in viewitems(input_dict):
-            if k == 'Feature Type':
+            if k == 'Feature Distribution':
                 for (id,dvals) in viewitems(v):
                 config_dict = {}
                 config_dict['trajectory'] = dvals['trajectory']
@@ -315,8 +312,7 @@ class Env:
                     for (feature_type_name,feature_type_fraction) in viewitems(pdvals):
                         pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)                                                                      
                     feature_type_dict[pop] = pop_feature_type_dict
-                config_dict['feature type'] = feature_type_dict
-                input_config['Feature Type'] = config_dict
+                input_config['Feature Distribution'] = feature_type_dict
             else:
                 input_config[k] = v
                 
