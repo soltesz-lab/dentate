@@ -60,10 +60,8 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     local_random = random.Random()
     input_spiketrain_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
-    input_config = env.inputConfig[stimulus_id]
-    feature_type_dict = input_config['feature type']
-
-    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    input_config = env.input_config
+    feature_type_dict = input_config['Feature Type']
 
     arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
     default_run_vel = int(input_config['trajectory']['Default run velocity'])  # cm/s
