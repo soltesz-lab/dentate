@@ -303,13 +303,10 @@ class Env:
 
         for k,v in viewitems(input_dict):
             if k == 'Feature Distribution':
-                for (id,dvals) in viewitems(v):
-                config_dict = {}
-                config_dict['trajectory'] = dvals['trajectory']
                 feature_type_dict = {}
-                for (pop,pdvals) in viewitems(dvals['feature type']):
+                for (pop,dvals) in viewitems(v):
                     pop_feature_type_dict = {}
-                    for (feature_type_name,feature_type_fraction) in viewitems(pdvals):
+                    for (feature_type_name,feature_type_fraction) in viewitems(dvals):
                         pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)                                                                      
                     feature_type_dict[pop] = pop_feature_type_dict
                 input_config['Feature Distribution'] = feature_type_dict

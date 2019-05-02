@@ -37,7 +37,8 @@ ibrun -np 200 python -m nested.optimize \
     --disp                 \
     --output-dir="$results_path"  \
     --label=${SLURM_ARRAY_TASK_ID} \
-    --config_prefix=$HOME/model/dentate \
-    --config_file=Full_Scale_GC_Exc_Sat_LNN.yaml
+    --config_prefix=${CONFIG_DIR} \
+    --config_file=Full_Scale_GC_Exc_Sat_LNN.yaml \
+    --arena_id=A
 
 

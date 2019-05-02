@@ -4,6 +4,8 @@ import numpy as np
 from pprint import pprint
 import yaml
 from nested.optimize_utils import *
+import dentate
+from dentate.env import Env
 from dentate.utils import *
 from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, calculate_field_distribution, selectivity_grid, selectivity_place
 from dentate.InputCell import *
