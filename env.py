@@ -254,6 +254,9 @@ class Env:
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
 
+        if 'Input' in self.modelConfig:
+            self.parse_input_config()                                                                                                                                                     
+            
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
             for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
@@ -293,7 +296,25 @@ class Env:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
 
+    def parse_input_config(self):
+        features_type_dict = self.modelConfig['Definitions']['Input Features']
+        input_dict = self.modelConfig['Input']
+        input_config = {}
 
+        for k,v in viewitems(input_dict):
+            if k == 'Feature Distribution':
+                feature_type_dict = {}
+                for (pop,dvals) in viewitems(v):
+                    pop_feature_type_dict = {}
+                    for (feature_type_name,feature_type_fraction) in viewitems(dvals):
+                        pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)                                                                      
+                    feature_type_dict[pop] = pop_feature_type_dict
+                input_config['Feature Distribution'] = feature_type_dict
+            else:
+                input_config[k] = v
+                
+        self.input_config = input_config
+            
     def parse_netclamp_config(self):
         """
 

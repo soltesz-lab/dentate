@@ -715,7 +715,7 @@ class STree2(object) :
 class BiophysCell(object):
     """
     A Python wrapper for neuronal cell objects specified in the NEURON language hoc.
-    Extends btmorph.STree to provide an tree interface to facilitate:
+    Extends STree to provide an tree interface to facilitate:
     1) Iteration through connected neuronal compartments, and
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
@@ -731,7 +731,7 @@ class BiophysCell(object):
         """
         self._gid = gid
         self._pop_name = pop_name
-        self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
+        self.tree = STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.count = 0  # Keep track of number of nodes
         if env is not None:
             for sec_type in env.SWC_Types:
@@ -813,7 +813,7 @@ class BiophysCell(object):
         return self.nodes['hillock']
 
 
-class SHocNode(btmorph.btstructs2.SNode2):
+class SHocNode(SNode2):
     """
     Extends SNode2 with some methods for storing and retrieving additional information in the node's content
     dictionary related to running NEURON models specified in the hoc language.
@@ -822,7 +822,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
         """
         :param index: int : unique node identifier
         """
-        btmorph.btstructs2.SNode2.__init__(self, index)
+        SNode2.__init__(self, index)
         self.content['spine_count'] = []
         self._connection_loc = None
 

@@ -1,19 +1,37 @@
 import sys, os, time, random, click
+from mpi4py import MPI
 import numpy as np
 from pprint import pprint
 import yaml
+from nested.optimize_utils import *
+import dentate
+from dentate.env import Env
 from dentate.utils import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, calculate_field_distribution
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, calculate_field_distribution, selectivity_grid, selectivity_place
 from dentate.InputCell import *
+
+def mpi_excepthook(type, value, traceback):
+    """
+
+    :param type:
+    :param value:
+    :param traceback:
+    :return:
+    """
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+
+
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
 
 
 config_logging(True)
 
-script_name = os.path.basename(__file__))
-
+script_name = os.path.basename(__file__)
 logger      = get_script_logger(script_name)
-
-context = Struct()
+context = Context()
 
 def _build_cells(N, ctype, module, start_gid=1):
 
@@ -54,6 +72,9 @@ def _build_cells(N, ctype, module, start_gid=1):
 
 def init_context():
 
+    if 'env' not in context():
+        context.env = Env(**context.kwargs)
+    
     local_random = random.Random()
     local_random.seed(context.local_seed)
 
@@ -61,7 +82,8 @@ def init_context():
     field_random = np.random.RandomState(context.local_seed)
     field_probabilities = None
 
-    input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
+    input_params = context.env.input_config['Arena'][context.arena_id]
+
     nmodules = input_params['number modules']
     field_width_x1 = input_params['field width params']['x1']
     field_width_x2 = input_params['field width params']['x2']
@@ -73,7 +95,6 @@ def init_context():
     field_width_params = [field_width_x1, field_width_x2]
     field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width    = field_width(1.)
-    feature_ctypes     = {'grid': 0, 'place': 1}
     module_width       = field_width( float(context.module) / np.max(modules))
     scale_factor       = (module_width / arena_dimension / 2.) + 1.
 
@@ -85,21 +106,22 @@ def init_context():
     context.grid_cells, context.place_gid_start  = _build_cells(context.num_grid, 'grid', context.module)
     _calculate_rate_maps(context.grid_cells, context)
 
+    
 @click.command()
-@click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),default='../config/Input_Features.yaml')
+@click.option("--optimize-config-file-path", type=str, help='optimization configuration file name')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=True, dir_okay=True), default=None)
 @click.option("--export", is_flag=True, default=False)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
 @click.option("--run-tests", is_flag=True, default=False, required=False)
 @click.option("--verbose", "-v", is_flag=True, default=False)
-def main(config_file_path, input_params_file_path, output_dir, export, export_file_path, label, run_tests, verbose):
+def main(optimize_config_file_path, input_params_file_path, output_dir, export, export_file_path, label, run_tests, verbose):
     context.update(locals())
     disp = verbose > 0
+    config_logging(disp)
     if disp:
         print('... config interactive underway..')
-    config_interactive(context, __file__, config_file_path=config_file_path, output_dir=output_dir, \
+    config_interactive(context, __file__, config_file_path=optimize_config_file_path, output_dir=output_dir, \
                        export=export, export_file_path=export_file_path, label=label, disp=disp)
     if disp:
         print('... config interactive complete...')
@@ -254,10 +276,10 @@ def _calculate_rate_maps(cells, context):
         cell = cells[gid]
         if cell['Num Fields'][0] > 0:
             ctype = cell['Cell Type'][0]
-            if ctype == 0: # Grid
+            if ctype == selectivity_grid: # Grid
                 orientation = cell['Grid Orientation']
                 spacing     = cell['Grid Spacing']
-            elif ctype == 1: # Place
+            elif ctype == selectivity_place: # Place
                 spacing     = cell['Field Width']
                 orientation = [0.0 for _ in range(len(spacing))]
  
