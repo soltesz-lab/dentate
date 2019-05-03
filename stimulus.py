@@ -57,7 +57,7 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
 
 
-def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
+def generate_linear_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
     xy_offset, t_offset, d_offset = 0., 0., 0.
     if ramp_up_period is not None:
         ramp_up_distance = (ramp_up_period / 1000.) * velocity  # cm
