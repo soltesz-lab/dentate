@@ -2048,6 +2048,21 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     return (syn_dict, seg_density_per_sec)
 
+def rejection_sampling(gen, n, clip):
+    if clip is None:
+        result = gen(n)
+    else:
+        clip_min, clip_max = clip
+        remaining = n
+        source_weights = []
+        while remaining > 0:
+            sample = gen(remaining)
+            filtered = sample[np.where((sample >= clip_min) & (sample <= clip_max))]
+            source_weights.append(filtered)
+            remaining -= len(filtered)
+        result = np.concatenate(tuple(source_weights))
+
+    return result
 
 def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=None):
     """
@@ -2069,17 +2084,12 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
+    source_weights = rejection_sampling(lambda n: local_random.lognormal(mu, sigma, n),
+                                        len(source_syn_dict), clip)
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
-    for this_source_gid in source_syn_dict:
+    for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
         for this_syn_id in source_syn_dict[this_source_gid]:
-            if clip is not None:
-                clip_min, clip_max = clip
-                this_weight = clip_min - 1.
-                while this_weight < clip_min or this_weight > clip_max:
-                    this_weight = local_random.lognormal(mu, sigma)
-            else:
-                this_weight = local_random.lognormal(mu, sigma)
             syn_weight_dict[this_syn_id] = this_weight
     weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
     normed_weights = weights 
@@ -2108,7 +2118,8 @@ def generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip
     
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
-    source_weights = local_random.normal(mu, sigma, len(source_syn_dict))
+    source_weights = rejection_sampling(lambda n: local_random.normal(mu, sigma, n),
+                                        len(source_syn_dict), clip)
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
     for this_source_gid, this_weight in zip(source_syn_dict, source_weights):

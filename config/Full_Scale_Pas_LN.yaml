@@ -9,7 +9,6 @@ Cell Data: DG_Cells_Full_Scale_20181203.h5
 Connection Data: DG_Connections_Full_Scale_20181203.h5
 Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
-Input: !include Input.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
@@ -23,8 +22,6 @@ Cell Types:
   MC:
     template: MossyCell
     synapses:
-#      weights: True
-#      weights namespace: Log-Normal Weights
       density: !include MC_synapse_density.yaml
   HC:
     template: HIPPCell

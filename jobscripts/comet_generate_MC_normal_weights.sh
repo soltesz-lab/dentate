@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J generate_MC_log_normal_weights
-#SBATCH -o ./results/generate_MC_log_normal_weights.%j.o
+#SBATCH -J generate_MC_normal_weights
+#SBATCH -o ./results/generate_MC_normal_weights.%j.o
 #SBATCH --nodes=30
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 1:00:00
@@ -26,11 +26,11 @@ ulimit -c unlimited
 set -x
 
 ibrun -np 720  \
- python2.7 $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
-    -d MC -s GC \
+ python2.7 $HOME/model/dentate/scripts/generate_normal_weights_as_cell_attr.py \
+    -d MC -s MC \
     --config-prefix=./config \
     --config=Full_Scale_GC_Exc_Sat_LNN.yaml \
-    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20190430.h5 \
+    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_N_20190430.h5 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190430_compressed.h5 \
     --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
 

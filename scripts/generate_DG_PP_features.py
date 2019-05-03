@@ -34,9 +34,9 @@ def calculate_field_distribution(pi, pr):
     return probabilities 
 
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--input-params-file-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--stimulus-id", type=int, default=0)
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
+@click.option("--arena-id", type=str, default='A')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", type=str, default='Arc Distances')
@@ -47,10 +47,11 @@ def calculate_field_distribution(pi, pr):
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, input_params_file_path, stimulus_id, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
+def main(config, config_prefix, arena_id, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
     """
 
     :param config:
+    :param config_prefix:
     :param coords_path:
     :param distances_namespace:
     :param io_size:
@@ -65,7 +66,7 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
 
     config_logging(verbose)
 
-    env = Env(comm=comm, config_file=config)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
@@ -81,17 +82,18 @@ def main(config, input_params_file_path, stimulus_id, coords_path, output_path, 
     comm.barrier()
     population_ranges = read_population_ranges(coords_path, comm)[0]
 
-    input_params = read_from_yaml(input_params_file_path)
-    nmodules = input_params['number modules']
-    field_width_x1 = input_params['field width params']['x1']
-    field_width_x2 = input_params['field width params']['x2']
-    arena_dimension = input_params['arena dimension']
-    resolution = input_params['resolution']
-    module_pi = input_params['Perforant Path']['probability inactive']
-    module_pr = input_params['Perforant Path']['probability remaining']
-    context.update(locals()) 
+    input_config = env.input_config['Arena'][arena_id]
+    nmodules = input_config['number modules']
+    field_width_x1 = input_config['field width params']['x1']
+    field_width_x2 = input_config['field width params']['x2']
+    arena_dimension = input_config['arena dimension']
+    resolution = input_config['resolution']
+    module_pi = input_config['Perforant Path']['probability inactive']
+    module_pr = input_config['Perforant Path']['probability remaining']
 
-    context = Context(**dict(locals()))
+    feature_dist = env.input_config['Feature Distribution']
+    
+    context = Struct(**dict(locals()))
 
     gid_normed_distances = assign_cells_to_normalized_position(context) # Assign normalized u,v coordinates
     gid_module_assignments = assign_cells_to_module(context, gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
@@ -183,8 +185,7 @@ def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace
 ## pr - probability 
 def determine_cell_participation(context, gid_module_assignments):
 
-    input_config        = context.env.inputConfig[context.stimulus_id]
-    feature_type_dict   = input_config['feature type']
+    feature_type_dict   = context.feature_dist
     feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
     feature_type_random = np.random.RandomState(feature_seed_offset - 1)
     num_field_random    = np.random.RandomState(feature_seed_offset - 1)

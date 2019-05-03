@@ -7,10 +7,8 @@ Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Cell Data: DG_test_cells_20180413.h5
 Connection Data: DG_test_connections_20180402.h5
-#Gap Junction Data: DG_gapjunctions_20180721.h5
+Gap Junction Data: DG_gapjunctions_20180721.h5
 Connection Generator: !include Full_Scale_Connections.yaml
-#LFP: !include LFP.yaml
-Input: !include Input.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
@@ -19,8 +17,6 @@ Cell Types:
     mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
-#      weights: True
-#      weights namespace: Log-Normal Weights
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
