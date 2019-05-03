@@ -2083,7 +2083,7 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
-    source_weights = rejection_sampling(lambda remaining: local_random.lognormal(mu, sigma, remaining),
+    source_weights = rejection_sampling(lambda n: local_random.lognormal(mu, sigma, n),
                                         len(source_syn_dict), clip)
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
@@ -2117,7 +2117,7 @@ def generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip
     
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
-    source_weights = rejection_sampling(lambda remaining: local_random.normal(mu, sigma, remaining),
+    source_weights = rejection_sampling(lambda n: local_random.normal(mu, sigma, n),
                                         len(source_syn_dict), clip)
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
