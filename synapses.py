@@ -2049,19 +2049,20 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     return (syn_dict, seg_density_per_sec)
 
 def rejection_sampling(gen, n, clip):
-    if clip is not None:
+    if clip is None:
+        result = gen(n)
+    else:
         clip_min, clip_max = clip
         remaining = n
         source_weights = []
         while remaining > 0:
             sample = gen(remaining)
-            filtered = sample[np.where((sample >= clip_min) && (sample <= clip_max))]
+            filtered = sample[np.where((sample >= clip_min) & (sample <= clip_max))]
             source_weights.append(filtered)
             remaining -= len(filtered)
-        source_weights = np.concatenate(tuple(source_weights))
-    else:
-        source_weights = local_random.lognormal(mu, sigma, len(source_syn_dict))
+        result = np.concatenate(tuple(source_weights))
 
+    return result
 
 def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=None):
     """
