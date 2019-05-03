@@ -230,7 +230,7 @@ class QuickSim(object):
         else:
             raise KeyError('QuickSim: get_stim: cannot find stimulus with name: %s' % name)
 
-    def modify_stim(self, name, node=None, loc=None, amp=None, delay=None, dur=None, description=None):
+    def modify_stim(self, name, node=None, loc=None, amp=None, delay=None, dur=None, description=None, cell=None):
         """
 
         :param name: str
@@ -240,12 +240,19 @@ class QuickSim(object):
         :param delay: float
         :param dur: float
         :param description: str
+        :param cell: :class:'BiophysCell'
         """
+        if cell is not None:
+            if node is None or self.stims[name]['node'].sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_stim: cannot change target cell without specifying new target '
+                                   'node')
+            self.stims[name]['cell'] = cell
         if not (node is None and loc is None):
             if node is not None:
+                if cell is None and self.stims[name]['node'].sec.cell() != node.sec.cell():
+                    raise RuntimeError('QuickSim: modify_stim: cannot change target node to new cell without '
+                                       'specifying new target cell')
                 self.stims[name]['node'] = node
-                if node.sec.cell() is not self.stims[name]['cell']:
-                    self.stims[name]['cell'] = node.sec.cell()
             if loc is None:
                 loc = self.stims[name]['stim'].get_segment().x
             self.stims[name]['stim'].loc(self.stims[name]['node'].sec(loc))
