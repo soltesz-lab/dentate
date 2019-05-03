@@ -70,7 +70,7 @@ mpl.rcParams['font.size'] = 14.
 mpl.rcParams['font.sans-serif'] = 'Arial'
 mpl.rcParams['text.usetex'] = False
 
-selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selectivity_place_field}
+selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selectivity_place}
 
 
 def show_figure():
