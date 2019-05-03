@@ -2057,9 +2057,9 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
     :param mu: mean of log-normal distribution
     :param sigma: standard deviation of log-normal distribution
-    :param clip: if provided, specify min and max range for weight values
     :param seed: seed for random number generator
     :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :param clip: if provided, specify min and max range for weight values
     :return: dictionary of the form:
     { 'syn_id': <numpy uint32 array of synapse ids>,
       weight_name: <numpy float array of weights>
@@ -2069,16 +2069,19 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
-    source_weights = local_random.lognormal(mu, sigma, len(source_syn_dict))
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
-    for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
+    for this_source_gid in source_syn_dict:
         for this_syn_id in source_syn_dict[this_source_gid]:
+            if clip is not None:
+                clip_min, clip_max = clip
+                this_weight = clip_min - 1.
+                while this_weight < clip_min or this_weight > clip_max:
+                    this_weight = local_random.lognormal(mu, sigma)
+            else:
+                this_weight = local_random.lognormal(mu, sigma)
             syn_weight_dict[this_syn_id] = this_weight
     weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
-    if clip is not None:
-        clip_min, clip_max = clip
-        np.clip(weights, clip_min, clip_max, out=weights)
     normed_weights = weights 
     weights_dict = \
       { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
