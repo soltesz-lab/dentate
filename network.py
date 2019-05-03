@@ -123,15 +123,18 @@ def connect_cells(env):
         else:
             unique = False
 
+        weights_namespaces = []
         if 'weights' in synapse_config:
             has_weights = synapse_config['weights']
+            if has_weights:
+                if 'weights namespace' in synapse_config:
+                    weights_namespaces.append(synapse_config['weights namespace'])
+                elif 'weights namespaces' in synapse_config:
+                    weights_namespaces.extend(synapse_config['weights namespaces'])
+                else:
+                    weights_namespaces.append('Weights')
         else:
             has_weights = False
-
-        if 'weights namespace' in synapse_config:
-            weights_namespace = synapse_config['weights namespace']
-        else:
-            weights_namespace = 'Weights'
 
         if 'mech_file_path' in env.celltypes[postsyn_name]:
             mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
@@ -144,10 +147,9 @@ def connect_cells(env):
         if rank == 0:
             logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
+        cell_attr_namespaces = ['Synapse Attributes']
         if has_weights:
-            cell_attr_namespaces = ['Synapse Attributes', weights_namespace]
-        else:
-            cell_attr_namespaces = ['Synapse Attributes']
+            cell_attr_namespaces.extend(weights_namespaces)
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
@@ -160,30 +162,30 @@ def connect_cells(env):
                                                                 io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
         del cell_attributes_dict['Synapse Attributes']
-        
-        if weights_namespace in cell_attributes_dict:
-            syn_weights_iter = cell_attributes_dict[weights_namespace]
-            first_gid = None
-            for gid, cell_weights_dict in syn_weights_iter:
-                if first_gid is None:
-                    first_gid = gid
-                weights_syn_ids = cell_weights_dict['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                    if syn_name not in syn_attrs.syn_mech_names:
-                        logger.info('*** connect_cells: population: %s; gid: %i; syn_name: %s '
-                                    'not found in network configuration' % 
-                                    (postsyn_name, gid, syn_name))
-                        raise Exception
-                    weights_values  = cell_weights_dict[syn_name]
-                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
-                                                       zip_longest(weights_syn_ids,
-                                                                   itertools.imap(lambda x: {'weight': x},
-                                                                                  weights_values)))
-                    if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
 
-            del cell_attributes_dict[weights_namespace]
+        for weights_namespace in weights_namespaces:
+            if weights_namespace in cell_attributes_dict:
+                syn_weights_iter = cell_attributes_dict[weights_namespace]
+                first_gid = None
+                for gid, cell_weights_dict in syn_weights_iter:
+                    if first_gid is None:
+                        first_gid = gid
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        if syn_name not in syn_attrs.syn_mech_names:
+                            logger.info('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                            'not found in network configuration' % 
+                                            (postsyn_name, gid, syn_name))
+                            raise Exception
+                        weights_values  = cell_weights_dict[syn_name]
+                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                           zip_longest(weights_syn_ids,
+                                                                       itertools.imap(lambda x: {'weight': x}, weights_values)))
+                    if rank == 0 and gid == first_gid:
+                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+
+                del cell_attributes_dict[weights_namespace]
 
         first_gid = None
         for gid in syn_attrs.gids():
@@ -265,26 +267,6 @@ def connect_cells(env):
 
             if gid == first_gid:
                 synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], comm=comm0)
-                """
-                if rank == 0 and 'AMPA' in syn_attrs.syn_mech_names and gid in env.biophys_cells[postsyn_name]:
-                    biophys_cell = env.biophys_cells[postsyn_name][gid]
-                    from dentate.plot import plot_synaptic_attribute_distribution
-                    results_file = 'example_syn_attrs.h5'
-                    overwrite = True
-                    syn_mech_name = syn_attrs.syn_mech_names['AMPA']
-                    if 'g_unit' in syn_attrs.syn_param_rules[syn_mech_name]['netcon_params']:
-                        param_label = 'AMPA: g_unit'
-                        plot_synaptic_attribute_distribution(
-                            biophys_cell, env, 'AMPA', 'g_unit', from_mech_attrs=True, from_target_attrs=True,
-                            param_label=param_label, export=results_file, description='gid %i; after' % gid,
-                            show=False, overwrite=overwrite, data_dir=env.results_path)
-                    overwrite = False
-                    param_label = 'AMPA: weight'
-                    plot_synaptic_attribute_distribution(
-                        biophys_cell, env, 'AMPA', 'weight', from_mech_attrs=True, from_target_attrs=True,
-                        param_label=param_label, export=results_file, description='gid %i; after' % gid,
-                        show=False, overwrite=overwrite, data_dir=env.results_path)
-                """
 
             env.edge_count[postsyn_name] += syn_count
 
@@ -361,10 +343,18 @@ def connect_cell_selection(env):
         else:
             has_weights = False
 
-        if 'weights namespace' in synapse_config:
-            weights_namespace = synapse_config['weights namespace']
+        weights_namespaces = []
+        if 'weights' in synapse_config:
+            has_weights = synapse_config['weights']
+            if has_weights:
+                if 'weights namespace' in synapse_config:
+                    weights_namespaces.append(synapse_config['weights namespace'])
+                elif 'weights namespaces' in synapse_config:
+                    weights_namespaces.extend(synapse_config['weights namespaces'])
+                else:
+                    weights_namespaces.append('Weights')
         else:
-            weights_namespace = 'Weights'
+            has_weights = False
 
         if 'mech file_path' in env.celltypes[postsyn_name]:
             mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
@@ -380,27 +370,24 @@ def connect_cell_selection(env):
         del(syn_attributes_iter)
         
         if has_weights:
-            weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
-                                                                    namespace=weights_namespace, comm=env.comm)
-        else:
-            weight_attributes_iter = None
-
-        if weight_attributes_iter is not None:
-            first_gid = None
-            for gid, cell_weights_dict in weight_attributes_iter:
-                if first_gid is None:
-                    first_gid = gid
-                weights_syn_ids = cell_weights_dict['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                    weights_values  = cell_weights_dict[syn_name]
-                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                       zip_longest(weights_syn_ids, \
-                                                                   itertools.imap(lambda x: { 'weight' : x }, \
-                                                                                  weights_values)))
+            for weights_namespace in weights_namespaces:
+                weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
+                                                                        namespace=weights_namespace, comm=env.comm)
+                first_gid = None
+                for gid, cell_weights_dict in weight_attributes_iter:
+                    if first_gid is None:
+                        first_gid = gid
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        weights_values  = cell_weights_dict[syn_name]
+                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                                           zip_longest(weights_syn_ids, \
+                                                                       itertools.imap(lambda x: { 'weight' : x }, \
+                                                                                        weights_values)))
                     if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name))
-            del weight_attributes_iter
+                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                del weight_attributes_iter
 
         first_gid = None
         for gid in syn_attrs.gids():
@@ -1018,7 +1005,10 @@ def run(env, output=True, shutdown=True):
 
     env.simtime.reset()
     h.finitialize(env.v_init)
-    
+
+    ## more accurate integration of synaptic discontinuities
+    h.nrn_netrec_state_adjust = 1
+
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 
@@ -1071,7 +1061,7 @@ def run(env, output=True, shutdown=True):
         if meangj > 0:
             logger.info("Mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
             for i in range(nhosts):
-                logger.info("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
+                logger.debug("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
 
     if shutdown:
         env.pc.runworker()

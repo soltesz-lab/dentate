@@ -3,16 +3,10 @@ import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
 from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
-try:
-    import rbf
-    from rbf.nodes import disperse
-    from rbf.halton import halton
-except ImportError as e:
-    print('dentate.stimulus: problem importing rbf module:', e)
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
-selectivity_place_field = 1
+selectivity_place = 1
 
 def generate_expected_width(field_width_params, module_widths, offsets, positions=None):
     if positions is None:
@@ -38,7 +32,11 @@ def generate_mesh(scale_factor=1., arena_dimension=100., resolution=5.):
     return np.meshgrid(arena_x, arena_y, indexing='ij')
 
 
-def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10): 
+def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10):
+    import rbf
+    from rbf.nodes import disperse
+    from rbf.halton import halton
+
     # Define the problem domain with line segments.
     vert = np.array([[-arena_dimension,-arena_dimension],[-arena_dimension,arena_dimension],
                     [arena_dimension,arena_dimension],[arena_dimension,-arena_dimension]])
@@ -59,7 +57,7 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
 
 
-def generate_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
+def generate_linear_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
     xy_offset, t_offset, d_offset = 0., 0., 0.
     if ramp_up_period is not None:
         ramp_up_distance = (ramp_up_period / 1000.) * velocity  # cm
@@ -160,8 +158,6 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
     if interp_x.shape != interp_y.shape:
         raise Exception('x and y coordinates must have same size')
     
-    selectivity_grid = 0
-    selectivity_place = 1
 
     a = kwargs.get('a', 0.3)
     b = kwargs.get('b', -1.5)

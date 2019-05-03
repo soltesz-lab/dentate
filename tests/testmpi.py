@@ -1,6 +1,12 @@
+import mpi4py
 from mpi4py import MPI
 from neuron import h
-from neuroh5 import io
+
+print mpi4py.get_config()
+print mpi4py.get_include()
+
+h.load_file("stdlib.hoc")
+h.load_file("stdrun.hoc")
 root = 0
 pc = h.ParallelContext()
 id = int(pc.id())

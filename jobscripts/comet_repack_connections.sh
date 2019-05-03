@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J repack_GC_connections
-#SBATCH -o ./results/repack_GC_connections.%j.o
+#SBATCH -J repack_connections
+#SBATCH -o ./results/repack_connections.%j.o
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=12
 #SBATCH -p shared
@@ -13,8 +13,8 @@
 module load hdf5
 
 export prefix=/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control
-export copy=$prefix/DG_IN_connections_20181227.h5
-export output=$prefix/DG_IN_connections_20181227_compressed.h5
+export copy=$prefix/DG_GC_connections_20190430.h5
+export output=$prefix/DG_GC_connections_20190430_compressed.h5
 
 set -x
 

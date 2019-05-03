@@ -25,13 +25,14 @@ sys.excepthook = mpi_excepthook
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--stimulus-id", type=int, default=0)
+@click.option("--arena-id", type=str, default='A')
+@click.option("--trajectory-id", type=str, default='Dflt')
 @click.option("--features-namespaces", "-n", type=str, multiple=True, default=['Grid Input Features','Place Input Features'])
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
-         stimulus_namespace, verbose, dry_run):
+def main(config, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, arena_id, trajectory_id,
+         features_namespaces, stimulus_namespace, verbose, dry_run):
     """
 
     :param features_path: str
@@ -60,17 +61,15 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     local_random = random.Random()
     input_spiketrain_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
-    input_config = env.inputConfig[stimulus_id]
-    feature_type_dict = input_config['feature type']
+    input_config = env.input_config
+    feature_type_dict = input_config['Feature Distribution']
 
-    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    arena_dimension = int(input_config['Arena'][arena_id]['arena dimension'])  # minimum distance from origin to boundary (cm)
+    default_run_vel = int(input_config['Arena'][arena_id]['Trajectory'][trajectory_id]['run velocity'])  # cm/s
+    spatial_resolution = float(input_config['Arena'][arena_id]['resolution'])  # cm
 
-    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
-    default_run_vel = int(input_config['trajectory']['Default run velocity'])  # cm/s
-    spatial_resolution = float(input_config['trajectory']['Spatial resolution'])  # cm
-
-    trajectory_namespace = 'Trajectory %s' % str(stimulus_id)
-    stimulus_id_namespace = '%s %s' % (stimulus_namespace, str(stimulus_id))
+    trajectory_namespace = 'Trajectory %s %s' % (arena_id, str(trajectory_id))
+    stimulus_id_namespace = '%s %s %s' % (stimulus_namespace, str(arena_id), str(trajectory_id))
 
     generate_trajectory = stimulus.generate_linear_trajectory
     
