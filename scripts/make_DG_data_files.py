@@ -14,7 +14,7 @@ DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
 DG_EXT_coordinate_file = "dentate_Full_Scale_Control_coords_20180717.h5"
 
 DG_GC_forest_file = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_forest_file = "DG_IN_forest_20190325_compressed.h5"
+DG_IN_forest_file = "DG_IN_forest_20190325.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20181222_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20190325_compressed.h5"
