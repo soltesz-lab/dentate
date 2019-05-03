@@ -58,8 +58,8 @@ Cell Types:
       density: !include IS_synapse_density.yaml
   MPP:
     template: MPPCell
-    Vector Stimulus: Vector Stimulus 100
+    Vector Stimulus: Vector Stimulus A Diag
   LPP:
     template: LPPCell
-    Vector Stimulus: Vector Stimulus 100
+    Vector Stimulus: Vector Stimulus A Diag
 
