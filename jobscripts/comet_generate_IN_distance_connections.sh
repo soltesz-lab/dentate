@@ -29,8 +29,8 @@ set -x
 ibrun -np 240 python ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
        --config=Full_Scale_Pas.yaml \
-       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20190123_compressed.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190204.h5 \
+       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20190325_compressed.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190325.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190122.h5 \
        --coords-namespace=Coordinates \

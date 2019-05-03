@@ -21,8 +21,16 @@ def passive_test (tree, v_init):
     mainlength = 2000
 
     tstop = prelength+mainlength
-    
+
     stimdur = 500.0
+
+    dend_length = 0.
+    for sec in cell.apical:
+        dend_length += sec.L
+    for sec in cell.basal:
+        dend_length += sec.L
+
+    print "passive_test: total dendritic length is %.02f um" % dend_length
     
     stim1 = h.IClamp(cell.sections[0](0.5))
     stim1.delay = prelength
@@ -42,6 +50,7 @@ def passive_test (tree, v_init):
     ## compute membrane time constant
     vrest  = h.Vlog.x[int(h.tlog.indwhere(">=",prelength-1))]
     vmin   = h.Vlog.min()
+    vmax   = h.Vlog.max()
     vmax   = vrest
     
     ## the time it takes the system's step response to reach 1-1/e (or
@@ -54,6 +63,7 @@ def passive_test (tree, v_init):
     
     f.write ("DC input resistance: %g MOhm\n" % h.rn(cell))
     f.write ("vmin: %g mV\n" % vmin)
+    f.write ("vmax: %g mV\n" % vmax)
     f.write ("vtau0: %g mV\n" % vtau0)
     f.write ("tau0: %g ms\n" % tau0)
 
@@ -247,8 +257,8 @@ def main(template_path,forest_path):
     
     gid, tree = next(trees)
     
-    passive_test(tree,-70)
-    ap_rate_test(tree,-70)
+    passive_test(tree,-60)
+    ap_rate_test(tree,-60)
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("HICAPCellTest.py") != -1,sys.argv)+1):])

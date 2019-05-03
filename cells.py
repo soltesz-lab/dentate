@@ -3,10 +3,7 @@ from dentate.utils import viewitems
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
-try:
-    import btmorph
-except Exception:
-    pass
+import btmorph
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -1537,7 +1534,7 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
     h.tstop = duration+delay
     h.cvode_active (1)
 
-    h.load_file("nrngui.hoc")  
+    h.load_file("stdrun.hoc")  
     h.load_file("thresh.hoc")  ## nrn/lib/hoc
     thr = h.threshold(iclamp._ref_amp)
 

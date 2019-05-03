@@ -1,9 +1,9 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=72:ppn=8:xe
+#PBS -l nodes=1080:ppn=8:xe
 ### which queue to use
-#PBS -q normal
+#PBS -q debug
 ### set the wallclock time
-#PBS -l walltime=4:00:00
+#PBS -l walltime=0:30:00
 ### set the job name
 #PBS -N optimize_DG_test_network_subworlds
 ### set the job stdout and stderr
@@ -14,7 +14,6 @@
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
 #PBS -A bayj
-
 
 module load bwpy/2.0.1
 module load craype-hugepages2M
@@ -37,11 +36,11 @@ mkdir -p $results_path
 
 cd tests
 
-aprun -n 576 -b -- bwpy-environ -- \
+aprun -n 8640 -b -- bwpy-environ -- \
     python2.7 -m nested.optimize  \
-     --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
+     --config-file-path=$DG_HOME/config/DG_test_network_subworlds_dbg.yaml \
      --output-dir=$results_path \
-     --pop-size=2 \
+     --pop-size=30 \
      --max-iter=5 \
      --path-length=1 \
      --disp \
@@ -55,5 +54,4 @@ aprun -n 576 -b -- bwpy-environ -- \
      --cell_selection_path=$DG_HOME/datasets/DG_slice.yaml \
      --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LNN_9870802.bw/dentatenet_Full_Scale_GC_Exc_Sat_LNN_results.h5 \
      --spike_input_namespace='Spike Events' \
-     --max-walltime-hours 3.75 \
-     --io-size 64
+     --max-walltime-hours 0.5
