@@ -2072,9 +2072,9 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
     :param mu: mean of log-normal distribution
     :param sigma: standard deviation of log-normal distribution
-    :param clip: if provided, specify min and max range for weight values
     :param seed: seed for random number generator
     :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :param clip: if provided, specify min and max range for weight values
     :return: dictionary of the form:
     { 'syn_id': <numpy uint32 array of synapse ids>,
       weight_name: <numpy float array of weights>

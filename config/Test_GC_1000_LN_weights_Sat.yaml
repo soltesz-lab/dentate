@@ -1,6 +1,6 @@
 ## Model configuration of dentate gyrus network
 Model Name: dentatenet
-Dataset Name: Small_Scale
+Dataset Name: Test_GC_1000
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
@@ -8,6 +8,7 @@ Cell Data: GC_tree_syns_connections_20181127.h5  # DG_small_scale_tree_syns_weig
 Connection Data: GC_tree_syns_connections_20181127.h5  # DG_GC_test_connections_20180402.h5
 Connection Generator: !include Small_Scale_Connections_Sat.yaml
 LFP: !include LFP.yaml
+Input: !include Input.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:
