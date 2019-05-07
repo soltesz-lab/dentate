@@ -57,13 +57,8 @@ def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10
 
 
 
-def generate_linear_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
+def generate_linear_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1.):
     xy_offset, t_offset, d_offset = 0., 0., 0.
-    if ramp_up_period is not None:
-        ramp_up_distance = (ramp_up_period / 1000.) * velocity  # cm
-        xy_offset = ramp_up_distance / np.sqrt(2)
-        t_offset = ramp_up_period
-        d_offset = ramp_up_distance
 
     x = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
     y = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
@@ -143,7 +138,7 @@ def fwhm2sigma(fwhm):
     
 
 def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x, interp_y,
-                             grid_peak_rate, place_peak_rate, ramp_up_period=500.0, **kwargs):
+                             grid_peak_rate, place_peak_rate, ramp_up_period=None, **kwargs):
     """
 
     :param selectivity_type: int
@@ -195,35 +190,6 @@ def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x
         raise Exception('Could not find proper cell type')
 
     response = rate_map
-
-   # u = lambda ori: (np.cos(ori), np.sin(ori))
-   # ori_array = 2. * np.pi * np.array([-30., 30., 90.]) / 360.  # rads
-   # g = lambda x: np.exp(a * (x - b)) - 1.
-   # scale_factor = g(3.)
-   # grid_rate = lambda grid_spacing, ori_offset, x_offset, y_offset: \
-   #   lambda x, y: grid_peak_rate / scale_factor * \
-   #   g(np.sum([np.cos(4. * np.pi / np.sqrt(3.) /
-   #                        grid_spacing * np.dot(u(theta - ori_offset), (x - x_offset, y - y_offset)))
-   #                 for theta in ori_array]))
-
-   # place_rate = lambda field_width, x_offset, y_offset: \
-   #   lambda x, y: place_peak_rate * np.exp(-((x - x_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.) * \
-   #   np.exp(-((y - y_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.)
-      
-
-   # if selectivity_type == selectivity_grid:
-   #     ori_offset = features_dict['Grid Orientation'][0]
-   #     grid_spacing = features_dict['Grid Spacing'][0]
-   #     x_offset = features_dict['X Offset'][0]
-   #     y_offset = features_dict['Y Offset'][0]
-   #     rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
-   # elif selectivity_type == selectivity_place_field:
-   #     field_width = features_dict['Field Width'][0]
-   #     x_offset = features_dict['X Offset'][0]
-   #     y_offset = features_dict['Y Offset'][0]
-   #     rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
-
-   # response = rate(interp_x, interp_y).astype('float32', copy=False)
 
     if ramp_up_period is not None:
         import scipy.signal as signal

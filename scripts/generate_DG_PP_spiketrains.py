@@ -118,24 +118,10 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     t = comm.bcast(t, root=0)
 
     population_ranges = read_population_ranges(features_path, comm=comm)[0]
-
-    for population in ['LPP', 'MPP']:
-        population_start = population_ranges[population][0]
-  
-        for features_type, features_namespace in enumerate(features_namespaces):
-            attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=features_namespace,
-                                           comm=comm, io_size=io_size, cache_size=cache_size)
- 
-            cells = {}
-            for gid, features_dict in attr_gen:
-                if features_dict is None:
-                    continue
-                cells[gid] = {}
-                cells[gid]['Module'] = features_dict['Module']
-            append_cell_attributes(output_path, population, cells, namespace='Cell Attributes', comm=comm, \
-                                   io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-
-    for population in ['LPP', 'MPP']:
+    print "population_ranges: ", population_ranges
+    comm.barrier()
+            
+    for population in ['MPP', 'LPP']:
         population_start = population_ranges[population][0]
 
         count = 0
@@ -158,6 +144,11 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
                                                                 grid_peak_rate=20., place_peak_rate=20.)
                     local_random.seed(int(input_spiketrain_offset + gid))
                     spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)
+                    if len(spiketrain) > 0:
+                        if np.min(spiketrain) < 0:
+                            logger.info("Rank %i gid %i: response = %s" % (rank, gid, str(response)))
+                            logger.info("Rank %i gid %i: t = %s" % (rank, gid, str(t)))
+                            logger.info("Rank %i gid %i: spiketrain min = %f" % (rank, gid, np.min(spiketrain)))
                     response_dict[gid] = {'rate': np.asarray(response, dtype='float32'), \
                                           'spiketrain': np.asarray(spiketrain, dtype='float32')}
                     baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])

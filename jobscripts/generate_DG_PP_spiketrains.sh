@@ -6,6 +6,6 @@ mpirun.mpich -np 8  python ./scripts/generate_DG_PP_spiketrains.py \
    --output-path=./datasets/DG_PP_spiketrains_A_Diag_20190501.h5 \
    --arena-id=A \
    --trajectory-id=Diag \
-   --io-size=2 -v 
+   --io-size=2 -v
 
 
