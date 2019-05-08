@@ -10,7 +10,7 @@ from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
 from dentate.alphavol import alpha_shape
-from dentate.rbf_volume import RBFVolume, rotate3d
+from dentate.rbf_volume import RBFVolume
 from dentate.rbf_surface import RBFSurface
 from dentate import utils
 from utils import viewitems
@@ -23,6 +23,42 @@ logger = utils.get_module_logger(__name__)
 max_u = 11690.
 max_v = 2956.
 
+def rotate2d(theta):
+    """
+    Returns the 2D rotation matrix associated with counterclockwise rotation around the origin
+    by theta radians.
+    """
+    c, s = np.cos(theta), np.sin(theta)
+    rot = np.array(((c,-s), (s, c)))
+    return rot
+
+
+def rotate3d(axis, theta):
+    """
+    Returns the 3D rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis/math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta/2.0)
+    b, c, d = -axis*math.sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+
+def make_rotate3d(rotate):
+    """Creates a rotation matrix based on angles in degrees."""
+    for i in range(0, 3):
+        if rotate[i] != 0.:
+            a = float(np.deg2rad(rotate[i]))
+            rot = rotate3d([ 1 if i == j else 0 for j in range(0,3) ], a)
+
+    return rot
+
+
 
 def DG_volume(u, v, l, rotate=None):
     """Parametric equations of the dentate gyrus volume."""
@@ -32,10 +68,7 @@ def DG_volume(u, v, l, rotate=None):
     l = np.array([l]).reshape(-1,)
 
     if rotate is not None:
-        for i in range(0, 3):
-            if rotate[i] != 0.:
-                a = float(np.deg2rad(rotate[i]))
-                rot = rotate3d([ 1 if i == j else 0 for j in range(0,3) ], a)
+        rot = make_rotate3d(rotate)
     else:
         rot = None
 
@@ -610,3 +643,86 @@ def icp_transform(comm, env, soma_coords, projection_ls, population_extents, rot
         soma_coords_dict[pop] = coords_dict
                                   
     return soma_coords_dict
+
+
+def test_nodes():
+    from rbf.nodes import snap_to_boundary,disperse,menodes
+    from rbf.geometry import contains
+    from dentate.alphavol import alpha_shape
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-1.0, 1., num=3)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l).reshape(3, u.size)
+
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
+
+    tri = vol.create_triangulation()
+    alpha = alpha_shape([], 120., tri=tri)
+    
+    # Define the problem domain
+    vert = alpha.points
+    smp  = np.asarray(alpha.bounds, dtype=np.int64)
+
+    N = 10000 # total number of nodes
+    
+    # create N quasi-uniformly distributed nodes
+    nodes, smpid = menodes(N,vert,smp,itr=20)
+    
+    # remove nodes outside of the domain
+    in_nodes = nodes[contains(nodes,vert,smp)]
+
+    from mayavi import mlab
+    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
+
+    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=15.0)
+    
+    mlab.show()
+
+    return in_nodes, vol.inverse(in_nodes)
+
+def test_alphavol():
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-3.95, 3.2, num=10)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = test_surface (u, v, l, rotate=[-35., 0., 0.])
+
+    print ('Constructing volume...')
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    print ('Constructing volume triangulation...')
+    tri = vol.create_triangulation()
+
+    print ('Constructing alpha shape...')
+    alpha = alpha_shape([], 120., tri=tri)
+
+    vert = alpha.points
+    smp  = np.asarray(alpha.bounds, dtype=np.int64)
+
+    edges = np.vstack([np.column_stack([smp[:,0],smp[:,1]]), \
+                       np.column_stack([smp[:,1],smp[:,2]])])
+
+    x = vert[:,0]
+    y = vert[:,1]
+    z = vert[:,2]
+
+    start_idx = edges[:,0]
+    end_idx = edges[:,1]
+    
+    from mayavi import mlab
+    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
+    mlab.quiver3d(x[start_idx],
+                  y[start_idx],
+                  z[start_idx],
+                  x[end_idx] - x[start_idx],
+                  y[end_idx] - y[start_idx],
+                  z[end_idx] - z[start_idx],
+                  mode='2ddash',
+                  scale_factor=1)
+    
+    
+    mlab.show()
