@@ -68,6 +68,10 @@ class InputCell(object):
         cell['Rate Map'] = np.array(self.rate_map).reshape(-1,).astype('float32')
         return cell
 
+    @abstractmethod
+    def generate_spatial_ratemap(self, interp_x, interp_y, **kwargs):
+        pass
+
 
 
 class GridCell(InputCell):
@@ -84,15 +88,57 @@ class GridCell(InputCell):
         cell['Grid Orientation'] = np.array(self.grid_orientation, dtype='float32')
         return cell
 
+    def generate_spatial_ratemap(self, interp_x, interp_y, **kwargs):
+
+        a = kwargs['a']
+        b = kwargs['b']
+        peak_rate = kwargs['grid_peak_rate']
+        x_offset = self.x_offset
+        y_offset = self.y_offset
+        grid_orientation = self.grid_orientation
+        grid_spacing = self.grid_spacing
+        theta_k   = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
+        inner_sum = np.zeros_like(interp_x)
+        for theta in theta_k:
+            inner_sum += np.cos( ((4. * np.pi) / (np.sqrt(3.) * grid_spacing)) * \
+                         (np.cos(theta - grid_orientation) * (interp_x - x_offset[0]) \
+                          + np.sin(theta - grid_orientation) * (interp_y - y_offset[0])))
+        transfer = lambda z: np.exp(a * (z - b)) - 1.
+        max_rate = transfer(3.)
+        rate_map = peak_rate * transfer(inner_sum) / max_rate
+        self.rate_map = rate_map
+        
+        return rate_map
+    
 class PlaceCell(InputCell):
     def __init__(self, gid, nfields=[], module=[], **kwargs):
         super(PlaceCell, self).__init__(gid, nfields=nfields, module=module, **kwargs)
         self.cell_type = [1]
         self.field_width = kwargs.get('Field Width', [])
+        self.num_fields = kwargs.get('Num Fields', None)
         
     def return_attr_dict(self):
         cell = super(PlaceCell, self).return_attr_dict()
         cell['Cell Type'] = np.array([self.cell_type], dtype='uint8')
         cell['Field Width'] = np.array(self.field_width, dtype='float32')
         return cell
-    
+
+    def generate_spatial_ratemap(self, interp_x, interp_y, **kwargs):
+
+        if cell.num_fields > 0:
+            peak_rate = kwargs['place_peak_rate']
+            x_offset = self.x_offset
+            y_offset = self.y_offset
+            field_width = self.field_width
+            nfields  = self.num_fields
+            rate_map = np.zeros_like(interp_x)
+            for n in xrange(nfields):
+                current_map = peak_rate * np.exp(-((interp_x - x_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.) * np.exp(-((interp_y  - y_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.)
+                rate_map    = np.maximum(current_map, rate_map)
+            rate_map.reshape(-1,).astype('float32')
+        else:
+            rate_map = np.zeros( (self.nx[0] * self.ny[0],) ).astype('float32')
+
+        self.rate_map = rate_map
+        return rate_map
+

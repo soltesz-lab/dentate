@@ -272,23 +272,8 @@ def _calculate_rate_maps(cells, context):
     ratemap_kwargs['b'] = context.b
     ratemap_kwargs['c'] = context.c
     
-    for gid in cells:
-        cell = cells[gid]
-        if cell['Num Fields'][0] > 0:
-            ctype = cell['Cell Type'][0]
-            if ctype == selectivity_grid: # Grid
-                orientation = cell['Grid Orientation']
-                spacing     = cell['Grid Spacing']
-            elif ctype == selectivity_place: # Place
-                spacing     = cell['Field Width']
-                orientation = [0.0 for _ in range(len(spacing))]
- 
-
-            rate_map = generate_spatial_ratemap(ctype, cell, None, xp, yp, context.grid_peak_rate, \
-                                                context.place_peak_rate, None, **ratemap_kwargs)
-            cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
-        else:
-            cell['Rate Map'] = np.zeros( (cell['Nx'][0] * cell['Ny'][0],) ).astype('float32')
+    for gid, cell in viewitems(cells):
+        cell.generate_rate_map(xp, yp)
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])
