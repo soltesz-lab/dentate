@@ -1,41 +1,63 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-def instantiate_place_cell(context, gid, module, nfields, this_width=None, **kwargs):
+#  custom data type for type of feature selectivity
+selectivity_grid = 0
+selectivity_place = 1
+
+
+
+def make_place_cell(gid, module, nfields, this_width=None, **kwargs):
+    local_random = kwargs.get('local_random')
+    mod_jitter = kwargs.get('jitter', 0.0)
+    nx = kwargs.get('nx')
+    ny = kwargs.get('ny')
     if this_width is None:
-        this_width = context.module_width
+        this_width = kwargs.get('module_width')
     cell_args = {}
     cell_field_width = []
-    mod_jitter = kwargs.get('jitter', 0.0)
     for n in xrange(nfields):
-        curr_width = this_width + context.local_random.uniform(-mod_jitter, mod_jitter)
+        curr_width = this_width + local_random.uniform(-mod_jitter, mod_jitter)
         cell_field_width.append(curr_width)
-    cell_args['Nx'] = context.nx
-    cell_args['Ny'] = context.ny
+    cell_args['Nx'] = nx
+    cell_args['Ny'] = ny
     cell_args['Field Width'] = cell_field_width
     place_cell = PlaceCell(gid, nfields=nfields, module=module, **cell_args)
     return place_cell
 
-def instantiate_grid_cell(context, gid, module, nfields):
-    orientation = context.grid_orientation[module]
-    spacing = context.module_width
+def make_grid_cell(gid, module, nfields, **kwargs):
+    local_random = kwargs.get('local_random')
+    grid_orientation = kwargs.get('grid_orientation')
+    module_width = kwargs.get('module_width')
+    nx = kwargs.get('nx')
+    ny = kwargs.get('ny')
+    
+    orientation = grid_orientation[module]
+    spacing = module_width
 
-    delta_spacing     = context.local_random.uniform(-10., 10.)
-    delta_orientation = context.local_random.uniform(-10., 10.)
+    delta_spacing     = local_random.uniform(-10., 10.)
+    delta_orientation = local_random.uniform(-10., 10.)
 
     cell_args = {}
     cell_args['Grid Spacing']     = np.array([spacing + delta_spacing], dtype='float32')
     cell_args['Grid Orientation'] = np.array([orientation + delta_orientation], dtype='float32')
-    cell_args['Nx'] = context.nx
-    cell_args['Ny'] = context.ny
+    cell_args['Nx'] = nx
+    cell_args['Ny'] = ny
 
     grid_cell = GridCell(gid, nfields=nfields, module=module, **cell_args)
     return grid_cell
 
-def acquire_fields_per_cell(ncells, field_probabilities, generator):
-    field_probabilities = np.asarray(field_probabilities, dtype='float32')
-    field_set = [i for i in range(field_probabilities.shape[0])]
-    return generator.choice(field_set, p=field_probabilities, size=(ncells,))
+
+def make_input_cell(gid, features_type, features):
+    cell = None
+    if features_type == selectivity_grid:
+        cell = make_grid_cell(gid, features['Module'], features['Num Fields'], **features)
+    elif features_type == selectivity_place:
+        cell = make_place_cell(gid, features['Module'], features['Num Fields'], **features)
+    else:
+        raise RuntimeError('make_input_cell: unknown feature type %d' % features_type)
+    return cell
+
     
     
 
@@ -48,13 +70,14 @@ class InputCell(object):
         self.nfields = nfields
         self.module = module
 
-        self.x_offset = []
-        self.y_offset = []
-        self.cell_type = []
-        self.rate_map  = []
-        self.nx = kwargs.get('Nx', [])
-        self.ny = kwargs.get('Ny', [])
-
+        self.x_offset = kwargs.get('X Offset', None)
+        self.y_offset = kwargs.get('Y Offset', None)
+        self.cell_type = None
+        self.rate_map  = None
+        self.nx = kwargs.get('Nx', None)
+        self.ny = kwargs.get('Ny', None)
+        self.peak_rate = kwargs.get('Peak Rate', None)
+        
     @abstractmethod
     def return_attr_dict(self):
         cell = {}
@@ -66,6 +89,7 @@ class InputCell(object):
         cell['Nx'] = np.array([self.nx], dtype='int32')
         cell['Ny'] = np.array([self.ny], dtype='int32')
         cell['Rate Map'] = np.array(self.rate_map).reshape(-1,).astype('float32')
+        cell['Peak Rate'] = np.array([self.peak_rate], dtype='float32')
         return cell
 
     @abstractmethod
@@ -77,7 +101,7 @@ class InputCell(object):
 class GridCell(InputCell):
     def __init__(self, gid, nfields=[], module=[], **kwargs):
         super(GridCell, self).__init__(gid, nfields=nfields, module=module, **kwargs)
-        self.cell_type = [0]
+        self.cell_type = 0
         self.grid_spacing = kwargs.get('Grid Spacing', [])
         self.grid_orientation = kwargs.get('Grid Orientation', [])
         
@@ -90,9 +114,9 @@ class GridCell(InputCell):
 
     def generate_spatial_ratemap(self, interp_x, interp_y, **kwargs):
 
-        a = kwargs['a']
-        b = kwargs['b']
-        peak_rate = kwargs['grid_peak_rate']
+        a = 0.7
+        b = -1.5
+        c = 0.9
         x_offset = self.x_offset
         y_offset = self.y_offset
         grid_orientation = self.grid_orientation
@@ -105,7 +129,7 @@ class GridCell(InputCell):
                           + np.sin(theta - grid_orientation) * (interp_y - y_offset[0])))
         transfer = lambda z: np.exp(a * (z - b)) - 1.
         max_rate = transfer(3.)
-        rate_map = peak_rate * transfer(inner_sum) / max_rate
+        rate_map = self.peak_rate * transfer(inner_sum) / max_rate
         self.rate_map = rate_map
         
         return rate_map
@@ -113,7 +137,7 @@ class GridCell(InputCell):
 class PlaceCell(InputCell):
     def __init__(self, gid, nfields=[], module=[], **kwargs):
         super(PlaceCell, self).__init__(gid, nfields=nfields, module=module, **kwargs)
-        self.cell_type = [1]
+        self.cell_type = 1
         self.field_width = kwargs.get('Field Width', [])
         self.num_fields = kwargs.get('Num Fields', None)
         
@@ -125,19 +149,18 @@ class PlaceCell(InputCell):
 
     def generate_spatial_ratemap(self, interp_x, interp_y, **kwargs):
 
-        if cell.num_fields > 0:
-            peak_rate = kwargs['place_peak_rate']
+        if self.num_fields > 0:
             x_offset = self.x_offset
             y_offset = self.y_offset
             field_width = self.field_width
             nfields  = self.num_fields
             rate_map = np.zeros_like(interp_x)
             for n in xrange(nfields):
-                current_map = peak_rate * np.exp(-((interp_x - x_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.) * np.exp(-((interp_y  - y_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.)
+                current_map = self.peak_rate * np.exp(-((interp_x - x_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.) * np.exp(-((interp_y  - y_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.)
                 rate_map    = np.maximum(current_map, rate_map)
             rate_map.reshape(-1,).astype('float32')
         else:
-            rate_map = np.zeros( (self.nx[0] * self.ny[0],) ).astype('float32')
+            rate_map = np.zeros( (self.nx * self.ny,) ).astype('float32')
 
         self.rate_map = rate_map
         return rate_map

@@ -7,7 +7,7 @@ from nested.optimize_utils import *
 import dentate
 from dentate.env import Env
 from dentate.utils import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, calculate_field_distribution, selectivity_grid, selectivity_place
+from dentate.stimulus import selectivity_grid, selectivity_place, generate_spatial_offsets, generate_spatial_mesh, calculate_field_distribution, acquire_fields_per_cell
 from dentate.InputCell import *
 
 def mpi_excepthook(type, value, traceback):
@@ -46,16 +46,15 @@ def _build_cells(N, ctype, module, start_gid=1):
     gid = start_gid
     for i in xrange(N):
         if ctype == 'grid':
-            cells[gid] = instantiate_grid_cell(context, gid, module, nfields[i]).return_attr_dict()
+            cells[gid] = make_grid_cell(gid, module, nfields[i], **context())
         elif ctype == 'place':
-            cells[gid] = instantiate_place_cell(context, gid, module, nfields[i]).return_attr_dict()
+            cells[gid] = make_place_cell(gid, module, nfields[i], **context())
         gid += 1
 
     scale_factor = context.scale_factor
-    xy_offsets,_, _, _ = generate_spatial_offsets(total_fields, arena_dimension=context.arena_dimension, scale_factor=scale_factor)
+    xy_offsets,_, _, _ = generate_spatial_offsets(total_fields, arena=context.arena, scale_factor=scale_factor)
     xy_insertion_order = context.field_random.permutation(np.arange(len(xy_offsets)))
     xy_offsets = xy_offsets[xy_insertion_order]
-
 
     curr_pos = 0
     for (i,gid) in enumerate(xrange(start_gid, gid)):
@@ -82,28 +81,31 @@ def init_context():
     field_random = np.random.RandomState(context.local_seed)
     field_probabilities = None
 
-    input_params = context.env.input_config['Arena'][context.arena_id]
+    input_params = context.env.input_config
 
-    nmodules = input_params['number modules']
-    field_width_x1 = input_params['field width params']['x1']
-    field_width_x2 = input_params['field width params']['x2']
-    arena_dimension = input_params['arena dimension']
-    resolution = input_params['resolution']
-        
+    nmodules = input_params['Number Modules']
+    field_width_x1 = input_params['Field Width']['x1']
+    field_width_x2 = input_params['Field Width']['x2']
+    min_field_width = input_params['Field Width']['min']
+    resolution = input_params['Spatial Resolution']
+    
     modules            = np.arange(nmodules)
     grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
     field_width_params = [field_width_x1, field_width_x2]
-    field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
+    field_width        = lambda x: min_field_width. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width    = field_width(1.)
     module_width       = field_width( float(context.module) / np.max(modules))
     scale_factor       = (module_width / arena_dimension / 2.) + 1.
 
-    mesh   = generate_mesh(scale_factor=1., arena_dimension=arena_dimension, resolution=resolution)
+    arena = context.env.input_config['Arena'][context.arena_id]
+
+    mesh   = generate_spatial_mesh(scale_factor=1., arena=arena, resolution=resolution)
     nx, ny = mesh[0].shape[0], mesh[0].shape[1]
     grid_cells, place_cells = {}, {}
     place_gid_start = None
     context.update(locals())
-    context.grid_cells, context.place_gid_start  = _build_cells(context.num_grid, 'grid', context.module)
+    context.update(input_params)
+    context.grid_cells, context.place_gid_start  = _build_cells(context.arena, context.num_grid, 'grid', context.module)
     _calculate_rate_maps(context.grid_cells, context)
 
     
@@ -121,8 +123,9 @@ def main(optimize_config_file_path, input_params_file_path, output_dir, export, 
     config_logging(disp)
     if disp:
         print('... config interactive underway..')
-    config_interactive(context, __file__, config_file_path=optimize_config_file_path, output_dir=output_dir, \
-                       export=export, export_file_path=export_file_path, label=label, disp=disp)
+    config_optimize_interactive(context, __file__, config_file_path=optimize_config_file_path,
+                                output_dir=output_dir, export=export, export_file_path=export_file_path,
+                                label=label, disp=disp)
     if disp:
         print('... config interactive complete...')
  
@@ -273,7 +276,7 @@ def _calculate_rate_maps(cells, context):
     ratemap_kwargs['c'] = context.c
     
     for gid, cell in viewitems(cells):
-        cell.generate_rate_map(xp, yp)
+        cell.generate_spatial_ratemap(xp, yp, **ratemap_kwargs)
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])

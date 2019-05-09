@@ -62,11 +62,10 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     input_spiketrain_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
     input_config = env.input_config
+    spatial_resolution = input_config['Spatial Resolution']
     feature_type_dict = input_config['Feature Distribution']
 
-    arena_dimension = int(input_config['Arena'][arena_id]['arena dimension'])  # minimum distance from origin to boundary (cm)
-    default_run_vel = int(input_config['Arena'][arena_id]['Trajectory'][trajectory_id]['run velocity'])  # cm/s
-    spatial_resolution = float(input_config['Arena'][arena_id]['resolution'])  # cm
+    arena = input_config['Arena'][arena_id]
 
     trajectory_namespace = 'Trajectory %s %s' % (arena_id, str(trajectory_id))
     stimulus_id_namespace = '%s %s %s' % (stimulus_namespace, str(arena_id), str(trajectory_id))
@@ -86,8 +85,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
             if trajectory_namespace not in f:
                 logger.info('Rank: %i; Creating %s datasets' % (rank, trajectory_namespace))
                 group = f.create_group(trajectory_namespace)
-                t, x, y, d = generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                                 spatial_resolution=spatial_resolution)
+                t, x, y, d = generate_trajectory(arena, trajectory_id, spatial_resolution=spatial_resolution)
                 for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
                     dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
                     dataset[:] = value.astype('float32', copy=False)
@@ -118,8 +116,6 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     t = comm.bcast(t, root=0)
 
     population_ranges = read_population_ranges(features_path, comm=comm)[0]
-    print "population_ranges: ", population_ranges
-    comm.barrier()
             
     for population in ['MPP', 'LPP']:
         population_start = population_ranges[population][0]
@@ -128,8 +124,9 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
         start_time = time.time()
 
         for features_type, features_namespace in enumerate(features_namespaces):
-            attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=features_namespace,
-                                              comm=comm, io_size=io_size, cache_size=cache_size)
+            attr_gen = NeuroH5CellAttrGen(features_path, population,
+                                          namespace='%s %s' % (features_namespace, str(arena_id)),
+                                          comm=comm, io_size=io_size, cache_size=cache_size)
                 
             for gid, features_dict in attr_gen:
                 response_dict = {}
@@ -140,8 +137,9 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
                     if verbose:
                         logger.info('Rank %i received attributes for gid %i' % (rank, gid))
                     local_time = time.time()
-                    response = stimulus.generate_spatial_ratemap(features_type, features_dict, t, x, y, 
-                                                                grid_peak_rate=20., place_peak_rate=20.)
+                    response_dict[gid].update(features_dict)
+                    cell = stimulus.make_input_cell(gid, features_type, features_dict)
+                    response = cell.generate_spatial_ratemap(x, y)
                     local_random.seed(int(input_spiketrain_offset + gid))
                     spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)
                     if len(spiketrain) > 0:

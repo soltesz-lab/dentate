@@ -15,6 +15,33 @@ Feature Distribution:
   PYR:
     place: 1.0
 
+Peak Rate:
+  MPP:
+    grid: 20.0
+    place: 20.0
+  LPP:
+    place: 20.0
+  PYR:
+    place: 20.0
+    
+Field Probabilities:
+  PYR:
+    0: 0.38
+    1: 0.21
+    2: 0.17
+    3: 0.13
+    4: 0.08
+    5: 0.02
+    6: 0.01
+
+Field Width:
+  x1: 35.0
+  x2: 0.32
+  min: 40.0
+
+Spatial Resolution: 5.0
+Number Modules: 10
+  
 Arena:
   A: 
     Perforant Path:
@@ -41,27 +68,22 @@ Arena:
         - 0.0026
         - 0.0058
         - 0.012
-    
-    number modules: 10
-    field width params:
-      x1: 35.0
-      x2: 0.32
-      
-    resolution: 5.0
 
-    boundary:
+    Domain:
+      vertices: [[-100, -100], [-100, 100], [100, 100]]
+      simplices: [[0,1], [1,2], [2,3], [3,0]]
     
     Trajectory:
-      Diag:
-        path:
-        run velocity: 30. # cm/s
-    
-field probs:
-  PYR:
-    0: 0.38
-    1: 0.21
-    2: 0.17
-    3: 0.13
-    4: 0.08
-    5: 0.02
-    6: 0.01
+      name: Diag
+      path: [[[-100, -100], [100, 100]]]
+      run velocity: 30. # cm/s
+        
+    Trajectory:
+      name: DiagU5 ## upper diagonal offset by 5 cm on Y axis
+      path: [[[-100, -95], [95, 100]]]
+      run velocity: 30. # cm/s
+        
+    Trajectory:
+      name: DiagL5 ## lower diagonal offset by 5 cm on X axis
+      path: [[[-95, -100], [100, 95]]]
+      run velocity: 30. # cm/s
