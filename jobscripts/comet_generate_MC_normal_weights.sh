@@ -30,7 +30,7 @@ ibrun -np 720  \
     -d MC -s MC \
     --config-prefix=./config \
     --config=Full_Scale_GC_Exc_Sat_LNN.yaml \
-    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_N_20190430.h5 \
+    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_N_20190503.h5 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190430_compressed.h5 \
     --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
 

@@ -9,10 +9,11 @@ from scipy import sparse
 class Struct:
     def __init__(self, **items):
         self.__dict__.update(items)
-
     def update(self, items):
         self.__dict__.update(items)
-
+    def __getitem__(self, key):
+        return self.__dict__[key]
+        
 class IncludeLoader(yaml.Loader):
     """
     YAML loader with `!include` handler.

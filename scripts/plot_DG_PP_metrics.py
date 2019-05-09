@@ -1,6 +1,7 @@
 import os, sys, click
 from dentate.plot import plot_PP_metrics
 from dentate.utils import list_find
+from dentate.env import Env
 
 script_name = os.path.basename(__file__)
 

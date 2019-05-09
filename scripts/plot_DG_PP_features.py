@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from nested.optimize_utils import *
 from neuroh5.io import NeuroH5CellAttrGen, read_cell_attributes
 from mpi4py import MPI
 from pprint import pprint
@@ -180,7 +179,7 @@ def plot_xy_offsets_multiple_modules(modules_dictionary, modules, plot=False, sa
         plt.show()
 
 
-def plot_fraction_active_single_module(cells, nxny, plot=False,save=True, **kwargs):
+def plot_fraction_active_single_module(cells, nxny, plot=False, save=True, **kwargs):
     factive = fraction_active(cells, 2.)
     fraction_active_img = np.zeros(nxny)
     for (i,j) in factive:
@@ -208,7 +207,7 @@ def plot_fraction_active_single_module(cells, nxny, plot=False,save=True, **kwar
         plt.show()
 
 
-def plot_fraction_active_multiple_modules(modules_dictionary, modules, nxny, plot=False, save=True, **kwargs):
+def plot_fraction_active_multiple_modules(modules_dictionary, modules, plot=False, save=True, **kwargs):
     assert(len(modules) == 10)
     ctype     = kwargs.get('ctype', 'place')
     fig, axes = plt.subplots(2,5, figsize=[16., 6.])
@@ -222,7 +221,9 @@ def plot_fraction_active_multiple_modules(modules_dictionary, modules, nxny, plo
 
         cells   = modules_dictionary[module]
         factive = fraction_active(cells, 2.)
-        fraction_active_img = np.zeros(nxny)
+        nx = np.max(map (lambda x: x[0], factive.keys())) + 1
+        ny = np.max(map (lambda x: x[1], factive.keys())) + 1
+        fraction_active_img = np.zeros((nx, ny))
         for (i,j) in factive:
             fraction_active_img[i,j] = factive[(i,j)]
         img = axes[ax_count1, ax_count2].imshow(fraction_active_img, cmap='inferno')
@@ -416,9 +417,10 @@ def plot_group(module_dictionary, modules, plot=False, save=False, **kwargs):
 @click.command()
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--cell-type", required=True, type=str)
-@click.option("--show-fig", type=int, default=0)
-@click.option("--save-fig", type=int, default=0)
-def main(features_path, cell_type, show_fig, save_fig):
+@click.option("--arena-id", type=str, default='A')
+@click.option("--show-fig", is_flag=True)
+@click.option("--save-fig", is_flag=True)
+def main(features_path, cell_type, arena_id, show_fig, save_fig):
 
     font = {'family': 'normal', 'weight': 'bold', 'size': 6}
     matplotlib.rc('font', **font)
@@ -427,16 +429,16 @@ def main(features_path, cell_type, show_fig, save_fig):
     modules = np.arange(10) + 1
 
     if cell_type == 'grid':
-        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
+        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid], modules)
     elif cell_type == 'place':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id )
         cells_modules_dictionary = gid2module_dictionary([mpp_place, lpp_place], modules)
     elif cell_type == 'both':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
-        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id)
+        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid, mpp_place, lpp_place], modules)
 
     kwargs = {'ctype': cell_type}
