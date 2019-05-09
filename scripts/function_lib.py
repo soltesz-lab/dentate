@@ -40,27 +40,6 @@ dict:
 
 """
 
-default_mech_dict = {'ais': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                             'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'apical': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                                'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'axon': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'axon_hill': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'basal': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'soma': {'cable': {'Ra': {'value': 150.}, 'cm': {'value': 1.}},
-                              'pas': {'e': {'value': -67.}, 'g': {'value': 2.5e-05}}},
-                     'trunk': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                               'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'tuft': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'spine_neck': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}},
-                     'spine_head': {'cable': {'Ra': {'origin': 'soma'}, 'cm': {'origin': 'soma'}},
-                              'pas': {'e': {'origin': 'soma'}, 'g': {'origin': 'soma'}}}}
-
 
 def clean_axes(axes):
     """

@@ -1932,6 +1932,16 @@ def zero_na(cell):
             modify_mech_param(cell, sec_type, na_type, 'gbar', 0.)
 
 
+def zero_h(cell):
+    """
+    Set Ih channel conductances to zero in all compartments. Used during parameter optimization.
+    """
+    for sec_type in (sec_type for sec_type in default_ordered_sec_types if sec_type in cell.nodes and
+                     sec_type in cell.mech_dict):
+        for h_type in (h_type for h_type in ['h'] if h_type in cell.mech_dict[sec_type]):
+            modify_mech_param(cell, sec_type, h_type, 'ghbar', 0.)
+
+
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
 
 
