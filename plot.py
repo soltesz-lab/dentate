@@ -1839,20 +1839,11 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     timebins = np.linspace(tmin, tmax, (tmax-tmin) / time_step)
     
     data = zip (spkpoplst, spkindlst, spktlst)
-    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, marker, pop_colors, **options)
+    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, marker, pop_colors)
     ani = FuncAnimation(fig, func=update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
                         blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
     aniplots.append(ani)
 
-
-        # save figure
-        #if options.saveFig: 
-        #    if isinstance(options.saveFig, str):
-        #        filename = options.saveFig
-        #    else:
-        #        filename = namespace_id+' '+'raster.png'
-        #        plt.savefig(filename)
-                
     # show fig 
     if options.showFig:
         show_figure()
