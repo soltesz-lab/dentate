@@ -312,19 +312,8 @@ class Env:
 
 
     def parse_arena_domain(self, config):
-        vertices_config = config['vertices']
-        simplices_config = config['simplices']
-
-        vertices_x = []
-        vertices_y = []
-        for v in vertices_config:
-            vertices_x.append(v[0])
-            vertices_y.append(v[1])
-
-        vertices = np.column_stack((np.asarray(vertices_x, dtype=np.float32),
-                                    np.asarray(vertices_y, dtype=np.float32)))
-        simplices = np.column_stack((np.asarray(vertices_x, dtype=np.int),
-                                     np.asarray(vertices_y, dtype=np.int)))
+        vertices = config['vertices']
+        simplices = config['simplices']
 
         return DomainConfig(vertices, simplices)
 

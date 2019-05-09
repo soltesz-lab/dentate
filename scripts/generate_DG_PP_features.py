@@ -221,7 +221,6 @@ def determine_cell_participation(context, gid_module_assignments):
                 cell['Peak Rate'] = peak_rate[selectivity_place]
             gid_attributes[population][gid] = cell
             total_num_fields += nfields
-            logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
             
     return total_num_fields, gid_attributes
 
@@ -319,6 +318,7 @@ def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields)
 
             cell.generate_spatial_ratemap(xp, yp)
             cell_dict[population][gid] = cell
+            logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
             
     return cell_dict
         

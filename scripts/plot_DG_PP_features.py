@@ -417,9 +417,10 @@ def plot_group(module_dictionary, modules, plot=False, save=False, **kwargs):
 @click.command()
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--cell-type", required=True, type=str)
-@click.option("--show-fig", type=int, default=0)
-@click.option("--save-fig", type=int, default=0)
-def main(features_path, cell_type, show_fig, save_fig):
+@click.option("--arena-id", type=str, default='A')
+@click.option("--show-fig", is_flag=True)
+@click.option("--save-fig", is_flag=True)
+def main(features_path, cell_type, arena_id, show_fig, save_fig):
 
     font = {'family': 'normal', 'weight': 'bold', 'size': 6}
     matplotlib.rc('font', **font)
@@ -428,16 +429,16 @@ def main(features_path, cell_type, show_fig, save_fig):
     modules = np.arange(10) + 1
 
     if cell_type == 'grid':
-        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
+        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid], modules)
     elif cell_type == 'place':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id )
         cells_modules_dictionary = gid2module_dictionary([mpp_place, lpp_place], modules)
     elif cell_type == 'both':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
-        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id)
+        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid, mpp_place, lpp_place], modules)
 
     kwargs = {'ctype': cell_type}

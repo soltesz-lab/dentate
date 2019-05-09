@@ -25,37 +25,29 @@ def generate_expected_width(field_width_params, module_widths, offsets, position
 
 
 def generate_spatial_mesh(arena, scale_factor=1., resolution=5.):
-    
-    arena_x_bounds = [np.min(arena.domain.vertices[:,0]) * scale_factor,
-                      np.max(arena.domain.vertices[:,0]) * scale_factor]
-    arena_y_bounds = [np.min(arena.domain.vertices[:,1]) * scale_factor,
-                      np.max(arena.domain.vertices[:,1]) * scale_factor]
+
+    vertices_x = np.asarray([v[0] for v in arena.domain.vertices])
+    vertices_y = np.asarray([v[1] for v in arena.domain.vertices])
+    arena_x_bounds = [np.min(vertices_x) * scale_factor,
+                      np.max(vertices_x) * scale_factor]
+    arena_y_bounds = [np.min(vertices_y) * scale_factor,
+                      np.max(vertices_y) * scale_factor]
 
     arena_x = np.arange(arena_x_bounds[0], arena_x_bounds[1], resolution)
     arena_y = np.arange(arena_y_bounds[0], arena_y_bounds[1], resolution)
     return np.meshgrid(arena_x, arena_y, indexing='ij')
 
 
-def generate_spatial_offsets(N, arena, scale_factor=2.0, maxit=10):
+def generate_spatial_offsets(N, arena, scale_factor=2.0):
     import rbf
-    from rbf.nodes import disperse
-    from rbf.halton import halton
+    from rbf.pde.nodes import min_energy_nodes
 
     vert = arena.domain.vertices
     smp = arena.domain.simplices
 
-    arena_dimension = np.asarray([(np.max(vert[:,0]) - np.min(vert[:,0])) / 2.,
-                                  (np.max(vert[:,1]) - np.min(vert[:,1])) / 2.])
-    
-    # create N quasi-uniformly distributed nodes over the unit square
-    nodes = halton(N,2)
-
-    # scale/translate the nodes to encompass the arena
-    nodes -= 0.5
-    nodes = nodes * arena_dimension
     # evenly disperse the nodes over the domain using maxit iterative steps
-    for i in range(maxit):
-        nodes = disperse(nodes,vert,smp)
+    out = min_energy_nodes(N,(vert,smp))
+    nodes = out[0]
     scaled_nodes = nodes * scale_factor
     
     return (scaled_nodes, nodes, vert, smp)
