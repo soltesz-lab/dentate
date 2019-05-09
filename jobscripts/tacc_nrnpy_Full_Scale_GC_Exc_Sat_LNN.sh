@@ -40,5 +40,6 @@ ibrun python2.7 ./scripts/main.py  \
     --stimulus-onset=50.0 \
     --max-walltime-hours=4.0 \
     --vrecord-fraction=0.001 \
+    --node-rank-file=parts.6144 \
     --verbose
 
