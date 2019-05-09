@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J dentate_Full_Scale_GC_Exc_Sat_LNN # Job name
+#SBATCH -J dentate_Full_Scale_GC_Exc_Sat_LNN_Diag # Job name
 #SBATCH -o ./results/dentate.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p skx-normal      # Queue (partition) name
@@ -18,7 +18,7 @@ export NEURONROOT=$HOME/bin/nrnpython2
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
-results_path=./results/Full_Scale_GC_Exc_Sat_LNN_$SLURM_JOB_ID
+results_path=./results/Full_Scale_GC_Exc_Sat_LNN_Diag_$SLURM_JOB_ID
 export results_path
 
 cd $SLURM_SUBMIT_DIR
@@ -29,7 +29,7 @@ git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 ibrun python2.7 ./scripts/main.py  \
-    --config-file=Full_Scale_GC_Exc_Sat_LNN.yaml  \
+    --config-file=Full_Scale_GC_Exc_Sat_LNN_Diag.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$WORK/dentate" \
     --results-path=$results_path \
