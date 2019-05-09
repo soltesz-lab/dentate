@@ -44,8 +44,7 @@ DomainConfig = namedtuple('Domain',
                              'simplices'])
 
 TrajectoryConfig = namedtuple('Trajectory',
-                              ['name',
-                               'velocity',
+                              ['velocity',
                                'path'])
 
 class Env:
@@ -318,20 +317,21 @@ class Env:
         return DomainConfig(vertices, simplices)
 
     def parse_arena_trajectory(self, config):
-        name = config['name']
+        print 'config: ', config
         velocity = float(config['run velocity'])
         path_config = config['path']
 
         path_x = []
         path_y = []
         for v in path_config:
-            path_x.extend(v[0])
-            path_y.extend(v[1])
+            print v
+            path_x.append(v[0])
+            path_y.append(v[1])
 
         path = np.column_stack((np.asarray(path_x, dtype=np.float32),
                                 np.asarray(path_y, dtype=np.float32)))
         
-        return TrajectoryConfig(name, velocity, path)
+        return TrajectoryConfig(velocity, path)
             
     def parse_input_config(self):
         features_type_dict = self.modelConfig['Definitions']['Input Features']
@@ -362,13 +362,16 @@ class Env:
                     arena_domain = None
                     arena_trajectories = {}
                     for kk, vv in viewitems(arena_val):
+                        print "kk: ", kk
                         if kk == 'Domain':
                             arena_domain = self.parse_arena_domain(vv)
                         elif kk == 'Trajectory':
-                            trajectory = self.parse_arena_trajectory(vv)
-                            arena_trajectories[trajectory.name] = trajectory
+                            for name, trajectory_config in viewitems(vv):
+                                trajectory = self.parse_arena_trajectory(trajectory_config)
+                                arena_trajectories[name] = trajectory
                         else:
                             arena_properties[kk] = vv
+                    print 'trajectories: ', arena_trajectories
                     input_config['Arena'][arena_id] = ArenaConfig(arena_id, arena_domain,
                                                                   arena_trajectories, arena_properties)
             else:

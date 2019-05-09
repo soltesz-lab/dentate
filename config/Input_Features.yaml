@@ -74,16 +74,16 @@ Arena:
       simplices: [[0,1], [1,2], [2,3], [3,0]]
     
     Trajectory:
-      name: Diag
-      path: [[[-100, -100], [100, 100]]]
-      run velocity: 30. # cm/s
+      Diag:
+        path: [[-100, -100], [100, 100]]
+        run velocity: 30. # cm/s
+
+      ## upper diagonal offset by 5 cm on Y axis
+      DiagU5: 
+        path: [[-100, -95], [95, 100]]
+        run velocity: 30. # cm/s
         
-    Trajectory:
-      name: DiagU5 ## upper diagonal offset by 5 cm on Y axis
-      path: [[[-100, -95], [95, 100]]]
-      run velocity: 30. # cm/s
-        
-    Trajectory:
-      name: DiagL5 ## lower diagonal offset by 5 cm on X axis
-      path: [[[-95, -100], [100, 95]]]
-      run velocity: 30. # cm/s
+      ## lower diagonal offset by 5 cm on X axis
+      DiagL5:
+        path: [[-95, -100], [100, 95]]
+        run velocity: 30. # cm/s

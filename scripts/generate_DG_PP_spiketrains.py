@@ -7,7 +7,7 @@ import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import dentate
 from dentate.env import Env
-from dentate import stimulus, stgen, utils
+from dentate import stimulus, stgen, utils, InputCell
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -129,8 +129,8 @@ def main(config, config_prefix, features_path, output_path, io_size, chunk_size,
                                           namespace='%s %s' % (features_namespace, str(arena_id)),
                                           comm=comm, io_size=io_size, cache_size=cache_size)
                 
+            response_dict = {}
             for gid, features_dict in attr_gen:
-                response_dict = {}
                 response = None
                 if gid is None:
                     logger.info('Rank %i gid is None' % rank)
@@ -138,8 +138,8 @@ def main(config, config_prefix, features_path, output_path, io_size, chunk_size,
                     if verbose:
                         logger.info('Rank %i received attributes for gid %i' % (rank, gid))
                     local_time = time.time()
-                    response_dict[gid].update(features_dict)
-                    cell = stimulus.make_input_cell(gid, features_type, features_dict)
+                    del(features_dict['gid'])
+                    cell = InputCell.make_input_cell(gid, features_type, features_dict)
                     response = cell.generate_spatial_ratemap(x, y)
                     local_random.seed(int(input_spiketrain_offset + gid))
                     spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)
@@ -148,8 +148,8 @@ def main(config, config_prefix, features_path, output_path, io_size, chunk_size,
                             logger.info("Rank %i gid %i: response = %s" % (rank, gid, str(response)))
                             logger.info("Rank %i gid %i: t = %s" % (rank, gid, str(t)))
                             logger.info("Rank %i gid %i: spiketrain min = %f" % (rank, gid, np.min(spiketrain)))
-                    response_dict[gid] = {'rate': np.asarray(response, dtype='float32'), \
-                                          'spiketrain': np.asarray(spiketrain, dtype='float32')}
+                    response_dict[gid] = cell.return_attr_dict()
+                    response_dict[gid]['spiketrain'] = np.asarray(spiketrain, dtype='float32')
                     baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
                     peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
                     modulation = 0. if peak <= 0.1 else (peak - baseline) / peak

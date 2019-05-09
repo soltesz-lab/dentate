@@ -59,6 +59,7 @@ def generate_linear_trajectory(arena, trajectory_name, spatial_resolution = 1.):
 
     trajectory = arena.trajectories[trajectory_name]
 
+    velocity = trajectory.velocity
     path = trajectory.path
     x = path[:,0]
     y = path[:,1]
@@ -66,7 +67,7 @@ def generate_linear_trajectory(arena, trajectory_name, spatial_resolution = 1.):
     dr = np.sqrt((np.diff(x)**2 + np.diff(y)**2)) # segment lengths
     distance = np.zeros_like(x)
     distance[1:] = np.cumsum(dr) # integrate path
-    interp_distance = np.arange(r.min(), r.max(), spatial_resolution)
+    interp_distance = np.arange(distance.min(), distance.max(), spatial_resolution)
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
