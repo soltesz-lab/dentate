@@ -23,8 +23,6 @@ kwargs:
   local_seed: 64
   fraction_active_target: 0.05
   active_threshold: 2.0
-  grid_peak_rate: 20.0
-  place_peak_rate: 20.0
   a: 0.70
   b: -1.5
   c: 0.90

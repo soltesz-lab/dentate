@@ -7,7 +7,7 @@ from nested.optimize_utils import *
 import dentate
 from dentate.env import Env
 from dentate.utils import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap, generate_mesh, calculate_field_distribution, selectivity_grid, selectivity_place
+from dentate.stimulus import selectivity_grid, selectivity_place, generate_spatial_offsets, generate_spatial_mesh, calculate_field_distribution, acquire_fields_per_cell
 from dentate.InputCell import *
 
 def mpi_excepthook(type, value, traceback):
@@ -43,30 +43,41 @@ def _build_cells(N, ctype, module, start_gid=1):
         nfields      = np.ones((N,), dtype='uint8')
         total_fields = N
 
+
     gid = start_gid
     for i in xrange(N):
+        cell_args = dict(context())
+        peak_rate = context.peak_rate['MPP'] ## Hardcoded because this script does not keep track of populations
+        cell_args['Nx']  = context.nx
+        cell_args['Ny']  = context.ny
+        if 'module' in cell_args:
+            del(cell_args['module'])
         if ctype == 'grid':
-            cells[gid] = instantiate_grid_cell(context, gid, module, nfields[i]).return_attr_dict()
+            cell_args['Peak Rate'] = peak_rate[selectivity_grid]
+            cells[gid] = make_grid_cell(gid, module, nfields[i], **cell_args)
         elif ctype == 'place':
-            cells[gid] = instantiate_place_cell(context, gid, module, nfields[i]).return_attr_dict()
+            cell_args['Peak Rate'] = peak_rate[selectivity_place]
+            cells[gid] = make_place_cell(gid, module, nfields[i], **cell_args)
         gid += 1
 
-    scale_factor = context.scale_factor
-    xy_offsets,_, _, _ = generate_spatial_offsets(total_fields, arena_dimension=context.arena_dimension, scale_factor=scale_factor)
+    if hasattr(context, 'scale_factor'):
+        scale_factor = context.scale_factor
+    else:
+        scale_factor = 1.0
+    xy_offsets,_, _, _ = generate_spatial_offsets(total_fields, arena=context.arena, scale_factor=scale_factor)
     xy_insertion_order = context.field_random.permutation(np.arange(len(xy_offsets)))
     xy_offsets = xy_offsets[xy_insertion_order]
-
 
     curr_pos = 0
     for (i,gid) in enumerate(xrange(start_gid, gid)):
         cell = cells[gid]
         nf   = nfields[i]
-        if cell['Cell Type'][0] == 0:
-            cell['X Offset'] = np.array([xy_offsets[curr_pos,0]], dtype='float32')
-            cell['Y Offset'] = np.array([xy_offsets[curr_pos,1]], dtype='float32')
-        elif cell['Cell Type'][0] == 1:
-            cell['X Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,0], dtype='float32')
-            cell['Y Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,1], dtype='float32')
+        if cell.cell_type == selectivity_grid:
+            cell.x_offset = np.array([xy_offsets[curr_pos,0]], dtype='float32')
+            cell.y_offset = np.array([xy_offsets[curr_pos,1]], dtype='float32')
+        elif cell.cell_type == selectivity_place:
+            cell.x_offset = np.asarray(xy_offsets[curr_pos:curr_pos+nf,0], dtype='float32')
+            cell.y_offset = np.asarray(xy_offsets[curr_pos:curr_pos+nf,1], dtype='float32')
         curr_pos += nf
     return cells, gid + 1
 
@@ -82,27 +93,31 @@ def init_context():
     field_random = np.random.RandomState(context.local_seed)
     field_probabilities = None
 
-    input_params = context.env.input_config['Arena'][context.arena_id]
+    input_params = context.env.input_config
 
-    nmodules = input_params['number modules']
-    field_width_x1 = input_params['field width params']['x1']
-    field_width_x2 = input_params['field width params']['x2']
-    arena_dimension = input_params['arena dimension']
-    resolution = input_params['resolution']
-        
+    nmodules = input_params['Number Modules']
+    field_width_x1 = input_params['Field Width']['x1']
+    field_width_x2 = input_params['Field Width']['x2']
+    min_field_width = input_params['Field Width']['min']
+    resolution = input_params['Spatial Resolution']
+    peak_rate = input_params['Peak Rate']
+    
     modules            = np.arange(nmodules)
     grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
     field_width_params = [field_width_x1, field_width_x2]
-    field_width        = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
+    field_width        = lambda x: min_field_width + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width    = field_width(1.)
     module_width       = field_width( float(context.module) / np.max(modules))
-    scale_factor       = (module_width / arena_dimension / 2.) + 1.
 
-    mesh   = generate_mesh(scale_factor=1., arena_dimension=arena_dimension, resolution=resolution)
+    arena = context.env.input_config['Arena'][context.arena_id]
+
+    mesh   = generate_spatial_mesh(scale_factor=1., arena=arena, resolution=resolution)
     nx, ny = mesh[0].shape[0], mesh[0].shape[1]
+    
     grid_cells, place_cells = {}, {}
     place_gid_start = None
     context.update(locals())
+    context.update(input_params)
     context.grid_cells, context.place_gid_start  = _build_cells(context.num_grid, 'grid', context.module)
     _calculate_rate_maps(context.grid_cells, context)
 
@@ -121,8 +136,9 @@ def main(optimize_config_file_path, input_params_file_path, output_dir, export, 
     config_logging(disp)
     if disp:
         print('... config interactive underway..')
-    config_interactive(context, __file__, config_file_path=optimize_config_file_path, output_dir=output_dir, \
-                       export=export, export_file_path=export_file_path, label=label, disp=disp)
+    config_optimize_interactive(context, __file__, config_file_path=optimize_config_file_path,
+                                output_dir=output_dir, export=export, export_file_path=export_file_path,
+                                label=label, disp=disp)
     if disp:
         print('... config interactive complete...')
  
@@ -272,23 +288,8 @@ def _calculate_rate_maps(cells, context):
     ratemap_kwargs['b'] = context.b
     ratemap_kwargs['c'] = context.c
     
-    for gid in cells:
-        cell = cells[gid]
-        if cell['Num Fields'][0] > 0:
-            ctype = cell['Cell Type'][0]
-            if ctype == selectivity_grid: # Grid
-                orientation = cell['Grid Orientation']
-                spacing     = cell['Grid Spacing']
-            elif ctype == selectivity_place: # Place
-                spacing     = cell['Field Width']
-                orientation = [0.0 for _ in range(len(spacing))]
- 
-
-            rate_map = generate_spatial_ratemap(ctype, cell, None, xp, yp, context.grid_peak_rate, \
-                                                context.place_peak_rate, None, **ratemap_kwargs)
-            cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
-        else:
-            cell['Rate Map'] = np.zeros( (cell['Nx'][0] * cell['Ny'][0],) ).astype('float32')
+    for gid, cell in viewitems(cells):
+        cell.generate_spatial_ratemap(xp, yp, **ratemap_kwargs)
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1, sys.argv)+1):])

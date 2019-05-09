@@ -156,6 +156,7 @@ def compute_features_firing_rate(x, export=False):
     update_source_contexts(x, context)
     context.env.results_id = '%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
+
     network.run(context.env, output=context.output_results, shutdown=False)
 
     pop_spike_dict = spikedata.get_env_spike_dict(context.env)
