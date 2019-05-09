@@ -45,8 +45,8 @@ def generate_spatial_offsets(N, arena, scale_factor=2.0):
     vert = arena.domain.vertices
     smp = arena.domain.simplices
 
-    # evenly disperse the nodes over the domain using maxit iterative steps
-    out = min_energy_nodes(N,(vert,smp))
+    # evenly disperse the nodes over the domain
+    out = min_energy_nodes(N,(vert,smp),iterations=50,dispersion_delta=0.15)
     nodes = out[0]
     scaled_nodes = nodes * scale_factor
     

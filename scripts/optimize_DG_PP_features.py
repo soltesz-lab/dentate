@@ -43,7 +43,6 @@ def _build_cells(N, ctype, module, start_gid=1):
         nfields      = np.ones((N,), dtype='uint8')
         total_fields = N
 
-
     gid = start_gid
     for i in xrange(N):
         cell_args = dict(context())
@@ -52,6 +51,8 @@ def _build_cells(N, ctype, module, start_gid=1):
         cell_args['Ny']  = context.ny
         if 'module' in cell_args:
             del(cell_args['module'])
+        if 'Field Width' in cell_args:
+            del(cell_args['Field Width'])
         if ctype == 'grid':
             cell_args['Peak Rate'] = peak_rate[selectivity_grid]
             cells[gid] = make_grid_cell(gid, module, nfields[i], **cell_args)

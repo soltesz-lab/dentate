@@ -147,11 +147,14 @@ class GridCell(InputCell):
         return rate_map
     
 class PlaceCell(InputCell):
-    def __init__(self, gid, nfields=[], module=[], **kwargs):
+    def __init__(self, gid, nfields=None, module=None, **kwargs):
         super(PlaceCell, self).__init__(gid, nfields=nfields, module=module, **kwargs)
         self.cell_type = 1
         self.field_width = kwargs.get('Field Width', None)
-        self.num_fields = as_scalar(kwargs.get('Num Fields', None))
+        if nfields is None:
+            self.num_fields = as_scalar(kwargs.get('Num Fields', None))
+        else:
+            self.num_fields = nfields
         
     def return_attr_dict(self):
         cell = super(PlaceCell, self).return_attr_dict()
