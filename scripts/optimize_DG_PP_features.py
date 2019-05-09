@@ -43,15 +43,27 @@ def _build_cells(N, ctype, module, start_gid=1):
         nfields      = np.ones((N,), dtype='uint8')
         total_fields = N
 
+
     gid = start_gid
     for i in xrange(N):
+        cell_args = dict(context())
+        peak_rate = context.peak_rate['MPP'] ## Hardcoded because this script does not keep track of populations
+        cell_args['Nx']  = context.nx
+        cell_args['Ny']  = context.ny
+        if 'module' in cell_args:
+            del(cell_args['module'])
         if ctype == 'grid':
-            cells[gid] = make_grid_cell(gid, module, nfields[i], **context())
+            cell_args['Peak Rate'] = peak_rate[selectivity_grid]
+            cells[gid] = make_grid_cell(gid, module, nfields[i], **cell_args)
         elif ctype == 'place':
-            cells[gid] = make_place_cell(gid, module, nfields[i], **context())
+            cell_args['Peak Rate'] = peak_rate[selectivity_place]
+            cells[gid] = make_place_cell(gid, module, nfields[i], **cell_args)
         gid += 1
 
-    scale_factor = context.scale_factor
+    if hasattr(context, 'scale_factor'):
+        scale_factor = context.scale_factor
+    else:
+        scale_factor = 1.0
     xy_offsets,_, _, _ = generate_spatial_offsets(total_fields, arena=context.arena, scale_factor=scale_factor)
     xy_insertion_order = context.field_random.permutation(np.arange(len(xy_offsets)))
     xy_offsets = xy_offsets[xy_insertion_order]
@@ -60,12 +72,12 @@ def _build_cells(N, ctype, module, start_gid=1):
     for (i,gid) in enumerate(xrange(start_gid, gid)):
         cell = cells[gid]
         nf   = nfields[i]
-        if cell['Cell Type'][0] == 0:
-            cell['X Offset'] = np.array([xy_offsets[curr_pos,0]], dtype='float32')
-            cell['Y Offset'] = np.array([xy_offsets[curr_pos,1]], dtype='float32')
-        elif cell['Cell Type'][0] == 1:
-            cell['X Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,0], dtype='float32')
-            cell['Y Offset'] = np.asarray(xy_offsets[curr_pos:curr_pos+nf,1], dtype='float32')
+        if cell.cell_type == selectivity_grid:
+            cell.x_offset = np.array([xy_offsets[curr_pos,0]], dtype='float32')
+            cell.y_offset = np.array([xy_offsets[curr_pos,1]], dtype='float32')
+        elif cell.cell_type == selectivity_place:
+            cell.x_offset = np.asarray(xy_offsets[curr_pos:curr_pos+nf,0], dtype='float32')
+            cell.y_offset = np.asarray(xy_offsets[curr_pos:curr_pos+nf,1], dtype='float32')
         curr_pos += nf
     return cells, gid + 1
 
@@ -88,24 +100,25 @@ def init_context():
     field_width_x2 = input_params['Field Width']['x2']
     min_field_width = input_params['Field Width']['min']
     resolution = input_params['Spatial Resolution']
+    peak_rate = input_params['Peak Rate']
     
     modules            = np.arange(nmodules)
     grid_orientation   = [local_random.uniform(0, np.pi/3.) for i in xrange(nmodules)]
     field_width_params = [field_width_x1, field_width_x2]
-    field_width        = lambda x: min_field_width. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
+    field_width        = lambda x: min_field_width + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width    = field_width(1.)
     module_width       = field_width( float(context.module) / np.max(modules))
-    scale_factor       = (module_width / arena_dimension / 2.) + 1.
 
     arena = context.env.input_config['Arena'][context.arena_id]
 
     mesh   = generate_spatial_mesh(scale_factor=1., arena=arena, resolution=resolution)
     nx, ny = mesh[0].shape[0], mesh[0].shape[1]
+    
     grid_cells, place_cells = {}, {}
     place_gid_start = None
     context.update(locals())
     context.update(input_params)
-    context.grid_cells, context.place_gid_start  = _build_cells(context.arena, context.num_grid, 'grid', context.module)
+    context.grid_cells, context.place_gid_start  = _build_cells(context.num_grid, 'grid', context.module)
     _calculate_rate_maps(context.grid_cells, context)
 
     

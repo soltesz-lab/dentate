@@ -317,14 +317,12 @@ class Env:
         return DomainConfig(vertices, simplices)
 
     def parse_arena_trajectory(self, config):
-        print 'config: ', config
         velocity = float(config['run velocity'])
         path_config = config['path']
 
         path_x = []
         path_y = []
         for v in path_config:
-            print v
             path_x.append(v[0])
             path_y.append(v[1])
 
@@ -362,7 +360,6 @@ class Env:
                     arena_domain = None
                     arena_trajectories = {}
                     for kk, vv in viewitems(arena_val):
-                        print "kk: ", kk
                         if kk == 'Domain':
                             arena_domain = self.parse_arena_domain(vv)
                         elif kk == 'Trajectory':
@@ -371,7 +368,6 @@ class Env:
                                 arena_trajectories[name] = trajectory
                         else:
                             arena_properties[kk] = vv
-                    print 'trajectories: ', arena_trajectories
                     input_config['Arena'][arena_id] = ArenaConfig(arena_id, arena_domain,
                                                                   arena_trajectories, arena_properties)
             else:

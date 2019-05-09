@@ -17,7 +17,7 @@ def make_place_cell(gid, module, nfields, this_width=None, **kwargs):
         ny = kwargs.get('ny')
         if this_width is None:
             this_width = kwargs.get('module_width')
-        cell_args = {}
+        cell_args = kwargs
         cell_field_width = []
         for n in xrange(nfields):
             curr_width = this_width + local_random.uniform(-mod_jitter, mod_jitter)
@@ -47,7 +47,7 @@ def make_grid_cell(gid, module, nfields, **kwargs):
         delta_spacing     = local_random.uniform(-10., 10.)
         delta_orientation = local_random.uniform(-10., 10.)
 
-        cell_args = {}
+        cell_args = kwargs
         cell_args['Grid Spacing']     = np.array([spacing + delta_spacing], dtype='float32')
         cell_args['Grid Orientation'] = np.array([orientation + delta_orientation], dtype='float32')
         cell_args['Nx'] = nx
@@ -94,7 +94,6 @@ class InputCell(object):
     @abstractmethod
     def return_attr_dict(self):
         cell = {}
-        cell['gid'] = np.array([self.gid], dtype='int32')
         cell['Num Fields'] = np.array([self.nfields], dtype='uint8')
         cell['Module'] = np.array([self.module], dtype='uint8')
         cell['X Offset'] = np.asarray(self.x_offset, dtype='float32')
@@ -176,5 +175,6 @@ class PlaceCell(InputCell):
             rate_map = np.zeros( interp_x.shape ).astype('float32')
 
         self.rate_map = rate_map
+        
         return rate_map
 

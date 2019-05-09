@@ -26,6 +26,8 @@ kwargs:
   a: 0.70
   b: -1.5
   c: 0.90
+  config_file: Full_Scale_Pas.yaml
+  arena_id: A
 objective_names:
 - variation error
 - fraction active mean error

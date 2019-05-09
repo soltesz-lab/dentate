@@ -150,14 +150,14 @@ def get_rate_maps(cells):
     rate_maps = []
     for gid in cells:
         cell = cells[gid]
-        nx, ny = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
+        nx, ny = cell.nx, cell.ny
+        rate_map = cell.rate_map.reshape(nx, ny)
         rate_maps.append(rate_map)
     return np.asarray(rate_maps, dtype='float32')
 
 def fraction_active(cells, threshold):
     temp_cell = cells.values()[0]
-    nx, ny = temp_cell['Nx'][0], temp_cell['Ny'][0]
+    nx, ny = temp_cell.nx, temp_cell.ny
     del temp_cell
 
     rate_maps = get_rate_maps(cells)

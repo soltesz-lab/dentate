@@ -138,7 +138,6 @@ def main(config, config_prefix, features_path, output_path, io_size, chunk_size,
                     if verbose:
                         logger.info('Rank %i received attributes for gid %i' % (rank, gid))
                     local_time = time.time()
-                    del(features_dict['gid'])
                     cell = InputCell.make_input_cell(gid, features_type, features_dict)
                     response = cell.generate_spatial_ratemap(x, y)
                     local_random.seed(int(input_spiketrain_offset + gid))
