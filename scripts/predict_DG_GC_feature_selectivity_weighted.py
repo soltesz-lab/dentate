@@ -123,15 +123,12 @@ def main(features_path, weights_path, weights_namespace, connectivity_path, conn
                                           cache_size=cache_size, namespace=connectivity_namespace)
     weights_gen = NeuroH5CellAttrGen(comm, weights_path, target_population, io_size=io_size,
                                      cache_size=cache_size, namespace=weights_namespace)
-<<<<<<< HEAD
-    for (gid, connectivity_dict), (weights_gid, weights_dict) in zip(connectivity_gen, weights_gen):
-=======
+
     if debug:
         attr_gen = ((connectivity_gen.next(), weights_gen.next()) for i in xrange(2))
     else:
         attr_gen = izip(connectivity_gen, weights_gen)
     for (gid, connectivity_dict), (weights_gid, weights_dict) in attr_gen:
->>>>>>> f66de1872f390edb03b9fdc866288c42bef7d7ac
         local_time = time.time()
         source_map = {}
         weight_map = {}
