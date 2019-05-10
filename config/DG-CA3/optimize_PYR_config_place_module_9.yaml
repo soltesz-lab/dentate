@@ -23,8 +23,8 @@ kwargs:
   num_place: 6000
   module: 9
   local_seed: 64
-  fraction_active_target: 0.15
-  active_threshold: 1.0
+  fraction_active_target: 0.015
+  active_threshold: 2.0
   place_peak_rate: 20.0
   a: 0.70
   b: -1.5
@@ -48,6 +48,6 @@ target_val:
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  prob_inactive: 0.4
-  pg1: 0.5
+  prob_inactive: 0.950
+  pg1: 0.0032
   tau: 2.5

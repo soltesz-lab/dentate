@@ -7,23 +7,23 @@ bounds:
   - 1.0
   tau: !!python/tuple
   - 0.1
-  - 10.0
+  - 20.0
 feature_names:
 - fraction active
 - coefficient of variation
 update_context:
-- - optimize_PYR2
+- - optimize_MCC2
   - update
 get_features_stages:
-- source: optimize_PYR2
+- source: optimize_MCC2
   compute_features: calculate_features
 get_objectives:
-  optimize_PYR2: get_objectives
+  optimize_MCC2: get_objectives
 kwargs:
-  num_place: 6000
+  num_place: 3000
   module: 5
   local_seed: 64
-  fraction_active_target: 0.015
+  fraction_active_target: 0.022
   active_threshold: 2.0
   place_peak_rate: 20.0
   a: 0.70
@@ -33,7 +33,7 @@ objective_names:
 - variation error
 - fraction active mean error
 - fraction active var error
-optimization_title: optimize_PYR2
+optimization_title: optimize_MCC2
 param_gen: PopulationAnnealing
 param_names:
 - prob_inactive
