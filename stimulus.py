@@ -3,7 +3,7 @@ import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
 from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
-
+from InputCell import make_input_cell
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
@@ -45,8 +45,8 @@ def generate_spatial_offsets(N, arena, scale_factor=2.0):
     vert = arena.domain.vertices
     smp = arena.domain.simplices
 
-    # evenly disperse the nodes over the domain using maxit iterative steps
-    out = min_energy_nodes(N,(vert,smp))
+    # evenly disperse the nodes over the domain
+    out = min_energy_nodes(N,(vert,smp),iterations=50,dispersion_delta=0.15)
     nodes = out[0]
     scaled_nodes = nodes * scale_factor
     
@@ -203,9 +203,11 @@ def calculate_field_distribution(pi, pr):
 def gid2module_dictionary(cell_lst, modules):
     module_dict = {module: {} for module in modules}
     for cells in cell_lst:
-        for (gid, cell) in cells:
-            this_module = cell['Module'][0]
-            module_dict[this_module][cell['gid'][0]] = cell
+        for (gid, cell_dict) in cells:
+            feature_type = cell_dict['Cell Type'][0]
+            cell = make_input_cell(gid, feature_type, cell_dict)
+            this_module = cell.module
+            module_dict[this_module][gid] = cell
     return module_dict
 
 def module2gid_dictionary(module_dict):

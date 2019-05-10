@@ -86,7 +86,7 @@ def plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save
         rate_maps = []
         for gid in cells:
             cell = cells[gid]
-            rate_maps.append(cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0]))
+            rate_maps.append(cell.rate_map.reshape(cell.nx, cell.ny))
         rate_maps = np.asarray(rate_maps, dtype='float32')
         
         summed_map = np.sum(rate_maps, axis=0)
@@ -162,10 +162,7 @@ def plot_xy_offsets_multiple_modules(modules_dictionary, modules, plot=False, sa
         cells = modules_dictionary[module]
         for gid in cells:
             cell = cells[gid]
-            if 'X Offset Scaled' not in cell or 'Y Offset Scaled' not in cell:
-                offsets = zip(cell['X Offset'], cell['Y Offset'])
-            else:
-                offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
+            offsets = zip(cell.x_offset, cell.y_offset)
             for (x_offset, y_offset) in offsets:
                 pop_xy_offsets.append((x_offset, y_offset))
         pop_xy_offsets = np.asarray(pop_xy_offsets, dtype='float32')
@@ -296,8 +293,8 @@ def plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=False,
         rate_maps = []
         for gid in cells:
             cell   = cells[gid]
-            nx, ny = cell['Nx'][0], cell['Ny'][0]
-            rate_maps.append(cell['Rate Map'].reshape(nx, ny))
+            nx, ny = cell.nx, cell.ny
+            rate_maps.append(cell.rate_map.reshape(nx, ny))
         rate_maps = np.asarray(rate_maps, dtype='float32')
         
         N, nx, ny = rate_maps.shape

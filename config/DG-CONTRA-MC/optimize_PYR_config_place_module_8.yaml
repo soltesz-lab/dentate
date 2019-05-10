@@ -21,10 +21,10 @@ get_objectives:
   optimize_PYR2: get_objectives
 kwargs:
   num_place: 6000
-  module: 5
+  module: 8
   local_seed: 64
-  fraction_active_target: 0.15
-  active_threshold: 1.0
+  fraction_active_target: 0.015
+  active_threshold: 2.0
   place_peak_rate: 20.0
   a: 0.70
   b: -1.5

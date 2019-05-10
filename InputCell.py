@@ -59,6 +59,8 @@ def make_grid_cell(gid, module, nfields, **kwargs):
 
 def make_input_cell(gid, features_type, features):
     cell = None
+    if 'gid' in features:
+        del(features['gid'])
     if features_type == selectivity_grid:
         cell = make_grid_cell(gid, features['Module'], features['Num Fields'], **features)
     elif features_type == selectivity_place:
@@ -85,8 +87,8 @@ class InputCell(object):
 
         self.x_offset = kwargs.get('X Offset', None)
         self.y_offset = kwargs.get('Y Offset', None)
-        self.cell_type = None
-        self.rate_map  = None
+        self.cell_type = kwargs.get('Cell Type', None)
+        self.rate_map  = kwargs.get('Rate Map', None)
         self.nx = as_scalar(kwargs.get('Nx', None))
         self.ny = as_scalar(kwargs.get('Ny', None))
         self.peak_rate = as_scalar(kwargs.get('Peak Rate', None))
@@ -147,11 +149,14 @@ class GridCell(InputCell):
         return rate_map
     
 class PlaceCell(InputCell):
-    def __init__(self, gid, nfields=[], module=[], **kwargs):
+    def __init__(self, gid, nfields=None, module=None, **kwargs):
         super(PlaceCell, self).__init__(gid, nfields=nfields, module=module, **kwargs)
         self.cell_type = 1
         self.field_width = kwargs.get('Field Width', None)
-        self.num_fields = as_scalar(kwargs.get('Num Fields', None))
+        if nfields is None:
+            self.num_fields = as_scalar(kwargs.get('Num Fields', None))
+        else:
+            self.num_fields = nfields
         
     def return_attr_dict(self):
         cell = super(PlaceCell, self).return_attr_dict()

@@ -2,9 +2,12 @@ bounds:
   prob_inactive: !!python/tuple
   - 0.0
   - 1.0
-  pr: !!python/tuple
+  pg1: !!python/tuple
   - 0.0
-  - 0.95
+  - 1.0
+  tau: !!python/tuple
+  - 0.1
+  - 10.0
 feature_names:
 - fraction active
 - coefficient of variation
@@ -20,8 +23,8 @@ kwargs:
   num_place: 6000
   module: 9
   local_seed: 64
-  fraction_active_target: 0.10
-  active_threshold: 2.0
+  fraction_active_target: 0.15
+  active_threshold: 1.0
   place_peak_rate: 20.0
   a: 0.70
   b: -1.5
@@ -34,7 +37,8 @@ optimization_title: optimize_PYR2
 param_gen: PopulationAnnealing
 param_names:
 - prob_inactive
-- pr
+- pg1
+- tau
 target_range:
   variation error: 0.05
   fraction active mean error: 0.01
@@ -44,5 +48,6 @@ target_val:
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  prob_inactive: 0.5
-  pr: 0.33
+  prob_inactive: 0.4
+  pg1: 0.5
+  tau: 2.5
