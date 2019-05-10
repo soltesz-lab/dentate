@@ -1,6 +1,5 @@
 
 import sys, gc, os
-from mpi4py import MPI
 import click
 import dentate
 from dentate import utils, plot
@@ -21,8 +20,9 @@ script_name = os.path.basename(__file__)
 @click.option("--font-size", type=float, default=14)
 @click.option("--graph-type", type=str, default='bar')
 @click.option("--overlay", type=bool, default=False, is_flag=True)
+@click.option("--save-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, bin_size, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, verbose):
+def main(spike_events_path, spike_events_namespace, populations, bin_size, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, save_format, verbose):
 
     utils.config_logging(verbose)
 
@@ -39,7 +39,7 @@ def main(spike_events_path, spike_events_namespace, populations, bin_size, smoot
         
     plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
                                time_range=time_range, pop_rates=True, bin_size=bin_size,
-                               smooth=smooth, quantity=quantity, fontSize=font_size, overlay=overlay, graph_type=graph_type, saveFig=True)
+                               smooth=smooth, quantity=quantity, fontSize=font_size, overlay=overlay, graph_type=graph_type, saveFig=True, figFormat=save_format)
     
 
 if __name__ == '__main__':

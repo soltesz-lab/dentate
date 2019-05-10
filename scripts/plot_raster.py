@@ -16,8 +16,10 @@ script_name = os.path.basename(__file__)
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
+@click.option("--labels", type=str, default='legend')
+@click.option("--save-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, font_size, labels, save_format, verbose):
 
     utils.config_logging(verbose)
     
@@ -32,8 +34,7 @@ def main(spike_events_path, spike_events_namespace, populations, max_spikes, spi
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable,
-                            pop_rates=True, spike_hist='subplot', max_spikes=max_spikes, spike_hist_bin=spike_hist_bin, fontSize=font_size, saveFig=True)
+    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, pop_rates=True, spike_hist='subplot', max_spikes=max_spikes, spike_hist_bin=spike_hist_bin, fontSize=font_size, labels=labels, saveFig=True, figFormat=save_format)
     
 
 if __name__ == '__main__':

@@ -3,8 +3,17 @@ import sys, os.path, string, time, gc, math, datetime, numbers, itertools
 import copy, pprint, logging
 import yaml
 import numpy as np
+import scipy
+from scipy import sparse
 
-
+class Struct:
+    def __init__(self, **items):
+        self.__dict__.update(items)
+    def update(self, items):
+        self.__dict__.update(items)
+    def __getitem__(self, key):
+        return self.__dict__[key]
+        
 class IncludeLoader(yaml.Loader):
     """
     YAML loader with `!include` handler.
@@ -117,6 +126,7 @@ def list_index(element, lst):
     except ValueError:
         return None
 
+
 def list_find(f, lst):
     """
 
@@ -168,6 +178,17 @@ def viewitems(obj, **kwargs):
     func = getattr(obj, "viewitems", None)
     if not func:
         func = obj.items
+    return func(**kwargs)    
+
+def viewkeys(obj, **kwargs):
+    """
+    Function for iterating over dictionary keys with the same set-like
+    behaviour on Py2.7 as on Py3.
+
+    Passes kwargs to method."""
+    func = getattr(obj, "viewkeys", None)
+    if not func:
+        func = obj.keys
     return func(**kwargs)    
 
 
@@ -437,3 +458,44 @@ def profile_memory(logger):
     hprof = hpy()
     logger.info(hprof.heap())
 
+
+def update_bins(bins, binsize, *xs):
+    idxs = tuple( math.floor(x / binsize) for x in xs )
+    if idxs in bins:
+        bins[idxs] += 1
+    else:
+        bins[idxs] = 1
+
+        
+def finalize_bins(bins, binsize):
+    bin_keys = zip_longest(*viewkeys(bins))
+    bin_ranges = [ (int(min(ks)), int(max(ks))) for ks in bin_keys ]
+    dims = tuple( (imax - imin + 1) for imin, imax in bin_ranges )
+    if len(dims) > 1:
+        grid = sparse.dok_matrix( dims, dtype=np.int )
+    else:
+        grid = np.zeros(dims)
+    bin_edges = [ [binsize * k for k in range(imin, imax + 1)] for imin, imax in bin_ranges ]
+    for i in bins:
+        idx = tuple([ int(ii - imin) for ii, (imin, imax) in zip(i, bin_ranges) ])
+        grid[idx] = bins[i]
+    result = tuple([grid] + [np.asarray(edges) for edges in bin_edges])
+    return result
+
+
+def merge_bins(bins1, bins2, datatype):
+    for i, count in viewitems(bins2):
+        if i in bins1:
+            bins1[i] += count
+        else:
+            bins1[i] = count
+    return bins1
+
+
+def add_bins(bins1, bins2, datatype):
+    for item in bins2:
+        if item in bins1:
+            bins1[item] += bins2[item]
+        else:
+            bins1[item] = bins2[item]
+    return bins1

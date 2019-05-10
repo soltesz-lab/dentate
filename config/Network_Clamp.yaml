@@ -37,10 +37,12 @@ Input Generator:
 Weight Generator:
   MC:
     GC:
-      class: Sparse
+      class: Log-Normal
       name: AMPA
       params:
-        fraction: 0.1
+        mu: 0.
+        sigma: 1.0
+        clip: [0.0, 3.0]
     MC:
       class: Sparse
       name: AMPA
@@ -53,18 +55,14 @@ Weight Generator:
       params:
         mu: 0.
         sigma: 1.0
+        clip: [0.0, 3.0]
     LPP:
       class: Log-Normal
       name: AMPA
       params:
         mu: 0.
         sigma: 1.0
-    MC:
-      class: Log-Normal
-      name: AMPA
-      params:
-        mu: 0.
-        sigma: 1.0
+        clip: [0.0, 3.0]
 Synaptic Optimization:
   GC:
     Parameter ranges:
