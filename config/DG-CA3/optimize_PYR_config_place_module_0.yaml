@@ -6,8 +6,8 @@ bounds:
   - 0.0
   - 1.0
   tau: !!python/tuple
-  - -50.0
-  - 50.0
+  - 0.1
+  - 20.0
 feature_names:
 - fraction active
 - coefficient of variation
@@ -24,7 +24,7 @@ kwargs:
   module: 0
   local_seed: 64
   fraction_active_target: 0.15
-  active_threshold: 1.0
+  active_threshold: 2.0
   place_peak_rate: 20.0
   a: 0.70
   b: -1.5
@@ -48,6 +48,6 @@ target_val:
   fraction active mean error: 0.0
   fraction active var error: 0.0
 x0:
-  prob_inactive: 0.0
-  pg1: 1.0
-  tau: -0.1
+  prob_inactive: 0.4
+  pg1: 0.5
+  tau: 2.5
