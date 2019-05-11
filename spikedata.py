@@ -362,7 +362,7 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
     return MI_dict
 
 
-def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, save = False):
+def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, min_pf_bins=1, save = False):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     """
@@ -397,7 +397,8 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
                   pf_rate.append(r)
                   pf_norm_rate.append(r_n)
 
-        pf_count = len(consecutive(pf_bins))
+        consecutive_pf_bins = [ pf_bin for pf_bin in consecutive(pf_bins) if len(pf_bin) >= min_pf_bins ]
+        pf_count = len(consecutive_pf_bins)
         pf_min = min(pf_count, pf_min)
         pf_max = max(pf_count, pf_max)
         cell_count += 1

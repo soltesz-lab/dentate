@@ -2806,7 +2806,6 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
             cells_to_plot.append(cell_features['Rate Map'].reshape(nx, ny))
 
     axes_dim = int(np.round(np.sqrt(to_plot)))
-    print(axes_dim)
     fig, axes = plt.subplots(axes_dim, axes_dim)
     for i in range(len(cells_to_plot)):
         img = axes[i%axes_dim, i/axes_dim].imshow(cells_to_plot[i], cmap='viridis')
@@ -2892,17 +2891,15 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
                 filename = spike_namespace_id+' '+subset
 
         rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
-        PF_dict  = spikedata.place_fields(subset, position_bin_size, rate_bin_dict)
+        PF_dict  = spikedata.place_fields(subset, position_bin_size, rate_bin_dict, min_pf_bins)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []
         for ind in sorted(PF_dict.keys()):
             PF = PF_dict[ind]
-            if len(PF['pf_bins']) >= min_pf_bins:
-                PF_count_lst.append(PF['pf_count'])
+            PF_count_lst.append(PF['pf_count'])
+            if PF['pf_count'] > 0:
                 PF_infield_rate_lst.append(np.mean(PF['pf_rate']))
-            else:
-                PF_count_lst.append(np.asarray([0],dtype=np.int32))
                 
         del(PF_dict)
 
@@ -2911,7 +2908,6 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         else:
             PF_count_array = np.asarray([], dtype=np.float32)
         PF_infield_rate_array = np.asarray(PF_infield_rate_lst, dtype=np.float32)
-        print PF_infield_rate_lst
         del(PF_count_lst)
         del(PF_infield_rate_lst)
         
@@ -2925,16 +2921,20 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         gs  = gridspec.GridSpec(3, 1, height_ratios=[2,1,2])
 
         ax1 = plt.subplot(gs[0])
-        dmin = np.diff(np.unique(PF_count_array)).min()
-        left_of_first_bin = PF_count_array.min() - float(dmin)/2
-        right_of_last_bin = PF_count_array.max() + float(dmin)/2
-        bins = np.arange(left_of_first_bin, right_of_last_bin + dmin, dmin)
-        PF_count_hist, bin_edges = np.histogram(PF_count_array, bins=bins)
+        PF_unique_count = np.unique(PF_count_array)
+        if len(PF_unique_count) > 1:
+            dmin = np.diff(PF_unique_count).min()
+            left_of_first_bin = PF_count_array.min() - float(dmin)/2
+            right_of_last_bin = PF_count_array.max() + float(dmin)/2
+            bins = np.arange(left_of_first_bin, right_of_last_bin + dmin, dmin)
+            PF_count_hist, bin_edges = np.histogram(PF_count_array, bins=bins)
+        else:
+            PF_count_hist, bin_edges = np.histogram(PF_count_array, bins='auto')
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
         ax1.bar(bin_centers, PF_count_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
         ax1.set_xticks(bin_centers)
         
-        ax2 = plt.subplot(gs[1])
+        ax2 = plt.subplot(gs[2])
         PF_infield_rate_hist, bin_edges = np.histogram(PF_infield_rate_array)
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
         ax2.bar(bin_centers, PF_infield_rate_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
