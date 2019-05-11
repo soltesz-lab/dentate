@@ -2662,9 +2662,9 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
 ## Plot spatial information distribution
 def plot_spatial_information (spike_input_path, spike_namespace_id, 
                               trajectory_path, trajectory_id, include = ['eachPop'],
-                              position_bin_size = 5.0, bin_count = 50,
+                              position_bin_size = 5.0, 
                               time_variable='t', time_range = None, 
-                              alpha_fill = 0.2, load_data = None, save_data = None,
+                              alpha_fill = 0.2, save_data = None,
                               **kwargs):
     ''' 
     Plots distributions of spatial information per cell. Returns figure handle.
@@ -2697,21 +2697,18 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
         for pop in population_names:
             include.append(pop)
 
-    if load_data is None:
-        spkdata = spikedata.read_spike_events (spike_input_path, include, spike_namespace_id,
-                                               time_variable=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (spike_input_path, include, spike_namespace_id,
+                                           time_variable=time_variable, time_range=time_range)
 
-        spkpoplst        = spkdata['spkpoplst']
-        spkindlst        = spkdata['spkindlst']
-        spktlst          = spkdata['spktlst']
-        num_cell_spks    = spkdata['num_cell_spks']
-        pop_active_cells = spkdata['pop_active_cells']
-        tmin             = spkdata['tmin']
-        tmax             = spkdata['tmax']
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
 
-        time_range = [tmin, tmax]
-    else:
-        spkpoplst = include
+    time_range = [tmin, tmax]
             
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
@@ -2720,21 +2717,19 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        if load_data:
-            MI_dict = read_cell_attributes(load_data[iplot], subset, namespace='Spatial Mutual Information')
-        else:
-            spkts         = spktlst[iplot]
-            spkinds       = spkindlst[iplot]
-            spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-            if save_data:
-                if isinstance(save_data, str):
-                    filename = save_data
-                else:
-                    filename = spike_namespace_id+' '+subset
-            else:
-                filename = False
-                MI_dict       = spikedata.spatial_information(trajectory, spkdict, time_range, position_bin_size, save_data=filename)
+        spkts         = spktlst[iplot]
+        spkinds       = spkindlst[iplot]
+        spkdict       = spikedata.make_spike_dict(spkinds, spkts)
 
+        if save_data:
+            if isinstance(save_data, str):
+                filename = save_data
+            else:
+                filename = spike_namespace_id+' '+subset
+        else:
+            filename = False
+
+        MI_dict       = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size, save=filename)
         MI_lst  = []
         for ind in sorted(MI_dict.keys()):
             MI = MI_dict[ind]
@@ -2744,21 +2739,16 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
         MI_array = np.asarray(MI_lst, dtype=np.float32)
         del(MI_lst)
         
-        if not overlay:
-            if load_data:
-                label = str(subset)  + ' (mean MI %.2f bits)' % (np.mean(MI_array))
-            else:
-                label = str(subset)  + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]),np.mean(MI_array))
-            plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title (label, fontsize=options.fontSize)
+        label = str(subset)  + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]),np.mean(MI_array))
+        plt.subplot(len(spkpoplst),1,iplot+1)
+        plt.title (label, fontsize=options.fontSize)
             
         color = color_list[iplot%len(color_list)]
 
-        #MI_hist, bin_edges = np.histogram(MI_array, bins = bin_count)
-        #bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
-        #plt.bar(bin_centers, MI_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
-
-        n, bins, patches = plt.hist(MI_array, bins=bin_count, alpha=0.75, rwidth=1, color=color)
+        MI_hist, bin_edges = np.histogram(MI_array, bins='auto')
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+        plt.bar(bin_centers, MI_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        
         plt.xticks(fontsize=options.fontSize)
                    
         if iplot == 0:
@@ -2776,13 +2766,11 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
             pass
 
     # Add legend
-    if overlay:
-        for i,subset in enumerate(spkpoplst):
-            plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
-        plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
-        maxLabelLen = min(10,max([len(str(l)) for l in include]))
-        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
-
+    for i,subset in enumerate(spkpoplst):
+        plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
+    plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+    maxLabelLen = min(10,max([len(str(l)) for l in include]))
+    plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
     if options.saveFig: 
         if isinstance(options.saveFig, str):
@@ -2837,10 +2825,10 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
 
 def plot_place_fields (spike_input_path, spike_namespace_id, 
                        trajectory_path, trajectory_id, include = ['eachPop'],
-                       position_bin_size = 5.0, bin_count = 50,
+                       position_bin_size = 50.0, min_pf_bins = 1,
                        time_variable='t', time_range = None, 
                        alpha_fill = 0.2, overlay = False,
-                       load_data = None, save_data = None, **kwargs):
+                       save_data = None, **kwargs):
     ''' 
     Plots distributions of place fields per cell. Returns figure handle.
 
@@ -2873,21 +2861,19 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         for pop in population_names:
             include.append(pop)
 
-    if load_data is None:
-        spkdata = spikedata.read_spike_events (spike_input_path, include, spike_namespace_id,
-                                               time_variable=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (spike_input_path, include, spike_namespace_id,
+                                            time_variable=time_variable, time_range=time_range)
 
-        spkpoplst        = spkdata['spkpoplst']
-        spkindlst        = spkdata['spkindlst']
-        spktlst          = spkdata['spktlst']
-        num_cell_spks    = spkdata['num_cell_spks']
-        pop_active_cells = spkdata['pop_active_cells']
-        tmin             = spkdata['tmin']
-        tmax             = spkdata['tmax']
-
-        time_range = [tmin, tmax]
-    else:
-        spkpoplst = include
+    spkpoplst        = spkdata['spkpoplst']
+    spkindlst        = spkdata['spkindlst']
+    spktlst          = spkdata['spktlst']
+    num_cell_spks    = spkdata['num_cell_spks']
+    pop_active_cells = spkdata['pop_active_cells']
+    tmin             = spkdata['tmin']
+    tmax             = spkdata['tmax']
+    
+    time_range = [tmin, tmax]
+    time_bins  = np.arange(time_range[0], time_range[1], position_bin_size)
             
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
@@ -2896,49 +2882,72 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        if load_data:
-            rate_bin_dict = read_cell_attributes(load_data[iplot], subset, namespace='Instantaneous Rate')
-        else:
-            spkts         = spktlst[iplot]
-            spkinds       = spkindlst[iplot]
-            spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-            if save_data:
-                if isinstance(save_data, str):
-                    filename = save_data
-                else:
-                    filename = spike_namespace_id+' '+subset
+        spkts         = spktlst[iplot]
+        spkinds       = spkindlst[iplot]
+        spkdict       = spikedata.make_spike_dict(spkinds, spkts)
+        if save_data:
+            if isinstance(save_data, str):
+                filename = save_data
             else:
-                filename = False
-        PF_dict  = spikedata.place_fields(rate_bin_dict, time_range)
+                filename = spike_namespace_id+' '+subset
 
-        PF_lst  = []
+        rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
+        PF_dict  = spikedata.place_fields(subset, position_bin_size, rate_bin_dict)
+        
+        PF_count_lst  = []
+        PF_infield_rate_lst = []
         for ind in sorted(PF_dict.keys()):
             PF = PF_dict[ind]
-            PF_lst.append(PF)
+            if len(PF['pf_bins']) >= min_pf_bins:
+                PF_count_lst.append(PF['pf_count'])
+                PF_infield_rate_lst.append(np.mean(PF['pf_rate']))
+            else:
+                PF_count_lst.append(np.asarray([0],dtype=np.int32))
+                
         del(PF_dict)
 
-        PF_array = np.asarray(PF_lst, dtype=np.float32)
-        del(PF_lst)
+        if len(PF_count_lst) > 0:
+            PF_count_array = np.concatenate(PF_count_lst)
+        else:
+            PF_count_array = np.asarray([], dtype=np.float32)
+        PF_infield_rate_array = np.asarray(PF_infield_rate_lst, dtype=np.float32)
+        print PF_infield_rate_lst
+        del(PF_count_lst)
+        del(PF_infield_rate_lst)
         
         if not overlay:
-            if load_data:
-                label = str(subset)  + ' (mean %i place fields)' % (np.mean(PF_array))
-            else:
-                label = str(subset)  + ' (%i active; mean %i place fields)' % (len(pop_active_cells[subset]),np.mean(PF_array))
+            label = str(subset)  + ' (%i active; mean %.02f place fields)' % (len(pop_active_cells[subset]), np.mean(PF_count_array))
             plt.subplot(len(spkpoplst),1,iplot+1)
             plt.title (label, fontsize=options.fontSize)
             
         color = color_list[iplot%len(color_list)]
 
-        n, bins, patches = plt.hist(PF_array, bins=bin_count, alpha=0.75, rwidth=1, color=color)
+        gs  = gridspec.GridSpec(3, 1, height_ratios=[2,1,2])
+
+        ax1 = plt.subplot(gs[0])
+        dmin = np.diff(np.unique(PF_count_array)).min()
+        left_of_first_bin = PF_count_array.min() - float(dmin)/2
+        right_of_last_bin = PF_count_array.max() + float(dmin)/2
+        bins = np.arange(left_of_first_bin, right_of_last_bin + dmin, dmin)
+        PF_count_hist, bin_edges = np.histogram(PF_count_array, bins=bins)
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+        ax1.bar(bin_centers, PF_count_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        ax1.set_xticks(bin_centers)
+        
+        ax2 = plt.subplot(gs[1])
+        PF_infield_rate_hist, bin_edges = np.histogram(PF_infield_rate_array)
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+        ax2.bar(bin_centers, PF_infield_rate_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        ax2.set_xticks(bin_centers)
+        
         plt.xticks(fontsize=options.fontSize)
-                   
+        
         if iplot == 0:
-            plt.ylabel('Cell Index', fontsize=options.fontSize)
+            ax1.set_ylabel('Cell Index', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
-            plt.xlabel('# Place fields', fontsize=options.fontSize)
-        else:
-            plt.tick_params(labelbottom='off')
+            ax1.set_xlabel('# Place fields', fontsize=options.fontSize)
+            ax2.set_xlabel('In-field firing rate', fontsize=options.fontSize)
+
         plt.autoscale(enable=True, axis='both', tight=True)
 
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
@@ -2960,7 +2969,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         if isinstance(options.saveFig, str):
             filename = options.saveFig
         else:
-            filename = namespace_id+' '+'information.%s' % options.figFormat
+            filename = namespace_id+' '+'place fields.%s' % options.figFormat
         plt.savefig(filename)
 
     if options.showFig:
@@ -3140,7 +3149,6 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
         for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
-        print 'rate_lst size: %d' % len(rate_lst)
         col = (module - 1) % 5
         row = (module - 1) / 5
         M = max(M, len(rate_lst))
@@ -3154,7 +3162,6 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
             extent=[t[0], t[-1], 0, N]
         title = 'Module: %i' % module
         axes[row][col].set_title(title, fontsize=options.fontSize)
-        print 'rate matrix: ', rate_matrix
         img = axes[row][col].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm,
                                     extent=extent)
         #axes[row][col].set_xlim([extent[0], extent[1]])

@@ -339,12 +339,13 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_density_estimate(population, spkdict, time_range, save=save)
+    rate_bin_dict = spike_density_estimate(population, spkdict, time_bins, save=save)
     MI_dict = {}
-    for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
+    for ind, valdict in viewitems(rate_bin_dict):
         MI = 0.
-        rates = np.asarray(rate_bins)
-        R     = np.mean(rates)
+        x      = valdict['time']
+        rates  = valdict['rate']
+        R      = np.mean(rates)
 
         if R > 0.:
             for ibin in range(1, len(position_bins)+1):
@@ -360,6 +361,7 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
 
     return MI_dict
 
+
 def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, save = False):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
@@ -371,7 +373,7 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
     pf_min = sys.maxsize
     pf_max = 0
     for ind, valdict  in viewitems(rate_dict):
-        x      = valdict['x']
+        x      = valdict['time']
         rate   = valdict['rate']
         m      = np.mean(rate)
         rate1  = np.subtract(rate, m)
@@ -405,7 +407,7 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
                          'pf_rate': np.asarray(pf_rate, dtype=np.float32),
                          'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
 
-    print('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
+    logger.info('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
     if save:
         write_cell_attributes(save, population, pf_dict, namespace='Place Fields')
 
@@ -417,7 +419,7 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
 
 
 
-def histogram_correlation(spkdata, bin_size=1., quantity='count', max_elems=None):
+def histogram_correlation(spkdata, bin_size=1., quantity='count'):
     """Compute correlation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -428,7 +430,7 @@ def histogram_correlation(spkdata, bin_size=1., quantity='count', max_elems=None
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
 
-    bins  = np.arange(tmin, tmax, bin_size)
+    time_bins  = np.arange(tmin, tmax, bin_size)
     
     corr_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
@@ -438,33 +440,24 @@ def histogram_correlation(spkdata, bin_size=1., quantity='count', max_elems=None
             spk_dict[int(spkind)].append(spkt)
         x_lst = []
         for ind, lst in viewitems(spk_dict):
-            spkv  = np.asarray(lst)
-            count, bin_edges = np.histogram(spkv, bins = bins)
+            spkts  = np.asarray(lst)
             if quantity == 'rate':
-                q = count * (1000.0 / bin_size) # convert to firing rate
+                q = baks(spkts, time_bins)[0]
             else:
+                count, bin_edges = np.histogram(spkts, bins = bins)
                 q = count
             x_lst.append(q)
             i = i+1
 
         x_matrix = np.matrix(x_lst)
-        del(x_lst)
         
-        # Limit to max_elems
-        if (max_elems is not None) and (x_matrix.shape[0]>max_elems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (max_elems, x_matrix.shape[0], subset))
-            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(max_elems))
-            x_matrix = x_matrix[sample_inds,:]
-
-
         corr_matrix = np.apply_along_axis(lambda y: mvcorrcoef(x_matrix, y), 1, x_matrix)
-
         corr_dict[subset] = corr_matrix
-
     
     return corr_dict
 
-def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count', max_elems=None):
+
+def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count'):
     """Compute autocorrelation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -485,25 +478,17 @@ def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count', max
             spk_dict[int(spkind)].append(spkt)
         x_lst = []
         for ind, lst in viewitems(spk_dict):
-            spkv  = np.asarray(lst)
-            count, bin_edges = np.histogram(spkv, bins = bins)
+            spkts  = np.asarray(lst)
             if quantity == 'rate':
-                q = count * (1000.0 / bin_size) # convert to firing rate
+                q = baks(spkts, time_bins)[0]                
             else:
+                count, bin_edges = np.histogram(spkts, bins = bins)
                 q = count
             x_lst.append(q)
             i = i+1
 
         x_matrix = np.matrix(x_lst)
-        del(x_lst)
         
-        # Limit to max_elems
-        if (max_elems is not None) and (x_matrix.shape[0]>max_elems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (max_elems, x_matrix.shape[0], subset))
-            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(max_elems))
-            x_matrix = x_matrix[sample_inds,:]
-
-
         corr_matrix = np.apply_along_axis(lambda y: autocorr(y, lag), 1, x_matrix)
 
         corr_dict[subset] = corr_matrix
