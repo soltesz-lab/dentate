@@ -172,6 +172,8 @@ class QuickSim(object):
             self.recs[name]['units'] = units
         if node is not None:
             self.recs[name]['node'] = node
+            if node.sec.cell() is not self.recs[name]['cell']:
+                self.recs[name]['cell'] = node.sec.cell()
         if loc is not None:
             self.recs[name]['loc'] = loc
         if object is None:
@@ -228,7 +230,7 @@ class QuickSim(object):
         else:
             raise KeyError('QuickSim: get_stim: cannot find stimulus with name: %s' % name)
 
-    def modify_stim(self, name, node=None, loc=None, amp=None, delay=None, dur=None, description=None):
+    def modify_stim(self, name, node=None, loc=None, amp=None, delay=None, dur=None, description=None, cell=None):
         """
 
         :param name: str
@@ -238,9 +240,18 @@ class QuickSim(object):
         :param delay: float
         :param dur: float
         :param description: str
+        :param cell: :class:'BiophysCell'
         """
+        if cell is not None:
+            if node is None or self.stims[name]['node'].sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_stim: cannot change target cell without specifying new target '
+                                   'node')
+            self.stims[name]['cell'] = cell
         if not (node is None and loc is None):
-            if not node is None:
+            if node is not None:
+                if cell is None and self.stims[name]['node'].sec.cell() != node.sec.cell():
+                    raise RuntimeError('QuickSim: modify_stim: cannot change target node to new cell without '
+                                       'specifying new target cell')
                 self.stims[name]['node'] = node
             if loc is None:
                 loc = self.stims[name]['stim'].get_segment().x
@@ -254,14 +265,15 @@ class QuickSim(object):
         if description is not None:
             self.stims[name]['description'] = description
 
-    def plot(self):
+    def plot(self, axes=None, show=True):
         """
 
         """
         import matplotlib.pyplot as plt
         if len(self.recs) == 0:
             return
-        fig, axes = plt.subplots()
+        if axes is None:
+            fig, axes = plt.subplots()
         for name, rec_dict in viewitems(self.recs):
             description = str(rec_dict['description'])
             axes.plot(self.tvec, rec_dict['vec'],
@@ -280,8 +292,11 @@ class QuickSim(object):
         if title is not None:
             axes.set_title(title)
         clean_axes(axes)
-        fig.tight_layout()
-        fig.show()
+        if show:
+            fig.tight_layout()
+            fig.show()
+        else:
+            return axes
 
     def export_to_file(self, file_path, append=True):
         """

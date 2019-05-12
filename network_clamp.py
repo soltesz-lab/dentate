@@ -30,15 +30,26 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 if this_presyn_id == presyn_id:
                     source_syn_dict[this_presyn_gid].append(syn_id)
                     
-            if weight_rule['class'] == 'Log-Normal':
+            if weight_rule['class'] == 'Sparse':
+                weights_name = weight_rule['name']
+                rule_params = weight_rule['params']
+                fraction = rule_params['fraction']
+                seed_offset = int(env.modelConfig['Random Seeds']['Sparse Weights'])
+                seed = int(seed_offset + 1)
+                weights_dict[presyn_id] = \
+                  synapses.generate_sparse_weights(weights_name, fraction, seed, source_syn_dict)
+            elif weight_rule['class'] == 'Log-Normal':
                 weights_name = weight_rule['name']
                 rule_params = weight_rule['params']
                 mu = rule_params['mu']
                 sigma = rule_params['sigma']
+                clip = None
+                if 'clip' in rule_params:
+                    clip = rule_params['clip']
                 seed_offset = int(env.modelConfig['Random Seeds']['GC Log-Normal Weights 1'])
                 seed = int(seed_offset + 1)
                 weights_dict[presyn_id] = \
-                  synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
+                  synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=clip)
             elif weight_rule['class'] == 'Normal':
                 weights_name = weight_rule['name']
                 rule_params = weight_rule['params']
@@ -67,7 +78,7 @@ def make_input_cell(env, gid, gen):
     return cell
 
 
-def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None, synapses_dict=None):
+def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None, load_synapses=True, synapses_dict=None):
     """
     Instantiates the mechanisms of a single cell.
 
@@ -87,7 +98,8 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
     configure_hoc_env(env)
     
     cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
-                            tree_dict=tree_dict, synapses_dict=synapses_dict)
+                            tree_dict=tree_dict, load_synapses=load_synapses,
+                            synapses_dict=synapses_dict)
 
     if mech_file_path is not None:
         init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
@@ -215,8 +227,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     spkdata = spikedata.read_spike_events (spike_events_path, \
                                            presyn_names, \
                                            spike_events_namespace, \
-                                           timeVariable=t_var, \
-                                           timeRange=t_range)
+                                           time_variable=t_var, \
+                                           time_range=t_range)
     spkindlst = spkdata['spkindlst']
     spktlst   = spkdata['spktlst']
     spkpoplst = spkdata['spkpoplst']
@@ -414,7 +426,7 @@ def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
             spkdict1 = { gid: spkdict[pop_name][gid]['t'] }
         else:
             spkdict1 = { gid: np.asarray([], dtype=np.float32) }
-        rate_dict = spikedata.spike_rates (spkdict1, env.tstop)
+        rate_dict = spikedata.spike_rates (spkdict1)
         if gid in spkdict[pop_name]:
             logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid]['t'])))
         logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))

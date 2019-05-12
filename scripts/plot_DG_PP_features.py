@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from nested.optimize_utils import *
 from neuroh5.io import NeuroH5CellAttrGen, read_cell_attributes
 from mpi4py import MPI
 from pprint import pprint
@@ -87,7 +86,7 @@ def plot_rate_maps_multiple_modules(module_dictionary, modules, plot=False, save
         rate_maps = []
         for gid in cells:
             cell = cells[gid]
-            rate_maps.append(cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0]))
+            rate_maps.append(cell.rate_map.reshape(cell.nx, cell.ny))
         rate_maps = np.asarray(rate_maps, dtype='float32')
         
         summed_map = np.sum(rate_maps, axis=0)
@@ -163,10 +162,7 @@ def plot_xy_offsets_multiple_modules(modules_dictionary, modules, plot=False, sa
         cells = modules_dictionary[module]
         for gid in cells:
             cell = cells[gid]
-            if 'X Offset Scaled' not in cell or 'Y Offset Scaled' not in cell:
-                offsets = zip(cell['X Offset'], cell['Y Offset'])
-            else:
-                offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
+            offsets = zip(cell.x_offset, cell.y_offset)
             for (x_offset, y_offset) in offsets:
                 pop_xy_offsets.append((x_offset, y_offset))
         pop_xy_offsets = np.asarray(pop_xy_offsets, dtype='float32')
@@ -180,7 +176,7 @@ def plot_xy_offsets_multiple_modules(modules_dictionary, modules, plot=False, sa
         plt.show()
 
 
-def plot_fraction_active_single_module(cells, nxny, plot=False,save=True, **kwargs):
+def plot_fraction_active_single_module(cells, nxny, plot=False, save=True, **kwargs):
     factive = fraction_active(cells, 2.)
     fraction_active_img = np.zeros(nxny)
     for (i,j) in factive:
@@ -208,7 +204,7 @@ def plot_fraction_active_single_module(cells, nxny, plot=False,save=True, **kwar
         plt.show()
 
 
-def plot_fraction_active_multiple_modules(modules_dictionary, modules, nxny, plot=False, save=True, **kwargs):
+def plot_fraction_active_multiple_modules(modules_dictionary, modules, plot=False, save=True, **kwargs):
     assert(len(modules) == 10)
     ctype     = kwargs.get('ctype', 'place')
     fig, axes = plt.subplots(2,5, figsize=[16., 6.])
@@ -222,7 +218,9 @@ def plot_fraction_active_multiple_modules(modules_dictionary, modules, nxny, plo
 
         cells   = modules_dictionary[module]
         factive = fraction_active(cells, 2.)
-        fraction_active_img = np.zeros(nxny)
+        nx = np.max(map (lambda x: x[0], factive.keys())) + 1
+        ny = np.max(map (lambda x: x[1], factive.keys())) + 1
+        fraction_active_img = np.zeros((nx, ny))
         for (i,j) in factive:
             fraction_active_img[i,j] = factive[(i,j)]
         img = axes[ax_count1, ax_count2].imshow(fraction_active_img, cmap='inferno')
@@ -295,8 +293,8 @@ def plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=False,
         rate_maps = []
         for gid in cells:
             cell   = cells[gid]
-            nx, ny = cell['Nx'][0], cell['Ny'][0]
-            rate_maps.append(cell['Rate Map'].reshape(nx, ny))
+            nx, ny = cell.nx, cell.ny
+            rate_maps.append(cell.rate_map.reshape(nx, ny))
         rate_maps = np.asarray(rate_maps, dtype='float32')
         
         N, nx, ny = rate_maps.shape
@@ -416,9 +414,10 @@ def plot_group(module_dictionary, modules, plot=False, save=False, **kwargs):
 @click.command()
 @click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--cell-type", required=True, type=str)
-@click.option("--show-fig", type=int, default=0)
-@click.option("--save-fig", type=int, default=0)
-def main(features_path, cell_type, show_fig, save_fig):
+@click.option("--arena-id", type=str, default='A')
+@click.option("--show-fig", is_flag=True)
+@click.option("--save-fig", is_flag=True)
+def main(features_path, cell_type, arena_id, show_fig, save_fig):
 
     font = {'family': 'normal', 'weight': 'bold', 'size': 6}
     matplotlib.rc('font', **font)
@@ -427,16 +426,16 @@ def main(features_path, cell_type, show_fig, save_fig):
     modules = np.arange(10) + 1
 
     if cell_type == 'grid':
-        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
+        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid], modules)
     elif cell_type == 'place':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id )
         cells_modules_dictionary = gid2module_dictionary([mpp_place, lpp_place], modules)
     elif cell_type == 'both':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features')
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features')
-        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features')
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id)
+        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid, mpp_place, lpp_place], modules)
 
     kwargs = {'ctype': cell_type}

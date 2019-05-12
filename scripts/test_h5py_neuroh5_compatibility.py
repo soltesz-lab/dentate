@@ -51,8 +51,8 @@ def main(file_path, namespace, attribute, population, io_size, cache_size, traje
         if trajectory_namespace not in f:
             print('Rank: %i; Creating %s datasets' % (rank, trajectory_namespace))
             group = f.create_group(trajectory_namespace)
-            t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                                      spatial_resolution=spatial_resolution)
+            t, x, y, d = stimulus.generate_linear_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
+                                                             spatial_resolution=spatial_resolution)
             for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
                 dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
                 with dataset.collective:

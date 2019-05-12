@@ -10,7 +10,7 @@ from dentate import utils
 ## which is created in module env
 logger = utils.get_module_logger(__name__)
 
-def read_state(input_file, population_names, namespace_id, timeVariable='t', variable='v', timeRange = None, maxUnits = None, unitNo = None, query = False, comm = None):
+def read_state(input_file, population_names, namespace_id, time_variable='t', variable='v', time_range = None, max_units = None, unit_no = None, query = False, comm = None):
 
     if comm is None:
         comm = MPI.COMM_WORLD
@@ -31,59 +31,59 @@ def read_state(input_file, population_names, namespace_id, timeVariable='t', var
             if variable == attr_name: 
                 cell_index = attr_cell_index
                 
-        # Limit to maxUnits
-        if unitNo is None:
-            if (maxUnits is not None) and (len(cell_index)>maxUnits):
-                logger.info('  Reading only randomly sampled %i out of %i units for population %s' % (maxUnits, len(cell_index), pop_name))
-                sample_inds = np.random.randint(0, len(cell_index)-1, size=int(maxUnits))
-                unitNo      = set([cell_index[i] for i in sample_inds])
+        # Limit to max_units
+        if unit_no is None:
+            if (max_units is not None) and (len(cell_index)>max_units):
+                logger.info('  Reading only randomly sampled %i out of %i units for population %s' % (max_units, len(cell_index), pop_name))
+                sample_inds = np.random.randint(0, len(cell_index)-1, size=int(max_units))
+                unit_no      = set([cell_index[i] for i in sample_inds])
             else:
-                unitNo      = set(cell_index)
+                unit_no      = set(cell_index)
         else:
-            unitNo = set(unitNo)
+            unit_no = set(unit_no)
 
         state_dict = {}
         valiter    = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
         
-        if timeRange is None:
-            if unitNo is None:
+        if time_range is None:
+            if unit_no is None:
                 for cellind, vals in valiter:
                     if cellind is not None:
                         tlst = []
                         vlst = []
-                        for (t,v) in zip(vals[timeVariable], vals[variable]):
+                        for (t,v) in zip(vals[time_variable], vals[variable]):
                             tlst.append(t)
                             vlst.append(v)
                         state_dict[cellind] = (np.asarray(tlst,dtype=np.float32), np.asarray(vlst,dtype=np.float32))
             else:
                 for cellind, vals in valiter:
-                    if (cellind is not None) and (cellind in unitNo):
+                    if (cellind is not None) and (cellind in unit_no):
                         tlst = []
                         vlst = []
-                        for (t,v) in zip(vals[timeVariable], vals[variable]):
+                        for (t,v) in zip(vals[time_variable], vals[variable]):
                             tlst.append(t)
                             vlst.append(v)
                         state_dict[cellind] = (np.asarray(tlst,dtype=np.float32), np.asarray(vlst,dtype=np.float32))
                 
         else:
-            if unitNo is None:
+            if unit_no is None:
                 for cellind, vals in valiter:
                     if cellind is not None:
                         tlst = []
                         vlst = []
-                        for (t,v) in zip(vals[timeVariable], vals[variable]):
-                            if timeRange[0] <= t <= timeRange[1]:
+                        for (t,v) in zip(vals[time_variable], vals[variable]):
+                            if time_range[0] <= t <= time_range[1]:
                                 tlst.append(t)
                                 vlst.append(v)
                         state_dict[cellind] = (np.asarray(tlst,dtype=np.float32), np.asarray(vlst,dtype=np.float32))
             else:
                 for cellind, vals in valiter:
                     if cellind is not None:
-                        if cellind in unitNo:
+                        if cellind in unit_no:
                             tlst = []
                             vlst = []
-                            for (t,v) in zip(vals[timeVariable], vals[variable]):
-                                if timeRange[0] <= t <= timeRange[1]:
+                            for (t,v) in zip(vals[time_variable], vals[variable]):
+                                if time_range[0] <= t <= time_range[1]:
                                     tlst.append(t)
                                     vlst.append(v)
                             state_dict[cellind] = (np.asarray(tlst,dtype=np.float32), np.asarray(vlst,dtype=np.float32))
@@ -92,6 +92,6 @@ def read_state(input_file, population_names, namespace_id, timeVariable='t', var
 
                 
         
-    return {'states': pop_state_dict, 'timeVariable': timeVariable, 'variable': variable }
+    return {'states': pop_state_dict, 'time_variable': time_variable, 'variable': variable }
 
 

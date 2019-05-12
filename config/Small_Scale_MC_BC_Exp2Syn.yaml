@@ -8,7 +8,6 @@ Cell Data: MC_BC_trees_syns_20180817.h5
 Connection Data: MC_BC_connections_20180905.h5
 Connection Generator: !include Small_Scale_MC_BC_Exp2Syn_Connections.yaml
 LFP: !include LFP.yaml
-Input: !include Input.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:

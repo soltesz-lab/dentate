@@ -40,6 +40,7 @@ Synapse Parameter Rules:
       - mg
       - Kd
       - gamma
+      - vshift
     netcon_params:
       weight: 0
       g_unit: 1
@@ -120,7 +121,7 @@ Synapses:
       mechanisms:
         SatGABA_A:
           dur_onset: 0.25
-          tau_offset: 5.5
+          tau_offset: 9.0
           sat: 0.9
           e: -75
           g_unit: 0.00065
@@ -132,8 +133,8 @@ Synapses:
       proportions: [0.31]
       mechanisms:
         SatGABA_A:
-          dur_onset: 0.4
-          tau_offset: 1.1
+          dur_onset: 0.5
+          tau_offset: 9.0
           sat: 0.9
           e: -75
           g_unit: 0.003
@@ -145,8 +146,8 @@ Synapses:
       proportions: [0.5, 0.5]
       mechanisms:
         SatGABA_A:
-          dur_onset: 0.5
-          tau_offset: 6.0
+          dur_onset: 2.5
+          tau_offset: 11.0
           sat: 0.9
           e: -75
           g_unit: 0.006
@@ -158,8 +159,8 @@ Synapses:
       proportions: [0.28, 0.28]
       mechanisms:
         SatGABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
+          dur_onset:  6.0
+          tau_offset: 15.0
           sat: 0.9
           e:   -75
           g_unit: 0.00015
@@ -178,8 +179,8 @@ Synapses:
       proportions: [0.22, 0.22]
       mechanisms:
         SatGABA_A:
-          dur_onset:  0.1
-          tau_offset: 10.0
+          dur_onset:  6.0
+          tau_offset: 15.0
           sat: 0.9
           e:   -75
           g_unit: 0.00015
@@ -634,9 +635,9 @@ Synapses:
           weight: 1.0
     HCC:  
       type: inhibitory
-      sections: [basal, apical]
-      layers: [Hilus, IML]
-      proportions: [0.3, 1.0]
+      sections: [basal, apical, apical]
+      layers: [Hilus, Hilus, IML]
+      proportions: [0.3, 0.3, 1.0]
       mechanisms:
         SatGABA_A:
           dur_onset: 0.72
@@ -680,9 +681,9 @@ Synapses:
           weight: 1.0
     IS: 
       type: inhibitory
-      sections: [basal, soma]
-      layers: [Hilus, Hilus]
-      proportions: [0.7, 1.0]
+      sections: [basal, apical, soma]
+      layers: [Hilus, Hilus, Hilus]
+      proportions: [0.7, 0.7, 1.0]
       mechanisms:
         SatGABA_A:
           dur_onset: 0.46

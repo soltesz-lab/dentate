@@ -40,7 +40,10 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     if generator is None:
         generator = random
     interp_t = np.arange(t[0], t[-1] + dt, dt)
-    interp_rate = np.interp(interp_t, t, rate)
+    try:
+        interp_rate = np.interp(interp_t, t, rate)
+    except Exception:
+        print 't shape: %s rate shape: %s' % (str(t.shape), str(rate.shape))
     interp_rate /= 1000.
     non_zero = np.where(interp_rate > 0.)[0]
     interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)

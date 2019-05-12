@@ -4,6 +4,7 @@ import click
 import dentate
 from dentate import utils, plot
 
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
@@ -15,24 +16,26 @@ from dentate import utils, plot
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
+@click.option("--labels", type=str, default='legend')
+@click.option("--save-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, font_size, labels, save_format, verbose):
 
     utils.config_logging(verbose)
     
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, popRates=True, spikeHist='subplot', maxSpikes=max_spikes, spikeHistBin=spike_hist_bin, fontSize=font_size, saveFig=True)
+    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, pop_rates=True, spike_hist='subplot', max_spikes=max_spikes, spike_hist_bin=spike_hist_bin, fontSize=font_size, labels=labels, saveFig=True, figFormat=save_format)
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])

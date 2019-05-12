@@ -1,0 +1,23 @@
+// Reads an SWC morphology file and instantiates a hoc cell with it
+
+{load_file("nrngui.hoc")}
+{load_file("import3d.hoc")}
+
+objref nil
+
+obfunc mkcell() { localobj i3d, morph
+    
+    morph = new Import3d_SWC_read()
+    morph.input($s1)
+    
+    i3d = new Import3d_GUI(morph, 0)
+    i3d.instantiate(nil)
+    
+    return i3d
+}
+
+objref cell
+
+cell = mkcell("HICAPCell_nolayer.swc")
+
+

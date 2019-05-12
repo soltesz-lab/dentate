@@ -1,40 +1,43 @@
 
-import sys, gc
-from mpi4py import MPI
+import sys, gc, os
 import click
-import utils, plot
+import dentate
+from dentate import plot, utils
 
-script_name = 'plot_rates.py'
+script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--spike-rate-bin", type=float, default=5.0)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
-@click.option("--sigma", type=float, default=0.05)
+@click.option("--bin-size", type=float, default=100.)
+@click.option("--meansub", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
+@click.option("--save-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, spike_rate_bin, t_variable, t_max, t_min, sigma, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, populations, t_variable, t_max, t_min, bin_size, meansub, font_size, save_format, verbose):
+
+    utils.config_logging(verbose)
+
     if t_max is None:
-        timeRange = None
+        time_range = None
     else:
         if t_min is None:
-            timeRange = [0.0, t_max]
+            time_range = [0.0, t_max]
         else:
-            timeRange = [t_min, t_max]
+            time_range = [t_min, t_max]
 
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, timeRange=timeRange, timeVariable=t_variable, 
-                           spikeRateBin=spike_rate_bin, sigma=sigma, fontSize=font_size, saveFig=True, verbose=verbose)
+    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, meansub=meansub, bin_size=bin_size, fontSize=font_size, saveFig=True, figFormat=save_format)
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
 
 
     

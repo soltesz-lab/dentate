@@ -63,7 +63,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--dt", type=float, default=0.025, help='')
 @click.option("--ldbal", is_flag=True, help='estimate load balance based on cell complexity')
 @click.option("--lptbal", is_flag=True, help='optimize load balancing assignment with LPT algorithm')
-@click.option('--cleanup', type=bool, default=True,
+@click.option('--cleanup/--no-cleanup', default=True,
               help='delete from memory the synapse attributes metadata after specifying connections')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--run-test', is_flag=True, help='whether to actually execute simulation after building network')
@@ -102,7 +102,7 @@ def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset
     np.seterr(all='raise')
     params = dict(locals())
     env = Env(**params)
-    network.init(env, cleanup)
+    network.init(env)
     if run_test:
         network.run(env, output=False)
 

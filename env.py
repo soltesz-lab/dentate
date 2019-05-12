@@ -9,11 +9,13 @@ from neuron import h
 from dentate.utils import *
 from dentate.neuron_utils import find_template
 
+
 SynapseConfig = namedtuple('SynapseConfig',
                                ['type',
                                 'sections',
                                 'layers',
                                 'proportions',
+                                'contacts',
                                 'mechanisms'])
 
 GapjunctionConfig = namedtuple('GapjunctionConfig',
@@ -31,6 +33,19 @@ NetclampConfig = namedtuple('NetclampConfig',
                              'weight_generators',
                              'optimize_parameters'])
 
+ArenaConfig  = namedtuple('Arena',
+                          ['name',
+                           'domain',
+                           'trajectories',
+                           'properties'])
+
+DomainConfig = namedtuple('Domain',
+                            ['vertices',
+                             'simplices'])
+
+TrajectoryConfig = namedtuple('Trajectory',
+                              ['velocity',
+                               'path'])
 
 class Env:
     """
@@ -38,10 +53,10 @@ class Env:
     """
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0,
-                 vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0,
+                 vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, verbose=False,
-                 cache_queries=False, profile_memory=False, **kwargs):
+                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
+                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -63,9 +78,10 @@ class Env:
         :param dt: float; simulation time step
         :param ldbal: bool; estimate load balance based on cell complexity
         :param lptbal: bool; calculate load balance with LPT algorithm
+        :param cleanup: bool; clean up auxiliary cell and synapse structures after network init
         :param profile: bool; profile memory usage
-        :param verbose: bool; print verbose diagnostic messages while constructing the network
         :param cache_queries: bool; whether to use a cache to speed up queries to filter_synapses
+        :param verbose: bool; print verbose diagnostic messages while constructing the network
         """
         self.SWC_Types = {}
         self.Synapse_Types = {}
@@ -89,11 +105,16 @@ class Env:
         else:
             self.pc = None
 
+        # If true, the biophysical cells and synapses dictionary will be freed
+        # as synapses and connections are instantiated.
+        self.cleanup = cleanup
+        
         # If true, compute and print memory usage at various points
         # during simulation initialization
         self.profile_memory = profile_memory
             
         # print verbose diagnostic messages
+        self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
         
@@ -212,10 +233,12 @@ class Env:
         self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
-            self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
+            if self.results_id is None:
+                self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
+            else:
+                self.results_file_path = "%s/%s_%s_results.h5" % (self.results_path, self.modelName, self.results_id)
         else:
-            self.results_file_path = "%s_results.h5" % self.modelName
-
+            self.results_file_path = "%s_%s_results.h5" % (self.modelName, self.results_id)
 
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
@@ -241,16 +264,18 @@ class Env:
             self.forest_file_path = None
             self.gapjunctions_file_path = None
                 
-        if 'Input' in self.modelConfig:
-            self.parse_input_config()
-
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
 
+        if 'Input' in self.modelConfig:
+            self.parse_input_config()                                                                                                                                                     
+            
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
             for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
                 self.projection_dict[dst].append(src)
+        if rank == 0:
+            self.logger.info('projection_dict = %s' % str(self.projection_dict))
 
         self.lfpConfig = {}
         if 'LFP' in self.modelConfig:
@@ -284,30 +309,72 @@ class Env:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
 
-    def parse_input_config(self):
-        """
 
-        :return:
-        """
+    def parse_arena_domain(self, config):
+        vertices = config['vertices']
+        simplices = config['simplices']
+
+        return DomainConfig(vertices, simplices)
+
+    def parse_arena_trajectory(self, config):
+        velocity = float(config['run velocity'])
+        path_config = config['path']
+
+        path_x = []
+        path_y = []
+        for v in path_config:
+            path_x.append(v[0])
+            path_y.append(v[1])
+
+        path = np.column_stack((np.asarray(path_x, dtype=np.float32),
+                                np.asarray(path_y, dtype=np.float32)))
+        
+        return TrajectoryConfig(velocity, path)
+            
+    def parse_input_config(self):
         features_type_dict = self.modelConfig['Definitions']['Input Features']
         input_dict = self.modelConfig['Input']
         input_config = {}
-        
-        for (id,dvals) in viewitems(input_dict):
-            config_dict = {}
-            config_dict['trajectory'] = dvals['trajectory']
-            feature_type_dict = {}
-            for (pop,pdvals) in viewitems(dvals['feature type']):
-                pop_feature_type_dict = {}
-                for (feature_type_name,feature_type_fraction) in viewitems(pdvals):
-                    pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)
-                feature_type_dict[pop] = pop_feature_type_dict
-            config_dict['feature type'] = feature_type_dict
-            input_config[int(id)] = config_dict
 
-        self.inputConfig = input_config
-
-
+        for k,v in viewitems(input_dict):
+            if k == 'Feature Distribution':
+                feature_type_dict = {}
+                for (pop,dvals) in viewitems(v):
+                    pop_feature_type_dict = {}
+                    for (feature_type_name,feature_type_fraction) in viewitems(dvals):
+                        pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)                                                                      
+                    feature_type_dict[pop] = pop_feature_type_dict
+                input_config['Feature Distribution'] = feature_type_dict
+            elif k == 'Peak Rate':
+                peak_rate_dict = {}
+                for (pop,dvals) in viewitems(v):
+                    pop_peak_rate_dict = {}
+                    for (feature_type_name,peak_rate) in viewitems(dvals):
+                        pop_peak_rate_dict[int(self.feature_types[feature_type_name])] = float(peak_rate)
+                    peak_rate_dict[pop] = pop_peak_rate_dict
+                input_config['Peak Rate'] = peak_rate_dict
+            elif k == 'Arena':
+                input_config['Arena'] = {}
+                for arena_id, arena_val in viewitems(v):
+                    arena_properties = {}
+                    arena_domain = None
+                    arena_trajectories = {}
+                    for kk, vv in viewitems(arena_val):
+                        if kk == 'Domain':
+                            arena_domain = self.parse_arena_domain(vv)
+                        elif kk == 'Trajectory':
+                            for name, trajectory_config in viewitems(vv):
+                                trajectory = self.parse_arena_trajectory(trajectory_config)
+                                arena_trajectories[name] = trajectory
+                        else:
+                            arena_properties[kk] = vv
+                    input_config['Arena'][arena_id] = ArenaConfig(arena_id, arena_domain,
+                                                                  arena_trajectories, arena_properties)
+            else:
+                input_config[k] = v
+                
+        self.input_config = input_config
+            
     def parse_netclamp_config(self):
         """
 
@@ -402,7 +469,16 @@ class Env:
                 val_synsections  = syn_dict['sections']
                 val_synlayers    = syn_dict['layers']
                 val_proportions  = syn_dict['proportions']
-                val_mechparams   = syn_dict['mechanisms']
+                if 'contacts' in syn_dict:
+                    val_contacts     = syn_dict['contacts']
+                else:
+                    val_contacts = 1
+                val_mechparams   = None
+                val_swctype_mechparams    = None
+                if 'mechanisms' in syn_dict:
+                    val_mechparams   = syn_dict['mechanisms']
+                else:
+                    val_swctype_mechparams = syn_dict['swctype mechanisms']
 
                 res_type = self.Synapse_Types[val_type]
                 res_synsections = []
@@ -413,23 +489,20 @@ class Env:
                     res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
                     res_synlayers.append(self.layers[name])
-                for swc_type in val_mechparams:
-                    swc_type_index = self.SWC_Types[swc_type]
-                    res_mechparams[swc_type_index] = val_mechparams[swc_type]
-                    
+                if val_swctype_mechparams is not None:
+                    for swc_type in val_swctype_mechparams:
+                        swc_type_index = self.SWC_Types[swc_type]
+                        res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
+                else:
+                    res_mechparams['default'] = val_mechparams
+                        
                 connection_dict[key_postsyn][key_presyn] = \
-                  SynapseConfig(res_type, \
-                                res_synsections, \
-                                res_synlayers, \
-                                val_proportions, \
-                                res_mechparams)
-                                    
+                    SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, val_contacts, \
+                                  res_mechparams)
 
             config_dict = defaultdict(lambda: 0.0)
             for (key_presyn, conn_config) in viewitems(connection_dict[key_postsyn]):
-                for (s,l,p) in zip(conn_config.sections, \
-                                   conn_config.layers, \
-                                   conn_config.proportions):
+                for (s,l,p) in zip(conn_config.sections, conn_config.layers, conn_config.proportions):
                     config_dict[(conn_config.type, s, l)] += p
                                               
             for (k,v) in viewitems(config_dict):

@@ -7,7 +7,7 @@ import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import dentate
 from dentate.env import Env
-from dentate import stimulus, stgen, utils
+from dentate import stimulus, stgen, utils, InputCell
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -18,20 +18,22 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--features-path", "-p", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", "-o", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--stimulus-id", type=int, default=0)
+@click.option("--arena-id", type=str, default='A')
+@click.option("--trajectory-id", type=str, default='Dflt')
 @click.option("--features-namespaces", "-n", type=str, multiple=True, default=['Grid Input Features','Place Input Features'])
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, stimulus_id, features_namespaces,
-         stimulus_namespace, verbose, dry_run):
+def main(config, config_prefix, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, arena_id, trajectory_id,
+         features_namespaces, stimulus_namespace, verbose, dry_run):
     """
 
     :param features_path: str
@@ -50,7 +52,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
     
     if io_size == -1:
         io_size = comm.size
@@ -60,18 +62,17 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     local_random = random.Random()
     input_spiketrain_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
-    input_config = env.inputConfig[stimulus_id]
-    feature_type_dict = input_config['feature type']
+    input_config = env.input_config
+    spatial_resolution = input_config['Spatial Resolution']
+    feature_type_dict = input_config['Feature Distribution']
 
-    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    arena = input_config['Arena'][arena_id]
 
-    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
-    default_run_vel = int(input_config['trajectory']['Default run velocity'])  # cm/s
-    spatial_resolution = float(input_config['trajectory']['Spatial resolution'])  # cm
+    trajectory_namespace = 'Trajectory %s %s' % (arena_id, str(trajectory_id))
+    stimulus_id_namespace = '%s %s %s' % (stimulus_namespace, str(arena_id), str(trajectory_id))
 
-    trajectory_namespace = 'Trajectory %s' % str(stimulus_id)
-    stimulus_id_namespace = '%s %s' % (stimulus_namespace, str(stimulus_id))
-
+    generate_trajectory = stimulus.generate_linear_trajectory
+    
     if rank == 0:
         if (not dry_run):
             if not os.path.isfile(output_path):
@@ -85,8 +86,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
             if trajectory_namespace not in f:
                 logger.info('Rank: %i; Creating %s datasets' % (rank, trajectory_namespace))
                 group = f.create_group(trajectory_namespace)
-                t, x, y, d = stimulus.generate_trajectory(arena_dimension=arena_dimension, velocity=default_run_vel,
-                                                              spatial_resolution=spatial_resolution)
+                t, x, y, d = generate_trajectory(arena, trajectory_id, spatial_resolution=spatial_resolution)
                 for key, value in zip(['x', 'y', 'd', 't'], [x, y, d, t]):
                     dataset = group.create_dataset(key, (value.shape[0],), dtype='float32')
                     dataset[:] = value.astype('float32', copy=False)
@@ -117,23 +117,7 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
     t = comm.bcast(t, root=0)
 
     population_ranges = read_population_ranges(features_path, comm=comm)[0]
-
-    for population in ['MPP', 'LPP']:
-        population_start = population_ranges[population][0]
-  
-        for features_type, features_namespace in enumerate(features_namespaces):
-            attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=features_namespace,
-                                           comm=comm, io_size=io_size, cache_size=cache_size)
- 
-            cells = {}
-            for gid, features_dict in attr_gen:
-                if features_dict is None:
-                    continue
-                cells[gid] = {}
-                cells[gid]['Module'] = features_dict['Module']
-            append_cell_attributes(output_path, population, cells, namespace='Cell Attributes', comm=comm, \
-                                   io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-
+            
     for population in ['MPP', 'LPP']:
         population_start = population_ranges[population][0]
 
@@ -141,11 +125,12 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
         start_time = time.time()
 
         for features_type, features_namespace in enumerate(features_namespaces):
-            attr_gen = NeuroH5CellAttrGen(features_path, population, namespace=features_namespace,
-                                              comm=comm, io_size=io_size, cache_size=cache_size)
+            attr_gen = NeuroH5CellAttrGen(features_path, population,
+                                          namespace='%s %s' % (features_namespace, str(arena_id)),
+                                          comm=comm, io_size=io_size, cache_size=cache_size)
                 
+            response_dict = {}
             for gid, features_dict in attr_gen:
-                response_dict = {}
                 response = None
                 if gid is None:
                     logger.info('Rank %i gid is None' % rank)
@@ -153,12 +138,17 @@ def main(config, features_path, output_path, io_size, chunk_size, value_chunk_si
                     if verbose:
                         logger.info('Rank %i received attributes for gid %i' % (rank, gid))
                     local_time = time.time()
-                    response = stimulus.generate_spatial_ratemap(features_type, features_dict, t, x, y, 
-                                                                grid_peak_rate=20., place_peak_rate=20.)
+                    cell = InputCell.make_input_cell(gid, features_type, features_dict)
+                    response = cell.generate_spatial_ratemap(x, y)
                     local_random.seed(int(input_spiketrain_offset + gid))
                     spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)
-                    response_dict[gid] = {'rate': np.asarray(response, dtype='float32'), \
-                                          'spiketrain': np.asarray(spiketrain, dtype='float32')}
+                    if len(spiketrain) > 0:
+                        if np.min(spiketrain) < 0:
+                            logger.info("Rank %i gid %i: response = %s" % (rank, gid, str(response)))
+                            logger.info("Rank %i gid %i: t = %s" % (rank, gid, str(t)))
+                            logger.info("Rank %i gid %i: spiketrain min = %f" % (rank, gid, np.min(spiketrain)))
+                    response_dict[gid] = cell.return_attr_dict()
+                    response_dict[gid]['spiketrain'] = np.asarray(spiketrain, dtype='float32')
                     baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
                     peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
                     modulation = 0. if peak <= 0.1 else (peak - baseline) / peak

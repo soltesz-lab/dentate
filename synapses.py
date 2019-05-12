@@ -169,7 +169,7 @@ class SynapseAttributes(object):
             syn.source.population = presyn_index
             syn.source.delay = delay
 
-    def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter):
+    def init_edge_attrs_from_iter(self, pop_name, presyn_name, attr_info, edge_iter, set_edge_delays=True):
         """
         Initializes edge attributes for all cell gids returned by iterator.
 
@@ -177,6 +177,7 @@ class SynapseAttributes(object):
         :param source_name: name of presynaptic (source) population (string)
         :param attr_info: dictionary mapping attribute name to indices in iterator tuple
         :param edge_iter: edge attribute iterator
+        :param set_edge_delays: bool
         """
         connection_velocity = float(self.env.connection_velocity[presyn_name])
         if pop_name in attr_info and presyn_name in attr_info[pop_name]:
@@ -200,9 +201,13 @@ class SynapseAttributes(object):
             edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
             edge_dists = edge_attrs['Connections'][distance_attr_index]
 
-            delays = [((distance / connection_velocity) + h.dt) for distance in edge_dists]
+            if set_edge_delays:
+                delays = [((distance / connection_velocity) + h.dt) for distance in edge_dists]
+            else:
+                delays = None
 
             self.init_edge_attrs(postsyn_gid, presyn_name, presyn_gids, edge_syn_ids, delays=delays)
+
 
     def add_pps(self, gid, syn_id, syn_name, pps):
         """
@@ -661,10 +666,13 @@ def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, inse
             raise RuntimeError("insert_hoc_cell_syns: unsupported synapse SWC type %d for synapse %d" %
                                (swc_type, syn_id))
 
-        mech_params = syn_params[swc_type]
-        
-        for syn_name, params in viewitems(mech_params):
+        if 'default' in syn_params:
+            mech_params = syn_params['default']
+        else:
+            mech_params = syn_params[swc_type]
 
+        for syn_name, params in viewitems(mech_params):
+            
             syn_mech = make_syn_mech(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
                                      mech_names=syn_attrs.syn_mech_names)
 
@@ -833,8 +841,12 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
             if source_syns is not None:
                 source_syn_ids = [x[0] for x in source_syns]
                 syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-                insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids, unique=unique,
-                                     insert_netcons=insert_netcons, insert_vecstims=insert_vecstims)
+                syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, syn_params, gid, cell, source_syn_ids,
+                                                                       unique=unique, insert_netcons=insert_netcons,
+                                                                       insert_vecstims=insert_vecstims)
+                if verbose:
+                    logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted %i mechanisms for source %s' %
+                                (postsyn_name, gid, mech_count, presyn_name))
         if verbose:
               logger.info('config_hoc_cell_syns: population: %s; cell %i: inserted mechanisms in %f s' % \
                           (postsyn_name, gid, time.time() - last_time))
@@ -855,11 +867,12 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
 
         mech_config_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
         sec_indexes = mech_config_dict.keys()
-        syn_names = set(itertools.chain.from_iterable([ mech_config_dict[sec_index].keys() for sec_index in sec_indexes ]))
-        syn_indexes = set([syn_attrs.syn_name_index_dict[syn_name] for syn_name in syn_names])
+        syn_names = set(itertools.chain.from_iterable([mech_config_dict[sec_index].keys()
+                                                       for sec_index in sec_indexes]))
         for syn_id, syn in source_syns:
             total_syn_id_count += 1
-            for syn_name, syn_index in zip_longest(syn_names, syn_indexes):
+            for syn_name in syn_names:
+                syn_index = syn_attrs.syn_name_index_dict[syn_name]
                 if syn_index in syn.attr_dict:
                     this_pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                     if this_pps is None and throw_error:
@@ -884,8 +897,8 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
         total_mech_count += mech_count
         
     if verbose:
-          logger.info('config_hoc_cell_syns: target: %s; cell %i: set parameters for %i syns and %i netcons for %i '
-                      'syn_ids' % (postsyn_name, gid, total_mech_count, total_nc_count, total_syn_id_count))
+        logger.info('config_hoc_cell_syns: target: %s; cell %i: set parameters for %i syns and %i netcons for %i '
+                    'syn_ids' % (postsyn_name, gid, total_mech_count, total_nc_count, total_syn_id_count))
 
     return total_syn_id_count, total_mech_count, total_nc_count
 
@@ -1101,7 +1114,7 @@ def validate_syn_mech_param(env, syn_name, param_name):
 
 def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                     append=False, filters=None, origin_filters=None, update_targets=False):
+                     append=False, filters=None, origin_filters=None, update_targets=False, verbose=False):
     """Modifies a cell's mechanism dictionary to specify attributes of a
     synaptic mechanism by sec_type. This method is meant to be called
     manually during initial model specification, or during parameter
@@ -1136,7 +1149,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
     :param filters: dict
     :param origin_filters: dict
     :param update_targets: bool
-
+    :param verbose: bool
     """
     if sec_type not in cell.nodes:
         raise ValueError('modify_syn_mech_param: sec_type: %s not in cell' % sec_type)
@@ -1189,7 +1202,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
         cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
     try:
-        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets)
+        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets, verbose)
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         traceback.print_tb(sys.exc_info()[2])
@@ -1198,7 +1211,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
         raise e
 
 
-def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets=False):
+def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets=False, verbose=False):
     """For the provided sec_type and synaptic mechanism, this method
     loops through the parameters specified in the mechanism
     dictionary, interprets the rules, and sets placeholder values in
@@ -1210,7 +1223,7 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
     :param syn_name: str
     :param mech_content: dict
     :param update_targets: bool
-
+    :param verbose: bool
     """
     for param_name, param_content in viewitems(mech_content):
         # accommodate either a dict, or a list of dicts specifying rules for a single parameter
@@ -1225,10 +1238,11 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
         for mech_content_entry in mech_content:
             # print mech_content_entry
             update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry,
-                                              update_targets)
+                                              update_targets, verbose)
 
 
-def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False):
+def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False,
+                                      verbose=False):
     """For the provided synaptic mechanism and parameter, this method
     loops through nodes of the provided sec_type, interprets the
     provided rules, and sets placeholder values in the
@@ -1243,7 +1257,7 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     :param param_name: str
     :param rules: dict
     :param update_targets: bool
-
+    :param verbose: bool
     """
     new_rules = copy.deepcopy(rules)
     if 'filters' in new_rules:
@@ -1259,11 +1273,11 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
             update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
-                                          update_targets)
+                                          update_targets, verbose)
 
 
 def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
-                                  update_targets=False):
+                                  update_targets=False, verbose=False):
     """For the provided synaptic mechanism and parameter, this method
     first determines the set of placeholder synapses in the provided
     node that match any provided filters. Then calls
@@ -1281,7 +1295,7 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
     :param filters: dict: {category: list of int}
     :param origin_filters: dict: {category: list of int}
     :param update_targets: bool
-
+    :param verbose: bool
     """
     gid = cell.gid
     cache_queries = env.cache_queries
@@ -1294,11 +1308,11 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
     if len(filtered_syns) > 0:
         syn_ids = filtered_syns.keys()
         parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
-                             update_targets=update_targets)
+                             update_targets=update_targets, verbose=verbose)
 
 
 def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None,
-                         update_targets=False):
+                         update_targets=False, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Interprets the provided rules,
     including complex gradient and inheritance rules. Gradients can be
@@ -1322,7 +1336,7 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param origin_filters: dict: {category: list of int}
     :param donor: :class:'SHocNode'
     :param update_targets: bool
-
+    :param verbose: bool
     """
 
     if 'origin' in rules and donor is None:
@@ -1341,9 +1355,10 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
 
     if 'custom' in rules:
         parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                    update_targets)
+                                    update_targets, verbose)
     else:
-        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor, update_targets)
+        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor, update_targets,
+                           verbose)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
@@ -1390,7 +1405,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
 
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None,
-                       update_targets=False):
+                       update_targets=False, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Sets placeholder values for each
     provided syn_id in the syn_mech_attr_dict of a SynapseAttributes
@@ -1411,7 +1426,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     :param rules: dict
     :param donor: :class:'SHocNode'
     :param update_targets: bool
-
+    :param verbose: bool
     """
     syn_attrs = env.synapse_attributes
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
@@ -1445,11 +1460,11 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
                 syn_attrs.modify_mech_attrs(cell.gid, syn_id, syn_name, {param_name: value})
                 
     if update_targets:
-        config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False)
+        config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False, verbose=verbose)
 
 
 def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                update_targets=False):
+                                update_targets=False, verbose=False):
     """If the provided node meets custom criteria, rules are modified and
     passed back to parse_mech_rules with the 'custom' item
     removed. Avoids having to determine baseline and donor over again.
@@ -1465,7 +1480,7 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     :param origin_filters: dict: {category: list of int}
     :param donor: :class:'SHocNode' or None
     :param update_targets: bool
-
+    :param verbose: bool
     """
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
         raise RuntimeError('parse_custom_syn_mech_rules: no custom function provided for synaptic mechanism: %s '
@@ -1484,7 +1499,7 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
         parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
-                             update_targets=update_targets)
+                             update_targets=update_targets, verbose=verbose)
 
 
 def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, update_targets=False):
@@ -1572,7 +1587,7 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                               **write_kwds)
 
 
-def sample_syn_mech_attrs(env, pop_name, gids):
+def sample_syn_mech_attrs(env, pop_name, gids, comm=None):
     """
     Writes mechanism attributes for the given cells to a NeuroH5 file.
     Assumes that attributes have been set via config_syn.
@@ -1581,11 +1596,10 @@ def sample_syn_mech_attrs(env, pop_name, gids):
     :param pop_name: population name
     :param gids: cell ids
     """
-    rank = int(env.pc.id())
-
-    comm = env.comm
+    if comm is None:
+        comm = env.comm
         
-    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': env.comm})
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm})
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
 
@@ -1606,9 +1620,16 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
         elif sec.n3d() == 0:
             return content[name][0]
         else:
+            prev = None
             for i in range(sec.n3d()):
-                if sec.arc3d(i)/sec.L >= x:
-                    return content[name][secnodes[i]]
+                pos = sec.arc3d(i)/sec.L
+                if pos >= x:
+                    if (prev is None) or (abs(pos - x) < abs(prev - x)):
+                        return content[name][secnodes[i]]
+                    else:
+                        return content[name][secnodes[i-1]]
+                else:
+                    prev = pos
     else:
         return None
 
@@ -1805,6 +1826,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                 neurotree_dict, cell_sec_dict, cell_secidx_dict):
     """
     Computes uniformly-spaced synapse locations.
+
     :param density_seed:
     :param syn_type_dict:
     :param swc_type_dict:
@@ -1892,7 +1914,8 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
                                 neurotree_dict, cell_sec_dict, cell_secidx_dict):
     """
-    Computes synapse locations according to a Poisson distribution.
+    Computes synapse locations distributed according to a Poisson distribution.
+
     :param density_seed:
     :param syn_type_dict:
     :param swc_type_dict:
@@ -2025,11 +2048,112 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     return (syn_dict, seg_density_per_sec)
 
+def rejection_sampling(gen, n, clip):
+    if clip is None:
+        result = gen(n)
+    else:
+        clip_min, clip_max = clip
+        remaining = n
+        source_weights = []
+        while remaining > 0:
+            sample = gen(remaining)
+            filtered = sample[np.where((sample >= clip_min) & (sample <= clip_max))]
+            source_weights.append(filtered)
+            remaining -= len(filtered)
+        result = np.concatenate(tuple(source_weights))
 
-def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict):
+    return result
+
+def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=None):
+    """
+    Generates log-normal synaptic weights by random sampling from a
+    log-normal distribution with the given mu and sigma.
+
+    :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
+    :param mu: mean of log-normal distribution
+    :param sigma: standard deviation of log-normal distribution
+    :param seed: seed for random number generator
+    :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :param clip: if provided, specify min and max range for weight values
+    :return: dictionary of the form:
+    { 'syn_id': <numpy uint32 array of synapse ids>,
+      weight_name: <numpy float array of weights>
+    }
+
+    """
+    
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
-    source_weights = local_random.lognormal(mu, sigma, len(source_syn_dict))
+    source_weights = rejection_sampling(lambda n: local_random.lognormal(mu, sigma, n),
+                                        len(source_syn_dict), clip)
+    syn_weight_dict = {}
+    # weights are synchronized across all inputs from the same source_gid
+    for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
+        for this_syn_id in source_syn_dict[this_source_gid]:
+            syn_weight_dict[this_syn_id] = this_weight
+    weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
+    normed_weights = weights 
+    weights_dict = \
+      { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
+        weights_name: normed_weights }
+    return weights_dict
+
+def generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=None):
+    """
+    Generates normal synaptic weights by random sampling from a
+    normal distribution with the given mu and sigma.
+
+    :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
+    :param mu: mean of log-normal distribution
+    :param sigma: standard deviation of log-normal distribution
+    :param clip: if provided, specify min and max range for weight values
+    :param seed: seed for random number generator
+    :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :return: dictionary of the form:
+    { 'syn_id': <numpy uint32 array of synapse ids>,
+      weight_name: <numpy float array of weights>
+    }
+
+    """
+    
+    local_random = np.random.RandomState()
+    local_random.seed(int(seed))
+    source_weights = rejection_sampling(lambda n: local_random.normal(mu, sigma, n),
+                                        len(source_syn_dict), clip)
+    syn_weight_dict = {}
+    # weights are synchronized across all inputs from the same source_gid
+    for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
+        for this_syn_id in source_syn_dict[this_source_gid]:
+            syn_weight_dict[this_syn_id] = this_weight
+    weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
+    if clip is not None:
+        clip_min, clip_max = clip
+        np.clip(weights, clip_min, clip_max, out=weights)
+    normed_weights = weights 
+    weights_dict = \
+      { 'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
+        weights_name: normed_weights }
+    return weights_dict
+
+def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
+    """
+    Generates sparse synaptic weights by random sampling where the given fraction of weights
+    is 1 (and uniformly distributed) and the rest of the weights are 0.
+
+    :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
+    :param fraction: fraction of weights to be 1.
+    :param seed: seed for random number generator
+    :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :return: dictionary of the form:
+    { 'syn_id': <numpy uint32 array of synapse ids>,
+      weight_name: <numpy float array of weights>
+    }
+
+    """
+    local_random = np.random.RandomState()
+    local_random.seed(int(seed))
+    source_weights = [ 1.0 if x <= fraction else 0.0 for x in local_random.uniform(size=len(source_syn_dict)) ]
+    print 'source_weights (fraction %f) = ' % fraction, source_weights
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
     for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
