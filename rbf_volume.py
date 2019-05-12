@@ -8,7 +8,6 @@ from collections import namedtuple
 import rbf
 from rbf.interpolate import RBFInterpolant
 import rbf.basis
-import dentate
 
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
@@ -70,7 +69,7 @@ def cartesian_product(arrays, out=None):
 
 
 class RBFVolume(object):
-    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3, vol_coeffs=None):
+    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3):
         """Parametric (u,v,l) 3D volume approximation.
 
         Parameters
@@ -84,10 +83,7 @@ class RBFVolume(object):
         basis: RBF basis function
         """
 
-        if vol_coeffs is None:
-            self._create_vol(u, v, l, xyz, order=order, basis=basis)
-        else:
-            self._create_vol_from_coeffs(u, v, l, xyz, vol_coeffs, order=order, basis=basis)
+        self._create_vol(u, v, l, xyz, order=order, phi=basis)
 
         self.u  = u
         self.v  = v
@@ -110,11 +106,8 @@ class RBFVolume(object):
 
     def save(self, filename, basis_name):
 
-        vol_coeffs = ( self._xvol._coeff, self._yvol._coeff, self._zvol._coeff, \
-                       self._uvol._coeff, self._vvol._coeff, self._lvol._coeff )
-        
         s = { 'u': self.u, 'v': self.v, 'l': self.l, 'xyz': self.xyz, 'order': self.order, \
-              'basis': basis_name, 'vol_coeffs': vol_coeffs }
+              'basis': self.basis }
         
         f = open(filename, "wb")
         pickle.dump(s, f)
@@ -149,30 +142,6 @@ class RBFVolume(object):
         self._lvol = lvol
 
 
-    def _create_vol_from_coeffs(self, obs_u, obs_v, obs_l, xyz, vol_coeffs, **kwargs):
-
-        coeff_x, coeff_y, coeff_z, coeff_u, coeff_v, coeff_l = vol_coeffs
-
-        u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-        uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
-
-        xvol = RBFInterpolant(uvl_obs,coeff=coeff_x,**kwargs)
-        yvol = RBFInterpolant(uvl_obs,coeff=coeff_y,**kwargs)
-        zvol = RBFInterpolant(uvl_obs,coeff=coeff_z,**kwargs)
-
-        uvol = RBFInterpolant(xyz,coeff=coeff_u,**kwargs)
-        vvol = RBFInterpolant(xyz,coeff=coeff_v,**kwargs)
-        lvol = RBFInterpolant(xyz,coeff=coeff_l,**kwargs)
-
-        self._xvol = xvol
-        self._yvol = yvol
-        self._zvol = zvol
-        self._uvol = uvol
-        self._vvol = vvol
-        self._lvol = lvol
-
-
-  
     def _resample_distance_strategy(self):
         from scipy.spatial import cKDTree
 

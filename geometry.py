@@ -5,10 +5,6 @@ import sys, time, gc, itertools
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
-import rbf, rbf.basis
-from rbf.interpolate import RBFInterpolant
-from rbf.nodes import snap_to_boundary,disperse,menodes
-from rbf.geometry import contains
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume
 from dentate.rbf_surface import RBFSurface
@@ -174,6 +170,11 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
 
     """
     import dlib
+    import rbf, rbf.basis, 
+    from rbf.interpolate import RBFInterpolant
+    from rbf.pde.nodes import min_energy_nodes
+    from rbf.pde.geometry import contains
+    
     boundary_uvl_coords = np.array([[ip_vol.u[0],ip_vol.v[0],ip_vol.l[0]],
                                     [ip_vol.u[0],ip_vol.v[-1],ip_vol.l[0]],
                                     [ip_vol.u[-1],ip_vol.v[0],ip_vol.l[0]],
@@ -215,7 +216,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     while node_count < nsample:
         logger.info("Generating %i nodes (%i iterations)..." % (N, itr))
         # create N quasi-uniformly distributed nodes
-        nodes, smpid = menodes(N,vert,smp,itr=itr)
+        nodes, smpid = min_energy_nodes(N,(vert,smp),iterations=itr)
     
         # remove nodes outside of the domain
         in_nodes = nodes[contains(nodes,vert,smp)]
@@ -426,8 +427,8 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
     coeff_dist_u = None
     coeff_dist_v = None
     
-    interp_penalty = 0.01
-    interp_basis = 'ga'
+    interp_sigma = 0.01
+    interp_basis = rbf.basis.ga
     interp_order = 1
 
     if rank == 0:
@@ -449,24 +450,17 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
         vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
         (obs_uv, dist_u, dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
-        coeff_dist_u = ip_dist_u._coeff
+        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,phi=interp_basis,\
+                                   sigma=interp_sigma)
         logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
-        coeff_dist_v = ip_dist_v._coeff
+        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,phi=interp_basis,\
+                                   sigma=interp_sigma)
         logger.info('Broadcasting volume distance interpolants...')
         
-    obs_uv = env.comm.bcast(obs_uv, root=0)
-    coeff_dist_u = env.comm.bcast(coeff_dist_u, root=0)
-    coeff_dist_v = env.comm.bcast(coeff_dist_v, root=0)
-    
-    ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty)
-    ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty)
-
+    ip_dist_u = None
+    ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
+    ip_dist_v = None
+    ip_dist_v = env.comm.bcast(ip_dist_u, root=0)
     
     soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=allgather)
@@ -646,8 +640,8 @@ def icp_transform(comm, env, soma_coords, projection_ls, population_extents, rot
 
 
 def test_nodes():
-    from rbf.nodes import snap_to_boundary,disperse,menodes
-    from rbf.geometry import contains
+    from rbf.pde.nodes import min_energy_nodes
+    from rbf.pde.geometry import contains
     from dentate.alphavol import alpha_shape
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
@@ -669,7 +663,7 @@ def test_nodes():
     N = 10000 # total number of nodes
     
     # create N quasi-uniformly distributed nodes
-    nodes, smpid = menodes(N,vert,smp,itr=20)
+    nodes, smpid = min_energy_nodes(N,(vert,smp),iterations=20)
     
     # remove nodes outside of the domain
     in_nodes = nodes[contains(nodes,vert,smp)]

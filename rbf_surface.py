@@ -83,7 +83,7 @@ class RBFSurface(object):
         basis: RBF basis function
         """
 
-        self._create_srf(u, v, xyz, order=order, basis=basis)
+        self._create_srf(u, v, xyz, order=order, phi=basis)
 
         self.u  = u
         self.v  = v
