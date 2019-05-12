@@ -5,6 +5,7 @@ import sys, time, gc, itertools
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
+import rbf
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume
 from dentate.rbf_surface import RBFSurface
@@ -170,7 +171,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
 
     """
     import dlib
-    import rbf, rbf.basis, 
+    import rbf, rbf.basis
     from rbf.interpolate import RBFInterpolant
     from rbf.pde.nodes import min_energy_nodes
     from rbf.pde.geometry import contains
