@@ -172,7 +172,6 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     """
     import dlib
     import rbf, rbf.basis
-    from rbf.interpolate import RBFInterpolant
     from rbf.pde.nodes import min_energy_nodes
     from rbf.pde.geometry import contains
     
@@ -396,6 +395,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
 
 
 def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
+    from rbf.interpolate import RBFInterpolant
 
     rank = env.comm.rank
 
