@@ -1,7 +1,7 @@
 
 """Classes and procedures related to neuronal geometry and distance calculation."""
 
-import sys, time, gc, itertools
+import sys, time, gc, itertools, math
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
@@ -203,8 +203,10 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     logger.info('Origin position: %f %f extent: %f %f' % (origin_pos[0], origin_pos[1], origin_extent[0], origin_extent[1]))
     origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
     
-    logger.info("Constructing alpha shape...")
+    logger.info("Creating volume triangulation...")
     tri = ip_vol.create_triangulation()
+    
+    logger.info("Constructing alpha shape...")
     alpha = alpha_shape([], alpha_radius, tri=tri)
 
     vert = alpha.points
@@ -217,7 +219,8 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     while node_count < nsample:
         logger.info("Generating %i nodes (%i iterations)..." % (N, itr))
         # create N quasi-uniformly distributed nodes
-        nodes, smpid = min_energy_nodes(N,(vert,smp),iterations=itr)
+        out = min_energy_nodes(N,(vert,smp),iterations=itr)
+        nodes = out[0]
     
         # remove nodes outside of the domain
         in_nodes = nodes[contains(nodes,vert,smp)]
