@@ -16,21 +16,6 @@ def euclidean_distance(a, b):
     return np.sqrt(np.sum((a-b)**2,axis=1))
 
 
-def rotate3d(axis, theta):
-    """
-    Return the rotation matrix associated with counterclockwise rotation about
-    the given axis by theta radians.
-    """
-    axis = np.asarray(axis)
-    axis = axis/math.sqrt(np.dot(axis, axis))
-    a = math.cos(theta/2.0)
-    b, c, d = -axis*math.sin(theta/2.0)
-    aa, bb, cc, dd = a*a, b*b, c*c, d*d
-    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
-    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
-                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
-                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
-
 
 def cartesian_product(arrays, out=None):
     """
@@ -84,7 +69,7 @@ def cartesian_product(arrays, out=None):
 
 
 class RBFVolume(object):
-    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3, vol_coeffs=None):
+    def __init__(self, u, v, l, xyz, order=1, basis=rbf.basis.phs3):
         """Parametric (u,v,l) 3D volume approximation.
 
         Parameters
@@ -98,10 +83,7 @@ class RBFVolume(object):
         basis: RBF basis function
         """
 
-        if vol_coeffs is None:
-            self._create_vol(u, v, l, xyz, order=order, basis=basis)
-        else:
-            self._create_vol_from_coeffs(u, v, l, xyz, vol_coeffs, order=order, basis=basis)
+        self._create_vol(u, v, l, xyz, order=order, phi=basis)
 
         self.u  = u
         self.v  = v
@@ -124,11 +106,8 @@ class RBFVolume(object):
 
     def save(self, filename, basis_name):
 
-        vol_coeffs = ( self._xvol._coeff, self._yvol._coeff, self._zvol._coeff, \
-                       self._uvol._coeff, self._vvol._coeff, self._lvol._coeff )
-        
         s = { 'u': self.u, 'v': self.v, 'l': self.l, 'xyz': self.xyz, 'order': self.order, \
-              'basis': basis_name, 'vol_coeffs': vol_coeffs }
+              'basis': self.basis }
         
         f = open(filename, "wb")
         pickle.dump(s, f)
@@ -163,30 +142,6 @@ class RBFVolume(object):
         self._lvol = lvol
 
 
-    def _create_vol_from_coeffs(self, obs_u, obs_v, obs_l, xyz, vol_coeffs, **kwargs):
-
-        coeff_x, coeff_y, coeff_z, coeff_u, coeff_v, coeff_l = vol_coeffs
-
-        u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-        uvl_obs = np.array([u.ravel(),v.ravel(),l.ravel()]).T
-
-        xvol = RBFInterpolant(uvl_obs,coeff=coeff_x,**kwargs)
-        yvol = RBFInterpolant(uvl_obs,coeff=coeff_y,**kwargs)
-        zvol = RBFInterpolant(uvl_obs,coeff=coeff_z,**kwargs)
-
-        uvol = RBFInterpolant(xyz,coeff=coeff_u,**kwargs)
-        vvol = RBFInterpolant(xyz,coeff=coeff_v,**kwargs)
-        lvol = RBFInterpolant(xyz,coeff=coeff_l,**kwargs)
-
-        self._xvol = xvol
-        self._yvol = yvol
-        self._zvol = zvol
-        self._uvol = uvol
-        self._vvol = vvol
-        self._lvol = lvol
-
-
-  
     def _resample_distance_strategy(self):
         from scipy.spatial import cKDTree
 
@@ -766,16 +721,8 @@ class RBFVolume(object):
 
 
 
-def test_surface(u, v, l, rotate=None):
+def test_surface(u, v, l):
     import numpy as np
-
-    if rotate is not None:
-        for i in range(0, 3):
-            if rotate[i] != 0.:
-                a = float(np.deg2rad(rotate[i]))
-                rot = rotate3d([ 1 if i == j else 0 for j in range(0,3) ], a)
-    else:
-        rot = None
 
     x = np.array(-500.* np.cos(u) * (5.3 - np.sin(u) + (1. + 0.138 * l) * np.cos(v)))
     y = np.array(750. * np.sin(u) * (5.5 - 2. * np.sin(u) + (0.9 + 0.114*l) * np.cos(v)))
@@ -783,51 +730,10 @@ def test_surface(u, v, l, rotate=None):
 
     pts = np.array([x, y, z]).reshape(3, u.size)
 
-    if rot is not None:
-        xyz = np.dot(rot, pts).T
-    else:
-        xyz = pts.T
+    xyz = pts.T
 
     return xyz
 
-
-def test_nodes():
-    from rbf.nodes import snap_to_boundary,disperse,menodes
-    from rbf.geometry import contains
-    from .alphavol import alpha_shape
-    
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-1.0, 1., num=3)
-
-    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l).reshape(3, u.size)
-
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
-
-    tri = vol.create_triangulation()
-    alpha = alpha_shape([], 120., tri=tri)
-    
-    # Define the problem domain
-    vert = alpha.points
-    smp  = np.asarray(alpha.bounds, dtype=np.int64)
-
-    N = 10000 # total number of nodes
-    
-    # create N quasi-uniformly distributed nodes
-    nodes, smpid = menodes(N,vert,smp,itr=20)
-    
-    # remove nodes outside of the domain
-    in_nodes = nodes[contains(nodes,vert,smp)]
-
-    from mayavi import mlab
-    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
-
-    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=15.0)
-    
-    mlab.show()
-
-    return in_nodes, vol.inverse(in_nodes)
 
 
 
@@ -993,52 +899,6 @@ def test_precision():
     print(('Mean error: %f' % np.mean(error)))
     
     
-def test_alphavol():
-    from .alphavol import alpha_shape
-    
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-3.95, 3.2, num=10)
-
-    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l, rotate=[-35., 0., 0.])
-
-    print ('Constructing volume...')
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
-
-    print ('Constructing volume triangulation...')
-    tri = vol.create_triangulation()
-
-    print ('Constructing alpha shape...')
-    alpha = alpha_shape([], 120., tri=tri)
-
-    vert = alpha.points
-    smp  = np.asarray(alpha.bounds, dtype=np.int64)
-
-    edges = np.vstack([np.column_stack([smp[:,0],smp[:,1]]), \
-                       np.column_stack([smp[:,1],smp[:,2]])])
-
-    x = vert[:,0]
-    y = vert[:,1]
-    z = vert[:,2]
-
-    start_idx = edges[:,0]
-    end_idx = edges[:,1]
-    
-    from mayavi import mlab
-    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
-    mlab.quiver3d(x[start_idx],
-                  y[start_idx],
-                  z[start_idx],
-                  x[end_idx] - x[start_idx],
-                  y[end_idx] - y[start_idx],
-                  z[end_idx] - z[start_idx],
-                  mode='2ddash',
-                  scale_factor=1)
-    
-    
-    mlab.show()
-    
 
 def test_tri():
 
@@ -1087,7 +947,5 @@ if __name__ == '__main__':
 #    test_mplot_surface()
 #    test_mplot_volume()
 #    test_uv_isospline()
-#    test_nodes()
-#    test_alphavol()
 #    test_tri()
      test_load()
