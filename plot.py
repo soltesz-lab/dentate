@@ -700,7 +700,6 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
         sample = np.where(tree_metrics_array >= percentile_value)
         tree_metrics_array = tree_metrics_array[sample]
         sorted_keys = np.asarray(sorted_keys)[sample]
-        print(sorted_keys)
         
     
     distance_U_array = np.array([distance_U[k] for k in sorted_keys])
@@ -795,7 +794,7 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
         p = ax.contourf(X[:-1,:-1] + bin_size/2, Y[:-1,:-1]+bin_size/2, H.T, levels=levels, cmap=cmap)
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     elif graph_type == 'kde':
-        X, Y, Z    = sigproc.gaussian_kde(distance_U_array, distance_V_array, bin_size)
+        X, Y, Z    = kde_scipy(distance_U_array, distance_V_array, bin_size)
         p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     else:
@@ -2010,7 +2009,6 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
     states = indata['states']
     stplots = []
-    print 'states: ', states
     for (pop_name, pop_states) in viewitems(states):
         for (gid, cell_states) in viewitems(pop_states):
             st_x, st_y = cell_states
@@ -2818,7 +2816,6 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
             cells_to_plot.append(cell_features['Rate Map'].reshape(nx, ny))
 
     axes_dim = int(np.round(np.sqrt(to_plot)))
-    print(axes_dim)
     fig, axes = plt.subplots(axes_dim, axes_dim)
     for i in range(len(cells_to_plot)):
         img = axes[i%axes_dim, i/axes_dim].imshow(cells_to_plot[i], cmap='viridis')
@@ -3140,7 +3137,6 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
         for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
-        print 'rate_lst size: %d' % len(rate_lst)
         col = (module - 1) % 5
         row = (module - 1) / 5
         M = max(M, len(rate_lst))
@@ -3154,7 +3150,6 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
             extent=[t[0], t[-1], 0, N]
         title = 'Module: %i' % module
         axes[row][col].set_title(title, fontsize=options.fontSize)
-        print 'rate matrix: ', rate_matrix
         img = axes[row][col].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm,
                                     extent=extent)
         #axes[row][col].set_xlim([extent[0], extent[1]])
