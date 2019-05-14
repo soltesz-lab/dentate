@@ -385,26 +385,32 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
         tmin   = x[0]
         tmax   = x[-1]
         bins   = np.arange(tmin, tmax, bin_size)
-        pf_bins  = []
-        pf_rate = []
-        pf_norm_rate = []
-        for ibin in range(1, len(bins)-1):
+        bin_rates = []
+        bin_norm_rates = []
+        pf_ibins  = []
+        for ibin in range(1, len(bins)):
             binx = np.linspace(bins[ibin-1],bins[ibin],binsteps)
             r_n  = np.mean(np.interp(binx,x,rate1))
             r    = np.mean(np.interp(binx,x,rate))
+            bin_rates.append(r)
+            bin_norm_rates.append(r_n)
             if r_n > nstdev*s:
-                  pf_bins.append(ibin)
-                  pf_rate.append(r)
-                  pf_norm_rate.append(r_n)
+                  pf_ibins.append(ibin-1)
 
-        filtered_pf_bins = [ pf_bin for pf_bin in consecutive(pf_bins) if len(pf_bin) >= min_pf_bins ]
-        pf_count = len(filtered_pf_bins)
+        pf_consecutive_ibins = [ pf_ibin_lst for pf_ibin_lst in consecutive(pf_ibins) if len(pf_ibin_lst) >= min_pf_bins ]
+        pf_count = len(pf_consecutive_ibins)
+        pf_ibins = [ pf_ibin
+                     for pf_ibin_lst in pf_consecutive_ibins
+                     for pf_ibin in pf_ibin_lst ]
+        pf_bins = [ bins[pf_ibin] for pf_ibin in pf_ibins ]
+        pf_rate = [ bin_rates[pf_ibin] for pf_ibin in pf_ibins ]
+        pf_norm_rate = [ bin_norm_rates[pf_ibin] for pf_ibin in pf_ibins ]
         pf_min = min(pf_count, pf_min)
         pf_max = max(pf_count, pf_max)
         cell_count += 1
         pf_total_count += pf_count
         pf_dict[ind] = { 'pf_count': np.asarray([pf_count], dtype=np.uint32), \
-                         'pf_bins': np.asarray(pf_bins, dtype=np.uint32), \
+                         'pf_bins': np.asarray(pf_bins, dtype=np.float32), \
                          'pf_rate': np.asarray(pf_rate, dtype=np.float32),
                          'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
 
@@ -417,7 +423,7 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
 
 def activity_sequences (population, bin_size, rate_dict, binsteps=5, active_threshold=1.0):
     """
-    Estimates place fields from the given instantaneous spike rate dictionary.
+    Estimates activity ensembles from the given instantaneous spike rate dictionary.
     """
 
     pf_dict = {}
@@ -429,36 +435,29 @@ def activity_sequences (population, bin_size, rate_dict, binsteps=5, active_thre
         x      = valdict['time']
         rate   = valdict['rate']
         m      = np.mean(rate)
-        s      = np.std(rate1)
         tmin   = x[0]
         tmax   = x[-1]
         bins   = np.arange(tmin, tmax, bin_size)
-        pf_bins  = []
-        pf_rate = []
-        pf_norm_rate = []
-        for ibin in range(1, len(bins)-1):
+        ac_ibins = []
+        ac_rate = []
+        for ibin in range(1, len(bins)):
             binx = np.linspace(bins[ibin-1],bins[ibin],binsteps)
             r    = np.mean(np.interp(binx,x,rate))
-            if r > baseline:
-                  ac_bins.append(ibin)
-                  ac_rate.append(r)
+            if r > active_threshold:
+                ac_ibins.append(ibin-1)
+                ac_rate.append(r)
 
-        print 'ac bins: ', ac_bins
-        print 'ac rate: ', ac_rate
-        filtered_pf_bins = [ pf_bin for pf_bin in consecutive(pf_bins) if len(pf_bin) >= min_pf_bins ]
-        pf_count = len(filtered_pf_bins)
-        pf_min = min(pf_count, pf_min)
-        pf_max = max(pf_count, pf_max)
-        cell_count += 1
-        pf_total_count += pf_count
-        pf_dict[ind] = { 'pf_count': np.asarray([pf_count], dtype=np.uint32), \
-                         'pf_bins': np.asarray(pf_bins, dtype=np.uint32), \
-                         'pf_rate': np.asarray(pf_rate, dtype=np.float32),
-                         'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
+        ac_ibins = consecutive(pf_ibins)
+        ac_onsets = [ bins[ac_ibin_lst[0]] for ac_ibin_lst in ac_ibins ]
+        ac_rates  = [ np.mean([bin_rates[ac_ibin] for ac_ibin in ac_ibin_lst]) for ac_ibin_lst in ac_ibins ]
+        ac_count = len(ac_onsets)
 
-    logger.info('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
+        ac_dict[ind] = { 'ac_count': np.asarray([ac_count], dtype=np.uint32), \
+                         'ac_onset': np.asarray(ac_onsets, dtype=np.float32), \
+                         'ac_rate': np.asarray(ac_rates, dtype=np.float32) }
+                         
     if save:
-        write_cell_attributes(save, population, pf_dict, namespace='Place Fields')
+        write_cell_attributes(save, population, pf_dict, namespace='Activity Sequences')
 
     return pf_dict
             

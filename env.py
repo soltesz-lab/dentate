@@ -223,14 +223,16 @@ class Env:
 
         if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
-            
+
         self.celltypes = self.modelConfig['Cell Types']
         self.cellAttributeInfo = {}
 
         # The name of this model
-        self.modelName = self.modelConfig['Model Name']
+        if 'Model Name' in self.modelConfig:
+            self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network
-        self.datasetName = self.modelConfig['Dataset Name']
+        if 'Dataset Name' in self.modelConfig:
+            self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
             if self.results_id is None:
