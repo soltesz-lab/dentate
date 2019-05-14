@@ -198,9 +198,12 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
 
     origin_pos = pos[0]
     origin_extent = extents[0]
+    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+    origin_ranges = ((-(origin_pos[0] * origin_extent[0]), (1.0 - origin_pos[0]) * origin_extent[0]), 
+                     (-(origin_pos[1] * origin_extent[1]), (1.0 - origin_pos[1]) * origin_extent[1]))
 
     logger.info('Origin position: %f %f extent: %f %f' % (origin_pos[0], origin_pos[1], origin_extent[0], origin_extent[1]))
-    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+    logger.info('Origin ranges: %f : %f %f : %f' % (origin_ranges[0][0], origin_ranges[0][1], origin_ranges[1][0], origin_ranges[1][1]))
     
     logger.info("Creating volume triangulation...")
     tri = ip_vol.create_triangulation()
@@ -293,7 +296,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     logger.info('U distance min: %f %s max: %f %s' % (distances_u[u_min_ind], str(obs_uv[u_min_ind]), distances_u[u_max_ind], str(obs_uv[u_max_ind])))
     logger.info('V distance min: %f %s max: %f %s' % (distances_v[v_min_ind], str(obs_uv[v_min_ind]), distances_v[v_max_ind], str(obs_uv[v_max_ind])))
 
-    return (obs_uv, distances_u, distances_v)
+    return (origin_ranges, obs_uv, distances_u, distances_v)
 
 
         
@@ -443,6 +446,9 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
     ## of the distance interpolant
     safety = 0.01
 
+    origin_ranges = None
+    ip_dist_u = None
+    ip_dist_v = None
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
         ip_volume = make_volume((min_u-safety, max_u+safety), \
@@ -452,7 +458,7 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
 
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
-        (obs_uv, dist_u, dist_v) = vol_dist
+        (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,phi=interp_basis,\
                                    sigma=interp_sigma)
@@ -460,16 +466,15 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
         ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,phi=interp_basis,\
                                    sigma=interp_sigma)
         logger.info('Broadcasting volume distance interpolants...')
-        
-    ip_dist_u = None
+
+    origin_ranges = env.comm.bcast(origin_ranges, root=0)
     ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
-    ip_dist_v = None
-    ip_dist_v = env.comm.bcast(ip_dist_u, root=0)
+    ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
     
     soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=allgather)
 
-    return soma_distances
+    return origin_ranges, soma_distances
 
 
 def measure_distance_extents(env):
