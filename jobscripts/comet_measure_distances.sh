@@ -25,9 +25,9 @@ ulimit -c unlimited
 set -x
 
 mpirun -np 640 python ./scripts/measure_distances.py \
-    --config=./config/Full_Scale_Pas.yaml \
+    --config=./config/Full_Scale_Pas.yaml --resolution 40 40 10 \
      -i GC -i MPP -i LPP -i MC -i BC -i HC -i HCC -i NGFC -i MOPP -i IS -i AAC -i PYR \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190122.h5 \
+    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190513.h5 \
     --coords-namespace=Coordinates \
     --io-size=24 \
     -v
