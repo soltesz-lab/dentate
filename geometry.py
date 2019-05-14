@@ -464,7 +464,7 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
         logger.info('Broadcasting volume distance interpolants...')
         
     ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
-    ip_dist_v = env.comm.bcast(ip_dist_u, root=0)
+    ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
     
     soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=allgather)
