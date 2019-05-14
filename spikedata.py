@@ -414,6 +414,54 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
 
     return pf_dict
             
+
+def activity_sequences (population, bin_size, rate_dict, binsteps=5, active_threshold=1.0):
+    """
+    Estimates place fields from the given instantaneous spike rate dictionary.
+    """
+
+    pf_dict = {}
+    pf_total_count = 0
+    cell_count = 0
+    pf_min = sys.maxsize
+    pf_max = 0
+    for ind, valdict  in viewitems(rate_dict):
+        x      = valdict['time']
+        rate   = valdict['rate']
+        m      = np.mean(rate)
+        s      = np.std(rate1)
+        tmin   = x[0]
+        tmax   = x[-1]
+        bins   = np.arange(tmin, tmax, bin_size)
+        pf_bins  = []
+        pf_rate = []
+        pf_norm_rate = []
+        for ibin in range(1, len(bins)-1):
+            binx = np.linspace(bins[ibin-1],bins[ibin],binsteps)
+            r    = np.mean(np.interp(binx,x,rate))
+            if r > baseline:
+                  ac_bins.append(ibin)
+                  ac_rate.append(r)
+
+        print 'ac bins: ', ac_bins
+        print 'ac rate: ', ac_rate
+        filtered_pf_bins = [ pf_bin for pf_bin in consecutive(pf_bins) if len(pf_bin) >= min_pf_bins ]
+        pf_count = len(filtered_pf_bins)
+        pf_min = min(pf_count, pf_min)
+        pf_max = max(pf_count, pf_max)
+        cell_count += 1
+        pf_total_count += pf_count
+        pf_dict[ind] = { 'pf_count': np.asarray([pf_count], dtype=np.uint32), \
+                         'pf_bins': np.asarray(pf_bins, dtype=np.uint32), \
+                         'pf_rate': np.asarray(pf_rate, dtype=np.float32),
+                         'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
+
+    logger.info('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
+    if save:
+        write_cell_attributes(save, population, pf_dict, namespace='Place Fields')
+
+    return pf_dict
+            
             
 
     
