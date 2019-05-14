@@ -15,7 +15,7 @@ script_name = os.path.basename(__file__)
 @click.option("--t-min", type=float)
 @click.option("--trajectory-path", '-t', required=True, type=click.Path())
 @click.option("--trajectory-id", '-s', type=str, default='Default')
-@click.option("--position-bin-size", '-b', type=float, default=100.0)
+@click.option("--position-bin-size", '-b', type=float, default=10.0)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, t_min, trajectory_path, trajectory_id, position_bin_size, font_size, verbose):

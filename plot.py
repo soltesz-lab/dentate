@@ -2891,7 +2891,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
                 filename = spike_namespace_id+' '+subset
 
         rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
-        PF_dict  = spikedata.place_fields(subset, position_bin_size, rate_bin_dict, min_pf_bins)
+        PF_dict  = spikedata.place_fields(subset, position_bin_size, rate_bin_dict, min_pf_bins=min_pf_bins)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []

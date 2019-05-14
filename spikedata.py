@@ -397,8 +397,8 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
                   pf_rate.append(r)
                   pf_norm_rate.append(r_n)
 
-        consecutive_pf_bins = [ pf_bin for pf_bin in consecutive(pf_bins) if len(pf_bin) >= min_pf_bins ]
-        pf_count = len(consecutive_pf_bins)
+        filtered_pf_bins = [ pf_bin for pf_bin in consecutive(pf_bins) if len(pf_bin) >= min_pf_bins ]
+        pf_count = len(filtered_pf_bins)
         pf_min = min(pf_count, pf_min)
         pf_max = max(pf_count, pf_max)
         cell_count += 1
