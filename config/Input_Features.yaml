@@ -12,7 +12,7 @@ Feature Distribution:
     place: 0.7
   LPP:
     place: 1.0
-  PYR:
+  CA3c:
     place: 1.0
 
 Peak Rate:
@@ -21,11 +21,11 @@ Peak Rate:
     place: 20.0
   LPP:
     place: 20.0
-  PYR:
+  CA3c:
     place: 20.0
     
 Field Probabilities:
-  PYR:
+  CA3c:
     0: 0.38
     1: 0.21
     2: 0.17
