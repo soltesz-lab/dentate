@@ -288,7 +288,7 @@ Synapses:
       type: excitatory
       sections: [soma, apical]
       layers: [Hilus, Hilus]
-      proportions: [0.08, 0.08]
+      proportions: [0.1, 0.1]
       mechanisms:
         AMPA:
           tau_rise: 0.9
@@ -449,7 +449,7 @@ Synapses:
       type: excitatory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
-      proportions: [0.1, 1.0]
+      proportions: [0.9, 1.0]
       mechanisms:
         AMPA:
           tau_rise: 0.3
