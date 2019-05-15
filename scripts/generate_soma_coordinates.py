@@ -11,10 +11,10 @@ import h5py
 from dentate.utils import list_find, config_logging, get_script_logger
 from dentate.env import Env
 from dentate.geometry import make_volume, DG_volume, make_uvl_distance
+from dentate.alphavol import alpha_shape
 import dlib, rbf
-from rbf.nodes import snap_to_boundary, disperse, menodes
-from rbf.geometry import contains
-from alphavol import alpha_shape
+from rbf.pde.nodes import min_energy_nodes
+from rbf.pde.geometry import contains
 
 script_name = os.path.basename(__file__)
 logger = get_script_logger(script_name)
@@ -153,12 +153,13 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
                 logger.info("Generating %i nodes..." % N)
 
             if verbose:
-                rbf_logger = logging.Logger.manager.loggerDict['rbf.nodes']
+                rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
                 rbf_logger.setLevel(logging.DEBUG)
 
             while node_count < population_count:
                 # create N quasi-uniformly distributed nodes
-                nodes, smpid = menodes(N,vert,smp,itr=nodeiter)
+                out = min_energy_nodes(N,(vert,smp),iterations=nodeiter)
+                nodes = out[0]
         
                 # remove nodes outside of the domain
                 in_nodes = nodes[contains(nodes,vert,smp)]
