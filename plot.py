@@ -14,7 +14,7 @@ from matplotlib.offsetbox import AnchoredText
 from matplotlib import gridspec, mlab, rcParams
 from matplotlib.colors import BoundaryNorm
 from matplotlib.colors import LogNorm
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import MaxNLocator, FormatStrFormatter
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -2827,7 +2827,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
 
 def plot_place_fields (spike_input_path, spike_namespace_id, 
                        trajectory_path, trajectory_id, include = ['eachPop'],
-                       bin_size = 50.0, min_pf_width = 10.,
+                       bin_size = 10.0, min_pf_width = 10.,
                        time_variable='t', time_range = None, 
                        alpha_fill = 0.2, overlay = False,
                        save_data = None, **kwargs):
@@ -2878,7 +2878,8 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
             
     # create fig
-    fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
+    fig = plt.figure(figsize=options.figSize)
+    gs  = gridspec.GridSpec(len(spkpoplst), 2, height_ratios=[ 1 for name in spkpoplst ], width_ratios=[1,3])
 
     histlst = []
     # Plot separate line for each entry in include
@@ -2921,9 +2922,9 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
             
         color = color_list[iplot%len(color_list)]
 
-        gs  = gridspec.GridSpec(3, 1, height_ratios=[2,1,2])
-
-        ax1 = plt.subplot(gs[0])
+        ax1 = plt.subplot(gs[iplot*2])
+        plt.setp([ax1], title='%s Place Fields' % subset)
+        
         PF_unique_count = np.unique(PF_count_array)
         if len(PF_unique_count) > 1:
             dmin = np.diff(PF_unique_count).min()
@@ -2936,20 +2937,23 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
         ax1.bar(bin_centers, PF_count_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
         ax1.set_xticks(bin_centers)
+        ax1.tick_params(axis="x", labelsize=options.fontSize)
+        ax1.tick_params(axis="y", labelsize=options.fontSize)
         
-        ax2 = plt.subplot(gs[2])
+        ax2 = plt.subplot(gs[iplot*2 + 1])
         PF_infield_rate_hist, bin_edges = np.histogram(PF_infield_rate_array)
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
         ax2.bar(bin_centers, PF_infield_rate_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
         ax2.set_xticks(bin_centers)
-        
-        plt.xticks(fontsize=options.fontSize)
+        ax2.xaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
+        ax2.tick_params(axis="x", labelsize=options.fontSize)
+        ax2.tick_params(axis="y", labelsize=options.fontSize)
         
         if iplot == 0:
             ax1.set_ylabel('Cell Index', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
-            ax1.set_xlabel('# Place fields', fontsize=options.fontSize)
-            ax2.set_xlabel('In-field firing rate', fontsize=options.fontSize)
+            ax1.set_xlabel('Number of place fields', fontsize=options.fontSize)
+            ax2.set_xlabel('In-field mean firing rate [Hz]', fontsize=options.fontSize)
 
         plt.autoscale(enable=True, axis='both', tight=True)
 
@@ -2972,7 +2976,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         if isinstance(options.saveFig, str):
             filename = options.saveFig
         else:
-            filename = namespace_id+' '+'place fields.%s' % options.figFormat
+            filename = spike_namespace_id+' '+'place fields.%s' % options.figFormat
         plt.savefig(filename)
 
     if options.showFig:

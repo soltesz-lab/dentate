@@ -2,9 +2,8 @@ import math, sys
 import itertools
 from collections import defaultdict
 import numpy as np
-from dentate import utils, ssvkernel
+from dentate import utils
 from utils import viewitems
-from ssvkernel import ssvkernel
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
 ## This logger will inherit its setting from its root logger, dentate,

@@ -33,7 +33,8 @@ def main(spike_events_path, spike_events_namespace, populations, t_variable, t_m
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, meansub=meansub, bin_size=bin_size, fontSize=font_size, saveFig=True, figFormat=save_format)
+    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, meansub=meansub,
+                           bin_size=bin_size, fontSize=font_size, saveFig=True, figFormat=save_format)
     
 
 if __name__ == '__main__':
