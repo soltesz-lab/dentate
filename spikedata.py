@@ -249,15 +249,19 @@ def baks (spktimes, time, a=1.5, b=None):
 
     import scipy
     from scipy.special import gamma
-    
+
     n = len(spktimes)
     sumnum = 0
     sumdenom = 0;
 
     if b is None:
-        interval = np.max(time) - np.min(time)
-        b = float(len(spktimes)) / interval
-        
+        b = float(n)**0.8
+    else:
+        b = float(n)**b
+
+    time = time / 1000.
+    spktimes = spktimes / 1000.
+    
     for i in xrange(n):
         
         numerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a)
@@ -269,12 +273,12 @@ def baks (spktimes, time, a=1.5, b=None):
 
     rate = np.zeros((len(time),))
     for j in xrange(n):
-        K = (1000./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
+        K = (1./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
         rate = rate + K
 
     return (rate, h)
 
-def spike_density_estimate (population, spkdict, time_bins, save=False):
+def spike_density_estimate (population, spkdict, time_bins, save=False, **kwargs):
     """
     Calculates spike density function for the given spike trains.
     """
@@ -287,7 +291,7 @@ def spike_density_estimate (population, spkdict, time_bins, save=False):
     t_stop = time_bins[-1]
     
     spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
-    spk_rate_dict = { ind: baks(spkts, time_bins)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 0 }
+    spk_rate_dict = { ind: baks(spkts, time_bins, **kwargs)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 0 }
 
 
     if save:

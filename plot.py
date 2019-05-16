@@ -46,7 +46,7 @@ except ImportError as e:
 logger = get_module_logger(__name__)
 
 # Default figure configuration
-default_fig_options =  Struct(figFormat='png', lw=3, figSize = (15,8), fontSize=14, saveFig=None, showFig=True)
+default_fig_options =  Struct(figFormat='png', lw=3, figSize = (15,8), fontSize=14, saveFig=None, showFig=True, colormap=cm.viridis)
 
 color_list = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -2053,7 +2053,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
 
 ## Plot spike rates
-def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, labels = 'legend', bin_size = 100., marker = '|', **kwargs):
+def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., marker = '|', **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2097,16 +2097,19 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
             rates       = np.asarray(dct['rate'], dtype=np.float32)
             meansub_rates = rates - np.mean(rates)
-            peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
+            peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]]) 
             peak_index  = np.where(rates == np.max(rates))[0][0]
             rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
             i = i+1
+            if max_units is not None:
+                if i >= max_units:
+                    break
         spkrate_dict[subset] = rate_dict
         logger.info(('Calculated spike rates for %i cells in population %s' % (len(rate_dict), subset)))
 
@@ -2146,8 +2149,8 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         else:
             plt.title ('%s Instantaneous Firing Rate' % str(subset), fontsize=options.fontSize)
 
-        im = plt.imshow(rate_matrix, origin='lower', aspect='auto', #interpolation='bicubic',
-                        extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=cm.jet)
+        im = plt.imshow(rate_matrix, origin='upper', aspect='auto', interpolation='none',
+                        extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=options['colormap'])
 
         im.axes.tick_params(labelsize=options.fontSize)
         
@@ -3162,7 +3165,7 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
             extent=[t[0], t[-1], 0, N]
         title = 'Module: %i' % module
         axes[row][col].set_title(title, fontsize=options.fontSize)
-        img = axes[row][col].imshow(rate_matrix, origin='lower', aspect='auto', cmap=cm.coolwarm,
+        img = axes[row][col].imshow(rate_matrix, origin='upper', aspect='auto', cmap=cm.coolwarm,
                                     extent=extent)
         #axes[row][col].set_xlim([extent[0], extent[1]])
         #axes[row][col].set_ylim(-1, N+1)
@@ -3348,7 +3351,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
             axes.set_title (str(subset), fontsize=options.fontSize)
 
         if graph_type == 'matrix':
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=options['colormap'])
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
         elif graph_type == 'histogram':
@@ -3374,7 +3377,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
             else:
                 axes.set_xlim([X_min, X_max])
         else:
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=options['colormap'])
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
 
@@ -3449,7 +3452,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
             axes.set_title (str(subset), fontsize=options.fontSize)
             
         if graph_type == 'matrix':
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=options['colormap'])
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
         elif graph_type == 'histogram':
@@ -3478,7 +3481,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
             else:
                 axes.set_xlim([-0.5, 0.5])
         else:
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=cm.jet)
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=options['colormap'])
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=options.fontSize)
 
