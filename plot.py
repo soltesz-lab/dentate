@@ -2879,7 +2879,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
             
     # create fig
     fig = plt.figure(figsize=options.figSize)
-    gs  = gridspec.GridSpec(len(spkpoplst), 2, height_ratios=[ 1 for name in spkpoplst ], width_ratios=[1,3])
+    gs  = gridspec.GridSpec(len(spkpoplst), 3, height_ratios=[ 1 for name in spkpoplst ], width_ratios=[1,4,3])
 
     histlst = []
     # Plot separate line for each entry in include
@@ -2899,10 +2899,12 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         
         PF_count_lst  = []
         PF_infield_rate_lst = []
+        PF_field_width_lst = []
         for ind in sorted(PF_dict.keys()):
             PF = PF_dict[ind]
             PF_count_lst.append(PF['pf_count'])
             if PF['pf_count'] > 0:
+                PF_field_width_lst.append(PF['pf_mean_width'])
                 PF_infield_rate_lst.append(PF['pf_mean_rate'])
                 
         del(PF_dict)
@@ -2912,8 +2914,10 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         else:
             PF_count_array = np.asarray([], dtype=np.float32)
         PF_infield_rate_array = np.concatenate(PF_infield_rate_lst)
+        PF_field_width_array = np.concatenate(PF_field_width_lst)
         del(PF_count_lst)
         del(PF_infield_rate_lst)
+        del(PF_field_width_lst)
         
         if not overlay:
             label = str(subset)  + ' (%i active; mean %.02f place fields)' % (len(pop_active_cells[subset]), np.mean(PF_count_array))
@@ -2922,7 +2926,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
             
         color = color_list[iplot%len(color_list)]
 
-        ax1 = plt.subplot(gs[iplot*2])
+        ax1 = plt.subplot(gs[iplot*3])
         plt.setp([ax1], title='%s Place Fields' % subset)
         
         PF_unique_count = np.unique(PF_count_array)
@@ -2939,21 +2943,31 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         ax1.set_xticks(bin_centers)
         ax1.tick_params(axis="x", labelsize=options.fontSize)
         ax1.tick_params(axis="y", labelsize=options.fontSize)
-        
-        ax2 = plt.subplot(gs[iplot*2 + 1])
-        PF_infield_rate_hist, bin_edges = np.histogram(PF_infield_rate_array)
+
+        ax2 = plt.subplot(gs[iplot*3 + 1])
+        PF_field_width_hist, bin_edges = np.histogram(PF_field_width_array)
         bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
-        ax2.bar(bin_centers, PF_infield_rate_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        ax2.bar(bin_centers, PF_field_width_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
         ax2.set_xticks(bin_centers)
         ax2.xaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
         ax2.tick_params(axis="x", labelsize=options.fontSize)
         ax2.tick_params(axis="y", labelsize=options.fontSize)
         
+        ax3 = plt.subplot(gs[iplot*3 + 2])
+        PF_infield_rate_hist, bin_edges = np.histogram(PF_infield_rate_array)
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+        ax3.bar(bin_centers, PF_infield_rate_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        ax3.set_xticks(bin_centers)
+        ax3.xaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
+        ax3.tick_params(axis="x", labelsize=options.fontSize)
+        ax3.tick_params(axis="y", labelsize=options.fontSize)
+        
         if iplot == 0:
             ax1.set_ylabel('Cell Index', fontsize=options.fontSize)
         if iplot == len(spkpoplst)-1:
             ax1.set_xlabel('Number of place fields', fontsize=options.fontSize)
-            ax2.set_xlabel('In-field mean firing rate [Hz]', fontsize=options.fontSize)
+            ax2.set_xlabel('Mean field width [cm]', fontsize=options.fontSize)
+            ax3.set_xlabel('In-field mean firing rate [Hz]', fontsize=options.fontSize)
 
         plt.autoscale(enable=True, axis='both', tight=True)
 

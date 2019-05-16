@@ -374,13 +374,17 @@ def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binst
 
     pf_dict = {}
     pf_total_count = 0
+    pf_cell_count = 0
     cell_count = 0
     pf_min = sys.maxsize
     pf_max = 0
+    ncells = len(rate_dict)
     for ind, valdict  in viewitems(rate_dict):
+        logger.info('%d / %d' %  (cell_count, ncells))
         x      = valdict['time']
         rate   = valdict['rate']
         m      = np.mean(rate)
+        logger.info('mean rate: %f' % m)
         rate1  = np.subtract(rate, m)
         if baseline_fraction is None:
             s  = np.std(rate1)
@@ -406,30 +410,45 @@ def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binst
         bin_norm_rates = np.asarray(bin_norm_rates)
                   
         if len(pf_ibins) > 0:
-            pf_consecutive_ibins = [ np.asarray([np.min(pf_ibin_array),np.max(pf_ibin_array)]) for pf_ibin_array in consecutive(pf_ibins) ]
-            pf_consecutive_bins = [ np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
-                                    for pf_ibin_range in pf_consecutive_ibins ]
-            pf_widths = [ np.diff(np.interp(pf_bin, t, d))[0] for pf_bin in pf_consecutive_bins ]
+            pf_consecutive_ibins = []
+            pf_consecutive_bins = []
+            pf_widths = []
+            for pf_ibin_array in consecutive(pf_ibins):
+                pf_ibin_range = np.asarray([np.min(pf_ibin_array), np.max(pf_ibin_array)])
+                pf_bin_range  = np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
+                pf_width = np.diff(np.interp(pf_bin_range, t, d))[0]
+                pf_consecutive_ibins.append(pf_ibin_range)
+                pf_consecutive_bins.append(pf_bin_range)
+                pf_widths.append(pf_width)
+            logger.info('place field widths: %s' % list(pf_widths))
             pf_filtered_ibins = [ pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths) if pf_width >= min_pf_width ]
             pf_count = len(pf_filtered_ibins)
-            pf_ibins =  [ list(xrange(pf_ibin[0], pf_ibin[1]+1)) for pf_ibin in pf_filtered_ibins ]
-            pf_mean_rate = [ np.mean(np.asarray(bin_rates[pf_ibin_array] ))
-                             for pf_ibin_array in pf_ibins ]
-            pf_peak_rate = [ np.max(np.asarray(bin_rates[pf_ibin_array] ))
-                             for pf_ibin_array in pf_ibins ]
-            pf_mean_norm_rate = [ np.mean(np.asarray(bin_norm_rates[pf_ibin_array] ))
-                                  for pf_ibin_array in pf_ibins ]
+            pf_ibins =  [ xrange(pf_ibin[0], pf_ibin[1]+1) for pf_ibin in pf_filtered_ibins ]
+            pf_mean_width = [] 
+            pf_mean_rate = [] 
+            pf_peak_rate = [] 
+            pf_mean_norm_rate = [] 
+            for pf_ibin_iter in pf_ibins:
+                pf_ibin_array = list(pf_ibin_iter)
+                pf_mean_width.append(np.mean(np.asarray([pf_width for pf_width in pf_widths if pf_width >= min_pf_width])))
+                pf_mean_rate.append(np.mean(np.asarray(bin_rates[pf_ibin_array])))
+                pf_peak_rate.append(np.max(np.asarray(bin_rates[pf_ibin_array])))
+                pf_mean_norm_rate.append(np.mean(np.asarray(bin_norm_rates[pf_ibin_array])))
+
             pf_min = min(pf_count, pf_min)
             pf_max = max(pf_count, pf_max)
-            cell_count += 1
+            pf_cell_count += 1
             pf_total_count += pf_count
         else:
             pf_count = 0
+            pf_mean_width = []
             pf_mean_rate = []
             pf_peak_rate = []
             pf_mean_norm_rate = []
-            
+
+        cell_count += 1
         pf_dict[ind] = { 'pf_count': np.asarray([pf_count], dtype=np.uint32), \
+                         'pf_mean_width': np.asarray(pf_mean_width, dtype=np.float32),
                          'pf_mean_rate': np.asarray(pf_mean_rate, dtype=np.float32),
                          'pf_peak_rate': np.asarray(pf_peak_rate, dtype=np.float32),
                          'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32) }
