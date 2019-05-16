@@ -2103,7 +2103,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         for ind, dct in viewitems(sdf_dict):
             rates       = np.asarray(dct['rate'], dtype=np.float32)
             meansub_rates = rates - np.mean(rates)
-            peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]]) 
+            peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
             peak_index  = np.where(rates == np.max(rates))[0][0]
             rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
             i = i+1
@@ -2827,7 +2827,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
 
 def plot_place_fields (spike_input_path, spike_namespace_id, 
                        trajectory_path, trajectory_id, include = ['eachPop'],
-                       position_bin_size = 50.0, min_pf_bins = 1,
+                       bin_size = 50.0, min_pf_width = 10.,
                        time_variable='t', time_range = None, 
                        alpha_fill = 0.2, overlay = False,
                        save_data = None, **kwargs):
@@ -2875,7 +2875,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
     tmax             = spkdata['tmax']
     
     time_range = [tmin, tmax]
-    time_bins  = np.arange(time_range[0], time_range[1], position_bin_size)
+    time_bins  = np.arange(time_range[0], time_range[1], bin_size)
             
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
@@ -2894,7 +2894,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
                 filename = spike_namespace_id+' '+subset
 
         rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
-        PF_dict  = spikedata.place_fields(subset, position_bin_size, rate_bin_dict, min_pf_bins=min_pf_bins)
+        PF_dict  = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, min_pf_width=min_pf_width)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []
@@ -2902,7 +2902,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
             PF = PF_dict[ind]
             PF_count_lst.append(PF['pf_count'])
             if PF['pf_count'] > 0:
-                PF_infield_rate_lst.append(np.mean(PF['pf_rate']))
+                PF_infield_rate_lst.append(PF['pf_mean_rate'])
                 
         del(PF_dict)
 
@@ -2910,7 +2910,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
             PF_count_array = np.concatenate(PF_count_lst)
         else:
             PF_count_array = np.asarray([], dtype=np.float32)
-        PF_infield_rate_array = np.asarray(PF_infield_rate_lst, dtype=np.float32)
+        PF_infield_rate_array = np.concatenate(PF_infield_rate_lst)
         del(PF_count_lst)
         del(PF_infield_rate_lst)
         

@@ -15,11 +15,11 @@ script_name = os.path.basename(__file__)
 @click.option("--t-min", type=float)
 @click.option("--trajectory-path", '-t', required=True, type=click.Path())
 @click.option("--trajectory-id", '-d', type=str, default=0)
-@click.option("--position-bin-size", '-b', type=float, default=50.0)
-@click.option("--min-pf-bins", '-m', type=int, default=1)
+@click.option("--bin-size", '-b', type=float, default=50.0)
+@click.option("--min-pf-width", '-m', type=float, default=20.)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, t_min, trajectory_path, trajectory_id, position_bin_size, min_pf_bins, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, t_min, trajectory_path, trajectory_id, bin_size, min_pf_width, font_size, verbose):
 
     utils.config_logging(verbose)
 
@@ -36,8 +36,8 @@ def main(spike_events_path, spike_events_namespace, include, t_variable, t_max, 
 
     plot.plot_place_fields (spike_events_path, spike_events_namespace, 
                             trajectory_path, trajectory_id, include = include,
-                            position_bin_size = position_bin_size, min_pf_bins=min_pf_bins,
-                            time_variable=t_variable, time_range = time_range, 
+                            bin_size = bin_size, min_pf_width = min_pf_width,
+                            time_variable = t_variable, time_range = time_range, 
                             fontSize = font_size, save_data = True)
 
 if __name__ == '__main__':

@@ -2,8 +2,9 @@ import math, sys
 import itertools
 from collections import defaultdict
 import numpy as np
-from dentate import utils
+from dentate import utils, ssvkernel
 from utils import viewitems
+from ssvkernel import ssvkernel
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -253,7 +254,7 @@ def baks (spktimes, time, a=1.5, b=None):
     n = len(spktimes)
     sumnum = 0
     sumdenom = 0;
-
+    
     if b is None:
         b = float(n)**0.8
     else:
@@ -291,8 +292,7 @@ def spike_density_estimate (population, spkdict, time_bins, save=False, **kwargs
     t_stop = time_bins[-1]
     
     spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
-    spk_rate_dict = { ind: baks(spkts, time_bins, **kwargs)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 0 }
-
+    spk_rate_dict = { ind: baks(spkts, time_bins, **kwargs)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 1 }
 
     if save:
         if isinstance(save, str):
@@ -366,10 +366,12 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
     return MI_dict
 
 
-def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, min_pf_bins=1, save = False):
+def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binsteps=5, baseline_fraction=None, min_pf_width=10., save = False):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     """
+
+    (x, y, d, t) = trajectory
 
     pf_dict = {}
     pf_total_count = 0
@@ -401,22 +403,37 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
             if r_n > nstdev*s:
                   pf_ibins.append(ibin-1)
 
-        pf_consecutive_ibins = [ pf_ibin_lst for pf_ibin_lst in consecutive(pf_ibins) if len(pf_ibin_lst) >= min_pf_bins ]
-        pf_count = len(pf_consecutive_ibins)
-        pf_ibins = [ pf_ibin
-                     for pf_ibin_lst in pf_consecutive_ibins
-                     for pf_ibin in pf_ibin_lst ]
-        pf_bins = [ bins[pf_ibin] for pf_ibin in pf_ibins ]
-        pf_rate = [ bin_rates[pf_ibin] for pf_ibin in pf_ibins ]
-        pf_norm_rate = [ bin_norm_rates[pf_ibin] for pf_ibin in pf_ibins ]
-        pf_min = min(pf_count, pf_min)
-        pf_max = max(pf_count, pf_max)
-        cell_count += 1
-        pf_total_count += pf_count
+        bin_rates = np.asarray(bin_rates)
+        bin_norm_rates = np.asarray(bin_norm_rates)
+                  
+        if len(pf_ibins) > 0:
+            pf_consecutive_ibins = [ np.asarray([np.min(pf_ibin_array),np.max(pf_ibin_array)]) for pf_ibin_array in consecutive(pf_ibins) ]
+            pf_consecutive_bins = [ np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
+                                    for pf_ibin_range in pf_consecutive_ibins ]
+            pf_widths = [ np.diff(np.interp(pf_bin, t, d))[0] for pf_bin in pf_consecutive_bins ]
+            pf_filtered_ibins = [ pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths) if pf_width >= min_pf_width ]
+            pf_count = len(pf_filtered_ibins)
+            pf_ibins =  [ list(xrange(pf_ibin[0], pf_ibin[1]+1)) for pf_ibin in pf_filtered_ibins ]
+            pf_mean_rate = [ np.mean(np.asarray(bin_rates[pf_ibin_array] ))
+                             for pf_ibin_array in pf_ibins ]
+            pf_peak_rate = [ np.max(np.asarray(bin_rates[pf_ibin_array] ))
+                             for pf_ibin_array in pf_ibins ]
+            pf_mean_norm_rate = [ np.mean(np.asarray(bin_norm_rates[pf_ibin_array] ))
+                                  for pf_ibin_array in pf_ibins ]
+            pf_min = min(pf_count, pf_min)
+            pf_max = max(pf_count, pf_max)
+            cell_count += 1
+            pf_total_count += pf_count
+        else:
+            pf_count = 0
+            pf_mean_rate = []
+            pf_peak_rate = []
+            pf_mean_norm_rate = []
+            
         pf_dict[ind] = { 'pf_count': np.asarray([pf_count], dtype=np.uint32), \
-                         'pf_bins': np.asarray(pf_bins, dtype=np.float32), \
-                         'pf_rate': np.asarray(pf_rate, dtype=np.float32),
-                         'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
+                         'pf_mean_rate': np.asarray(pf_mean_rate, dtype=np.float32),
+                         'pf_peak_rate': np.asarray(pf_peak_rate, dtype=np.float32),
+                         'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32) }
 
     logger.info('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
     if save:
