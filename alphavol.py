@@ -66,7 +66,7 @@ def free_boundary(simplices):
                         simplices[:,[1, 2, 3]]))
 
     ## Find unique facets                    
-    ufacets, counts = np.unique(facets, return_counts=True, axis=1)
+    ufacets, counts = np.unique(facets, return_counts=True, axis=0)
 
     ## Determine which facets are part of only one simplex
     bidxs = np.where(counts == 1)[0]

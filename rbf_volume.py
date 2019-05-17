@@ -2,7 +2,7 @@
 Based on code from bspline_surface.py
 """
 
-import math, pickle
+import math, pickle, logging
 import numpy as np
 from collections import namedtuple
 import rbf
@@ -949,3 +949,4 @@ if __name__ == '__main__':
 #    test_uv_isospline()
 #    test_tri()
      test_load()
+
