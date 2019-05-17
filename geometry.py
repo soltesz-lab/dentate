@@ -654,15 +654,15 @@ def test_nodes():
     from dentate.alphavol import alpha_shape
     from mayavi import mlab
     
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 5)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 5)
-    obs_l = np.linspace(-1.0, 1., num=5)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 25)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 25)
+    obs_l = np.linspace(-1.0, 1., num=10)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = DG_volume(u, v, l, rotate=[-35., 0., 0.])
 
     print ('Constructing volume...')
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
     print ('Constructing volume triangulation...')
     tri = vol.create_triangulation()
@@ -680,11 +680,15 @@ def test_nodes():
     print ('Generating nodes...')
     rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
     rbf_logger.setLevel(logging.DEBUG)
-    nodes, smpid = min_energy_nodes(N,(vert,smp),iterations=20)
+    out = min_energy_nodes(N,(vert,smp),iterations=10,build_rtree=True)
+
+    nodes = out[0]
     
     # remove nodes outside of the domain
     in_nodes = nodes[contains(nodes,vert,smp)]
 
+    print('Generated %d interior nodes' % len(in_nodes))
+    
     vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
     mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=15.0)
     
@@ -714,9 +718,6 @@ def test_alphavol():
 
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)
-
-    print vert.shape
-    print smp.shape
 
     edges = np.vstack([np.column_stack([smp[:,0],smp[:,1]]), 
                        np.column_stack([smp[:,1],smp[:,2]])])

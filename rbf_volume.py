@@ -902,9 +902,6 @@ def test_precision():
 
 def test_tri():
 
-    max_u = 11690.
-    max_v = 2956.
-    
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
     obs_l = np.linspace(-1.0, 1., num=5)
@@ -919,9 +916,6 @@ def test_tri():
     return vol, tri
 
 def test_load():
-
-    max_u = 11690.
-    max_v = 2956.
     
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 30)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 30)
