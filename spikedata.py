@@ -3,7 +3,7 @@ import itertools
 from collections import defaultdict
 import numpy as np
 from dentate import utils
-from utils import viewitems
+from utils import viewitems, baks, akde
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -229,55 +229,6 @@ def spike_rates (spkdict):
     return rate_dict
 
 
-def baks (spktimes, time, a=1.5, b=None):
-    """
-    Bayesian Adaptive Kernel Smoother (BAKS)
-    BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
-    with adaptive bandwidth determined using a Bayesian approach
-    ---------------INPUT---------------
-    - spktimes : spike event times (ms)
-    - time : time points at which the firing rate is estimated (ms)
-    - a : shape parameter (alpha) 
-    - b : scale parameter (beta)
-    ---------------OUTPUT---------------
-    - rate : estimated firing rate [nTime x 1] (Hz)
-    - h : adaptive bandwidth [nTime x 1]
-
-    Based on "Estimation of neuronal firing rate using Bayesian adaptive kernel smoother (BAKS)"
-    https://github.com/nurahmadi/BAKS
-    """
-
-    import scipy
-    from scipy.special import gamma
-
-    n = len(spktimes)
-    sumnum = 0
-    sumdenom = 0;
-    
-    if b is None:
-        b = float(n)**0.8
-    else:
-        b = float(n)**b
-
-    time = time / 1000.
-    spktimes = spktimes / 1000.
-    
-    for i in xrange(n):
-        
-        numerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a)
-        denominator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a-0.5)
-        sumnum = sumnum + numerator
-        sumdenom = sumdenom + denominator
-
-    h = (gamma(a)/gamma(a + 0.5)) * (sumnum / sumdenom)
-
-    rate = np.zeros((len(time),))
-    for j in xrange(n):
-        K = (1./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
-        rate = rate + K
-
-    return (rate, h)
-
 def spike_density_estimate (population, spkdict, time_bins, save=False, **kwargs):
     """
     Calculates spike density function for the given spike trains.
@@ -289,9 +240,10 @@ def spike_density_estimate (population, spkdict, time_bins, save=False, **kwargs
 
     t_start = time_bins[0]
     t_stop = time_bins[-1]
-    
+
     spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
-    spk_rate_dict = { ind: baks(spkts, time_bins, **kwargs)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 1 }
+    spk_rate_dict = { ind: akde(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+                      for ind, spkts in viewitems(spktrains) if len(spkts) > 1 }
 
     if save:
         if isinstance(save, str):
@@ -529,7 +481,7 @@ def histogram_correlation(spkdata, bin_size=1., quantity='count'):
         for ind, lst in viewitems(spk_dict):
             spkts  = np.asarray(lst)
             if quantity == 'rate':
-                q = baks(spkts, time_bins)[0]
+                q = akde(spkts / 1000., time_bins / 1000.)[0]
             else:
                 count, bin_edges = np.histogram(spkts, bins = bins)
                 q = count
@@ -567,7 +519,7 @@ def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count'):
         for ind, lst in viewitems(spk_dict):
             spkts  = np.asarray(lst)
             if quantity == 'rate':
-                q = baks(spkts, time_bins)[0]                
+                q = akde(spkts / 1000., time_bins / 1000.)[0]                
             else:
                 count, bin_edges = np.histogram(spkts, bins = bins)
                 q = count

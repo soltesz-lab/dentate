@@ -46,7 +46,7 @@ except ImportError as e:
 logger = get_module_logger(__name__)
 
 # Default figure configuration
-default_fig_options =  Struct(figFormat='png', lw=3, figSize = (15,8), fontSize=14, saveFig=None, showFig=True, colormap=cm.viridis)
+default_fig_options =  Struct(figFormat='png', lw=3, figSize = (15,8), fontSize=14, saveFig=None, showFig=True, colormap=cm.jet)
 
 color_list = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -2010,7 +2010,6 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
     states = indata['states']
     stplots = []
-    print 'states: ', states
     for (pop_name, pop_states) in viewitems(states):
         for (gid, cell_states) in viewitems(pop_states):
             st_x, st_y = cell_states
@@ -2097,7 +2096,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
@@ -2137,8 +2136,9 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         else:
             rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
         del(ind_peak_lst)
-        
+
         rate_matrix = np.matrix(rate_lst, dtype=np.float32)
+        print np.max(rate_matrix)
         del(rate_lst)
 
         color = color_list[iplot%len(color_list)]
