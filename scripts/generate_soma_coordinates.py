@@ -67,7 +67,7 @@ def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--resolution", type=(int,int,int), default=(20,20,10))
+@click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--alpha-radius", type=float, default=120.)
 @click.option("--nodeiter", type=int, default=10)
 @click.option("--optiter", type=int, default=200)
@@ -168,7 +168,7 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
                 N = int(1.5*N)
             
                 if verbose:
-                    logger.info("%i interior nodes generated" % node_count)
+                    logger.info("%i interior nodes out of %i nodes generated" % (node_count, len(nodes)))
 
             if verbose:
                 logger.info("Inverse interpolation of %i nodes..." % node_count)
