@@ -15,10 +15,11 @@ script_name = os.path.basename(__file__)
 @click.option("--t-min", type=float)
 @click.option("--bin-size", type=float, default=1.)
 @click.option("--meansub", type=bool, default=False, is_flag=True)
+@click.option("--progress", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--save-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, t_variable, t_max, t_min, bin_size, meansub, font_size, save_format, verbose):
+def main(spike_events_path, spike_events_namespace, populations, t_variable, t_max, t_min, bin_size, meansub, progress, font_size, save_format, verbose):
 
     utils.config_logging(verbose)
 
@@ -34,7 +35,7 @@ def main(spike_events_path, spike_events_namespace, populations, t_variable, t_m
         populations = ['eachPop']
         
     plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, meansub=meansub,
-                           bin_size=bin_size, fontSize=font_size, saveFig=True, figFormat=save_format)
+                           bin_size=bin_size, fontSize=font_size, saveFig=True, figFormat=save_format, progress=progress)
     
 
 if __name__ == '__main__':

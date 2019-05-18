@@ -548,7 +548,7 @@ def kde_scipy(x, y, bin_size, **kwargs):
     return xx, yy, np.reshape(z, xx.shape)
 
 
-def akde (X, grid=None, gam=None, tol=10**-5, maxiter=100, seed=0, verbose=False):
+def akde (X, grid=None, gam=None, errtol=10**-5, maxiter=100, seed=0, verbose=False):
     """
     Adaptive Kernel Density Estimate (AKDE)
     Provides optimal accuracy/speed tradeoff, controlled with parameter gam
@@ -556,7 +556,7 @@ def akde (X, grid=None, gam=None, tol=10**-5, maxiter=100, seed=0, verbose=False
     - x : event points
     - grid : points at which the density rate is estimated 
     - gam : scale parameter 
-    - tol : convergence tolerance (default: 10^-5)
+    - errtol : convergence tolerance (default: 10^-5)
     - maxiter : maximum iterations (default: 200)
     - seed : random number seed 
     ---------------OUTPUT---------------
@@ -647,7 +647,7 @@ def akde (X, grid=None, gam=None, tol=10**-5, maxiter=100, seed=0, verbose=False
         assert(not math.isnan(bw))
         assert(not math.isnan(err))
 
-        if (err < tol):
+        if (err < errtol):
             break
 
     pdf = akde_probfun(mesh,w,mus,sigmas) / scaling

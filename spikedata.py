@@ -229,10 +229,13 @@ def spike_rates (spkdict):
     return rate_dict
 
 
-def spike_density_estimate (population, spkdict, time_bins, save=False, **kwargs):
+def spike_density_estimate (population, spkdict, time_bins, save=False, progress=False, **kwargs):
     """
     Calculates spike density function for the given spike trains.
     """
+
+    if progress:
+        from tqdm import tqdm
     
     def make_spktrain (lst, t_start, t_stop):
         spkts = np.asarray(lst, dtype=np.float32)
@@ -242,8 +245,13 @@ def spike_density_estimate (population, spkdict, time_bins, save=False, **kwargs
     t_stop = time_bins[-1]
 
     spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
-    spk_rate_dict = { ind: akde(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
-                      for ind, spkts in viewitems(spktrains) if len(spkts) > 1 }
+    if progress:
+        spk_rate_dict = { ind: baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+                          for ind, spkts in tqdm(viewitems(spktrains)) if len(spkts) > 1 }
+    else:
+        spk_rate_dict = { ind: baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+                          for ind, spkts in viewitems(spktrains) if len(spkts) > 1 }
+        
 
     if save:
         if isinstance(save, str):

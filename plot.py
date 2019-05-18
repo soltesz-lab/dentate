@@ -2052,7 +2052,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
 
 ## Plot spike rates
-def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., marker = '|', **kwargs):
+def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2061,7 +2061,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
-    marker (char): Marker for each spike (default: '|')
     '''
     options = default_fig_options
     options.update(kwargs)
@@ -2096,7 +2095,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, a=4.77)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
@@ -2264,7 +2263,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
@@ -2894,7 +2893,7 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
             else:
                 filename = spike_namespace_id+' '+subset
 
-        rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
+        rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
         PF_dict  = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, min_pf_width=min_pf_width)
         
         PF_count_lst  = []
@@ -3063,7 +3062,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     for iplot, (subset, spkinds, spkts) in enumerate(zip(spkpoplst, spkindlst, spktlst)):
 
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
         min_freq   = float('inf')
         max_freq   = float('-inf')
         n_units    = len(sdf_dict)
