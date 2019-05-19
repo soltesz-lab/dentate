@@ -31,6 +31,6 @@ ibrun -np 4 python ./scripts/generate_soma_coordinates.py -v \
        --types-path=./datasets/dentate_h5types.h5 \
        --template-path=./templates \
        -i ConMC \
-       --output-path=$SCRATCH/dentate/Full_Scale_Control/datasets/dentate_ConMC_coords_20190515.h5 \
+       --output-path=$SCRATCH/dentate/Full_Scale_Control/dentate_ConMC_coords_20190515.h5 \
        --output-namespace='Generated Coordinates' 
 
