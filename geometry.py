@@ -1,7 +1,7 @@
 
 """Classes and procedures related to neuronal geometry and distance calculation."""
 
-import sys, time, gc, itertools, math
+import sys, time, gc, itertools, math, logging
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
@@ -172,7 +172,6 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     """
     import dlib
     import rbf, rbf.basis
-    from rbf.interpolate import RBFInterpolant
     from rbf.pde.nodes import min_energy_nodes
     from rbf.pde.geometry import contains
     
@@ -199,9 +198,12 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
 
     origin_pos = pos[0]
     origin_extent = extents[0]
+    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+    origin_ranges = ((-(origin_pos[0] * origin_extent[0]), (1.0 - origin_pos[0]) * origin_extent[0]), 
+                     (-(origin_pos[1] * origin_extent[1]), (1.0 - origin_pos[1]) * origin_extent[1]))
 
     logger.info('Origin position: %f %f extent: %f %f' % (origin_pos[0], origin_pos[1], origin_extent[0], origin_extent[1]))
-    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+    logger.info('Origin ranges: %f : %f %f : %f' % (origin_ranges[0][0], origin_ranges[0][1], origin_ranges[1][0], origin_ranges[1][1]))
     
     logger.info("Creating volume triangulation...")
     tri = ip_vol.create_triangulation()
@@ -294,7 +296,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     logger.info('U distance min: %f %s max: %f %s' % (distances_u[u_min_ind], str(obs_uv[u_min_ind]), distances_u[u_max_ind], str(obs_uv[u_max_ind])))
     logger.info('V distance min: %f %s max: %f %s' % (distances_v[v_min_ind], str(obs_uv[v_min_ind]), distances_v[v_max_ind], str(obs_uv[v_max_ind])))
 
-    return (obs_uv, distances_u, distances_v)
+    return (origin_ranges, obs_uv, distances_u, distances_v)
 
 
         
@@ -396,6 +398,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
 
 
 def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
+    from rbf.interpolate import RBFInterpolant
 
     rank = env.comm.rank
 
@@ -443,6 +446,9 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
     ## of the distance interpolant
     safety = 0.01
 
+    origin_ranges = None
+    ip_dist_u = None
+    ip_dist_v = None
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
         ip_volume = make_volume((min_u-safety, max_u+safety), \
@@ -452,7 +458,7 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
 
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
-        (obs_uv, dist_u, dist_v) = vol_dist
+        (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
         ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,phi=interp_basis,\
                                    sigma=interp_sigma)
@@ -460,16 +466,15 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
         ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,phi=interp_basis,\
                                    sigma=interp_sigma)
         logger.info('Broadcasting volume distance interpolants...')
-        
-    ip_dist_u = None
+
+    origin_ranges = env.comm.bcast(origin_ranges, root=0)
     ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
-    ip_dist_v = None
-    ip_dist_v = env.comm.bcast(ip_dist_u, root=0)
+    ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
     
     soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=allgather)
 
-    return soma_distances
+    return origin_ranges, soma_distances
 
 
 def measure_distance_extents(env):
@@ -647,17 +652,22 @@ def test_nodes():
     from rbf.pde.nodes import min_energy_nodes
     from rbf.pde.geometry import contains
     from dentate.alphavol import alpha_shape
+    from mayavi import mlab
     
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
-    obs_l = np.linspace(-1.0, 1., num=3)
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 25)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 25)
+    obs_l = np.linspace(-1.0, 1., num=10)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l).reshape(3, u.size)
+    xyz = DG_volume(u, v, l, rotate=[-35., 0., 0.])
 
-    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=1)
+    print ('Constructing volume...')
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
+    print ('Constructing volume triangulation...')
     tri = vol.create_triangulation()
+    
+    print ('Constructing alpha shape...')
     alpha = alpha_shape([], 120., tri=tri)
     
     # Define the problem domain
@@ -667,14 +677,19 @@ def test_nodes():
     N = 10000 # total number of nodes
     
     # create N quasi-uniformly distributed nodes
-    nodes, smpid = min_energy_nodes(N,(vert,smp),iterations=20)
+    print ('Generating nodes...')
+    rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
+    rbf_logger.setLevel(logging.DEBUG)
+    out = min_energy_nodes(N,(vert,smp),iterations=10,build_rtree=True)
+
+    nodes = out[0]
     
     # remove nodes outside of the domain
     in_nodes = nodes[contains(nodes,vert,smp)]
 
-    from mayavi import mlab
+    print('Generated %d interior nodes' % len(in_nodes))
+    
     vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
-
     mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=15.0)
     
     mlab.show()
@@ -682,12 +697,15 @@ def test_nodes():
     return in_nodes, vol.inverse(in_nodes)
 
 def test_alphavol():
+    from mayavi import mlab
+    from dentate.alphavol import alpha_shape
+
     obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
     obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
     obs_l = np.linspace(-3.95, 3.2, num=10)
 
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
-    xyz = test_surface (u, v, l, rotate=[-35., 0., 0.])
+    xyz = DG_volume(u, v, l, rotate=[-35., 0., 0.])
 
     print ('Constructing volume...')
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
@@ -701,7 +719,7 @@ def test_alphavol():
     vert = alpha.points
     smp  = np.asarray(alpha.bounds, dtype=np.int64)
 
-    edges = np.vstack([np.column_stack([smp[:,0],smp[:,1]]), \
+    edges = np.vstack([np.column_stack([smp[:,0],smp[:,1]]), 
                        np.column_stack([smp[:,1],smp[:,2]])])
 
     x = vert[:,0]
@@ -711,7 +729,6 @@ def test_alphavol():
     start_idx = edges[:,0]
     end_idx = edges[:,1]
     
-    from mayavi import mlab
     vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
     mlab.quiver3d(x[start_idx],
                   y[start_idx],
@@ -724,3 +741,7 @@ def test_alphavol():
     
     
     mlab.show()
+    
+if __name__ == '__main__':
+#     test_alphavol()
+     test_nodes()

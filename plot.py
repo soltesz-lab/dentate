@@ -700,7 +700,6 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
         sample = np.where(tree_metrics_array >= percentile_value)
         tree_metrics_array = tree_metrics_array[sample]
         sorted_keys = np.asarray(sorted_keys)[sample]
-        print(sorted_keys)
         
     
     distance_U_array = np.array([distance_U[k] for k in sorted_keys])
@@ -795,7 +794,7 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
         p = ax.contourf(X[:-1,:-1] + bin_size/2, Y[:-1,:-1]+bin_size/2, H.T, levels=levels, cmap=cmap)
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     elif graph_type == 'kde':
-        X, Y, Z    = sigproc.gaussian_kde(distance_U_array, distance_V_array, bin_size)
+        X, Y, Z    = kde_scipy(distance_U_array, distance_V_array, bin_size)
         p    = ax.imshow(Z, origin='lower', aspect='auto', extent=[x_min, x_max, y_min, y_max])
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     else:
