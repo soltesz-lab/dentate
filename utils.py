@@ -357,25 +357,6 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
     return y[s].ravel()
 
 
-def kde_sklearn(x, y, binSize, bandwidth=1.0, **kwargs):
-    """Kernel Density Estimation with Scikit-learn"""
-    from sklearn.neighbors import KernelDensity
-
-    # create grid of sample locations
-    xx, yy = np.mgrid[x.min():x.max():binSize, 
-                      y.min():y.max():binSize]
-
-    data_grid = np.vstack([xx.ravel(), yy.ravel()]).T
-    data  = np.vstack([x, y]).T
-    
-    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
-    kde_skl.fit(data)
-
-    # score_samples() returns the log-likelihood of the samples
-    z = np.exp(kde_skl.score_samples(data_grid))
-    return xx, yy, np.reshape(z, xx.shape)
-
-
 def NamedTupleWithDocstring(docstring, *ntargs):
     """
     A convenience wrapper to add docstrings to named tuples. This is only needed in
@@ -547,6 +528,23 @@ def kde_scipy(x, y, bin_size, **kwargs):
     
     return xx, yy, np.reshape(z, xx.shape)
 
+def kde_sklearn(x, y, binSize, bandwidth=1.0, **kwargs):
+    """Kernel Density Estimation with Scikit-learn"""
+    from sklearn.neighbors import KernelDensity
+
+    # create grid of sample locations
+    xx, yy = np.mgrid[x.min():x.max():binSize, 
+                      y.min():y.max():binSize]
+
+    data_grid = np.vstack([xx.ravel(), yy.ravel()]).T
+    data  = np.vstack([x, y]).T
+    
+    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
+    kde_skl.fit(data)
+
+    # score_samples() returns the log-likelihood of the samples
+    z = np.exp(kde_skl.score_samples(data_grid))
+    return xx, yy, np.reshape(z, xx.shape)
 
 def akde (X, grid=None, gam=None, errtol=10**-5, maxiter=100, seed=0, verbose=False):
     """
