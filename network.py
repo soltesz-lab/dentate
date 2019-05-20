@@ -845,28 +845,25 @@ def init_input_cells(env, input_sources=None):
                 logger.info("*** Initialized stimulus population %s" % pop_name)
 
     if input_sources is not None:
-        if env.spike_input_path is None:
-            raise RuntimeError("Spike input path not provided")
-        if env.spike_input_ns is None:
-            raise RuntimeError("Spike input namespace not provided")
-        for pop_name, gid_range in viewitems(input_sources):
-            if (env.cell_selection is not None) and (pop_name in env.cell_selection):
-                local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
-            else:
-                local_gid_range = gid_range
-            gid_ranges = env.comm.allgather(local_gid_range)
-            this_gid_range = []
-            for gid_range in gid_ranges:
-                for gid in gid_range:
-                    if gid % nhosts == rank:
-                        this_gid_range.append(gid)
+        if (env.spike_input_path is not None) and (env.spike_input_ns is not None):
+            for pop_name, gid_range in viewitems(input_sources):
+                if (env.cell_selection is not None) and (pop_name in env.cell_selection):
+                    local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
+                else:
+                    local_gid_range = gid_range
+                gid_ranges = env.comm.allgather(local_gid_range)
+                this_gid_range = []
+                for gid_range in gid_ranges:
+                    for gid in gid_range:
+                        if gid % nhosts == rank:
+                            this_gid_range.append(gid)
 
-            cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, this_gid_range, \
-                                                             namespace=env.spike_input_ns, \
-                                                             comm=env.comm)
-            for gid, cell_spikes_dict in cell_spikes_iter:
-                input_cell = env.pc.gid2cell(gid)
-                input_cell.play(h.Vector(cell_spikes_dict['t']))
+                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, this_gid_range, \
+                                                                 namespace=env.spike_input_ns, \
+                                                                 comm=env.comm)
+                for gid, cell_spikes_dict in cell_spikes_iter:
+                    input_cell = env.pc.gid2cell(gid)
+                    input_cell.play(h.Vector(cell_spikes_dict['t']))
 
 def init(env):
     """
