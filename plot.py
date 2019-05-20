@@ -776,10 +776,10 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
         hist_vals_V, bin_edges_V = np.histogram(distance_V_array, bins = bins_V)
         gs  = gridspec.GridSpec(2, 1, height_ratios=[2,1])
         ax1 = plt.subplot(gs[0])
-        ax1.bar (bin_edges_U[:-1], hist_vals_U, linewidth=1.0)
+        ax1.bar (bin_edges_U[:-1], hist_vals_U, width=dx)
         ax1.set_title('Position distribution for %s' % (label), fontsize=options.fontSize)
         ax2 = plt.subplot(gs[1])
-        ax2.bar (bin_edges_V[:-1], hist_vals_V, linewidth=1.0)
+        ax2.bar (bin_edges_V[:-1], hist_vals_V, width=dy)
         ax1.set_xlabel('Arc distance (septal - temporal) (um)', fontsize=options.fontSize)
         ax2.set_xlabel('Arc distance (supra - infrapyramidal)  (um)', fontsize=options.fontSize)
         ax1.set_ylabel('Number of cells', fontsize=options.fontSize)
@@ -808,7 +808,7 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
         if isinstance(options.saveFig, str):
             filename = options.saveFig
         else:
-            filename = label+' Positions.%s' % options.figFormat
+            filename = '%s Positions.%s' % (label, options.figFormat)
             plt.savefig(filename)
 
     if options.showFig:
