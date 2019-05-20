@@ -268,7 +268,9 @@ class Env:
                 
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
-
+        else:
+            self.netclamp_config = None
+            
         if 'Input' in self.modelConfig:
             self.parse_input_config()                                                                                                                                                     
             

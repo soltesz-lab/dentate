@@ -2144,6 +2144,30 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
+def make_input_cell(env, gid, pop_id, input_source_dict):
+    """
+    Instantiates an input generator according to the given cell template.
+    """
+
+    input_sources = input_source_dict[pop_id]
+    input_gen = input_sources['gen']
+    if input_gen is None:
+        cell = h.VecStimCell(gid)
+        if 'spiketrains' in input_sources:
+            spk_inds = input_sources['spiketrains']['gid']
+            spk_ts = input_sources['spiketrains']['t']
+            data = spk_ts[np.where(spk_inds == pop_gid)]
+            cell.pp.play(h.Vector(data))
+    else:
+        template_name = input_gen['template']
+        param_values  = input_gen['params']
+        template = getattr(h, template_name)
+        params = [ param_values[p] for p in env.netclamp_config.template_params[template_name] ]
+        cell = template(gid, *params)
+        
+    return cell
+
+
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
                      load_weights=False, set_edge_delays=True):
     """

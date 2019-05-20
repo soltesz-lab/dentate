@@ -1,5 +1,6 @@
 """Routines to keep track of simulation computation time and terminate the simulation if not enough time has been allocated."""
 
+import time
 from neuron import h
 from dentate import utils
 
@@ -10,7 +11,7 @@ class SimTimeEvent:
 
     def __init__(self, pc, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
         self.pc  = pc
-        wt = self.pc.time()
+        wt = time.time()
         self.walltime_status = wt
         self.walltime_checksimtime = wt
         self.dt_status = dt_status
@@ -33,12 +34,12 @@ class SimTimeEvent:
         self.tcsum = 0.
         self.tcma = 0.
         self.nsimsteps = 0
-        self.walltime_status = self.pc.time()
+        self.walltime_status = time.time()
         self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
         self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
     
     def simstatus(self):
-        wt = self.pc.time()
+        wt = time.time()
         if h.t > 0.:
             if (int(self.pc.id()) == 0):
                 logger.info("*** rank 0 computation time at t=%.2f ms was %.2f s" % (h.t, wt-self.walltime_status))
@@ -51,7 +52,7 @@ class SimTimeEvent:
             h.cvode.event(h.t + self.dt_status, self.simstatus)
 
     def checksimtime(self):
-        wt = self.pc.time()
+        wt = time.time()
         if (h.t > 0):
             tt = wt - self.walltime_checksimtime
             ## cumulative moving average simulation time per dt_checksimtime
