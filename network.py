@@ -768,6 +768,8 @@ def make_input_cells(env, input_sources):
     If provided, the set of gids specified in gid_sources will be instantiated according
     to the rules specified in env.netclamp_config.input_generators.
     """
+    rank = int(env.pc.id())
+    nhosts = int(env.pc.nhost())
 
     for pop_name, input_gid_range in viewitems(input_sources):
         pop_index = int(env.Populations[pop_name])
@@ -781,10 +783,11 @@ def make_input_cells(env, input_sources):
         else:
             local_input_gid_range = input_gid_range
         input_gid_ranges = env.comm.allgather(local_input_gid_range)
+
         for gid_range in input_gid_ranges:
             for gid in gid_range:
                 if (gid % nhosts == rank) and not env.pc.gid_exists(gid):
-                    input_cell = make_input_cell(env, gid, pop_index, input_source_dict)
+                    input_cell = cells.make_input_cell(env, gid, pop_index, input_source_dict)
                     register_cell(env, pop_name, gid, input_cell)
 
 
@@ -797,15 +800,18 @@ def init_input_cells(env, input_sources=None):
     If provided, the set of gids specified in gid_sources will be 
     initialized with pre-recorded spike trains read from env.spike_input_path / env.spike_input_ns.
     """
-    
+
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
+    if rank == 0:
+        logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
 
     dataset_path = env.dataset_path
     input_file_path = env.data_file_path
 
     pop_names = list(env.celltypes.keys())
     pop_names.sort()
+
     for pop_name in pop_names:
         if 'Vector Stimulus' in env.celltypes[pop_name]:
             vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
@@ -827,9 +833,10 @@ def init_input_cells(env, input_sources=None):
                                                                   namespace=vecstim_namespace, \
                                                                   comm=env.comm)
 
-            if rank == 0:
-                logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
             for (gid, vecstim_dict) in cell_vecstim_iter:
+                if rank == 0:
+                    logger.info("*** Initializing stimulus population %s" % pop_name)
+
                 if len(vecstim_dict['spiketrain']) > 0:
                     logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
                                 (gid, len(vecstim_dict['spiketrain']), 
@@ -842,12 +849,14 @@ def init_input_cells(env, input_sources=None):
                 cell = env.pc.gid2cell(gid)
                 cell.play(h.Vector(vecstim_dict['spiketrain']))
                 
-            if rank == 0:
-                logger.info("*** Initialized stimulus population %s" % pop_name)
 
     if input_sources is not None:
         if (env.spike_input_path is not None) and (env.spike_input_ns is not None):
             for pop_name, gid_range in viewitems(input_sources):
+
+                if rank == 0:
+                    logger.info("*** Initializing input source %s" % pop_name)
+
                 if (env.cell_selection is not None) and (pop_name in env.cell_selection):
                     local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
                 else:
@@ -859,10 +868,19 @@ def init_input_cells(env, input_sources=None):
                         if gid % nhosts == rank:
                             this_gid_range.append(gid)
 
-                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, this_gid_range, \
+                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
+                                                                 this_gid_range, \
                                                                  namespace=env.spike_input_ns, \
                                                                  comm=env.comm)
                 for gid, cell_spikes_dict in cell_spikes_iter:
+                    if len(cell_spikes_dict['t']) > 0:
+                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                    (gid, len(cell_spikes_dict['t']), 
+                                     cell_spikes_dict['t'][0], cell_spikes_dict['t'][-1]))
+                    else:
+                        logger.info("*** Spike train for gid %i is of length %i" %
+                                    (gid, len(cell_spikes_dict['t'])))
+
                     input_cell = env.pc.gid2cell(gid)
                     input_cell.play(h.Vector(cell_spikes_dict['t']))
 
@@ -985,7 +1003,8 @@ def run(env, output=True, shutdown=True):
     h.finitialize(env.v_init)
 
     ## more accurate integration of synaptic discontinuities
-    h.nrn_netrec_state_adjust = 1
+    if hasattr(h, 'nrn_netrec_state_adjust'):
+        h.nrn_netrec_state_adjust = 1
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)

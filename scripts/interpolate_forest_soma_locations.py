@@ -7,7 +7,7 @@ from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_a
 import dentate
 from dentate.geometry import DG_volume, make_volume, make_uvl_distance
 from dentate.env import Env
-from dentate.utils import list_find, list_argsort, config_logging, get_script_logger
+from dentate.utils import list_find, list_argsort, viewitems, config_logging, get_script_logger
 
 
 sys_excepthook = sys.excepthook
@@ -28,11 +28,12 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
+@click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--reltol", type=float, default=10.)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, forest_path, coords_path, populations, reltol, optiter, io_size, verbose):
+def main(config, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose):
 
     config_logging(verbose)
     logger = get_script_logger(__file__)
@@ -68,6 +69,25 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
     comm0 = comm.Split(color, 0)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
+
+    min_u = float('inf')
+    max_u = 0.0
+
+    min_v = float('inf')
+    max_v = 0.0
+
+    min_l = float('inf')
+    max_l = 0.0
+    
+    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
+        min_u = min(min_extent[0], min_u)
+        min_v = min(min_extent[1], min_v)
+        min_l = min(min_extent[2], min_l)
+        
+    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
+        max_u = max(max_extent[0], max_u)
+        max_v = max(max_extent[1], max_v)
+        max_l = max(max_extent[2], max_l)
     
     for population in populations:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
@@ -81,10 +101,17 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
 
         if rank == 0:
             logger.info('Constructing volume...')
-        ip_volume = make_volume((min_extent[0], max_extent[0]), \
-                                (min_extent[1], max_extent[1]), \
-                                (min_extent[2], max_extent[2]), \
-                                rotate=rotate)
+
+        ## This parameter is used to expand the range of L and avoid
+        ## situations where the endpoints of L end up outside of the range
+        ## of the distance interpolant
+        safety = 0.01
+
+        ip_volume = make_volume((min_u-safety, max_u+safety), \
+                                (min_v-safety, max_v+safety), \
+                                (min_l-safety, max_l+safety), \
+                                resolution=resolution, rotate=rotate)
+
 
         if rank == 0:
             logger.info('Interpolating forest coordinates...')
@@ -139,6 +166,13 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
                 (uvl_coords[1] <= max_extent[1]) and (uvl_coords[1] >= min_extent[1]) and \
                 (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
                     coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+            else:
+                if not ((uvl_coords[0] <= max_extent[0]) and (uvl_coords[0] >= min_extent[0]) and \
+                            (uvl_coords[1] <= max_extent[1]) and (uvl_coords[1] >= min_extent[1])):
+                    logger.warning("Rank %d: uvl coords %f %f %f out of range %f : %f  %f : %f %f : %f", rank, 
+                                   uvl_coords[0], uvl_coords[1], uvl_coords[2],
+                                   min_extent[0], max_extent[0], min_extent[1], max_extent[1],
+                                   min_extent[2], max_extent[2])
 
             count += 1
             
