@@ -1,5 +1,5 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1080:ppn=8:xe
+#PBS -l nodes=72:ppn=8:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
@@ -36,11 +36,11 @@ mkdir -p $results_path
 
 cd tests
 
-aprun -n 8640 -b -- bwpy-environ -- \
+aprun -n 576 -b -- bwpy-environ -- \
     python2.7 -m nested.optimize  \
      --config-file-path=$DG_HOME/config/DG_test_network_subworlds_dbg.yaml \
      --output-dir=$results_path \
-     --pop-size=30 \
+     --pop-size=2 \
      --max-iter=5 \
      --path-length=1 \
      --disp \
