@@ -1,19 +1,18 @@
-import sys
+
+import sys, os, gc, click, logging
 from mpi4py import MPI
-import numpy as np
-from neurotrees.io import append_cell_attributes, bcast_cell_attributes, population_ranges
-import click
+from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
+import h5py
+import dentate
+from dentate.env import Env
+import dentate.utils as utils
 
-
-
-def list_find (f, lst):
-    i=0
-    for x in lst:
-        if f(x):
-            return i
-        else:
-            i=i+1
-    return None
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 @click.command()
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -22,22 +21,28 @@ def list_find (f, lst):
 @click.option("--value-chunk-size", type=int, default=1000)
 def main(coords_path, io_size, chunk_size, value_chunk_size):
 
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(__file__)
+    
     comm = MPI.COMM_WORLD
     rank = comm.rank
+
+    env = Env(comm=comm, config_file=config)
+    output_path = coords_path
 
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        print('%i ranks have been allocated' % comm.size)
-    sys.stdout.flush()
+        logger.info('%i ranks have been allocated' % comm.size)
 
-    source_population_ranges = population_ranges(MPI._addressof(comm), coords_path)
+    source_population_ranges = read_population_ranges(coords_path)
     source_populations = list(source_population_ranges.keys())
+
     for population in source_populations:
         if rank == 0:
-            print('population: ',population)
-        soma_coords = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
-                                            namespace='Interpolated Coordinates')
+            logger.info('population: ',population)
+        soma_coords = bcast_cell_attributes(0, coords_path, population,
+                                            namespace='Interpolated Coordinates', comm=comm)
         #print soma_coords.keys()
         u_coords = []
         gids = []
@@ -52,11 +57,12 @@ def main(coords_path, io_size, chunk_size, value_chunk_size):
         for i in range(0,sort_idx.size):
             sorted_coords_dict[offset+i] = soma_coords[gidv[sort_idx[i][0]]]
         
-        append_cell_attributes(MPI._addressof(comm), coords_path, population, sorted_coords_dict,
+        append_cell_attributes(coords_path, population, sorted_coords_dict,
                                 namespace='Sorted Coordinates', io_size=io_size, chunk_size=chunk_size,
-                                value_chunk_size=value_chunk_size)
+                                value_chunk_size=value_chunk_size, comm=comm)
 
         
 
+
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("sort_coordinates.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

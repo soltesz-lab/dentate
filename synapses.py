@@ -2072,9 +2072,9 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     :param weights_name: label to use for the weights namespace (must correspond to a synapse name)
     :param mu: mean of log-normal distribution
     :param sigma: standard deviation of log-normal distribution
-    :param clip: if provided, specify min and max range for weight values
     :param seed: seed for random number generator
     :param source_syn_dict: dictionary of the form { source_gid: <numpy uint32 array of synapse ids> }
+    :param clip: if provided, specify min and max range for weight values
     :return: dictionary of the form:
     { 'syn_id': <numpy uint32 array of synapse ids>,
       weight_name: <numpy float array of weights>
@@ -2084,7 +2084,7 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
-    source_weights = rejection_sampling(lambda remaining: local_random.lognormal(mu, sigma, remaining),
+    source_weights = rejection_sampling(lambda n: local_random.lognormal(mu, sigma, n),
                                         len(source_syn_dict), clip)
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
@@ -2118,7 +2118,7 @@ def generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip
     
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
-    source_weights = rejection_sampling(lambda remaining: local_random.normal(mu, sigma, remaining),
+    source_weights = rejection_sampling(lambda n: local_random.normal(mu, sigma, n),
                                         len(source_syn_dict), clip)
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid

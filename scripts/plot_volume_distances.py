@@ -1,4 +1,4 @@
-import sys, click, logging
+import os, sys, click, logging
 from mpi4py import MPI
 import numpy as np
 import dentate

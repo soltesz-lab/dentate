@@ -1,16 +1,13 @@
 
 """Classes and procedures related to neuronal geometry and distance calculation."""
 
-import sys, time, gc, itertools
+import sys, time, gc, itertools, math, logging
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
-import rbf, rbf.basis
-from rbf.interpolate import RBFInterpolant
-from rbf.nodes import snap_to_boundary,disperse,menodes
-from rbf.geometry import contains
+import rbf
 from dentate.alphavol import alpha_shape
-from dentate.rbf_volume import RBFVolume, rotate3d
+from dentate.rbf_volume import RBFVolume
 from dentate.rbf_surface import RBFSurface
 from dentate import utils
 from utils import viewitems
@@ -23,6 +20,42 @@ logger = utils.get_module_logger(__name__)
 max_u = 11690.
 max_v = 2956.
 
+def rotate2d(theta):
+    """
+    Returns the 2D rotation matrix associated with counterclockwise rotation around the origin
+    by theta radians.
+    """
+    c, s = np.cos(theta), np.sin(theta)
+    rot = np.array(((c,-s), (s, c)))
+    return rot
+
+
+def rotate3d(axis, theta):
+    """
+    Returns the 3D rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis/math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta/2.0)
+    b, c, d = -axis*math.sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+
+def make_rotate3d(rotate):
+    """Creates a rotation matrix based on angles in degrees."""
+    for i in range(0, 3):
+        if rotate[i] != 0.:
+            a = float(np.deg2rad(rotate[i]))
+            rot = rotate3d([ 1 if i == j else 0 for j in range(0,3) ], a)
+
+    return rot
+
+
 
 def DG_volume(u, v, l, rotate=None):
     """Parametric equations of the dentate gyrus volume."""
@@ -32,10 +65,7 @@ def DG_volume(u, v, l, rotate=None):
     l = np.array([l]).reshape(-1,)
 
     if rotate is not None:
-        for i in range(0, 3):
-            if rotate[i] != 0.:
-                a = float(np.deg2rad(rotate[i]))
-                rot = rotate3d([ 1 if i == j else 0 for j in range(0,3) ], a)
+        rot = make_rotate3d(rotate)
     else:
         rot = None
 
@@ -141,6 +171,10 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
 
     """
     import dlib
+    import rbf, rbf.basis
+    from rbf.pde.nodes import min_energy_nodes
+    from rbf.pde.geometry import contains
+    
     boundary_uvl_coords = np.array([[ip_vol.u[0],ip_vol.v[0],ip_vol.l[0]],
                                     [ip_vol.u[0],ip_vol.v[-1],ip_vol.l[0]],
                                     [ip_vol.u[-1],ip_vol.v[0],ip_vol.l[0]],
@@ -164,12 +198,17 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
 
     origin_pos = pos[0]
     origin_extent = extents[0]
+    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+    origin_ranges = ((-(origin_pos[0] * origin_extent[0]), (1.0 - origin_pos[0]) * origin_extent[0]), 
+                     (-(origin_pos[1] * origin_extent[1]), (1.0 - origin_pos[1]) * origin_extent[1]))
 
     logger.info('Origin position: %f %f extent: %f %f' % (origin_pos[0], origin_pos[1], origin_extent[0], origin_extent[1]))
-    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+    logger.info('Origin ranges: %f : %f %f : %f' % (origin_ranges[0][0], origin_ranges[0][1], origin_ranges[1][0], origin_ranges[1][1]))
+    
+    logger.info("Creating volume triangulation...")
+    tri = ip_vol.create_triangulation()
     
     logger.info("Constructing alpha shape...")
-    tri = ip_vol.create_triangulation()
     alpha = alpha_shape([], alpha_radius, tri=tri)
 
     vert = alpha.points
@@ -182,7 +221,8 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     while node_count < nsample:
         logger.info("Generating %i nodes (%i iterations)..." % (N, itr))
         # create N quasi-uniformly distributed nodes
-        nodes, smpid = menodes(N,vert,smp,itr=itr)
+        out = min_energy_nodes(N,(vert,smp),iterations=itr)
+        nodes = out[0]
     
         # remove nodes outside of the domain
         in_nodes = nodes[contains(nodes,vert,smp)]
@@ -256,7 +296,7 @@ def get_volume_distances (ip_vol, origin_spec=None, rotate=None, nsample=250, al
     logger.info('U distance min: %f %s max: %f %s' % (distances_u[u_min_ind], str(obs_uv[u_min_ind]), distances_u[u_max_ind], str(obs_uv[u_max_ind])))
     logger.info('V distance min: %f %s max: %f %s' % (distances_v[v_min_ind], str(obs_uv[v_min_ind]), distances_v[v_max_ind], str(obs_uv[v_max_ind])))
 
-    return (obs_uv, distances_u, distances_v)
+    return (origin_ranges, obs_uv, distances_u, distances_v)
 
 
         
@@ -358,6 +398,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
 
 
 def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
+    from rbf.interpolate import RBFInterpolant
 
     rank = env.comm.rank
 
@@ -393,8 +434,8 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
     coeff_dist_u = None
     coeff_dist_v = None
     
-    interp_penalty = 0.01
-    interp_basis = 'ga'
+    interp_sigma = 0.01
+    interp_basis = rbf.basis.ga
     interp_order = 1
 
     if rank == 0:
@@ -405,6 +446,9 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
     ## of the distance interpolant
     safety = 0.01
 
+    origin_ranges = None
+    ip_dist_u = None
+    ip_dist_v = None
     if rank == 0:
         logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
         ip_volume = make_volume((min_u-safety, max_u+safety), \
@@ -414,31 +458,23 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
 
         logger.info('Computing volume distances...')
         vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
-        (obs_uv, dist_u, dist_v) = vol_dist
+        (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
         logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
-        coeff_dist_u = ip_dist_u._coeff
+        ip_dist_u = RBFInterpolant(obs_uv,dist_u,order=interp_order,phi=interp_basis,\
+                                   sigma=interp_sigma)
         logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,basis=interp_basis,\
-                                   penalty=interp_penalty)
-        coeff_dist_v = ip_dist_v._coeff
+        ip_dist_v = RBFInterpolant(obs_uv,dist_v,order=interp_order,phi=interp_basis,\
+                                   sigma=interp_sigma)
         logger.info('Broadcasting volume distance interpolants...')
-        
-    obs_uv = env.comm.bcast(obs_uv, root=0)
-    coeff_dist_u = env.comm.bcast(coeff_dist_u, root=0)
-    coeff_dist_v = env.comm.bcast(coeff_dist_v, root=0)
-    
-    ip_dist_u = RBFInterpolant(obs_uv,coeff=coeff_dist_u,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty)
-    ip_dist_v = RBFInterpolant(obs_uv,coeff=coeff_dist_v,order=interp_order,basis=interp_basis,\
-                               penalty=interp_penalty)
 
+    origin_ranges = env.comm.bcast(origin_ranges, root=0)
+    ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
+    ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
     
     soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=allgather)
 
-    return soma_distances
+    return origin_ranges, soma_distances
 
 
 def measure_distance_extents(env):
@@ -610,3 +646,102 @@ def icp_transform(comm, env, soma_coords, projection_ls, population_extents, rot
         soma_coords_dict[pop] = coords_dict
                                   
     return soma_coords_dict
+
+
+def test_nodes():
+    from rbf.pde.nodes import min_energy_nodes
+    from rbf.pde.geometry import contains
+    from dentate.alphavol import alpha_shape
+    from mayavi import mlab
+    
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 25)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 25)
+    obs_l = np.linspace(-1.0, 1., num=10)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = DG_volume(u, v, l, rotate=[-35., 0., 0.])
+
+    print ('Constructing volume...')
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    print ('Constructing volume triangulation...')
+    tri = vol.create_triangulation()
+    
+    print ('Constructing alpha shape...')
+    alpha = alpha_shape([], 120., tri=tri)
+    
+    # Define the problem domain
+    vert = alpha.points
+    smp  = np.asarray(alpha.bounds, dtype=np.int64)
+
+    N = 10000 # total number of nodes
+    
+    # create N quasi-uniformly distributed nodes
+    print ('Generating nodes...')
+    rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
+    rbf_logger.setLevel(logging.DEBUG)
+    out = min_energy_nodes(N,(vert,smp),iterations=10,build_rtree=True)
+
+    nodes = out[0]
+    
+    # remove nodes outside of the domain
+    in_nodes = nodes[contains(nodes,vert,smp)]
+
+    print('Generated %d interior nodes' % len(in_nodes))
+    
+    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
+    mlab.points3d(*in_nodes.T, color=(1, 1, 0), scale_factor=15.0)
+    
+    mlab.show()
+
+    return in_nodes, vol.inverse(in_nodes)
+
+def test_alphavol():
+    from mayavi import mlab
+    from dentate.alphavol import alpha_shape
+
+    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
+    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_l = np.linspace(-3.95, 3.2, num=10)
+
+    u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
+    xyz = DG_volume(u, v, l, rotate=[-35., 0., 0.])
+
+    print ('Constructing volume...')
+    vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
+
+    print ('Constructing volume triangulation...')
+    tri = vol.create_triangulation()
+
+    print ('Constructing alpha shape...')
+    alpha = alpha_shape([], 120., tri=tri)
+
+    vert = alpha.points
+    smp  = np.asarray(alpha.bounds, dtype=np.int64)
+
+    edges = np.vstack([np.column_stack([smp[:,0],smp[:,1]]), 
+                       np.column_stack([smp[:,1],smp[:,2]])])
+
+    x = vert[:,0]
+    y = vert[:,1]
+    z = vert[:,2]
+
+    start_idx = edges[:,0]
+    end_idx = edges[:,1]
+    
+    vol.mplot_surface(color=(0, 1, 0), opacity=0.33, ures=10, vres=10)
+    mlab.quiver3d(x[start_idx],
+                  y[start_idx],
+                  z[start_idx],
+                  x[end_idx] - x[start_idx],
+                  y[end_idx] - y[start_idx],
+                  z[end_idx] - z[start_idx],
+                  mode='2ddash',
+                  scale_factor=1)
+    
+    
+    mlab.show()
+    
+if __name__ == '__main__':
+#     test_alphavol()
+     test_nodes()

@@ -2,8 +2,8 @@
 #
 #SBATCH -J interpolate_GC_soma_locations
 #SBATCH -o ./results/interpolate_GC_soma_locations.%j.o
-#SBATCH --nodes=32
-#SBATCH --ntasks-per-node=24
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=12
 #SBATCH -t 1:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -24,9 +24,9 @@ export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 
 set -x
 
-ibrun -np 768 python ./scripts/interpolate_forest_soma_locations.py \
-    --config=./config/Full_Scale_Control.yaml \
-    --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_extended_compressed_20180224.h5 \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/dentate_GC_coords_20180418.h5 \
+ibrun -np 48 python ./scripts/interpolate_forest_soma_locations.py \
+    --config=./config/Test_GC_1000.yaml \
+    --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_GC_forest_20181222.h5 \
+    --coords-path=$SCRATCH/dentate/Test_GC_1000/dentate_GC_coords_20180520.h5 \
     -i GC --reltol=5 \
-    --io-size=24 -v
+    --io-size=4 -v
