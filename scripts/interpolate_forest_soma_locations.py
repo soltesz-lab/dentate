@@ -4,11 +4,18 @@ from mpi4py import MPI
 import numpy as np
 import dlib
 from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
+import dentate
 from dentate.geometry import DG_volume, make_volume, make_uvl_distance
 from dentate.env import Env
-from dentate.utils import list_find, list_argsort, config_logging, get_script_logger, op_concat
+from dentate.utils import list_find, list_argsort, config_logging, get_script_logger
 
-script_name = 'interpolate_forest_soma_locations.py'
+
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 def list_concat(a, b, datatype):
     return a+b
@@ -28,7 +35,7 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 def main(config, forest_path, coords_path, populations, reltol, optiter, io_size, verbose):
 
     config_logging(verbose)
-    logger = get_script_logger(script_name)
+    logger = get_script_logger(__file__)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank  
@@ -60,7 +67,7 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
     ## comm0 includes only rank 0
     comm0 = comm.Split(color, 0)
 
-    rotate = env.geometry['Rotation']
+    rotate = env.geometry['Parametric Surface']['Rotation']
     
     for population in populations:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
@@ -160,6 +167,6 @@ def main(config, forest_path, coords_path, populations, reltol, optiter, io_size
         comm0.Barrier()
         MPI.Finalize()
 
-if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
 
+if __name__ == '__main__':
+    main(args=sys.argv[(list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

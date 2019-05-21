@@ -795,7 +795,7 @@ def init_input_cells(env, input_sources=None):
     :param env: an instance of the `dentate.Env` class
     :param input_sources: a dictionary of the form { pop_name, gid_sources }
     If provided, the set of gids specified in gid_sources will be 
-    initialized with pre-recorded spike trains read from env.spike_input_path /end.spike_input_ns.
+    initialized with pre-recorded spike trains read from env.spike_input_path / env.spike_input_ns.
     """
     
     rank = int(env.pc.id())
@@ -831,8 +831,9 @@ def init_input_cells(env, input_sources=None):
                 logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
             for (gid, vecstim_dict) in cell_vecstim_iter:
                 if len(vecstim_dict['spiketrain']) > 0:
-                    logger.info("*** Spike train for gid %i is of length %i (first spike at %g ms)" %
-                                (gid, len(vecstim_dict['spiketrain']), vecstim_dict['spiketrain'][0]))
+                    logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                (gid, len(vecstim_dict['spiketrain']), 
+                                 vecstim_dict['spiketrain'][0], vecstim_dict['spiketrain'][-1]))
                 else:
                     logger.info("*** Spike train for gid %i is of length %i" %
                                 (gid, len(vecstim_dict['spiketrain'])))
