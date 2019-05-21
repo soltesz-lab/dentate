@@ -5,7 +5,7 @@
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
-#PBS -l walltime=5:00:00
+#PBS -l walltime=10:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_GC_Exc_Sat_LNN_Diag
 ### set the job stdout and stderr
@@ -47,13 +47,12 @@ aprun -n 32768 -b -- bwpy-environ -- \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=7500 \
+    --tstop=10000 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
-    --max-walltime-hours=4.9 \
+    --max-walltime-hours=9.9 \
     --vrecord-fraction=0.001 \
-    --ldbal \
-    --lptbal \
+    --node-rank-file=parts_GC_Exc.32768 \
     --verbose
 
