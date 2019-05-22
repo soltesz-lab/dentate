@@ -3,6 +3,7 @@ import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
 from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
+from InputCell import make_input_cell
 
 #  custom data type for type of feature selectivity
 selectivity_grid = 0
@@ -23,57 +24,54 @@ def generate_expected_width(field_width_params, module_widths, offsets, position
 
 
 
-def generate_mesh(scale_factor=1., arena_dimension=100., resolution=5.):
-    arena_x_bounds = [-arena_dimension * scale_factor, arena_dimension * scale_factor]
-    arena_y_bounds = [-arena_dimension * scale_factor, arena_dimension * scale_factor]
+def generate_spatial_mesh(arena, scale_factor=1., resolution=5.):
+
+    vertices_x = np.asarray([v[0] for v in arena.domain.vertices])
+    vertices_y = np.asarray([v[1] for v in arena.domain.vertices])
+    arena_x_bounds = [np.min(vertices_x) * scale_factor,
+                      np.max(vertices_x) * scale_factor]
+    arena_y_bounds = [np.min(vertices_y) * scale_factor,
+                      np.max(vertices_y) * scale_factor]
 
     arena_x = np.arange(arena_x_bounds[0], arena_x_bounds[1], resolution)
     arena_y = np.arange(arena_y_bounds[0], arena_y_bounds[1], resolution)
     return np.meshgrid(arena_x, arena_y, indexing='ij')
 
 
-def generate_spatial_offsets(N, arena_dimension=100., scale_factor=2.0, maxit=10):
+def generate_spatial_offsets(N, arena, start=0, scale_factor=2.0):
     import rbf
-    from rbf.nodes import disperse
-    from rbf.halton import halton
+    from rbf.pde.nodes import min_energy_nodes
 
-    # Define the problem domain with line segments.
-    vert = np.array([[-arena_dimension,-arena_dimension],[-arena_dimension,arena_dimension],
-                    [arena_dimension,arena_dimension],[arena_dimension,-arena_dimension]])
-    smp = np.array([[0,1],[1,2],[2,3],[3,0]])
+    vert = arena.domain.vertices
+    smp = arena.domain.simplices
 
-    # create N quasi-uniformly distributed nodes over the unit square
-    nodes = halton(N,2)
-
-    # scale/translate the nodes to encompass the arena
-    nodes -= 0.5
-    nodes = 2 * nodes * arena_dimension
-    # evenly disperse the nodes over the domain using maxit iterative steps
-    for i in range(maxit):
-        nodes = disperse(nodes,vert,smp)
+    # evenly disperse the nodes over the domain
+    out = min_energy_nodes(N,(vert,smp),iterations=50,dispersion_delta=0.15,start=start)
+    nodes = out[0]
     scaled_nodes = nodes * scale_factor
     
-    return (scaled_nodes, nodes,vert,smp)
+    return (scaled_nodes, nodes, vert, smp)
 
 
 
-def generate_linear_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., ramp_up_period=500.):  # cm
-    xy_offset, t_offset, d_offset = 0., 0., 0.
-    if ramp_up_period is not None:
-        ramp_up_distance = (ramp_up_period / 1000.) * velocity  # cm
-        xy_offset = ramp_up_distance / np.sqrt(2)
-        t_offset = ramp_up_period
-        d_offset = ramp_up_distance
+def generate_linear_trajectory(arena, trajectory_name, spatial_resolution = 1.):
+    t_offset, d_offset = 0., 0.
 
-    x = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
-    y = np.arange(-arena_dimension - xy_offset, arena_dimension, spatial_resolution)
+    trajectory = arena.trajectories[trajectory_name]
 
-    distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
-    interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
-    t = interp_distance / velocity * 1000.  # ms
+    velocity = trajectory.velocity
+    path = trajectory.path
+    x = path[:,0]
+    y = path[:,1]
+
+    dr = np.sqrt((np.diff(x)**2 + np.diff(y)**2)) # segment lengths
+    distance = np.zeros_like(x)
+    distance[1:] = np.cumsum(dr) # integrate path
+    interp_distance = np.arange(distance.min(), distance.max(), spatial_resolution)
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
     d = interp_distance
+    t = interp_distance / velocity * 1000.  # ms
     
     t -= t_offset
     d -= d_offset
@@ -81,16 +79,22 @@ def generate_linear_trajectory(arena_dimension = 100., velocity = 30., spatial_r
     return t, interp_x, interp_y, d
 
 
-def generate_concentric_trajectory(arena_dimension = 100., velocity = 30., spatial_resolution = 1., 
-                                   origin_X = 0., origin_Y = 0., radius_range = np.arange(100, 5, -5),
+def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1., 
+                                   origin_X = 0., origin_Y = 0., radius_range = np.arange(1., 0.05, -0.05),
                                    initial_theta = np.deg2rad(180.), theta_step = np.deg2rad(300)):
 
     # arena_dimension - minimum distance from origin to boundary (cm)
+    arena_x_bounds = [np.min(arena.domain.vertices[:,0]) * scale_factor,
+                      np.max(arena.domain.vertices[:,0]) * scale_factor]
+    arena_y_bounds = [np.min(arena.domain.vertices[:,1]) * scale_factor,
+                      np.max(arena.domain.vertices[:,1]) * scale_factor]
 
     start_theta = initial_theta
-    start_x = origin_X + np.cos(start_theta) * arena_dimension
-    start_y = origin_Y + np.sin(start_theta) * arena_dimension
+    start_x = origin_X + np.cos(start_theta) * arena_dimension[0]
+    start_y = origin_Y + np.sin(start_theta) * arena_dimension[1]
 
+    radius_range = np.min(arena_dimension) * radius_range
+    
     xs = []
     ys = []
     for radius in radius_range[1:]:
@@ -137,118 +141,23 @@ def generate_concentric_trajectory(arena_dimension = 100., velocity = 30., spati
     return t, interp_x, interp_y, d
 
 
-def fwhm2sigma(fwhm):
-    return fwhm / np.sqrt(8 * np.log(2))
-
-    
-
-def generate_spatial_ratemap(selectivity_type, features_dict, interp_t, interp_x, interp_y,
-                             grid_peak_rate, place_peak_rate, ramp_up_period=500.0, **kwargs):
-    """
-
-    :param selectivity_type: int
-    :param features_dict: dict
-    :param interp_x: array
-    :param interp_y: array
-    :param grid_peak_rate: float (Hz)
-    :param place_peak_rate: float (Hz)
-    :return: array
-    """
-
-    if interp_x.shape != interp_y.shape:
-        raise Exception('x and y coordinates must have same size')
-    
-
-    a = kwargs.get('a', 0.3)
-    b = kwargs.get('b', -1.5)
-
-    if 'X Offset Scaled' and 'Y Offset Scaled' in features_dict:
-        x_offset = features_dict['X Offset Scaled']
-        y_offset = features_dict['Y Offset Scaled']
-    else:
-        x_offset = features_dict['X Offset']
-        y_offset = features_dict['Y Offset']
-
-    rate_map = None
-    if selectivity_type == selectivity_grid:
-
-        grid_orientation = features_dict['Grid Orientation'][0]
-        grid_spacing = features_dict['Grid Spacing'][0]
-        theta_k   = [np.deg2rad(-30.), np.deg2rad(30.), np.deg2rad(90.)]
-        inner_sum = np.zeros_like(interp_x)
-        for theta in theta_k:
-            inner_sum += np.cos( ((4. * np.pi) / (np.sqrt(3.) * grid_spacing)) * \
-                         (np.cos(theta - grid_orientation) * (interp_x - x_offset[0]) \
-                          + np.sin(theta - grid_orientation) * (interp_y - y_offset[0])))
-        transfer = lambda z: np.exp(a * (z - b)) - 1.
-        max_rate = transfer(3.)
-        rate_map = grid_peak_rate * transfer(inner_sum) / max_rate
-
-    elif selectivity_type == selectivity_place:
-        field_width = features_dict['Field Width']
-        nfields  = features_dict['Num Fields'][0]
-        rate_map = np.zeros_like(interp_x)
-        for n in xrange(nfields):
-            current_map = place_peak_rate * np.exp(-((interp_x - x_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.) * np.exp(-((interp_y  - y_offset[n]) / (field_width[n] / 3. / np.sqrt(2.))) ** 2.)
-            rate_map    = np.maximum(current_map, rate_map)
-    else:
-        raise Exception('Could not find proper cell type')
-
-    response = rate_map
-
-   # u = lambda ori: (np.cos(ori), np.sin(ori))
-   # ori_array = 2. * np.pi * np.array([-30., 30., 90.]) / 360.  # rads
-   # g = lambda x: np.exp(a * (x - b)) - 1.
-   # scale_factor = g(3.)
-   # grid_rate = lambda grid_spacing, ori_offset, x_offset, y_offset: \
-   #   lambda x, y: grid_peak_rate / scale_factor * \
-   #   g(np.sum([np.cos(4. * np.pi / np.sqrt(3.) /
-   #                        grid_spacing * np.dot(u(theta - ori_offset), (x - x_offset, y - y_offset)))
-   #                 for theta in ori_array]))
-
-   # place_rate = lambda field_width, x_offset, y_offset: \
-   #   lambda x, y: place_peak_rate * np.exp(-((x - x_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.) * \
-   #   np.exp(-((y - y_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.)
-      
-
-   # if selectivity_type == selectivity_grid:
-   #     ori_offset = features_dict['Grid Orientation'][0]
-   #     grid_spacing = features_dict['Grid Spacing'][0]
-   #     x_offset = features_dict['X Offset'][0]
-   #     y_offset = features_dict['Y Offset'][0]
-   #     rate = np.vectorize(grid_rate(grid_spacing, ori_offset, x_offset, y_offset))
-   # elif selectivity_type == selectivity_place_field:
-   #     field_width = features_dict['Field Width'][0]
-   #     x_offset = features_dict['X Offset'][0]
-   #     y_offset = features_dict['Y Offset'][0]
-   #     rate = np.vectorize(place_rate(field_width, x_offset, y_offset))
-
-   # response = rate(interp_x, interp_y).astype('float32', copy=False)
-
-    if ramp_up_period is not None:
-        import scipy.signal as signal
-        ramp_up_region = np.where(interp_t <= 0.0)[0]
-        nsteps = len(ramp_up_region)
-        window = signal.hann(nsteps*2, sym=False)
-        half_window = window[:int(nsteps)]
-        half_window /= np.max(half_window)
-        orig_response = response[ramp_up_region].copy()
-        response[ramp_up_region] = response[ramp_up_region] * half_window
-    
-    return response
+def acquire_fields_per_cell(ncells, field_probabilities, generator):
+    field_probabilities = np.asarray(field_probabilities, dtype='float32')
+    field_set = [i for i in range(field_probabilities.shape[0])]
+    return generator.choice(field_set, p=field_probabilities, size=(ncells,))
 
 def get_rate_maps(cells):
     rate_maps = []
     for gid in cells:
         cell = cells[gid]
-        nx, ny = cell['Nx'][0], cell['Ny'][0]
-        rate_map = cell['Rate Map'].reshape(nx, ny)
+        nx, ny = cell.nx, cell.ny
+        rate_map = cell.rate_map.reshape(nx, ny)
         rate_maps.append(rate_map)
     return np.asarray(rate_maps, dtype='float32')
 
 def fraction_active(cells, threshold):
     temp_cell = cells.values()[0]
-    nx, ny = temp_cell['Nx'][0], temp_cell['Ny'][0]
+    nx, ny = temp_cell.nx, temp_cell.ny
     del temp_cell
 
     rate_maps = get_rate_maps(cells)
@@ -294,9 +203,11 @@ def calculate_field_distribution(pi, pr):
 def gid2module_dictionary(cell_lst, modules):
     module_dict = {module: {} for module in modules}
     for cells in cell_lst:
-        for (gid, cell) in cells:
-            this_module = cell['Module'][0]
-            module_dict[this_module][cell['gid'][0]] = cell
+        for (gid, cell_dict) in cells:
+            feature_type = cell_dict['Cell Type'][0]
+            cell = make_input_cell(gid, feature_type, cell_dict)
+            this_module = cell.module
+            module_dict[this_module][gid] = cell
     return module_dict
 
 def module2gid_dictionary(module_dict):
@@ -324,30 +235,30 @@ def read_trajectory(input_path, trajectory_id):
 
 
 def read_stimulus (stimulus_path, stimulus_namespace, population, module=None):
-        ratemap_lst    = []
-        module_gid_lst = []
-        if module is not None:
-            if not isinstance(module, int):
-                raise Exception('module variable must be an integer')
-            gid_module_gen = read_cell_attributes(stimulus_path, population, namespace='Cell Attributes')
-            for (gid, attr_dict) in gid_module_gen:
-                this_module = attr_dict['Module'][0]
-                if this_module == module:
-                    module_gid_lst.append(gid)
 
-        attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
-        for gid, stimulus_dict in attr_gen:
-            if gid in module_gid_lst or module_gid_lst == []:
-                rate       = stimulus_dict['rate']
-                spiketrain = stimulus_dict['spiketrain']
-                modulation = stimulus_dict['modulation']
-                peak_index = stimulus_dict['peak index']
-                ratemap_lst.append((gid, rate, spiketrain, peak_index))
+    ratemap_lst    = []
+    module_gid_lst = []
+    if module is not None:
+        if not isinstance(module, int):
+            raise Exception('module variable must be an integer')
+        gid_module_gen = read_cell_attributes(stimulus_path, population, namespace='Cell Attributes')
+        for (gid, attr_dict) in gid_module_gen:
+            this_module = attr_dict['Module'][0]
+            if this_module == module:
+                module_gid_lst.append(gid)
 
+    attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
+    for gid, stimulus_dict in attr_gen:
+        if gid in module_gid_lst or module_gid_lst == []:
+            rate       = stimulus_dict['rate']
+            spiketrain = stimulus_dict['spiketrain']
+            modulation = stimulus_dict['modulation']
+            peak_index = stimulus_dict['peak index']
+            ratemap_lst.append((gid, rate, spiketrain, peak_index))
  
-        ## sort by peak_index
-        ratemap_lst.sort(key=lambda item: item[3])
-        return ratemap_lst
+    ## sort by peak_index
+    ratemap_lst.sort(key=lambda item: item[3])
+    return ratemap_lst
             
 
 ##
@@ -365,3 +276,4 @@ def linearize_trajectory (x, y):
 
 
 
+        

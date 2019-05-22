@@ -33,6 +33,19 @@ NetclampConfig = namedtuple('NetclampConfig',
                              'weight_generators',
                              'optimize_parameters'])
 
+ArenaConfig  = namedtuple('Arena',
+                          ['name',
+                           'domain',
+                           'trajectories',
+                           'properties'])
+
+DomainConfig = namedtuple('Domain',
+                            ['vertices',
+                             'simplices'])
+
+TrajectoryConfig = namedtuple('Trajectory',
+                              ['velocity',
+                               'path'])
 
 class Env:
     """
@@ -210,14 +223,16 @@ class Env:
 
         if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
-            
+
         self.celltypes = self.modelConfig['Cell Types']
         self.cellAttributeInfo = {}
 
         # The name of this model
-        self.modelName = self.modelConfig['Model Name']
+        if 'Model Name' in self.modelConfig:
+            self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network
-        self.datasetName = self.modelConfig['Dataset Name']
+        if 'Dataset Name' in self.modelConfig:
+            self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
             if self.results_id is None:
@@ -253,7 +268,9 @@ class Env:
                 
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
-
+        else:
+            self.netclamp_config = None
+            
         if 'Input' in self.modelConfig:
             self.parse_input_config()                                                                                                                                                     
             
@@ -296,6 +313,28 @@ class Env:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
 
+
+    def parse_arena_domain(self, config):
+        vertices = config['vertices']
+        simplices = config['simplices']
+
+        return DomainConfig(vertices, simplices)
+
+    def parse_arena_trajectory(self, config):
+        velocity = float(config['run velocity'])
+        path_config = config['path']
+
+        path_x = []
+        path_y = []
+        for v in path_config:
+            path_x.append(v[0])
+            path_y.append(v[1])
+
+        path = np.column_stack((np.asarray(path_x, dtype=np.float32),
+                                np.asarray(path_y, dtype=np.float32)))
+        
+        return TrajectoryConfig(velocity, path)
+            
     def parse_input_config(self):
         features_type_dict = self.modelConfig['Definitions']['Input Features']
         input_dict = self.modelConfig['Input']
@@ -310,6 +349,31 @@ class Env:
                         pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)                                                                      
                     feature_type_dict[pop] = pop_feature_type_dict
                 input_config['Feature Distribution'] = feature_type_dict
+            elif k == 'Peak Rate':
+                peak_rate_dict = {}
+                for (pop,dvals) in viewitems(v):
+                    pop_peak_rate_dict = {}
+                    for (feature_type_name,peak_rate) in viewitems(dvals):
+                        pop_peak_rate_dict[int(self.feature_types[feature_type_name])] = float(peak_rate)
+                    peak_rate_dict[pop] = pop_peak_rate_dict
+                input_config['Peak Rate'] = peak_rate_dict
+            elif k == 'Arena':
+                input_config['Arena'] = {}
+                for arena_id, arena_val in viewitems(v):
+                    arena_properties = {}
+                    arena_domain = None
+                    arena_trajectories = {}
+                    for kk, vv in viewitems(arena_val):
+                        if kk == 'Domain':
+                            arena_domain = self.parse_arena_domain(vv)
+                        elif kk == 'Trajectory':
+                            for name, trajectory_config in viewitems(vv):
+                                trajectory = self.parse_arena_trajectory(trajectory_config)
+                                arena_trajectories[name] = trajectory
+                        else:
+                            arena_properties[kk] = vv
+                    input_config['Arena'][arena_id] = ArenaConfig(arena_id, arena_domain,
+                                                                  arena_trajectories, arena_properties)
             else:
                 input_config[k] = v
                 

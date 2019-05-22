@@ -14,7 +14,7 @@ module load cray-hdf5-parallel
 module load bwpy 
 module load bwpy-mpi
 
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
 export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
 export SCRATCH=/projects/sciteam/baqc
 

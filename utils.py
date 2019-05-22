@@ -9,10 +9,11 @@ from scipy import sparse
 class Struct:
     def __init__(self, **items):
         self.__dict__.update(items)
-
     def update(self, items):
         self.__dict__.update(items)
-
+    def __getitem__(self, key):
+        return self.__dict__[key]
+        
 class IncludeLoader(yaml.Loader):
     """
     YAML loader with `!include` handler.
@@ -356,48 +357,6 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
     return y[s].ravel()
 
 
-def kde_sklearn(x, y, binSize, bandwidth=1.0, **kwargs):
-    """Kernel Density Estimation with Scikit-learn"""
-    from sklearn.neighbors import KernelDensity
-
-    # create grid of sample locations
-    xx, yy = np.mgrid[x.min():x.max():binSize, 
-                      y.min():y.max():binSize]
-
-    data_grid = np.vstack([xx.ravel(), yy.ravel()]).T
-    data  = np.vstack([x, y]).T
-    
-    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
-    kde_skl.fit(data)
-
-    # score_samples() returns the log-likelihood of the samples
-    z = np.exp(kde_skl.score_samples(data_grid))
-    return xx, yy, np.reshape(z, xx.shape)
-
-
-def kde_scipy(x, y, binSize, **kwargs):
-    """Kernel Density Estimation with Scipy"""
-    from scipy.stats import gaussian_kde
-
-    data  = np.vstack([x, y])
-    kde   = gaussian_kde(data, **kwargs)
-
-    x_min = np.min(x)
-    x_max = np.max(x)
-    y_min = np.min(y)
-    y_max = np.max(y)
-
-    dx = int((x_max - x_min) / binSize)
-    dy = int((y_max - x_min) / binSize)
-
-    xx, yy = np.meshgrid(np.linspace(x_min, x_max, dx), \
-                         np.linspace(y_min, y_max, dy))
-
-    data_grid = np.vstack([xx.ravel(), yy.ravel()])
-    z    = kde.evaluate(data_grid)
-    
-    return xx, yy, np.reshape(z, xx.shape)
-
 def NamedTupleWithDocstring(docstring, *ntargs):
     """
     A convenience wrapper to add docstrings to named tuples. This is only needed in
@@ -498,3 +457,250 @@ def add_bins(bins1, bins2, datatype):
         else:
             bins1[item] = bins2[item]
     return bins1
+
+
+def baks (spktimes, time, a=1.5, b=None):
+    """
+    Bayesian Adaptive Kernel Smoother (BAKS)
+    BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
+    with adaptive bandwidth determined using a Bayesian approach
+    ---------------INPUT---------------
+    - spktimes : spike event times [s]
+    - time : time points at which the firing rate is estimated [s]
+    - a : shape parameter (alpha) 
+    - b : scale parameter (beta)
+    ---------------OUTPUT---------------
+    - rate : estimated firing rate [nTime x 1] (Hz)
+    - h : adaptive bandwidth [nTime x 1]
+
+    Based on "Estimation of neuronal firing rate using Bayesian adaptive kernel smoother (BAKS)"
+    https://github.com/nurahmadi/BAKS
+    """
+
+    import scipy
+    from scipy.special import gamma
+
+    n = len(spktimes)
+    sumnum = 0
+    sumdenom = 0;
+    
+    if b is None:
+        b = float(n)**0.8
+    else:
+        b = float(n)**b
+    
+    for i in xrange(n):
+        
+        numerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a)
+        denominator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a-0.5)
+        sumnum = sumnum + numerator
+        sumdenom = sumdenom + denominator
+
+    h = (gamma(a)/gamma(a + 0.5)) * (sumnum / sumdenom)
+
+    rate = np.zeros((len(time),))
+    for j in xrange(n):
+        K = (1./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
+        rate = rate + K
+
+    return (rate, h)
+
+def kde_scipy(x, y, bin_size, **kwargs):
+    """Kernel Density Estimation with Scipy"""
+    from scipy.stats import gaussian_kde
+
+    data  = np.vstack([x, y])
+    kde   = gaussian_kde(data, **kwargs)
+
+    x_min = np.min(x)
+    x_max = np.max(x)
+    y_min = np.min(y)
+    y_max = np.max(y)
+
+    dx = int((x_max - x_min) / bin_size)
+    dy = int((y_max - x_min) / bin_size)
+
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, dx), \
+                         np.linspace(y_min, y_max, dy))
+
+    data_grid = np.vstack([xx.ravel(), yy.ravel()])
+    z    = kde.evaluate(data_grid)
+    
+    return xx, yy, np.reshape(z, xx.shape)
+
+def kde_sklearn(x, y, binSize, bandwidth=1.0, **kwargs):
+    """Kernel Density Estimation with Scikit-learn"""
+    from sklearn.neighbors import KernelDensity
+
+    # create grid of sample locations
+    xx, yy = np.mgrid[x.min():x.max():binSize, 
+                      y.min():y.max():binSize]
+
+    data_grid = np.vstack([xx.ravel(), yy.ravel()]).T
+    data  = np.vstack([x, y]).T
+    
+    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
+    kde_skl.fit(data)
+
+    # score_samples() returns the log-likelihood of the samples
+    z = np.exp(kde_skl.score_samples(data_grid))
+    return xx, yy, np.reshape(z, xx.shape)
+
+def akde (X, grid=None, gam=None, errtol=10**-5, maxiter=100, seed=0, verbose=False):
+    """
+    Adaptive Kernel Density Estimate (AKDE)
+    Provides optimal accuracy/speed tradeoff, controlled with parameter gam
+    ---------------INPUT---------------
+    - x : event points
+    - grid : points at which the density rate is estimated 
+    - gam : scale parameter 
+    - errtol : convergence tolerance (default: 10^-5)
+    - maxiter : maximum iterations (default: 200)
+    - seed : random number seed 
+    ---------------OUTPUT---------------
+    - pdf : estimated density 
+    - grid : grid points at which density is estimated
+
+    Usage:
+
+    import numpy as np
+    mu, sigma = 3., 1.
+    X = np.random.lognormal(mu, sigma, 1000)
+    pdf, grid = akde(X)
+
+    Reference:
+    Kernel density estimation via diffusion
+    Z. I. Botev, J. F. Grotowski, and D. P. Kroese (2010)
+    Annals of Statistics, Volume 38, Number 5, pages 2916-2957.
+    """
+    np.seterr(divide='raise')
+
+    n = X.shape[0]
+    assert (n > 1)
+    
+    if len(X.shape) > 1:
+        d = X.shape[1]
+    else:
+        d = 1
+
+    X = X.reshape((n, d))
+    zd = np.where(np.diff(X[:,0]) >= 1e-3)[0] + 1
+    X = np.vstack([np.asarray([X[0,:]]).reshape((-1,d)), X[zd,:]])
+    n = X.shape[0]
+    
+    if n < 2:
+        if grid is None:
+            return (np.zeros((1,1)), X[0,0])
+        else:
+            return (np.zeros(grid.shape), grid)
+    
+    xmax = np.max(X,axis=0)
+    xmin = np.min(X,axis=0)
+    r = xmax-xmin
+
+    smax = xmax + r / 10.
+    smin = xmin - r / 10.
+    
+    scaling = smax - smin
+    
+    X = X - smin
+
+    X = np.divide(X, scaling)
+    
+    if gam is None:
+        gam = int(math.ceil(math.sqrt(n)))
+
+    if grid is None:
+        step = scaling / (2**12 - 1)
+        npts = int(math.ceil(scaling / step)) + 1
+        grid = np.linspace(smin, smax, npts)
+
+    grid = grid.reshape((-1,1))
+
+    mesh=np.subtract(grid, smin)
+    mesh=np.divide(mesh, scaling)
+        
+    ## algorithm initialization
+    local_random =  np.random.RandomState(seed=seed)
+    bw=0.2/(n ** (d/(d + 4.)))
+    perm = local_random.permutation(n)
+    ##perm = list(xrange(0, n))
+    mus = X[perm[0:gam],:]
+    
+    w = local_random.rand(gam)
+    #w = np.linspace(0., 1., gam) + 0.001
+    w = np.divide(w, np.sum(w))
+    sigmas = (bw ** 2.) * local_random.rand(gam, d)
+    ##sigmas = (bw ** 2.) * (np.linspace(0., 1., gam).reshape((-1,1)) + 0.01)
+    ent = float("-inf")
+    
+    for i in xrange(maxiter):
+        Eold = ent
+        (w,mus,sigmas,bw,ent) = akde_reg_EM(w,mus,sigmas,bw,X)
+        err = abs((ent - Eold) / ent)
+        if verbose:
+            print('Iter.    Err.      Bandwidth \n')
+            print('%4i    %8.2e   %8.2e\n' % (i, err, bw))
+
+        assert(not math.isnan(bw))
+        assert(not math.isnan(err))
+
+        if (err < errtol):
+            break
+
+    pdf = akde_probfun(mesh,w,mus,sigmas) / scaling
+        
+    return pdf, grid
+
+def akde_reg_EM (w,mus,sigmas,bw,X):
+    
+    gam, d = mus.shape
+    n, d  = X.shape
+
+    log_lh = np.zeros((n,gam))
+    log_sig = np.array(log_lh, copy=True)
+
+    eps = np.finfo(float).eps
+    for i in xrange(gam):
+        s = sigmas[i,:]
+        
+        Xcentered = np.subtract(X, mus[i,:])
+        xRinv = np.divide(Xcentered ** 2., s)
+        xSig = np.sum(np.divide(xRinv, s), axis=1) + eps
+        log_lh[:,i] = -0.5*np.sum(xRinv, axis=1) - 0.5*math.log(s) + math.log(w[i]) - d * math.log(2. * math.pi) / 2. - 0.5 * (bw**2.)*np.sum(1./s)
+        log_sig[:,i] = log_lh[:,i] + np.log(xSig)
+
+    maxll = np.max(log_lh, axis=1).reshape((-1,1))
+    maxlsig = np.max(log_sig, axis=1).reshape((-1,1))
+    p = np.exp(np.subtract(log_lh, maxll))
+    psig = np.exp(np.subtract(log_sig, maxlsig))
+    density = np.sum(p, axis=1).reshape((-1, 1))
+    psigd = np.sum(psig, axis=1).reshape((-1,1))
+    logpdf = np.log(density) + maxll
+    logpsigd = np.log(psigd) + maxlsig
+    p = np.divide(p, density)
+    ent = np.sum(logpdf)
+    w = np.sum(p, axis=0)
+
+    for i in (np.where(w > 0.))[0]:
+        mus[i,:] = np.dot(p[:,i].reshape((-1,1)).T, np.divide(X, w[i]))
+        Xcentered = np.subtract(X, mus[i,:])
+        sigmas[i,:] = np.dot(p[:,i].reshape((-1,1)).T, (Xcentered ** 2.) / w[i]) + bw**2.
+
+    w = w / np.sum(w)
+    curv = np.mean(np.exp(logpsigd - logpdf))
+    bw = 1. / ((4. * n * (4. * math.pi) ** (d / 2.) * curv) ** (1. / (d + 2.)))
+    return (w, mus, sigmas, bw, ent)
+
+def akde_probfun(x,w,mus,sigmas):
+
+    gam, d = mus.shape
+    pdf = np.zeros(x.shape)
+    
+    for k in xrange(gam):
+        s = sigmas[k,:]
+        xx = np.subtract(x, mus[k,:]).reshape((-1,1))
+        xx = np.divide(xx ** 2., s)
+        pdf = np.add(pdf, np.exp(-0.5 * np.sum(xx,axis=1).reshape((-1,1)) + math.log(w[k]) - 0.5*math.log(s) - d * math.log(2. * math.pi) / 2.))
+
+    return pdf

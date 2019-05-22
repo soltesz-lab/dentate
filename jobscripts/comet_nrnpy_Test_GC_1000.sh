@@ -21,7 +21,6 @@ export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-pack
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 
 results_path=$SCRATCH/dentate/results/Test_GC_1000_$SLURM_JOB_ID
 export results_path
