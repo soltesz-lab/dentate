@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=2048:ppn=16:xe
+#PBS -l nodes=4096:ppn=16:xe
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
-#PBS -l walltime=9:00:00
+#PBS -l walltime=5:00:00
 ### set the job name
 #PBS -N dentate_Full_Scale_GC_Exc_Sat_LNN
 ### set the job stdout and stderr
@@ -25,7 +25,7 @@ set -x
 
 export SCRATCH=/projects/sciteam/bayj
 export NEURONROOT=$SCRATCH/nrnintel
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
 echo python is `which python2.7`
@@ -40,7 +40,7 @@ mkdir -p $results_path
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 32768 -b -- bwpy-environ -- \
+aprun -n 65536 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat_LNN.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
@@ -51,8 +51,8 @@ aprun -n 32768 -b -- bwpy-environ -- \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
-    --max-walltime-hours=8.9 \
+    --max-walltime-hours=4.9 \
     --vrecord-fraction=0.001 \
-    --node-rank-file=parts_GC_Exc.32768 \
+    --node-rank-file=parts_GC_Exc.65536 \
     --verbose
 
