@@ -24,7 +24,7 @@ class SimTimeEvent:
         self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
         self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
         if (int(self.pc.id()) == 0):
-            logger.info("*** max wall time is %.2f hours" % (self.max_walltime_hours))
+            logger.info("*** allocated wall time is %.2f hours" % (max_walltime_hours))
             logger.info("*** max wall time is %.2f s; max setup time was %.2f s" % (self.walltime_max, setup_time))
 
     def reset(self):
