@@ -266,7 +266,7 @@ def spike_density_estimate (population, spkdict, time_bins, save=False, progress
             
 
 
-def spatial_information (population, trajectory, spkdict, time_range, position_bin_size, save = False):
+def spatial_information (population, trajectory, spkdict, time_range, position_bin_size, progress=False, save = False):
     """
     Calculates mutual information for the given spatial trajectory and spike trains.
     """
@@ -302,7 +302,7 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_density_estimate(population, spkdict, time_bins, save=save)
+    rate_bin_dict = spike_density_estimate(population, spkdict, time_bins, save=save, progress=progress)
     MI_dict = {}
     for ind, valdict in viewitems(rate_bin_dict):
         MI = 0.

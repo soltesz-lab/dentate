@@ -2262,7 +2262,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, a=4.77)
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
