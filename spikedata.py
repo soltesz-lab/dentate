@@ -3,7 +3,7 @@ import itertools
 from collections import defaultdict
 import numpy as np
 from dentate import utils
-from utils import viewitems
+from utils import viewitems, baks, akde
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -229,55 +229,13 @@ def spike_rates (spkdict):
     return rate_dict
 
 
-def baks (spktimes, time, a=1.5, b=None):
-    """
-    Bayesian Adaptive Kernel Smoother (BAKS)
-    BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
-    with adaptive bandwidth determined using a Bayesian approach
-    ---------------INPUT---------------
-    - spktimes : spike event times (ms)
-    - time : time points at which the firing rate is estimated (ms)
-    - a : shape parameter (alpha) 
-    - b : scale parameter (beta)
-    ---------------OUTPUT---------------
-    - rate : estimated firing rate [nTime x 1] (Hz)
-    - h : adaptive bandwidth [nTime x 1]
-
-    Based on "Estimation of neuronal firing rate using Bayesian adaptive kernel smoother (BAKS)"
-    https://github.com/nurahmadi/BAKS
-    """
-
-    import scipy
-    from scipy.special import gamma
-    
-    n = len(spktimes)
-    sumnum = 0
-    sumdenom = 0;
-
-    if b is None:
-        interval = np.max(time) - np.min(time)
-        b = float(len(spktimes)) / interval
-        
-    for i in xrange(n):
-        
-        numerator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a)
-        denominator = (((time-spktimes[i])**2)/2. + 1./b) ** (-a-0.5)
-        sumnum = sumnum + numerator
-        sumdenom = sumdenom + denominator
-
-    h = (gamma(a)/gamma(a + 0.5)) * (sumnum / sumdenom)
-
-    rate = np.zeros((len(time),))
-    for j in xrange(n):
-        K = (1000./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
-        rate = rate + K
-
-    return (rate, h)
-
-def spike_density_estimate (population, spkdict, time_bins, save=False):
+def spike_density_estimate (population, spkdict, time_bins, save=False, progress=False, **kwargs):
     """
     Calculates spike density function for the given spike trains.
     """
+
+    if progress:
+        from tqdm import tqdm
     
     def make_spktrain (lst, t_start, t_stop):
         spkts = np.asarray(lst, dtype=np.float32)
@@ -285,10 +243,15 @@ def spike_density_estimate (population, spkdict, time_bins, save=False):
 
     t_start = time_bins[0]
     t_stop = time_bins[-1]
-    
-    spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
-    spk_rate_dict = { ind: baks(spkts, time_bins)[0] for ind, spkts in viewitems(spktrains) if len(spkts) > 0 }
 
+    spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
+    if progress:
+        spk_rate_dict = { ind: baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+                          for ind, spkts in tqdm(viewitems(spktrains)) if len(spkts) > 1 }
+    else:
+        spk_rate_dict = { ind: baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+                          for ind, spkts in viewitems(spktrains) if len(spkts) > 1 }
+        
 
     if save:
         if isinstance(save, str):
@@ -339,12 +302,13 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
         else:
             d_bin_probs[ibin] = 0.
             
-    rate_bin_dict = spike_density_estimate(population, spkdict, time_range, save=save)
+    rate_bin_dict = spike_density_estimate(population, spkdict, time_bins, save=save)
     MI_dict = {}
-    for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
+    for ind, valdict in viewitems(rate_bin_dict):
         MI = 0.
-        rates = np.asarray(rate_bins)
-        R     = np.mean(rates)
+        x      = valdict['time']
+        rates  = valdict['rate']
+        R      = np.mean(rates)
 
         if R > 0.:
             for ibin in range(1, len(position_bins)+1):
@@ -360,20 +324,27 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
 
     return MI_dict
 
-def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, baseline_fraction=None, save = False):
+
+def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binsteps=5, baseline_fraction=None, min_pf_width=10., save = False):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     """
 
+    (x, y, d, t) = trajectory
+
     pf_dict = {}
     pf_total_count = 0
+    pf_cell_count = 0
     cell_count = 0
     pf_min = sys.maxsize
     pf_max = 0
+    ncells = len(rate_dict)
     for ind, valdict  in viewitems(rate_dict):
-        x      = valdict['x']
+        logger.info('%d / %d' %  (cell_count, ncells))
+        x      = valdict['time']
         rate   = valdict['rate']
         m      = np.mean(rate)
+        logger.info('mean rate: %f' % m)
         rate1  = np.subtract(rate, m)
         if baseline_fraction is None:
             s  = np.std(rate1)
@@ -383,31 +354,109 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
         tmin   = x[0]
         tmax   = x[-1]
         bins   = np.arange(tmin, tmax, bin_size)
-        pf_bins  = []
-        pf_rate = []
-        pf_norm_rate = []
-        for ibin in range(1, len(bins)-1):
+        bin_rates = []
+        bin_norm_rates = []
+        pf_ibins  = []
+        for ibin in range(1, len(bins)):
             binx = np.linspace(bins[ibin-1],bins[ibin],binsteps)
             r_n  = np.mean(np.interp(binx,x,rate1))
             r    = np.mean(np.interp(binx,x,rate))
+            bin_rates.append(r)
+            bin_norm_rates.append(r_n)
             if r_n > nstdev*s:
-                  pf_bins.append(ibin)
-                  pf_rate.append(r)
-                  pf_norm_rate.append(r_n)
+                  pf_ibins.append(ibin-1)
 
-        pf_count = len(consecutive(pf_bins))
-        pf_min = min(pf_count, pf_min)
-        pf_max = max(pf_count, pf_max)
+        bin_rates = np.asarray(bin_rates)
+        bin_norm_rates = np.asarray(bin_norm_rates)
+                  
+        if len(pf_ibins) > 0:
+            pf_consecutive_ibins = []
+            pf_consecutive_bins = []
+            pf_widths = []
+            for pf_ibin_array in consecutive(pf_ibins):
+                pf_ibin_range = np.asarray([np.min(pf_ibin_array), np.max(pf_ibin_array)])
+                pf_bin_range  = np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
+                pf_width = np.diff(np.interp(pf_bin_range, t, d))[0]
+                pf_consecutive_ibins.append(pf_ibin_range)
+                pf_consecutive_bins.append(pf_bin_range)
+                pf_widths.append(pf_width)
+            logger.info('place field widths: %s' % list(pf_widths))
+            pf_filtered_ibins = [ pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths) if pf_width >= min_pf_width ]
+            pf_count = len(pf_filtered_ibins)
+            pf_ibins =  [ xrange(pf_ibin[0], pf_ibin[1]+1) for pf_ibin in pf_filtered_ibins ]
+            pf_mean_width = [] 
+            pf_mean_rate = [] 
+            pf_peak_rate = [] 
+            pf_mean_norm_rate = [] 
+            for pf_ibin_iter in pf_ibins:
+                pf_ibin_array = list(pf_ibin_iter)
+                pf_mean_width.append(np.mean(np.asarray([pf_width for pf_width in pf_widths if pf_width >= min_pf_width])))
+                pf_mean_rate.append(np.mean(np.asarray(bin_rates[pf_ibin_array])))
+                pf_peak_rate.append(np.max(np.asarray(bin_rates[pf_ibin_array])))
+                pf_mean_norm_rate.append(np.mean(np.asarray(bin_norm_rates[pf_ibin_array])))
+
+            pf_min = min(pf_count, pf_min)
+            pf_max = max(pf_count, pf_max)
+            pf_cell_count += 1
+            pf_total_count += pf_count
+        else:
+            pf_count = 0
+            pf_mean_width = []
+            pf_mean_rate = []
+            pf_peak_rate = []
+            pf_mean_norm_rate = []
+
         cell_count += 1
-        pf_total_count += pf_count
         pf_dict[ind] = { 'pf_count': np.asarray([pf_count], dtype=np.uint32), \
-                         'pf_bins': np.asarray(pf_bins, dtype=np.uint32), \
-                         'pf_rate': np.asarray(pf_rate, dtype=np.float32),
-                         'pf_norm_rate': np.asarray(pf_norm_rate, dtype=np.float32) }
+                         'pf_mean_width': np.asarray(pf_mean_width, dtype=np.float32),
+                         'pf_mean_rate': np.asarray(pf_mean_rate, dtype=np.float32),
+                         'pf_peak_rate': np.asarray(pf_peak_rate, dtype=np.float32),
+                         'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32) }
 
-    print('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
+    logger.info('%s place fields: min %i max %i mean %f\n' % (population, pf_min, pf_max, float(pf_total_count)/float(cell_count)))
     if save:
         write_cell_attributes(save, population, pf_dict, namespace='Place Fields')
+
+    return pf_dict
+            
+
+def activity_sequences (population, bin_size, rate_dict, binsteps=5, active_threshold=1.0):
+    """
+    Estimates activity ensembles from the given instantaneous spike rate dictionary.
+    """
+
+    pf_dict = {}
+    pf_total_count = 0
+    cell_count = 0
+    pf_min = sys.maxsize
+    pf_max = 0
+    for ind, valdict  in viewitems(rate_dict):
+        x      = valdict['time']
+        rate   = valdict['rate']
+        m      = np.mean(rate)
+        tmin   = x[0]
+        tmax   = x[-1]
+        bins   = np.arange(tmin, tmax, bin_size)
+        ac_ibins = []
+        ac_rate = []
+        for ibin in range(1, len(bins)):
+            binx = np.linspace(bins[ibin-1],bins[ibin],binsteps)
+            r    = np.mean(np.interp(binx,x,rate))
+            if r > active_threshold:
+                ac_ibins.append(ibin-1)
+                ac_rate.append(r)
+
+        ac_ibins = consecutive(pf_ibins)
+        ac_onsets = [ bins[ac_ibin_lst[0]] for ac_ibin_lst in ac_ibins ]
+        ac_rates  = [ np.mean([bin_rates[ac_ibin] for ac_ibin in ac_ibin_lst]) for ac_ibin_lst in ac_ibins ]
+        ac_count = len(ac_onsets)
+
+        ac_dict[ind] = { 'ac_count': np.asarray([ac_count], dtype=np.uint32), \
+                         'ac_onset': np.asarray(ac_onsets, dtype=np.float32), \
+                         'ac_rate': np.asarray(ac_rates, dtype=np.float32) }
+                         
+    if save:
+        write_cell_attributes(save, population, pf_dict, namespace='Activity Sequences')
 
     return pf_dict
             
@@ -417,7 +466,7 @@ def place_fields (population, bin_size, rate_dict, nstdev=1.5, binsteps=5, basel
 
 
 
-def histogram_correlation(spkdata, bin_size=1., quantity='count', max_elems=None):
+def histogram_correlation(spkdata, bin_size=1., quantity='count'):
     """Compute correlation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -428,7 +477,7 @@ def histogram_correlation(spkdata, bin_size=1., quantity='count', max_elems=None
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
 
-    bins  = np.arange(tmin, tmax, bin_size)
+    time_bins  = np.arange(tmin, tmax, bin_size)
     
     corr_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
@@ -438,33 +487,24 @@ def histogram_correlation(spkdata, bin_size=1., quantity='count', max_elems=None
             spk_dict[int(spkind)].append(spkt)
         x_lst = []
         for ind, lst in viewitems(spk_dict):
-            spkv  = np.asarray(lst)
-            count, bin_edges = np.histogram(spkv, bins = bins)
+            spkts  = np.asarray(lst)
             if quantity == 'rate':
-                q = count * (1000.0 / bin_size) # convert to firing rate
+                q = akde(spkts / 1000., time_bins / 1000.)[0]
             else:
+                count, bin_edges = np.histogram(spkts, bins = bins)
                 q = count
             x_lst.append(q)
             i = i+1
 
         x_matrix = np.matrix(x_lst)
-        del(x_lst)
         
-        # Limit to max_elems
-        if (max_elems is not None) and (x_matrix.shape[0]>max_elems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (max_elems, x_matrix.shape[0], subset))
-            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(max_elems))
-            x_matrix = x_matrix[sample_inds,:]
-
-
         corr_matrix = np.apply_along_axis(lambda y: mvcorrcoef(x_matrix, y), 1, x_matrix)
-
         corr_dict[subset] = corr_matrix
-
     
     return corr_dict
 
-def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count', max_elems=None):
+
+def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count'):
     """Compute autocorrelation coefficients of the spike count or firing rate histogram of each population. """
 
     spkpoplst        = spkdata['spkpoplst']
@@ -485,25 +525,17 @@ def histogram_autocorrelation(spkdata, bin_size=1., lag=1, quantity='count', max
             spk_dict[int(spkind)].append(spkt)
         x_lst = []
         for ind, lst in viewitems(spk_dict):
-            spkv  = np.asarray(lst)
-            count, bin_edges = np.histogram(spkv, bins = bins)
+            spkts  = np.asarray(lst)
             if quantity == 'rate':
-                q = count * (1000.0 / bin_size) # convert to firing rate
+                q = akde(spkts / 1000., time_bins / 1000.)[0]                
             else:
+                count, bin_edges = np.histogram(spkts, bins = bins)
                 q = count
             x_lst.append(q)
             i = i+1
 
         x_matrix = np.matrix(x_lst)
-        del(x_lst)
         
-        # Limit to max_elems
-        if (max_elems is not None) and (x_matrix.shape[0]>max_elems):
-            logger.warn('  Reading only randomly sampled %i out of %i cells for population %s' % (max_elems, x_matrix.shape[0], subset))
-            sample_inds = np.random.randint(0, x_matrix.shape[0]-1, size=int(max_elems))
-            x_matrix = x_matrix[sample_inds,:]
-
-
         corr_matrix = np.apply_along_axis(lambda y: autocorr(y, lag), 1, x_matrix)
 
         corr_dict[subset] = corr_matrix

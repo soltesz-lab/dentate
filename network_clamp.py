@@ -66,16 +66,6 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
     return weights_dict
         
 
-def make_input_cell(env, gid, gen):
-    """
-    Instantiates an input generator according to the given cell template.
-    """
-    template_name = gen['template']
-    param_values  = gen['params']
-    template = getattr(h, template_name)
-    params = [ param_values[p] for p in env.netclamp_config.template_params[template_name] ]
-    cell = template(gid, *params)
-    return cell
 
 
 def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None, load_synapses=True, synapses_dict=None):
@@ -253,7 +243,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
         else:
             spike_generator = None
             
-        input_source_dict[presyn_index] = { 'gid': spk_inds, 't': spk_ts, 'gen': spike_generator }
+        input_source_dict[presyn_index] = { 'gen': spike_generator,
+                                            'spiketrains': { 'gid': spk_inds, 't': spk_ts, } }
 
         if presyn_name in generate_weights_pops:
             if (presyn_name in env.netclamp_config.weight_generators[pop_name]):
@@ -281,16 +272,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
             ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
-                input_sources = input_source_dict[presyn_id]
-                input_gen = input_sources['gen']
-                if input_gen is None:
-                    spk_inds = input_sources['gid']
-                    spk_ts = input_sources['t']
-                    data = spk_ts[np.where(spk_inds == presyn_gid)]
-                    cell = h.VecStimCell(presyn_gid)
-                    cell.pp.play(h.Vector(data))
-                else:
-                    cell = make_input_cell(env, presyn_gid, input_gen)
+                cell = make_input_cell(env, presyn_gid, presyn_id, input_source_dict)
                 register_cell(env, presyn_id, presyn_gid, cell)
 
     source_weight_params = generate_weights(env, weight_source_dict, this_syn_attrs)

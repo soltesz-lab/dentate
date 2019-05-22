@@ -1932,6 +1932,16 @@ def zero_na(cell):
             modify_mech_param(cell, sec_type, na_type, 'gbar', 0.)
 
 
+def zero_h(cell):
+    """
+    Set Ih channel conductances to zero in all compartments. Used during parameter optimization.
+    """
+    for sec_type in (sec_type for sec_type in default_ordered_sec_types if sec_type in cell.nodes and
+                     sec_type in cell.mech_dict):
+        for h_type in (h_type for h_type in ['h'] if h_type in cell.mech_dict[sec_type]):
+            modify_mech_param(cell, sec_type, h_type, 'ghbar', 0.)
+
+
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
 
 
@@ -2132,6 +2142,30 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
             hoc_cell = template_class(gid, dataset_path)
         
     return hoc_cell
+
+
+def make_input_cell(env, gid, pop_id, input_source_dict):
+    """
+    Instantiates an input generator according to the given cell template.
+    """
+
+    input_sources = input_source_dict[pop_id]
+    input_gen = input_sources['gen']
+    if input_gen is None:
+        cell = h.VecStimCell(gid)
+        if 'spiketrains' in input_sources:
+            spk_inds = input_sources['spiketrains']['gid']
+            spk_ts = input_sources['spiketrains']['t']
+            data = spk_ts[np.where(spk_inds == pop_gid)]
+            cell.pp.play(h.Vector(data))
+    else:
+        template_name = input_gen['template']
+        param_values  = input_gen['params']
+        template = getattr(h, template_name)
+        params = [ param_values[p] for p in env.netclamp_config.template_params[template_name] ]
+        cell = template(gid, *params)
+        
+    return cell
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
