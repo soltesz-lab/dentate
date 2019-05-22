@@ -7,7 +7,7 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c", "ConMC"]
 
-DG_coords_file = "DG_coords_20190518.h5"
+DG_coords_file = "DG_coords_20190521.h5"
 
 DG_GC_coordinate_file  = "DGC_forest_reindex_20181222_compressed.h5"
 DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
@@ -67,7 +67,12 @@ with h5py.File(DG_coords_file) as f:
     for p in DG_populations:
         coords_file = coordinate_files[p]
         coords_ns   = coordinate_namespaces[p]
-        grp[p]["Coordinates"] = h5py.ExternalLink(coords_file,"/Populations/%s/%s" % (p, coords_ns))
+        group_id    = f.require_group('/Populations/%s' % p)
+
+        with h5py.File(coords_file) as fs:
+            fs.copy('/Populations/%s/%s' % (p, coords_ns), group_id, name='Coordinates')
+
+                    
 
 
     
