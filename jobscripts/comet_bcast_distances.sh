@@ -27,7 +27,7 @@ set -x
 mpirun -np 24 python ./scripts/bcast_coords.py \
     --config=./config/Full_Scale_Pas.yaml \
      -i GC -i MPP -i LPP -i MC -i BC -i HC -i HCC -i NGFC -i MOPP -i IS -i AAC -i CA3c -i ConMC \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190518_fix.h5 \
+    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190521.h5 \
     --coords-namespace=Coordinates \
     -v
 
