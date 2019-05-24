@@ -259,6 +259,20 @@ def read_stimulus (stimulus_path, stimulus_namespace, population, module=None):
     ## sort by peak_index
     ratemap_lst.sort(key=lambda item: item[3])
     return ratemap_lst
+
+def read_feature (feature_path, feature_namespace, population, module=None):
+
+    feature_lst    = []
+
+    attr_gen = read_cell_attributes(feature_path, population, namespace=feature_namespace)
+    for gid, feature_dict in attr_gen:
+        gid_module = feature_dict['Module'][0]
+        if (module is None) or (module == gid_module):
+            rate       = feature_dict['Rate Map']
+            num_fields = feature_dict['Num Fields']
+            feature_lst.append((gid, rate, num_fields))
+ 
+    return feature_lst
             
 
 ##
