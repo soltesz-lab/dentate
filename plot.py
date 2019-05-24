@@ -2136,7 +2136,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         del(ind_peak_lst)
 
         rate_matrix = np.matrix(rate_lst, dtype=np.float32)
-        print np.max(rate_matrix)
         del(rate_lst)
 
         color = color_list[iplot%len(color_list)]
@@ -3139,7 +3138,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     return fig, psds
 
 
-def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None, **kwargs):
+def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, trajectory_id=None, **kwargs):
     """
 
         - input_path: file with stimulus data
@@ -3151,21 +3150,21 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
     options.update(kwargs)
 
     if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory(input_path, trajectory_id)
+        trajectory = stimulus.read_trajectory(input_path, '%s %s' % (arena_id, trajectory_id))
         (_, _, _, t)  = trajectory
     else:
         t = None
 
     M = 0
-    if trajectory_id is None:
+    if (arena_id is None):
         ns = namespace_id
     else:
-        ns = '%s %d' % (namespace_id, trajectory_id)
-    logger.info('Reading vector stimulus data from namespace %s for population %s...' % (ns, population ))
+        ns = '%s %s' % (namespace_id, arena_id)
+    logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
     fig, axes = plt.subplots(2, 5)
     for module in xrange(1, 11):
         rate_lst = []
-        for (gid, rate, _, _) in stimulus.read_stimulus(input_path, ns, population, module=module):
+        for (gid, rate, _) in stimulus.read_feature(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
         col = (module - 1) % 5
@@ -3186,15 +3185,18 @@ def plot_stimulus_rate(input_path, namespace_id, population, trajectory_id=None,
         #axes[row][col].set_xlim([extent[0], extent[1]])
         #axes[row][col].set_ylim(-1, N+1)
         if col == 0:
-            axes[row][col].set_ylabel('Sorted input ID', fontsize=options.fontSize)
+            axes[row][col].set_ylabel('Cell index', fontsize=options.fontSize)
         if row == 1:
             axes[row][col].set_xlabel('Time (ms)', fontsize=options.fontSize)
+
     cax, kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
     cbar = plt.colorbar(img, cax=cax, **kw)
     cbar.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
 
     fig.suptitle(population, fontsize=options.fontSize)
 
+    plt.show()
+    
     # save figure
     if options.saveFig:
         if isinstance(options.saveFig, str):

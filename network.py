@@ -818,14 +818,15 @@ def init_input_cells(env, input_sources=None):
 
             if env.cell_selection is None:
                 if env.node_ranks is None:
-                    cell_vecstim_iter = scatter_read_cell_attributes(input_file_path, pop_name,
+                    cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                      namespaces=[vecstim_namespace],
                                                                      comm=env.comm, io_size=env.io_size)
                 else:
-                    cell_vecstim_iter = scatter_read_cell_attributes(input_file_path, pop_name,
+                    cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                      namespaces=[vecstim_namespace],
                                                                      node_rank_map=env.node_ranks,
                                                                      comm=env.comm, io_size=env.io_size)
+                cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
             else:
                 gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank ]
                 
