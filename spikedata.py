@@ -325,11 +325,14 @@ def spatial_information (population, trajectory, spkdict, time_range, position_b
     return MI_dict
 
 
-def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binsteps=5, baseline_fraction=None, min_pf_width=10., save = False):
+def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binsteps=5, baseline_fraction=None, min_pf_width=10., progress=False, save = False):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     """
 
+    if progress:
+        from tqdm import tqdm
+    
     (x, y, d, t) = trajectory
 
     pf_dict = {}
@@ -339,12 +342,14 @@ def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binst
     pf_min = sys.maxsize
     pf_max = 0
     ncells = len(rate_dict)
-    for ind, valdict  in viewitems(rate_dict):
-        logger.info('%d / %d' %  (cell_count, ncells))
+    if progress:
+        it = tqdm(viewitems(rate_dict))
+    else:
+        it = viewitems(rate_dict)
+    for ind, valdict  in it:
         x      = valdict['time']
         rate   = valdict['rate']
         m      = np.mean(rate)
-        logger.info('mean rate: %f' % m)
         rate1  = np.subtract(rate, m)
         if baseline_fraction is None:
             s  = np.std(rate1)
@@ -380,7 +385,6 @@ def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binst
                 pf_consecutive_ibins.append(pf_ibin_range)
                 pf_consecutive_bins.append(pf_bin_range)
                 pf_widths.append(pf_width)
-            logger.info('place field widths: %s' % list(pf_widths))
             pf_filtered_ibins = [ pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths) if pf_width >= min_pf_width ]
             pf_count = len(pf_filtered_ibins)
             pf_ibins =  [ xrange(pf_ibin[0], pf_ibin[1]+1) for pf_ibin in pf_filtered_ibins ]
@@ -420,45 +424,35 @@ def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binst
     return pf_dict
             
 
-def activity_sequences (population, bin_size, rate_dict, binsteps=5, active_threshold=1.0):
+def activity_sequences (population, spkdict, time_bins):
     """
     Estimates activity ensembles from the given instantaneous spike rate dictionary.
     """
 
-    pf_dict = {}
-    pf_total_count = 0
-    cell_count = 0
-    pf_min = sys.maxsize
-    pf_max = 0
-    for ind, valdict  in viewitems(rate_dict):
-        x      = valdict['time']
-        rate   = valdict['rate']
-        m      = np.mean(rate)
-        tmin   = x[0]
-        tmax   = x[-1]
-        bins   = np.arange(tmin, tmax, bin_size)
-        ac_ibins = []
-        ac_rate = []
-        for ibin in range(1, len(bins)):
-            binx = np.linspace(bins[ibin-1],bins[ibin],binsteps)
-            r    = np.mean(np.interp(binx,x,rate))
-            if r > active_threshold:
-                ac_ibins.append(ibin-1)
-                ac_rate.append(r)
+    import sklearn
+    from sklearn.neighbors import BallTree
 
-        ac_ibins = consecutive(pf_ibins)
-        ac_onsets = [ bins[ac_ibin_lst[0]] for ac_ibin_lst in ac_ibins ]
-        ac_rates  = [ np.mean([bin_rates[ac_ibin] for ac_ibin in ac_ibin_lst]) for ac_ibin_lst in ac_ibins ]
-        ac_count = len(ac_onsets)
+    def make_spkbin (lst, time_bins):
+        spkts = np.asarray(lst, dtype=np.float32)
+        bins = np.digitize(spkts, time_bins)
 
-        ac_dict[ind] = { 'ac_count': np.asarray([ac_count], dtype=np.uint32), \
-                         'ac_onset': np.asarray(ac_onsets, dtype=np.float32), \
-                         'ac_rate': np.asarray(ac_rates, dtype=np.float32) }
-                         
-    if save:
-        write_cell_attributes(save, population, pf_dict, namespace='Activity Sequences')
-
-    return pf_dict
+    spk_bin_dict = { ind: make_spkbin(lst, time_bins) for (ind, lst) in viewitems(spkdict) }
+    acv_dict = { ind: np.asarray([ len(bin) for bin in bins ]) for ind, bins in viewitems(spkdict) }
+    
+    coactive_dict = defaultdict(set)
+    for i, acv_i in viewitems(acv_dict):
+        for j, acv_j in viewitems(acv_dict):
+            if i != j:
+                if np.dot(acv_i, acv_j) > 0:
+                    coactive_dict[i].add(j)
+                    coactive_dict[j].add(i)
+    apvs = np.column_stack([ np.asarray([ acv_dict[ind] > 0.1 ], dtype=np.bool) for ind in sorted(acv_dict.keys()) ])
+    
+    tree = BallTree(apvs, leaf_size=2, metric='jaccard')
+                    
+    
+    
+    return tree
             
             
 
