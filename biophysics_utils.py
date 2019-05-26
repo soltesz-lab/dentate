@@ -439,6 +439,9 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     init_syn_mech_attrs(cell, env)
     config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True,
                              verbose=verbose)
+
+
+
     if verbose:
         report_topology(cell, env)
 

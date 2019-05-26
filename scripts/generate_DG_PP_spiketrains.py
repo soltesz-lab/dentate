@@ -19,7 +19,8 @@ sys.excepthook = mpi_excepthook
 
 @click.command()
 @click.option("--config", required=True, type=str)
-@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              default='config')
 @click.option("--features-path", "-p", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", "-o", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
@@ -27,9 +28,9 @@ sys.excepthook = mpi_excepthook
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--arena-id", type=str, default='A')
-@click.option("--trajectory-id", type=str, default='Dflt')
-@click.option("--features-namespaces", "-n", type=str, multiple=True, default=['Grid Input Features','Place Input Features'])
-@click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
+@click.option("--trajectory-id", type=str, default='Diag')
+@click.option("--features-namespaces", "-n", type=str, multiple=True, default=['Grid Selectivity','Place Selectivity'])
+@click.option("--stimulus-namespace", type=str, default='Input Spike Trains')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, config_prefix, features_path, output_path, io_size, chunk_size, value_chunk_size, cache_size, arena_id, trajectory_id,
@@ -64,7 +65,7 @@ def main(config, config_prefix, features_path, output_path, io_size, chunk_size,
 
     input_config = env.input_config
     spatial_resolution = input_config['Spatial Resolution']
-    feature_type_dict = input_config['Feature Distribution']
+    feature_type_dict = input_config['Selectivity Type Probabilities']
 
     arena = input_config['Arena'][arena_id]
 

@@ -332,25 +332,25 @@ class Env:
         return TrajectoryConfig(velocity, path)
             
     def parse_input_config(self):
-        features_type_dict = self.modelConfig['Definitions']['Input Features']
         input_dict = self.modelConfig['Input']
         input_config = {}
 
         for k,v in viewitems(input_dict):
-            if k == 'Feature Distribution':
-                feature_type_dict = {}
+            if k == 'Selectivity Type Probabilities':
+                selectivity_type_prob_dict = {}
                 for (pop,dvals) in viewitems(v):
-                    pop_feature_type_dict = {}
-                    for (feature_type_name,feature_type_fraction) in viewitems(dvals):
-                        pop_feature_type_dict[int(self.feature_types[feature_type_name])] = float(feature_type_fraction)                                                                      
-                    feature_type_dict[pop] = pop_feature_type_dict
-                input_config['Feature Distribution'] = feature_type_dict
+                    pop_selectivity_type_prob_dict = {}
+                    for (selectivity_type_name,selectivity_type_prob) in viewitems(dvals):
+                        pop_selectivity_type_prob_dict[int(self.selectivity_types[selectivity_type_name])] = \
+                            float(selectivity_type_prob)
+                    selectivity_type_prob_dict[pop] = pop_selectivity_type_prob_dict
+                input_config['Selectivity Type Probabilities'] = selectivity_type_prob_dict
             elif k == 'Peak Rate':
                 peak_rate_dict = {}
                 for (pop,dvals) in viewitems(v):
                     pop_peak_rate_dict = {}
-                    for (feature_type_name,peak_rate) in viewitems(dvals):
-                        pop_peak_rate_dict[int(self.feature_types[feature_type_name])] = float(peak_rate)
+                    for (selectivity_type_name, peak_rate) in viewitems(dvals):
+                        pop_peak_rate_dict[int(self.selectivity_types[selectivity_type_name])] = float(peak_rate)
                     peak_rate_dict[pop] = pop_peak_rate_dict
                 input_config['Peak Rate'] = peak_rate_dict
             elif k == 'Arena':
@@ -418,7 +418,7 @@ class Env:
         self.SWC_Types     = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
         self.layers        = defs['Layers']
-        self.feature_types = defs['Input Features']
+        self.selectivity_types = defs['Input Selectivity Types']
 
     def parse_globals(self):
         self.globals       = self.modelConfig['Global Parameters']

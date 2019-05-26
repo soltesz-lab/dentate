@@ -426,16 +426,16 @@ def main(features_path, cell_type, arena_id, show_fig, save_fig):
     modules = np.arange(10) + 1
 
     if cell_type == 'grid':
-        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
+        mpp_grid = read_cell_attributes(features_path, 'MPP', 'Grid Selectivity %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid], modules)
     elif cell_type == 'place':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id )
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Selectivity %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Selectivity %s' % arena_id )
         cells_modules_dictionary = gid2module_dictionary([mpp_place, lpp_place], modules)
     elif cell_type == 'both':
-        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Input Features %s' % arena_id)
-        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Input Features %s' % arena_id)
-        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Input Features %s' % arena_id)
+        lpp_place = read_cell_attributes(features_path, 'LPP', 'Place Selectivity %s' % arena_id)
+        mpp_place = read_cell_attributes(features_path, 'MPP', 'Place Selectivity %s' % arena_id)
+        mpp_grid  = read_cell_attributes(features_path, 'MPP', 'Grid Selectivity %s' % arena_id)
         cells_modules_dictionary = gid2module_dictionary([mpp_grid, mpp_place, lpp_place], modules)
 
     kwargs = {'ctype': cell_type}

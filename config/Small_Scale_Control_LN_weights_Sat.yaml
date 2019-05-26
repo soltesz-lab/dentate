@@ -8,6 +8,7 @@ Cell Data: GC_tree_syns_connections_20181127.h5  # DG_small_scale_tree_syns_weig
 Connection Data: GC_tree_syns_connections_20181127.h5  # DG_GC_test_connections_20180402.h5
 Connection Generator: !include Small_Scale_Connections_Sat.yaml
 LFP: !include LFP.yaml
+Input: !include Input_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:

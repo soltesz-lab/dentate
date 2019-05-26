@@ -2,15 +2,23 @@ import sys, os, time, gc, random, click, logging
 from pprint import pprint
 import numpy as np
 from mpi4py import MPI
+#import matplotlib.pyplot as plt
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
+from nested.utils import Context
 import dentate
 from dentate.env import Env
-from dentate.utils import *
-from dentate.InputCell import *
-from dentate.stimulus import generate_spatial_offsets, generate_spatial_mesh, calculate_field_distribution, selectivity_grid, selectivity_place
+import dentate.utils as utils
+from dentate.utils import list_find, list_argsort, get_script_logger, viewitems
+from dentate.stimulus import generate_spatial_offsets
 
-logger = get_script_logger(os.path.basename(__file__))
+from optimize_DG_PP_features import calculate_field_distribution
+from optimize_DG_PP_features import acquire_fields_per_cell
+from optimize_DG_PP_features import _generate_mesh
+from dentate.stimulus import generate_spatial_offsets, generate_spatial_ratemap
+
+utils.config_logging(True)
+logger = utils.get_script_logger(os.path.basename(__file__))
 
 #  MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
 #  sample uniformly from 10 modules with spacing that increases exponentially from 40 cm to 8 m. While organized
@@ -18,9 +26,20 @@ logger = get_script_logger(os.path.basename(__file__))
 #  CA3 and LEC are assumed to exhibit place fields. Their field width varies septal-temporally. Here we assume a
 #  continuous exponential gradient of field widths, with the same parameters as those controlling MEC grid width.
 
+#  custom data type for type of feature feature
+feature_grid  = 0
+feature_place = 1
+
+module_pi = [0.012, 0.313, 0.500, 0.654, 0.723, 0.783, 0.830, 0.852, 0.874, 0.890]
+module_pr = [0.342, 0.274, 0.156, 0.125, 0.045, 0.038, 0.022, 0.018, 0.013, 0.004]
+
+context = Context()
+
+
 @click.command()
-@click.option("--config", required=True, type=str)
-@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
+@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--stimulus-id", type=int, default=0)
+@click.option("--template-path",required=True, type=click.Path(exists=True, file_okay=True, dir_okay=True))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", type=str, default='Arc Distances')
@@ -31,11 +50,10 @@ logger = get_script_logger(os.path.basename(__file__))
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
+def main(config, stimulus_id, template_path, coords_path, output_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
     """
 
     :param config:
-    :param config_prefix:
     :param coords_path:
     :param distances_namespace:
     :param io_size:
@@ -48,9 +66,8 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, i
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    config_logging(verbose)
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
+    env = Env(comm=comm, config_file=config, template_paths=template_path)
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
@@ -65,37 +82,18 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, i
             output_file.close()
     comm.barrier()
     population_ranges = read_population_ranges(coords_path, comm)[0]
+    context.update(locals())
 
-    input_params = env.input_config
-    nmodules = input_params['Number Modules']
-    field_width_x1 = input_params['Field Width']['x1']
-    field_width_x2 = input_params['Field Width']['x2']
-    min_field_width = input_params['Field Width']['min']
-    resolution = input_params['Spatial Resolution']
-    feature_dist = input_params['Feature Distribution']
-    peak_rate = input_params['Peak Rate']
+    gid_normed_distances = assign_cells_to_normalized_position() # Assign normalized u,v coordinates
+    gid_module_assignments = assign_cells_to_module(gid_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
+    total_num_fields, gid_attributes = determine_cell_participation(gid_module_assignments) # Determine if a cell is 1) active and; 2) how many fields? 
+    cell_attributes = build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields) # Determine additional cell properties (lambda, field_width, orientation, jitter, and rate map. This will also build the data structure ({<pop>: {<cell type>: <cells>}}) containing all cells.
 
-    for arena_id, arena in viewitems(input_params['Arena']):
+    if not dry_run and rank == 0:
+        save_to_h5(cell_attributes)
 
-        module_pi = arena.properties['Perforant Path']['probability inactive']
-        module_pr = arena.properties['Perforant Path']['probability remaining']
-    
-        context = Struct(**dict(locals()))
-
-        cell_normed_distances = assign_cells_to_normalized_position(context) # Assign normalized u,v coordinates
-        cell_module_assignments = assign_cells_to_module(context, cell_normed_distances, p_width=0.75, displace=0.0) # Determine which module a cell is in based on normalized u position
-        total_num_fields, cell_attributes = determine_cell_participation(context, cell_module_assignments) # Determine if a cell is 1) active and; 2) how many fields? 
-        cell_dict = build_cells(context, cell_attributes, cell_normed_distances, total_num_fields) # Determine additional cell properties (lambda, field_width, orientation, jitter, and rate map. This will also build the data structure ({<pop>: {<cell type>: <cells>}}) containing all cells.
         
-        if not dry_run and rank == 0:
-            save_to_h5(context, cell_dict)
-
-##
-## Normalize u,v coordinates to [0,1] relative to max u / max v
-## u, v here are actually u,v _distances_
-## This gives ;
-##
-def assign_cells_to_normalized_position(context):
+def assign_cells_to_normalized_position():
     
     rank = context.comm.rank
     population_distances  = []
@@ -126,10 +124,8 @@ def assign_cells_to_normalized_position(context):
 
     return gid_normed_distances
 
-##
-## 
-##
-def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace=0.1):
+    
+def assign_cells_to_module(gid_normed_distances, p_width=2./3, displace=0.1):
 
     offsets   = np.linspace(-displace, 1. + displace, 10)
     positions = np.linspace(0., 1., 1000)
@@ -150,7 +146,7 @@ def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace
     #for i in xrange(len(p_density)):
     #    plt.plot(renormalized_positions, p_density[i][valid_indices])
 
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     local_random = np.random.RandomState()
     gid_module_assignments = dict()
 
@@ -168,18 +164,17 @@ def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace
         
     return gid_module_assignments
         
-## pi - probability inactive
-## pr - probability 
-def determine_cell_participation(context, gid_module_assignments):
 
-    feature_type_dict   = context.feature_dist
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+def determine_cell_participation(gid_module_assignments):
+
+    input_config        = context.env.inputConfig[context.stimulus_id]
+    feature_type_dict   = input_config['feature type']
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     feature_type_random = np.random.RandomState(feature_seed_offset - 1)
     num_field_random    = np.random.RandomState(feature_seed_offset - 1)
 
     gid_attributes         = {}
-    module_probabilities   = [ calculate_field_distribution(pi, pr) for (pi, pr) \
-                               in zip(context.module_pi, context.module_pr) ]
+    module_probabilities   = [ calculate_field_distribution(pi, pr) for (pi, pr) in zip(module_pi, module_pr) ]
 
     population_ranges = context.population_ranges
     total_num_fields  = 0
@@ -196,11 +191,8 @@ def determine_cell_participation(context, gid_module_assignments):
             feature_type_prob_lst.append(p)
         feature_type_values = np.asarray(feature_type_values_lst)
         feature_type_probs  = np.asarray(feature_type_prob_lst)
-        feature_types = feature_type_random.choice(feature_type_values, p=feature_type_probs, \
-                                                   size=(population_count,))    
+        feature_types       = feature_type_random.choice(feature_type_values, p=feature_type_probs, size=(population_count,))    
 
-        peak_rate = context.peak_rate[population]
-        
         population_end = population_start + population_count
         gids = np.arange(population_start, population_end, 1)
         for (i,gid) in enumerate(gids):
@@ -210,17 +202,16 @@ def determine_cell_participation(context, gid_module_assignments):
             cell['Module']     = np.array([module], dtype='uint8')
             cell['Feature Type']  = np.array([feature_types[i]], dtype='uint8')
             nfields = 1
-            if feature_types[i] == selectivity_grid:
+            if feature_types[i] == feature_grid:
                 cell['Num Fields'] = np.array([nfields], dtype='uint8')
-                cell['Peak Rate'] = peak_rate[selectivity_grid]
-            elif feature_types[i] == selectivity_place:
+            elif feature_types[i] == feature_place:
                 field_probabilities = module_probabilities[module - 1]
                 field_set = [i for i in xrange(field_probabilities.shape[0])]
                 nfields = num_field_random.choice(field_set, p=field_probabilities, size=(10,))[-1]
                 cell['Num Fields'] = np.array([nfields], dtype='uint8')
-                cell['Peak Rate'] = peak_rate[selectivity_place]
             gid_attributes[population][gid] = cell
             total_num_fields += nfields
+            logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
             
     return total_num_fields, gid_attributes
 
@@ -237,62 +228,50 @@ def _fields_per_module(gid_attributes, modules):
             fields_per_module_dict[module][1] += nfields
     return fields_per_module_dict
 
-def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields):
+def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields):
     
-    modules        = np.arange(context.nmodules)
+    nmodules       = 10
+    modules        = np.arange(nmodules)
     curr_module    = {mod + 1: int(0) for mod in modules}
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     
     local_random        = np.random.RandomState(feature_seed_offset - 1)
-    grid_orientation    = [ local_random.uniform(0., np.pi/3.) for i in range(context.nmodules) ]
-    field_width_params  = [context.field_width_x1, context.field_width_x2]
-    field_width         = lambda x: context.min_field_width + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
+    grid_orientation    = [ local_random.uniform(0., np.pi/3.) for i in range(nmodules) ]
+    field_width_params  = [35.0,   0.32]  # slope, tau
+    field_width         = lambda x: 40. + field_width_params[0] * (np.exp(x / field_width_params[1]) - 1.)
     max_field_width     = field_width(1.)
     module_widths       = [ field_width(float(module) / np.max(modules)) for module in modules ]
 
-    xp, yp = generate_spatial_mesh(context.arena, scale_factor=1., resolution=context.resolution)
+    xp, yp = _generate_mesh()
     nx, ny = xp.shape
+    ratemap_kwargs = {'a': 0.70 , 'b': -1.5, 'c': 0.90}
 
     field_module_distribution = _fields_per_module(gid_attributes, modules)
     xy_offset_module_dict    = { mod + 1: None for mod in modules }
     
     for mod in field_module_distribution:
         module_width = module_widths[mod - 1]
-        scale_factor  = (module_width / 100. / 2.) + 1.
-
-        xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], context.arena,
-                                                       scale_factor=scale_factor)
+        scale_factor  = 1. + (module_width * np.cos(np.pi/4.) / 100.)
+        xy_offsets, _, _, _ = generate_spatial_offsets(field_module_distribution[mod][1], arena_dimension=100., scale_factor=scale_factor)
         local_random.shuffle(xy_offsets)
         xy_offset_module_dict[mod] = np.asarray(xy_offsets, dtype='float32')
 
-    cell_dict = {}
     for population in gid_attributes.keys():
-        cell_dict[population] = {}
         for gid, cell in viewitems(gid_attributes[population]):
 
             _, _, u, v = gid_normed_distances[gid]
-
             cell['U Distance'] = np.asarray([u], dtype='float32')
             cell['V Distance'] = np.asarray([v], dtype='float32')
+            cell['gid'] = np.asarray([gid], dtype='int32')
             
-            cell['Nx']  = nx
-            cell['Ny']  = ny
+            cell['Nx']  = np.array([nx], dtype='int32')
+            cell['Ny']  = np.array([ny], dtype='int32')
             
             local_random.seed(feature_seed_offset + gid)
             ftype   = cell['Feature Type'][0]
             module  = cell['Module'][0]
             nfields = cell['Num Fields'][0]
-
-            curr_n = curr_module[module]
-            x_offset = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,0], dtype='float32')
-            y_offset = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,1], dtype='float32')
-            ##print "gid %d: curr_n: %d nfields: %d: " % (gid, curr_n, nfields), x_offset, " ", y_offset
-            
-            cell['X Offset'] = x_offset
-            cell['Y Offset'] = y_offset
-            curr_module[module] += nfields
-
-            if ftype == selectivity_grid:
+            if ftype == feature_grid:
                 cell_spacing     = []
                 cell_orientation = []
                 for n in xrange(nfields):
@@ -304,45 +283,44 @@ def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields)
                     cell_orientation.append(this_orientation + delta_orientation)
                 cell['Grid Spacing']     = np.asarray(cell_spacing, dtype='float32')
                 cell['Grid Orientation'] = np.asarray(cell_orientation, dtype='float32')            
-                cell = GridCell(gid, nfields, module, **cell)
-                
-                
-            elif ftype == selectivity_place:
+
+            elif ftype == feature_place:
                 cell_width = []
                 for n in xrange(nfields):
                     this_width    = module_widths[module - 1]
                     delta_spacing = local_random.uniform(-10., 10.)
                     cell_width.append(this_width + delta_spacing)
                 cell['Field Width'] = np.asarray(cell_width, dtype='float32')
-                cell = PlaceCell(gid, nfields, module, **cell)
 
-            cell.generate_spatial_ratemap(xp, yp)
-            cell_dict[population][gid] = cell
-            logger.info('Rank %i: computed features for gid %i' % (context.env.comm.rank, gid))
+            curr_n = curr_module[module]
+            cell['X Offset'] = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,0], dtype='float32')
+            cell['Y Offset'] = np.asarray(xy_offset_module_dict[module][curr_n:curr_n+nfields,1], dtype='float32')
+            curr_module[module] += nfields
             
-    return cell_dict
+            rate_map = generate_spatial_ratemap(cell['Feature Type'][0], cell, None, xp, yp, 20., 20., ramp_up_period=None, **ratemap_kwargs)
+            cell['Rate Map'] = rate_map.reshape(-1,).astype('float32')
+
+    return gid_attributes
         
-def save_to_h5(context, cell_dict):
+def save_to_h5(cell_attributes):
 
-    for population in cell_dict.keys():
+    for population in cell_attributes.keys():
         place_cells, grid_cells = {}, {}
-        for gid, cell in viewitems(cell_dict[population]):
+        for gid, cell in viewitems(cell_attributes[population]):
 
-            if cell.cell_type == selectivity_grid:
-                grid_cells[gid] = cell.return_attr_dict()
-            elif cell.cell_type == selectivity_place:
-                place_cells[gid] = cell.return_attr_dict()
-
-        append_cell_attributes(context.output_path, population, grid_cells, \
-                               namespace='Grid Input Features %s' % str(context.arena_id), \
+            if cell['Feature Type'][0] == feature_grid:
+                grid_cells[gid] = cell
+            elif cell['Feature Type'][0] == feature_place:
+                place_cells[gid] = cell
+                
+        append_cell_attributes(context.output_path, population, grid_cells, namespace='Grid Selectivity',\
                                comm=context.comm, io_size=context.io_size, chunk_size=context.chunk_size,\
                                value_chunk_size=context.value_chunk_size)
 
-        append_cell_attributes(context.output_path, population, place_cells, \
-                               namespace='Place Input Features %s' % str(context.arena_id), \
+        append_cell_attributes(context.output_path, population, place_cells, namespace='Place Selectivity',\
                                comm=context.comm, io_size=context.io_size, chunk_size=context.chunk_size,\
                                value_chunk_size=context.value_chunk_size)
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

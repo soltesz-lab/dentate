@@ -41,7 +41,9 @@ Populations:
   MPP:  9
   LPP:  10
   PYR:  11
-Input Features:
+Input Selectivity Types:
   grid: 0
   place: 1
+  constant: 2
+  oscillatory: 3
 
