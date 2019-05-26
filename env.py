@@ -137,25 +137,25 @@ class Env:
         self.results_id = results_id
 
         # Number of MPI ranks to be used for I/O operations
-        self.io_size = io_size
+        self.io_size = int(io_size)
 
         # Initialization voltage
-        self.v_init = v_init
+        self.v_init = float(v_init)
 
         # simulation time [ms]
-        self.tstop = tstop
+        self.tstop = float(tstop)
 
         # stimulus onset time [ms]
-        self.stimulus_onset = stimulus_onset
+        self.stimulus_onset = float(stimulus_onset)
 
         # maximum wall time in hours
-        self.max_walltime_hours = max_walltime_hours
+        self.max_walltime_hours = float(max_walltime_hours)
 
         # time to write out results at end of simulation
-        self.results_write_time = results_write_time
+        self.results_write_time = float(results_write_time)
 
         # time step
-        self.dt = dt
+        self.dt = float(dt)
 
         # used to estimate cell complexity
         self.cxvec = None
@@ -167,7 +167,7 @@ class Env:
         self.transfer_debug = transfer_debug
 
         # Fraction of cells to record intracellular voltage from
-        self.vrecord_fraction = vrecord_fraction
+        self.vrecord_fraction = float(vrecord_fraction)
 
         # Save CoreNEURON data
         self.coredat = coredat
@@ -223,14 +223,16 @@ class Env:
 
         if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
-            
+
         self.celltypes = self.modelConfig['Cell Types']
         self.cellAttributeInfo = {}
 
         # The name of this model
-        self.modelName = self.modelConfig['Model Name']
+        if 'Model Name' in self.modelConfig:
+            self.modelName = self.modelConfig['Model Name']
         # The dataset to use for constructing the network
-        self.datasetName = self.modelConfig['Dataset Name']
+        if 'Dataset Name' in self.modelConfig:
+            self.datasetName = self.modelConfig['Dataset Name']
 
         if results_path:
             if self.results_id is None:
@@ -266,7 +268,9 @@ class Env:
                 
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
-
+        else:
+            self.netclamp_config = None
+            
         if 'Input' in self.modelConfig:
             self.parse_input_config()                                                                                                                                                     
             

@@ -25,7 +25,7 @@ set -x
 
 export SCRATCH=/projects/sciteam/bayj
 export NEURONROOT=$SCRATCH/nrnintel
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
 echo python is `which python2.7`
@@ -42,7 +42,7 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 
 aprun -n 32768 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
-    --config-file=Full_Scale_GC_Exc_Sat_LNN.yaml  \
+    --config-file=Full_Scale_GC_Exc_Sat_LNN_Diag.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \

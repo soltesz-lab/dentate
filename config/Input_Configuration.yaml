@@ -131,6 +131,10 @@ Arena:
         path: [[-100, -100], [100, 100]]
         run velocity: 30.  # cm/s
 
+      HDiag:
+        path: [[30, 30], [100, 100]]
+        run velocity: 30. # cm/s
+
       ## upper diagonal offset by 5 cm on Y axis
       DiagU5: 
         path: [[-100, -95], [95, 100]]

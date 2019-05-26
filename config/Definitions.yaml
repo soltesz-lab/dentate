@@ -40,7 +40,8 @@ Populations:
   MOPP: 8
   MPP:  9
   LPP:  10
-  PYR:  11
+  CA3c: 11
+  ConMC: 12
 Input Selectivity Types:
   grid: 0
   place: 1

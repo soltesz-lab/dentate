@@ -50,13 +50,13 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
         
     for population in populations:
         coords = bcast_cell_attributes(coords_path, population, 0, \
-                                       namespace=coords_namespace)
+                                       namespace=coords_namespace, comm=comm)
 
         soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0], v['L Coordinate'][0]) for (k,v) in coords }
         del coords
         gc.collect()
 
-    soma_distances = measure_distances(env, soma_coords, resolution=resolution)
+    origin_ranges, soma_distances = measure_distances(env, soma_coords, resolution=resolution)
                                        
     for population in list(soma_distances.keys()):
             
@@ -73,8 +73,14 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
                                namespace='Arc Distances', comm=comm,
                                io_size=io_size, chunk_size=chunk_size,
                                value_chunk_size=value_chunk_size, cache_size=cache_size)
-
-    
+        if rank == 0:
+            f = h5py.File(output_path, 'a')
+            f['Populations'][population]['Arc Distances'].attrs['Reference U Min'] = origin_ranges[0][0]
+            f['Populations'][population]['Arc Distances'].attrs['Reference U Max'] = origin_ranges[0][1]
+            f['Populations'][population]['Arc Distances'].attrs['Reference V Min'] = origin_ranges[1][0]
+            f['Populations'][population]['Arc Distances'].attrs['Reference V Max'] = origin_ranges[1][1]
+            f.close()
+        comm.Barrier()
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
