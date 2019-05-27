@@ -70,8 +70,6 @@ mpl.rcParams['font.size'] = 14.
 mpl.rcParams['font.sans-serif'] = 'Arial'
 mpl.rcParams['text.usetex'] = False
 
-selectivity_type_dict = {'MPP': stimulus.selectivity_grid, 'LPP': stimulus.selectivity_place}
-
 
 def show_figure():
     try:
@@ -149,10 +147,10 @@ def plot_PP_metrics(env, coords_path, features_path, distances_namespace, popula
     options.update(kwargs)
 
     if cell_type == 'grid':
-        input_features = 'Grid Input Features'
+        input_selectivity_namespace = 'Grid Selectivity'
         cell_type_label = 'grid input'
     elif cell_type == 'place':
-        input_features = 'Place Input Features'
+        input_selectivity_namespace = 'Place Selectivity'
         cell_type_label = 'spatial input'
     if metric == 'spacing' and cell_type == 'grid':
         attribute = 'Grid Spacing'
@@ -176,7 +174,7 @@ def plot_PP_metrics(env, coords_path, features_path, distances_namespace, popula
     elif metric == 'orientation' and cell_type == 'place':
         return 
     
-    attr_gen = read_cell_attributes(features_path, population, input_features)
+    attr_gen = read_cell_attributes(features_path, population, input_selectivity_namespace)
     attr_dict = {}
     for (gid, features_dict) in attr_gen:
         attr_dict[gid] = features_dict[attribute]
@@ -2789,7 +2787,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
     options = default_fig_options
     options.update(kwargs)
 
-    attr_gen = read_cell_attributes(features_path, population, namespace='Place Input Features')
+    attr_gen = read_cell_attributes(features_path, population, namespace='Place Selectivity')
     place_cells = {}
     for (gid, cell_attributes) in attr_gen:
         place_cells[gid] = cell_attributes
@@ -4215,10 +4213,13 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
         mpl.rcParams['font.size'] = remember_font_size
         
 
-def clean_axes(axes):
+def clean_axes(axes, left=True, right=False):
     """
     Remove top and right axes from pyplot axes object.
-    :param axes:
+    :param axes: list of pyplot.Axes
+    :param top: bool
+    :param left: bool
+    :param right: bool
     """
     if not type(axes) in [np.ndarray, list]:
         axes = [axes]
@@ -4227,10 +4228,12 @@ def clean_axes(axes):
     for axis in axes:
         axis.tick_params(direction='out')
         axis.spines['top'].set_visible(False)
-        axis.spines['right'].set_visible(False)
+        if not right:
+            axis.spines['right'].set_visible(False)
+        if not left:
+            axis.spines['left'].set_visible(False)
         axis.get_xaxis().tick_bottom()
         axis.get_yaxis().tick_left()
-
         
 
 def calculate_module_density(gid_module_assignments, gid_normed_distance):
