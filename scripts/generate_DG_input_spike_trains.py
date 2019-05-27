@@ -274,50 +274,6 @@ def main(config, config_prefix, selectivity_path, output_path, arena_id, traject
 
     if interactive and rank == 0:
         context.update(locals())
-    """
-            response_dict = {}
-            for gid, features_dict in attr_gen:
-                response = None
-                if gid is None:
-                    logger.info('Rank %i gid is None' % rank)
-                else:
-                    if verbose:
-                        logger.info('Rank %i received attributes for gid %i' % (rank, gid))
-                    local_time = time.time()
-                    cell = InputCell.make_input_cell(gid, features_type, features_dict)
-                    response = cell.generate_spatial_ratemap(x, y)
-                    local_random.seed(int(input_spiketrain_offset + gid))
-                    spiketrain = stgen.get_inhom_poisson_spike_times_by_thinning(response, t, generator=local_random)
-                    if len(spiketrain) > 0:
-                        if np.min(spiketrain) < 0:
-                            logger.info("Rank %i gid %i: response = %s" % (rank, gid, str(response)))
-                            logger.info("Rank %i gid %i: t = %s" % (rank, gid, str(t)))
-                            logger.info("Rank %i gid %i: spiketrain min = %f" % (rank, gid, np.min(spiketrain)))
-                    response_dict[gid] = cell.return_attr_dict()
-                    response_dict[gid]['spiketrain'] = np.asarray(spiketrain, dtype='float32')
-                    baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
-                    peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
-                    modulation = 0. if peak <= 0.1 else (peak - baseline) / peak
-                    peak_index = np.where(response == np.max(response))[0][0]
-                    response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
-                    response_dict[gid]['peak index'] = np.array([peak_index], dtype='uint32')
-                    logger.info( 'Rank %i; source: %s; generated spike trains for gid %i in %.2f s' % \
-                                    (rank, population, gid, time.time() - local_time))
-                    count += 1
-                if not dry_run:
-                    append_cell_attributes(output_path, population, response_dict,
-                                            namespace=stimulus_id_namespace, comm=comm,
-                                            io_size=io_size, chunk_size=chunk_size,
-                                            value_chunk_size=value_chunk_size)
-                del response
-                response_dict.clear()
-                gc.collect()
-
-        global_count = comm.gather(count, root=0)
-        if rank == 0:
-            logger.info('%i ranks generated spike trains for %i cells in %.2f s' % (comm.size, np.sum(global_count),
-                                                                                     time.time() - start_time))
-    """
 
 
 if __name__ == '__main__':
