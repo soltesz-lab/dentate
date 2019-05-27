@@ -799,6 +799,7 @@ def init_input_cells(env, input_sources=None):
     :param input_sources: a dictionary of the form { pop_name, gid_sources }
     If provided, the set of gids specified in gid_sources will be 
     initialized with pre-recorded spike trains read from env.spike_input_path / env.spike_input_ns.
+    TODO: 'Vector Stimulus' and 'spiketrain' should not be a hard-coded namespace and attr_name to load input spikes.
     """
 
     rank = int(env.pc.id())

@@ -47,6 +47,7 @@ TrajectoryConfig = namedtuple('Trajectory',
                               ['velocity',
                                'path'])
 
+
 class Env:
     """
     Network model configuration.
