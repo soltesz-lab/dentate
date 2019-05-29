@@ -7,6 +7,10 @@ import scipy
 from scipy import sparse
 
 
+default_baks_alpha = 4.7725100028345535
+default_baks_beta = 0.41969058927343522
+
+
 class Struct:
     def __init__(self, **items):
         self.__dict__.update(items)
@@ -476,7 +480,7 @@ def add_bins(bins1, bins2, datatype):
     return bins1
 
 
-def baks (spktimes, time, a=1.5, b=None):
+def baks(spktimes, time, a=1.5, b=None):
     """
     Bayesian Adaptive Kernel Smoother (BAKS)
     BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
@@ -520,7 +524,8 @@ def baks (spktimes, time, a=1.5, b=None):
         K = (1./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
         rate = rate + K
 
-    return (rate, h)
+    return rate, h
+
 
 def kde_scipy(x, y, bin_size, **kwargs):
     """Kernel Density Estimation with Scipy"""

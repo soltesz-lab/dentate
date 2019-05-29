@@ -424,7 +424,7 @@ def choose_input_selectivity_type(p, local_random):
 
 
 def get_active_cell_matrix(pop_activity, threshold=2.):
-    active_cell_matrix = np.zeros_like(pop_activity)
+    active_cell_matrix = np.zeros_like(pop_activity, dtype='float32')
     active_indexes = np.where(pop_activity >= threshold)
     active_cell_matrix[active_indexes] = 1.
     return active_cell_matrix
@@ -683,31 +683,26 @@ def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1
     return t, interp_x, interp_y, d
 
 
-def calculate_fraction_active(rates, threshold):
-    N = len(rates)
-    num_active = len(np.where(rates > threshold)[0])
-    fraction_active = np.divide(float(num_active), float(N))
-    return fraction_active
+def read_trajectory(input_path, arena_id, trajectory_id):
+    """
 
+    :param input_path: str (path to file)
+    :param arena_id: str
+    :param trajectory_id: str
+    :return: tuple of array
+    """
+    trajectory_namespace = 'Trajectory %s %s' % (str(arena_id), str(trajectory_id))
 
-def read_trajectory(input_path, trajectory_id):
-
-    trajectory_namespace = 'Trajectory %s' % str(trajectory_id)
-
-    with h5py.File(input_path, 'a') as f:
+    with h5py.File(input_path, 'r') as f:
         group = f[trajectory_namespace]
-        dataset = group['x']
-        x = dataset[:]
-        dataset = group['y']
-        y = dataset[:]
-        dataset = group['d']
-        d = dataset[:]
-        dataset = group['t']
-        t = dataset[:]
-    return (x,y,d,t)
+        x = group['x'][:]
+        y = group['y'][:]
+        d = group['d'][:]
+        t = group['t'][:]
+    return x, y, d, t
 
 
-def read_stimulus (stimulus_path, stimulus_namespace, population, module=None):
+def read_stimulus(stimulus_path, stimulus_namespace, population, module=None):
 
     ratemap_lst    = []
     module_gid_lst = []

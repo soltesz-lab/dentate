@@ -73,3 +73,10 @@ def module2gid_dictionary(module_dict):
     for module in module_dict:
         gid_dict.update(module_dict[module])
     return gid_dict
+
+
+def calculate_fraction_active(rates, threshold):
+    N = len(rates)
+    num_active = len(np.where(rates > threshold)[0])
+    fraction_active = np.divide(float(num_active), float(N))
+    return fraction_active

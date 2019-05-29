@@ -46,7 +46,8 @@ except ImportError as e:
 logger = get_module_logger(__name__)
 
 # Default figure configuration
-default_fig_options =  Struct(figFormat='png', lw=3, figSize = (15,8), fontSize=14, saveFig=None, showFig=True, colormap=cm.jet)
+default_fig_options = Struct(figFormat='png', lw=3, figSize=(15,8), fontSize=14, saveFig=None, showFig=True,
+                             colormap=cm.jet)
 
 color_list = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -61,6 +62,7 @@ rainbow_color_list = ["#9400D3", "#4B0082", "#00FF00", "#FFFF00", "#FF7F00", "#F
 
 raster_color_list = ['#8dd3c7', '#ffed6f', '#bebada', '#fb8072', '#80b1d3', '#fdb462',
                     '#b3de69', '#fccde5', '#d9d9d9', '#bc80bd', '#ccebc5']
+
 
 def hex2rgb(hexcode):
     return tuple([ float(b)/255.0 for b in map(ord,hexcode[1:].decode('hex')) ])
@@ -2657,102 +2659,102 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
     return fig
 
 
-## Plot spatial information distribution
-def plot_spatial_information (spike_input_path, spike_namespace_id, 
-                              trajectory_path, trajectory_id, include = ['eachPop'],
-                              position_bin_size = 5.0, 
-                              time_variable='t', time_range = None, 
-                              alpha_fill = 0.2, save_data = None,
-                              **kwargs):
-    ''' 
+def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id,
+                             populations=None, position_bin_size=5.0, spike_train_attr_name='t', time_range=None,
+                             alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
+    """
     Plots distributions of spatial information per cell. Returns figure handle.
-
-        - input_path: file with spike data
-        - namespace_id: attribute namespace for spike events
-        - include (['eachPop'|<population name>]): List of data series to include. 
-            (default: ['eachPop'] - expands to the name of each population)
-        - time_variable: Name of variable containing spike times (default: 't')
-        - time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-        - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
-        - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
-    '''
+    :param spike_input_path: str (path to file)
+    :param spike_namespace_id: str
+    :param trajectory_path: str (path to file)
+    :param arena_id: str
+    :param trajectory_id: str
+    :param populations: list of str
+    :param position_bin_size: float
+    :param spike_train_attr_name: str
+    :param time_range: list of float
+    :param alpha_fill: float
+    :param output_file_path: str (path to file)
+    :param plot_dir_path: str (path to dir)
+    :param kwargs: dict
+    :return: :class:'plt.Figure'
+    """
     options = default_fig_options
     options.update(kwargs)
 
-    trajectory = stimulus.read_trajectory (trajectory_path, trajectory_id)
+    trajectory = stimulus.read_trajectory(trajectory_path, arena_id, trajectory_id)
 
     (population_ranges, N) = read_population_ranges(spike_input_path)
-    population_names  = read_population_names(spike_input_path)
+    population_names = read_population_names(spike_input_path)
 
     pop_num_cells = {}
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
-    
-    # Replace 'eachPop' with list of populations
-    if 'eachPop' in include: 
-        include.remove('eachPop')
-        for pop in population_names:
-            include.append(pop)
+    if populations is None:
+        populations = list(population_names)
 
-    spkdata = spikedata.read_spike_events (spike_input_path, include, spike_namespace_id,
-                                           time_variable=time_variable, time_range=time_range)
+    this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
 
-    spkpoplst        = spkdata['spkpoplst']
-    spkindlst        = spkdata['spkindlst']
-    spktlst          = spkdata['spktlst']
-    num_cell_spks    = spkdata['num_cell_spks']
+    spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
+                                          spike_train_attr_name=spike_train_attr_name, time_range=time_range)
+
+    spkpoplst = spkdata['spkpoplst']
+    spkindlst = spkdata['spkindlst']
+    spktlst = spkdata['spktlst']
+    num_cell_spks = spkdata['num_cell_spks']
     pop_active_cells = spkdata['pop_active_cells']
-    tmin             = spkdata['tmin']
-    tmax             = spkdata['tmax']
+    tmin = spkdata['tmin']
+    tmax = spkdata['tmax']
 
     time_range = [tmin, tmax]
-            
+
     # create fig
     fig, axes = plt.subplots(len(spkpoplst), 1, figsize=options.figSize, sharex=True)
+
+    if output_file_path is not None and not os.path.isfile(output_file_path):
+        input_file = h5py.File(spike_input_path, 'r')
+        output_file = h5py.File(output_file_path, 'w')
+        input_file.copy('/H5Types', output_file)
+        input_file.close()
+        output_file.close()
 
     histlst = []
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        spkts         = spktlst[iplot]
-        spkinds       = spkindlst[iplot]
-        spkdict       = spikedata.make_spike_dict(spkinds, spkts)
+        spkts = spktlst[iplot]
+        spkinds = spkindlst[iplot]
+        spkdict = spikedata.make_spike_dict(spkinds, spkts)
+        MI_dict = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size,
+                                                arena_id=arena_id, trajectory_id=trajectory_id,
+                                                output_file_path=output_file_path, **kwargs)
 
-        if save_data:
-            if isinstance(save_data, str):
-                filename = save_data
-            else:
-                filename = spike_namespace_id+' '+subset
-        else:
-            filename = False
-
-        MI_dict       = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size, save=filename)
-        MI_lst  = []
+        MI_lst = []
         for ind in sorted(MI_dict.keys()):
             MI = MI_dict[ind]
             MI_lst.append(MI)
-        del(MI_dict)
+        del MI_dict
 
         MI_array = np.asarray(MI_lst, dtype=np.float32)
-        del(MI_lst)
-        
-        label = str(subset)  + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]),np.mean(MI_array))
-        plt.subplot(len(spkpoplst),1,iplot+1)
-        plt.title (label, fontsize=options.fontSize)
-            
-        color = color_list[iplot%len(color_list)]
+        del MI_lst
+
+        label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]), np.mean(MI_array))
+        plt.subplot(len(spkpoplst), 1, iplot + 1)
+        plt.title(label, fontsize=options.fontSize)
+
+        color = color_list[iplot % len(color_list)]
 
         MI_hist, bin_edges = np.histogram(MI_array, bins='auto')
-        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
-        plt.bar(bin_centers, MI_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
-        
+        bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
+        plt.bar(bin_centers, MI_hist, color=color, width=0.3 * (np.mean(np.diff(bin_edges))))
+
         plt.xticks(fontsize=options.fontSize)
-                   
+
         if iplot == 0:
-            plt.ylabel('Cell Index', fontsize=options.fontSize)
-        if iplot == len(spkpoplst)-1:
-            plt.xlabel('Mutual Information [bits]', fontsize=options.fontSize)
+            plt.ylabel('Cell count', fontsize=options.fontSize)
+        if iplot == len(spkpoplst) - 1:
+            plt.xlabel('Mutual information [bits]', fontsize=options.fontSize)
         else:
             plt.tick_params(labelbottom='off')
         plt.autoscale(enable=True, axis='both', tight=True)
@@ -2764,23 +2766,24 @@ def plot_spatial_information (spike_input_path, spike_namespace_id,
             pass
 
     # Add legend
-    for i,subset in enumerate(spkpoplst):
-        plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
+    for i, subset in enumerate(spkpoplst):
+        plt.plot(0, 0, color=color_list[i % len(color_list)], label=str(subset))
     plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
-    maxLabelLen = min(10,max([len(str(l)) for l in include]))
-    plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
+    maxLabelLen = min(10, max([len(str(l)) for l in populations]))
+    plt.subplots_adjust(right=(0.9 - 0.012 * maxLabelLen))
 
-    if options.saveFig: 
-        if isinstance(options.saveFig, str):
-            filename = options.saveFig
-        else:
-            filename = namespace_id+' '+'information.%s' % options.figFormat
-        plt.savefig(filename)
+    if options.saveFig is not None:
+        fig_file_path = '%s spatial mutual information %s %s.%s' % \
+                        (str(options.saveFig), arena_id, trajectory_id, options.figFormat)
+        if plot_dir_path is not None:
+            fig_file_path = '%s/%s' % (plot_dir_path, fig_file_path)
+        plt.savefig(fig_file_path)
 
     if options.showFig:
         show_figure()
 
     return fig
+
 
 def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs):
 
@@ -2820,61 +2823,69 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
         plt.show()
 
 
-def plot_place_fields (spike_input_path, spike_namespace_id, 
-                       trajectory_path, trajectory_id, include = ['eachPop'],
-                       bin_size = 10.0, min_pf_width = 10.,
-                       time_variable='t', time_range = None, 
-                       alpha_fill = 0.2, overlay = False,
-                       save_data = None, **kwargs):
-    ''' 
+def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, populations=None,
+                      bin_size=10.0, min_pf_width=10., spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
+                      overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
+    """
     Plots distributions of place fields per cell. Returns figure handle.
-
-        - input_path: file with spike data
-        - namespace_id: attribute namespace for spike events
-        - include (['eachPop'|<population name>]): List of data series to include. 
-            (default: ['eachPop'] - expands to the name of each population)
-        - time_variable: Name of variable containing spike times (default: 't')
-        - time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-        - overlay (True|False): Whether to overlay the data lines or plot in separate subplots (default: True)
-        - quantity ('rate'|'count'): Units of x axis (firing rate in Hz, or spike count) (default: 'rate')
-    '''
-
+    :param spike_input_path: str (path to file)
+    :param spike_namespace_id: str
+    :param trajectory_path: str (path to file)
+    :param arena_id: str
+    :param trajectory_id: str
+    :param populations: list of str
+    :param bin_size: float
+    :param min_pf_width: float
+    :param spike_train_attr_name: str
+    :param time_range: list of float
+    :param alpha_fill: float
+    :param overlay: bool
+    :param output_file_path: str (path to file)
+    :param plot_dir_path: str (path to dir)
+    :param kwargs: dict
+    :return: :class:'plt.Figure'
+    """
     options = default_fig_options
     options.update(kwargs)
 
-    trajectory = stimulus.read_trajectory (trajectory_path, trajectory_id)
+    trajectory = stimulus.read_trajectory(trajectory_path, arena_id, trajectory_id)
 
     (population_ranges, N) = read_population_ranges(spike_input_path)
-    population_names  = read_population_names(spike_input_path)
+    population_names = read_population_names(spike_input_path)
 
     pop_num_cells = {}
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
-    
-    # Replace 'eachPop' with list of populations
-    if 'eachPop' in include: 
-        include.remove('eachPop')
-        for pop in population_names:
-            include.append(pop)
+    if populations is None:
+        populations = list(population_names)
 
-    spkdata = spikedata.read_spike_events (spike_input_path, include, spike_namespace_id,
-                                            time_variable=time_variable, time_range=time_range)
+    this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
 
-    spkpoplst        = spkdata['spkpoplst']
-    spkindlst        = spkdata['spkindlst']
-    spktlst          = spkdata['spktlst']
-    num_cell_spks    = spkdata['num_cell_spks']
+    spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
+                                          spike_train_attr_name=spike_train_attr_name, time_range=time_range)
+
+    spkpoplst = spkdata['spkpoplst']
+    spkindlst = spkdata['spkindlst']
+    spktlst = spkdata['spktlst']
+    num_cell_spks = spkdata['num_cell_spks']
     pop_active_cells = spkdata['pop_active_cells']
-    tmin             = spkdata['tmin']
-    tmax             = spkdata['tmax']
+    tmin = spkdata['tmin']
+    tmax = spkdata['tmax']
     
     time_range = [tmin, tmax]
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
             
     # create fig
     fig = plt.figure(figsize=options.figSize)
-    gs  = gridspec.GridSpec(len(spkpoplst), 3, height_ratios=[ 1 for name in spkpoplst ], width_ratios=[1,4,3])
+    gs  = gridspec.GridSpec(len(spkpoplst), 3, height_ratios=[1 for name in spkpoplst ], width_ratios=[1,4,3])
+
+    if output_file_path is not None and not os.path.isfile(output_file_path):
+        input_file = h5py.File(spike_input_path, 'r')
+        output_file = h5py.File(output_file_path, 'w')
+        input_file.copy('/H5Types', output_file)
+        input_file.close()
+        output_file.close()
 
     histlst = []
     # Plot separate line for each entry in include
@@ -2883,14 +2894,13 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         spkts         = spktlst[iplot]
         spkinds       = spkindlst[iplot]
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        if save_data:
-            if isinstance(save_data, str):
-                filename = save_data
-            else:
-                filename = spike_namespace_id+' '+subset
 
-        rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
-        PF_dict  = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, min_pf_width=min_pf_width)
+        rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, arena_id=arena_id,
+                                                         trajectory_id=trajectory_id,
+                                                         output_file_path=output_file_path, **kwargs)
+        PF_dict = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, arena_id=arena_id,
+                                          trajectory_id=trajectory_id, output_file_path=output_file_path,
+                                          min_pf_width=min_pf_width, **kwargs)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []
@@ -2915,7 +2925,8 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         del(PF_field_width_lst)
         
         if not overlay:
-            label = str(subset)  + ' (%i active; mean %.02f place fields)' % (len(pop_active_cells[subset]), np.mean(PF_count_array))
+            label = str(subset) + ' (%i active; mean %.02f place fields)' % \
+                    (len(pop_active_cells[subset]), np.mean(PF_count_array))
             plt.subplot(len(spkpoplst),1,iplot+1)
             plt.title (label, fontsize=options.fontSize)
             
@@ -2977,23 +2988,20 @@ def plot_place_fields (spike_input_path, spike_namespace_id,
         for i,subset in enumerate(spkpoplst):
             plt.plot(0,0,color=color_list[i%len(color_list)],label=str(subset))
         plt.legend(fontsize=options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
-        maxLabelLen = min(10,max([len(str(l)) for l in include]))
+        maxLabelLen = min(10,max([len(str(l)) for l in populations]))
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
-
-    if options.saveFig: 
-        if isinstance(options.saveFig, str):
-            filename = options.saveFig
-        else:
-            filename = spike_namespace_id+' '+'place fields.%s' % options.figFormat
-        plt.savefig(filename)
+    if options.saveFig is not None:
+        fig_file_path = '%s place fields %s %s.%s' % \
+                        (str(options.saveFig), arena_id, trajectory_id, options.figFormat)
+        if plot_dir_path is not None:
+            fig_file_path = '%s/%s' % (plot_dir_path, fig_file_path)
+        plt.savefig(fig_file_path)
 
     if options.showFig:
         show_figure()
 
     return fig
-
-
 
 
 def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
@@ -3147,8 +3155,8 @@ def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, traj
     options = default_fig_options
     options.update(kwargs)
 
-    if trajectory_id is not None:
-        trajectory = stimulus.read_trajectory(input_path, '%s %s' % (arena_id, trajectory_id))
+    if trajectory_id is not None and arena_id is not None:
+        trajectory = stimulus.read_trajectory(input_path, arena_id, trajectory_id)
         (_, _, _, t)  = trajectory
     else:
         t = None
@@ -3208,7 +3216,7 @@ def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, traj
         show_figure()
 
 
-def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, stimulus_namespace, distances_namespace, include, bin_size = 100., from_spikes = True, **kwargs):
+def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, trajectory_id, stimulus_namespace, distances_namespace, include, bin_size = 100., from_spikes = True, **kwargs):
     """
         - input_path: path to file with stimulus data (str)
         - coords_path: path to file with cell position coordinates (str)
@@ -3224,7 +3232,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, trajectory_id, 
     options = default_fig_options
     options.update(kwargs)
 
-    _, _, _, t = stimulus.read_trajectory(input_path, trajectory_id)
+    _, _, _, t = stimulus.read_trajectory(input_path, arena_id, trajectory_id)
     dt = float(t[1] - t[0]) / 1000. # ms -> s
     T  = float(t[-1] - t[0]) / 1000. # ms -> s
 
