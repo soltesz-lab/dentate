@@ -1,4 +1,4 @@
-import sys, time, gc
+import sys, time, gc, copy
 import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
@@ -54,8 +54,12 @@ class SelectivityModuleConfig(object):
         p_density = np.divide(p_modules, p_sum)
         return p_density
 
-    def plot_module_probabilities(self):
+    def plot_module_probabilities(self, **kwargs):
         import matplotlib.pyplot as plt
+        from dentate.plot import clean_axes, default_fig_options, save_figure
+        fig_options = copy.copy(default_fig_options)
+        fig_options.update(kwargs)
+
         distances = np.linspace(0., 1., 1000)
         p_modules = [self.get_module_probability(distances, offset) for offset in self.module_probability_offsets]
         p_modules = np.array(p_modules)
@@ -65,16 +69,22 @@ class SelectivityModuleConfig(object):
         fig, axes = plt.subplots(1,2, figsize=(10., 4.8))
         for i in range(len(p_modules)):
             axes[0].plot(distances, p_density[i,:], label='Module %i' % i)
-        axes[0].set_title('Selectivity module assignment probabilities')
-        axes[0].set_xlabel('Normalized cell position')
-        axes[0].set_ylabel('Probability')
+        axes[0].set_title('Selectivity module assignment probabilities', fontsize=fig_options.fontSize)
+        axes[0].set_xlabel('Normalized cell position', fontsize=fig_options.fontSize)
+        axes[0].set_ylabel('Probability', fontsize=fig_options.fontSize)
         expected_field_widths = np.matmul(self.place_module_field_widths, p_density)
         axes[1].plot(distances, expected_field_widths, c='k')
-        axes[1].set_title('Expected place field width')
-        axes[1].set_xlabel('Normalized cell position')
-        axes[1].set_ylabel('Place field width (cm)')
+        axes[1].set_title('Expected place field width', fontsize=fig_options.fontSize)
+        axes[1].set_xlabel('Normalized cell position', fontsize=fig_options.fontSize)
+        axes[1].set_ylabel('Place field width (cm)', fontsize=fig_options.fontSize)
+        clean_axes(axes)
         fig.tight_layout()
-        fig.show()
+
+        if fig_options.saveFig is not None:
+            save_figure('%s selectivity module probabilities' % str(fig_options.saveFig), **fig_options())
+
+        if fig_options.showFig:
+            fig.show()
 
     def get_expected_place_field_width(self, p_modules):
         """
@@ -250,57 +260,6 @@ class PlaceCellConfig(object):
         for i in range(self.num_fields):
             rate_map = np.maximum(rate_map, get_place_rate_map(self.x0[i], self.y0[i], self.field_width[i], x, y))
         return np.multiply(rate_map, self.peak_rate)
-
-
-def plot_1D_rate_map(t, rate_map, peak_rate=None, spike_train=None, title=None):
-    """
-
-    :param t: array
-    :param rate_map: array
-    :param peak_rate: float
-    :param spike_train: array
-    :param title: str
-    """
-    import matplotlib.pyplot as plt
-    from dentate.plot import clean_axes
-    if peak_rate is None:
-        peak_rate = np.max(rate_map)
-    fig, axes = plt.subplots()
-    axes.plot(t, rate_map)
-    if spike_train is not None:
-        axes.plot(spike_train, np.ones_like(spike_train), 'k.')
-    axes.set_ylim(0., peak_rate * 1.1)
-    axes.set_ylabel('Firing rate (Hz)')
-    axes.set_xlabel('Time (ms)')
-    axes.set_title(title)
-    clean_axes(axes)
-    fig.show()
-
-
-def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None):
-    """
-
-    :param x: array
-    :param y: array
-    :param rate_map: array
-    :param peak_rate: float
-    :param title: str
-    """
-    import matplotlib.pyplot as plt
-    from dentate.plot import clean_axes
-    if peak_rate is None:
-        peak_rate = np.max(rate_map)
-    fig, axes = plt.subplots()
-    pc = axes.pcolor(x, y, rate_map, vmin=0., vmax=peak_rate)
-    axes.set_aspect('equal')
-    cbar = fig.colorbar(pc, ax=axes)
-    cbar.set_label('Firing Rate (Hz)', rotation=270., labelpad=20.)
-    axes.set_xlabel('X Position (cm)')
-    axes.set_ylabel('Y Position (cm)')
-    clean_axes(axes)
-    if title is not None:
-        axes.set_title(title)
-    fig.show()
 
 
 def get_place_rate_map(x0, y0, width, x, y):

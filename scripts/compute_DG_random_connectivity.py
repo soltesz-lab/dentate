@@ -1,6 +1,6 @@
-from function_lib import *
+from unused.function_lib import *
 from mpi4py import MPI
-from neuroh5.io import append_cell_attribute, NeuroH5CelllAttrGen, bcast_cell_attributes, population_ranges
+from neuroh5.io import bcast_cell_attributes, population_ranges
 import click
 
 

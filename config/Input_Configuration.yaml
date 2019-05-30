@@ -15,7 +15,7 @@ Non-modular Place Field Width Variance: 0.1  # proportion of expected width
 ## Diehl GW, Hon OJ, Leutgeb S, Leutgeb JK.
 ## Grid and Nongrid Cells in Medial Entorhinal Cortex Represent
 ## Spatial Location and Environmental Features with Complementary
-## Coding Schemes. 
+## Coding Schemes.
 ## Neuron Volume 94, Issue 1, 5 April 2017, pp 83-92.
 Selectivity Type Probabilities:
   MPP:
@@ -126,7 +126,7 @@ Arena:
     Domain:
       vertices: [[-100, -100], [-100, 100], [100, 100], [100, -100]]
       simplices: [[0,1], [1,2], [2,3], [3,0]]
-    
+
     Trajectory:
       Diag:
         path: [[-100, -100], [100, 100]]
@@ -137,10 +137,10 @@ Arena:
         run velocity: 30. # cm/s
 
       ## upper diagonal offset by 5 cm on Y axis
-      DiagU5: 
+      DiagU5:
         path: [[-100, -95], [95, 100]]
         run velocity: 30.  # cm/s
-        
+
       ## lower diagonal offset by 5 cm on X axis
       DiagL5:
         path: [[-95, -100], [100, 95]]

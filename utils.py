@@ -7,16 +7,38 @@ import scipy
 from scipy import sparse
 
 
-default_baks_alpha = 4.7725100028345535
-default_baks_beta = 0.41969058927343522
-
-
 class Struct:
     def __init__(self, **items):
         self.__dict__.update(items)
 
     def update(self, items):
         self.__dict__.update(items)
+
+    def __call__(self):
+        return self.__dict__
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+
+class Context(object):
+    """
+    A container replacement for global variables to be shared and modified by any function in a module.
+    """
+    def __init__(self, namespace_dict=None, **kwargs):
+        self.update(namespace_dict, **kwargs)
+
+    def update(self, namespace_dict=None, **kwargs):
+        """
+        Converts items in a dictionary (such as globals() or locals()) into context object internals.
+        :param namespace_dict: dict
+        """
+        if namespace_dict is not None:
+            self.__dict__.update(namespace_dict)
+        self.__dict__.update(kwargs)
+
+    def __call__(self):
+        return self.__dict__
 
     def __getitem__(self, key):
         return self.__dict__[key]
@@ -497,18 +519,15 @@ def baks(spktimes, time, a=1.5, b=None):
     Based on "Estimation of neuronal firing rate using Bayesian adaptive kernel smoother (BAKS)"
     https://github.com/nurahmadi/BAKS
     """
-
-    import scipy
     from scipy.special import gamma
 
     n = len(spktimes)
     sumnum = 0
-    sumdenom = 0;
+    sumdenom = 0
     
     if b is None:
-        b = float(n)**0.8
-    else:
-        b = float(n)**b
+        b = 0.8
+    b = float(n)**b
     
     for i in xrange(n):
         

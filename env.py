@@ -273,7 +273,12 @@ class Env:
             self.netclamp_config = None
             
         if 'Input' in self.modelConfig:
-            self.parse_input_config()                                                                                                                                                     
+            self.parse_input_config()
+
+        if 'Analysis' in self.modelConfig:
+            self.analysis_config = self.modelConfig['Analysis']
+        else:
+            self.analysis_config = None
             
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
@@ -313,7 +318,6 @@ class Env:
         if len(self.template_paths) > 0:
             find_template(self, 'StimCell', path=self.template_paths)
             find_template(self, 'VecStimCell', path=self.template_paths)
-
 
     def parse_arena_domain(self, config):
         vertices = config['vertices']
