@@ -187,7 +187,6 @@ def spike_bin_counts(spkdict, time_bins):
     return bin_dict
 
 
-
 def spike_rates (spkdict):
     """
     Calculates firing rates based on interspike intervals computed from the given spike dictionary.
@@ -229,6 +228,7 @@ def spike_covariate(population, spkdict, time_bins, nbins_before, nbins_after):
     return X
 
 
+
 def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajectory_id=None, output_file_path=None,
                             progress=False, baks_alpha=None, baks_beta=None,
                             inferred_rate_attr_name='Inferred Rate Map', **kwargs):
@@ -254,8 +254,6 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
         spkts = np.asarray(lst, dtype=np.float32)
         return spkts[(spkts >= t_start) & (spkts <= t_stop)]
 
-    def get_spk_rate(spkts, time_bins, **kwargs):
-        return baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
     
     t_start = time_bins[0]
     t_stop = time_bins[-1]
@@ -496,7 +494,6 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
     return pf_dict
             
 
-
 def coactive_sets (population, spkdict, time_bins, return_tree=False):
     """
     Estimates co-active activity ensembles from the given spike dictionary.
@@ -531,7 +528,7 @@ def coactive_sets (population, spkdict, time_bins, return_tree=False):
         fdist = np.asarray([ nndist[inn] for inn in inds ])
         fnnrs.append(fnns)
         fnndists.append(fdist)
-        
+
     if return_tree:
         return n_samples, fnnrs, fnndists, (tree, active_gid)
     else:
