@@ -43,11 +43,13 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     try:
         interp_rate = np.interp(interp_t, t, rate)
     except Exception:
-        print 't shape: %s rate shape: %s' % (str(t.shape), str(rate.shape))
+        print('t shape: %s rate shape: %s' % (str(t.shape), str(rate.shape)))
     interp_rate /= 1000.
-    non_zero = np.where(interp_rate > 0.)[0]
-    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
     spike_times = []
+    non_zero = np.where(interp_rate > 1.e-100)[0]
+    if len(non_zero) == 0:
+        return spike_times
+    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
     max_rate = np.max(interp_rate)
     if not max_rate > 0.:
         return spike_times

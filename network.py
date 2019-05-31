@@ -799,6 +799,7 @@ def init_input_cells(env, input_sources=None):
     :param input_sources: a dictionary of the form { pop_name, gid_sources }
     If provided, the set of gids specified in gid_sources will be 
     initialized with pre-recorded spike trains read from env.spike_input_path / env.spike_input_ns.
+    TODO: 'Vector Stimulus' and 'spiketrain' should not be a hard-coded namespace and attr_name to load input spikes.
     """
 
     rank = int(env.pc.id())
@@ -818,14 +819,15 @@ def init_input_cells(env, input_sources=None):
 
             if env.cell_selection is None:
                 if env.node_ranks is None:
-                    cell_vecstim_iter = scatter_read_cell_attributes(input_file_path, pop_name,
+                    cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                      namespaces=[vecstim_namespace],
                                                                      comm=env.comm, io_size=env.io_size)
                 else:
-                    cell_vecstim_iter = scatter_read_cell_attributes(input_file_path, pop_name,
+                    cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                      namespaces=[vecstim_namespace],
                                                                      node_rank_map=env.node_ranks,
                                                                      comm=env.comm, io_size=env.io_size)
+                cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
             else:
                 gid_range = [ gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank ]
                 

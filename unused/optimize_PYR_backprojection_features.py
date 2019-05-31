@@ -66,7 +66,7 @@ def init_context():
     if 'input_params_file_path' in context():
         input_params = read_from_yaml(context.input_params_file_path, include_loader=IncludeLoader)
     else:
-        input_params = read_from_yaml('../config/Input_Features.yaml', include_loader=IncludeLoader)
+        input_params = read_from_yaml('../config/Input_Configuration.yaml', include_loader=IncludeLoader)
     nmodules = input_params['number modules']
     field_width_x1 = input_params['field width params']['x1']
     field_width_x2 = input_params['field width params']['x2']
@@ -92,7 +92,8 @@ def init_context():
 
 @click.command()
 @click.option("--config-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False), default='../config/Input_Features.yaml')
+@click.option("--input-params-file-path", type=click.Path(exists=True, file_okay=True, dir_okay=False),
+              default='../config/Input_Configuration.yaml')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=True, dir_okay=True), default=None)
 @click.option("--export", is_flag=True, default=False)
 @click.option("--export-file-path", type=str, default=None)

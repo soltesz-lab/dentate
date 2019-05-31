@@ -6,14 +6,44 @@ import numpy as np
 import scipy
 from scipy import sparse
 
+
 class Struct:
     def __init__(self, **items):
         self.__dict__.update(items)
+
     def update(self, items):
         self.__dict__.update(items)
+
+    def __call__(self):
+        return self.__dict__
+
     def __getitem__(self, key):
         return self.__dict__[key]
-        
+
+
+class Context(object):
+    """
+    A container replacement for global variables to be shared and modified by any function in a module.
+    """
+    def __init__(self, namespace_dict=None, **kwargs):
+        self.update(namespace_dict, **kwargs)
+
+    def update(self, namespace_dict=None, **kwargs):
+        """
+        Converts items in a dictionary (such as globals() or locals()) into context object internals.
+        :param namespace_dict: dict
+        """
+        if namespace_dict is not None:
+            self.__dict__.update(namespace_dict)
+        self.__dict__.update(kwargs)
+
+    def __call__(self):
+        return self.__dict__
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+
 class IncludeLoader(yaml.Loader):
     """
     YAML loader with `!include` handler.
@@ -91,6 +121,19 @@ def read_from_yaml(file_path, include_loader=None):
         return data
     else:
         raise IOError('read_from_yaml: invalid file_path: %s' % file_path)
+
+
+def print_param_dict_like_yaml(param_dict, digits=6):
+    """
+    Assumes a flat dict with int or float values.
+    :param param_dict: dict
+    :param digits: int
+    """
+    for param_name, param_val in param_dict.iteritems():
+        if isinstance(param_val, int):
+            print '%s: %s' % (param_name, param_val)
+        else:
+            print '%s: %.*E' % (param_name, digits, param_val)
 
 
 def nested_convert_scalars(data):
@@ -459,7 +502,7 @@ def add_bins(bins1, bins2, datatype):
     return bins1
 
 
-def baks (spktimes, time, a=1.5, b=None):
+def baks(spktimes, time, a=1.5, b=None):
     """
     Bayesian Adaptive Kernel Smoother (BAKS)
     BAKS is a method for estimating firing rate from spike train data that uses kernel smoothing technique 
@@ -476,18 +519,15 @@ def baks (spktimes, time, a=1.5, b=None):
     Based on "Estimation of neuronal firing rate using Bayesian adaptive kernel smoother (BAKS)"
     https://github.com/nurahmadi/BAKS
     """
-
-    import scipy
     from scipy.special import gamma
 
     n = len(spktimes)
     sumnum = 0
-    sumdenom = 0;
+    sumdenom = 0
     
     if b is None:
-        b = float(n)**0.8
-    else:
-        b = float(n)**b
+        b = 0.8
+    b = float(n)**b
     
     for i in xrange(n):
         
@@ -503,7 +543,8 @@ def baks (spktimes, time, a=1.5, b=None):
         K = (1./(np.sqrt(2.*np.pi) * h)) * np.exp(-((time-spktimes[j])**2)/(2.*h**2))
         rate = rate + K
 
-    return (rate, h)
+    return rate, h
+
 
 def kde_scipy(x, y, bin_size, **kwargs):
     """Kernel Density Estimation with Scipy"""

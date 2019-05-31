@@ -10,6 +10,8 @@ logger = utils.get_module_logger(__name__)
 class SimTimeEvent:
 
     def __init__(self, pc, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
+        if (int(pc.id()) == 0):
+            logger.info("*** allocated wall time is %.2f hours" % (max_walltime_hours))
         wt = time.time()
         self.pc  = pc
         self.walltime_status = wt
@@ -24,7 +26,6 @@ class SimTimeEvent:
         self.fih_checksimtime = h.FInitializeHandler(1, self.checksimtime)
         self.fih_simstatus = h.FInitializeHandler(1, self.simstatus)
         if (int(self.pc.id()) == 0):
-            logger.info("*** allocated wall time is %.2f hours" % (max_walltime_hours))
             logger.info("*** max wall time is %.2f s; max setup time was %.2f s" % (self.walltime_max, setup_time))
 
     def reset(self):
