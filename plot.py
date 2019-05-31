@@ -2178,7 +2178,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
 ## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
-                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate',
+                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate', progress = False,
                           overlay=True, graph_type='bar', **kwargs):
     ''' 
     Plots spike histogram. Returns figure handle.
@@ -2262,7 +2262,6 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
             sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, a=4.77)
-            count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
                 rate = dct['rate']
@@ -2564,22 +2563,22 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
 
         spkts         = spktlst[iplot]
         spkinds       = spkindlst[iplot]
-        bins          = np.arange(time_range[0], time_range[1], time_bin_size)
+        time_bins     = np.arange(time_range[0], time_range[1], time_bin_size)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(spkdict, bins, t_start=time_range[0], t_stop=time_range[1])
-        max_count     = np.zeros(bins.size-1)
-        max_rate      = np.zeros(bins.size-1)
+        sdf_dict      = spikedata.spike_density_estimate(subset, spkdict, time_bins, return_counts=True, a=4.77)
+        max_rate      = np.zeros(time_bins.size-1)
+        max_count     = np.zeros(time_bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
-        for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
-            counts     = count_bins
-            rates      = rate_bins
+        for ind, dct in viewitems(sdf_dict):
+            rate      = dct['rate']
+            count     = dct['count']
             for ibin in range(1, bins.size+1):
                 if counts[ibin-1] > 0:
                     d = bin_dict[ibin]
-                    d['counts'].append(counts[ibin-1])
-                    d['rates'].append(rates[ibin-1])
-            max_count  = np.maximum(max_count, np.asarray(count_bins))
-            max_rate   = np.maximum(max_rate, np.asarray(rate_bins))
+                    d['counts'].append(count[ibin-1])
+                    d['rates'].append(rate[ibin-1])
+            max_count  = np.maximum(max_count, count)
+            max_rate   = np.maximum(max_rate, rate)
 
         histlst  = []
         for ibin in sorted(bin_dict.keys()):

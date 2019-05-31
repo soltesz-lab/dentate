@@ -241,6 +241,12 @@ def zip_longest(*args, **kwds):
     else:
         return itertools.zip_longest(*args, **kwds)
 
+def consecutive(data):
+    """
+    Returns a list of arrays with consecutive values from data.
+    """
+    return np.split(data, np.where(np.diff(data) != 1)[0]+1)
+
     
 def make_geometric_graph(x, y, z, edges):
     """ Builds a NetworkX graph with xyz node coordinates and the node indices
@@ -745,3 +751,54 @@ def akde_probfun(x,w,mus,sigmas):
         pdf = np.add(pdf, np.exp(-0.5 * np.sum(xx,axis=1).reshape((-1,1)) + math.log(w[k]) - 0.5*math.log(s) - d * math.log(2. * math.pi) / 2.))
 
     return pdf
+
+
+def get_R2(y_test, y_pred):
+
+    """
+    Obtain coefficient of determination (R-squared, R2)
+
+    Parameters
+    ----------
+    y_test - the true outputs (a matrix of size number of examples x number of features)
+    y_pred - the predicted outputs (a matrix of size number of examples x number of features)
+
+    Returns
+    -------
+    An array of R2s for each feature
+    """
+
+    R2_list=[] 
+    for i in range(y_test.shape[1]): 
+        y_mean=np.mean(y_test[:,i])
+        R2=1-np.sum((y_pred[:,i]-y_test[:,i])**2)/np.sum((y_test[:,i]-y_mean)**2)
+        R2_list.append(R2)
+    R2_array=np.array(R2_list)
+    return R2_array
+
+
+def mvcorrcoef(X,y):
+    """
+    Multivariate correlation coefficient.
+    """
+    Xm = np.reshape(np.mean(X,axis=1),(X.shape[0],1))
+    ym = np.mean(y)
+    r_num = np.sum(np.multiply(X-Xm,y-ym),axis=1)
+    r_den = np.sqrt(np.sum(np.square(X-Xm),axis=1)*np.sum(np.square(y-ym)))
+    with np.errstate(divide='ignore', invalid='ignore'):
+        r = np.true_divide(r_num, r_den)
+        r[r == np.inf] = 0
+        r = np.nan_to_num(r)
+    return r
+
+
+def autocorr (y, lag):
+    leny = y.shape[1]
+    a = y[0,0:leny-lag].reshape(-1)
+    b = y[0,lag:leny].reshape(-1)
+    m = np.vstack((a[0,:].reshape(-1), b[0,:].reshape(-1)))
+    r = np.corrcoef(m)[0,1]
+    if math.isnan(r):
+        return 0.
+    else:
+        return r
