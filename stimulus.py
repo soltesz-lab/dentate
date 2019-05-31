@@ -747,7 +747,42 @@ def read_feature (feature_path, feature_namespace, population, module=None):
             feature_lst.append((gid, rate, num_fields))
  
     return feature_lst
-            
+
+
+def bin_stimulus_features(features, t, bin_size, time_range):
+    """
+    Continuous stimulus feature binning.
+
+    Parameters
+    ----------
+    features: matrix of size "number of times each feature was recorded" x "number of features"
+    t: a vector of size "number of times each feature was recorded"
+    bin_size: size of time bins
+    time_range: the start and end times for binning the stimulus
+
+
+    Returns
+    -------
+    matrix of size "number of time bins" x "number of features in the output"
+        the average value of each output feature in every time bin
+    """
+
+    t_start, t_end = time_range
+
+
+    edges = np.arange(t_start, t_end, bin_size)
+    nbins = edges.shape[0]-1 
+    nfeatures = features.shape[1] 
+    binned_features = np.empty([nbins, nfeatures])
+    for i in range(nbins): 
+        for j in range(nfeatures):
+            delta = edges[i+1] - edges[i]
+            bin_range = np.arange(edges[i], edges[i+1], delta / 5.)
+            ip_vals = np.interp(bin_range, t, features[:,j])
+            binned_features[i,j] = np.mean(ip_vals)
+
+    return binned_features
+
 
 ##
 ## Linearize position

@@ -3,45 +3,13 @@ import itertools
 from collections import defaultdict
 import numpy as np
 from dentate import utils
-from utils import viewitems, baks, akde
+from utils import viewitems, consecutive, baks, mvcorrcoef, autocorr
 from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
 logger = utils.get_module_logger(__name__)
 
-
-def consecutive(data):
-    """
-    Returns a list of arrays with consecutive values from data.
-    """
-    return np.split(data, np.where(np.diff(data) != 1)[0]+1)
-
-def mvcorrcoef(X,y):
-    """
-    Multivariate correlation coefficient.
-    """
-    Xm = np.reshape(np.mean(X,axis=1),(X.shape[0],1))
-    ym = np.mean(y)
-    r_num = np.sum(np.multiply(X-Xm,y-ym),axis=1)
-    r_den = np.sqrt(np.sum(np.square(X-Xm),axis=1)*np.sum(np.square(y-ym)))
-    with np.errstate(divide='ignore', invalid='ignore'):
-        r = np.true_divide(r_num, r_den)
-        r[r == np.inf] = 0
-        r = np.nan_to_num(r)
-    return r
-
-
-def autocorr (y, lag):
-    leny = y.shape[1]
-    a = y[0,0:leny-lag].reshape(-1)
-    b = y[0,lag:leny].reshape(-1)
-    m = np.vstack((a[0,:].reshape(-1), b[0,:].reshape(-1)))
-    r = np.corrcoef(m)[0,1]
-    if math.isnan(r):
-        return 0.
-    else:
-        return r
 
 def get_env_spike_dict(env, t_start=0.0):
     """
@@ -181,7 +149,7 @@ def make_spike_dict (spkinds, spkts):
     """
     spk_dict = defaultdict(list)
     for spkind, spkt in zip(np.nditer(spkinds), np.nditer(spkts)):
-        spk_dict[int(spkind)].append(spkt)
+        spk_dict[int(spkind)].append(float(spkt))
     return spk_dict
 
     
@@ -197,22 +165,18 @@ def interspike_intervals (spkdict):
             isi_dict[ind] = np.asarray([], dtype=np.float32)
     return isi_dict
 
-def spike_bin_counts(spkdict, bins):
-    count_bin_dict = {}
+    
+def spike_bin_counts(spkdict, time_bins):
+    bin_dict = {}
     for (ind, lst) in viewitems(spkdict):
 
         spkts = np.asarray(lst, dtype=np.float32)
-        bin_inds      = np.digitize(spkts, bins = bins)
-        count_bins    = []
-    
-        for ibin in range(1, len(bins)+1):
-            bin_spks  = spkts[bin_inds == ibin]
-            count    = bin_spks.size
-            count_bins.append(count)
+        bins, bin_edges = np.histogram(spkts, bins=time_bins)
         
-        count_bin_dict[ind] = np.asarray(count_bins, dtype=np.uint32)
+        bin_dict[ind] = bins
 
-    return count_bin_dict
+    return bin_dict
+
 
 def spike_rates (spkdict):
     """
@@ -229,6 +193,32 @@ def spike_rates (spkdict):
     return rate_dict
 
 
+def spike_covariate(population, spkdict, time_bins, nbins_before, nbins_after):
+    """
+    Creates the spike covariate matrix.
+
+    X: a matrix of size nbins x nadj x ncells
+    """
+    
+    spk_matrix = np.column_stack([ np.histogram(np.asarray(lst), bins=time_bins)[0]
+                                   for i, (gid, lst) in enumerate(viewitems(spkdict[population])) if len(lst) > 1 ])
+
+    nbins  = spk_matrix.shape[0]
+    ncells = spk_matrix.shape[1]
+    nadj   = nbins_before+nbins_after+1
+    
+    X      = np.empty([nbins, nadj, ncells]) 
+    X[:]   = np.NaN
+    
+    start_idx=0
+    for i in range(nbins-nbins_before-nbins_after): 
+        end_idx=start_idx+nadj
+        X[i+nbins_before,:,:] = spk_matrix[start_idx:end_idx,:] 
+        start_idx=start_idx+1
+        
+    return X
+
+
 def spike_density_estimate (population, spkdict, time_bins, save=False, progress=False, **kwargs):
     """
     Calculates spike density function for the given spike trains.
@@ -241,15 +231,20 @@ def spike_density_estimate (population, spkdict, time_bins, save=False, progress
         spkts = np.asarray(lst, dtype=np.float32)
         return spkts[(spkts >= t_start) & (spkts <= t_stop)]
 
+    def get_spk_rate(spkts, time_bins, **kwargs):
+        return baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+    
     t_start = time_bins[0]
     t_stop = time_bins[-1]
 
     spktrains = { ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict) }
+    f = get_spk_rate
+        
     if progress:
-        spk_rate_dict = { ind: baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+        spk_density_dict = { ind: f(spkts, time_bins, **kwargs)
                           for ind, spkts in tqdm(viewitems(spktrains)) if len(spkts) > 1 }
     else:
-        spk_rate_dict = { ind: baks(spkts / 1000., time_bins / 1000., **kwargs)[0].reshape((-1,))
+        spk_density_dict = { ind: f(spkts, time_bins, **kwargs)
                           for ind, spkts in viewitems(spktrains) if len(spkts) > 1 }
         
 
@@ -261,7 +256,10 @@ def spike_density_estimate (population, spkdict, time_bins, save=False, progress
 
         write_cell_attributes(filename, population, spk_rate_dict, namespace='Spike Density Function')
 
-    result = { ind: { 'rate': rate, 'time': time_bins } for ind, rate in viewitems(spk_rate_dict) }
+        
+    result = { ind: { 'rate': rate, 'time': time_bins }
+              for ind, rate in viewitems(spk_density_dict) }
+    
     return result
             
 
@@ -424,39 +422,45 @@ def place_fields (population, bin_size, rate_dict, trajectory, nstdev=1.5, binst
     return pf_dict
             
 
-def activity_sequences (population, spkdict, time_bins):
+def coactive_sets (population, spkdict, time_bins, return_tree=False):
     """
-    Estimates activity ensembles from the given instantaneous spike rate dictionary.
+    Estimates co-active activity ensembles from the given spike dictionary.
     """
 
     import sklearn
     from sklearn.neighbors import BallTree
+    
+    acv_dict = { gid: np.histogram(np.asarray(lst), bins=time_bins)[0] 
+                 for (gid, lst) in viewitems(spkdict[population]) if len(lst) > 1 }
+    n_features = len(time_bins)-1
+    n_samples = len(acv_dict)
 
-    def make_spkbin (lst, time_bins):
-        spkts = np.asarray(lst, dtype=np.float32)
-        bins = np.digitize(spkts, time_bins)
+    active_gid = {}
+    active_bins = np.zeros((n_samples, n_features),dtype=np.bool)
+    for i, (gid, acv) in enumerate(viewitems(acv_dict)):
+        active_bins[i,:] = acv > 0
+        active_gid[i] = gid
+    
+    tree = BallTree(active_bins, metric='jaccard')
+    qbins = np.zeros((n_features, n_features),dtype=np.bool)
+    for ibin in xrange(n_features):
+        qbins[ibin,ibin] = True
 
-    spk_bin_dict = { ind: make_spkbin(lst, time_bins) for (ind, lst) in viewitems(spkdict) }
-    acv_dict = { ind: np.asarray([ len(bin) for bin in bins ]) for ind, bins in viewitems(spkdict) }
-    
-    coactive_dict = defaultdict(set)
-    for i, acv_i in viewitems(acv_dict):
-        for j, acv_j in viewitems(acv_dict):
-            if i != j:
-                if np.dot(acv_i, acv_j) > 0:
-                    coactive_dict[i].add(j)
-                    coactive_dict[j].add(i)
-    apvs = np.column_stack([ np.asarray([ acv_dict[ind] > 0.1 ], dtype=np.bool) for ind in sorted(acv_dict.keys()) ])
-    
-    tree = BallTree(apvs, leaf_size=2, metric='jaccard')
-                    
-    
-    
-    return tree
-            
-            
+    nnrs, nndists = tree.query_radius(qbins, r=1, return_distance=True)
 
+    fnnrs = []
+    fnndists = []
+    for i, (nns, nndist) in enumerate(itertools.izip(nnrs, nndists)):
+        inds = [ inn for inn, nn in enumerate(nns) if np.any(np.logical_and(active_bins[nn,:], active_bins[i,:])) ] 
+        fnns = np.asarray([ nns[inn] for inn in inds ])
+        fdist = np.asarray([ nndist[inn] for inn in inds ])
+        fnnrs.append(fnns)
+        fnndists.append(fdist)
     
+    if return_tree:
+        return n_samples, fnnrs, fnndists, (tree, active_gid)
+    else:
+        return n_samples, fnnrs, fnndists
 
 
 
