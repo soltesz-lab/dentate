@@ -247,6 +247,15 @@ def consecutive(data):
     """
     return np.split(data, np.where(np.diff(data) != 1)[0]+1)
 
+def ifilternone(iterable):
+    for x in iterable:
+        if not (x is None):
+            yield x
+
+
+def flatten(iterables):
+    return (elem for iterable in ifilternone(iterables) for elem in iterable)
+
     
 def make_geometric_graph(x, y, z, edges):
     """ Builds a NetworkX graph with xyz node coordinates and the node indices

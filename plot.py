@@ -4,7 +4,7 @@ from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
 import sys, os
-from scipy import signal, interpolate
+from scipy import signal, interpolate, fftpack
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.cm as cm
@@ -21,12 +21,11 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import h5py
 from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, \
     bcast_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
-import dentate.utils as utils
 import dentate.statedata as statedata
 from dentate.env import Env
 from dentate.cells import *
 from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
-from dentate.utils import Struct, get_module_logger, viewitems, update_bins, add_bins, merge_bins, finalize_bins
+from dentate.utils import Struct, get_module_logger, viewitems, update_bins, add_bins, merge_bins, finalize_bins, zip_longest, make_geometric_graph
 
 
 try:
@@ -79,15 +78,6 @@ def show_figure():
     except:
         plt.show()
 
-
-def ifilternone(iterable):
-    for x in iterable:
-        if not (x is None):
-            yield x
-
-
-def flatten(iterables):
-    return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
 
 def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, **kwargs):
@@ -435,14 +425,14 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     dist_u_bins = defaultdict(dict)
     dist_v_bins = defaultdict(dict)
     
-    for prj_gen_tuple in utils.zip_longest(*gg):
+    for prj_gen_tuple in zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]
         if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
             raise Exception('destination %s: destination_gid %i not matched across multiple projection generators: %s' %
                             (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
 
         if destination_gid is not None:
-            for (source, (this_destination_gid,rest)) in utils.zip_longest(sources, prj_gen_tuple):
+            for (source, (this_destination_gid,rest)) in zip_longest(sources, prj_gen_tuple):
                 this_source_soma_distance_U = source_soma_distance_U[source]
                 this_source_soma_distance_V = source_soma_distance_V[source]
                 this_dist_bins = dist_bins[source]
@@ -1214,7 +1204,7 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
         z = zcoords[dend_idxs].reshape(-1,)
 
         # Make a NetworkX graph out of our point and edge data
-        g = utils.make_geometric_graph(x, y, z, edges)
+        g = make_geometric_graph(x, y, z, edges)
 
         # Compute minimum spanning tree using networkx
         # nx.mst returns an edge generator
@@ -1327,30 +1317,27 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-def plot_lfp(config, input_path, time_range = None, compute_psd=False, sliding_window=1024, **kwargs):
+def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_size=1024, frequency_range=(0, 400.), overlap=0.5, **kwargs):
     '''
-    Line plot of LFP state variable (default: v). Returns the figure handle.
+    Line plot of LFP state variable (default: v). Returns figure handle.
 
     config: path to model configuration file
     input_path: file with LFP trace data
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-    time_variable: Name of variable containing spike times (default: 't')
     '''
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
     env = Env(config_file=config)
 
-    fig = plt.figure(figsize=fig_options.figSize)
-
     nrows = len(env.lfpConfig)
     if compute_psd:
-        ncols = 1
-    else:
         ncols = 2
+    else:
+        ncols = 1
         
-    fig, axes = plt.subplots(nrows, ncols)
-    for ilfp, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=fig_options.figSize, squeeze=False)
+    for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
         infile = h5py.File(input_path)
@@ -1372,45 +1359,48 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, sliding_w
         dt = lfp_config_dict['dt']
 
         if compute_psd:
-            Fs = 1. / dt
+            Fs = 1000. / dt
 
-            nperseg    = sliding_window
+            nperseg    = window_size
             win        = signal.get_window('hanning', nperseg)
+            noverlap   = int(overlap * nperseg)
+            
+            freqs, psd = signal.welch(v, fs=Fs, scaling='density', nperseg=nperseg, noverlap=noverlap,
+                                      window=win, return_onesided=True)
+            
+            freqinds = np.where((freqs >= frequency_range[0]) & (freqs <= frequency_range[1]))
 
-            freqs, psd = signal.welch(v, fs=Fs, scaling='density', nperseg=nperseg, window=win,
-                                      return_onesided=True)
+            freqs = freqs[freqinds]
+            psd = psd[freqinds]
             if np.all(psd):
                 psd = 10. * np.log10(psd)
 
             peak_index = np.where(psd == np.max(psd))[0]
 
 
+        axes[iplot, 0].set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
+        axes[iplot, 0].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
+        axes[iplot, 0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+        axes[iplot, 0].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
         if compute_psd:
-            axes[ilfp, 0].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
-            axes[ilfp, 0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            axes[ilfp, 0].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
-            axes[ilfp, 1].plot(freqs, psd, linewidth=fig_options.lw)
-            axes[ilfp, 1].set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
-            axes[ilfp, 1].set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
-            axes[ilfp, 1].set_title('%s (peak: %.3g Hz)' % (namespace_id, freqs[peak_index]), fontsize=fig_options.fontSize)            
+            axes[iplot, 1].plot(freqs, psd, linewidth=fig_options.lw)
+            axes[iplot, 1].set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
+            axes[iplot, 1].set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
+            axes[iplot, 1].set_title('PSD %s (peak: %.3g Hz)' % (namespace_id, freqs[peak_index]), fontsize=fig_options.fontSize)            
+            
+    # save figure
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, str):
+            filename = fig_options.saveFig
         else:
-            axes[ilfp].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
-            axes[ilfp].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            axes[ilfp].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
-            
-            
-        # save figure
-        if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, str):
-                filename = fig_options.saveFig
-            else:
-                filename = namespace_id+'.%s' % fig_options.figFormat
-                plt.savefig(filename)
+            filename = namespace_id+'.%s' % fig_options.figFormat
+            plt.savefig(filename)
                 
-        # show fig
-        if fig_options.showFig:
-            show_figure()
+    # show fig
+    if fig_options.showFig:
+        show_figure()
 
+    return fig
         
 
 
@@ -1625,7 +1615,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     lgd_info = [(100. * fraction_active[pop_name], avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
             
     # set raster plot y tick labels to the middle of the index range for each population
-    for pop_name, a in utils.zip_longest(include, fig.axes[:-1]):
+    for pop_name, a in zip_longest(include, fig.axes[:-1]):
         maxN = max(pop_active_cells[pop_name])
         minN = min(pop_active_cells[pop_name])
         loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
@@ -1662,9 +1652,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
         if pop_rates:
-            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(include, lgd_info) ]
         else:
-            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(include, lgd_info) ]
         # Add legend
         lgd = fig.legend(sctplots, lgd_labels, loc = 'center right', 
                          fontsize='small', scatterpoints=1, markerscale=5.,
@@ -1673,9 +1663,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
        
     elif labels == 'overlay':
         if pop_rates:
-            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(include, lgd_info) ]
         else:
-            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(include, lgd_info) ]
         for i, (pop_name, lgd_info) in enumerate(zip(spkpoplst, lgd_info)):
                 at = AnchoredText(pop_name + ' ' + lgd_label,
                                   loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
@@ -1683,7 +1673,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         max_label_len = max([len(l) for l in lgd_labels])
         
     elif labels == 'yticks':
-        for pop_name, info, a in utils.zip_longest(include, lgd_info, fig.axes[:-1]):
+        for pop_name, info, a in zip_longest(include, lgd_info, fig.axes[:-1]):
             if pop_rates:
                 label = '%.02f%%\n%.2g Hz' % (info[0], info[1])
             else:
@@ -1784,7 +1774,7 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
     
     return scts + [lgd(scts), plt.text(0.05, 0.95, 't = %f ms' % t0, fontsize=fig_options.fontSize, transform=ax.transAxes)]
         
-aniplots = []
+spatial_raster_aniplots = []
         
 ## Plot spike raster
 def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_namespace='Arc Distances',
@@ -1872,7 +1862,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, marker, pop_colors)
     ani = FuncAnimation(fig, func=update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
                         blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
-    aniplots.append(ani)
+    spatial_raster_aniplots.append(ani)
 
     # show fig 
     if fig_options.showFig:
@@ -2309,7 +2299,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict      = defaultdict(lambda: {'counts':0, 'active': 0})
             for (ind, counts) in viewitems(count_bin_dict):
-                for ibin in range(0, len(time_bins)):
+                for ibin in range(0, len(time_bins)-1):
                     d = bin_dict[ibin]
                     d['counts'] += counts[ibin]
                     d['active'] += 1
@@ -3045,11 +3035,11 @@ def save_figure(file_name_prefix, fig=None, **kwargs):
         plt.savefig(fig_file_path)
 
 
-def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
-                   bin_size = 1., sliding_window = 1024, smooth = 0, dt = 0.025, overlay = True,
-                   **kwargs):
+def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
+                    bin_size = 1., window_size = 1024, smooth = 0, frequency_range=(0, 100.), overlap=0.5,
+                    overlay = True, **kwargs):
     ''' 
-    Plots firing rate power spectral density (PSD). Returns figure handle.
+    Plots spike train power spectral density (PSD). Returns figure handle.
         - input_path: file with spike data
         - namespace_id: attribute namespace for spike events
         - include (['eachPop'|<population name>]): List of data series to include. 
@@ -3097,7 +3087,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     fig, ax1 = plt.subplots(figsize=fig_options.figSize)
 
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
-    nperseg    = sliding_window
+    nperseg    = window_size
     win        = signal.get_window('hanning', nperseg)
  
     psds = []
@@ -3106,18 +3096,21 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
 
         spk_count, bin_edges = np.histogram(spkts, bins=time_bins)
 
-        np.seterr('raise')
-
         if smooth:
             # smoothen firing rate histogram
-            hsignal = signal.savgol_filter(spk_count, window_length=nperseg/2 + 1, polyorder=smooth) 
+            hsignal = signal.savgol_filter(spk_count, window_length=5, polyorder=smooth, mode='nearest')
         else:
             hsignal = spk_count
-        
+
         Fs = 1000. / bin_size
 
-        freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, window=win,
-                                  return_onesided=True)
+        noverlap = int(overlap * nperseg)
+        freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, noverlap=noverlap, return_onesided=True)
+        freqinds = np.where((freqs >= frequency_range[0]) & (freqs <= frequency_range[1]))
+
+        freqs = freqs[freqinds]
+        psd = psd[freqinds]
+
         if np.all(psd):
             psd = 10. * np.log10(psd)
 
@@ -3139,7 +3132,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
             plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize) # add yaxis in opposite side
         if iplot == len(spkpoplst)-1:
             plt.xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
-        plt.xlim([0, (Fs/2)-1])
+        plt.xlim([0, np.max(freqs)])
 
         psds.append(psd)
         
@@ -3154,7 +3147,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
         if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
-            filename = namespace_id+'_'+'ratePSD.%s' % fig_options.figFormat
+            filename = namespace_id+' '+'rate PSD.%s' % fig_options.figFormat
         plt.savefig(filename)
 
     # show fig 
