@@ -11,16 +11,15 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--bin-size", type=float, default=10.0)
-@click.option("--sliding-window", type=int, default=256)
-@click.option("--overlap", type=float, default=0.0)
+@click.option("--bin-size", type=float, default=1.0)
+@click.option("--sliding-window", type=int, default=1024)
 @click.option("--smooth", type=int)
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
 @click.option("--overlay", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, bin_size, sliding_window, overlap, smooth, t_max, t_min, font_size, overlay, verbose):
+def main(spike_events_path, spike_events_namespace, populations, bin_size, sliding_window, smooth, t_max, t_min, font_size, overlay, verbose):
 
     utils.config_logging(verbose)
 
@@ -36,8 +35,8 @@ def main(spike_events_path, spike_events_namespace, populations, bin_size, slidi
         populations = ['eachPop']
 
     plot.plot_rate_PSD (spike_events_path, spike_events_namespace, populations, time_range=time_range, 
-                        bin_size=bin_size, sliding_window=sliding_window, overlap=overlap,
-                        smooth=smooth, fontSize=font_size, overlay=overlay, saveFig=True)
+                        bin_size=bin_size, sliding_window=sliding_window, smooth=smooth,
+                        fontSize=font_size, overlay=overlay, saveFig=True)
     
 
 if __name__ == '__main__':

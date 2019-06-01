@@ -1327,7 +1327,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-def plot_lfp(config, input_path, time_range = None, **kwargs):
+def plot_lfp(config, input_path, time_range = None, compute_psd=False, sliding_window=1024, **kwargs):
     '''
     Line plot of LFP state variable (default: v). Returns the figure handle.
 
@@ -1342,9 +1342,15 @@ def plot_lfp(config, input_path, time_range = None, **kwargs):
     env = Env(config_file=config)
 
     fig = plt.figure(figsize=fig_options.figSize)
-    ax = plt.gca()
 
-    for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
+    nrows = len(env.lfpConfig)
+    if compute_psd:
+        ncols = 1
+    else:
+        ncols = 2
+        
+    fig, axes = plt.subplots(nrows, ncols)
+    for ilfp, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
         infile = h5py.File(input_path)
@@ -1362,12 +1368,37 @@ def plot_lfp(config, input_path, time_range = None, **kwargs):
                     vlst.append(v)
             t = np.asarray(tlst)
             v = np.asarray(vlst)
-        
-        ax.plot(t, v, label=lfp_label)
-        
-        ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-        ax.set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
 
+        dt = lfp_config_dict['dt']
+
+        if compute_psd:
+            Fs = 1. / dt
+
+            nperseg    = sliding_window
+            win        = signal.get_window('hanning', nperseg)
+
+            freqs, psd = signal.welch(v, fs=Fs, scaling='density', nperseg=nperseg, window=win,
+                                      return_onesided=True)
+            if np.all(psd):
+                psd = 10. * np.log10(psd)
+
+            peak_index = np.where(psd == np.max(psd))[0]
+
+
+        if compute_psd:
+            axes[ilfp, 0].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
+            axes[ilfp, 0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            axes[ilfp, 0].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
+            axes[ilfp, 1].plot(freqs, psd, linewidth=fig_options.lw)
+            axes[ilfp, 1].set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
+            axes[ilfp, 1].set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
+            axes[ilfp, 1].set_title('%s (peak: %.3g Hz)' % (namespace_id, freqs[peak_index]), fontsize=fig_options.fontSize)            
+        else:
+            axes[ilfp].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
+            axes[ilfp].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            axes[ilfp].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
+            
+            
         # save figure
         if fig_options.saveFig:
             if isinstance(fig_options.saveFig, str):
@@ -1522,7 +1553,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     # sort according to start index        
     include.sort(key=lambda x: pop_start_inds[x])
     
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1813,7 +1844,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
         distance_U_dict[population] = distance_U
         distance_V_dict[population] = distance_V
         
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1894,7 +1925,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     include.reverse()
 
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
-                                           time_variable=time_variable, time_range=time_range)
+                                           spike_train_attr_name=time_variable, time_range=time_range)
     indata  = statedata.read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
                                     variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
 
@@ -2077,7 +2108,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2094,7 +2125,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, a=4.77)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
@@ -2212,7 +2243,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
             include.append(pop)
         include.reverse()
         
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2261,7 +2292,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, a=4.77)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
                 rate = dct['rate']
@@ -2394,7 +2425,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2533,7 +2564,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2565,7 +2596,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         spkinds       = spkindlst[iplot]
         time_bins     = np.arange(time_range[0], time_range[1], time_bin_size)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict      = spikedata.spike_density_estimate(subset, spkdict, time_bins, return_counts=True, a=4.77)
+        sdf_dict      = spikedata.spike_density_estimate(subset, spkdict, time_bins, return_counts=True)
         max_rate      = np.zeros(time_bins.size-1)
         max_count     = np.zeros(time_bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
@@ -3015,7 +3046,7 @@ def save_figure(file_name_prefix, fig=None, **kwargs):
 
 
 def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
-                   bin_size = 1., sliding_window = 256, overlap=0.0, smooth = 0, overlay = True,
+                   bin_size = 1., sliding_window = 1024, smooth = 0, dt = 0.025, overlay = True,
                    **kwargs):
     ''' 
     Plots firing rate power spectral density (PSD). Returns figure handle.
@@ -3049,7 +3080,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable, 
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, 
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -3066,64 +3097,43 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     fig, ax1 = plt.subplots(figsize=fig_options.figSize)
 
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
-
     nperseg    = sliding_window
-    n_overlap  = sliding_window * overlap
     win        = signal.get_window('hanning', nperseg)
  
     psds = []
     # Plot separate line for each entry in include
     for iplot, (subset, spkinds, spkts) in enumerate(zip(spkpoplst, spkindlst, spktlst)):
 
-        spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
-        min_freq   = float('inf')
-        max_freq   = float('-inf')
-        n_units    = len(sdf_dict)
+        spk_count, bin_edges = np.histogram(spkts, bins=time_bins)
 
-        psd_dict = {}
-        for (ind, dct) in viewitems(sdf_dict):
-            rate = dct['rate']
+        np.seterr('raise')
 
-            if smooth:
-                # smoothen firing rate histogram
-                hsignal = signal.savgol_filter(rate, window_length=nperseg/2 + 1, polyorder=smooth) 
-            else:
-                hsignal = rate
-
-            Fs = 1000.0/bin_size
-
-            freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, window=win,
-                                       noverlap=n_overlap, return_onesided=True)
+        if smooth:
+            # smoothen firing rate histogram
+            hsignal = signal.savgol_filter(spk_count, window_length=nperseg/2 + 1, polyorder=smooth) 
+        else:
+            hsignal = spk_count
         
-            psd = 10*np.log10(psd)
-        
-            min_freq = min(np.min(freqs), min_freq)
-            max_freq = max(np.max(freqs), max_freq)
+        Fs = 1000. / bin_size
 
-            psd_dict[ind] = { 'psd': psd, 'freqs': freqs }
-            
-        freq_span = max_freq - min_freq
-        freq_bins = np.arange(min_freq, max_freq, 0.1)
+        freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, window=win,
+                                  return_onesided=True)
+        if np.all(psd):
+            psd = 10. * np.log10(psd)
 
-        psd_bin_array = np.zeros((len(freq_bins),))
-        for (ind, dct) in viewitems(psd_dict):
-            interp_psd = np.interp(freq_bins, dct['freqs'], dct['psd'])
-            for ibin in range(0, len(freq_bins)):
-                bin_psd = interp_psd[ibin]
-                psd_bin_array[ibin] += bin_psd
+        min_freq = np.min(freqs)
+        max_freq = np.max(freqs)
 
-        psd_bin_mean = psd_bin_array / n_units
-        peak_index = np.where(psd_bin_mean == np.max(psd_bin_mean))[0]
+        peak_index = np.where(psd == np.max(psd))[0]
         
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
             label = str(subset)
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title ('%s (peak: %.3g Hz)' % (label, freq_bins[peak_index]), fontsize=fig_options.fontSize)
+            plt.title ('%s (peak: %.3g Hz)' % (label, freqs[peak_index]), fontsize=fig_options.fontSize)
 
-        plt.plot(freq_bins, psd_bin_mean, linewidth=fig_options.lw, color=color)
+        plt.plot(freqs, psd, linewidth=fig_options.lw, color=color)
         
         if iplot == 0:
             plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize) # add yaxis in opposite side
@@ -3131,7 +3141,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
             plt.xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
         plt.xlim([0, (Fs/2)-1])
 
-        psds.append(psd_bin_mean)
+        psds.append(psd)
         
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
         try:
@@ -3357,7 +3367,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -3458,7 +3468,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']

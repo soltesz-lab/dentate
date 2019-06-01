@@ -179,10 +179,11 @@ def spike_bin_counts(spkdict, time_bins):
     bin_dict = {}
     for (ind, lst) in viewitems(spkdict):
 
-        spkts = np.asarray(lst, dtype=np.float32)
-        bins, bin_edges = np.histogram(spkts, bins=time_bins)
-        
-        bin_dict[ind] = bins
+        if len(lst) > 0:
+            spkts = np.asarray(lst, dtype=np.float32)
+            bins, bin_edges = np.histogram(spkts, bins=time_bins)
+            
+            bin_dict[ind] = bins
 
     return bin_dict
 
@@ -230,7 +231,7 @@ def spike_covariate(population, spkdict, time_bins, nbins_before, nbins_after):
 
 
 def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajectory_id=None, output_file_path=None,
-                            progress=False, baks_alpha=None, baks_beta=None,
+                            progress=False, baks_alpha=4.77, baks_beta=None,
                             inferred_rate_attr_name='Inferred Rate Map', **kwargs):
     """
     Calculates spike density function for the given spike trains.
