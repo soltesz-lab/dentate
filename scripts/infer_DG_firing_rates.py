@@ -5,13 +5,14 @@ dorsal-ventrally, there is no organization in the transverse or septo-temporal e
 CA3 and LEC are assumed to exhibit place fields. Their field width varies septal-temporally. Here we assume a
 continuous exponential gradient of field widths, with the same parameters as those controlling MEC grid width.
 """
-from dentate.utils import *
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
+from dentate.utils import *
 from dentate.env import Env
 from dentate.stimulus import SelectivityModuleConfig, get_input_cell_config, get_2D_arena_spatial_mesh, \
-    plot_2D_rate_map, choose_input_selectivity_type
+    choose_input_selectivity_type
+from dentate.plot import plot_2D_rate_map
 import click
 
 

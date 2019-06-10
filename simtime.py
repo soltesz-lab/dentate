@@ -1,13 +1,12 @@
 """Routines to keep track of simulation computation time and terminate the simulation if not enough time has been allocated."""
-
 import time
 from neuron import h
-from dentate import utils
+from dentate.utils import *
 
 # This logger will inherit its settings from the root logger, created in dentate.env
-logger = utils.get_module_logger(__name__)
+logger = get_module_logger(__name__)
 
-class SimTimeEvent:
+class SimTimeEvent(object):
 
     def __init__(self, pc, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
         if (int(pc.id()) == 0):
@@ -53,7 +52,7 @@ class SimTimeEvent:
         if (h.t > 0):
             tt = wt - self.walltime_checksimtime
             ## cumulative moving average wall time time per dt_checksimtime
-            self.tcma = self.tcma + (tt - self.tcma) / (self.nsimsteps + 1)
+            self.tcma = self.tcma + old_div((tt - self.tcma), (self.nsimsteps + 1))
             self.tcsum = self.tcsum + tt
             ## remaining physical time
             trem = h.tstop - h.t
@@ -61,7 +60,7 @@ class SimTimeEvent:
             walltime_rem = self.walltime_max - self.tcsum
             walltime_rem_min = self.pc.allreduce(walltime_rem, 3) ## minimum value
             ## wall time necessary to complete the simulation
-            walltime_needed = (trem/self.dt_checksimtime)*self.tcma+self.results_write_time
+            walltime_needed = (old_div(trem,self.dt_checksimtime))*self.tcma+self.results_write_time
             walltime_needed_max = self.pc.allreduce(walltime_needed, 2) ## maximum value
             if (int(self.pc.id()) == 0): 
                 logger.info("*** remaining computation time is %.2f s and remaining simulation time is %.2f ms" % (walltime_rem, trem))
@@ -69,7 +68,7 @@ class SimTimeEvent:
                 logger.info("*** computation time so far is %.2f s" % self.tcsum)
             ## if not enough time, reduce tstop and perform collective operations to set minimum (earliest) tstop across all ranks
             if (walltime_needed_max > walltime_rem_min):
-                tstop1 = int((walltime_rem - self.results_write_time)/(self.tcma/self.dt_checksimtime)) + h.t
+                tstop1 = int(old_div((walltime_rem - self.results_write_time),(old_div(self.tcma,self.dt_checksimtime)))) + h.t
                 min_tstop = self.pc.allreduce(tstop1, 3) ## minimum value
                 if (int(self.pc.id()) == 0):
                         logger.info("*** not enough time to complete %.2f ms simulation, simulation will likely stop around %2.f ms" % (h.tstop, min_tstop))

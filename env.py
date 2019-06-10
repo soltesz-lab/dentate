@@ -3,29 +3,29 @@ import numpy as np
 import yaml
 from collections import namedtuple, defaultdict
 from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
-from dentate.synapses import SynapseAttributes
 from mpi4py import MPI
 from neuron import h
 from dentate.utils import *
+from dentate.synapses import SynapseAttributes
 from dentate.neuron_utils import find_template
 
 
 SynapseConfig = namedtuple('SynapseConfig',
-                               ['type',
-                                'sections',
-                                'layers',
-                                'proportions',
-                                'contacts',
-                                'mechanisms'])
+                           ['type',
+                            'sections',
+                            'layers',
+                            'proportions',
+                            'contacts',
+                            'mechanisms'])
 
 GapjunctionConfig = namedtuple('GapjunctionConfig',
-                                 ['sections',
-                                  'connection_probability',
-                                  'connection_parameters',
-                                  'connection_bounds',
-                                  'coupling_coefficients',
-                                  'coupling_parameters',
-                                  'coupling_bounds'])
+                               ['sections',
+                                'connection_probability',
+                                'connection_parameters',
+                                'connection_bounds',
+                                'coupling_coefficients',
+                                'coupling_parameters',
+                                'coupling_bounds'])
 
 NetclampConfig = namedtuple('NetclampConfig',
                             ['template_params',
@@ -33,25 +33,26 @@ NetclampConfig = namedtuple('NetclampConfig',
                              'weight_generators',
                              'optimize_parameters'])
 
-ArenaConfig  = namedtuple('Arena',
-                          ['name',
-                           'domain',
-                           'trajectories',
-                           'properties'])
+ArenaConfig = namedtuple('Arena',
+                         ['name',
+                          'domain',
+                          'trajectories',
+                          'properties'])
 
 DomainConfig = namedtuple('Domain',
-                            ['vertices',
-                             'simplices'])
+                          ['vertices',
+                           'simplices'])
 
 TrajectoryConfig = namedtuple('Trajectory',
                               ['velocity',
                                'path'])
 
 
-class Env:
+class Env(object):
     """
     Network model configuration.
     """
+
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
                  config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0,
                  vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
@@ -88,7 +89,7 @@ class Env:
         self.Synapse_Types = {}
         self.layers = {}
         self.globals = {}
-        
+
         self.gidset = set([])
         self.cells = []
         self.gjlist = []
@@ -109,16 +110,16 @@ class Env:
         # If true, the biophysical cells and synapses dictionary will be freed
         # as synapses and connections are instantiated.
         self.cleanup = cleanup
-        
+
         # If true, compute and print memory usage at various points
         # during simulation initialization
         self.profile_memory = profile_memory
-            
+
         # print verbose diagnostic messages
         self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
-        
+
         # Directories for cell templates
         if template_paths is not None:
             self.template_paths = template_paths.split(':')
@@ -182,11 +183,11 @@ class Env:
         if cell_selection_path is not None:
             with open(cell_selection_path) as fp:
                 self.cell_selection = yaml.load(fp, IncludeLoader)
-        
+
         # Spike input path
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_namespace
-        
+
         self.node_ranks = None
         if node_rank_file:
             with open(node_rank_file) as fp:
@@ -266,12 +267,12 @@ class Env:
             self.connectivity_file_path = None
             self.forest_file_path = None
             self.gapjunctions_file_path = None
-                
+
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
         else:
             self.netclamp_config = None
-            
+
         if 'Input' in self.modelConfig:
             self.parse_input_config()
 
@@ -279,7 +280,7 @@ class Env:
             self.analysis_config = self.modelConfig['Analysis']
         else:
             self.analysis_config = None
-            
+
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
             for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
@@ -300,7 +301,7 @@ class Env:
         self.id_vec = h.Vector()  # Ids of spike times on this host
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
-            self.recs_dict[pop_name] = { 'Soma': [], 'Axon hillock': [], 'Apical dendrite': [], 'Basal dendrite': [] } 
+            self.recs_dict[pop_name] = {'Soma': [], 'Axon hillock': [], 'Apical dendrite': [], 'Basal dendrite': []}
 
         # used to calculate model construction times and run time
         self.mkcellstime = 0
@@ -337,26 +338,26 @@ class Env:
 
         path = np.column_stack((np.asarray(path_x, dtype=np.float32),
                                 np.asarray(path_y, dtype=np.float32)))
-        
+
         return TrajectoryConfig(velocity, path)
-            
+
     def parse_input_config(self):
         input_dict = self.modelConfig['Input']
         input_config = {}
 
-        for k,v in viewitems(input_dict):
+        for k, v in viewitems(input_dict):
             if k == 'Selectivity Type Probabilities':
                 selectivity_type_prob_dict = {}
-                for (pop,dvals) in viewitems(v):
+                for (pop, dvals) in viewitems(v):
                     pop_selectivity_type_prob_dict = {}
-                    for (selectivity_type_name,selectivity_type_prob) in viewitems(dvals):
+                    for (selectivity_type_name, selectivity_type_prob) in viewitems(dvals):
                         pop_selectivity_type_prob_dict[int(self.selectivity_types[selectivity_type_name])] = \
                             float(selectivity_type_prob)
                     selectivity_type_prob_dict[pop] = pop_selectivity_type_prob_dict
                 input_config['Selectivity Type Probabilities'] = selectivity_type_prob_dict
             elif k == 'Peak Rate':
                 peak_rate_dict = {}
-                for (pop,dvals) in viewitems(v):
+                for (pop, dvals) in viewitems(v):
                     pop_peak_rate_dict = {}
                     for (selectivity_type_name, peak_rate) in viewitems(dvals):
                         pop_peak_rate_dict[int(self.selectivity_types[selectivity_type_name])] = float(peak_rate)
@@ -381,9 +382,9 @@ class Env:
                                                                   arena_trajectories, arena_properties)
             else:
                 input_config[k] = v
-                
+
         self.input_config = input_config
-            
+
     def parse_netclamp_config(self):
         """
 
@@ -394,18 +395,19 @@ class Env:
         weight_generator_dict = netclamp_config_dict['Weight Generator']
         template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
         opt_param_rules_dict = netclamp_config_dict['Synaptic Optimization']
-        
+
         template_params = {}
         for (template_name, params) in viewitems(template_param_rules_dict):
             template_params[template_name] = params
 
-        self.netclamp_config = NetclampConfig(template_params, input_generator_dict, weight_generator_dict, opt_param_rules_dict)
+        self.netclamp_config = NetclampConfig(template_params, input_generator_dict, weight_generator_dict,
+                                              opt_param_rules_dict)
 
     def parse_origin_coords(self):
         origin_spec = self.geometry['Parametric Surface']['Origin']
 
         coords = {}
-        for key in ['U','V','L']:
+        for key in ['U', 'V', 'L']:
             spec = origin_spec[key]
             if isinstance(spec, float):
                 coords[key] = lambda x: spec
@@ -422,26 +424,26 @@ class Env:
         self.geometry['Parametric Surface']['Origin'] = coords
 
     def parse_definitions(self):
-        defs               = self.modelConfig['Definitions']
-        self.Populations   = defs['Populations']
-        self.SWC_Types     = defs['SWC Types']
+        defs = self.modelConfig['Definitions']
+        self.Populations = defs['Populations']
+        self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
-        self.layers        = defs['Layers']
+        self.layers = defs['Layers']
         self.selectivity_types = defs['Input Selectivity Types']
 
     def parse_globals(self):
-        self.globals       = self.modelConfig['Global Parameters']
-        
+        self.globals = self.modelConfig['Global Parameters']
+
     def parse_connection_config(self):
         """
 
         :return:
         """
         connection_config = self.modelConfig['Connection Generator']
-        
+
         self.connection_velocity = connection_config['Connection Velocity']
 
-        syn_mech_names  = connection_config['Synapse Mechanisms']
+        syn_mech_names = connection_config['Synapse Mechanisms']
         syn_param_rules = connection_config['Synapse Parameter Rules']
 
         self.synapse_attributes = SynapseAttributes(self, syn_mech_names, syn_param_rules)
@@ -449,43 +451,42 @@ class Env:
         extent_config = connection_config['Axon Extent']
         self.connection_extents = {}
 
-        for population in extent_config.keys():
+        for population in list(extent_config.keys()):
 
             pop_connection_extents = {}
-            for layer_name in extent_config[population].keys():
+            for layer_name in list(extent_config[population].keys()):
 
                 if layer_name == 'default':
                     pop_connection_extents[layer_name] = \
-                      { 'width': extent_config[population][layer_name]['width'], \
-                        'offset': extent_config[population][layer_name]['offset'] } 
+                        {'width': extent_config[population][layer_name]['width'], \
+                         'offset': extent_config[population][layer_name]['offset']}
                 else:
                     layer_index = self.layers[layer_name]
                     pop_connection_extents[layer_index] = \
-                      { 'width': extent_config[population][layer_name]['width'], \
-                        'offset': extent_config[population][layer_name]['offset'] } 
-            
+                        {'width': extent_config[population][layer_name]['width'], \
+                         'offset': extent_config[population][layer_name]['offset']}
+
             self.connection_extents[population] = pop_connection_extents
 
-        
         synapse_config = connection_config['Synapses']
         connection_dict = {}
-        
+
         for (key_postsyn, val_syntypes) in viewitems(synapse_config):
             connection_dict[key_postsyn] = {}
-            
+
             for (key_presyn, syn_dict) in viewitems(val_syntypes):
-                val_type         = syn_dict['type']
-                val_synsections  = syn_dict['sections']
-                val_synlayers    = syn_dict['layers']
-                val_proportions  = syn_dict['proportions']
+                val_type = syn_dict['type']
+                val_synsections = syn_dict['sections']
+                val_synlayers = syn_dict['layers']
+                val_proportions = syn_dict['proportions']
                 if 'contacts' in syn_dict:
-                    val_contacts     = syn_dict['contacts']
+                    val_contacts = syn_dict['contacts']
                 else:
                     val_contacts = 1
-                val_mechparams   = None
-                val_swctype_mechparams    = None
+                val_mechparams = None
+                val_swctype_mechparams = None
                 if 'mechanisms' in syn_dict:
-                    val_mechparams   = syn_dict['mechanisms']
+                    val_mechparams = syn_dict['mechanisms']
                 else:
                     val_swctype_mechparams = syn_dict['swctype mechanisms']
 
@@ -504,24 +505,24 @@ class Env:
                         res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
                 else:
                     res_mechparams['default'] = val_mechparams
-                        
+
                 connection_dict[key_postsyn][key_presyn] = \
                     SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, val_contacts, \
                                   res_mechparams)
 
             config_dict = defaultdict(lambda: 0.0)
             for (key_presyn, conn_config) in viewitems(connection_dict[key_postsyn]):
-                for (s,l,p) in zip(conn_config.sections, conn_config.layers, conn_config.proportions):
+                for (s, l, p) in zip(conn_config.sections, conn_config.layers, conn_config.proportions):
                     config_dict[(conn_config.type, s, l)] += p
-                                              
-            for (k,v) in viewitems(config_dict):
+
+            for (k, v) in viewitems(config_dict):
                 try:
-                    assert(np.isclose(v, 1.0))
+                    assert (np.isclose(v, 1.0))
                 except Exception as e:
                     logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
                                  (key_postsyn, str(k), v))
                     raise e
-                    
+
         self.connection_config = connection_dict
 
     def parse_gapjunction_config(self):
@@ -562,7 +563,7 @@ class Env:
                                            3)
             connection_bounds = [np.min(connection_weights_x), \
                                  np.max(connection_weights_x)]
-            
+
             gj_coupling_coeffs = gj_config['Coupling Coefficients']
             coupling_coeffs = {}
             for pop_a, pop_dict in viewitems(gj_coupling_coeffs):
@@ -596,7 +597,7 @@ class Env:
                                                             coupling_bounds)
         else:
             self.gapjunctions = None
-        
+
     def load_celltypes(self):
         """
 
@@ -614,20 +615,20 @@ class Env:
         (population_ranges, _) = read_population_ranges(self.data_file_path, self.comm)
         if rank == 0:
             self.logger.info('population_ranges = %s' % str(population_ranges))
-        
+
         for k in typenames:
             celltypes[k]['start'] = population_ranges[k][0]
             celltypes[k]['num'] = population_ranges[k][1]
             if 'mechanism file' in celltypes[k]:
                 celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
 
-        population_names  = read_population_names(self.data_file_path, self.comm)
+        population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
         self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
         if rank == 0:
-            self.logger.info('attribute info: %s'  % str(self.cellAttributeInfo))
+            self.logger.info('attribute info: %s' % str(self.cellAttributeInfo))
 
     def load_cell_template(self, popName):
         """
@@ -643,6 +644,6 @@ class Env:
         else:
             template_file = None
         find_template(self, templateName, template_file=template_file, path=self.template_paths)
-        assert(hasattr(h, templateName))
+        assert (hasattr(h, templateName))
         template_class = getattr(h, templateName)
         return template_class

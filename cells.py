@@ -1,9 +1,8 @@
 import os, itertools, collections, traceback
-from dentate.utils import viewitems
+from dentate.utils import *
 from dentate.neuron_utils import *
 from neuroh5.h5py_io_utils import *
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
-
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -549,13 +548,11 @@ class STree2(object):
                          str(xyz[0]) + ' ' + str(xyz[1]) + ' ' + str(xyz[2]) + \
                          ' ' + str(radius) + ' ' \
                          + str(node.parent.index)
-            # print 'p3d_string: ', p3d_string
             writer.write(p3d_string + '\n')
             writer.flush()
         writer.close()
-        # print 'STree::writeSWCTreeToFile -> finished. Tree in >',fileN,'<'
 
-    def read_SWC_tree_from_file(self, file_n, types=range(1, 10)):
+    def read_SWC_tree_from_file(self, file_n, types=list(range(1, 10))):
         """
         Non-specific for a "tree data structure"
         Read and load a morphology from an SWC file and parse it into
@@ -580,7 +577,6 @@ class STree2(object):
         """
         # check soma-representation: 3-point soma or a non-standard representation
         soma_type = self._determine_soma_type(file_n)
-        # print "STree2::read_SWC_tree_from_file found soma_type=%i" % soma_type
 
         file = open(file_n, 'r')
         all_nodes = dict()
@@ -601,13 +597,11 @@ class STree2(object):
                     t_node.content = {'p3d': tP3D}
                     all_nodes[index] = (swc_type, t_node, parent_index)
                 else:
-                    print type, index
-
-        # print "len(all_nodes): ", len(all_nodes)
+                    print('unknown swc_type: %i, index: %i' % (swc_type, index))
 
         # IF 3-point soma representation
         if soma_type == 1:
-            for index, (swc_type, node, parent_index) in all_nodes.items():
+            for index, (swc_type, node, parent_index) in list(all_nodes.items()):
                 if index == 1:
                     self.root = node
                 elif index in (2, 3):
@@ -623,7 +617,7 @@ class STree2(object):
             # get all some info
             soma_cylinders = []
             connected_to_root = []
-            for index, (swc_type, node, parent_index) in all_nodes.items():
+            for index, (swc_type, node, parent_index) in list(all_nodes.items()):
                 if swc_type == 1 and not index == 1:
                     soma_cylinders.append((node, parent_index))
                     if index > 1:
@@ -639,7 +633,7 @@ class STree2(object):
             self.add_node_with_parent(s_node_2, self.root)
 
             # add the other points            
-            for index, (swc_type, node, parent_index) in all_nodes.items():
+            for index, (swc_type, node, parent_index) in list(all_nodes.items()):
                 if swc_type == 1:
                     pass
                 else:
@@ -662,13 +656,11 @@ class STree2(object):
             p = all_nodes[parent_index][1].content["p3d"]
             H = np.sqrt(np.sum((n.xyz - p.xyz) ** 2))
             surf = 2 * np.pi * p.radius * H
-            # print "(node %i) surf as cylinder:  %f (R=%f, H=%f), P=%s" % (node.index,surf,n.radius,H,p)
             total_surf = total_surf + surf
-        print "found 'multiple cylinder soma' w/ total soma surface=", total_surf
+        print("found 'multiple cylinder soma' w/ total soma surface=*.3f" % total_surf)
 
         # define apropriate radius
-        radius = np.sqrt(total_surf / (4 * np.pi))
-        # print "found radius: ", radius
+        radius = np.sqrt(old_div(total_surf, (4 * np.pi)))
 
         s_node_1 = SNode2(2)
         r = self.root.content["p3d"]
@@ -727,6 +719,7 @@ class BiophysCell(object):
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
     """
+
     def __init__(self, gid, pop_name, hoc_cell=None, mech_file_path=None, env=None):
         """
 
@@ -766,7 +759,7 @@ class BiophysCell(object):
                 self.spike_detector = connect2target(self, self.soma[0].sec)
             if self.mech_file_path is not None:
                 import_mech_dict_from_file(self, self.mech_file_path)
-    
+
     @property
     def gid(self):
         return self._gid
@@ -825,6 +818,7 @@ class SHocNode(SNode2):
     Extends SNode2 with some methods for storing and retrieving additional information in the node's content
     dictionary related to running NEURON models specified in the hoc language.
     """
+
     def __init__(self, index=0):
         """
         :param index: int : unique node identifier
@@ -923,7 +917,7 @@ class SHocNode(SNode2):
                 return self.content['layer'][0]
             else:
                 for i in range(self.sec.n3d()):
-                    if self.sec.arc3d(i) / self.sec.L >= x:
+                    if old_div(self.sec.arc3d(i), self.sec.L) >= x:
                         return self.content['layer'][i]
         else:
             return None
@@ -1001,7 +995,7 @@ def lambda_f(sec, f=freq):
     diam = np.mean([seg.diam for seg in sec])
     Ra = sec.Ra
     cm = np.mean([seg.cm for seg in sec])
-    return 1e5*math.sqrt(diam/(4.*math.pi*f*Ra*cm))
+    return 1e5 * math.sqrt(old_div(diam, (4. * math.pi * f * Ra * cm)))
 
 
 def d_lambda_nseg(sec, lam=d_lambda, f=freq):
@@ -1016,7 +1010,7 @@ def d_lambda_nseg(sec, lam=d_lambda, f=freq):
     :return : int
     """
     L = sec.L
-    return int((L/(lam*lambda_f(sec, f))+0.9)/2)*2+1
+    return int(old_div((old_div(L, (lam * lambda_f(sec, f))) + 0.9), 2)) * 2 + 1
 
 
 def append_section(cell, sec_type, sec_index=None, sec=None):
@@ -1404,7 +1398,7 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
         if output_dir is None:
             mech_file_path = mech_file_name
         elif os.path.isdir(output_dir):
-            mech_file_path = output_dir+'/'+mech_file_name
+            mech_file_path = output_dir + '/' + mech_file_name
     write_to_yaml(mech_file_path, cell.mech_dict, convert_scalars=True)
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
@@ -1474,11 +1468,11 @@ def count_spines_per_seg(node, env, gid):
     """
     syn_attrs = env.synapse_attributes
     node.content['spine_count'] = []
-    
+
     filtered_synapses = syn_attrs.filter_synapses(gid, syn_sections=[node.index], \
-                                                      syn_types=[env.Synapse_Types['excitatory']])
+                                                  syn_types=[env.Synapse_Types['excitatory']])
     if len(filtered_synapses) > 0:
-        this_syn_locs = np.asarray([syn.syn_loc for _,syn in viewitems(filtered_synapses)])
+        this_syn_locs = np.asarray([syn.syn_loc for _, syn in viewitems(filtered_synapses)])
         seg_width = 1. / node.sec.nseg
         for i, seg in enumerate(node.sec):
             num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
@@ -1504,8 +1498,8 @@ def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas, verbose=True):
         SA_seg = segment.area()
         num_spines = node.spine_count[i]
 
-        g_pas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
-                                 (SA_seg * node.sec(segment.x).g_pas)
+        g_pas_correction_factor = old_div((SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas), \
+                                          (SA_seg * node.sec(segment.x).g_pas))
         node.sec(segment.x).g_pas *= g_pas_correction_factor
         if verbose:
             logger.info('g_pas_correction_factor for gid: %i; %s seg %i: %.3f' %
@@ -1530,7 +1524,7 @@ def correct_node_for_spines_cm(node, env, gid, verbose=True):
     for i, segment in enumerate(node.sec):
         SA_seg = segment.area()
         num_spines = node.spine_count[i]
-        cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
+        cm_correction_factor = old_div((SA_seg + cm_fraction * num_spines * SA_spine), SA_seg)
         node.sec(segment.x).cm *= cm_correction_factor
         if verbose:
             logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
@@ -1706,7 +1700,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         traceback.print_tb(sys.exc_info()[2])
         if param_name is not None:
-            print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' % \
+            print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
                   (mech_name, param_name, node.name))
         else:
             print('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
@@ -1817,7 +1811,7 @@ def inherit_mech_param(donor, mech_name, param_name):
     :return: float
     """
     # accesses the last segment of the section
-    loc = donor.sec.nseg / (donor.sec.nseg + 1.)
+    loc = old_div(donor.sec.nseg, (donor.sec.nseg + 1.))
     try:
         if mech_name in ['cable', 'ions']:
             if mech_name == 'cable' and param_name == 'Ra':
@@ -1827,7 +1821,7 @@ def inherit_mech_param(donor, mech_name, param_name):
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
     except Exception as e:
-        print('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' % \
+        print('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' %
               (mech_name, param_name, donor.type))
         raise e
 
@@ -1850,7 +1844,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
                 node.sec.insert(mech_name)
             except Exception:
                 raise RuntimeError('set_mech_param: unable to insert mechanism: %s cell: %s in sec_type: %s ' \
-                                    % (mech_name, str(cell), node.type))
+                                   % (mech_name, str(cell), node.type))
             setattr(node.sec, param_name + "_" + mech_name, baseline)
     elif donor is None:
         raise RuntimeError('set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s '
@@ -1867,7 +1861,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
 
         # No need to insert the mechanism into the section if no segment matches location constraints
         min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)
-        max_seg_distance = get_distance_to_node(cell, donor, node, (0.5 + node.sec.nseg - 1) / node.sec.nseg)
+        max_seg_distance = get_distance_to_node(cell, donor, node, old_div((0.5 + node.sec.nseg - 1), node.sec.nseg))
         if (min_distance is None or max_seg_distance > min_distance) and \
                 (max_distance is None or min_seg_distance <= max_distance):
             # insert the mechanism first
@@ -1909,11 +1903,11 @@ def get_param_val_by_distance(distance, baseline, slope, min_distance, max_dista
             distance -= min_distance
             if tau is not None:
                 if xhalf is not None:  # sigmoidal gradient
-                    offset = baseline - slope / (1. + np.exp(xhalf / tau))
-                    value = offset + slope / (1. + np.exp((xhalf - distance) / tau))
+                    offset = baseline - old_div(slope, (1. + np.exp(old_div(xhalf, tau))))
+                    value = offset + old_div(slope, (1. + np.exp(old_div((xhalf - distance), tau))))
                 else:  # exponential gradient
                     offset = baseline - slope
-                    value = offset + slope * np.exp(distance / tau)
+                    value = offset + slope * np.exp(old_div(distance, tau))
             else:  # linear gradient
                 value = baseline + slope * distance
             if min_val is not None and value < min_val:
@@ -1934,7 +1928,7 @@ def zero_na(cell):
     Set na channel conductances to zero in all compartments. Used during parameter optimization.
     """
     for sec_type in (sec_type for sec_type in default_ordered_sec_types if sec_type in cell.nodes and
-                     sec_type in cell.mech_dict):
+                                                                           sec_type in cell.mech_dict):
         for na_type in (na_type for na_type in ['nas', 'nax'] if na_type in cell.mech_dict[sec_type]):
             modify_mech_param(cell, sec_type, na_type, 'gbar', 0.)
 
@@ -1944,7 +1938,7 @@ def zero_h(cell):
     Set Ih channel conductances to zero in all compartments. Used during parameter optimization.
     """
     for sec_type in (sec_type for sec_type in default_ordered_sec_types if sec_type in cell.nodes and
-                     sec_type in cell.mech_dict):
+                                                                           sec_type in cell.mech_dict):
         for h_type in (h_type for h_type in ['h'] if h_type in cell.mech_dict[sec_type]):
             modify_mech_param(cell, sec_type, h_type, 'ghbar', 0.)
 
@@ -2027,7 +2021,7 @@ def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, *
     else:
         raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
                            '%s' % node.type)
-    slope = (end_val - start_val)/node.sec.L
+    slope = old_div((end_val - start_val), node.sec.L)
     if 'slope' in rules:
         if direction < 0.:
             slope = min(rules['slope'], slope)
@@ -2062,7 +2056,7 @@ def report_topology(cell, env, node=None):
     :param node:
     """
     if node is None:
-       node = cell.tree.root
+        node = cell.tree.root
     syn_attrs = env.synapse_attributes
     num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
                                                  syn_sections=[node.index], \
@@ -2080,7 +2074,7 @@ def report_topology(cell, env, node=None):
     for child in node.children:
         report_topology(cell, env, child)
 
-        
+
 def make_neurotree_graph(neurotree_dict):
     """
     Creates a graph of sections that follows the topological organization of the given neuron.
@@ -2090,15 +2084,15 @@ def make_neurotree_graph(neurotree_dict):
     import networkx as nx
 
     sec_nodes = neurotree_dict['section_topology']['nodes']
-    sec_src   = neurotree_dict['section_topology']['src']
-    sec_dst   = neurotree_dict['section_topology']['dst']
+    sec_src = neurotree_dict['section_topology']['src']
+    sec_dst = neurotree_dict['section_topology']['dst']
 
     sec_graph = nx.DiGraph()
     for i, j in zip(sec_src, sec_dst):
         sec_graph.add_edge(i, j)
 
     return sec_graph
-    
+
 
 def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
     """
@@ -2110,17 +2104,17 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     :param neurotree_dict:
     :return: hoc cell object
     """
-    vx       = neurotree_dict['x']
-    vy       = neurotree_dict['y']
-    vz       = neurotree_dict['z']
-    vradius  = neurotree_dict['radius']
-    vlayer   = neurotree_dict['layer']
+    vx = neurotree_dict['x']
+    vy = neurotree_dict['y']
+    vz = neurotree_dict['z']
+    vradius = neurotree_dict['radius']
+    vlayer = neurotree_dict['layer']
     vsection = neurotree_dict['section']
     secnodes = neurotree_dict['section_topology']['nodes']
-    vsrc     = neurotree_dict['section_topology']['src']
-    vdst     = neurotree_dict['section_topology']['dst']
+    vsrc = neurotree_dict['section_topology']['src']
+    vdst = neurotree_dict['section_topology']['dst']
     swc_type = neurotree_dict['swc_type']
-    cell     = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
+    cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
     return cell
 
 
@@ -2135,7 +2129,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     dataset_path = env.dataset_path if env.dataset_path is not None else ""
     data_file_path = env.data_file_path
     template_name = env.celltypes[pop_name]['template']
-    assert(hasattr(h, template_name))
+    assert (hasattr(h, template_name))
     template_class = getattr(h, template_name)
 
     if neurotree_dict:
@@ -2147,7 +2141,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
                             data_file_path, pop_name, gid)
         else:
             hoc_cell = template_class(gid, dataset_path)
-        
+
     return hoc_cell
 
 
@@ -2167,11 +2161,11 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
             cell.pp.play(h.Vector(data))
     else:
         template_name = input_gen['template']
-        param_values  = input_gen['params']
+        param_values = input_gen['params']
         template = getattr(h, template_name)
-        params = [ param_values[p] for p in env.netclamp_config.template_params[template_name] ]
+        params = [param_values[p] for p in env.netclamp_config.template_params[template_name]]
         cell = template(gid, *params)
-        
+
     return cell
 
 
@@ -2220,10 +2214,10 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                 for gid, cell_weights_dict in cell_weights_iter:
                     weights_syn_ids = cell_weights_dict['syn_id']
                     for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values  = cell_weights_dict[syn_name]
+                        weights_values = cell_weights_dict[syn_name]
                         syn_attrs.add_mech_attrs_from_iter(
                             gid, syn_name,
-                            zip_longest(weights_syn_ids, itertools.imap(lambda x: {'weight' : x}, weights_values)))
+                            zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)))
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
                                     (gid, len(cell_weights_dict[syn_name]), syn_name))
         else:
@@ -2264,9 +2258,9 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
 
     if sec is None:
         sec = list(cell.soma)[0]
-    
+
     iclamp = h.IClamp(sec(loc))
-    setattr(iclamp,'del',delay)
+    setattr(iclamp, 'del', delay)
     iclamp.dur = duration
     iclamp.amp = initial_amp
 
@@ -2274,13 +2268,11 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
     apcount.thresh = -20
     apcount.time = 0.
 
-    h.tstop = duration+delay
-    h.cvode_active (1)
+    h.tstop = duration + delay
+    h.cvode_active(1)
 
-    h.load_file("stdrun.hoc")  
+    h.load_file("stdrun.hoc")
     h.load_file("thresh.hoc")  ## nrn/lib/hoc
     thr = h.threshold(iclamp._ref_amp)
 
     return thr
-
-
