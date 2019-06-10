@@ -667,13 +667,13 @@ def test_nodes():
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = DG_volume(u, v, l, rotate=[-35., 0., 0.])
 
-    print ('Constructing volume...')
+    print('Constructing volume...')
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
-    print ('Constructing volume triangulation...')
+    print('Constructing volume triangulation...')
     tri = vol.create_triangulation()
 
-    print ('Constructing alpha shape...')
+    print('Constructing alpha shape...')
     alpha = alpha_shape([], 120., tri=tri)
 
     # Define the problem domain
@@ -683,7 +683,7 @@ def test_nodes():
     N = 10000  # total number of nodes
 
     # create N quasi-uniformly distributed nodes
-    print ('Generating nodes...')
+    print('Generating nodes...')
     rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
     rbf_logger.setLevel(logging.DEBUG)
     out = min_energy_nodes(N, (vert, smp), iterations=10, build_rtree=True)
@@ -714,13 +714,13 @@ def test_alphavol():
     u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
     xyz = DG_volume(u, v, l, rotate=[-35., 0., 0.])
 
-    print ('Constructing volume...')
+    print('Constructing volume...')
     vol = RBFVolume(obs_u, obs_v, obs_l, xyz, order=2)
 
-    print ('Constructing volume triangulation...')
+    print('Constructing volume triangulation...')
     tri = vol.create_triangulation()
 
-    print ('Constructing alpha shape...')
+    print('Constructing alpha shape...')
     alpha = alpha_shape([], 120., tri=tri)
 
     vert = alpha.points

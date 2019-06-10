@@ -1,6 +1,7 @@
 
 import numpy as np
 import sys
+from dentate.utils import *
 
 sys.path.insert(0,'/home/dhadjia1/soltesz-lab/ca1/test')
 import plot_helper as ph
@@ -80,7 +81,7 @@ def plot_pc_with_eigenvector(xy, eigenvalues, eigenvectors,fig=None, ax=None, fi
 
 def key2pc(cell_info, key):
     x,y,z = [], [], []
-    for k, v in cell_info.iteritems():
+    for k, v in viewitems(cell_info):
         if key is None or k == int(key):
             for cell in v:
                 x.append(cell.x), y.append(cell.y), z.append(cell.z)
@@ -131,7 +132,7 @@ def read_swc(fn):
 def run():
     fn = 'ex_gc.txt'
     cell_info = read_swc(fn)
-    ncells = reduce(lambda x,y: x+y, [len(v) for _,v in cell_info.iteritems()])
+    ncells = reduce(lambda x,y: x+y, [len(v) for _, v in viewitems(cell_info)])
     print('Number of points in morphology is %d' % (ncells))
 
 

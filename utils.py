@@ -223,7 +223,7 @@ def viewitems(obj, **kwargs):
 
     Passes kwargs to method."""
     func = getattr(obj, "viewitems", None)
-    if not func:
+    if func is None:
         func = obj.items
     return func(**kwargs)
 
@@ -235,7 +235,7 @@ def viewkeys(obj, **kwargs):
 
     Passes kwargs to method."""
     func = getattr(obj, "viewkeys", None)
-    if not func:
+    if func is None:
         func = obj.keys
     return func(**kwargs)
 
@@ -247,7 +247,7 @@ def viewvalues(obj, **kwargs):
 
     Passes kwargs to method."""
     func = getattr(obj, "viewvalues", None)
-    if func is not None:
+    if func is None:
         func = obj.values
     return func(**kwargs)
 
