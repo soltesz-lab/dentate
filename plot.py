@@ -31,15 +31,15 @@ from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
 try:
     import dentate.spikedata as spikedata
 except ImportError as e:
-    print('dentate.plot: problem importing module required by dentate.spikedata:', e)
+    print(('dentate.plot: problem importing module required by dentate.spikedata:', e))
 try:
     import dentate.stimulus as stimulus
 except ImportError as e:
-    print('dentate.plot: problem importing module required by dentate.stimulus:', e)
+    print(('dentate.plot: problem importing module required by dentate.stimulus:', e))
 try:
     from dentate.geometry import DG_volume, measure_distance_extents
 except ImportError as e:
-    print('dentate.plot: problem importing module required by dentate.geometry:', e)
+    print(('dentate.plot: problem importing module required by dentate.geometry:', e))
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -1553,7 +1553,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], pop_num / tsecs)
+                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
         
     
     pop_colors = { pop_name: color_list[ipop%len(raster_color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -1929,7 +1929,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], pop_num / tsecs)
+                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
         
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -2237,7 +2237,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
                 if num_cell_spks[pop_name] == 0:
                     avg_rates[pop_name] = 0
                 else:
-                    avg_rates[pop_name] = old_div(num_cell_spks[pop_name], pop_num / tsecs)
+                    avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
             
     # Y-axis label
     if quantity == 'rate':
@@ -2247,7 +2247,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     elif quantity == 'active':
         yaxisLabel = 'Active cell count'
     else:
-        print('Invalid quantity value %s', (quantity))
+        print('Invalid quantity value %s' % str(quantity))
         return
 
     # create fig
@@ -2412,7 +2412,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
     elif quantity == 'count':
         quantityLabel = 'Spike count'
     else:
-        print('Invalid quantity value %s', (quantity))
+        print('Invalid quantity value %s' % str(quantity))
         return
 
 
@@ -2552,7 +2552,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
     elif quantity == 'count':
         xaxisLabel = 'Spike count'
     else:
-        print('Invalid quantity value %s', (quantity))
+        print('Invalid quantity value %s' % str(quantity))
         return
 
     # create fig

@@ -631,7 +631,7 @@ class StGen(object):
                            type_converters=scipy.weave.converters.blitz)
 
         if time_it:
-            print('Elapsed ', time.time() - t1, ' seconds.')
+            print('Elapsed %.3f seconds.' % (time.time() - t1))
 
         return (y, t)
 

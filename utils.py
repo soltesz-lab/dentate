@@ -1,5 +1,4 @@
-from __future__ import division
-from __future__ import absolute_import
+from __future__ import division, absolute_import
 from builtins import map, range, object, zip, input, str, next
 from past.utils import old_div
 from collections import defaultdict, Iterable, namedtuple
@@ -121,9 +120,10 @@ def read_from_yaml(file_path, include_loader=None):
     if os.path.isfile(file_path):
         with open(file_path, 'r') as stream:
             if include_loader is None:
-                data = yaml.load(stream)
+                Loader = yaml.FullLoader
             else:
-                data = yaml.load(stream, include_loader)
+                Loader = include_loader
+            data = yaml.load(stream, Loader=Loader)
         return data
     else:
         raise IOError('read_from_yaml: invalid file_path: %s' % file_path)
@@ -135,7 +135,7 @@ def print_param_dict_like_yaml(param_dict, digits=6):
     :param param_dict: dict
     :param digits: int
     """
-    for param_name, param_val in param_dict.items():
+    for param_name, param_val in viewitems(param_dict):
         if isinstance(param_val, int):
             print('%s: %s' % (param_name, param_val))
         else:
@@ -152,13 +152,11 @@ def nested_convert_scalars(data):
         for key in data:
             data[key] = nested_convert_scalars(data[key])
     elif isinstance(data, Iterable) and not isinstance(data, (str, tuple)):
+        data = list(data)
         for i in range(len(data)):
             data[i] = nested_convert_scalars(data[i])
     elif hasattr(data, 'item'):
-        try:
-            data = np.asscalar(data)
-        except TypeError:
-            pass
+        data = data.item()
     return data
 
 
@@ -256,7 +254,7 @@ def viewvalues(obj, **kwargs):
 
 def zip_longest(*args, **kwds):
     if hasattr(itertools, 'izip_longest'):
-        return itertools.zip_longest(*args, **kwds)
+        return itertools.izip_longest(*args, **kwds)
     else:
         return itertools.zip_longest(*args, **kwds)
 
