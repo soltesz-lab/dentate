@@ -258,7 +258,7 @@ def generate_synaptic_connections(rank,
 
     """
     num_projections = len(projection_synapse_dict)
-    prj_pop_index = {population: i for (i, population) in enumerate(projection_synapse_dict.keys())}
+    prj_pop_index = {population: i for (i, population) in enumerate(projection_synapse_dict)}
     synapse_prj_counts = np.zeros((num_projections,))
     synapse_prj_partition = defaultdict(lambda: defaultdict(list))
     maxit = 10
@@ -287,7 +287,7 @@ def generate_synaptic_connections(rank,
 
     empty_projections = []
 
-    for projection in list(projection_synapse_dict.keys()):
+    for projection in projection_synapse_dict:
         logger.debug('Rank %i: gid %i: projection %s has %i synapses' % (
         rank, destination_gid, projection, len(synapse_prj_partition[projection])))
         if not (len(synapse_prj_partition[projection]) > 0):

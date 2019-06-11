@@ -284,7 +284,7 @@ def find_gid_pop(celltypes, gid):
     """
     Given a celltypes structure and a gid, find the population to which the gid belongs.
     """
-    for pop_name in list(celltypes.keys()):
+    for pop_name in celltypes:
         start = celltypes[pop_name]['start']
         num = celltypes[pop_name]['num']
         if (start <= gid) and (gid < (start + num)):
@@ -312,7 +312,7 @@ def connect_cell_selection(env):
 
     selection_pop_names = list(env.cell_selection.keys())
 
-    input_sources = {pop_name: set([]) for pop_name in list(env.celltypes.keys())}
+    input_sources = {pop_name: set([]) for pop_name in env.celltypes}
 
     for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
 
@@ -494,7 +494,7 @@ def connect_gjs(env):
                                  comm=env.comm)
 
         ggid = 2e6
-        for name in list(gapjunctions.keys()):
+        for name in gapjunctions:
             if rank == 0:
                 logger.info("*** Creating gap junctions %s" % str(name))
             prj = graph[name[0]][name[1]]

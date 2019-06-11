@@ -330,7 +330,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in list(syn_params_dict.keys()):
+    for syn_name in syn_params_dict:
         synlst = []
         for syn_id in selected_ids:
             synlst.append(syn_obj_dict[syn_id][syn_name])
@@ -403,7 +403,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in list(syn_params_dict.keys()):
+    for syn_name in syn_params_dict:
         
         synlst = []
         for syn_id in selected_ids:

@@ -1422,7 +1422,7 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
 
     states     = data['states']
     
-    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(states.keys()) }
+    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(states) }
     
     stplots = []
     
@@ -1794,7 +1794,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
         
-        logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
+        logger.info('read distances (%i elements)' % len(soma_distances.keys()))
         distance_U_array = np.asarray([soma_distances[gid][0] for gid in soma_distances])
         distance_V_array = np.asarray([soma_distances[gid][1] for gid in soma_distances])
 
@@ -3279,7 +3279,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
         distance_y_min = np.min(distance_V)
         distance_y_max = np.max(distance_V)
         
-        logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
+        logger.info('read distances (%i elements)' % len(soma_distances.keys()))
 
         ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
@@ -3791,7 +3791,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                             axes = axarr[i]
                         if attr_type not in f[filetype][session_id][syn_name][param_name]:
                             continue
-                        for j, sec_type in enumerate(f[filetype][session_id][syn_name][param_name][attr_type].keys()):
+                        for j, sec_type in enumerate(f[filetype][session_id][syn_name][param_name][attr_type]):
                             if sec_type not in marker_dict:
                                 m = len(marker_dict)
                                 marker_dict[sec_type] = markers[m]
@@ -3960,7 +3960,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
 
     if export is not None:
         f = h5py.File(export_file_path, 'a')
-        if 'mech_file_path' in list(f.attrs.keys()):
+        if 'mech_file_path' in f.attrs:
             if cell.mech_file_path is None or not f.attrs['mech_file_path'] == cell.mech_file_path:
                 raise ValueError('plot_mech_param_distribution: provided mech_file_path: %s does not match the '
                                 'mech_file_path of %s cell %i: %s' %
@@ -4090,7 +4090,7 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
             if os.path.isfile(export_file_path):
                 os.remove(export_file_path)
         f = h5py.File(export_file_path, 'a')
-        if 'mech_file_path' in list(f.attrs.keys()):
+        if 'mech_file_path' in f.attrs:
             if not (f.attrs['mech_file_path'] == '{}'.format(cell.mech_file_path)):
                 raise Exception('Specified mechanism filepath {} does not match the mechanism filepath '
                                 'of the cell {}'.format(f.attrs['mech_file_path'], cell.mech_file_path))

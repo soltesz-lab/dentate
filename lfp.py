@@ -69,7 +69,7 @@ class LFP(object):
     def setup_lfp_coeffs(self):
 
         ex, ey, ez = self.epoint
-        for pop_name in list(self.celltypes.keys()):
+        for pop_name in self.celltypes:
 
             lfp_ids = self.lfp_ids[pop_name]
             lfp_types = self.lfp_types[pop_name]
@@ -140,7 +140,7 @@ class LFP(object):
         ##printf ("host %d: entering setup_npole_lfp" % int(self.pc.id()))
 
         ## Determine which cells will be used for the LFP computation and the sizes of their compartments
-        for (ipop, pop_name) in enumerate(self.celltypes.keys()):
+        for (ipop, pop_name) in enumerate(self.celltypes):
 
             ranlfp = h.Random(self.seed + ipop)
             ranlfp.uniform(0, 1)
@@ -202,7 +202,7 @@ class LFP(object):
 
         vlfp = 0.
 
-        for pop_name in list(self.celltypes.keys()):
+        for pop_name in self.celltypes:
             lfp_ids = self.lfp_ids[pop_name]
             lfp_coeffs = self.lfp_coeffs[pop_name]
             ## Iterate over all cell types

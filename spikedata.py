@@ -83,7 +83,7 @@ def get_env_spike_dict(env, t_start=0.0):
                     spkdict[id].append(t)
                 else:
                     spkdict[id] = [t]
-            for j in list(spkdict.keys()):
+            for j in spkdict:
                 spkdict[j] = np.array(spkdict[j], dtype=np.float32)
         pop_spkdict[pop_name] = spkdict
 

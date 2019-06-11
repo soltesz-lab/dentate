@@ -37,7 +37,7 @@ for i in range(0,10):
                     spkdict[id]['t'].append(t)
                 else:
                     spkdict[id]= {'t': [t]}
-            for j in list(spkdict.keys()):
+            for j in spkdict:
                 spkdict[j]['t'] = np.array(spkdict[j]['t'])
         pop_name = types[i]
 

@@ -451,10 +451,10 @@ class Env(object):
         extent_config = connection_config['Axon Extent']
         self.connection_extents = {}
 
-        for population in list(extent_config.keys()):
+        for population in extent_config:
 
             pop_connection_extents = {}
-            for layer_name in list(extent_config[population].keys()):
+            for layer_name in extent_config[population]:
 
                 if layer_name == 'default':
                     pop_connection_extents[layer_name] = \

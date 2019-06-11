@@ -426,7 +426,7 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
         max_l = max(max_extent[2], max_l)
 
     population_extents = {}
-    for population in list(soma_coords.keys()):
+    for population in soma_coords:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
         max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
         population_extents[population] = (min_extent, max_extent)

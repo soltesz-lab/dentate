@@ -17,7 +17,7 @@ class Cell(object):
 def plot_points(cell_info):
     colors = ['r','b','g']
     fig, ax = ph.init()
-    for k in cell_info.keys():
+    for k in cell_info:
         xc, yc, zc = [], [], []
         color = colors[k-1]
         cells = cell_info[k]

@@ -18,7 +18,7 @@ path_population_projections = '/%s/Population projections' % grp_h5types
 
 
 def h5_get_group(h, groupname):
-    if groupname in list(h.keys()):
+    if groupname in h:
         g = h[groupname]
     else:
         g = h.create_group(groupname)
@@ -26,7 +26,7 @@ def h5_get_group(h, groupname):
 
 
 def h5_get_dataset(g, dsetname, **kwargs):
-    if dsetname in list(g.keys()):
+    if dsetname in g:
         dset = g[dsetname]
     else:
         dset = g.create_dataset(dsetname, (0,), **kwargs)
@@ -167,7 +167,7 @@ def spikeout(env, output_path):
                     spkdict[id]['t'].append(t)
                 else:
                     spkdict[id] = {'t': [t]}
-            for j in list(spkdict.keys()):
+            for j in spkdict:
                 spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
         pop_name = types[i]
         write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
@@ -185,7 +185,7 @@ def recsout(env, output_path):
     """
     t_vec = np.arange(0, env.tstop + env.dt, env.dt, dtype=np.float32)
 
-    for pop_name in sorted(list(env.celltypes.keys())):
+    for pop_name in sorted(env.celltypes.keys()):
         for rec_type, recs in viewitems(env.recs_dict[pop_name]):
             attr_dict = {}
             for rec in recs:
