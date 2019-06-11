@@ -72,7 +72,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, i
     field_width_x2 = input_params['Field Width']['x2']
     min_field_width = input_params['Field Width']['min']
     resolution = input_params['Spatial Resolution']
-    feature_dist = input_params['Feature Distribution']
+    feature_dist = input_params['Selectivity Type Probabilities']
     peak_rate = input_params['Peak Rate']
 
     for arena_id, arena in viewitems(input_params['Arena']):
@@ -150,7 +150,7 @@ def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace
     #for i in xrange(len(p_density)):
     #    plt.plot(renormalized_positions, p_density[i][valid_indices])
 
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     local_random = np.random.RandomState()
     gid_module_assignments = dict()
 
@@ -173,7 +173,7 @@ def assign_cells_to_module(context, gid_normed_distances, p_width=2./3, displace
 def determine_cell_participation(context, gid_module_assignments):
 
     feature_type_dict   = context.feature_dist
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     feature_type_random = np.random.RandomState(feature_seed_offset - 1)
     num_field_random    = np.random.RandomState(feature_seed_offset - 1)
 
@@ -241,7 +241,7 @@ def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields)
     
     modules        = np.arange(context.nmodules)
     curr_module    = {mod + 1: int(0) for mod in modules}
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     
     local_random        = np.random.RandomState(feature_seed_offset - 1)
     grid_orientation    = [ local_random.uniform(0., np.pi/3.) for i in range(context.nmodules) ]
@@ -266,7 +266,7 @@ def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields)
         xy_offset_module_dict[mod] = np.asarray(xy_offsets, dtype='float32')
 
     cell_dict = {}
-    for population in gid_attributes.keys():
+    for population in gid_attributes:
         cell_dict[population] = {}
         for gid, cell in viewitems(gid_attributes[population]):
 
@@ -324,7 +324,7 @@ def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields)
         
 def save_to_h5(context, cell_dict):
 
-    for population in cell_dict.keys():
+    for population in cell_dict:
         place_cells, grid_cells = {}, {}
         for gid, cell in viewitems(cell_dict[population]):
 
@@ -334,12 +334,12 @@ def save_to_h5(context, cell_dict):
                 place_cells[gid] = cell.return_attr_dict()
 
         append_cell_attributes(context.output_path, population, grid_cells, \
-                               namespace='Grid Input Features %s' % str(context.arena_id), \
+                               namespace='Grid Selectivity %s' % str(context.arena_id), \
                                comm=context.comm, io_size=context.io_size, chunk_size=context.chunk_size,\
                                value_chunk_size=context.value_chunk_size)
 
         append_cell_attributes(context.output_path, population, place_cells, \
-                               namespace='Place Input Features %s' % str(context.arena_id), \
+                               namespace='Place Selectivity %s' % str(context.arena_id), \
                                comm=context.comm, io_size=context.io_size, chunk_size=context.chunk_size,\
                                value_chunk_size=context.value_chunk_size)
     

@@ -1,10 +1,12 @@
 
-import sys
 import os
-import numpy as np
+import sys
 from collections import namedtuple
-from sklearn.decomposition import PCA
+
+import numpy as np
+
 import plot_helper as ph
+from sklearn.decomposition import PCA
 
 Point = namedtuple('Point', ['int_label', 'typ', 'xyz', 'radius', 'parent'])
 PC_Transform = namedtuple('PC_Transform', ['PointCloud', 'PointCloud_reference', 'rot'])
@@ -168,7 +170,7 @@ def read_swc_files(database_loc, read_all=True):
 
     cloud_dictionary = {}
     for cloud in clouds:
-        if cloud.group in cloud_dictionary.keys():
+        if cloud.group in cloud_dictionary:
             cloud_dictionary[cloud.group].append(cloud)
         else:
             cloud_dictionary[cloud.group] = [cloud]
@@ -220,10 +222,3 @@ if __name__ == '__main__':
     fig3, ax3 = plot_bounds(PCT[0].rotated_ub, PCT[0].rotated_lb, first=True, show=False)
     ax3.set_title('PC2 - rotated')
     plot_pc_with_eigenvector(PCT[0].rotated_xy_center, PCT[0].rotated_eigenvalues, PCT[0].rotated_eigenvectors, fig=fig3, ax=ax3, first=False, show=True)
-    
-
-    
-
-    
-        
-         

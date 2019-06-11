@@ -2,20 +2,31 @@
 ## Generates distance-weighted random connectivity between the specified populations.
 ##
 
-import sys, os, os.path, gc, click, logging
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
+import gc
+import logging
+import os
+import os.path
+import sys
+
 import h5py
 import numpy as np
-import rbf
-from rbf.interpolate import RBFInterpolant
-import rbf.basis
+
+import click
 import dentate
-from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
-from dentate.geometry import measure_distances
-from dentate.env import Env
 import dentate.utils as utils
+import rbf
+import rbf.basis
+from dentate.connection_generator import ConnectionProb
+from dentate.connection_generator import generate_uv_distance_connections
+from dentate.env import Env
+from dentate.geometry import measure_distances
 from dentate.neuron_utils import configure_hoc_env
+from mpi4py import MPI
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_cell_attributes
+from neuroh5.io import read_population_names
+from neuroh5.io import read_population_ranges
+from rbf.interpolate import RBFInterpolant
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -124,4 +135,3 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
-

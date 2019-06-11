@@ -1,7 +1,11 @@
-import sys, os, gc
+import gc
+import os
+import sys
+
 import click
 import dentate
-from dentate import utils, plot
+from dentate import plot
+from dentate import utils
 from dentate.env import Env
 from neuroh5.io import read_cell_attributes
 

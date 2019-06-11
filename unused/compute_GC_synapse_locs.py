@@ -1,3 +1,4 @@
+from __future__ import print_function
 from specify_cells import *
 from mpi4py import MPI
 from neurotrees.io import NeurotreeGen

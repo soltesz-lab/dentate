@@ -1,11 +1,12 @@
-
 import sys, os, gc, click, logging
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
 import h5py
 import dentate
 from dentate.env import Env
-import dentate.utils as utils
+from dentate import utils
+from dentate.utils import *
+
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -13,6 +14,7 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
+
 
 @click.command()
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -46,7 +48,7 @@ def main(coords_path, io_size, chunk_size, value_chunk_size):
         #print soma_coords.keys()
         u_coords = []
         gids = []
-        for gid, attrs in soma_coords.items():
+        for gid, attrs in viewitems(soma_coords):
             u_coords.append(attrs['U Coordinate'])
             gids.append(gid)
         u_coordv = np.asarray(u_coords, dtype=np.float32)

@@ -7,7 +7,6 @@
     It was found that optimal 'a' for modules are
     {0-1: 0.7, 2-4: 0.65, 5-9: 0.6}
 """
-
 __author__ = 'Darian Hadjiabadi'
 
 import sys, os, click
@@ -16,7 +15,7 @@ import matplotlib.pyplot as plt
 
 import dentate
 from dentate.stimulus import generate_spatial_ratemap, linearize_trajectory
-from dentate.utils import generate_mesh, list_find
+from dentate.utils import *
 from scipy.spatial.distance import euclidean
 
 
@@ -62,8 +61,8 @@ def main(module, scale_factor, resolution, arena_dimension, grid_peak_rate):
     avals  = np.arange(0.1, 1.0, 0.1)
 
     mock_grid_cell = {}
-    x_offset = xp[xp.shape[0]/2, xp.shape[1]/2]
-    y_offset = yp[yp.shape[0]/2, yp.shape[1]/2]
+    x_offset = xp[old_div(xp.shape[0],2), old_div(xp.shape[1],2)]
+    y_offset = yp[old_div(yp.shape[0],2), old_div(yp.shape[1],2)]
     mock_grid_cell['X Offset'] = np.array([x_offset], dtype='float32')
     mock_grid_cell['Y Offset'] = np.array([y_offset], dtype='float32')
     mock_grid_cell['Grid Orientation'] = np.array([np.pi/4.], dtype='float32')
@@ -71,7 +70,7 @@ def main(module, scale_factor, resolution, arena_dimension, grid_peak_rate):
 
     xd, yd = get_diagonals(xp, yp)
     linearized = linearize_trajectory(xd.reshape(-1,1), yd.reshape(-1,1))
-    linearized_abridged = linearized[0:len(linearized)/2,0]
+    linearized_abridged = linearized[0:old_div(len(linearized),2),0]
 
     information = []
     for a in avals:
@@ -79,25 +78,25 @@ def main(module, scale_factor, resolution, arena_dimension, grid_peak_rate):
         rate_map = generate_spatial_ratemap(0, mock_grid_cell, None, xp, yp, grid_peak_rate, \
                                         0.0, ramp_up_period=None, **kwargs)
         print('a: %0.2f. rate map min: %0.3f' % (a, np.min(rate_map)))
-        _, radius_cutoff = find_radius_decay(rate_map, xp, yp, xp.shape[0]/2, yp.shape[0]/2, threshold=0.10)
+        _, radius_cutoff = find_radius_decay(rate_map, xp, yp, old_div(xp.shape[0],2), old_div(yp.shape[0],2), threshold=0.10)
         information.append((a, radius_cutoff, rate_map))       
 
     sz = int(np.ceil(np.sqrt(avals.shape[0])))
     fig, axes = plt.subplots(sz, sz)
-    for i in xrange(len(information)):
+    for i in range(len(information)):
         a, rstart, response = information[i]
         decay_ratio   = float(rstart) / intervertex_spacing
         print('%0.2f. radius: %f. diameter: %f' %(a,decay_ratio, 2.*decay_ratio))
-        img = axes[i%sz,i/sz].imshow(response, cmap='viridis')
-        plt.colorbar(img, ax=axes[i%sz, i/sz])
-        axes[i%sz, i/sz].set_title('a: %0.2f. r*/lambda: %0.3f' % (a, decay_ratio))
+        img = axes[i%sz,old_div(i,sz)].imshow(response, cmap='viridis')
+        plt.colorbar(img, ax=axes[i%sz, old_div(i,sz)])
+        axes[i%sz, old_div(i,sz)].set_title('a: %0.2f. r*/lambda: %0.3f' % (a, decay_ratio))
 
     fig2, axes2 = plt.subplots(sz, sz)
-    for i in xrange(len(information)):
+    for i in range(len(information)):
         a, _, response = information[i]
         diagonal_response = np.fliplr(response).diagonal()
-        curr_plot = axes2[i%sz, i/sz].plot(linearized_abridged, diagonal_response)    
-        axes2[i%sz, i/sz].set_title('Diagonal trajectory a: %0.2f' % a)
+        curr_plot = axes2[i%sz, old_div(i,sz)].plot(linearized_abridged, diagonal_response)    
+        axes2[i%sz, old_div(i,sz)].set_title('Diagonal trajectory a: %0.2f' % a)
 
     plt.show()
 
