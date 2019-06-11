@@ -1,6 +1,4 @@
-import numbers
-import os
-import copy
+import numbers, os, copy
 from collections import defaultdict
 from scipy import interpolate, signal
 import numpy as np
@@ -14,8 +12,7 @@ from matplotlib import gridspec
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import BoundaryNorm
 from matplotlib.offsetbox import AnchoredText
-from matplotlib.ticker import FormatStrFormatter
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import dentate.statedata as statedata
@@ -77,6 +74,23 @@ def show_figure():
         plt.show()
 
 
+def save_figure(file_name_prefix, fig=None, **kwargs):
+    """
+
+    :param file_name_prefix:
+    :param fig: :class:'plt.Figure'
+    :param kwargs: dict
+    """
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+    fig_file_path = '%s.%s' % (file_name_prefix, fig_options.figFormat)
+    if fig_options.saveFigDir is not None:
+        fig_file_path = '%s/%s' % (fig_options.saveFigDir, fig_file_path)
+    if fig is not None:
+        fig.savefig(fig_file_path)
+    else:
+        plt.savefig(fig_file_path)
+
 
 def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, **kwargs):
     """ Shows graph edges using Mayavi
@@ -115,119 +129,6 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
         vec.glyph.color_mode = 'color_by_scalar'
     return vec
 
-
-def plot_PP_metrics(env, coords_path, features_path, distances_namespace, population='MPP',
-                    cell_type = 'grid', bin_size=250., metric='spacing', normed=False,
-                    graph_type = 'histogram2d', **kwargs):
-
-    """
-    :param env:
-    :param coords_path:
-    :param features_path:
-    :param distances_namespace:
-    :param population:
-    :param cell_type:
-    :param bin_size:
-    :param metric:
-    :param normed:
-    :param graph_type:
-    """
-    fig_options = copy.copy(default_fig_options)
-    fig_options.update(kwargs)
-
-    if cell_type == 'grid':
-        input_selectivity_namespace = 'Grid Selectivity'
-        cell_type_label = 'grid input'
-    elif cell_type == 'place':
-        input_selectivity_namespace = 'Place Selectivity'
-        cell_type_label = 'spatial input'
-    if metric == 'spacing' and cell_type == 'grid':
-        attribute = 'Grid Spacing'
-        cbar_label = 'Mean grid spacing (cm)'
-        feature_label = 'grid spacing'
-    elif metric == 'spacing' and cell_type == 'place':
-        attribute = 'Field Width'
-        cbar_label = 'Mean field width (cm)'
-        feature_label = 'spatial field width'
-    if metric == 'num-fields':
-        if cell_type == 'grid':
-            return
-        elif cell_type == 'place':
-            attribute = 'Num Fields'
-            cbar_label = 'Mean number of spatial fields'
-            feature_label = 'number of spatial fields'
-    if metric == 'orientation' and cell_type == 'grid':
-        attribute = 'Grid Orientation'
-        cbar_label = 'Mean grid orientation (rad)'
-        feature_label = 'grid orientation'
-    elif metric == 'orientation' and cell_type == 'place':
-        return 
-    
-    attr_gen = read_cell_attributes(features_path, population, input_selectivity_namespace)
-    attr_dict = {}
-    for (gid, features_dict) in attr_gen:
-        attr_dict[gid] = features_dict[attribute]
-    del attr_gen
-    present_gids = list(attr_dict.keys())
-
-    distances = read_cell_attributes(coords_path, population, distances_namespace)
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
-    del distances
-
-    distance_U, distance_V = [], []
-    attr_lst = []
-    for gid in present_gids:
-        distance_U.append(soma_distances[gid][0])
-        distance_V.append(soma_distances[gid][1])
-        attr_mean = np.mean(attr_dict[gid])
-        attr_lst.append(attr_mean)
-
-    distance_U = np.asarray(distance_U, dtype='float32')
-    distance_V = np.asarray(distance_V, dtype='float32')
-
-    distance_x_min = np.min(distance_U)
-    distance_x_max = np.max(distance_U)
-    distance_y_min = np.min(distance_V)
-    distance_y_max = np.max(distance_V)
- 
-    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
-
-    dx = int(old_div((distance_x_max - distance_x_min), bin_size))
-    dy = int(old_div((distance_y_max - distance_y_min), bin_size))
-
-    fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
-    ax = plt.gca()
-    ax.axis([x_min, x_max, y_min, y_max])
-        
-    (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=attr_lst, normed=normed)
-    (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
-    zeros = np.where(H2 == 0.0)
-    H = np.zeros(H1.shape)
-    nz = np.where(H2 > 0.0)
-    H[nz] = np.divide(H1[nz], H2[nz])
-    H[zeros] = None
-    if normed:
-        H[nz] = np.divide(H[nz], np.max(H[nz]))
-
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T, cmap='jet')
-    cbar = fig.colorbar(pcm, ax=ax, shrink=0.48, aspect=20)
-    cbar.set_label(cbar_label, rotation=270., labelpad=20.)
-    
-    ax.set_ylabel('Transverse distance (um)', fontsize=fig_options.fontSize)
-    ax.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=fig_options.fontSize)
-    ax.set_title('%s %s: %s' % (population, cell_type_label, feature_label), fontsize=fig_options.fontSize)
-    ax.set_aspect('equal')
-    
-    if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
-            filename = fig_options.saveFig
-        else:
-            filename = '%s-%s-%s.%s' % (population, cell_type, metric, fig_options.figFormat)
-        plt.savefig(filename)
-
-    if fig_options.showFig:
-        show_figure()
 
 
 def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, bin_size = 50., metric='Indegree', normed = False, graph_type = 'histogram2d', **kwargs):
@@ -1869,7 +1770,6 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     return fig
 
 
-## Plot netclamp results (intracellular trace of target cell + spike raster of presynaptic inputs)
 def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop', time_range = None, time_variable='t', intracellular_variable='v', labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker = ',', **kwargs): 
     ''' 
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
@@ -2069,7 +1969,6 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     return fig
 
 
-## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
@@ -2195,7 +2094,6 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     
     return fig
 
-## Plot spike histogram
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
                           pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate', progress = False,
                           overlay=True, graph_type='bar', **kwargs):
@@ -2382,7 +2280,6 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     return fig
 
 
-## Plot spike distribution per cell
 def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, overlay=True, quantity = 'rate', graph_type = 'point', **kwargs):
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
@@ -2517,7 +2414,6 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
     return fig
 
 
-## Plot spike distribution per time
 def plot_spike_distribution_per_time (input_path, namespace_id, include = ['eachPop'],
                                       time_bin_size = 50.0, binCount = 10,
                                       time_variable='t', time_range = None, 
@@ -2679,6 +2575,7 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
                              alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of spatial information per cell. Returns figure handle.
+
     :param spike_input_path: str (path to file)
     :param spike_namespace_id: str
     :param trajectory_path: str (path to file)
@@ -3015,23 +2912,6 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
     return fig
 
 
-def save_figure(file_name_prefix, fig=None, **kwargs):
-    """
-
-    :param file_name_prefix:
-    :param fig: :class:'plt.Figure'
-    :param kwargs: dict
-    """
-    fig_options = copy.copy(default_fig_options)
-    fig_options.update(kwargs)
-    fig_file_path = '%s.%s' % (file_name_prefix, fig_options.figFormat)
-    if fig_options.saveFigDir is not None:
-        fig_file_path = '%s/%s' % (fig_options.saveFigDir, fig_file_path)
-    if fig is not None:
-        fig.savefig(fig_file_path)
-    else:
-        plt.savefig(fig_file_path)
-
 
 def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
                     bin_size = 1., window_size = 1024, smooth = 0, frequency_range=(0, 100.), overlap=0.5,
@@ -3155,6 +3035,120 @@ def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], time_range 
     return fig, psds
 
 
+def plot_selectivity_metrics (env, coords_path, features_path, distances_namespace, population='MPP',
+                              selectivity_type = 'grid', bin_size=250., metric='spacing', normed=False,
+                              graph_type = 'histogram2d', **kwargs):
+
+    """
+    :param env:
+    :param coords_path:
+    :param features_path:
+    :param distances_namespace:
+    :param population:
+    :param selectivity_type:
+    :param bin_size:
+    :param metric:
+    :param normed:
+    :param graph_type:
+    """
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    if selectivity_type == 'grid':
+        input_selectivity_namespace = 'Grid Selectivity'
+        selectivity_type_label = 'grid input'
+    elif selectivity_type == 'place':
+        input_selectivity_namespace = 'Place Selectivity'
+        selectivity_type_label = 'spatial input'
+    if metric == 'spacing' and selectivity_type == 'grid':
+        attribute = 'Grid Spacing'
+        cbar_label = 'Mean grid spacing (cm)'
+        feature_label = 'grid spacing'
+    elif metric == 'spacing' and selectivity_type == 'place':
+        attribute = 'Field Width'
+        cbar_label = 'Mean field width (cm)'
+        feature_label = 'spatial field width'
+    if metric == 'num-fields':
+        if selectivity_type == 'grid':
+            return
+        elif selectivity_type == 'place':
+            attribute = 'Num Fields'
+            cbar_label = 'Mean number of spatial fields'
+            feature_label = 'number of spatial fields'
+    if metric == 'orientation' and selectivity_type == 'grid':
+        attribute = 'Grid Orientation'
+        cbar_label = 'Mean grid orientation (rad)'
+        feature_label = 'grid orientation'
+    elif metric == 'orientation' and selectivity_type == 'place':
+        return 
+    
+    attr_gen = read_cell_attributes(features_path, population, input_selectivity_namespace)
+    attr_dict = {}
+    for (gid, features_dict) in attr_gen:
+        attr_dict[gid] = features_dict[attribute]
+    del attr_gen
+    present_gids = list(attr_dict.keys())
+
+    distances = read_cell_attributes(coords_path, population, distances_namespace)
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
+    del distances
+
+    distance_U, distance_V = [], []
+    attr_lst = []
+    for gid in present_gids:
+        distance_U.append(soma_distances[gid][0])
+        distance_V.append(soma_distances[gid][1])
+        attr_mean = np.mean(attr_dict[gid])
+        attr_lst.append(attr_mean)
+
+    distance_U = np.asarray(distance_U, dtype='float32')
+    distance_V = np.asarray(distance_V, dtype='float32')
+
+    distance_x_min = np.min(distance_U)
+    distance_x_max = np.max(distance_U)
+    distance_y_min = np.min(distance_V)
+    distance_y_max = np.max(distance_V)
+ 
+    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
+
+    dx = int(old_div((distance_x_max - distance_x_min), bin_size))
+    dy = int(old_div((distance_y_max - distance_y_min), bin_size))
+
+    fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+    ax.axis([x_min, x_max, y_min, y_max])
+        
+    (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=attr_lst, normed=normed)
+    (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+    zeros = np.where(H2 == 0.0)
+    H = np.zeros(H1.shape)
+    nz = np.where(H2 > 0.0)
+    H[nz] = np.divide(H1[nz], H2[nz])
+    H[zeros] = None
+    if normed:
+        H[nz] = np.divide(H[nz], np.max(H[nz]))
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T, cmap='jet')
+    cbar = fig.colorbar(pcm, ax=ax, shrink=0.48, aspect=20)
+    cbar.set_label(cbar_label, rotation=270., labelpad=20.)
+    
+    ax.set_ylabel('Transverse distance (um)', fontsize=fig_options.fontSize)
+    ax.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=fig_options.fontSize)
+    ax.set_title('%s %s: %s' % (population, selectivity_type_label, feature_label), fontsize=fig_options.fontSize)
+    ax.set_aspect('equal')
+    
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, str):
+            filename = fig_options.saveFig
+        else:
+            filename = '%s-%s-%s.%s' % (population, selectivity_type, metric, fig_options.figFormat)
+        plt.savefig(filename)
+
+    if fig_options.showFig:
+        show_figure()
+
+
 def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, trajectory_id=None, **kwargs):
     """
 
@@ -3177,15 +3171,16 @@ def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, traj
         ns = namespace_id
     else:
         ns = '%s %s' % (namespace_id, arena_id)
+        
     logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
     fig, axes = plt.subplots(2, 5)
-    for module in range(1, 11):
+    for module in range(0, 10):
         rate_lst = []
-        for (gid, rate, _) in stimulus.read_feature(input_path, ns, population, module=module):
+        for (gid, rate) in stimulus.read_feature(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
-        col = (module - 1) % 5
-        row = old_div((module - 1), 5)
+        col = module % 5
+        row = old_div(module, 5)
         M = max(M, len(rate_lst))
         N = len(rate_lst)
         rate_matrix = np.matrix(rate_lst)
@@ -3250,7 +3245,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
     for iplot, population in enumerate(include):
    
         spiketrain_dict = {}
-        logger.info('Reading vector stimulus data for population %s...' % population) 
+        logger.info('Reading stimulus data for population %s...' % population) 
 
         for (gid, rate, spiketrain, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population): 
             if from_spikes:

@@ -11,18 +11,27 @@ from neuroh5.io import read_cell_attributes
 
 
 class SelectivityConfig(object):
-    def __init__(self, input_config, local_random):
+    def __init__(self, stimulus_config, local_random):
         """
-        
+        MEC is divided into discrete modules with distinct grid
+        spacing and field width. Here we assume grid cells sample
+        uniformly from 10 modules with spacing that increases
+        exponentially from 40 cm to 8 m. While organized
+        dorsal-ventrally, there is no organization in the transverse or
+        septo-temporal extent of their projections to DG.  CA3 and LEC
+        are assumed to exhibit place fields. Their field width varies
+        septal-temporally. Here we assume a continuous exponential
+        gradient of field widths, with the same parameters as those
+        controlling MEC grid width.
 
-        :param input_config: dict
+        :param stimulus_config: dict
         :param local_random: :class:'np.random.RandomState
         """
-        self.num_modules = input_config['Number Modules']
-        self.module_ids = list(range(input_config['Number Modules']))
+        self.num_modules = stimulus_config['Number Modules']
+        self.module_ids = list(range(stimulus_config['Number Modules']))
 
-        self.module_probability_width = input_config['Selectivity Module Parameters']['width']
-        self.module_probability_displacement = input_config['Selectivity Module Parameters']['displacement']
+        self.module_probability_width = stimulus_config['Selectivity Module Parameters']['width']
+        self.module_probability_displacement = stimulus_config['Selectivity Module Parameters']['displacement']
         self.module_probability_offsets = \
             np.linspace(-self.module_probability_displacement, 1. + self.module_probability_displacement,
                         self.num_modules)
@@ -32,21 +41,21 @@ class SelectivityConfig(object):
                          excluded=['offset'])
 
         self.get_grid_module_spacing = \
-            lambda distance: input_config['Grid Spacing Parameters']['offset'] + \
-                      input_config['Grid Spacing Parameters']['slope'] * \
-                      (np.exp(old_div(distance, input_config['Grid Spacing Parameters']['tau'])) - 1.)
+            lambda distance: stimulus_config['Grid Spacing Parameters']['offset'] + \
+                      stimulus_config['Grid Spacing Parameters']['slope'] * \
+                      (np.exp(old_div(distance, stimulus_config['Grid Spacing Parameters']['tau'])) - 1.)
         self.grid_module_spacing = \
             [self.get_grid_module_spacing(distance) for distance in np.linspace(0., 1., self.num_modules)]
-        self.grid_spacing_sigma = input_config['Grid Spacing Variance'] / 6.
-        self.grid_field_width_concentration_factor = input_config['Field Width Concentration Factor']['grid']
+        self.grid_spacing_sigma = stimulus_config['Grid Spacing Variance'] / 6.
+        self.grid_field_width_concentration_factor = stimulus_config['Field Width Concentration Factor']['grid']
         self.grid_module_orientation = [local_random.uniform(0., np.pi / 3.) for i in range(self.num_modules)]
-        self.grid_orientation_sigma = input_config['Grid Orientation Variance'] / 6.
+        self.grid_orientation_sigma = stimulus_config['Grid Orientation Variance'] / 6.
 
-        self.place_field_width_concentration_factor = input_config['Field Width Concentration Factor']['place']
+        self.place_field_width_concentration_factor = stimulus_config['Field Width Concentration Factor']['place']
         self.place_module_field_widths = np.multiply(self.grid_module_spacing,
                                                      self.place_field_width_concentration_factor)
-        self.place_module_field_width_sigma = input_config['Modular Place Field Width Variance'] / 6.
-        self.non_modular_place_field_width_sigma = input_config['Non-modular Place Field Width Variance'] / 6.
+        self.place_module_field_width_sigma = stimulus_config['Modular Place Field Width Variance'] / 6.
+        self.non_modular_place_field_width_sigma = stimulus_config['Non-modular Place Field Width Variance'] / 6.
 
     def get_module_probabilities(self, distance):
         p_modules = []
@@ -313,14 +322,14 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
     return rate_map
 
 
-def get_stimulus_source(selectivity_type, selectivity_type_names, population=None, input_config=None, arena=None,
+def get_stimulus_source(selectivity_type, selectivity_type_names, population=None, stimulus_config=None, arena=None,
                         selectivity_config=None, distance=None, local_random=None, selectivity_attr_dict=None):
     """
 
     :param selectivity_type: int
     :param selectivity_type_names: dict: {int: str}
     :param population: str
-    :param input_config: dict
+    :param stimulus_config: dict
     :param arena: namedtuple
     :param selectivity_config: :class:'SelectivityConfig'
     :param distance: float; u arc distance normalized to reference layer
@@ -339,14 +348,14 @@ def get_stimulus_source(selectivity_type, selectivity_type_names, population=Non
             stimulus_source = PlaceSelectivity(selectivity_attr_dict=selectivity_attr_dict)
         else:
             RuntimeError('get_stimulus_source: selectivity type: %s not yet implemented' % selectivity_type_name)
-    elif any([arg is None for arg in [population, input_config, arena]]):
+    elif any([arg is None for arg in [population, stimulus_config, arena]]):
         raise RuntimeError('get_stimulus_source: missing argument(s) required to construct %s cell config object' %
                            selectivity_type_name)
     else:
-        if population not in input_config['Peak Rate'] or selectivity_type not in input_config['Peak Rate'][population]:
+        if population not in stimulus_config['Peak Rate'] or selectivity_type not in stimulus_config['Peak Rate'][population]:
             raise RuntimeError('get_stimulus_source: peak rate not specified for population: %s, selectivity type: '
                                '%s' % (population, selectivity_type_name))
-        peak_rate = input_config['Peak Rate'][population][selectivity_type]
+        peak_rate = stimulus_config['Peak Rate'][population][selectivity_type]
 
         if selectivity_type_name in ['grid', 'place']:
             if selectivity_config is None:
@@ -362,14 +371,14 @@ def get_stimulus_source(selectivity_type, selectivity_type_names, population=Non
                 GridSelectivity(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
                                 peak_rate=peak_rate, distance=distance, local_random=local_random)
         elif selectivity_type_name == 'place':
-            if population in input_config['Non-modular Place Selectivity Populations']:
+            if population in stimulus_config['Non-modular Place Selectivity Populations']:
                 modular = False
             else:
                 modular = True
-            if population not in input_config['Number Place Fields Probabilities']:
+            if population not in stimulus_config['Number Place Fields Probabilities']:
                 raise RuntimeError('get_stimulus_source: probabilities for number of place fields not specified for '
                                    'population: %s' % population)
-            num_field_probabilities = input_config['Number Place Fields Probabilities'][population]
+            num_field_probabilities = stimulus_config['Number Place Fields Probabilities'][population]
             stimulus_source = \
                 PlaceSelectivity(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
                                  peak_rate=peak_rate, distance=distance, modular=modular,
@@ -568,7 +577,7 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     spatial_resolution = velocity / 1000. * temporal_resolution
     x = trajectory.path[:,0]
     y = trajectory.path[:,1]
-
+    
     if equilibration_duration is not None:
         equilibration_distance = velocity / 1000. * equilibration_duration
         x = np.insert(x, 0, x[0] - equilibration_distance)
@@ -583,7 +592,7 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     interp_distance = np.arange(distance.min(), distance.max() + spatial_resolution / 2., spatial_resolution)
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
-    t = old_div(interp_distance, velocity * 1000.)  # ms
+    t = old_div(interp_distance, velocity / 1000.)  # ms
 
     t -= equilibration_duration
     interp_distance -= equilibration_distance
@@ -705,11 +714,10 @@ def read_feature (feature_path, feature_namespace, population, module=None):
 
     attr_gen = read_cell_attributes(feature_path, population, namespace=feature_namespace)
     for gid, feature_dict in attr_gen:
-        gid_module = feature_dict['Module'][0]
+        gid_module = feature_dict['Module ID'][0]
         if (module is None) or (module == gid_module):
-            rate       = feature_dict['Rate Map']
-            num_fields = feature_dict['Num Fields']
-            feature_lst.append((gid, rate, num_fields))
+            rate       = feature_dict['Arena Rate Map']
+            feature_lst.append((gid, rate))
  
     return feature_lst
 

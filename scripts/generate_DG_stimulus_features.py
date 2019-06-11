@@ -1,10 +1,3 @@
-"""
-MEC is divided into discrete modules with distinct grid spacing and field width. Here we assume grid cells
-sample uniformly from 10 modules with spacing that increases exponentially from 40 cm to 8 m. While organized
-dorsal-ventrally, there is no organization in the transverse or septo-temporal extent of their projections to DG.
-CA3 and LEC are assumed to exhibit place fields. Their field width varies septal-temporally. Here we assume a
-continuous exponential gradient of field widths, with the same parameters as those controlling MEC grid width.
-"""
 
 import click
 from mpi4py import MPI
@@ -13,7 +6,7 @@ from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_populati
 import dentate
 from dentate.env import Env
 from dentate.plot import plot_2D_rate_map
-from dentate.stimulus import SelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, get_stimulus_source
+from dentate.stimulus import SelectivityConfig, choose_stimulus_selectivity_type, get_2D_arena_spatial_mesh, get_stimulus_source
 from dentate.utils import *
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
@@ -112,7 +105,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
             if population not in population_ranges:
                 raise RuntimeError('generate_DG_input_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
-            if population not in env.input_config['Selectivity Type Probabilities']:
+            if population not in env.stimulus_config['Selectivity Type Probabilities']:
                 raise RuntimeError('generate_DG_input_features: selectivity type not specified for '
                                    'population: %s' % population)
             with h5py.File(coords_path, 'r') as coords_f:
@@ -134,7 +127,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
     reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
 
-    if arena_id not in env.input_config['Arena']:
+    if arena_id not in env.stimulus_config['Arena']:
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
                            (arena_id, config_prefix + '/' + config))
 
@@ -146,11 +139,11 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
         chars[0] = chars[0].upper()
         selectivity_type_namespaces[this_selectivity_type_name] = ''.join(chars) + ' Selectivity %s' % arena_id
 
-    arena = env.input_config['Arena'][arena_id]
+    arena = env.stimulus_config['Arena'][arena_id]
     arena_x_mesh, arena_y_mesh = None, None
     if rank == 0:
         arena_x_mesh, arena_y_mesh = \
-            get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.input_config['Spatial Resolution'])
+            get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
     arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
     arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
 
@@ -158,7 +151,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     local_random.seed(selectivity_seed_offset - 1)
 
-    selectivity_config = SelectivityConfig(env.input_config, local_random)
+    selectivity_config = SelectivityConfig(env.stimulus_config, local_random)
     if plot and rank == 0:
         selectivity_config.plot_module_probabilities()
 
@@ -171,7 +164,8 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     write_every = max(1, int(math.floor(old_div(write_size, comm.size))))
     for population in populations:
 
-        logger.info('Generating input features for population %s...' % population)
+        if rank == 0:
+            logger.info('Generating stimulus features for population %s...' % population)
         
         start_time = time.time()
         gid_count = defaultdict(lambda: 0)
@@ -187,11 +181,11 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
 
                 local_random.seed(int(selectivity_seed_offset + gid))
                 this_selectivity_type = \
-                    choose_input_selectivity_type(p=env.input_config['Selectivity Type Probabilities'][population],
-                                                  local_random=local_random)
+                    choose_stimulus_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
+                                                     local_random=local_random)
                 stimulus_source = get_stimulus_source(selectivity_type=this_selectivity_type,
                                                       selectivity_type_names=selectivity_type_names,
-                                                      population=population, input_config=env.input_config, arena=arena,
+                                                      population=population, stimulus_config=env.stimulus_config, arena=arena,
                                                       selectivity_config=selectivity_config, distance=norm_u_arc_distance,
                                                       local_random=local_random)
                 this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
@@ -199,7 +193,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                 rate_map = stimulus_source.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
                 if debug and plot and rank == 0:
                     plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh, rate_map=rate_map,
-                                     peak_rate = env.input_config['Peak Rate'][population][this_selectivity_type],
+                                     peak_rate = env.stimulus_config['Peak Rate'][population][this_selectivity_type],
                                      title='%s %s cell %i\nNormalized cell position: %.3f' %
                                            (population, this_selectivity_type_name, gid, norm_u_arc_distance))
                 selectivity_attr_dict[this_selectivity_type_name][gid]['Arena Rate Map'] = \

@@ -1,17 +1,13 @@
-import copy
-import random
-
-import h5py
 
 import click
+import copy, random
+from mpi4py import MPI
+import h5py
 from dentate.env import Env
 from dentate.stimulus import get_stimulus_source, generate_linear_trajectory
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen
-from neuroh5.io import append_cell_attributes
-from neuroh5.io import read_population_ranges
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 
 sys_excepthook = sys.excepthook
 
@@ -52,10 +48,11 @@ context = Context()
 @click.option("--font-size", type=float, default=14)
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--verbose", '-v', is_flag=True)
+@click.option("--dry-run", is_flag=True)
 def main(config, config_prefix, features_path, arena_id, trajectory_id, populations,
          io_size, chunk_size, value_chunk_size, cache_size, write_size, output_path, spikes_namespace,
          spike_train_attr_name, gather, interactive, debug, show_fig, save_fig, save_fig_dir, font_size, fig_format,
-         verbose):
+         verbose, dry_run):
     """
 
     :param config: str (.yaml file name)
@@ -98,10 +95,10 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     if len(populations) == 0:
         populations = ('MC', 'ConMC', 'LPP', 'GC', 'MPP', 'CA3c')
 
-    if arena_id not in env.input_config['Arena']:
+    if arena_id not in env.stimulus_config['Arena']:
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
                            (arena_id, config_prefix + '/' + config))
-    arena = env.input_config['Arena'][arena_id]
+    arena = env.stimulus_config['Arena'][arena_id]
 
     if trajectory_id not in arena.trajectories:
         raise RuntimeError('Trajectory with ID: %s not specified by configuration at file path: %s' %
@@ -114,7 +111,7 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
             if population not in population_ranges:
                 raise RuntimeError('generate_DG_input_spike_trains: specified population: %s not found in '
                                    'provided features_path: %s' % (population, features_path))
-            if population not in env.input_config['Selectivity Type Probabilities']:
+            if population not in env.stimulus_config['Selectivity Type Probabilities']:
                 raise RuntimeError('generate_DG_input_spike_trains: selectivity type not specified for '
                                    'population: %s' % population)
             valid_selectivity_namespaces[population] = []
@@ -146,8 +143,8 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     t, x, y, d = None, None, None, None
     if rank == 0:
         t, x, y, d = generate_linear_trajectory(trajectory,
-                                                temporal_resolution=env.input_config['Temporal Resolution'],
-                                                equilibration_duration=env.input_config['Equilibration Duration'])
+                                                temporal_resolution=env.stimulus_config['Temporal Resolution'],
+                                                equilibration_duration=env.stimulus_config['Equilibration Duration'])
     t = comm.bcast(t, root=0)
     x = comm.bcast(x, root=0)
     y = comm.bcast(y, root=0)
@@ -176,8 +173,8 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
                                        'configuration' % (output_path, trajectory_namespace))
     comm.barrier()
 
-    if 'Equilibration Duration' in env.input_config and env.input_config['Equilibration Duration'] > 0.:
-        equilibrate_len = int(old_div(env.input_config['Equilibration Duration'], env.input_config['Temporal Resolution']))
+    if 'Equilibration Duration' in env.stimulus_config and env.stimulus_config['Equilibration Duration'] > 0.:
+        equilibrate_len = int(old_div(env.stimulus_config['Equilibration Duration'], env.stimulus_config['Temporal Resolution']))
         from scipy.signal import hann
         equilibrate_hann = hann(2 * equilibrate_len)[:equilibrate_len]
     else:
@@ -195,8 +192,9 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
 
     write_every = max(1, int(math.floor(old_div(write_size, comm.size))))
     for population in populations:
-        
-        logger.info('Generating input spikes for population %s...' % population)
+
+        if rank == 0:
+            logger.info('Generating spike trains for population %s...' % population)
 
         gid_count = defaultdict(lambda: 0)
         process_time = dict()
@@ -224,7 +222,7 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
                         if save_fig is not None:
                             fig_options.saveFig = '%s %s' % (save_fig, fig_title)
                         plot_1D_rate_map(t=t, rate_map=rate_map,
-                                         peak_rate=env.input_config['Peak Rate'][population][this_selectivity_type],
+                                         peak_rate=env.stimulus_config['Peak Rate'][population][this_selectivity_type],
                                          spike_train=spike_train, title=fig_title, **fig_options())
                     spikes_attr_dict[gid] = dict()
                     spikes_attr_dict[gid]['Selectivity Type'] = np.array([this_selectivity_type], dtype='uint8')

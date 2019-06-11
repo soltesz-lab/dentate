@@ -10,7 +10,7 @@ script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--features-path", '-p', required=True, type=click.Path())
-@click.option("--features-namespace", '-n', type=str, default='Input Features')
+@click.option("--features-namespace", '-n', type=str)
 @click.option("--arena-id", '-a', type=str)
 @click.option("--trajectory-id", '-t', type=str)
 @click.option("--include", '-i', type=str, multiple=True)
