@@ -1465,7 +1465,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     minN = N
 
     avg_rates = {}
-    tsecs = old_div((time_range[1]-time_range[0]),1e3) 
+    tsecs = old_div((time_range[1]-time_range[0]),1e3)
     for i,pop_name in enumerate(spkpoplst):
         pop_num = len(pop_active_cells[pop_name])
         maxN = max(maxN, max(pop_active_cells[pop_name]))
@@ -1474,7 +1474,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
+                avg_rates[pop_name] = old_div(old_div(num_cell_spks[pop_name], pop_num), tsecs)
         
     
     pop_colors = { pop_name: color_list[ipop%len(raster_color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -1849,7 +1849,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
+                avg_rates[pop_name] = old_div(old_div(num_cell_spks[pop_name], pop_num), tsecs)
         
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -2155,7 +2155,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
                 if num_cell_spks[pop_name] == 0:
                     avg_rates[pop_name] = 0
                 else:
-                    avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
+                    avg_rates[pop_name] = old_div(old_div(num_cell_spks[pop_name], pop_num), tsecs)
             
     # Y-axis label
     if quantity == 'rate':
