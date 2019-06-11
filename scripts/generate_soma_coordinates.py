@@ -2,18 +2,30 @@
 ## Generate soma coordinates within layer-specific volume.
 ##
 
-import sys, itertools, os.path, math, random, click, logging
-from mpi4py import MPI
-import numpy as np
-from neuroh5.io import read_population_ranges, append_cell_attributes
+import itertools
+import logging
+import math
+import os.path
+import random
+import sys
+
 import h5py
-from dentate.utils import *
-from dentate.env import Env
-from dentate.geometry import make_volume, DG_volume, make_uvl_distance
+import numpy as np
+
+import click
+import dlib
+import rbf
 from dentate.alphavol import alpha_shape
-import dlib, rbf
-from rbf.pde.nodes import min_energy_nodes
+from dentate.env import Env
+from dentate.geometry import DG_volume
+from dentate.geometry import make_uvl_distance
+from dentate.geometry import make_volume
+from dentate.utils import *
+from mpi4py import MPI
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import read_population_ranges
 from rbf.pde.geometry import contains
+from rbf.pde.nodes import min_energy_nodes
 
 script_name = os.path.basename(__file__)
 logger = get_script_logger(script_name)

@@ -1,14 +1,16 @@
 """Procedures related to gap junction connectivity generation. """
-import sys, time, string, math, itertools
+
+import time
 from collections import defaultdict
+
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.spatial.distance import euclidean
-from mpi4py import MPI
-from neuron import h
-from neuroh5.io import read_population_ranges, read_tree_selection, append_graph
+
 from dentate import cells
-from dentate.utils import *
+from dentate.neuron_utils import h
+from dentate.utils import get_module_logger, old_div, viewitems
+from neuroh5.io import append_graph, read_tree_selection
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env

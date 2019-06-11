@@ -1,8 +1,7 @@
-import sys, os, itertools
-from collections import defaultdict
+import os
 import h5py
 import numpy as np
-from dentate.utils import *
+from dentate.utils import range, str, viewitems
 from neuroh5.io import write_cell_attributes
 
 grp_h5types = 'H5Types'

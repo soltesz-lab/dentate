@@ -1,14 +1,18 @@
 from builtins import str
 from collections import defaultdict
+
+import h5py
 import numpy as np
+
 import rbf
-from rbf.interpolate import RBFInterpolant
-from rbf.nodes import snap_to_boundary,disperse,menodes
-from rbf.geometry import contains
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume
-import h5py
 from mayavi import mlab
+from rbf.geometry import contains
+from rbf.interpolate import RBFInterpolant
+from rbf.nodes import disperse
+from rbf.nodes import menodes
+from rbf.nodes import snap_to_boundary
 from tvtk.api import tvtk
 
 #def make_volume(input_path, ns='Hippocampus', basis=rbf.basis.phs3, res=15):

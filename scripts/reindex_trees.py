@@ -1,13 +1,25 @@
-import sys, gc, os, random, click, logging
-from mpi4py import MPI
+import gc
+import logging
+import os
+import random
+import sys
+
 import numpy as np
-from neuroh5.io import read_population_ranges, append_cell_trees, append_cell_attributes, bcast_cell_attributes, NeuroH5TreeGen
+
+import click
 import dentate
-from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
-from dentate.geometry import measure_distances
-from dentate.env import Env
 import dentate.utils as utils
+from dentate.connection_generator import ConnectionProb
+from dentate.connection_generator import generate_uv_distance_connections
+from dentate.env import Env
+from dentate.geometry import measure_distances
 from dentate.neuron_utils import configure_hoc_env
+from mpi4py import MPI
+from neuroh5.io import NeuroH5TreeGen
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import append_cell_trees
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):

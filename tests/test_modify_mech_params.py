@@ -1,9 +1,11 @@
 from __future__ import division
+
 from builtins import str
-from past.utils import old_div
+
 import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
+from past.utils import old_div
 
 context = Context()
 

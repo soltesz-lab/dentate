@@ -1,7 +1,8 @@
-from builtins import zip
-import numbers
-import numpy as np
 import itertools
+import numbers
+from builtins import zip
+
+import numpy as np
 
 
 def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_std=1.0,

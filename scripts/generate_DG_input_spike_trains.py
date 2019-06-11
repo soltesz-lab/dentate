@@ -1,13 +1,18 @@
+import copy
+import random
+
+import h5py
+
+import click
+from dentate.env import Env
+from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
+from dentate.stimulus import generate_linear_trajectory
+from dentate.stimulus import get_input_cell
 from dentate.utils import *
 from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
-import h5py
-from dentate.env import Env
-from dentate.stimulus import get_input_cell, generate_linear_trajectory
-from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
-import random
-import copy
-import click
+from neuroh5.io import NeuroH5CellAttrGen
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import read_population_ranges
 
 sys_excepthook = sys.excepthook
 

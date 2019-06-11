@@ -5,23 +5,21 @@ dorsal-ventrally, there is no organization in the transverse or septo-temporal e
 CA3 and LEC are assumed to exhibit place fields. Their field width varies septal-temporally. Here we assume a
 continuous exponential gradient of field widths, with the same parameters as those controlling MEC grid width.
 """
-from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
-<<<<<<< Updated upstream:scripts/infer_DG_firing_rates.py
-from dentate.utils import *
-from dentate.env import Env
-from dentate.stimulus import SelectivityModuleConfig, get_input_cell_config, get_2D_arena_spatial_mesh, \
-=======
-import dentate
-from dentate.utils import *
-from dentate.env import Env
-from dentate.stimulus import SelectivityConfig, get_input_cell, get_2D_arena_spatial_mesh, \
->>>>>>> Stashed changes:scripts/generate_DG_input_features.py
-    choose_input_selectivity_type
-from dentate.plot import plot_2D_rate_map
-import click
 
+import click
+import dentate
+from dentate.env import Env
+from dentate.plot import plot_2D_rate_map
+from dentate.stimulus import SelectivityConfig
+from dentate.stimulus import choose_input_selectivity_type
+from dentate.stimulus import get_2D_arena_spatial_mesh
+from dentate.stimulus import get_input_cell
+from dentate.utils import *
+from mpi4py import MPI
+from neuroh5.io import NeuroH5CellAttrGen
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import read_population_ranges
 
 logger = get_script_logger(os.path.basename(__file__))
 

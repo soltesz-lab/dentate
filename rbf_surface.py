@@ -3,15 +3,17 @@ Based on code from bspline_surface.py
 """
 from __future__ import division
 
-from builtins import range
-from builtins import object
-from past.utils import old_div
 import math
-import numpy as np
+from builtins import object
+from builtins import range
 from collections import namedtuple
+
+import numpy as np
+
 import rbf
-from rbf.interpolate import RBFInterpolant
 import rbf.basis
+from past.utils import old_div
+from rbf.interpolate import RBFInterpolant
 
 
 def euclidean_distance(a, b):

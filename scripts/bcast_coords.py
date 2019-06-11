@@ -1,12 +1,20 @@
 
-import sys, os, gc, click, logging
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes
+import gc
+import logging
+import os
+import sys
+
 import h5py
 import numpy as np
+
+import click
 import dentate
-from dentate.env import Env
 import dentate.utils as utils
+from dentate.env import Env
+from mpi4py import MPI
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_population_names
+from neuroh5.io import read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):

@@ -1,14 +1,13 @@
 import os
+from collections import defaultdict, namedtuple
 import numpy as np
-import yaml
-from collections import namedtuple, defaultdict
-from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from mpi4py import MPI
-from neuron import h
-from dentate.utils import *
+import yaml
+from dentate.neuron_utils import h, find_template
 from dentate.synapses import SynapseAttributes
-from dentate.neuron_utils import find_template
-
+from dentate.utils import IncludeLoader, config_logging, get_root_logger, str, viewitems, zip
+from dentate.utils import viewitems
+from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
                            ['type',

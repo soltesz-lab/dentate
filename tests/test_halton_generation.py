@@ -1,13 +1,16 @@
 from __future__ import division
 
+import time
+from builtins import range
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+import ghalton
+from past.utils import old_div
+
 # Make sure ghalton is installed -> $ pip install ghalton 
 
-from builtins import range
-from past.utils import old_div
-import numpy as np
-import ghalton
-import matplotlib.pyplot as plt
-import time
 
 
 def runtime_test(points, n=5):
@@ -73,5 +76,3 @@ if __name__ == '__main__':
 
 
     plt.show()
-
-  

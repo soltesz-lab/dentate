@@ -1,15 +1,25 @@
-import sys, os, os.path, click
-import itertools, random
+import itertools
+import os
+import os.path
+import random
+import sys
+
 import numpy as np
-from mpi4py import MPI # Must come before importing NEURON
-from neuron import h
-from neuroh5.io import read_tree_selection, read_cell_attribute_selection
+
+import click
+from dentate import cells
+from dentate import neuron_utils
+from dentate import synapses
+from dentate import utils
 from dentate.env import Env
-from dentate import utils, neuron_utils, cells, synapses
 from dentate.synapses import config_syn
 from dentate.utils import *
+from mpi4py import MPI  # Must come before importing NEURON
+from neuroh5.io import read_cell_attribute_selection
+from neuroh5.io import read_tree_selection
+from neuron import h
 
-    
+
 def passive_test (templateClass, tree, v_init):
 
     cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)

@@ -3,15 +3,19 @@
 ## Test of ParallelTransfer-based gap junctions. Assumes the presence
 ## of a conductance-based half-gap junction model ggap.mod
 
+import argparse
+import itertools
+import os
+import sys
 from builtins import next
-from builtins import str
-from builtins import range
 from builtins import object
-import sys, os, itertools, argparse
+from builtins import range
+from builtins import str
+
 import numpy as np
+
 from mpi4py import MPI
 from neuron import h
-
 
 cells = []
 gjlist = []
@@ -170,5 +174,3 @@ def main():
     h.quit()
 
 main()
-
-

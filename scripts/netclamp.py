@@ -5,12 +5,16 @@ Dentate Gyrus model single-cell simulation script.
 
 """
 
-import sys, click, os
-from mpi4py import MPI
+import os
+import sys
+
 import numpy as np
+
+import click
 import dentate.network as network
 from dentate.env import Env
 from dentate.utils import list_find
+from mpi4py import MPI
 
 
 def mpi_excepthook(type, value, traceback):

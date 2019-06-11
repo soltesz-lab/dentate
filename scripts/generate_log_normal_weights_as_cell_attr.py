@@ -1,14 +1,22 @@
-import sys, os, time, gc, click, logging
+import gc
+import logging
+import os
+import sys
+import time
 from collections import defaultdict
-import numpy as np
-from mpi4py import MPI
-from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
-import h5py
-from dentate.env import Env
-from dentate import utils
-import dentate.synapses as synapses
-from dentate.utils import *
 
+import h5py
+import numpy as np
+
+import click
+import dentate.synapses as synapses
+from dentate import utils
+from dentate.env import Env
+from dentate.utils import *
+from mpi4py import MPI
+from neuroh5.io import NeuroH5ProjectionGen
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -140,4 +148,3 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
-

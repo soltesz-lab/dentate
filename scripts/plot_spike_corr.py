@@ -1,8 +1,12 @@
 
-import sys, gc, os
-from mpi4py import MPI
+import gc
+import os
+import sys
+
 import click
-import utils, plot
+import plot
+import utils
+from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
 
