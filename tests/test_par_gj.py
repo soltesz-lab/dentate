@@ -2,6 +2,7 @@
 
 ## Test of ParallelTransfer-based gap junctions. Assumes the presence
 ## of a conductance-based half-gap junction model ggap.mod
+
 from builtins import next
 from builtins import str
 from builtins import range
@@ -119,7 +120,9 @@ def mkgjs(pc, ngids):
 
 def main():
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Parallel transfer test.')
+    parser.add_argument('--sparse-partrans', dest='sparse_partrans', default=False, action='store_true',
+                        help='use sparse parallel transfer')
     parser.add_argument('--result-prefix', default='.',
                         help='place output files in given directory')
     parser.add_argument('--ngids', default=2, type=int,
@@ -135,13 +138,26 @@ def main():
     
     pc.setup_transfer()
 
+    if args.sparse_partrans:
+        if hasattr(h, 'nrn_sparse_partrans'):
+            h.nrn_sparse_partrans = 1
+    
     rec_t = h.Vector()
     rec_t.record(h._ref_t)
+
+    wt = time.time()
     
     h.dt = 0.25
     pc.set_maxstep(10)
     h.finitialize(-65)
-    pc.psolve(50)
+    pc.psolve(500)
+
+    total_wt = time.time() - wt
+    
+    gjtime   = pc.vtransfer_time()
+
+    print('rank %d: parallel transfer time: %.02f' % (myrank, gjtime))
+    print('rank %d: total compute time: %.02f' % (myrank, total_wt))
     
     output = itertools.chain([ np.asarray(rec_t.to_python()) ],
                              [ np.asarray(vrec.to_python()) for vrec in vrecs ])

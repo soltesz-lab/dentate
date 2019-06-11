@@ -6,9 +6,10 @@ from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5Cell
 from dentate.utils import *
 
 
-class SelectivityModuleConfig(object):
+class SelectivityConfig(object):
     def __init__(self, input_config, local_random):
         """
+        
 
         :param input_config: dict
         :param local_random: :class:'np.random.RandomState
@@ -100,14 +101,14 @@ class SelectivityModuleConfig(object):
         return np.average(self.place_module_field_widths, weights=p_modules)
 
 
-class GridCellConfig(object):
-    def __init__(self, selectivity_type=None, arena=None, module_config=None, peak_rate=None, distance=None,
-                 local_random=None, selectivity_attr_dict=None):
+class GridCell(object):
+    def __init__(self, selectivity_type=None, arena=None, selectivity_config=None, 
+                 peak_rate=None, distance=None, local_random=None, selectivity_attr_dict=None):
         """
 
         :param selectivity_type: int
         :param arena: namedtuple
-        :param module_config: :class:'SelectivityModuleConfig'
+        :param selectivity_config: :class:'SelectivityConfig'
         :param peak_rate: float
         :param distance: float; u arc distance normalized to reference layer
         :param local_random: :class:'np.random.RandomState'
@@ -115,30 +116,33 @@ class GridCellConfig(object):
         """
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
-        elif any([arg is None for arg in [selectivity_type, arena, module_config, peak_rate, distance]]):
-            raise RuntimeError('GridCellConfig: missing argument(s) required for object construction')
+        elif any([arg is None for arg in [selectivity_type, arena, selectivity_config, peak_rate, distance]]):
+            raise RuntimeError('GridCell: missing argument(s) required for object construction')
         else:
             if local_random is None:
                 local_random = np.random.RandomState()
+                
             self.selectivity_type = selectivity_type
             self.peak_rate = peak_rate
-            p_modules = module_config.get_module_probabilities(distance)
-            self.module_id = local_random.choice(module_config.module_ids, p=p_modules)
+            p_modules = selectivity_config.get_module_probabilities(distance)
+            self.module_id = local_random.choice(selectivity_config.module_ids, p=p_modules)
 
-            self.grid_spacing = module_config.grid_module_spacing[self.module_id]
-            if module_config.grid_spacing_sigma > 0.:
-                delta_grid_spacing_factor = local_random.normal(0., module_config.grid_spacing_sigma)
+            self.grid_spacing = selectivity_config.grid_module_spacing[self.module_id]
+            if selectivity_config.grid_spacing_sigma > 0.:
+                delta_grid_spacing_factor = local_random.normal(0., selectivity_config.grid_spacing_sigma)
                 self.grid_spacing += self.grid_spacing * delta_grid_spacing_factor
 
-            self.grid_orientation = module_config.grid_module_orientation[self.module_id]
-            if module_config.grid_orientation_sigma > 0.:
-                delta_grid_orientation = local_random.normal(0., module_config.grid_orientation_sigma)
+            self.grid_orientation = selectivity_config.grid_module_orientation[self.module_id]
+            if selectivity_config.grid_orientation_sigma > 0.:
+                delta_grid_orientation = local_random.normal(0., selectivity_config.grid_orientation_sigma)
                 self.grid_orientation += delta_grid_orientation
 
             x_bounds, y_bounds = get_2D_arena_bounds(arena=arena, margin=self.grid_spacing / 2.)
+
             self.x0 = local_random.uniform(*x_bounds)
             self.y0 = local_random.uniform(*y_bounds)
-            self.grid_field_width_concentration_factor = module_config.grid_field_width_concentration_factor
+            
+            self.grid_field_width_concentration_factor = selectivity_config.grid_field_width_concentration_factor
 
     def init_from_attr_dict(self, selectivity_attr_dict):
         self.selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
@@ -173,14 +177,14 @@ class GridCellConfig(object):
                                  a=self.grid_field_width_concentration_factor), self.peak_rate)
 
 
-class PlaceCellConfig(object):
-    def __init__(self, selectivity_type=None, arena=None, module_config=None, peak_rate=None, distance=None,
+class PlaceCell(object):
+    def __init__(self, selectivity_type=None, arena=None, selectivity_config=None, peak_rate=None, distance=None,
                  modular=None, num_field_probabilities=None, local_random=None, selectivity_attr_dict=None):
         """
 
         :param selectivity_type: int
         :param arena: namedtuple
-        :param module_config: :class:'SelectivityModuleConfig'
+        :param selectivity_config: :class:'SelectivityModuleConfig'
         :param peak_rate: float
         :param distance: float; u arc distance normalized to reference layer
         :param modular: bool
@@ -190,21 +194,21 @@ class PlaceCellConfig(object):
         """
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
-        elif any([arg is None for arg in [selectivity_type, arena, module_config, peak_rate, distance, modular,
+        elif any([arg is None for arg in [selectivity_type, arena, selectivity_config, peak_rate, distance, modular,
                                           num_field_probabilities]]):
-            raise RuntimeError('PlaceCellConfig: missing argument(s) required for object construction')
+            raise RuntimeError('PlaceCell: missing argument(s) required for object construction')
         else:
             if local_random is None:
                 local_random = np.random.RandomState()
             self.selectivity_type = selectivity_type
             self.peak_rate = peak_rate
-            p_modules = module_config.get_module_probabilities(distance)
+            p_modules = selectivity_config.get_module_probabilities(distance)
             if modular:
-                self.module_id = local_random.choice(module_config.module_ids, p=p_modules)
-                self.mean_field_width = module_config.place_module_field_widths[self.module_id]
+                self.module_id = local_random.choice(selectivity_config.module_ids, p=p_modules)
+                self.mean_field_width = selectivity_config.place_module_field_widths[self.module_id]
             else:
                 self.module_id = -1
-                self.mean_field_width = module_config.get_expected_place_field_width(p_modules)
+                self.mean_field_width = selectivity_config.get_expected_place_field_width(p_modules)
 
             num_fields_array, p_num_fields = \
                 normalize_num_field_probabilities(num_field_probabilities, return_item_arrays=True)
@@ -215,19 +219,20 @@ class PlaceCellConfig(object):
             for i in range(self.num_fields):
                 this_field_width = self.mean_field_width
                 if modular:
-                    if module_config.place_module_field_width_sigma > 0.:
-                        delta_field_width_factor = local_random.normal(0., module_config.place_module_field_width_sigma)
+                    if selectivity_config.place_module_field_width_sigma > 0.:
+                        delta_field_width_factor = local_random.normal(0., selectivity_config.place_module_field_width_sigma)
                         this_field_width += self.mean_field_width * delta_field_width_factor
                 else:
-                    if module_config.non_modular_place_field_width_sigma > 0.:
+                    if selectivity_config.non_modular_place_field_width_sigma > 0.:
                         delta_field_width_factor = \
-                            local_random.normal(0., module_config.non_modular_place_field_width_sigma)
+                            local_random.normal(0., selectivity_config.non_modular_place_field_width_sigma)
                         this_field_width += self.mean_field_width * delta_field_width_factor
                 self.field_width.append(this_field_width)
 
                 x_bounds, y_bounds = get_2D_arena_bounds(arena=arena, margin=this_field_width / 2.)
                 this_x0 = local_random.uniform(*x_bounds)
                 this_y0 = local_random.uniform(*y_bounds)
+                
                 self.x0.append(this_x0)
                 self.y0.append(this_y0)
 
@@ -304,8 +309,8 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
     return rate_map
 
 
-def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, input_config=None, arena=None,
-                          module_config=None, distance=None, local_random=None, selectivity_attr_dict=None):
+def get_input_cell(selectivity_type, selectivity_type_names, population=None, input_config=None, arena=None,
+                   selectivity_config=None, distance=None, local_random=None, selectivity_attr_dict=None):
     """
 
     :param selectivity_type: int
@@ -313,62 +318,62 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
     :param population: str
     :param input_config: dict
     :param arena: namedtuple
-    :param module_config: :class:'SelectivityModuleConfig'
+    :param selectivity_config: :class:'SelectivityConfig'
     :param distance: float; u arc distance normalized to reference layer
     :param local_random: :class:'np.random.RandomState'
     :param selectivity_attr_dict: dict
-    :return: instance of a one of various CellConfig classes
+    :return: instance of one of various InputCell classes
     """
     selectivity_type_name = selectivity_type_names[selectivity_type]
     if selectivity_type not in selectivity_type_names:
-        raise RuntimeError('get_input_cell_config: enumerated selectivity type: %i not recognized' % selectivity_type)
+        raise RuntimeError('get_input_cell: enumerated selectivity type: %i not recognized' % selectivity_type)
 
     if selectivity_attr_dict is not None:
         if selectivity_type_name == 'grid':
-            input_cell_config = GridCellConfig(selectivity_attr_dict=selectivity_attr_dict)
+            input_cell = GridCell(selectivity_attr_dict=selectivity_attr_dict)
         elif selectivity_type_name == 'place':
-            input_cell_config = PlaceCellConfig(selectivity_attr_dict=selectivity_attr_dict)
+            input_cell = PlaceCell(selectivity_attr_dict=selectivity_attr_dict)
         else:
-            RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
+            RuntimeError('get_input_cell: selectivity type: %s not yet implemented' % selectivity_type_name)
     elif any([arg is None for arg in [population, input_config, arena]]):
-        raise RuntimeError('get_input_cell_config: missing argument(s) required to construct %s cell config object' %
+        raise RuntimeError('get_input_cell: missing argument(s) required to construct %s cell config object' %
                            selectivity_type_name)
     else:
         if population not in input_config['Peak Rate'] or selectivity_type not in input_config['Peak Rate'][population]:
-            raise RuntimeError('get_input_cell_config: peak rate not specified for population: %s, selectivity type: '
+            raise RuntimeError('get_input_cell: peak rate not specified for population: %s, selectivity type: '
                                '%s' % (population, selectivity_type_name))
         peak_rate = input_config['Peak Rate'][population][selectivity_type]
 
         if selectivity_type_name in ['grid', 'place']:
-            if module_config is None:
-                raise RuntimeError('get_input_cell_config: missing required argument: module_config')
+            if selectivity_config is None:
+                raise RuntimeError('get_input_cell: missing required argument: selectivity_config')
             if distance is None:
-                raise RuntimeError('get_input_cell_config: missing required argument: distance')
+                raise RuntimeError('get_input_cell: missing required argument: distance')
             if local_random is None:
                 local_random = np.random.RandomState()
-                print('get_input_cell_config: warning: local_random argument not provided - randomness will not be '
+                print('get_input_cell: warning: local_random argument not provided - randomness will not be '
                       'reproducible')
         if selectivity_type_name == 'grid':
-            input_cell_config = \
-                GridCellConfig(selectivity_type=selectivity_type, arena=arena, module_config=module_config,
-                               peak_rate=peak_rate, distance=distance, local_random=local_random)
+            input_cell = \
+                GridCell(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
+                         peak_rate=peak_rate, distance=distance, local_random=local_random)
         elif selectivity_type_name == 'place':
             if population in input_config['Non-modular Place Selectivity Populations']:
                 modular = False
             else:
                 modular = True
             if population not in input_config['Number Place Fields Probabilities']:
-                raise RuntimeError('get_input_cell_config: probabilities for number of place fields not specified for '
+                raise RuntimeError('get_input_cell: probabilities for number of place fields not specified for '
                                    'population: %s' % population)
             num_field_probabilities = input_config['Number Place Fields Probabilities'][population]
-            input_cell_config = \
-                PlaceCellConfig(selectivity_type=selectivity_type, arena=arena, module_config=module_config,
-                                peak_rate=peak_rate, distance=distance, modular=modular,
-                                num_field_probabilities=num_field_probabilities, local_random=local_random)
+            input_cell = \
+                PlaceCell(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
+                          peak_rate=peak_rate, distance=distance, modular=modular,
+                          num_field_probabilities=num_field_probabilities, local_random=local_random)
         else:
-            RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
+            RuntimeError('get_input_cell: selectivity type: %s not yet implemented' % selectivity_type_name)
 
-    return input_cell_config
+    return input_cell
 
 
 def choose_input_selectivity_type(p, local_random):

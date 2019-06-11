@@ -8,9 +8,16 @@ continuous exponential gradient of field widths, with the same parameters as tho
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
+<<<<<<< Updated upstream:scripts/infer_DG_firing_rates.py
 from dentate.utils import *
 from dentate.env import Env
 from dentate.stimulus import SelectivityModuleConfig, get_input_cell_config, get_2D_arena_spatial_mesh, \
+=======
+import dentate
+from dentate.utils import *
+from dentate.env import Env
+from dentate.stimulus import SelectivityConfig, get_input_cell, get_2D_arena_spatial_mesh, \
+>>>>>>> Stashed changes:scripts/generate_DG_input_features.py
     choose_input_selectivity_type
 from dentate.plot import plot_2D_rate_map
 import click
@@ -34,13 +41,12 @@ sys.excepthook = mpi_excepthook
 @click.option("--config", required=True, type=str)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config')
-@click.option("--spikes-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--spikes-namespace", '-n', type=str, default='Spike Events')
-@click.option("--spike-train-attr-name", type=str, default='Spike Train')
+@click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
 @click.option("--output-path", type=click.Path(file_okay=True, dir_okay=False), default=None)
 @click.option("--arena-id", type=str, default='A')
 @click.option("--trajectory-id", type=str, default='Diag')
-@click.option("--populations", '-p', type=str, multiple=True, default=None)
+@click.option("--populations", '-p', type=str, multiple=True)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -52,8 +58,8 @@ sys.excepthook = mpi_excepthook
 @click.option("--debug", is_flag=True)
 @click.option("--plot", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, coords_path, output_path, distances_namespace, arena_id, populations, io_size,
-         chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, plot, dry_run):
+def main(config, config_prefix, coords_path, output_path, distances_namespace, arena_id, trajectory_id, populations,
+         io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, plot, dry_run):
     """
 
     :param config: str (.yaml file name)
@@ -92,7 +98,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
 
     if not dry_run and rank == 0:
         if output_path is None:
-            raise RuntimeError('generate_DG_input_selectivity_parameters: missing output_path')
+            raise RuntimeError('generate_DG_input_features: missing output_path')
         if not os.path.isfile(output_path):
             input_file = h5py.File(coords_path, 'r')
             output_file = h5py.File(output_path, 'w')
@@ -102,24 +108,24 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     comm.barrier()
     population_ranges = read_population_ranges(coords_path, comm)[0]
 
-    if populations is None:
-        populations = ['MC', 'ConMC', 'LPP', 'GC', 'MPP', 'CA3c']
+    if len(populations) == 0:
+        populations = ('MC', 'ConMC', 'LPP', 'GC', 'MPP', 'CA3c')
 
     reference_u_arc_distance_bounds = None
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_DG_input_selectivity_parameters: specified population: %s not found in '
+                raise RuntimeError('generate_DG_input_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
             if population not in env.input_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_DG_input_selectivity_parameters: selectivity type not specified for '
+                raise RuntimeError('generate_DG_input_features: selectivity type not specified for '
                                    'population: %s' % population)
             with h5py.File(coords_path, 'r') as coords_f:
                 pop_size = population_ranges[population][1]
                 unique_gid_count = len(set(
                     coords_f['Populations'][population][distances_namespace]['U Distance']['Cell Index'][:]))
                 if pop_size != unique_gid_count:
-                    raise RuntimeError('generate_DG_input_selectivity_parameters: only %i/%i unique cell indexes found '
+                    raise RuntimeError('generate_DG_input_features: only %i/%i unique cell indexes found '
                                        'for specified population: %s in provided coords_path: %s' %
                                        (unique_gid_count, pop_size, population, coords_path))
                 if reference_u_arc_distance_bounds is None:
@@ -128,7 +134,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
                     except Exception:
-                        raise RuntimeError('generate_DG_input_selectivity_parameters: problem locating attributes '
+                        raise RuntimeError('generate_DG_input_features: problem locating attributes '
                                            'containing reference bounds in namespace: %s for population: %s from '
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
     reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
@@ -157,9 +163,9 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     local_random.seed(selectivity_seed_offset - 1)
 
-    module_config = SelectivityModuleConfig(env.input_config, local_random)
+    selectivity_config = SelectivityConfig(env.input_config, local_random)
     if plot and rank == 0:
-        module_config.plot_module_probabilities()
+        selectivity_config.plot_module_probabilities()
 
     context.update(locals())
 
@@ -169,6 +175,9 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
 
     write_every = max(1, int(math.floor(old_div(write_size, comm.size))))
     for population in populations:
+
+        logger.info('Generating input features for population %s...' % population)
+        
         start_time = time.time()
         gid_count = defaultdict(lambda: 0)
         distances_attr_gen = \
@@ -185,14 +194,14 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                 this_selectivity_type = \
                     choose_input_selectivity_type(p=env.input_config['Selectivity Type Probabilities'][population],
                                                   local_random=local_random)
-                cell_config = get_input_cell_config(selectivity_type=this_selectivity_type,
-                                                    selectivity_type_names=selectivity_type_names,
-                                                    population=population, input_config=env.input_config, arena=arena,
-                                                    module_config=module_config, distance=norm_u_arc_distance,
-                                                    local_random=local_random)
+                input_cell = get_input_cell(selectivity_type=this_selectivity_type,
+                                            selectivity_type_names=selectivity_type_names,
+                                            population=population, input_config=env.input_config, arena=arena,
+                                            selectivity_config=selectivity_config, distance=norm_u_arc_distance,
+                                            local_random=local_random)
                 this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                selectivity_attr_dict[this_selectivity_type_name][gid] = cell_config.get_selectivity_attr_dict()
-                rate_map = cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
+                selectivity_attr_dict[this_selectivity_type_name][gid] = input_cell.get_selectivity_attr_dict()
+                rate_map = input_cell.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
                 if debug and plot and rank == 0:
                     plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh, rate_map=rate_map,
                                      peak_rate = env.input_config['Peak Rate'][population][this_selectivity_type],
@@ -216,7 +225,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                 total_gid_count = np.sum(list(merged_gid_count.values()))
 
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
-                if verbose and rank == 0:
+                if rank == 0:
                     logger.info('processed %i %s cells' % (total_gid_count, population))
                 if not dry_run:
                     for selectivity_type_name in selectivity_attr_dict:
@@ -226,7 +235,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 del selectivity_attr_dict
                 selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
-            sys.stdout.flush()
+
             comm.barrier()
             if debug and iter_count == 10:
                 break
@@ -237,7 +246,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                                        namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
         del selectivity_attr_dict
-        if verbose and rank == 0:
+        if rank == 0:
             for selectivity_type_name in merged_gid_count:
                 logger.info('processed %i/%i %s %s cells in %.2f s' %
                       (merged_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
