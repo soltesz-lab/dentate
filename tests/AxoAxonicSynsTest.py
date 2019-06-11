@@ -1,16 +1,21 @@
-import sys, os
-import os.path
-import click
 import itertools
-import numpy as np
-from neuron import gui
-from mpi4py import MPI # Must come before importing NEURON
-from neuron import h
-from neuroh5.io import read_tree_selection, read_cell_attribute_selection
-from dentate.env import Env
-from dentate import utils, cells, synapses
-from dentate.utils import *
+import os
+import os.path
+import sys
 
+import numpy as np
+
+import click
+from dentate import cells
+from dentate import synapses
+from dentate import utils
+from dentate.env import Env
+from dentate.utils import *
+from mpi4py import MPI  # Must come before importing NEURON
+from neuroh5.io import read_cell_attribute_selection
+from neuroh5.io import read_tree_selection
+from neuron import gui
+from neuron import h
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -52,4 +57,3 @@ for syn_type in syn_types:
         
 
 synapses.mksyns(cell,syn_ids,syn_types,swc_types,syn_locs,syn_sections,presyn_types,synapse_kinetics,env)
-

@@ -3,14 +3,19 @@ Tools for pulling individual neurons out of the dentate network simulation envir
 """
 __author__ = 'See AUTHORS.md'
 
+import click, os, sys, time
+from collections import defaultdict
+from mpi4py import MPI
+import numpy as np
+import h5py
 import click
-from nested.utils import *
-from dentate.neuron_utils import *
-from neuroh5.h5py_io_utils import *
+from dentate.cells import get_biophys_cell, get_branch_order, get_dendrite_origin, get_distance_to_node
+from dentate.cells import init_biophysics, is_terminal, report_topology
 from dentate.env import Env
-from dentate.cells import *
-from dentate.synapses import *
-
+from dentate.neuron_utils import h, configure_hoc_env, 
+from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs
+from dentate.utils import viewitems, range, str
+from nested.utils import *
 
 context = Context()
 

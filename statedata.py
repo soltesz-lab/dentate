@@ -1,10 +1,9 @@
-import math
-import itertools
-from collections import defaultdict
-from mpi4py import MPI
+
 import numpy as np
-from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_info, read_population_ranges, read_population_names
-from dentate.utils import *
+from mpi4py import MPI
+
+from dentate.utils import get_module_logger, zip
+from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_info
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env

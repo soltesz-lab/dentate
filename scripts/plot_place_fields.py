@@ -1,7 +1,10 @@
-import sys, os
-from mpi4py import MPI
+import os
+import sys
+
 import click
-from dentate import utils, plot
+from dentate import plot
+from dentate import utils
+from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
 

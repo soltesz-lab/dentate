@@ -1,8 +1,12 @@
 
-import sys, gc, os
+import gc
+import os
+import sys
+
 import click
 import dentate
-from dentate import plot, utils
+from dentate import plot
+from dentate import utils
 
 script_name = os.path.basename(__file__)
 
@@ -40,6 +44,3 @@ def main(spike_events_path, spike_events_namespace, populations, t_variable, t_m
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
-
-
-    

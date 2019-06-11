@@ -1,14 +1,22 @@
 
-import sys, os, gc, click, logging
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
+import gc
+import logging
+import os
+import sys
+
 import h5py
 import numpy as np
-import dentate
-from dentate.geometry import icp_transform
-from dentate.env import Env
-import dentate.utils as utils
 
+import click
+import dentate
+import dentate.utils as utils
+from dentate.env import Env
+from dentate.geometry import icp_transform
+from mpi4py import MPI
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_population_names
+from neuroh5.io import read_population_ranges
 
 script_name = 'project_somas.py'
 
@@ -85,5 +93,3 @@ def main(config, coords_path, coords_namespace, resample, resolution, population
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
-
-    

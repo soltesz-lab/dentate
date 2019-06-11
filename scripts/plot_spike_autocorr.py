@@ -1,8 +1,12 @@
 
-import sys, gc, os
-from mpi4py import MPI
+import gc
+import os
+import sys
+
 import click
-import utils, plot
+import plot
+import utils
+from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
 
@@ -43,7 +47,3 @@ def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin,
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
-
-
-
-    

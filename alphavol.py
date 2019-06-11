@@ -1,11 +1,13 @@
 """Alpha Shape implementation."""
 from __future__ import division
 
-from past.utils import old_div
+from collections import namedtuple
+
 import numpy as np
 from numpy.core.umath_tests import inner1d
 from scipy.spatial import Delaunay
-from collections import namedtuple
+
+from past.utils import old_div
 
 AlphaShape = namedtuple('AlphaShape', ['points', 'simplices', 'bounds'], verbose=False)
 

@@ -1,7 +1,8 @@
 """Routines to keep track of simulation computation time and terminate the simulation if not enough time has been allocated."""
 import time
+
+from dentate.utils import get_module_logger, old_div
 from neuron import h
-from dentate.utils import *
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)

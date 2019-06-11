@@ -1,5 +1,6 @@
-from builtins import str
 from builtins import range
+from builtins import str
+
 import numpy as np
 
 id_vec = np.arange(0,110)

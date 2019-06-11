@@ -1,31 +1,30 @@
-import itertools, math, numbers, textwrap
+import numbers
+import os
+import copy
 from collections import defaultdict
-from mpi4py import MPI
+from scipy import interpolate, signal
 import numpy as np
-import sys, os
-from scipy import signal, interpolate, fftpack
-import matplotlib.pyplot as plt
+from mpi4py import MPI
+import h5py
 import matplotlib as mpl
 import matplotlib.cm as cm
-import matplotlib.tri as tri
 import matplotlib.lines as mlines
-from matplotlib.offsetbox import AnchoredText
-from matplotlib import gridspec, mlab, rcParams
-from matplotlib.colors import BoundaryNorm
-from matplotlib.colors import LogNorm
-from matplotlib.ticker import MaxNLocator, FormatStrFormatter
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from matplotlib.animation import FuncAnimation
-from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import BoundaryNorm
+from matplotlib.offsetbox import AnchoredText
+from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, \
-    bcast_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
-import dentate.statedata as statedata
-from dentate.env import Env
-from dentate.cells import *
-from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
-from dentate.utils import Struct, get_module_logger, viewitems, update_bins, add_bins, merge_bins, finalize_bins, zip_longest, make_geometric_graph
 
+import dentate.statedata as statedata
+from dentate.cells import default_ordered_sec_types, get_distance_to_node
+from dentate.env import Env
+from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
+from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
+from dentate.utils import make_geometric_graph, viewitems, zip_longest, old_div
+from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names, read_tree_selection
 
 try:
     import dentate.spikedata as spikedata

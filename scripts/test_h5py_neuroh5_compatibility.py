@@ -3,14 +3,16 @@ This script will use an h5py collective write operation to write a sample Trajec
 cell_attributes from a neuroH5 file.
 file-path: contains cell_attributes in the provided namespace
 """
-from dentate.utils import *
-from mpi4py import MPI
 import h5py
-from neuroh5.io import read_population_ranges, NeuroH5CellAttrGen
 import numpy as np
+
 import click
 import dentate.stimulus as stimulus
+from dentate.utils import *
+from mpi4py import MPI
 from neuroh5.h5py_io_utils import *
+from neuroh5.io import NeuroH5CellAttrGen
+from neuroh5.io import read_population_ranges
 
 
 @click.command()

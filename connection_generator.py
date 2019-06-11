@@ -1,14 +1,15 @@
 """Classes and procedures related to neuronal connectivity generation. """
-import sys, time, gc, itertools, math
+
+import gc, math, time
 from collections import defaultdict
+
 import numpy as np
 from scipy.stats import norm
-from rbf.interpolate import RBFInterpolant, basis
-from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, bcast_cell_attributes, read_population_ranges, append_graph
-from dentate.utils import *
-from dentate.synapses import make_synapse_graph
 
+from dentate.utils import get_module_logger, list_find_all, old_div, random_choice_w_replacement, random_clustered_shuffle, range, str, zip, viewitems
+
+
+from neuroh5.io import NeuroH5CellAttrGen, append_graph
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env

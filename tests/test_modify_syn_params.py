@@ -1,8 +1,8 @@
 from builtins import str
+
 import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
-
 
 context = Context()
 

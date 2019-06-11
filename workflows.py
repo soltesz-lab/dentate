@@ -1,8 +1,11 @@
 from __future__ import absolute_import
-from dentate import io_utils, synapses
-from dentate.env import Env
+
 import parsl
-from parsl.app.app import python_app, bash_app
+from dentate import io_utils
+from dentate import synapses
+from dentate.env import Env
+from parsl.app.app import bash_app
+from parsl.app.app import python_app
 
 
 @python_app

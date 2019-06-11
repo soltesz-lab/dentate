@@ -1,18 +1,26 @@
 
-import sys, os, gc, click, logging
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, append_cell_attributes
+import gc
+import logging
+import os
+import sys
+
 import h5py
 import numpy as np
-import rbf
-from rbf.interpolate import RBFInterpolant
-import rbf.basis
-import dentate
-from dentate.geometry import measure_distances
-from dentate.env import Env
-import dentate.utils as utils
-from dentate.utils import viewitems
 
+import click
+import dentate
+import dentate.utils as utils
+import rbf
+import rbf.basis
+from dentate.env import Env
+from dentate.geometry import measure_distances
+from dentate.utils import viewitems
+from mpi4py import MPI
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_population_names
+from neuroh5.io import read_population_ranges
+from rbf.interpolate import RBFInterpolant
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):

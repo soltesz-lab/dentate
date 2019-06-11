@@ -1,9 +1,13 @@
-import sys, time, gc, copy
-import numpy as np
+import copy
+import gc
+import sys
+import time
+
 import h5py
-from scipy.spatial.distance import euclidean
-from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
-from dentate.utils import *
+import numpy as np
+
+from dentate.utils import old_div
+from neuroh5.io import read_cell_attributes
 
 
 class SelectivityConfig(object):
@@ -587,7 +591,7 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     return t, interp_x, interp_y, interp_distance
 
 
-def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1., 
+def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1., scale_factor = 1.0,
                                    origin_X = 0., origin_Y = 0., radius_range = np.arange(1., 0.05, -0.05),
                                    initial_theta = np.deg2rad(180.), theta_step = np.deg2rad(300)):
 
@@ -598,10 +602,10 @@ def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1
                       np.max(arena.domain.vertices[:,1]) * scale_factor]
 
     start_theta = initial_theta
-    start_x = origin_X + np.cos(start_theta) * arena_dimension[0]
-    start_y = origin_Y + np.sin(start_theta) * arena_dimension[1]
+    start_x = origin_X + np.cos(start_theta) * arena_x_bounds[0]
+    start_y = origin_Y + np.sin(start_theta) * arena_y_bounds[0]
 
-    radius_range = np.min(arena_dimension) * radius_range
+    radius_range = (arena_x_bounds[1] - arena_x_bounds[0]) * radius_range
     
     xs = []
     ys = []
@@ -671,7 +675,7 @@ def read_trajectory(input_path, arena_id, trajectory_id):
 def read_stimulus(stimulus_path, stimulus_namespace, population, module=None):
 
     ratemap_lst    = []
-    module_gid_lst = []
+    module_gid_set = set([])
     if module is not None:
         if not isinstance(module, int):
             raise Exception('module variable must be an integer')
@@ -679,11 +683,11 @@ def read_stimulus(stimulus_path, stimulus_namespace, population, module=None):
         for (gid, attr_dict) in gid_module_gen:
             this_module = attr_dict['Module'][0]
             if this_module == module:
-                module_gid_lst.append(gid)
+                module_gid_set.add(gid)
 
     attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
     for gid, stimulus_dict in attr_gen:
-        if gid in module_gid_lst or module_gid_lst == []:
+        if gid in module_gid_set or len(module_gid_set) == 0:
             rate       = stimulus_dict['rate']
             spiketrain = stimulus_dict['spiketrain']
             modulation = stimulus_dict['modulation']
@@ -753,11 +757,7 @@ def linearize_trajectory (x, y):
     pca = PCA(n_components=1)
     
     T   = np.concatenate((x,y))
-    T_transform  = pca.fit_transform(T)
-    T_linear     = pca.inverse_transform(T_transform)
+    T_transform = pca.fit_transform(T)
+    T_linear = pca.inverse_transform(T_transform)
 
     return T_linear
-
-
-
-        

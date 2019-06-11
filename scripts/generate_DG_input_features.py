@@ -11,11 +11,12 @@ from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import dentate
-from dentate.utils import *
 from dentate.env import Env
-from dentate.stimulus import SelectivityConfig, get_stimulus_source, get_2D_arena_spatial_mesh, choose_input_selectivity_type
 from dentate.plot import plot_2D_rate_map
+from dentate.stimulus import SelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, get_stimulus_source
 from dentate.utils import *
+from mpi4py import MPI
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 
 logger = get_script_logger(os.path.basename(__file__))
 

@@ -1,6 +1,6 @@
 import numpy as np
-from mayavi import mlab
 
+from mayavi import mlab
 
 x, y, z = np.random.random((3, 100))
 data = x**2 + y**2 + z**2

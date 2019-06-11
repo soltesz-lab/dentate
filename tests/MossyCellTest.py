@@ -1,13 +1,24 @@
-import sys, os, random, os.path, itertools
-import click
-import numpy as np
+import itertools
+import os
+import os.path
+import random
+import sys
 from collections import defaultdict
-from mpi4py import MPI # Must come before importing NEURON
-from neuron import h
-from neuroh5.io import read_tree_selection, read_cell_attribute_selection
+
+import numpy as np
+
+import click
+from dentate import cells
+from dentate import network_clamp
+from dentate import neuron_utils
+from dentate import synapses
+from dentate import utils
 from dentate.env import Env
-from dentate import neuron_utils, utils, cells, synapses, network_clamp
 from dentate.utils import *
+from mpi4py import MPI  # Must come before importing NEURON
+from neuroh5.io import read_cell_attribute_selection
+from neuroh5.io import read_tree_selection
+from neuron import h
 
 
 def synapse_group_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict, group_size, v_init, tstart = 200.):

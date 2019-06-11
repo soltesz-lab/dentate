@@ -1,14 +1,17 @@
 from __future__ import division
-from builtins import str
-from past.utils import old_div
-from mpi4py import MPI
+
 import math
+from builtins import str
+
 import numpy as np
+from matplotlib.colors import ColorConverter
+
 import rbf
-from rbf.interpolate import RBFInterpolant
 import rbf.basis
 from mayavi import mlab
-from matplotlib.colors import ColorConverter
+from mpi4py import MPI
+from past.utils import old_div
+from rbf.interpolate import RBFInterpolant
 
 
 def test_surface(u, v, l):

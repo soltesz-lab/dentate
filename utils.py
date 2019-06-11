@@ -1,13 +1,18 @@
-from __future__ import division, absolute_import
-from builtins import map, range, object, zip, input, str, next
-from past.utils import old_div
-from collections import defaultdict, Iterable, namedtuple
-import sys, os.path, string, time, gc, math, datetime, numbers, itertools
-import copy, pprint, logging
-import yaml
+from __future__ import absolute_import
+from __future__ import division
+
+import copy, datetime, gc, itertools, logging, math, numbers, os.path
+import pprint, string, sys, time
+
+from builtins import input, map, next, object, range, str, zip
+from collections import Iterable, defaultdict, namedtuple
+
 import numpy as np
 import scipy
+import yaml
 from scipy import sparse
+
+from past.utils import old_div
 
 
 class Struct(object):

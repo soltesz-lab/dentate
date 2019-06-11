@@ -1,14 +1,17 @@
 from __future__ import division
 
+import time
+from builtins import range
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+import rbf
+from past.utils import old_div
+from rbf.halton import halton
+
 # Make sure ghalton is installed -> $ pip install ghalton 
 
-from builtins import range
-from past.utils import old_div
-import numpy as np
-import matplotlib.pyplot as plt
-import time
-import rbf
-from rbf.halton import halton
 
 
 def benchmark(seed, points, n=5):
@@ -75,5 +78,3 @@ if __name__ == '__main__':
 
 
     plt.show()
-
-  

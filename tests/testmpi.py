@@ -17,4 +17,3 @@ if id == root:
    v.x[0] = 17
 pc.broadcast(v, root)
 print(v.x[0])
-

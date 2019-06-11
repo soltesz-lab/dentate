@@ -1,11 +1,13 @@
-import sys, os
-from collections import defaultdict, deque
-import dlib
+import os
+from collections import defaultdict
+from mpi4py import MPI
 import numpy as np
-import dentate
-from dentate.neuron_utils import *
-from dentate import spikedata, synapses
-from dentate.utils import *
+
+import dlib
+from dentate import spikedata
+from dentate import synapses
+from dentate.neuron_utils import h
+from dentate.utils import get_module_logger, old_div, viewitems
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)

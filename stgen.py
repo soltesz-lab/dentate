@@ -1,12 +1,16 @@
 from __future__ import division
 
-from builtins import str
-from builtins import range
-from builtins import object
-from past.utils import old_div
-from numpy import array, log
-import numpy as np
 import random
+from builtins import object
+from builtins import range
+from builtins import str
+
+import numpy as np
+from numpy import array
+from numpy import log
+
+from past.utils import old_div
+
 
 """
 neurotools.stgen

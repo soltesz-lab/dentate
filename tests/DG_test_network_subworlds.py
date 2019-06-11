@@ -3,13 +3,20 @@
 Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
-import sys, click, os, logging
-from mpi4py import MPI
+import logging
+import os
+import sys
+
 import numpy as np
+
+import click
 import dentate
+from dentate import network
+from dentate import spikedata
+from dentate import utils
 from dentate.biophysics_utils import *
-from dentate import utils, spikedata, network
 from dentate.utils import *
+from mpi4py import MPI
 from nested.optimize_utils import *
 
 
