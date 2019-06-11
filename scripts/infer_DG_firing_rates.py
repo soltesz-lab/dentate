@@ -5,13 +5,14 @@ dorsal-ventrally, there is no organization in the transverse or septo-temporal e
 CA3 and LEC are assumed to exhibit place fields. Their field width varies septal-temporally. Here we assume a
 continuous exponential gradient of field widths, with the same parameters as those controlling MEC grid width.
 """
-from dentate.utils import *
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
+from dentate.utils import *
 from dentate.env import Env
 from dentate.stimulus import SelectivityModuleConfig, get_input_cell_config, get_2D_arena_spatial_mesh, \
-    plot_2D_rate_map, choose_input_selectivity_type
+    choose_input_selectivity_type
+from dentate.plot import plot_2D_rate_map
 import click
 
 
@@ -136,7 +137,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
                            (arena_id, config_prefix + '/' + config))
 
-    selectivity_type_names = dict((val, key) for (key, val) in env.selectivity_types.items())
+    selectivity_type_names = dict((val, key) for (key, val) in viewitems(env.selectivity_types))
     selectivity_type_namespaces = dict()
     for this_selectivity_type in selectivity_type_names:
         this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
@@ -166,7 +167,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
         pop_distances = defaultdict(list)
         rate_map_sum = defaultdict(lambda: defaultdict(lambda: np.zeros_like(arena_x_mesh)))
 
-    write_every = max(1, int(math.floor(write_size / comm.size)))
+    write_every = max(1, int(math.floor(old_div(write_size, comm.size))))
     for population in populations:
         start_time = time.time()
         gid_count = defaultdict(lambda: 0)
@@ -177,8 +178,8 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
             if gid is not None:
                 u_arc_distance = distances_attr_dict['U Distance'][0]
-                norm_u_arc_distance = (u_arc_distance - reference_u_arc_distance_bounds[0]) / \
-                                      (reference_u_arc_distance_bounds[1] - reference_u_arc_distance_bounds[0])
+                norm_u_arc_distance = old_div((u_arc_distance - reference_u_arc_distance_bounds[0]), \
+                                      (reference_u_arc_distance_bounds[1] - reference_u_arc_distance_bounds[0]))
 
                 local_random.seed(int(selectivity_seed_offset + gid))
                 this_selectivity_type = \
@@ -205,14 +206,14 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                     rate_map_sum[population][this_selectivity_type_name] = \
                         np.add(rate_map_sum[population][this_selectivity_type_name], rate_map)
 
-            gid_count_dict = dict(gid_count.items())
+            gid_count_dict = dict(list(gid_count.items()))
             gid_count_dict = comm.gather(gid_count_dict, root=0)
             if rank == 0:
                 merged_gid_count = defaultdict(lambda: 0)
                 for each_gid_count in gid_count_dict:
                     for selectivity_type_name in each_gid_count:
                         merged_gid_count[selectivity_type_name] += each_gid_count[selectivity_type_name]
-                total_gid_count = np.sum(merged_gid_count.values())
+                total_gid_count = np.sum(list(merged_gid_count.values()))
 
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
                 if verbose and rank == 0:
@@ -244,7 +245,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     if gather:
         pop_distances = dict(pop_distances.items())
         pop_distances = comm.gather(pop_distances, root=0)
-        rate_map_sum = dict([(key, dict(val.items())) for key, val in rate_map_sum.items()])
+        rate_map_sum = dict([(key, dict(val.items())) for key, val in viewitems(rate_map_sum)])
         rate_map_sum = comm.gather(rate_map_sum, root=0)
         if rank == 0:
             merged_pop_distances = defaultdict(list)

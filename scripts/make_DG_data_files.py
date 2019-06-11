@@ -1,4 +1,5 @@
 import h5py
+from dentate.utils import viewitems
 
 h5types_file = 'dentate_h5types.h5'
 
@@ -33,7 +34,7 @@ DG_vecstim_file_dict = {
     'A DiagL5': "DG_PP_spiketrains_A_20190512.h5"
 }
 
-vecstim_dict = { 'Vector Stimulus %s' % stim_id : stim_file for stim_id, stim_file in DG_vecstim_file_dict.items() }
+vecstim_dict = {'Vector Stimulus %s' % stim_id : stim_file for stim_id, stim_file in viewitems(DG_vecstim_file_dict)}
      
 
 
@@ -158,7 +159,7 @@ with h5py.File(DG_cells_file) as f:
     grp = f["Populations"]
 
     for p in DG_EXT_populations:
-        for (vecstim_ns, vecstim_file) in vecstim_dict.items():
+        for (vecstim_ns, vecstim_file) in viewitems(vecstim_dict):
             grp[p][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
 
 

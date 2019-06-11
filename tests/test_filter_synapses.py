@@ -1,4 +1,3 @@
-
 import click
 from collections import defaultdict
 import dentate
@@ -53,7 +52,7 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
     layer_MML = env.layers['MML']
     layer_OML = env.layers['OML']
 
-    for it in xrange(10):
+    for it in range(10):
         start_time = time.time()
         
         exc_dend_synapses_ML = \

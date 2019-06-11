@@ -168,7 +168,7 @@ def read_swc_files(database_loc, read_all=True):
 
     cloud_dictionary = {}
     for cloud in clouds:
-        if cloud.group in cloud_dictionary.keys():
+        if cloud.group in cloud_dictionary:
             cloud_dictionary[cloud.group].append(cloud)
         else:
             cloud_dictionary[cloud.group] = [cloud]

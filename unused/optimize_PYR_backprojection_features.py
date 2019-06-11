@@ -138,10 +138,10 @@ def report_cost(context):
     print(x0)
     print('Place population fraction active: %f' % features['fraction active'])
 
-    for feature in features.keys():
+    for feature in features:
         if feature in context.feature_names:
             print('Feature: %s has value %f' % (feature, features[feature]))
-    for objective in objectives.keys():
+    for objective in objectives:
         print('Objective: %s has cost %f' % (objective, objectives[objective]))
 
 def config_worker():
@@ -191,8 +191,8 @@ def get_objectives(features, export=False):
 
     fraction_active  = features['fraction active population']
     diff_frac_active = {(i,j): np.abs(fraction_active[(i,j)] - context.fraction_active_target) \
-                        for (i,j) in fraction_active.keys()}
-    fraction_active_errors = np.asarray([diff_frac_active[(i,j)] for (i,j) in diff_frac_active.keys()])
+                        for (i,j) in fraction_active}
+    fraction_active_errors = np.asarray([diff_frac_active[(i,j)] for (i,j) in diff_frac_active])
     fraction_active_mean_error = np.mean(fraction_active_errors)
     fraction_active_var_error  = np.var(fraction_active_errors)
     objectives['fraction active mean error'] = ((fraction_active_mean_error - context.target_val['fraction active mean error']) / context.target_range['fraction active mean error']) ** 2

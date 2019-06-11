@@ -6,6 +6,7 @@ from dentate.env import Env
 from dentate.stimulus import get_input_cell_config, generate_linear_trajectory
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 import random
+import copy
 import click
 
 sys_excepthook = sys.excepthook
@@ -123,7 +124,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                                        (arena_id, population, selectivity_path))
 
     valid_selectivity_namespaces = comm.bcast(valid_selectivity_namespaces, root=0)
-    selectivity_type_names = dict((val, key) for (key, val) in env.selectivity_types.items())
+    selectivity_type_names = dict((val, key) for (key, val) in viewitems(env.selectivity_types))
 
     fig_options = None
     if show_fig or save_fig is not None:
@@ -172,7 +173,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
     comm.barrier()
 
     if 'Equilibration Duration' in env.input_config and env.input_config['Equilibration Duration'] > 0.:
-        equilibrate_len = int(env.input_config['Equilibration Duration'] / env.input_config['Temporal Resolution'])
+        equilibrate_len = int(old_div(env.input_config['Equilibration Duration'], env.input_config['Temporal Resolution']))
         from scipy.signal import hann
         equilibrate_hann = hann(2 * equilibrate_len)[:equilibrate_len]
     else:
@@ -188,7 +189,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
         spike_hist_edges = np.linspace(min(t), max(t), spike_hist_resolution + 1)
         spike_hist_sum = defaultdict(lambda: defaultdict(lambda: np.zeros(spike_hist_resolution)))
 
-    write_every = max(1, int(math.floor(write_size / comm.size)))
+    write_every = max(1, int(math.floor(old_div(write_size, comm.size))))
     for population in populations:
         gid_count = defaultdict(lambda: 0)
         process_time = dict()
@@ -235,7 +236,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                     for each_gid_count in gid_count_dict:
                         for selectivity_type_name in each_gid_count:
                             merged_gid_count[selectivity_type_name] += each_gid_count[selectivity_type_name]
-                    total_gid_count = np.sum(merged_gid_count.values())
+                    total_gid_count = np.sum(list(merged_gid_count.values()))
 
                 if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
                     if verbose and rank == 0:
@@ -265,7 +266,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                              selectivity_type_name, process_time[selectivity_type_name]))
 
     if gather:
-        spike_hist_sum = dict([(key, dict(val.items())) for key, val in spike_hist_sum.items()])
+        spike_hist_sum = dict([(key, dict(val.items())) for key, val in viewitems(spike_hist_sum)])
         spike_hist_sum = comm.gather(spike_hist_sum, root=0)
         if rank == 0:
             merged_spike_hist_sum = defaultdict(lambda: defaultdict(lambda: np.zeros(spike_hist_resolution)))

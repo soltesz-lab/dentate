@@ -1,8 +1,8 @@
-from unused.function_lib import *
+from dentate.utils import *
 from mpi4py import MPI
 
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import append_cell_attributes
+from neuroh5.io import NeuroH5CellAttrGen
+from neuroh5.io import append_cell_attributes
 import click
 
 
@@ -50,14 +50,14 @@ def main(weights_path, weights_namespace, structured_weights_namespace, io_size,
     count = 0
     structured_count = 0
     start_time = time.time()
-    weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, population, io_size=io_size,
+    weights_gen = NeuroH5CellAttrGen(MPI._addressof(comm), weights_path, population, io_size=io_size,
                                         cache_size=cache_size, namespace=weights_namespace)
-    structured_weights_gen = NeurotreeAttrGen(MPI._addressof(comm), weights_path, population, io_size=io_size,
+    structured_weights_gen = NeuroH5CellAttrGen(MPI._addressof(comm), weights_path, population, io_size=io_size,
                                    cache_size=cache_size, namespace=structured_weights_namespace)
     if debug:
         attr_gen = ((next(weights_gen), next(structured_weights_gen)) for i in range(10))
     else:
-        attr_gen = zip(weights_gen, structured_weights_gen)
+        attr_gen = list(zip(weights_gen, structured_weights_gen))
     for (gid, weights_dict), (structured_weights_gid, structured_weights_dict) in attr_gen:
         local_time = time.time()
         modified_dict = {}

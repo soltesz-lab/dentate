@@ -1,4 +1,3 @@
-
 import sys, os, time, gc, click, logging
 from collections import defaultdict
 import numpy as np
@@ -6,8 +5,10 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 import h5py
 from dentate.env import Env
-import dentate.utils as utils
+from dentate import utils
 import dentate.synapses as synapses
+from dentate.utils import *
+
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -19,6 +20,7 @@ sys.excepthook = mpi_excepthook
 mu = 1.0
 sigma = 0.25
 clip = (0.0, 3.0)
+
 
 @click.command()
 @click.option("--config", required=True, type=str)

@@ -1,4 +1,3 @@
-
 import sys, os, time, gc, click, logging
 from collections import defaultdict
 # from itertools import zip_longest
@@ -8,9 +7,8 @@ import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
     read_cell_attribute_selection, NeuroH5ProjectionGen
 from dentate.env import Env
-import dentate.utils as utils
-from dentate.utils import zip_longest
-import dentate.stimulus as stimulus
+from dentate import utils, stimulus
+from dentate.utils import *
 
 
 """
@@ -151,7 +149,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     
     plasticity_window_dur = 4.  # s
     plasticity_kernel_sigma = plasticity_window_dur * default_run_vel / 3. / np.sqrt(2.)  # cm
-    plasticity_kernel = lambda d, d_offset: np.exp(-((d - d_offset) / plasticity_kernel_sigma) ** 2.)
+    plasticity_kernel = lambda d, d_offset: np.exp(-(old_div((d - d_offset), plasticity_kernel_sigma)) ** 2.)
     plasticity_kernel = np.vectorize(plasticity_kernel, excluded=[1])
     max_plasticity_kernel_area = np.sum(plasticity_kernel(d, np.max(d) / 2.)) * spatial_resolution
 
@@ -205,9 +203,9 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                 for this_source_gid in stimulus_attrs[source]:
                     peak_index = stimulus_attrs[source][this_source_gid]['peak index'][0]
                     if modify_weights:
-                        norm_rate = stimulus_attrs[source][this_source_gid]['rate'] / peak_rate
-                        this_plasticity_signal = np.sum(np.multiply(norm_rate, this_plasticity_kernel)) * \
-                                                 spatial_resolution / max_plasticity_kernel_area
+                        norm_rate = old_div(stimulus_attrs[source][this_source_gid]['rate'], peak_rate)
+                        this_plasticity_signal = old_div(np.sum(np.multiply(norm_rate, this_plasticity_kernel)) * \
+                                                 spatial_resolution, max_plasticity_kernel_area)
                         delta_weight = 2. * this_plasticity_signal
                     else:
                         delta_weight = 0.

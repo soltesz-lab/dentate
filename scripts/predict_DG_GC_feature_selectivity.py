@@ -1,7 +1,8 @@
-from unused.function_lib import *
+from dentate.utils import *
 from collections import Counter
 from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, population_ranges
+import h5py
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, read_population_ranges
 import click
 
 
@@ -29,15 +30,15 @@ g = lambda x: np.exp(a * (x - b)) - 1.
 scale_factor = g(3.)
 grid_peak_rate = 20.  # Hz
 grid_rate = lambda grid_spacing, ori_offset, x_offset, y_offset: \
-    lambda x, y: grid_peak_rate / scale_factor * \
+    lambda x, y: old_div(grid_peak_rate, scale_factor * \
                  g(np.sum([np.cos(4. * np.pi / np.sqrt(3.) /
                                   grid_spacing * np.dot(u(theta - ori_offset), (x - x_offset, y - y_offset)))
-                           for theta in ori_array]))
+                           for theta in ori_array])))
 
 place_peak_rate = 20.  # Hz
 place_rate = lambda field_width, x_offset, y_offset: \
-    lambda x, y: place_peak_rate * np.exp(-((x - x_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.) * \
-                 np.exp(-((y - y_offset) / (field_width / 3. / np.sqrt(2.))) ** 2.)
+    lambda x, y: place_peak_rate * np.exp(-(old_div((x - x_offset), (field_width / 3. / np.sqrt(2.)))) ** 2.) * \
+                 np.exp(-(old_div((y - y_offset), (field_width / 3. / np.sqrt(2.)))) ** 2.)
 
 
 @click.command()
@@ -73,7 +74,7 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
         print('%i ranks have been allocated' % comm.size)
     sys.stdout.flush()
 
-    population_range_dict = population_ranges(comm, features_path)
+    population_range_dict = read_population_ranges(comm, features_path)
 
     features_dict = {}
     for population in ['MPP', 'LPP']:
@@ -88,7 +89,7 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
     y = np.arange(-arena_dimension, arena_dimension, spatial_resolution)
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
-    t = interp_distance / run_vel * 1000.  # ms
+    t = old_div(interp_distance, run_vel * 1000.)  # ms
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
 
@@ -150,7 +151,7 @@ def main(features_path, connectivity_path, connectivity_namespace, io_size, chun
             response_dict[gid] = {'waveform': response}
             baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
             peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
-            modulation = 0. if peak <= 0.1 else (peak - baseline) / peak
+            modulation = 0. if peak <= 0.1 else old_div((peak - baseline), peak)
             peak_index = np.where(response == np.max(response))[0][0]
             response_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
             response_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')

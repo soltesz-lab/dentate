@@ -2,7 +2,10 @@
 
 ## Test of ParallelTransfer-based gap junctions. Assumes the presence
 ## of a conductance-based half-gap junction model ggap.mod
-
+from builtins import next
+from builtins import str
+from builtins import range
+from builtins import object
 import sys, os, itertools, argparse
 import numpy as np
 from mpi4py import MPI
@@ -14,13 +17,13 @@ gjlist = []
 vrecs = []
 stims = []
 
-class MyCell:
+class MyCell(object):
     _ids = itertools.count(0)
     def __repr__(self):
         return 'MyCell[%d]' % self.id
     
     def __init__(self):
-        self.id = self._ids.next()
+        self.id = next(self._ids)
         # create the morphology and connect it
         self.soma = h.Section(name='soma', cell=self)
         self.dend = h.Section(name='dend', cell=self)
@@ -42,7 +45,7 @@ def mkgap(pc, sec, gid, secpos, sgid, dgid, w, gjlist):
     pc.target_var(gj, gj._ref_vgap, dgid)
 
     if myrank == 0:
-        print 'mkgap: gid %i: sec=%s sgid=%i dgid=%i w=%f' % (gid, str(sec), sgid, dgid, w)
+        print('mkgap: gid %i: sec=%s sgid=%i dgid=%i w=%f' % (gid, str(sec), sgid, dgid, w))
 
     gjlist.append(gj)
     
@@ -52,7 +55,7 @@ def mkcells(pc, ngids):
     nranks = int(pc.nhost())
     myrank = int(pc.id())
 
-    for gid in xrange(ngids):
+    for gid in range(ngids):
 
         if gid % nranks == myrank:
         
@@ -78,7 +81,7 @@ def mkcells(pc, ngids):
             vrecs.append(v)
 
             if myrank == 0:
-                print "Rank %i: created gid %i; stim delay = %.02f" % (myrank, gid, stim.delay)
+                print("Rank %i: created gid %i; stim delay = %.02f" % (myrank, gid, stim.delay))
 
 ## Creates gap junctional connections:
 ## The first halfgap is created on even gids and gid 0 and the second
@@ -88,7 +91,7 @@ def mkgjs(pc, ngids):
     myrank = int(pc.id())
 
     ggid = 2e6 ## gap junction id range is intended to not overlap with gid range
-    for gid in xrange(0, ngids, 2):
+    for gid in range(0, ngids, 2):
 
         # source gid: all even gids
         src = gid

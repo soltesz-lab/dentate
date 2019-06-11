@@ -1,5 +1,3 @@
-
-
 import sys, os
 import os.path
 import click
@@ -8,8 +6,9 @@ import numpy as np
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection
-from env import Env
-import neuron_utils, utils, cells
+from dentate.env import Env
+from dentate import neuron_utils, utils, cells
+from dentate.utils import *
 
     
 def passive_test (tree, v_init):
@@ -30,7 +29,7 @@ def passive_test (tree, v_init):
     for sec in cell.basal:
         dend_length += sec.L
 
-    print "passive_test: total dendritic length is %.02f um" % dend_length
+    print("passive_test: total dendritic length is %.02f um" % dend_length)
     
     stim1 = h.IClamp(cell.sections[0](0.5))
     stim1.delay = prelength
@@ -108,7 +107,7 @@ def ap_rate_test (tree, v_init):
         neuron_utils.simulate(v_init, prelength,mainlength)
         
         if ((h.spikelog.size() < 50) & (it < 5)):
-            print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
+            print("ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
             stim1.amp = stim1.amp + 0.1
             h.spikelog.clear()
             h.tlog.clear()
@@ -117,15 +116,15 @@ def ap_rate_test (tree, v_init):
         else:
             break
 
-    print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
+    print("ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
 
     isivect = h.Vector(h.spikelog.size()-1, 0.0)
     tspike = h.spikelog.x[0]
-    for i in xrange(1,int(h.spikelog.size())):
+    for i in range(1,int(h.spikelog.size())):
         isivect.x[i-1] = h.spikelog.x[i]-tspike
         tspike = h.spikelog.x[i]
     
-    print "ap_rate_test: isivect.size = %d\n" % isivect.size()
+    print("ap_rate_test: isivect.size = %d\n" % isivect.size())
     isimean  = isivect.mean()
     isivar   = isivect.var()
     isistdev = isivect.stdev()
@@ -154,15 +153,15 @@ def ap_rate_test (tree, v_init):
     f.write ("## ISI mean: %g\n" % isimean) 
     f.write ("## ISI variance: %g\n" % isivar)
     f.write ("## ISI stdev: %g\n" % isistdev)
-    f.write ("## ISI adaptation 1: %g\n" % (isivect.x[0] / isimean))
-    f.write ("## ISI adaptation 2: %g\n" % (isivect.x[0] / isivect.x[isilast]))
-    f.write ("## ISI adaptation 3: %g\n" % (isivect.x[0] / isivect.x[isi10th]))
-    f.write ("## ISI adaptation 4: %g\n" % (isivect.x[0] / isivect.x[isilastgt]))
+    f.write ("## ISI adaptation 1: %g\n" % (old_div(isivect.x[0], isimean)))
+    f.write ("## ISI adaptation 2: %g\n" % (old_div(isivect.x[0], isivect.x[isilast])))
+    f.write ("## ISI adaptation 3: %g\n" % (old_div(isivect.x[0], isivect.x[isi10th])))
+    f.write ("## ISI adaptation 4: %g\n" % (old_div(isivect.x[0], isivect.x[isilastgt])))
 
     f.close()
 
     f=open("HICAPCell_voltage_trace.dat",'w')
-    for i in xrange(0, int(h.tlog.size())):
+    for i in range(0, int(h.tlog.size())):
         f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
     f.close()
 
@@ -208,7 +207,7 @@ def gap_junction_test (tree, v_init):
     stim2.dur = stimdur
     stim2.amp = -0.1
 
-    log_size = tstop/h.dt + 1
+    log_size = old_div(tstop,h.dt) + 1
     
     h.tlog = h.Vector(log_size,0)
     h.tlog.record (h._ref_t)
@@ -233,7 +232,7 @@ def gap_junction_test (tree, v_init):
     h.pc.psolve(h.tstop)
 
     f=open("HICAPCellGJ.dat",'w')
-    for (t,v1,v2) in itertools.izip(h.tlog,h.Vlog1,h.Vlog2):
+    for (t,v1,v2) in zip(h.tlog,h.Vlog1,h.Vlog2):
         f.write("%f %f %f\n" % (t,v1,v2))
     f.close()
     

@@ -2,13 +2,12 @@
 ## Generate soma coordinates within layer-specific volume.
 ##
 
-
 import sys, itertools, os.path, math, random, click, logging
 from mpi4py import MPI
 import numpy as np
 from neuroh5.io import read_population_ranges, append_cell_attributes
 import h5py
-from dentate.utils import list_find, config_logging, get_script_logger
+from dentate.utils import *
 from dentate.env import Env
 from dentate.geometry import make_volume, DG_volume, make_uvl_distance
 from dentate.alphavol import alpha_shape
@@ -238,9 +237,9 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
             if rank == 0:
                 logger.info('Total %i coordinates generated' % coords_count)
 
-        mean_xyz_error = np.asarray([total_xyz_error[0] / coords_count, \
-                                     total_xyz_error[1] / coords_count, \
-                                     total_xyz_error[2] / coords_count])
+        mean_xyz_error = np.asarray([old_div(total_xyz_error[0], coords_count), \
+                                     old_div(total_xyz_error[1], coords_count), \
+                                     old_div(total_xyz_error[2], coords_count)])
 
         
         if verbose:

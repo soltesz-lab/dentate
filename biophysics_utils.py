@@ -274,6 +274,8 @@ class QuickSim(object):
             return
         if axes is None:
             fig, axes = plt.subplots()
+        else:
+            fig = axes.get_figure()
         for name, rec_dict in viewitems(self.recs):
             description = str(rec_dict['description'])
             axes.plot(self.tvec, rec_dict['vec'],

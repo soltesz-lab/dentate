@@ -11,6 +11,8 @@ import dentate
 from dentate.geometry import measure_distances
 from dentate.env import Env
 import dentate.utils as utils
+from dentate.utils import viewitems
+
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -18,6 +20,7 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
+
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -66,7 +69,7 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
 
         dist_dict = soma_distances[population]
         attr_dict = {}
-        for k, v in dist_dict.items():
+        for k, v in viewitems(dist_dict):
             attr_dict[k] = { 'U Distance': np.asarray([v[0]],dtype=np.float32), \
                              'V Distance': np.asarray([v[1]],dtype=np.float32) }
         append_cell_attributes(output_path, population, attr_dict,

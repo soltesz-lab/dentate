@@ -1,5 +1,3 @@
-
-
 import sys, os, os.path, click
 import itertools, random
 import numpy as np
@@ -9,6 +7,7 @@ from neuroh5.io import read_tree_selection, read_cell_attribute_selection
 from dentate.env import Env
 from dentate import utils, neuron_utils, cells, synapses
 from dentate.synapses import config_syn
+from dentate.utils import *
 
     
 def passive_test (templateClass, tree, v_init):
@@ -82,7 +81,7 @@ def ap_test (templateClass, tree, v_init):
     f.close()
 
     f=open("BasketCell_voltage_trace.dat",'w')
-    for i in xrange(0, int(h.tlog.size())):
+    for i in range(0, int(h.tlog.size())):
         f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
     f.close()
 
@@ -126,7 +125,7 @@ def ap_rate_test (templateClass, tree, v_init):
         neuron_utils.simulate(v_init, prelength,mainlength)
         
         if ((h.spikelog.size() < 50) & (it < 5)):
-            print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
+            print("ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
             stim1.amp = stim1.amp + 0.1
             h.spikelog.clear()
             h.tlog.clear()
@@ -135,15 +134,15 @@ def ap_rate_test (templateClass, tree, v_init):
         else:
             break
 
-    print "ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
+    print("ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
 
     isivect = h.Vector(h.spikelog.size()-1, 0.0)
     tspike = h.spikelog.x[0]
-    for i in xrange(1,int(h.spikelog.size())):
+    for i in range(1,int(h.spikelog.size())):
         isivect.x[i-1] = h.spikelog.x[i]-tspike
         tspike = h.spikelog.x[i]
     
-    print "ap_rate_test: isivect.size = %d\n" % isivect.size()
+    print("ap_rate_test: isivect.size = %d\n" % isivect.size())
     isimean  = isivect.mean()
     isivar   = isivect.var()
     isistdev = isivect.stdev()
@@ -172,15 +171,15 @@ def ap_rate_test (templateClass, tree, v_init):
     f.write ("## ISI mean: %g\n" % isimean) 
     f.write ("## ISI variance: %g\n" % isivar)
     f.write ("## ISI stdev: %g\n" % isistdev)
-    f.write ("## ISI adaptation 1: %g\n" % (isivect.x[0] / isimean))
-    f.write ("## ISI adaptation 2: %g\n" % (isivect.x[0] / isivect.x[isilast]))
-    f.write ("## ISI adaptation 3: %g\n" % (isivect.x[0] / isivect.x[isi10th]))
-    f.write ("## ISI adaptation 4: %g\n" % (isivect.x[0] / isivect.x[isilastgt]))
+    f.write ("## ISI adaptation 1: %g\n" % (old_div(isivect.x[0], isimean)))
+    f.write ("## ISI adaptation 2: %g\n" % (old_div(isivect.x[0], isivect.x[isilast])))
+    f.write ("## ISI adaptation 3: %g\n" % (old_div(isivect.x[0], isivect.x[isi10th])))
+    f.write ("## ISI adaptation 4: %g\n" % (old_div(isivect.x[0], isivect.x[isilastgt])))
 
     f.close()
 
     f=open("BasketCell_voltage_trace.dat",'w')
-    for i in xrange(0, int(h.tlog.size())):
+    for i in range(0, int(h.tlog.size())):
         f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
     f.close()
 
@@ -222,7 +221,7 @@ def fi_test (templateClass, tree, v_init):
 
         neuron_utils.simulate(v_init, prelength, mainlength)
         
-        print "fi_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size())
+        print("fi_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
         stim1.amp = stim1.amp + 0.1
         stim_amps.append(stim1.amp)
         frs.append(h.spikelog.size())
@@ -232,7 +231,7 @@ def fi_test (templateClass, tree, v_init):
 
     f=open("BasketCell_fi_results.dat",'w')
 
-    for (fr,stim_amp) in itertools.izip(frs,stim_amps):
+    for (fr,stim_amp) in zip(frs,stim_amps):
         f.write("%g %g\n" % (stim_amp,fr))
 
     f.close()
@@ -282,7 +281,7 @@ def gap_junction_test (env, templateClass, tree, v_init):
     stim2.dur = stimdur
     stim2.amp = -0.1
 
-    log_size = tstop/h.dt + 1
+    log_size = old_div(tstop,h.dt) + 1
     
     h.tlog = h.Vector(log_size,0)
     h.tlog.record (h._ref_t)
@@ -309,7 +308,7 @@ def gap_junction_test (env, templateClass, tree, v_init):
     pc.psolve(h.tstop)
 
     f=open("BasketCellGJ.dat",'w')
-    for (t,v1,v2) in itertools.izip(h.tlog,h.Vlog1,h.Vlog2):
+    for (t,v1,v2) in zip(h.tlog,h.Vlog1,h.Vlog2):
         f.write("%f %f %f\n" % (t,v1,v2))
     f.close()
     
@@ -323,7 +322,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
 
     ranstream = np.random.RandomState(0)
 
-    syn_ids = syn_obj_dict.keys()
+    syn_ids = list(syn_obj_dict.keys())
 
     if len(syn_ids) == 0:
         return
@@ -331,12 +330,12 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in syn_params_dict.keys():
+    for syn_name in syn_params_dict:
         synlst = []
         for syn_id in selected_ids:
             synlst.append(syn_obj_dict[syn_id][syn_name])
             
-        print ('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
+        print('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
 
         ns = h.NetStim()
         ns.interval = 1000
@@ -345,7 +344,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
         ns.noise  = 0
         
         nclst = []
-        for syn_id, syn in itertools.izip(selected_ids, synlst):
+        for syn_id, syn in zip(selected_ids, synlst):
             this_nc = h.NetCon(ns,syn)
             syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
             config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
@@ -396,7 +395,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
     syn_attrs = env.synapse_attributes
     ranstream = np.random.RandomState(0)
 
-    syn_ids = syn_obj_dict.keys()
+    syn_ids = list(syn_obj_dict.keys())
 
     if len(syn_ids) == 0:
         return
@@ -404,7 +403,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in syn_params_dict.keys():
+    for syn_name in syn_params_dict:
         
         synlst = []
         for syn_id in selected_ids:
@@ -420,7 +419,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
         
         nclst = []
         for syn_id in selected_ids:
-            for syn_name, syn in syn_obj_dict[syn_id].iteritems():
+            for syn_name, syn in list(syn_obj_dict[syn_id].items()):
                 this_nc = h.NetCon(ns,syn)
                 syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
                 config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
@@ -454,7 +453,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
         
         f=open("BasketCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
         
-        for i in xrange(0, int(tlog.size())):
+        for i in range(0, int(tlog.size())):
             f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
             
         f.close()
@@ -484,7 +483,7 @@ def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
         syn_ids = []
         layers = env.connection_config[postsyn_name][presyn_name].layers
         proportions = env.connection_config[postsyn_name][presyn_name].proportions
-        for syn_id, syn_layer in itertools.izip(all_syn_ids, all_syn_layers):
+        for syn_id, syn_layer in zip(all_syn_ids, all_syn_layers):
             i = utils.list_index(syn_layer, layers) 
             if i is not None:
                 if random.random() <= proportions[i]:
@@ -527,8 +526,8 @@ def main(template_path,forest_path,synapses_path,config_path):
     (trees_dict,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
     synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], "Synapse Attributes", comm=comm)
 
-    (_, tree) = trees_dict.next()
-    (_, synapses) = synapses_dict.next()
+    (_, tree) = next(trees_dict)
+    (_, synapses) = next(synapses_dict)
 
     v_init = -60
     

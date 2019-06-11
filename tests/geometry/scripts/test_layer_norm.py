@@ -149,7 +149,7 @@ def trajectory_calculations(ip_vol, cache, dimension=None):
         
         distance_matrix = np.zeros((Nx, Nt, Nt))
         for d in range(0,len(distances)):    
-            for (i,j) in distances[d].keys():
+            for (i,j) in distances[d]:
                 td1, fd1, nd1, td2, fd2, nd2, diff_nd12 = distances[d][(i,j)]
                 distance_matrix[d][i][j] = diff_nd12 
         distance_matrix = np.asarray(distance_matrix)
@@ -254,7 +254,7 @@ if __name__ == '__main__':
         
         distance_matrix = np.zeros((Nu, Nt, Nt))
         for d in range(0,len(distances)):    
-            for (i,j) in distances[d].keys():
+            for (i,j) in distances[d]:
                 td1, fd1, nd1, td2, fd2, nd2, diff_nd12 = distances[d][(i,j)]
                 distance_matrix[d][i][j] = diff_nd12 
         distance_matrix = np.asarray(distance_matrix)

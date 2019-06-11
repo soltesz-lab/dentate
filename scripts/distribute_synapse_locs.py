@@ -7,8 +7,9 @@ import h5py
 import dentate
 from dentate.env import Env
 from dentate import cells, synapses, neuron_utils, utils
-from dentate.utils import list_find
+from dentate.utils import *
 from dentate.neuron_utils import configure_hoc_env
+
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -16,7 +17,6 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
-
 
 
 def update_syn_stats(env, syn_stats_dict, syn_dict):
@@ -58,29 +58,29 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
 
 def global_syn_summary(comm, syn_stats, global_count, root):
     res = []
-    for population in list(syn_stats.keys()):
+    for population in syn_stats:
         pop_syn_stats = syn_stats[population]
         for part in ['layer', 'swc_type']:
             syn_stats_dict = pop_syn_stats[part]
-            for part_name in list(syn_stats_dict.keys()):
-                for syn_type in list(syn_stats_dict[part_name].keys()):
+            for part_name in syn_stats_dict:
+                for syn_type in syn_stats_dict[part_name]:
                     global_syn_count = comm.gather(syn_stats_dict[part_name][syn_type], root=root)
                     if comm.rank == root:
-                        res.append("%s %s %s: mean %s synapses per cell: %f" % (population, part, part_name, syn_type, np.sum(global_syn_count)/global_count))
+                        res.append("%s %s %s: mean %s synapses per cell: %f" % (population, part, part_name, syn_type, old_div(np.sum(global_syn_count),global_count)))
         total_syn_stats_dict = pop_syn_stats['total']
-        for syn_type in list(total_syn_stats_dict.keys()):
+        for syn_type in total_syn_stats_dict:
             global_syn_count = comm.gather(total_syn_stats_dict[syn_type], root=root)
             if comm.rank == root:
-                res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, np.sum(global_syn_count)/global_count))
+                res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, old_div(np.sum(global_syn_count),global_count)))
         
     return string.join(res, '\n')
 
 def local_syn_summary(syn_stats_dict):
     res = []
     for part_name in ['layer','swc_type']:
-        for part_type in list(syn_stats_dict[part_name].keys()):
+        for part_type in syn_stats_dict[part_name]:
             syn_count_dict = syn_stats_dict[part_name][part_type]
-            for syn_type, syn_count in syn_count_dict.items():
+            for syn_type, syn_count in list(syn_count_dict.items()):
                 res.append("%s %i: %s synapses: %i" % (part_name, part_type, syn_type, syn_count))
     return string.join(res, '\n')
 
@@ -91,7 +91,7 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
     swc_stats = syn_stats_dict['swc_type']
 
     warning_flag = False
-    for syn_type, layer_set in layer_set_dict.items():
+    for syn_type, layer_set in list(layer_set_dict.items()):
         for layer in layer_set:
             if layer in layer_stats:
                 if layer_stats[layer][syn_type] <= 0:
@@ -99,11 +99,11 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
             else:
                 warning_flag = True
     if warning_flag:
-        logger.warning('Rank %d: incomplete synapse layer set for cell %d: %s' % (env.comm.Get_rank(), gid, str(dict(iter(layer_stats.items())))))
-        logger.info('layer_set_dict: %s' % (str(dict(iter(layer_set_dict.items())))))
+        logger.warning('Rank %d: incomplete synapse layer set for cell %d: %s' % (env.comm.Get_rank(), gid, str(layer_stats)))
+        logger.info('layer_set_dict: %s' % str(layer_set_dict))
         logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
         logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
-    for syn_type, swc_set in swc_set_dict.items():
+    for syn_type, swc_set in viewitems(swc_set_dict):
         for swc_type in swc_set:
             if swc_type in swc_stats:
                 if swc_stats[swc_type][syn_type] <= 0:
@@ -111,8 +111,8 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
             else:
                 warning_flag = True
     if warning_flag:
-        logger.warning('Rank %d: incomplete synapse swc type set for cell %d: %s' % (env.comm.Get_rank(), gid, str(dict(iter(swc_stats.items())))))
-        logger.info('swc_set_dict: %s' % (str(dict(iter(swc_set_dict.items())))))
+        logger.warning('Rank %d: incomplete synapse swc type set for cell %d: %s' % (env.comm.Get_rank(), gid, str(swc_stats)))
+        logger.info('swc_set_dict: %s' % str(swc_set_dict.items))
         logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
         logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
                 
@@ -190,10 +190,10 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
         density_dict = env.celltypes[population]['synapses']['density']
         layer_set_dict = defaultdict(set)
         swc_set_dict = defaultdict(set)
-        for sec_name, sec_dict in density_dict.items():
-            for syn_type, syn_dict in sec_dict.items():
+        for sec_name, sec_dict in viewitems(density_dict):
+            for syn_type, syn_dict in viewitems(sec_dict):
                 swc_set_dict[syn_type].add(env.SWC_Types[sec_name])
-                for layer_name in list(syn_dict.keys()):
+                for layer_name in syn_dict:
                     if layer_name != 'default':
                         layer = env.layers[layer_name]
                         layer_set_dict[syn_type].add(layer)
