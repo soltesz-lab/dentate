@@ -5,23 +5,17 @@ dorsal-ventrally, there is no organization in the transverse or septo-temporal e
 CA3 and LEC are assumed to exhibit place fields. Their field width varies septal-temporally. Here we assume a
 continuous exponential gradient of field widths, with the same parameters as those controlling MEC grid width.
 """
+
+import click
 from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
-<<<<<<< Updated upstream:scripts/infer_DG_firing_rates.py
-from dentate.utils import *
-from dentate.env import Env
-from dentate.stimulus import SelectivityModuleConfig, get_input_cell_config, get_2D_arena_spatial_mesh, \
-=======
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import dentate
 from dentate.utils import *
 from dentate.env import Env
-from dentate.stimulus import SelectivityConfig, get_input_cell, get_2D_arena_spatial_mesh, \
->>>>>>> Stashed changes:scripts/generate_DG_input_features.py
-    choose_input_selectivity_type
+from dentate.stimulus import SelectivityConfig, get_stimulus_source, get_2D_arena_spatial_mesh, choose_input_selectivity_type
 from dentate.plot import plot_2D_rate_map
-import click
-
+from dentate.utils import *
 
 logger = get_script_logger(os.path.basename(__file__))
 
@@ -194,14 +188,14 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                 this_selectivity_type = \
                     choose_input_selectivity_type(p=env.input_config['Selectivity Type Probabilities'][population],
                                                   local_random=local_random)
-                input_cell = get_input_cell(selectivity_type=this_selectivity_type,
-                                            selectivity_type_names=selectivity_type_names,
-                                            population=population, input_config=env.input_config, arena=arena,
-                                            selectivity_config=selectivity_config, distance=norm_u_arc_distance,
-                                            local_random=local_random)
+                stimulus_source = get_stimulus_source(selectivity_type=this_selectivity_type,
+                                                      selectivity_type_names=selectivity_type_names,
+                                                      population=population, input_config=env.input_config, arena=arena,
+                                                      selectivity_config=selectivity_config, distance=norm_u_arc_distance,
+                                                      local_random=local_random)
                 this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                selectivity_attr_dict[this_selectivity_type_name][gid] = input_cell.get_selectivity_attr_dict()
-                rate_map = input_cell.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
+                selectivity_attr_dict[this_selectivity_type_name][gid] = stimulus_source.get_selectivity_attr_dict()
+                rate_map = stimulus_source.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
                 if debug and plot and rank == 0:
                     plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh, rate_map=rate_map,
                                      peak_rate = env.input_config['Peak Rate'][population][this_selectivity_type],

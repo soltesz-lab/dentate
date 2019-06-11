@@ -3,7 +3,7 @@ from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 import h5py
 from dentate.env import Env
-from dentate.stimulus import get_input_cell, generate_linear_trajectory
+from dentate.stimulus import get_stimulus_source, generate_linear_trajectory
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 import random
 import copy
@@ -206,10 +206,10 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
                 if gid is not None:
                     this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
                     this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                    cell_config = get_input_cell(selectivity_type=this_selectivity_type,
-                                                 selectivity_type_names=selectivity_type_names,
-                                                 selectivity_attr_dict=selectivity_attr_dict)
-                    rate_map = cell_config.get_rate_map(x=x, y=y)
+                    stimulus_source = get_stimulus_source(selectivity_type=this_selectivity_type,
+                                                          selectivity_type_names=selectivity_type_names,
+                                                          selectivity_attr_dict=selectivity_attr_dict)
+                    rate_map = stimulus_source.get_rate_map(x=x, y=y)
                     if equilibrate_hann is not None:
                         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_hann)
                     local_random.seed(int(input_spike_train_offset + gid))
