@@ -3323,7 +3323,6 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
                 filename = '%s %s spatial ratemap.%s' % (population, stimulus_namespace, fig_options.figFormat)
             plt.savefig(filename)
 
-        print fig_options.showFig
         # show fig
         if fig_options.showFig:
             show_figure()
