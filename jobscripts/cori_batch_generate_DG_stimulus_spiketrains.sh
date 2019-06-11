@@ -14,4 +14,15 @@
 source $HOME/.bash_profile
 
 set -x
-srun -n 128 python $HOME/dentate/scripts/generate_DG_PP_spiketrains.py --selectivity-path=$SCRATCH/Full_Scale_Control/dentate_Full_Scale_Control_coords_PP_spiketrains_20171105.h5
+
+export trajectory=Diag
+
+srun -n 128 python $HOME/dentate/scripts/generate_DG_stimulus_spike_trains.py \
+     --config=Full_Scale_Pas.yaml \
+     --features-path=$SCRATCH/Full_Scale_Control/DG_stimulus_20190610.h5 \
+     --output-path=$SCRATCH/Full_Scale_Control/DG_stimulus_20190610.h5 \
+     --arena-id=A \
+     --trajectory-id=${trajectory} \
+     -p LPP -p MPP \
+     --io-size=2 -v
+
