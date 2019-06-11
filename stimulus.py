@@ -697,10 +697,9 @@ def read_stimulus(stimulus_path, stimulus_namespace, population, module=None):
     attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
     for gid, stimulus_dict in attr_gen:
         if gid in module_gid_set or len(module_gid_set) == 0:
-            rate       = stimulus_dict['rate']
-            spiketrain = stimulus_dict['spiketrain']
-            modulation = stimulus_dict['modulation']
-            peak_index = stimulus_dict['peak index']
+            rate       = stimulus_dict['Trajectory Rate Map']
+            spiketrain = stimulus_dict['Spike Train']
+            peak_index = np.where(rate == np.max(rate))[0][0]
             ratemap_lst.append((gid, rate, spiketrain, peak_index))
  
     ## sort by peak_index

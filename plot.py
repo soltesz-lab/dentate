@@ -3242,12 +3242,17 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
     dt = float(t[1] - t[0]) / 1000. # ms -> s
     T  = float(t[-1] - t[0]) / 1000. # ms -> s
 
+    if (arena_id is None) or (trajectory_id is None):
+        ns = stimulus_namespace
+    else:
+        ns = '%s %s %s' % (stimulus_namespace, arena_id, trajectory_id)
+
     for iplot, population in enumerate(include):
    
         spiketrain_dict = {}
         logger.info('Reading stimulus data for population %s...' % population) 
 
-        for (gid, rate, spiketrain, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population): 
+        for (gid, rate, spiketrain, _) in stimulus.read_stimulus(input_path, ns, population): 
             if from_spikes:
                 spiketrain_dict[gid] = len(spiketrain)
             else:
@@ -3289,7 +3294,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
 
         H = np.zeros_like(H1)
         H[nz] = np.divide(H1[nz], H2[nz])
-        if fromSpikes:
+        if from_spikes:
             H = np.divide(H, T)
         H[zeros] = None
 
@@ -3300,8 +3305,8 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
         axes.axis([x_min, x_max, y_min, y_max])
         axes.set_aspect('equal')
 
-        if fromSpikes:
-            title = '%s input firing rate\nTrial: %i' % (population, trajectory_id)
+        if from_spikes:
+            title = '%s input firing rate\nTrajectory: %s %s' % (population, arena_id, trajectory_id)
         else:
             title = '%s expected input firing rate' % population
         axes.set_title(title, fontsize=fig_options.fontSize)
@@ -3318,6 +3323,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
                 filename = '%s %s spatial ratemap.%s' % (population, stimulus_namespace, fig_options.figFormat)
             plt.savefig(filename)
 
+        print fig_options.showFig
         # show fig
         if fig_options.showFig:
             show_figure()

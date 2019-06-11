@@ -1,20 +1,19 @@
-import os
-import sys
-
+import os, sys
 import click
 import dentate
-from dentate import plot
-from dentate import utils
+from dentate import plot, utils
+from dentate.env import Env
 
 script_name = os.path.basename(__file__)
 
 
 @click.command()
 @click.option("--config", required=True, type=str)
-@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--features-path", '-p', required=True, type=click.Path())
-@click.option("--features-namespace", '-n', type=str, default='Vector Stimulus')
-@click.option("--trajectory-id", type=str, required=True)
+@click.option("--features-namespace", '-n', type=str)
+@click.option("--arena-id", '-a', type=str, required=True)
+@click.option("--trajectory-id", '-t', type=str, required=True)
 @click.option("--coords-path", '-c', required=True, type=click.Path())
 @click.option("--distances-namespace", '-d', type=str, default='Arc Distances')
 @click.option("--include", '-i', type=str, multiple=True)
@@ -23,10 +22,9 @@ script_name = os.path.basename(__file__)
 @click.option("--normed", type=bool, default=False, is_flag=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", is_flag=True)
-@click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", is_flag=True)
-def main(config, config_prefix, features_path, coords_path, features_namespace, trajectory_id, distances_namespace, include, bin_size,
-         from_spikes, normed, font_size, verbose, show_fig, save_fig):
+def main(config, config_prefix, features_path, coords_path, features_namespace, arena_id, trajectory_id, distances_namespace, include, bin_size,
+         from_spikes, normed, font_size, verbose, save_fig):
 
     utils.config_logging(verbose)
     
@@ -34,9 +32,10 @@ def main(config, config_prefix, features_path, coords_path, features_namespace, 
 
     env = Env(config_file=config, config_prefix=config_prefix)
 
-    plot.plot_stimulus_spatial_rate_map (env, features_path, coords_path, trajectory_id, features_namespace,
-        distances_namespace, include, bin_size=bin_size, from_spikes=from_spikes, normed=normed, fontSize=font_size,
-        saveFig=save_fig, showFig=show_fig, verbose=verbose)
+    plot.plot_stimulus_spatial_rate_map (env, features_path, coords_path, arena_id, trajectory_id,
+                                         features_namespace, distances_namespace, include,
+                                         bin_size=bin_size, from_spikes=from_spikes, normed=normed,
+                                         fontSize=font_size, saveFig=save_fig, verbose=verbose)
 
 
 if __name__ == '__main__':
