@@ -1,5 +1,3 @@
-
-
 import sys, os, random, os.path, itertools
 import click
 import numpy as np
@@ -7,11 +5,10 @@ from collections import defaultdict
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection, read_cell_attribute_selection
-import dentate
 from dentate.env import Env
 from dentate import neuron_utils, utils, cells, synapses, network_clamp
+from dentate.utils import *
 
-    
 
 def synapse_group_test (env, presyn_name, gid, cell, syn_params_dict, group_size, v_init, tstart = 200.):
 
@@ -22,7 +19,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_params_dict, group_size
 
     ranstream = np.random.RandomState(0)
 
-    syn_ids = syn_obj_dict.keys()
+    syn_ids = list(syn_obj_dict.keys())
 
     if len(syn_ids) == 0:
         return
@@ -30,7 +27,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_params_dict, group_size
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in syn_params_dict.keys():
+    for syn_name in syn_params_dict:
         synlst = []
         for syn_id in selected_ids:
             synlst.append(syn_obj_dict[syn_id][syn_name])
@@ -44,7 +41,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_params_dict, group_size
         ns.noise  = 0
         
         nclst = []
-        for syn_id, syn in itertools.izip(selected_ids, synlst):
+        for syn_id, syn in zip(selected_ids, synlst):
             this_nc = h.NetCon(ns,syn)
             syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
             config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
@@ -103,7 +100,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_params_dict, group
     syn_attrs = env.synapse_attributes
     ranstream = np.random.RandomState(0)
 
-    syn_ids = syn_obj_dict.keys()
+    syn_ids = list(syn_obj_dict.keys())
 
     if len(syn_ids) == 0:
         return
@@ -111,7 +108,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_params_dict, group
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in syn_params_dict.keys():
+    for syn_name in syn_params_dict:
         
         synlst = []
         for syn_id in selected_ids:
@@ -127,7 +124,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_params_dict, group
         
         nclst = []
         for syn_id in selected_ids:
-            for syn_name, syn in syn_obj_dict[syn_id].iteritems():
+            for syn_name, syn in viewitems(syn_obj_dict[syn_id]):
                 this_nc = h.NetCon(ns,syn)
                 syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
                 config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
@@ -163,7 +160,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_params_dict, group
         
         f=open("GranuleCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
         
-        for i in xrange(0, int(tlog.size())):
+        for i in range(0, int(tlog.size())):
             f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
             
         f.close()
@@ -190,7 +187,7 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
         syn_ids = []
         layers = env.connection_config[postsyn_name][presyn_name].layers
         proportions = env.connection_config[postsyn_name][presyn_name].proportions
-        for syn_id, syn_layer, syn_sec in itertools.izip(all_syn_ids, all_syn_layers, all_syn_secs):
+        for syn_id, syn_layer, syn_sec in zip(all_syn_ids, all_syn_layers, all_syn_secs):
             i = utils.list_index(syn_layer, layers) 
             if i is not None:
                 if (random.random() <= proportions[i]):
@@ -241,13 +238,13 @@ def main(config_path,template_paths,forest_path,synapses_path):
     else:
         synapses_dict = None
 
-    gid, tree = trees.next()
+    gid, tree = next(trees)
     if synapses_dict is not None:
-        (_, synapses) = synapses_dict.next()
+        (_, synapses) = next(synapses_dict)
     else:
         synapses = None
 
-    if env.celltypes[popName].has_key('mech_file'):
+    if 'mech_file' in env.celltypes[popName]:
         mech_file_path = env.config_prefix + '/' + env.celltypes[popName]['mech_file']
     else:
         mech_file_path = None

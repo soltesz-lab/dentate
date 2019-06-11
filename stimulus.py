@@ -3,6 +3,7 @@ import numpy as np
 import h5py
 from scipy.spatial.distance import euclidean
 from neuroh5.io import read_cell_attributes, read_population_ranges, NeuroH5CellAttrGen
+from dentate.utils import *
 
 
 class SelectivityModuleConfig(object):
@@ -13,7 +14,7 @@ class SelectivityModuleConfig(object):
         :param local_random: :class:'np.random.RandomState
         """
         self.num_modules = input_config['Number Modules']
-        self.module_ids = range(input_config['Number Modules'])
+        self.module_ids = list(range(input_config['Number Modules']))
 
         self.module_probability_width = input_config['Selectivity Module Parameters']['width']
         self.module_probability_displacement = input_config['Selectivity Module Parameters']['displacement']
@@ -22,13 +23,13 @@ class SelectivityModuleConfig(object):
                         self.num_modules)
         self.get_module_probability = \
             np.vectorize(lambda distance, offset:
-                         np.exp(-((distance - offset) / (self.module_probability_width / 3. / np.sqrt(2.))) ** 2.),
+                         np.exp(-(old_div((distance - offset), (self.module_probability_width / 3. / np.sqrt(2.)))) ** 2.),
                          excluded=['offset'])
 
         self.get_grid_module_spacing = \
             lambda distance: input_config['Grid Spacing Parameters']['offset'] + \
                       input_config['Grid Spacing Parameters']['slope'] * \
-                      (np.exp(distance / input_config['Grid Spacing Parameters']['tau']) - 1.)
+                      (np.exp(old_div(distance, input_config['Grid Spacing Parameters']['tau'])) - 1.)
         self.grid_module_spacing = \
             [self.get_grid_module_spacing(distance) for distance in np.linspace(0., 1., self.num_modules)]
         self.grid_spacing_sigma = input_config['Grid Spacing Variance'] / 6.
@@ -272,8 +273,8 @@ def get_place_rate_map(x0, y0, width, x, y):
     :param y: array
     :return: array
     """
-    return np.exp(-((x - x0) / (width / 3. / np.sqrt(2.))) ** 2.) * \
-           np.exp(-((y - y0) / (width / 3. / np.sqrt(2.))) ** 2.)
+    return np.exp(-(old_div((x - x0), (width / 3. / np.sqrt(2.)))) ** 2.) * \
+           np.exp(-(old_div((y - y0), (width / 3. / np.sqrt(2.)))) ** 2.)
 
 
 def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
@@ -293,12 +294,12 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
 
     inner_sum = np.zeros_like(x)
     for theta in theta_k:
-        inner_sum += np.cos(((4. * np.pi) / (np.sqrt(3.) * spacing)) *
+        inner_sum += np.cos((old_div((4. * np.pi), (np.sqrt(3.) * spacing))) *
                             (np.cos(theta - orientation) * (x - x0) +
                              np.sin(theta - orientation) * (y - y0)))
     transfer = lambda z: np.exp(a * (z - b)) - 1.
     max_rate = transfer(3.)
-    rate_map = transfer(inner_sum) / max_rate
+    rate_map = old_div(transfer(inner_sum), max_rate)
 
     return rate_map
 
@@ -379,7 +380,7 @@ def choose_input_selectivity_type(p, local_random):
     """
     if len(p) == 1:
         return list(p.keys())[0]
-    return local_random.choice(p.keys(), p=p.values())
+    return local_random.choice(list(p.keys()), p=list(p.values()))
 
 
 def get_active_cell_matrix(pop_activity, threshold=2.):
@@ -400,7 +401,7 @@ def normalize_num_field_probabilities(num_field_probabilities, return_item_array
     p_num_fields = np.array([num_field_probabilities[i] for i in num_fields_array])
     p_num_fields_sum = np.sum(p_num_fields)
     if p_num_fields_sum <= 0.:
-        print RuntimeError('normalize_num_field_probabilities: invalid num_field_probabilities')
+        raise RuntimeError('normalize_num_field_probabilities: invalid num_field_probabilities')
     p_num_fields /= p_num_fields_sum
     if return_item_arrays:
         return num_fields_array, p_num_fields
@@ -453,7 +454,7 @@ def calibrate_num_field_probabilities(num_field_probabilities, field_width, targ
         fraction_active_mean = np.mean(fraction_active_array)
         fraction_active_variance = np.var(fraction_active_array)
         num_fields_mean = np.mean(population_num_fields)
-        field_density = num_fields_mean / arena_area
+        field_density = old_div(num_fields_mean, arena_area)
 
         print('calibrate_num_field_probabilities:%s field_width: %.2f, fraction active: mean: %.4f, var: %.4f; '
               'field_density: %.4E' % (iteration_label, field_width, fraction_active_mean, fraction_active_variance,
@@ -461,7 +462,7 @@ def calibrate_num_field_probabilities(num_field_probabilities, field_width, targ
         if target_fraction_active is None:
             break
         if iteration == 0:
-            correction_factor = target_fraction_active / fraction_active_mean
+            correction_factor = old_div(target_fraction_active, fraction_active_mean)
             p_num_fields *= correction_factor
             p_active = np.sum(p_num_fields[1:])
             if p_active > 1.:
@@ -477,8 +478,8 @@ def calibrate_num_field_probabilities(num_field_probabilities, field_width, targ
         import math
         from dentate.plot import clean_axes
         fig, axes = plt.subplots(3, 3, figsize=(9., 9.))
-        for count, i in enumerate(xrange(0, pop_size, int(math.ceil(pop_size / 6.)))):
-            axes[count / 3][count % 3].pcolor(x_mesh, y_mesh, pop_activity[i])
+        for count, i in enumerate(range(0, pop_size, int(math.ceil(pop_size / 6.)))):
+            axes[old_div(count, 3)][count % 3].pcolor(x_mesh, y_mesh, pop_activity[i])
         hist, edges = np.histogram(population_num_fields, bins=len(num_field_probabilities),
                                    range=(-0.5, len(num_field_probabilities) - 0.5), density=True)
         axes[2][0].bar(edges[1:] - 0.5, hist)
@@ -572,7 +573,7 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     interp_distance = np.arange(distance.min(), distance.max() + spatial_resolution / 2., spatial_resolution)
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
-    t = interp_distance / velocity * 1000.  # ms
+    t = old_div(interp_distance, velocity * 1000.)  # ms
 
     t -= equilibration_duration
     interp_distance -= equilibration_distance
@@ -606,8 +607,8 @@ def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1
         end_x = origin_X + np.cos(start_theta) * radius
         end_y = origin_Y + np.sin(start_theta) * radius
 
-        xsteps = abs(end_x - start_x)  / spatial_resolution
-        ysteps = abs(end_y - start_y)  / spatial_resolution
+        xsteps = old_div(abs(end_x - start_x), spatial_resolution)
+        ysteps = old_div(abs(end_y - start_y), spatial_resolution)
         nsteps = max(xsteps, ysteps)
         
         linear_x = np.linspace(start_x, end_x, nsteps)
@@ -632,7 +633,7 @@ def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
     
-    t = (interp_distance / velocity * 1000.)  # ms
+    t = (old_div(interp_distance, velocity * 1000.))  # ms
     
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)

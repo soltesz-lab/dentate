@@ -1,3 +1,9 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import str
+from builtins import next
+from builtins import range
+from past.utils import old_div
 from unused.function_lib import *
 from mpi4py import MPI
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes
@@ -68,7 +74,7 @@ def main(features_path, prediction_namespace, io_size, chunk_size, value_chunk_s
             response = response_dict[prediction_namespace]['waveform']
             baseline = np.mean(response[np.where(response <= np.percentile(response, 10.))[0]])
             peak = np.mean(response[np.where(response >= np.percentile(response, 90.))[0]])
-            modulation = peak / baseline - 1.
+            modulation = old_div(peak, baseline) - 1.
             peak_index = np.where(response == np.max(response))[0][0]
             response_attr_dict[gid]['modulation'] = np.array([modulation], dtype='float32')
             response_attr_dict[gid]['peak_index'] = np.array([peak_index], dtype='uint32')

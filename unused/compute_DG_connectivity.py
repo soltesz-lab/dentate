@@ -1,9 +1,9 @@
-from unused.function_lib import *
+from dentate.utils import *
 from mpi4py import MPI
-from neurotrees.io import append_cell_attributes
-from neurotrees.io import NeurotreeAttrGen
-from neurotrees.io import bcast_cell_attributes
-from neurotrees.io import population_ranges
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import NeuroH5CellAttrGen
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_population_ranges
 import click
 
 
@@ -43,8 +43,8 @@ spatial_resolution = 1.  # um
 max_u = 11690.
 max_v = 2956.
 
-du = (1.01*np.pi-(-0.016*np.pi))/max_u*spatial_resolution
-dv = (1.425*np.pi-(-0.23*np.pi))/max_v*spatial_resolution
+du = old_div((1.01*np.pi-(-0.016*np.pi)),max_u*spatial_resolution)
+dv = old_div((1.425*np.pi-(-0.23*np.pi)),max_v*spatial_resolution)
 u = np.arange(-0.016*np.pi, 1.01*np.pi, du)
 v = np.arange(-0.23*np.pi, 1.425*np.pi, dv)
 
@@ -198,10 +198,10 @@ class AxonProb(object):
             else:
                 self.offset[source] = {'u': 0., 'v': 0.}
             self.p_dist[source] = (lambda source: np.vectorize(lambda distance_u, distance_v:
-                                               np.exp(-(((abs(distance_u) - self.offset[source]['u']) /
-                                                         self.sigma[source]['u'])**2. +
-                                                        ((abs(distance_v) - self.offset[source]['v']) /
-                                                         self.sigma[source]['v'])**2.))))(source)
+                                               np.exp(-((old_div((abs(distance_u) - self.offset[source]['u']),
+                                                         self.sigma[source]['u']))**2. +
+                                                        (old_div((abs(distance_v) - self.offset[source]['v']),
+                                                         self.sigma[source]['v']))**2.))))(source)
 
     def get_approximate_arc_distances(self, target_index_u, target_index_v, source_indexes_u, source_indexes_v,
                                       distance_U, distance_V):
@@ -325,13 +325,13 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
     start_time = time.time()
 
     soma_coords = {}
-    source_populations = list(population_ranges(MPI._addressof(comm), coords_path).keys())
+    source_populations = list(read_population_ranges(MPI._addressof(comm), coords_path).keys())
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(MPI._addressof(comm), 0, coords_path, population,
                                                             namespace=coords_namespace)
 
     for population in soma_coords:
-        for cell in soma_coords[population].values():
+        for cell in viewvalues(soma_coords[population]):
             cell['u_index'] = get_array_index(u, cell['U Coordinate'][0])
             cell['v_index'] = get_array_index(v, cell['V Coordinate'][0])
 
@@ -344,7 +344,7 @@ def main(forest_path, connectivity_namespace, coords_path, coords_namespace, io_
         syn_type_set.update(syn_types[target][source])
 
     count = 0
-    for target_gid, attributes_dict in NeurotreeAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size,
+    for target_gid, attributes_dict in NeuroH5CellAttrGen(MPI._addressof(comm), forest_path, target, io_size=io_size,
                                                         cache_size=cache_size, namespace='Synapse_Attributes'):
         last_time = time.time()
         connection_dict = {}

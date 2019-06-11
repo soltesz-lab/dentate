@@ -1,10 +1,10 @@
+from builtins import str
 from collections import defaultdict
 import numpy as np
 import rbf
 from rbf.interpolate import RBFInterpolant
 from rbf.nodes import snap_to_boundary,disperse,menodes
 from rbf.geometry import contains
-import dentate
 from dentate.alphavol import alpha_shape
 from dentate.rbf_volume import RBFVolume
 import h5py
@@ -70,7 +70,7 @@ uZ_indices = np.concatenate(uZ_indlst)
 #print 'uX: ', uX
 #print 'uX_indices: ', uX_indices
 obs_indices = np.concatenate([uX_indices, uY_indices, uZ_indices])
-print 'obs_indices.shape: ', obs_indices.shape
+print('obs_indices.shape: %s' % str(obs_indices.shape))
 
 #u, v, l = np.meshgrid(obs_u, obs_v, obs_l, indexing='ij')
 #obs_uvl = np.array([obs_u.ravel(),obs_v.ravel(),obs_l.ravel()]).T
@@ -81,8 +81,8 @@ obs_z = Z[obs_indices]
 
 
 obs_xyz = np.column_stack([obs_x, obs_y, obs_z])
-print 'obs_xyz.shape: ', obs_xyz.shape
-print obs_xyz
+print('obs_xyz.shape: %s' % str(obs_xyz.shape))
+print(obs_xyz)
 
 #s = np.linspace(0., 1., obs_u.size)
 #obs_uvl = np.array([s],dtype=np.float32).T
@@ -110,8 +110,8 @@ print obs_xyz
 #xyz = np.array([X[obs_u].ravel(), Y[obs_v].ravel(), Z[obs_l].ravel()]).reshape(3, obs_u.size).T
 
 #mlab.points3d(obs_xyz[:,0], obs_xyz[:,1], obs_xyz[:,2], scale_factor=20.0, color=(1, 1, 0))
-print obs_xyz.shape
-print obs_xyz[:,0]
+print(obs_xyz.shape)
+print(obs_xyz[:,0])
 
 alpha =  alpha_shape(pts,radius,tri=None)
 

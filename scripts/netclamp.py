@@ -1,4 +1,4 @@
-/bin/env python
+#!/usr/bin/env python
 """
 Dentate Gyrus model single-cell simulation script.
 
@@ -11,6 +11,7 @@ import numpy as np
 import dentate.network as network
 from dentate.env import Env
 from dentate.utils import list_find
+
 
 def mpi_excepthook(type, value, traceback):
     """

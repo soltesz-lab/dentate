@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import range
 from unused.function_lib import *
 import random
 

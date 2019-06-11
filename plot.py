@@ -1,4 +1,3 @@
-
 import itertools, math, numbers, textwrap
 from collections import defaultdict
 from mpi4py import MPI
@@ -31,15 +30,15 @@ from dentate.utils import Struct, get_module_logger, viewitems, update_bins, add
 try:
     import dentate.spikedata as spikedata
 except ImportError as e:
-    print('dentate.plot: problem importing module required by dentate.spikedata:', e)
+    print(('dentate.plot: problem importing module required by dentate.spikedata:', e))
 try:
     import dentate.stimulus as stimulus
 except ImportError as e:
-    print('dentate.plot: problem importing module required by dentate.stimulus:', e)
+    print(('dentate.plot: problem importing module required by dentate.stimulus:', e))
 try:
     from dentate.geometry import DG_volume, measure_distance_extents
 except ImportError as e:
-    print('dentate.plot: problem importing module required by dentate.geometry:', e)
+    print(('dentate.plot: problem importing module required by dentate.geometry:', e))
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -170,7 +169,7 @@ def plot_PP_metrics(env, coords_path, features_path, distances_namespace, popula
     for (gid, features_dict) in attr_gen:
         attr_dict[gid] = features_dict[attribute]
     del attr_gen
-    present_gids = attr_dict.keys()
+    present_gids = list(attr_dict.keys())
 
     distances = read_cell_attributes(coords_path, population, distances_namespace)
     soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
@@ -194,8 +193,8 @@ def plot_PP_metrics(env, coords_path, features_path, distances_namespace, popula
  
     ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
-    dx = int((distance_x_max - distance_x_min) / bin_size)
-    dy = int((distance_y_max - distance_y_min) / bin_size)
+    dx = int(old_div((distance_x_max - distance_x_min), bin_size))
+    dy = int(old_div((distance_y_max - distance_y_min), bin_size))
 
     fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
     ax = plt.gca()
@@ -291,8 +290,8 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
 
     ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
-    dx = int((distance_x_max - distance_x_min) / bin_size)
-    dy = int((distance_y_max - distance_y_min) / bin_size)
+    dx = int(old_div((distance_x_max - distance_x_min), bin_size))
+    dy = int(old_div((distance_y_max - distance_y_min), bin_size))
 
     for source, degrees in viewitems(degrees_dict):
         
@@ -756,8 +755,8 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
     ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
     ax.axis([x_min, x_max, y_min, y_max])
 
-    dx = int((distance_x_max - distance_x_min) / bin_size)
-    dy = int((distance_y_max - distance_y_min) / bin_size)
+    dx = int(old_div((distance_x_max - distance_x_min), bin_size))
+    dy = int(old_div((distance_y_max - distance_y_min), bin_size))
     if graph_type == 'histogram1d':
         bins_U = np.linspace(x_min, x_max, dx)
         bins_V = np.linspace(y_min, y_max, dy)
@@ -780,7 +779,7 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
         levels = MaxNLocator(nbins=150).tick_values(Hint.min(), Hint.max())
         cmap = plt.get_cmap('jet')
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-        p = ax.contourf(X[:-1,:-1] + bin_size/2, Y[:-1,:-1]+bin_size/2, H.T, levels=levels, cmap=cmap)
+        p = ax.contourf(X[:-1,:-1] + old_div(bin_size,2), Y[:-1,:-1]+old_div(bin_size,2), H.T, levels=levels, cmap=cmap)
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     elif graph_type == 'kde':
         X, Y, Z    = kde_scipy(distance_U_array, distance_V_array, bin_size)
@@ -843,8 +842,8 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graph_type =
     y_min = np.min(coord_V_array)
     y_max = np.max(coord_V_array)
 
-    dx = int((x_max - x_min) / bin_size)
-    dy = int((y_max - y_min) / bin_size)
+    dx = int(old_div((x_max - x_min), bin_size))
+    dy = int(old_div((y_max - y_min), bin_size))
 
     if graph_type == 'scatter':
         ax.scatter(coord_U_array, coord_V_array, alpha=0.1, linewidth=0)
@@ -856,7 +855,7 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graph_type =
         levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
         cmap = plt.get_cmap('jet')
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-        p = ax.contourf(X[:-1,:-1] + bin_size/2, Y[:-1,:-1]+bin_size/2, H.T, levels=levels, cmap=cmap)
+        p = ax.contourf(X[:-1,:-1] + old_div(bin_size,2), Y[:-1,:-1]+old_div(bin_size,2), H.T, levels=levels, cmap=cmap)
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     else:
         raise ValueError('Unknown graph type %s' % graph_type)
@@ -919,8 +918,8 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
     y_min = np.min(coord_Y_array)
     y_max = np.max(coord_Y_array)
 
-    dx = int((x_max - x_min) / bin_size)
-    dy = int((y_max - y_min) / bin_size)
+    dx = int(old_div((x_max - x_min), bin_size))
+    dy = int(old_div((y_max - y_min), bin_size))
 
     if graph_type == 'scatter':
         ax.scatter(coord_X_array, coord_Y_array, alpha=0.1, linewidth=0)
@@ -932,7 +931,7 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
         levels = MaxNLocator(nbins=25).tick_values(Hint.min(), Hint.max())
         cmap = plt.get_cmap('jet')
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-        p = ax.contourf(X[:-1,:-1] + bin_size/2, Y[:-1,:-1]+bin_size/2, H.T, levels=levels, cmap=cmap)
+        p = ax.contourf(X[:-1,:-1] + old_div(bin_size,2), Y[:-1,:-1]+old_div(bin_size,2), H.T, levels=levels, cmap=cmap)
         fig.colorbar(p, ax=ax, shrink=0.5, aspect=20)
     else:
         raise ValueError('Unknown graph type %s' % graph_type)
@@ -1283,7 +1282,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     ax.set_ylabel('Y (um)')
     ax.set_zlabel('Z (um)')
 
-    step_sizes = [int(max_u / bin_size), int(max_v / bin_size)]
+    step_sizes = [int(old_div(max_u, bin_size)), int(old_div(max_v, bin_size))]
     plt.figure(figsize=plt.figaspect(1.)*2.)
     population_indexes_u = get_array_index(u, soma_coords[population]['u'])
     population_indexes_v = get_array_index(v, soma_coords[population]['v'])
@@ -1444,7 +1443,7 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
 
     states     = data['states']
     
-    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(states.keys()) }
+    pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(states) }
     
     stplots = []
     
@@ -1560,13 +1559,13 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     if spike_hist:
         all_spkts = np.concatenate(spktlst, axis=0)
         sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-        sphist_x = bin_edges[:-1]+spike_hist_bin/2
+        sphist_x = bin_edges[:-1]+old_div(spike_hist_bin,2)
 
     maxN = 0
     minN = N
 
     avg_rates = {}
-    tsecs = (time_range[1]-time_range[0])/1e3 
+    tsecs = old_div((time_range[1]-time_range[0]),1e3) 
     for i,pop_name in enumerate(spkpoplst):
         pop_num = len(pop_active_cells[pop_name])
         maxN = max(maxN, max(pop_active_cells[pop_name]))
@@ -1575,7 +1574,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
+                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
         
     
     pop_colors = { pop_name: color_list[ipop%len(raster_color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -1816,7 +1815,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
         
-        logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
+        logger.info('read distances (%i elements)' % len(soma_distances.keys()))
         distance_U_array = np.asarray([soma_distances[gid][0] for gid in soma_distances])
         distance_V_array = np.asarray([soma_distances[gid][1] for gid in soma_distances])
 
@@ -1853,14 +1852,14 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
     pop_labels = [ pop_name for pop_name in spkpoplst ]
     legend_labels = pop_labels
-    lgd = lambda (objs): plt.legend(objs, legend_labels, fontsize=fig_options.fontSize, scatterpoints=1, markerscale=2., \
+    lgd = lambda objs: plt.legend(objs, legend_labels, fontsize=fig_options.fontSize, scatterpoints=1, markerscale=2., \
                                     loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
-    timebins = np.linspace(tmin, tmax, (tmax-tmin) / time_step)
+    timebins = np.linspace(tmin, tmax, old_div((tmax-tmin), time_step))
     
-    data = zip (spkpoplst, spkindlst, spktlst)
+    data = list(zip (spkpoplst, spkindlst, spktlst))
     scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, marker, pop_colors)
-    ani = FuncAnimation(fig, func=update_spatial_rasters, frames=xrange(0, len(timebins)-1), \
+    ani = FuncAnimation(fig, func=update_spatial_rasters, frames=list(range(0, len(timebins)-1)), \
                         blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
     spatial_raster_aniplots.append(ani)
 
@@ -1935,14 +1934,14 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     if spike_hist:
         all_spkts = np.concatenate(spktlst, axis=0)
         sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-        sphist_x = bin_edges[:-1]+spike_hist_bin/2
+        sphist_x = bin_edges[:-1]+old_div(spike_hist_bin,2)
 
         
     maxN = 0
     minN = N
 
     avg_rates = {}
-    tsecs = (time_range[1]-time_range[0])/1e3 
+    tsecs = old_div((time_range[1]-time_range[0]),1e3) 
     for i,pop_name in enumerate(spkpoplst):
         pop_num = len(pop_active_cells[pop_name])
         maxN = max(maxN, max(pop_active_cells[pop_name]))
@@ -1951,7 +1950,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
+                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
         
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -2250,7 +2249,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     maxN = 0
     minN = N
     if pop_rates:
-        tsecs = (time_range[1]-time_range[0])/1e3 
+        tsecs = old_div((time_range[1]-time_range[0]),1e3) 
         for i,pop_name in enumerate(spkpoplst):
             pop_num = len(pop_active_cells[pop_name])
             maxN = max(maxN, max(pop_active_cells[pop_name]))
@@ -2259,7 +2258,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
                 if num_cell_spks[pop_name] == 0:
                     avg_rates[pop_name] = 0
                 else:
-                    avg_rates[pop_name] = num_cell_spks[pop_name] / pop_num / tsecs
+                    avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
             
     # Y-axis label
     if quantity == 'rate':
@@ -2269,7 +2268,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     elif quantity == 'active':
         yaxisLabel = 'Active cell count'
     else:
-        print('Invalid quantity value %s', (quantity))
+        print('Invalid quantity value %s' % str(quantity))
         return
 
     # create fig
@@ -2312,11 +2311,11 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     # Plot separate line for each entry in include
     for iplot, subset in enumerate(spkpoplst):
 
-        hist_x = time_bins+bin_size/2
+        hist_x = time_bins+old_div(bin_size,2)
         bin_dict = hist_dict[subset]
 
         if quantity=='rate':
-            hist_y = np.asarray([bin_dict[ibin]['rates'] / bin_dict[ibin]['active']  if bin_dict[ibin]['active'] > 0 else 0.
+            hist_y = np.asarray([old_div(bin_dict[ibin]['rates'], bin_dict[ibin]['active'])  if bin_dict[ibin]['active'] > 0 else 0.
                                      for ibin in range(0, len(time_bins))])
         elif quantity=='active':
             hist_y = np.asarray([bin_dict[ibin]['active'] for ibin in range(0, len(time_bins))])
@@ -2340,7 +2339,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
         #axes[iplot].xaxis.set_visible(False)
             
         if smooth:
-            hsignal = signal.savgol_filter(hist_y, window_length=2*(len(hist_y)/16) + 1, polyorder=smooth) 
+            hsignal = signal.savgol_filter(hist_y, window_length=2*(old_div(len(hist_y),16)) + 1, polyorder=smooth) 
         else:
             hsignal = hist_y
         
@@ -2433,7 +2432,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
     elif quantity == 'count':
         quantityLabel = 'Spike count'
     else:
-        print('Invalid quantity value %s', (quantity))
+        print('Invalid quantity value %s' % str(quantity))
         return
 
 
@@ -2478,7 +2477,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         elif graph_type == 'histogram':
             hist_y, bin_edges = np.histogram(np.asarray(y), bins = 40)
             bin_size = bin_edges[1] - bin_edges[0]
-            hist_X = bin_edges[:-1]+bin_size/2
+            hist_X = bin_edges[:-1]+old_div(bin_size,2)
             b = plt.bar(hist_X, hist_y, width=bin_size)
             yaxisLabel = 'Cell count'
             xaxisLabel = quantityLabel
@@ -2573,7 +2572,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
     elif quantity == 'count':
         xaxisLabel = 'Spike count'
     else:
-        print('Invalid quantity value %s', (quantity))
+        print('Invalid quantity value %s' % str(quantity))
         return
 
     # create fig
@@ -2826,8 +2825,8 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
     axes_dim = int(np.round(np.sqrt(to_plot)))
     fig, axes = plt.subplots(axes_dim, axes_dim)
     for i in range(len(cells_to_plot)):
-        img = axes[i%axes_dim, i/axes_dim].imshow(cells_to_plot[i], cmap='viridis')
-        plt.colorbar(img, ax=axes[i%axes_dim, i/axes_dim])
+        img = axes[i%axes_dim, old_div(i,axes_dim)].imshow(cells_to_plot[i], cmap='viridis')
+        plt.colorbar(img, ax=axes[i%axes_dim, old_div(i,axes_dim)])
  
     if fig_options.saveFig:
         if isinstance(fig_options.saveFig, str):
@@ -3181,13 +3180,13 @@ def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, traj
         ns = '%s %s' % (namespace_id, arena_id)
     logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
     fig, axes = plt.subplots(2, 5)
-    for module in xrange(1, 11):
+    for module in range(1, 11):
         rate_lst = []
         for (gid, rate, _) in stimulus.read_feature(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
         col = (module - 1) % 5
-        row = (module - 1) / 5
+        row = old_div((module - 1), 5)
         M = max(M, len(rate_lst))
         N = len(rate_lst)
         rate_matrix = np.matrix(rate_lst)
@@ -3260,7 +3259,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
             else:
                 spiketrain_dict[gid] = np.mean(rate) #np.sum(rate * dt)
 
-        present_gids = spiketrain_dict.keys()
+        present_gids = list(spiketrain_dict.keys())
         
         logger.info('read rates (%i elements)' % len(present_gids))
 
@@ -3282,12 +3281,12 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
         distance_y_min = np.min(distance_V)
         distance_y_max = np.max(distance_V)
         
-        logger.info('read distances (%i elements)' % len(list(soma_distances.keys())))
+        logger.info('read distances (%i elements)' % len(soma_distances.keys()))
 
         ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
-        dx = int((distance_x_max - distance_x_min) / bin_size)
-        dy = int((distance_y_max - distance_y_min) / bin_size)
+        dx = int(old_div((distance_x_max - distance_x_min), bin_size))
+        dy = int(old_div((distance_y_max - distance_y_min), bin_size))
 
         (H1, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=spikes)
         (H2, xedges, yedges)  = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
@@ -3394,7 +3393,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
         elif graph_type == 'histogram':
             hist_y, bin_edges = np.histogram(pop_corr, bins = 100)
             corr_bin_size = bin_edges[1] - bin_edges[0]
-            hist_X = bin_edges[:-1]+corr_bin_size/2
+            hist_X = bin_edges[:-1]+old_div(corr_bin_size,2)
             color = color_list[iplot%len(color_list)]
             if len(spkpoplst) > 1:
                 b = axes[iplot].bar(hist_X, hist_y, width = corr_bin_size, color = color)
@@ -3497,7 +3496,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
             mean_corr = np.apply_along_axis(lambda y: np.mean(y), 1, pop_corr)
             hist_y, bin_edges = np.histogram(mean_corr, bins = 100)
             corr_bin_size = bin_edges[1] - bin_edges[0]
-            hist_X = bin_edges[:-1]+corr_bin_size/2
+            hist_X = bin_edges[:-1]+old_div(corr_bin_size,2)
             color = color_list[iplot%len(color_list)]
             if len(spkpoplst) > 1:
                 b = axes[iplot].bar(hist_X, hist_y, width = corr_bin_size, color = color)
@@ -3794,7 +3793,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                             axes = axarr[i]
                         if attr_type not in f[filetype][session_id][syn_name][param_name]:
                             continue
-                        for j, sec_type in enumerate(f[filetype][session_id][syn_name][param_name][attr_type].keys()):
+                        for j, sec_type in enumerate(f[filetype][session_id][syn_name][param_name][attr_type]):
                             if sec_type not in marker_dict:
                                 m = len(marker_dict)
                                 marker_dict[sec_type] = markers[m]
@@ -3963,7 +3962,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
 
     if export is not None:
         f = h5py.File(export_file_path, 'a')
-        if 'mech_file_path' in list(f.attrs.keys()):
+        if 'mech_file_path' in f.attrs:
             if cell.mech_file_path is None or not f.attrs['mech_file_path'] == cell.mech_file_path:
                 raise ValueError('plot_mech_param_distribution: provided mech_file_path: %s does not match the '
                                 'mech_file_path of %s cell %i: %s' %
@@ -4093,7 +4092,7 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
             if os.path.isfile(export_file_path):
                 os.remove(export_file_path)
         f = h5py.File(export_file_path, 'a')
-        if 'mech_file_path' in list(f.attrs.keys()):
+        if 'mech_file_path' in f.attrs:
             if not (f.attrs['mech_file_path'] == '{}'.format(cell.mech_file_path)):
                 raise Exception('Specified mechanism filepath {} does not match the mechanism filepath '
                                 'of the cell {}'.format(f.attrs['mech_file_path'], cell.mech_file_path))
@@ -4265,12 +4264,12 @@ def calculate_module_density(gid_module_assignments, gid_normed_distance):
     :return:
     """
 
-    module_bounds = [[1.0, 0.0] for _ in xrange(10)]
-    module_counts = [0 for _ in xrange(10)]
+    module_bounds = [[1.0, 0.0] for _ in range(10)]
+    module_counts = [0 for _ in range(10)]
     gid_module_assignments = context.gid_module_assignments
     gid_normed_distance    = context.gid_normed_distance
     
-    for (gid,module) in gid_module_assignments.iteritems():
+    for (gid,module) in list(gid_module_assignments.items()):
         normed_u, _, _, _ = gid_normed_distance[gid]
         if normed_u < module_bounds[module-1][0]:
             module_bounds[module - 1][0] = normed_u
@@ -4308,9 +4307,9 @@ def plot_module_assignment_histogram():
     ax3.legend(frameon=False, framealpha=0.5, loc='center left')
 
     fig, (ax1, ax2) = plt.subplots(2,1)
-    normalized_u_positions = [norm_u for (norm_u,_,_,_) in context.gid_normed_distance.values()]
-    absolute_u_positions   = [u for (_,_,u,_) in context.gid_normed_distance.values()]
-    absolute_v_positions   = [v for (_,_,_,v) in context.gid_normed_distance.values()]
+    normalized_u_positions = [norm_u for (norm_u,_,_,_) in list(context.gid_normed_distance.values())]
+    absolute_u_positions   = [u for (_,_,u,_) in list(context.gid_normed_distance.values())]
+    absolute_v_positions   = [v for (_,_,_,v) in list(context.gid_normed_distance.values())]
     hist_norm, edges_norm  = np.histogram(normalized_u_positions, bins=25)
     hist_abs, edges_abs    = np.histogram(absolute_u_positions, bins=100)
     hist_v_abs, edges_v_abs = np.histogram(absolute_v_positions, bins=100)
@@ -4328,7 +4327,7 @@ def plot_module_assignment_histogram():
     for gid in context.gid_normed_distance:
         norm_u,_,_,_ = context.gid_normed_distance[gid]
         module       = context.gid_module_assignments[gid]
-        if module_pos_dictionary.has_key(module):
+        if module in module_pos_dictionary:
             module_pos_dictionary[module].append(norm_u)
         else:
             module_pos_dictionary[module] = [norm_u]
@@ -4337,8 +4336,8 @@ def plot_module_assignment_histogram():
         positions = module_pos_dictionary[module]
         hist_pos, _ = np.histogram(positions, bins=edges_norm)
         hist_pos = hist_pos.astype('float32')
-        ax.plot(edges_norm[1:], hist_pos / hist_norm)
-    ax.legend(['%i' % (i+1) for i in xrange(10)])
+        ax.plot(edges_norm[1:], old_div(hist_pos, hist_norm))
+    ax.legend(['%i' % (i+1) for i in range(10)])
 
     plt.show()
 

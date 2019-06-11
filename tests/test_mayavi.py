@@ -6,8 +6,8 @@ x, y, z = np.random.random((3, 100))
 data = x**2 + y**2 + z**2
 
 pts = np.column_stack((x, y, z, data)).T
-print pts
-print pts.shape
+print(pts)
+print(pts.shape)
 src = mlab.pipeline.scalar_scatter(*pts)
 
 field = mlab.pipeline.delaunay3d(src)

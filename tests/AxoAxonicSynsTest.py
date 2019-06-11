@@ -7,9 +7,9 @@ from neuron import gui
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection, read_cell_attribute_selection
-from env import Env
-import utils, cells, synapses
-
+from dentate.env import Env
+from dentate import utils, cells, synapses
+from dentate.utils import *
 
 
 comm = MPI.COMM_WORLD
@@ -26,8 +26,8 @@ popName = "AAC"
 (trees_dict,_) = read_tree_selection (comm, forest_path, popName, [1042800])
 synapses_dict = read_cell_attribute_selection (comm, forest_path, popName, [1042800], "Synapse Attributes")
     
-tree = trees_dict.itervalues().next()
-synapses_vals = synapses_dict.itervalues().next()
+tree = next(iter(viewvalues(trees_dict)))
+synapses_vals = next(iter(viewvalues(synapses_dict)))
 
 synapse_kinetics=env.synapse_kinetics['AAC']
 

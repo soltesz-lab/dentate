@@ -266,7 +266,7 @@ def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields)
         xy_offset_module_dict[mod] = np.asarray(xy_offsets, dtype='float32')
 
     cell_dict = {}
-    for population in gid_attributes.keys():
+    for population in gid_attributes:
         cell_dict[population] = {}
         for gid, cell in viewitems(gid_attributes[population]):
 
@@ -324,7 +324,7 @@ def build_cells(context, gid_attributes, gid_normed_distances, total_num_fields)
         
 def save_to_h5(context, cell_dict):
 
-    for population in cell_dict.keys():
+    for population in cell_dict:
         place_cells, grid_cells = {}, {}
         for gid, cell in viewitems(cell_dict[population]):
 

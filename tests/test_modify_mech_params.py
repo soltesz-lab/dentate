@@ -1,3 +1,6 @@
+from __future__ import division
+from builtins import str
+from past.utils import old_div
 import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
@@ -7,15 +10,15 @@ context = Context()
 
 def compare_single_value(key, x, seg, mech_name, param_name):
     if not hasattr(seg, mech_name):
-        print 'Segment does not have the mechanism %s' %mech_name
+        print('Segment does not have the mechanism %s' % mech_name)
     else:
         model_val = getattr(getattr(seg, mech_name), param_name)
         exp_val = x[key]
         if model_val == exp_val:
-            print 'Test %s passed' % key
+            print('Test %s passed' % key)
         else:
-            print 'Test %s failed' % key
-            print 'Model %s, Expected %s' % (format(model_val, 'e'), format(exp_val, 'e'))
+            print('Test %s failed' % key)
+            print('Model %s, Expected %s' % (format(model_val, 'e'), format(exp_val, 'e')))
 
 
 def standard_modify_mech_param_tests(cell):
@@ -112,7 +115,7 @@ def compare_nseg(nseg, distances, labels):
             this_distances = distances[j]
             plt.scatter(this_distances[sec_type], this_nseg[sec_type], c=colors[j], marker=markers[i],
                         label=sec_type+'_'+labels[j], alpha=0.5)
-            print '%s_%s nseg: %s' % (sec_type, labels[j], str(this_nseg[sec_type]))
+            print('%s_%s nseg: %s' % (sec_type, labels[j], str(this_nseg[sec_type])))
     plt.legend(loc='best', frameon=False, framealpha=0.5)
     plt.xlabel('Distance from Soma (um)')
     plt.ylabel('Number of segments per section')
@@ -204,8 +207,8 @@ def count_spines(cell, env):
                              (node.name, num_spines, stored_num_spines))
         num_spines_list.append(num_spines)
         distances.append(get_distance_to_node(cell, cell.tree.root, node, 0.5))
-        print 'count_spines_test: passed for node: %s; nseg: %i; L: %.2f um; spine_count: %i; density: %.2f /um' % \
-              (node.name, node.sec.nseg, node.sec.L, num_spines, num_spines/node.sec.L)
+        print('count_spines_test: passed for node: %s; nseg: %i; L: %.2f um; spine_count: %i; density: %.2f /um' % \
+              (node.name, node.sec.nseg, node.sec.L, num_spines, old_div(num_spines,node.sec.L)))
     fig, axes = plt.subplots()
     axes.scatter(distances, num_spines_list)
     axes.set_xlabel('Distance from soma (um)')

@@ -1,6 +1,6 @@
-from unused.function_lib import *
+from dentate.utils import *
 from mpi4py import MPI
-from neuroh5.io import bcast_cell_attributes, population_ranges
+from neuroh5.io import bcast_cell_attributes, read_population_ranges
 import click
 
 
@@ -186,7 +186,7 @@ def main(config, forest_path, connectivity_namespace, coords_path, coords_namesp
     start_time = time.time()
 
     soma_coords = {}
-    source_populations = list(population_ranges(comm, coords_path).keys())
+    source_populations = list(read_population_ranges(comm, coords_path).keys())
     for population in source_populations:
         soma_coords[population] = bcast_cell_attributes(comm, 0, coords_path, population,
                                                             namespace=coords_namespace)

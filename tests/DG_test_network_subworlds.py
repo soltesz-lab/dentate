@@ -9,6 +9,7 @@ import numpy as np
 import dentate
 from dentate.biophysics_utils import *
 from dentate import utils, spikedata, network
+from dentate.utils import *
 from nested.optimize_utils import *
 
 
@@ -140,8 +141,8 @@ def get_objectives_network_walltime(features, export=False):
     """
     objectives = dict()
     for feature_key in context.feature_names:
-        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
-                                   context.target_range[feature_key]) ** 2.
+        objectives[feature_key] = (old_div((features[feature_key] - context.target_val[feature_key]),
+                                   context.target_range[feature_key])) ** 2.
 
     return features, objectives
 
@@ -175,7 +176,7 @@ def compute_features_firing_rate(x, export=False):
 
     n = len(spike_density_dict)
     if n > 0:
-        mean_rate = mean_rate_sum / n 
+        mean_rate = old_div(mean_rate_sum, n) 
     else:
         mean_rate = 0.
 
@@ -193,8 +194,8 @@ def get_objectives(features, export=False):
     """
     objectives = dict()
     for feature_key in context.feature_names:
-        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
-                                   context.target_range[feature_key]) ** 2.
+        objectives[feature_key] = (old_div((features[feature_key] - context.target_val[feature_key]),
+                                   context.target_range[feature_key])) ** 2.
 
     return features, objectives
 

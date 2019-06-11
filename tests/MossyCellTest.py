@@ -1,5 +1,3 @@
-
-
 import sys, os, random, os.path, itertools
 import click
 import numpy as np
@@ -7,11 +5,10 @@ from collections import defaultdict
 from mpi4py import MPI # Must come before importing NEURON
 from neuron import h
 from neuroh5.io import read_tree_selection, read_cell_attribute_selection
-import dentate
 from dentate.env import Env
 from dentate import neuron_utils, utils, cells, synapses, network_clamp
+from dentate.utils import *
 
-    
 
 def synapse_group_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict, group_size, v_init, tstart = 200.):
 
@@ -28,10 +25,10 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict, gro
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in syn_mech_dict.keys():
+    for syn_name in syn_mech_dict:
         nclst = []
             
-        print ('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(selected_ids), len(syn_ids)))
+        print('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(selected_ids), len(syn_ids)))
 
         ns = h.NetStim()
         ns.interval = 1000
@@ -54,7 +51,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict, gro
             nclst.append(this_nc)
             if first_syn_id is None:
                 first_syn_id = syn_id
-                print "%s netcon: " % syn_name, [ this_nc.weight[i] for i in xrange(int(this_nc.wcnt())) ]
+                print("%s netcon: %s" % (syn_name, str([this_nc.weight[i] for i in range(int(this_nc.wcnt()))])))
 
         for sec in list(cell.all):
             h.psection(sec=sec)
@@ -103,9 +100,9 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in syn_mech_dict.keys():
+    for syn_name in syn_mech_dict:
         
-        print ('synapse_group_rate_test: %s %s synapses: %i out of %i ' % (presyn_name, syn_name, len(selected_ids), len(syn_ids)))
+        print('synapse_group_rate_test: %s %s synapses: %i out of %i ' % (presyn_name, syn_name, len(selected_ids), len(syn_ids)))
 
         ns = h.NetStim()
         ns.interval = 1000./rate
@@ -116,7 +113,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict
         nclst = []
         first_syn_id = None
         for syn_id in selected_ids:
-            for syn_name in syn_mech_dict.keys():
+            for syn_name in syn_mech_dict:
                 if syn_attrs.has_netcon(gid, syn_id, syn_name):
                     syn_index = syn_attrs.syn_name_index_dict[syn_name]
                     del (syn_attrs.pps_dict[gid][syn_id].netcon[syn_index])
@@ -128,14 +125,14 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict
                                     **syn_mech_dict[syn_name])
                 nclst.append(this_nc)
                 if first_syn_id is None:
-                    print "%s netcon: " % syn_name, [ this_nc.weight[i] for i in xrange(int(this_nc.wcnt())) ]
+                    print("%s netcon: %s" % (syn_name, str([this_nc.weight[i] for i in range(int(this_nc.wcnt()))])))
             if first_syn_id is None:
                 first_syn_id = syn_id
 
         for sec in list(cell.all):
             h.psection(sec=sec)
 
-        print ('synapse_group_rate_test: %s %s synapses: %i netcons ' % (presyn_name, syn_name, len(nclst)))
+        print('synapse_group_rate_test: %s %s synapses: %i netcons ' % (presyn_name, syn_name, len(nclst)))
 
         v_init_exc = -75
         v_init_inh = 0
@@ -154,7 +151,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_ids, syn_mech_dict
         
         f=open("MossyCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
         
-        for i in xrange(0, int(tlog.size())):
+        for i in range(0, int(tlog.size())):
             f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
             
         f.close()
@@ -179,7 +176,7 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses_dict, v_ini
     all_syn_ids = synapses_dict['syn_ids']
     all_syn_layers = synapses_dict['syn_layers']
     all_syn_secs = synapses_dict['syn_secs']
-    print ('Total %i %s synapses' % (len(all_syn_ids), postsyn_name))
+    print('Total %i %s synapses' % (len(all_syn_ids), postsyn_name))
 
     
     for presyn_name in presyn_names:
@@ -205,7 +202,7 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses_dict, v_ini
             synapses.config_hoc_cell_syns(env, gid, postsyn_name, cell=cell.hoc_cell, syn_ids=syn_ids,
                                           insert=False, insert_netcons=False, throw_error=True, verbose=True)
         else:
-            for syn_section, syn_layer in itertools.izip(syn_sections, syn_layers):
+            for syn_section, syn_layer in zip(syn_sections, syn_layers):
                 syn_mech_dict = syn_params_dict[syn_section]
                 syn_ids = syn_attrs.get_filtered_syn_ids(gid, swc_types=[syn_section], layers=[syn_layer],
                                                          syn_types=[syn_type])
@@ -256,13 +253,13 @@ def main(config_path,template_paths,forest_path,synapses_path):
     else:
         synapses_iter = None
 
-    gid, tree = trees.next()
+    gid, tree = next(trees)
     if synapses_iter is not None:
-        (_, synapses) = synapses_iter.next()
+        (_, synapses) = next(synapses_iter)
     else:
         synapses = None
 
-    if env.celltypes[popName].has_key('mech_file'):
+    if 'mech_file' in env.celltypes[popName]:
         mech_file_path = env.config_prefix + '/' + env.celltypes[popName]['mech_file']
     else:
         mech_file_path = None

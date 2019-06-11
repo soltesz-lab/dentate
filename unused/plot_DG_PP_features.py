@@ -7,7 +7,7 @@ from neuroh5.io import NeuroH5CellAttrGen, read_cell_attributes
 from mpi4py import MPI
 from pprint import pprint
 
-from dentate.utils import list_find
+from dentate.utils import *
 from dentate.stimulus import gid2module_dictionary, module2gid_dictionary, fraction_active
 
 script_name = os.path.basename(__file__)
@@ -125,10 +125,10 @@ def plot_xy_offsets_single_module(cells, plot=False, save=True, **kwargs):
     for gid in cells:
         cell = cells[gid]
         if 'X Offset Scaled' not in cell or 'Y Offset Scaled' not in cell:
-            offsets = zip(cell['X Offset'], cell['Y Offset'])
+            offsets = list(zip(cell['X Offset'], cell['Y Offset']))
         else:
 
-            offsets = zip(cell['X Offset Scaled'], cell['Y Offset Scaled'])
+            offsets = list(zip(cell['X Offset Scaled'], cell['Y Offset Scaled']))
         for (x_offset, y_offset) in offsets:
             pop_xy_offsets.append((x_offset, y_offset))
     pop_xy_offsets = np.asarray(pop_xy_offsets, dtype='float32')
@@ -162,7 +162,7 @@ def plot_xy_offsets_multiple_modules(modules_dictionary, modules, plot=False, sa
         cells = modules_dictionary[module]
         for gid in cells:
             cell = cells[gid]
-            offsets = zip(cell.x_offset, cell.y_offset)
+            offsets = list(zip(cell.x_offset, cell.y_offset))
             for (x_offset, y_offset) in offsets:
                 pop_xy_offsets.append((x_offset, y_offset))
         pop_xy_offsets = np.asarray(pop_xy_offsets, dtype='float32')
@@ -218,8 +218,8 @@ def plot_fraction_active_multiple_modules(modules_dictionary, modules, plot=Fals
 
         cells   = modules_dictionary[module]
         factive = fraction_active(cells, 2.)
-        nx = np.max(map (lambda x: x[0], factive.keys())) + 1
-        ny = np.max(map (lambda x: x[1], factive.keys())) + 1
+        nx = np.max([x[0] for x in list(factive.keys())]) + 1
+        ny = np.max([x[1] for x in list(factive.keys())]) + 1
         fraction_active_img = np.zeros((nx, ny))
         for (i,j) in factive:
             fraction_active_img[i,j] = factive[(i,j)]
@@ -251,8 +251,8 @@ def plot_rate_histogram_single_module(cells, plot=False, save=True, **kwargs):
     N, nx, ny = rate_maps.shape
     weights = np.ones(N) / float(N)
     hists, edges_list = [], []
-    for i in xrange(nx):
-        for j in xrange(ny):
+    for i in range(nx):
+        for j in range(ny):
             hist, edges = np.histogram(rate_maps[:,i,j], bins=bins, range=(0.0, peak_firing_rate), weights=weights)
             hists.append(hist)
             edges_list.append(edges)
@@ -300,8 +300,8 @@ def plot_rate_histogram_multiple_modules(module_dictionary, modules, plot=False,
         N, nx, ny = rate_maps.shape
         weights = np.ones(N) / float(N)
         hists, edges_list = [], []
-        for i in xrange(nx):
-            for j in xrange(ny):
+        for i in range(nx):
+            for j in range(ny):
                 hist, edges = np.histogram(rate_maps[:,i,j], bins=bins, range=(0.0, peak_firing_rate), weights=weights)
                 hists.append(hist)
                 edges_list.append(edges)
@@ -326,7 +326,7 @@ def plot_lambda_activity_histograms(module_dictionary, modules, save=False, plot
     ctype     = kwargs.get('ctype', 'grid')
     nx, ny    = 20, 20
     nxx, nyy  = np.meshgrid(np.arange(nx), np.arange(ny))
-    coords    = zip(nxx.reshape(-1,), nyy.reshape(-1,))
+    coords    = list(zip(nxx.reshape(-1,), nyy.reshape(-1,)))
     active_lambda_maps = {(i,j): [] for (i,j) in coords}
     for (i, module) in enumerate(module_dictionary):
         cells = module_dictionary[module]
@@ -334,8 +334,8 @@ def plot_lambda_activity_histograms(module_dictionary, modules, save=False, plot
             cell = cells[gid]
             rate_map = cell['Rate Map'].reshape(cell['Nx'][0], cell['Ny'][0])
             module = cell['Module'][0]
-            for x in xrange(nx):
-                for y in xrange(ny):
+            for x in range(nx):
+                for y in range(ny):
                     response = rate_map[(x,y)]
                     if response >= threshold:
                         active_lambda_maps[(x,y)].append(module)
@@ -350,8 +350,8 @@ def plot_lambda_activity_histograms(module_dictionary, modules, save=False, plot
 
     hist_mean = np.mean(hists,axis=0)
     hist_std  = np.std(hists,axis=0)
-    hist_mean_normalized = hist_mean / [len(module_dictionary[i]) for i in module_dictionary.keys()]
-    hist_std_normalized = hist_std / [len(module_dictionary[i]) for i in module_dictionary.keys()]
+    hist_mean_normalized = old_div(hist_mean, [len(module_dictionary[i]) for i in module_dictionary])
+    hist_std_normalized = old_div(hist_std, [len(module_dictionary[i]) for i in module_dictionary])
 
     axes[0].bar(edges_lst[0][1:], hist_mean, alpha=0.5, yerr=hist_std)
     axes[0].set_title('Activity per module')
