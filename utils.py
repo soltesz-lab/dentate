@@ -13,6 +13,7 @@ import yaml
 from scipy import sparse
 
 from past.utils import old_div
+from past.builtins import basestring
 
 
 class Struct(object):
@@ -156,7 +157,7 @@ def nested_convert_scalars(data):
     if isinstance(data, dict):
         for key in data:
             data[key] = nested_convert_scalars(data[key])
-    elif isinstance(data, Iterable) and not isinstance(data, (str, tuple)):
+    elif isinstance(data, Iterable) and not isinstance(data, (basestring, tuple)):
         data = list(data)
         for i in range(len(data)):
             data[i] = nested_convert_scalars(data[i])
@@ -263,11 +264,13 @@ def zip_longest(*args, **kwds):
     else:
         return itertools.zip_longest(*args, **kwds)
 
+
 def consecutive(data):
     """
     Returns a list of arrays with consecutive values from data.
     """
     return np.split(data, np.where(np.diff(data) != 1)[0]+1)
+
 
 def ifilternone(iterable):
     for x in iterable:
@@ -278,7 +281,7 @@ def ifilternone(iterable):
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
-    
+
 def make_geometric_graph(x, y, z, edges):
     """ Builds a NetworkX graph with xyz node coordinates and the node indices
         of the end nodes.
@@ -811,8 +814,8 @@ def get_R2(y_test, y_pred):
     An array of R2s for each feature
     """
 
-    R2_list=[] 
-    for i in range(y_test.shape[1]): 
+    R2_list=[]
+    for i in range(y_test.shape[1]):
         y_mean=np.mean(y_test[:,i])
         R2=1-np.sum((y_pred[:,i]-y_test[:,i])**2)/np.sum((y_test[:,i]-y_mean)**2)
         R2_list.append(R2)

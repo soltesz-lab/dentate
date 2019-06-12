@@ -609,7 +609,7 @@ class SynapseAttributes(object):
 def insert_hoc_cell_syns(env, syn_params, gid, cell, syn_ids, unique=False, insert_netcons=False,
                          insert_vecstims=False):
     """
-    TOOD: Only config the point process object if it has not already been configured.
+    TODO: Only config the point process object if it has not already been configured.
 
     Insert mechanisms into given cell according to the synapse objects created in env.synapse_attributes.
     Configures mechanisms according to parameter values specified in syn_params.
@@ -910,7 +910,6 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
 
 def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
     """
-    TODO: Why was the hasattr(syn, param) check removed?
     Initializes synaptic and connection mechanisms with parameters specified in the synapse attribute dictionaries.
 
     :param syn_name: str

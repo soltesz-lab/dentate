@@ -6,6 +6,8 @@ __author__ = 'See AUTHORS.md'
 import gc
 import itertools
 import time
+import numpy as np
+import os
 
 from dentate import cells
 from dentate import io_utils
@@ -16,7 +18,8 @@ from dentate import synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap
 from dentate.utils import compose_iter, get_module_logger, profile_memory
 from dentate.utils import old_div, range, str, viewitems, zip, zip_longest
-from neuroh5.io import bcast_graph, read_cell_attribute_selection, read_graph_selection, read_tree_selection, scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees
+from neuroh5.io import bcast_graph, read_cell_attribute_selection, read_graph_selection, read_tree_selection, \
+    scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)

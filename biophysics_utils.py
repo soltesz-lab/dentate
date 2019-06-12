@@ -10,12 +10,12 @@ import numpy as np
 import h5py
 import click
 from dentate.cells import get_biophys_cell, get_branch_order, get_dendrite_origin, get_distance_to_node
-from dentate.cells import init_biophysics, is_terminal, report_topology
+from dentate.cells import init_biophysics, is_terminal, report_topology, modify_mech_param
 from dentate.env import Env
-from dentate.neuron_utils import h, configure_hoc_env, 
-from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs
-from dentate.utils import viewitems, range, str
-from nested.utils import *
+from dentate.neuron_utils import h, configure_hoc_env
+from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs, modify_syn_param
+from dentate.utils import viewitems, range, str, Context, list_find, basestring
+from dentate.io_utils import set_h5py_attr
 
 context = Context()
 
@@ -275,6 +275,7 @@ class QuickSim(object):
 
         """
         import matplotlib.pyplot as plt
+        from dentate.plot import clean_axes
         if len(self.recs) == 0:
             return
         if axes is None:
@@ -327,7 +328,7 @@ class QuickSim(object):
             target[str(simiter)].create_dataset('time', compression='gzip', data=self.tvec)
             target[str(simiter)]['time'].attrs['dt'] = self.dt
             for parameter in self.parameters:
-                target[str(simiter)].attrs[parameter] = self.parameters[parameter]
+                set_h5py_attr(target[str(simiter)].attrs, parameter, self.parameters[parameter])
             if len(self.stims) > 0:
                 target[str(simiter)].create_group('stims')
                 for name, stim_dict in viewitems(self.stims):
@@ -336,7 +337,7 @@ class QuickSim(object):
                     stim.attrs['cell'] = cell.gid
                     node = stim_dict['node']
                     stim.attrs['index'] = node.index
-                    stim.attrs['type'] = node.type
+                    set_h5py_attr(stim.attrs, 'type', node.type)
                     loc = stim_dict['stim'].get_segment().x
                     stim.attrs['loc'] = loc
                     distance = get_distance_to_node(cell, cell.tree.root, node, loc)
@@ -346,7 +347,7 @@ class QuickSim(object):
                     stim.attrs['amp'] = stim_dict['stim'].amp
                     stim.attrs['delay'] = stim_dict['stim'].delay
                     stim.attrs['dur'] = stim_dict['stim'].dur
-                    stim.attrs['description'] = stim_dict['description']
+                    set_h5py_attr(stim.attrs, 'description', stim_dict['description'])
             target[str(simiter)].create_group('recs')
             for name, rec_dict in viewitems(self.recs):
                 rec = target[str(simiter)]['recs'].create_dataset(name, compression='gzip', data=rec_dict['vec'])
@@ -354,7 +355,7 @@ class QuickSim(object):
                 rec.attrs['cell'] = cell.gid
                 node = rec_dict['node']
                 rec.attrs['index'] = node.index
-                rec.attrs['type'] = node.type
+                set_h5py_attr(rec.attrs, 'type', node.type)
                 loc = rec_dict['loc']
                 rec.attrs['loc'] = loc
                 distance = get_distance_to_node(cell, cell.tree.root, node, loc)
@@ -365,9 +366,9 @@ class QuickSim(object):
                 rec.attrs['branch_distance'] = distance
                 rec.attrs['is_terminal'] = node_is_terminal
                 rec.attrs['branch_order'] = branch_order
-                rec.attrs['ylabel'] = rec_dict['ylabel']
-                rec.attrs['units'] = rec_dict['units']
-                rec.attrs['description'] = rec_dict['description']
+                set_h5py_attr(rec.attrs, 'ylabel', rec_dict['ylabel'])
+                set_h5py_attr(rec.attrs, 'units', rec_dict['units'])
+                set_h5py_attr(rec.attrs, 'description', rec_dict['description'])
 
     def get_cvode(self):
         """
@@ -446,8 +447,6 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     init_syn_mech_attrs(cell, env)
     config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True,
                              verbose=verbose)
-
-
 
     if verbose:
         report_topology(cell, env)

@@ -9,7 +9,7 @@ from scipy.spatial import Delaunay
 
 from past.utils import old_div
 
-AlphaShape = namedtuple('AlphaShape', ['points', 'simplices', 'bounds'], verbose=False)
+AlphaShape = namedtuple('AlphaShape', ['points', 'simplices', 'bounds'])
 
 
 def volumes(simplices, points):

@@ -6,6 +6,7 @@ import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
 from past.utils import old_div
+from dentate.cells import modify_mech_param, update_mechanism_by_sec_type
 
 context = Context()
 
