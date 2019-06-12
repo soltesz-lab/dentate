@@ -223,3 +223,40 @@ def lfpout(env, output_path):
         grp['v'] = np.asarray(lfp.meanlfp, dtype=np.float32)
 
         output.close()
+
+
+def get_h5py_attr(attrs, key):
+    """
+    str values are stored as bytes in h5py container attrs dictionaries. This function enables py2/py3 compatibility by
+    always returning them to str type upon read. Values should be converted during write with the companion function
+    set_h5py_str_attr.
+    :param attrs: :class:'h5py._hl.attrs.AttributeManager'
+    :param key: str
+    :return: val with type converted if str or array of str
+    """
+    if key not in attrs:
+        raise KeyError('get_h5py_attr: invalid key: %s' % key)
+    val = attrs[key]
+    if isinstance(val, basestring):
+        val = np.string_(val).astype(str)
+    elif isinstance(val, Iterable) and len(val) > 0:
+        if isinstance(val[0], basestring):
+            val = np.array(val, dtype='str')
+    return val
+
+
+def set_h5py_attr(attrs, key, val):
+    """
+    str values are stored as bytes in h5py container attrs dictionaries. This function enables py2/py3 compatibility by
+    always converting them to np.string_ upon write. Values should be converted back to str during read with the
+    companion function get_h5py_str_attr.
+    :param attrs: :class:'h5py._hl.attrs.AttributeManager'
+    :param key: str
+    :param val: type converted if str or array of str
+    """
+    if isinstance(val, basestring):
+        val = np.string_(val)
+    elif isinstance(val, Iterable) and len(val) > 0:
+        if isinstance(val[0], basestring):
+            val = np.array(val, dtype='S')
+    attrs[key] = val

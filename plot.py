@@ -22,6 +22,7 @@ from neuroh5.io import read_population_ranges, read_population_names, read_proje
     bcast_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
 from dentate import utils
 from dentate.utils import *
+from dentate.io_utils import get_h5py_attr, set_h5py_attr
 import dentate.statedata as statedata
 from dentate.env import Env
 from dentate.cells import *
@@ -231,7 +232,7 @@ def plot_PP_metrics(env, coords_path, features_path, distances_namespace, popula
     ax.set_aspect('equal')
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = '%s-%s-%s.%s' % (population, cell_type, metric, fig_options.figFormat)
@@ -352,7 +353,7 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
         ax.set_aspect('equal')
     
         if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, str):
+            if isinstance(fig_options.saveFig, basestring):
                 filename = fig_options.saveFig
             else:
                 filename = '%s to %s %s %s.%s' % (source, destination, metric, graph_type, fig_options.figFormat)
@@ -360,8 +361,6 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
 
         if fig_options.showFig:
             show_figure()
-    
-
 
 
 def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, sources, 
@@ -437,8 +436,8 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     for prj_gen_tuple in utils.zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]
         if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
-            raise Exception('destination %s: destination_gid %i not matched across multiple projection generators: %s' %
-                            (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
+            raise RuntimeError('destination %s: destination_gid %i not matched across multiple projection generators: '
+                               '%s' % (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
 
         if destination_gid is not None:
             for (source, (this_destination_gid,rest)) in utils.zip_longest(sources, prj_gen_tuple):
@@ -489,7 +488,7 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
             ax3.tick_params(labelsize=fig_options.fontSize)
             
             if fig_options.saveFig:
-                if isinstance(fig_options.saveFig, str):
+                if isinstance(fig_options.saveFig, basestring):
                     filename = fig_options.saveFig
                 else:
                     filename = 'Connection distance %s to %s.%s' % (source, destination, fig_options.figFormat)
@@ -648,7 +647,7 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
             show_figure()
 
         if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, str):
+            if isinstance(fig_options.saveFig, basestring):
                 filename = fig_options.saveFig
             else:
                 filename = 'Connection distance %s %s to %s gid %i.%s' % (direction, source, destination, target_gid, fig_options.figFormat)
@@ -721,7 +720,7 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = population+' %s.%s' % (metric, fig_options.figFormat)
@@ -803,7 +802,7 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
     ax.set_aspect('equal')
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = '%s Positions.%s' % (label, fig_options.figFormat)
@@ -880,7 +879,7 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graph_type =
     ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fig_options.fontSize)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = population+' Coordinates.%s' % fig_options.figFormat
@@ -952,7 +951,7 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
     ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fig_options.fontSize)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = population+' Coordinates.%s' % fig_options.figFormat
@@ -1018,7 +1017,7 @@ def plot_reindex_positions(env, coords_path, population, distances_namespace='Ar
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = population+' Reindex Positions.%s' % fig_options.figFormat
@@ -1314,7 +1313,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     cbar.ax.set_ylabel('Counts')
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = distances_namespace+' '+'density.%s' % fig_options.figFormat
@@ -1369,7 +1368,7 @@ def plot_lfp(config, input_path, time_range = None, **kwargs):
 
         # save figure
         if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, str):
+            if isinstance(fig_options.saveFig, basestring):
                 filename = fig_options.saveFig
             else:
                 filename = namespace_id+'.%s' % fig_options.figFormat
@@ -1467,7 +1466,7 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
         
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'state.%s' % fig_options.figFormat
@@ -1678,7 +1677,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     
     # save figure
     if fig_options.saveFig:
-       if isinstance(fig_options.saveFig, str):
+       if isinstance(fig_options.saveFig, basestring):
            filename = fig_options.saveFig
        else:
            filename = namespace_id+' '+'raster.%s' % fig_options.figFormat
@@ -2036,7 +2035,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = 'Network Clamp %s %i.%s' % (popName, unit_no, fig_options.figFormat)
@@ -2160,7 +2159,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         cbar.ax.tick_params(labelsize=fig_options.fontSize)
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             if meansub:
@@ -2351,7 +2350,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
 
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'histogram.%s' % fig_options.figFormat
@@ -2486,7 +2485,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'distribution.%s' % fig_options.figFormat
@@ -2643,7 +2642,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
 
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'distribution.%s' % fig_options.figFormat
@@ -2809,7 +2808,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
         plt.colorbar(img, ax=axes[i%axes_dim, old_div(i,axes_dim)])
  
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             title = fig_options.saveFig
         else:
             title = 'Place-Fields.png'
@@ -3141,7 +3140,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
 
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+'_'+'ratePSD.%s' % fig_options.figFormat
@@ -3215,7 +3214,7 @@ def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, traj
     
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, str):
+        if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+'_'+'ratemap.%s' % fig_options.figFormat
@@ -3316,7 +3315,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
 
         # save figure
         if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, str):
+            if isinstance(fig_options.saveFig, basestring):
                 filename = fig_options.saveFig
             else:
                 filename = '%s %s spatial ratemap.%s' % (population, stimulus_namespace, fig_options.figFormat)
@@ -3568,9 +3567,9 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
-    if sec_types is None or (isinstance(sec_types, str) and sec_types == 'dend'):
+    if sec_types is None or (isinstance(sec_types, basestring) and sec_types == 'dend'):
         sec_types = ['basal', 'trunk', 'apical', 'tuft']
-    elif isinstance(sec_types, str) and sec_types == 'all':
+    elif isinstance(sec_types, basestring) and sec_types == 'all':
         sec_types = default_ordered_sec_types
     elif not all(sec_type in default_ordered_sec_types for sec_type in sec_types):
         raise ValueError('plot_synaptic_attribute_distribution: unrecognized sec_types: %s' % str(sec_types))
@@ -3581,8 +3580,8 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
     if from_target_attrs:
         attr_types.append('target_attrs')
     if len(attr_types) == 0:
-        raise Exception('plot_synaptic_attribute_distribution: both from_mech_attrs and from_target_attrs cannot be '
-                        'False')
+        raise RuntimeError('plot_synaptic_attribute_distribution: both from_mech_attrs and from_target_attrs cannot '
+                           'be False')
     distances = {attr_type: defaultdict(list) for attr_type in attr_types}
     attr_vals = {attr_type: defaultdict(list) for attr_type in attr_types}
     num_colors = 10
@@ -3693,44 +3692,44 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
     if export is not None:
         f = h5py.File(export_file_path, 'a')
         if 'mech_file_path' in f.attrs:
-            if not (f.attrs['mech_file_path'] == '{}'.format(cell.mech_file_path)):
-                raise Exception('Specified mechanism filepath {} does not match the mechanism filepath '
-                                'of the cell {}'.format(f.attrs['mech_file_path'], cell.mech_file_path))
-        else:
-            f.attrs['mech_file_path'] = '{}'.format(cell.mech_file_path)
+            stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
+            if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
+                raise ValueError('plot_synaptic_attribute_distribution: provided mech_file_path: %s does not match the '
+                                 'mech_file_path of %s cell %i: %s' %
+                                 (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
+        elif cell.mech_file_path is not None:
+            set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
         filetype = 'plot_syn_param'
         if filetype not in f:
             f.create_group(filetype)
-        if not f[filetype].attrs.__contains__('mech_attrs'):
-            f[filetype].attrs.create('mech_attrs', False)
-        if not f[filetype].attrs.__contains__('target_attrs'):
-            f[filetype].attrs.create('target_attrs', False)
-        if from_mech_attrs and f[filetype].attrs['mech_attrs'] == False:
+        if from_mech_attrs:
             f[filetype].attrs['mech_attrs'] = True
-        if from_target_attrs and f[filetype].attrs['target_attrs'] == False:
+        else:
+            f[filetype].attrs['mech_attrs'] = False
+        if from_target_attrs:
             f[filetype].attrs['target_attrs'] = True
+        else:
+            f[filetype].attrs['target_attrs'] = False
         if len(f[filetype]) == 0:
             session_id = '0'
         else:
             session_id = str(len(f[filetype]))
         f[filetype].create_group(session_id)
         if description is not None:
-            f[filetype][session_id].attrs['description'] = description
+            set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
         f[filetype][session_id].create_group(syn_name)
         f[filetype][session_id][syn_name].create_group(param_name)
         if param_label is not None:
-            f[filetype][session_id][syn_name][param_name].attrs['param_label'] = param_label
+            set_h5py_attr(f[filetype][session_id][syn_name][param_name].attrs, 'param_label', param_label)
         f[filetype][session_id][syn_name][param_name].attrs['gid'] = cell.gid
-        if svg_title is not None:
-            f[filetype][session_id][syn_name][param_name].attrs['svg_title'] = svg_title
         for attr_type in attr_types:
             f[filetype][session_id][syn_name][param_name].create_group(attr_type)
             for sec_type in attr_vals[attr_type]:
                 f[filetype][session_id][syn_name][param_name][attr_type].create_group(sec_type)
-                f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset('values',
-                                                                                    data=attr_vals[attr_type][sec_type])
-                f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset('distances',
-                                                                                    data=distances[attr_type][sec_type])
+                f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
+                    'values', data=attr_vals[attr_type][sec_type], compression='gzip')
+                f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
+                    'distances', data=distances[attr_type][sec_type], compression='gzip')
         f.close()
 
 
@@ -3765,16 +3764,17 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
         with h5py.File(file_path, 'r') as f:
             filetype = 'plot_syn_param'
             if filetype not in f:
-                raise Exception('The file {} has the incorrect filetype; it is not plot_syn_param'.format(file))
+                raise RuntimeError(
+                    'plot_syn_attr_from_file: the file at path: %s is incompatible with this method' % file_path)
             attr_types = []
-            if f[filetype].attrs['mech_attrs']:
+            if 'mech_attrs' in f[filetype].attrs and f[filetype].attrs['mech_attrs']:
                 attr_types.append('mech_attrs')
-            if f[filetype].attrs['target_attrs']:
+            if 'target_attrs' in f[filetype].attrs and f[filetype].attrs['target_attrs']:
                 attr_types.append('target_attrs')
             fig, axarr = plt.subplots(ncols=len(attr_types), sharey=True)
             for s, session_id in enumerate(f[filetype]):
-                if f[filetype][session_id].attrs.__contains__('description'):
-                    description = f[filetype][session_id].attrs['description']
+                if 'description' in f[filetype][session_id].attrs:
+                    description = get_h5py_attr(f[filetype][session_id].attrs, 'description')
                     if descriptions is not None and description not in descriptions:
                         continue
                 else:
@@ -3783,7 +3783,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                         param_name in f[filetype][session_id][syn_name]:
                     found = True
                     if param_label is None and 'param_label' in f[filetype][session_id][syn_name][param_name].attrs:
-                        param_label = f[filetype][session_id][syn_name][param_name].attrs['param_label']
+                        param_label = get_h5py_attr(f[filetype][session_id][syn_name][param_name].attrs, 'param_label')
                     for i, attr_type in enumerate(attr_types):
                         if len(attr_types) == 1:
                             axes = axarr
@@ -3821,8 +3821,8 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                             else:
                                 min_dist = min(min_dist, min(distances))
             if not found:
-                raise Exception('Specified synaptic mechanism: %s parameter: %s not found in the provided file: %s' %
-                                (syn_name, param_name, file))
+                raise RuntimeError('Specified synaptic mechanism: %s parameter: %s not found in the provided file: '
+                                   '%s' % (syn_name, param_name, file))
             min_dist = min(0., min_dist)
             xmin = min_dist - 0.01 * (max_dist - min_dist)
             xmax = max_dist + 0.01 * (max_dist - min_dist)
@@ -3885,9 +3885,9 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
-    if sec_types is None or (isinstance(sec_types, str) and sec_types == 'dend'):
+    if sec_types is None or (isinstance(sec_types, basestring) and sec_types == 'dend'):
         sec_types = ['basal', 'trunk', 'apical', 'tuft']
-    elif isinstance(sec_types, str) and sec_types == 'all':
+    elif isinstance(sec_types, basestring) and sec_types == 'all':
         sec_types = default_ordered_sec_types
     elif not all(sec_type in default_ordered_sec_types for sec_type in sec_types):
         raise ValueError('plot_mech_param_distribution: unrecognized sec_types: %s' % str(sec_types))
@@ -3961,12 +3961,13 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
     if export is not None:
         f = h5py.File(export_file_path, 'a')
         if 'mech_file_path' in f.attrs:
-            if cell.mech_file_path is None or not f.attrs['mech_file_path'] == cell.mech_file_path:
+            stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
+            if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
                 raise ValueError('plot_mech_param_distribution: provided mech_file_path: %s does not match the '
-                                'mech_file_path of %s cell %i: %s' %
-                                (f.attrs['mech_file_path'], cell.pop_name, cell.gid, cell.mech_file_path))
+                                 'mech_file_path of %s cell %i: %s' %
+                                 (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
         elif cell.mech_file_path is not None:
-            f.attrs['mech_file_path'] = cell.mech_file_path
+            set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
         filetype = 'plot_mech_param'
         if filetype not in f:
             f.create_group(filetype)
@@ -3976,20 +3977,19 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
             session_id = str(len(f[filetype]))
         f[filetype].create_group(session_id)
         if description is not None:
-            f[filetype][session_id].attrs['description'] = description
+            set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
         f[filetype][session_id].create_group(mech_name)
         f[filetype][session_id][mech_name].create_group(param_name)
         if param_label is not None:
-            f[filetype][session_id][mech_name][param_name].attrs['param_label'] = param_label
+            set_h5py_attr(f[filetype][session_id][mech_name][param_name].attrs, 'param_label', param_label)
         f[filetype][session_id][mech_name][param_name].attrs['gid'] = cell.gid
-        if svg_title is not None:
-            f[filetype][session_id][mech_name][param_name].attrs['svg_title'] = svg_title
+
         for sec_type in param_vals:
             f[filetype][session_id][mech_name][param_name].create_group(sec_type)
-            f[filetype][session_id][mech_name][param_name][sec_type].create_dataset('values',
-                                                                                    data=param_vals[sec_type])
-            f[filetype][session_id][mech_name][param_name][sec_type].create_dataset('distances',
-                                                                                    data=distances[sec_type])
+            f[filetype][session_id][mech_name][param_name][sec_type].create_dataset(
+                'values', data=param_vals[sec_type], compression='gzip')
+            f[filetype][session_id][mech_name][param_name][sec_type].create_dataset(
+                'distances', data=distances[sec_type], compression='gzip')
         f.close()
 
 
@@ -4016,9 +4016,9 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
-    if sec_types is None or (isinstance(sec_types, str) and sec_types == 'dend'):
+    if sec_types is None or (isinstance(sec_types, basestring) and sec_types == 'dend'):
         sec_types = ['basal', 'trunk', 'apical', 'tuft']
-    elif isinstance(sec_types, str) and sec_types == 'all':
+    elif isinstance(sec_types, basestring) and sec_types == 'all':
         sec_types = default_ordered_sec_types
     elif not all(sec_type in default_ordered_sec_types for sec_type in sec_types):
         raise ValueError('plot_synaptic_attribute_distribution: unrecognized sec_types: %s' % str(sec_types))
@@ -4091,11 +4091,13 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
                 os.remove(export_file_path)
         f = h5py.File(export_file_path, 'a')
         if 'mech_file_path' in f.attrs:
-            if not (f.attrs['mech_file_path'] == '{}'.format(cell.mech_file_path)):
-                raise Exception('Specified mechanism filepath {} does not match the mechanism filepath '
-                                'of the cell {}'.format(f.attrs['mech_file_path'], cell.mech_file_path))
-        else:
-            f.attrs['mech_file_path'] = '{}'.format(cell.mech_file_path)
+            stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
+            if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
+                raise ValueError('plot_cable_param_distribution: provided mech_file_path: %s does not match the '
+                                 'mech_file_path of %s cell %i: %s' %
+                                 (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
+        elif cell.mech_file_path is not None:
+            set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
         filetype = 'plot_mech_param'
         if filetype not in f:
             f.create_group(filetype)
@@ -4105,17 +4107,18 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
             session_id = str(len(f[filetype]))
         f[filetype].create_group(session_id)
         if description is not None:
-            f[filetype][session_id].attrs['description'] = description
+            set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
         f[filetype][session_id].create_group(mech_name)
         if param_label is not None:
-            f[filetype][session_id][mech_name].attrs['param_label'] = param_label
+            set_h5py_attr(f[filetype][session_id][mech_name].attrs, 'param_label', param_label)
         f[filetype][session_id][mech_name].attrs['gid'] = cell.gid
-        if svg_title is not None:
-            f[filetype][session_id][mech_name].attrs['svg_title'] = svg_title
+
         for sec_type in param_vals:
             f[filetype][session_id][mech_name].create_group(sec_type)
-            f[filetype][session_id][mech_name][sec_type].create_dataset('values', data=param_vals[sec_type])
-            f[filetype][session_id][mech_name][sec_type].create_dataset('distances', data=distances[sec_type])
+            f[filetype][session_id][mech_name][sec_type].create_dataset(
+                'values', data=param_vals[sec_type], compression='gzip')
+            f[filetype][session_id][mech_name][sec_type].create_dataset(
+                'distances', data=distances[sec_type], compression='gzip')
         f.close()
 
 
@@ -4151,10 +4154,11 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
         with h5py.File(file_path, 'r') as f:
             filetype = 'plot_mech_param'
             if filetype not in f:
-                raise Exception('The file {} has the incorrect filetype; it is not plot_mech_param'.format(file))
+                raise RuntimeError(
+                    'plot_mech_param_from_file: the file at path: %s is incompatible with this method' % file_path)
             for s, session_id in enumerate(f[filetype]):
-                if f[filetype][session_id].attrs.__contains__('description'):
-                    description = f[filetype][session_id].attrs['description']
+                if 'description' in f[filetype][session_id].attrs:
+                    description = get_h5py_attr(f[filetype][session_id].attrs, 'description')
                     if descriptions is not None and description not in descriptions:
                         continue
                 else:
@@ -4164,12 +4168,13 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
                     found = True
                     if param_name is None:
                         if param_label is None and 'param_label' in f[filetype][session_id][mech_name].attrs:
-                            param_label = f[filetype][session_id][mech_name].attrs['param_label']
+                            param_label = get_h5py_attr(f[filetype][session_id][mech_name].attrs, 'param_label')
                         group = f[filetype][session_id][mech_name]
                     else:
                         if param_label is None and \
                                 'param_label' in f[filetype][session_id][mech_name][param_name].attrs:
-                            param_label = f[filetype][session_id][mech_name][param_name].attrs['param_label']
+                            param_label = get_h5py_attr(f[filetype][session_id][mech_name][param_name].attrs,
+                                                        'param_label')
                         group = f[filetype][session_id][mech_name][param_name]
                     for j, sec_type in enumerate(group):
                         if sec_type not in marker_dict:
@@ -4200,8 +4205,8 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
                         else:
                             min_dist = min(min_dist, min(distances))
     if not found:
-        raise Exception('Specified mechanism: %s parameter: %s not found in the provided file: %s' %
-                        (mech_name, param_name, file))
+        raise RuntimeError('Specified mechanism: %s parameter: %s not found in the provided file: %s' %
+                           (mech_name, param_name, file))
     axes.set_xlabel('Distance to soma (um)')
     min_dist = min(0., min_dist)
     xmin = min_dist - 0.01 * (max_dist - min_dist)

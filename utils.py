@@ -1,5 +1,6 @@
 from __future__ import division, absolute_import
 from builtins import map, range, object, zip, input, str, next
+from past.builtins import basestring
 from past.utils import old_div
 from collections import defaultdict, Iterable, namedtuple
 import sys, os.path, string, time, gc, math, datetime, numbers, itertools
@@ -151,7 +152,7 @@ def nested_convert_scalars(data):
     if isinstance(data, dict):
         for key in data:
             data[key] = nested_convert_scalars(data[key])
-    elif isinstance(data, Iterable) and not isinstance(data, (str, tuple)):
+    elif isinstance(data, Iterable) and not isinstance(data, (basestring, tuple)):
         data = list(data)
         for i in range(len(data)):
             data[i] = nested_convert_scalars(data[i])

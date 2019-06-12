@@ -1,6 +1,3 @@
-from __future__ import division
-from builtins import str
-from past.utils import old_div
 import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
@@ -251,7 +248,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_hoc_env(env)
-
+    print('getting here')
     cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     mech_file_path = config_prefix + '/' + mech_file
     
