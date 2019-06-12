@@ -6,11 +6,11 @@ import time
 import h5py
 import numpy as np
 
-from dentate.utils import old_div
+from dentate.utils import old_div, object, range, str
 from neuroh5.io import read_cell_attributes
 
 
-class SelectivityConfig(object):
+class SourceSelectivityConfig(object):
     def __init__(self, stimulus_config, local_random):
         """
         MEC is divided into discrete modules with distinct grid
@@ -114,14 +114,14 @@ class SelectivityConfig(object):
         return np.average(self.place_module_field_widths, weights=p_modules)
 
 
-class GridSelectivity(object):
+class GridSourceCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None, 
                  peak_rate=None, distance=None, local_random=None, selectivity_attr_dict=None):
         """
 
         :param selectivity_type: int
         :param arena: namedtuple
-        :param selectivity_config: :class:'SelectivityConfig'
+        :param selectivity_config: :class:'SourceSelectivityConfig'
         :param peak_rate: float
         :param distance: float; u arc distance normalized to reference layer
         :param local_random: :class:'np.random.RandomState'
@@ -130,7 +130,7 @@ class GridSelectivity(object):
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
         elif any([arg is None for arg in [selectivity_type, arena, selectivity_config, peak_rate, distance]]):
-            raise RuntimeError('GridSelectivity: missing argument(s) required for object construction')
+            raise RuntimeError('GridSourceCellConfig: missing argument(s) required for object construction')
         else:
             if local_random is None:
                 local_random = np.random.RandomState()
@@ -190,7 +190,7 @@ class GridSelectivity(object):
                                  a=self.grid_field_width_concentration_factor), self.peak_rate)
 
 
-class PlaceSelectivity(object):
+class PlaceSourceCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None, peak_rate=None, distance=None,
                  modular=None, num_field_probabilities=None, local_random=None, selectivity_attr_dict=None):
         """
@@ -209,7 +209,7 @@ class PlaceSelectivity(object):
             self.init_from_attr_dict(selectivity_attr_dict)
         elif any([arg is None for arg in [selectivity_type, arena, selectivity_config, peak_rate, distance, modular,
                                           num_field_probabilities]]):
-            raise RuntimeError('PlaceSelectivity: missing argument(s) required for object construction')
+            raise RuntimeError('PlaceSourceCellConfig: missing argument(s) required for object construction')
         else:
             if local_random is None:
                 local_random = np.random.RandomState()
@@ -322,7 +322,7 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
     return rate_map
 
 
-def get_stimulus_source(selectivity_type, selectivity_type_names, population=None, stimulus_config=None, arena=None,
+def get_source_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None, arena=None,
                         selectivity_config=None, distance=None, local_random=None, selectivity_attr_dict=None):
     """
 
@@ -331,7 +331,7 @@ def get_stimulus_source(selectivity_type, selectivity_type_names, population=Non
     :param population: str
     :param stimulus_config: dict
     :param arena: namedtuple
-    :param selectivity_config: :class:'SelectivityConfig'
+    :param selectivity_config: :class:'SourceSelectivityConfig'
     :param distance: float; u arc distance normalized to reference layer
     :param local_random: :class:'np.random.RandomState'
     :param selectivity_attr_dict: dict
@@ -339,36 +339,36 @@ def get_stimulus_source(selectivity_type, selectivity_type_names, population=Non
     """
     selectivity_type_name = selectivity_type_names[selectivity_type]
     if selectivity_type not in selectivity_type_names:
-        raise RuntimeError('get_stimulus_source: enumerated selectivity type: %i not recognized' % selectivity_type)
+        raise RuntimeError('get_source_cell_config: enumerated selectivity type: %i not recognized' % selectivity_type)
 
     if selectivity_attr_dict is not None:
         if selectivity_type_name == 'grid':
-            stimulus_source = GridSelectivity(selectivity_attr_dict=selectivity_attr_dict)
+            source_cell_config = GridSourceCellConfig(selectivity_attr_dict=selectivity_attr_dict)
         elif selectivity_type_name == 'place':
-            stimulus_source = PlaceSelectivity(selectivity_attr_dict=selectivity_attr_dict)
+            source_cell_config = PlaceSourceCellConfig(selectivity_attr_dict=selectivity_attr_dict)
         else:
-            RuntimeError('get_stimulus_source: selectivity type: %s not yet implemented' % selectivity_type_name)
+            RuntimeError('get_source_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
     elif any([arg is None for arg in [population, stimulus_config, arena]]):
-        raise RuntimeError('get_stimulus_source: missing argument(s) required to construct %s cell config object' %
+        raise RuntimeError('get_source_cell_config: missing argument(s) required to construct %s cell config object' %
                            selectivity_type_name)
     else:
         if population not in stimulus_config['Peak Rate'] or selectivity_type not in stimulus_config['Peak Rate'][population]:
-            raise RuntimeError('get_stimulus_source: peak rate not specified for population: %s, selectivity type: '
+            raise RuntimeError('get_source_cell_config: peak rate not specified for population: %s, selectivity type: '
                                '%s' % (population, selectivity_type_name))
         peak_rate = stimulus_config['Peak Rate'][population][selectivity_type]
 
         if selectivity_type_name in ['grid', 'place']:
             if selectivity_config is None:
-                raise RuntimeError('get_stimulus_source: missing required argument: selectivity_config')
+                raise RuntimeError('get_source_cell_config: missing required argument: selectivity_config')
             if distance is None:
-                raise RuntimeError('get_stimulus_source: missing required argument: distance')
+                raise RuntimeError('get_source_cell_config: missing required argument: distance')
             if local_random is None:
                 local_random = np.random.RandomState()
-                print('get_stimulus_source: warning: local_random argument not provided - randomness will not be '
+                print('get_source_cell_config: warning: local_random argument not provided - randomness will not be '
                       'reproducible')
         if selectivity_type_name == 'grid':
-            stimulus_source = \
-                GridSelectivity(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
+            source_cell_config = \
+                GridSourceCellConfig(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
                                 peak_rate=peak_rate, distance=distance, local_random=local_random)
         elif selectivity_type_name == 'place':
             if population in stimulus_config['Non-modular Place Selectivity Populations']:
@@ -376,21 +376,20 @@ def get_stimulus_source(selectivity_type, selectivity_type_names, population=Non
             else:
                 modular = True
             if population not in stimulus_config['Number Place Fields Probabilities']:
-                raise RuntimeError('get_stimulus_source: probabilities for number of place fields not specified for '
+                raise RuntimeError('get_source_cell_config: probabilities for number of place fields not specified for '
                                    'population: %s' % population)
             num_field_probabilities = stimulus_config['Number Place Fields Probabilities'][population]
-            stimulus_source = \
-                PlaceSelectivity(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
+            source_cell_config = \
+                PlaceSourceCellConfig(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
                                  peak_rate=peak_rate, distance=distance, modular=modular,
                                  num_field_probabilities=num_field_probabilities, local_random=local_random)
         else:
-            RuntimeError('get_stimulus_source: selectivity type: %s not yet implemented' % selectivity_type_name)
+            RuntimeError('get_source_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
 
-    return stimulus_source
+    return source_cell_config
 
 
-
-def choose_stimulus_selectivity_type(p, local_random):
+def choose_source_selectivity_type(p, local_random):
     """
 
     :param p: dict: {str: float}
