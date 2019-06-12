@@ -1,8 +1,9 @@
+from builtins import str
+
 import click
-from dentate.utils import *
 from dentate.biophysics_utils import *
 from dentate.plot import *
-
+from dentate.synapses import modify_syn_param
 
 context = Context()
 

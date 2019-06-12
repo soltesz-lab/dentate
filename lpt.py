@@ -1,9 +1,8 @@
 from __future__ import division
-from builtins import str
-from builtins import range
-from past.utils import old_div
-from dentate.utils import *
+
 import heapq
+
+from dentate.utils import get_module_logger, old_div, range, str
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)

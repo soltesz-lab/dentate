@@ -1,10 +1,12 @@
 
-import numpy as np
 import sys
+
+import numpy as np
+
+import plot_helper as ph
 from dentate.utils import *
 
 sys.path.insert(0,'/home/dhadjia1/soltesz-lab/ca1/test')
-import plot_helper as ph
 
 class Cell(object):
     def __init__(self, x, y, z, r, parent):

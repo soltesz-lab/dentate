@@ -1,13 +1,16 @@
-import sys, os
+import os
+import sys
+
 import click
 import dentate
-from dentate import plot, utils
+from dentate import plot
+from dentate import utils
 
 script_name = os.path.basename(__file__)
 
 @click.command()
 @click.option("--features-path", '-p', required=True, type=click.Path())
-@click.option("--features-namespace", '-n', type=str, default='Input Features')
+@click.option("--features-namespace", '-n', type=str)
 @click.option("--arena-id", '-a', type=str)
 @click.option("--trajectory-id", '-t', type=str)
 @click.option("--include", '-i', type=str, multiple=True)
@@ -36,7 +39,3 @@ def main(features_path, features_namespace, arena_id, trajectory_id, include, fo
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):], 
          standalone_mode=False)
-
-
-
-    

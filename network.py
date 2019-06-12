@@ -3,16 +3,20 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import itertools, gc, time
-from dentate.neuron_utils import *
-from dentate.utils import *
-from dentate import cells, synapses, lpt, lfp, simtime, io_utils
-import h5py
-from neuroh5.io import scatter_read_graph, bcast_graph, \
-    scatter_read_trees, scatter_read_cell_attributes, \
-    write_cell_attributes, read_cell_attribute_selection, \
-    read_tree_selection, read_graph_selection
-from neuron import h
+import gc
+import itertools
+import time
+
+from dentate import cells
+from dentate import io_utils
+from dentate import lfp
+from dentate import lpt
+from dentate import simtime
+from dentate import synapses
+from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap
+from dentate.utils import compose_iter, get_module_logger, profile_memory
+from dentate.utils import old_div, range, str, viewitems, zip, zip_longest
+from neuroh5.io import bcast_graph, read_cell_attribute_selection, read_graph_selection, read_tree_selection, scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -31,7 +35,7 @@ def ld_bal(env):
     max_sum_cx = env.pc.allreduce(sum_cx, 2)
     sum_cx = env.pc.allreduce(sum_cx, 1)
     if rank == 0:
-        logger.info("*** expected load balance %.2f" % (old_div(sum_cx, old_div(nhosts, max_sum_cx))))
+        logger.info("*** expected load balance %.2f" % (old_div(old_div(sum_cx, nhosts), max_sum_cx)))
 
 
 def lpt_bal(env):

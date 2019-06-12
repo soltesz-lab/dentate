@@ -1,5 +1,6 @@
-import h5py
 import itertools
+
+import h5py
 
 h5types_file = 'dentate_h5types.h5'
 
@@ -71,8 +72,3 @@ with h5py.File(DG_coords_file) as f:
 
         with h5py.File(coords_file) as fs:
             fs.copy('/Populations/%s/%s' % (p, coords_ns), group_id, name='Coordinates')
-
-                    
-
-
-    

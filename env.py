@@ -1,14 +1,12 @@
 import os
+from collections import defaultdict, namedtuple
 import numpy as np
-import yaml
-from collections import namedtuple, defaultdict
-from neuroh5.io import read_projection_names, read_population_ranges, read_population_names, read_cell_attribute_info
 from mpi4py import MPI
-from neuron import h
-from dentate.utils import *
+import yaml
+from dentate.neuron_utils import h, find_template
 from dentate.synapses import SynapseAttributes
-from dentate.neuron_utils import find_template
-
+from dentate.utils import IncludeLoader, config_logging, get_root_logger, str, viewitems, zip, viewitems
+from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
                            ['type',
@@ -273,8 +271,8 @@ class Env(object):
         else:
             self.netclamp_config = None
 
-        if 'Input' in self.modelConfig:
-            self.parse_input_config()
+        if 'Stimulus' in self.modelConfig:
+            self.parse_stimulus_config()
 
         if 'Analysis' in self.modelConfig:
             self.analysis_config = self.modelConfig['Analysis']
@@ -341,11 +339,11 @@ class Env(object):
 
         return TrajectoryConfig(velocity, path)
 
-    def parse_input_config(self):
-        input_dict = self.modelConfig['Input']
-        input_config = {}
+    def parse_stimulus_config(self):
+        stimulus_dict = self.modelConfig['Stimulus']
+        stimulus_config = {}
 
-        for k, v in viewitems(input_dict):
+        for k, v in viewitems(stimulus_dict):
             if k == 'Selectivity Type Probabilities':
                 selectivity_type_prob_dict = {}
                 for (pop, dvals) in viewitems(v):
@@ -354,7 +352,7 @@ class Env(object):
                         pop_selectivity_type_prob_dict[int(self.selectivity_types[selectivity_type_name])] = \
                             float(selectivity_type_prob)
                     selectivity_type_prob_dict[pop] = pop_selectivity_type_prob_dict
-                input_config['Selectivity Type Probabilities'] = selectivity_type_prob_dict
+                stimulus_config['Selectivity Type Probabilities'] = selectivity_type_prob_dict
             elif k == 'Peak Rate':
                 peak_rate_dict = {}
                 for (pop, dvals) in viewitems(v):
@@ -362,9 +360,9 @@ class Env(object):
                     for (selectivity_type_name, peak_rate) in viewitems(dvals):
                         pop_peak_rate_dict[int(self.selectivity_types[selectivity_type_name])] = float(peak_rate)
                     peak_rate_dict[pop] = pop_peak_rate_dict
-                input_config['Peak Rate'] = peak_rate_dict
+                stimulus_config['Peak Rate'] = peak_rate_dict
             elif k == 'Arena':
-                input_config['Arena'] = {}
+                stimulus_config['Arena'] = {}
                 for arena_id, arena_val in viewitems(v):
                     arena_properties = {}
                     arena_domain = None
@@ -378,12 +376,12 @@ class Env(object):
                                 arena_trajectories[name] = trajectory
                         else:
                             arena_properties[kk] = vv
-                    input_config['Arena'][arena_id] = ArenaConfig(arena_id, arena_domain,
+                    stimulus_config['Arena'][arena_id] = ArenaConfig(arena_id, arena_domain,
                                                                   arena_trajectories, arena_properties)
             else:
-                input_config[k] = v
+                stimulus_config[k] = v
 
-        self.input_config = input_config
+        self.stimulus_config = stimulus_config
 
     def parse_netclamp_config(self):
         """

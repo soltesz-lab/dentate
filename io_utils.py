@@ -1,8 +1,7 @@
-import sys, os, itertools
-from collections import defaultdict
+import os
 import h5py
 import numpy as np
-from dentate.utils import *
+from dentate.utils import Struct, range, str, viewitems
 from neuroh5.io import write_cell_attributes
 
 grp_h5types = 'H5Types'
@@ -16,6 +15,8 @@ grp_population_projections = 'Population projections'
 grp_valid_population_projections = 'Valid population projections'
 path_population_projections = '/%s/Population projections' % grp_h5types
 
+# Default I/O configuration
+default_io_options = Struct(io_size=-1, chunk_size=1000, value_chunk_size=1000, cache_size=50, write_size=10000)
 
 def h5_get_group(h, groupname):
     if groupname in h:

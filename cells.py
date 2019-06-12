@@ -1,7 +1,8 @@
-import os, itertools, collections, traceback
-from dentate.utils import *
-from dentate.neuron_utils import *
-from neuroh5.h5py_io_utils import *
+import collections, os, sys, traceback, copy, datetime, math
+import numpy as np
+from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
+from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, old_div, read_from_yaml
+from neuroh5.h5py_io_utils import select_tree_attributes
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -506,144 +507,6 @@ class STree2(object):
         if not from_node.parent is None:
             self._go_up_from_until(from_node.parent, to_node, n)
 
-    def write_SWC_tree_to_file(self, file_n):
-        """
-        Non-specific for a tree.
-
-        Used to write an SWC file from a morphology stored in this
-        :class:`STree2`. Output uses the 3-point soma standard.
-
-        Parameters
-        ----------
-        file_n : str
-            name of the file to open
-        """
-        writer = open(file_n, 'w')
-        nodes = self.get_nodes()
-        nodes.sort()
-
-        # 3 point soma representation (See Neuromoprho.org FAQ)
-        s1p = nodes[0].content["p3d"]
-        s1_xyz = s1p.xyz
-        s2p = nodes[1].content["p3d"]
-        s2_xyz = s2p.xyz
-        s3p = nodes[2].content["p3d"]
-        s3_xyz = s3p.xyz
-        soma_str = "1 1 " + str(s1_xyz[0]) + " " + str(s1_xyz[1]) + \
-                   " " + str(s1_xyz[2]) + " " + str(s1p.radius) + " -1\n" + \
-                   "2 1 " + str(s2_xyz[0]) + " " + str(s2_xyz[1]) + \
-                   " " + str(s2_xyz[2]) + " " + str(s2p.radius) + " 1\n" + \
-                   "3 1 " + str(s3_xyz[0]) + " " + str(s3_xyz[1]) + \
-                   " " + str(s3_xyz[2]) + " " + str(s3p.radius) + " 1\n"
-        writer.write(soma_str)
-        writer.flush()
-
-        # add the soma compartment, then enter the loop
-        for node in nodes[3:]:
-            p3d = node.content['p3d']  # update 2013-03-08
-            xyz = p3d.xyz
-            radius = p3d.radius
-            tt = p3d.type
-            p3d_string = str(node.index) + ' ' + str(tt) + ' ' + \
-                         str(xyz[0]) + ' ' + str(xyz[1]) + ' ' + str(xyz[2]) + \
-                         ' ' + str(radius) + ' ' \
-                         + str(node.parent.index)
-            writer.write(p3d_string + '\n')
-            writer.flush()
-        writer.close()
-
-    def read_SWC_tree_from_file(self, file_n, types=list(range(1, 10))):
-        """
-        Non-specific for a "tree data structure"
-        Read and load a morphology from an SWC file and parse it into
-        an STree2 object. 
-
-        On the NeuroMorpho.org website, 5 types of somadescriptions are 
-        considered (http://neuromorpho.org/neuroMorpho/SomaFormat.html).
-        The "3-point soma" is the standard and most files are converted
-        to this format during a curation step. btmorph follows this default
-        specificationand the *internal structure of btmorph implements
-        the 3-point soma*.
-
-        However, two other options to describe the soma
-        are still allowed and available, namely:
-        - soma absent: btmorph adds a 3-point soma in between of [TO DEFINE/TODO]
-        - multiple cylinder: [TO DEFINE/TODO]
-        
-        Parameters
-        -----------
-        file_n : str
-            name of the file to open
-        """
-        # check soma-representation: 3-point soma or a non-standard representation
-        soma_type = self._determine_soma_type(file_n)
-
-        file = open(file_n, 'r')
-        all_nodes = dict()
-        for line in file:
-            if not line.startswith('#'):
-                split = line.split()
-                index = int(split[0].rstrip())
-                swc_type = int(split[1].rstrip())
-                x = float(split[2].rstrip())
-                y = float(split[3].rstrip())
-                z = float(split[4].rstrip())
-                radius = float(split[5].rstrip())
-                parent_index = int(split[6].rstrip())
-
-                if swc_type in types:
-                    tP3D = P3D2(np.array([x, y, z]), radius, swc_type)
-                    t_node = SNode2(index)
-                    t_node.content = {'p3d': tP3D}
-                    all_nodes[index] = (swc_type, t_node, parent_index)
-                else:
-                    print('unknown swc_type: %i, index: %i' % (swc_type, index))
-
-        # IF 3-point soma representation
-        if soma_type == 1:
-            for index, (swc_type, node, parent_index) in list(all_nodes.items()):
-                if index == 1:
-                    self.root = node
-                elif index in (2, 3):
-                    # the 3-point soma representation (http://neuromorpho.org/neuroMorpho/SomaFormat.html)
-                    self.add_node_with_parent(node, self.root)
-                else:
-                    parent_node = all_nodes[parent_index][1]
-                    self.add_node_with_parent(node, parent_node)
-        # IF multiple cylinder soma representation
-        elif soma_type == 2:
-            self.root = all_nodes[1][1]
-
-            # get all some info
-            soma_cylinders = []
-            connected_to_root = []
-            for index, (swc_type, node, parent_index) in list(all_nodes.items()):
-                if swc_type == 1 and not index == 1:
-                    soma_cylinders.append((node, parent_index))
-                    if index > 1:
-                        connected_to_root.append(index)
-
-            # make soma
-            s_node_1, s_node_2 = self._make_soma_from_cylinders(soma_cylinders, all_nodes)
-
-            # add soma
-            self.root = all_nodes[1][1]
-            self.root.content["p3d"].radius = s_node_1.content["p3d"].radius
-            self.add_node_with_parent(s_node_1, self.root)
-            self.add_node_with_parent(s_node_2, self.root)
-
-            # add the other points            
-            for index, (swc_type, node, parent_index) in list(all_nodes.items()):
-                if swc_type == 1:
-                    pass
-                else:
-                    parent_node = all_nodes[parent_index][1]
-                    if parent_node.index in connected_to_root:
-                        self.add_node_with_parent(node, self.root)
-                    else:
-                        self.add_node_with_parent(node, parent_node)
-
-        return self
 
     def _make_soma_from_cylinders(self, soma_cylinders, all_nodes):
         """Now construct 3-point soma
@@ -2145,7 +2008,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
-def make_input_cell(env, gid, pop_id, input_source_dict):
+def make_input_source(env, gid, pop_id, input_source_dict):
     """
     Instantiates an input generator according to the given cell template.
     """
@@ -2157,7 +2020,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
         if 'spiketrains' in input_sources:
             spk_inds = input_sources['spiketrains']['gid']
             spk_ts = input_sources['spiketrains']['t']
-            data = spk_ts[np.where(spk_inds == pop_gid)]
+            data = spk_ts[np.where(spk_inds == gid)]
             cell.pp.play(h.Vector(data))
     else:
         template_name = input_gen['template']

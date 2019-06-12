@@ -117,10 +117,10 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
 
     seed_offset = int(env.modelConfig['Random Seeds']['GC Structured Weights'])
 
-    input_config = env.inputConfig[stimulus_id]
-    arena_dimension = int(input_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
-    default_run_vel = input_config['trajectory']['Default run velocity']  # cm/s
-    spatial_resolution = input_config['trajectory']['Spatial resolution']  # cm
+    stimulus_config = env.stimulus_config[stimulus_id]
+    arena_dimension = int(stimulus_config['trajectory']['Distance to boundary'])  # minimum distance from origin to boundary (cm)
+    default_run_vel = stimulus_config['trajectory']['Default run velocity']  # cm/s
+    spatial_resolution = stimulus_config['trajectory']['Spatial resolution']  # cm
 
     if rank == 0:
         import h5py

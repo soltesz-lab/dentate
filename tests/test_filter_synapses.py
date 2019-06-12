@@ -1,10 +1,11 @@
-import click
 from collections import defaultdict
+
+import click
 import dentate
-from dentate.utils import *
-from dentate.neuron_utils import *
-from dentate.env import Env
 from dentate import network_clamp
+from dentate.env import Env
+from dentate.neuron_utils import *
+from dentate.utils import *
 
 
 @click.command()

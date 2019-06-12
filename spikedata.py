@@ -1,47 +1,17 @@
-import math, sys
 import itertools
+import math
+import sys
 from collections import defaultdict
+
 import numpy as np
-from dentate.utils import *
-from neuroh5.io import read_cell_attributes, write_cell_attributes, read_population_ranges, read_population_names
+
+from dentate import utils
+from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
+from utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, old_div
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
 logger = get_module_logger(__name__)
-
-
-def consecutive(data):
-    """
-    Returns a list of arrays with consecutive values from data.
-    """
-    return np.split(data, np.where(np.diff(data) != 1)[0] + 1)
-
-
-def mvcorrcoef(X, y):
-    """
-    Multivariate correlation coefficient.
-    """
-    Xm = np.reshape(np.mean(X, axis=1), (X.shape[0], 1))
-    ym = np.mean(y)
-    r_num = np.sum(np.multiply(X - Xm, y - ym), axis=1)
-    r_den = np.sqrt(np.sum(np.square(X - Xm), axis=1) * np.sum(np.square(y - ym)))
-    with np.errstate(divide='ignore', invalid='ignore'):
-        r = np.true_divide(r_num, r_den)
-        r[r == np.inf] = 0
-        r = np.nan_to_num(r)
-    return r
-
-
-def autocorr(y, lag):
-    leny = y.shape[1]
-    a = y[0, 0:leny - lag].reshape(-1)
-    b = y[0, lag:leny].reshape(-1)
-    m = np.vstack((a[0, :].reshape(-1), b[0, :].reshape(-1)))
-    r = np.corrcoef(m)[0, 1]
-    if math.isnan(r):
-        return 0.
-    else:
-        return r
 
 
 def get_env_spike_dict(env, t_start=0.0):
@@ -191,7 +161,7 @@ def make_spike_dict(spkinds, spkts):
     """
     spk_dict = defaultdict(list)
     for spkind, spkt in zip(np.nditer(spkinds), np.nditer(spkts)):
-        spk_dict[int(spkind)].append(spkt)
+        spk_dict[int(spkind)].append(float(spkt))
     return spk_dict
 
 
@@ -207,23 +177,19 @@ def interspike_intervals(spkdict):
             isi_dict[ind] = np.asarray([], dtype=np.float32)
     return isi_dict
 
-
-def spike_bin_counts(spkdict, bins):
-    count_bin_dict = {}
+    
+def spike_bin_counts(spkdict, time_bins):
+    bin_dict = {}
     for (ind, lst) in viewitems(spkdict):
 
-        spkts = np.asarray(lst, dtype=np.float32)
-        bin_inds = np.digitize(spkts, bins=bins)
-        count_bins = []
+        if len(lst) > 0:
+            spkts = np.asarray(lst, dtype=np.float32)
+            bins, bin_edges = np.histogram(spkts, bins=time_bins)
+            
+            bin_dict[ind] = bins
 
-        for ibin in range(1, len(bins) + 1):
-            bin_spks = spkts[bin_inds == ibin]
-            count = bin_spks.size
-            count_bins.append(count)
+    return bin_dict
 
-        count_bin_dict[ind] = np.asarray(count_bins, dtype=np.uint32)
-
-    return count_bin_dict
 
 
 def spike_rates(spkdict):
@@ -241,9 +207,36 @@ def spike_rates(spkdict):
     return rate_dict
 
 
+def spike_covariate(population, spkdict, time_bins, nbins_before, nbins_after):
+    """
+    Creates the spike covariate matrix.
+
+    X: a matrix of size nbins x nadj x ncells
+    """
+    
+    spk_matrix = np.column_stack([ np.histogram(np.asarray(lst), bins=time_bins)[0]
+                                   for i, (gid, lst) in enumerate(viewitems(spkdict[population])) if len(lst) > 1 ])
+
+    nbins  = spk_matrix.shape[0]
+    ncells = spk_matrix.shape[1]
+    nadj   = nbins_before+nbins_after+1
+    
+    X      = np.empty([nbins, nadj, ncells]) 
+    X[:]   = np.NaN
+    
+    start_idx=0
+    for i in range(nbins-nbins_before-nbins_after): 
+        end_idx=start_idx+nadj
+        X[i+nbins_before,:,:] = spk_matrix[start_idx:end_idx,:] 
+        start_idx=start_idx+1
+        
+    return X
+
+
+
 def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajectory_id=None, output_file_path=None,
-                           progress=False, baks_alpha=None, baks_beta=None,
-                           inferred_rate_attr_name='Inferred Rate Map', **kwargs):
+                            progress=False, baks_alpha=4.77, baks_beta=None,
+                            inferred_rate_attr_name='Inferred Rate Map', **kwargs):
     """
     Calculates spike density function for the given spike trains.
     :param population:
@@ -266,10 +259,12 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
         spkts = np.asarray(lst, dtype=np.float32)
         return spkts[(spkts >= t_start) & (spkts <= t_stop)]
 
+    
     t_start = time_bins[0]
     t_stop = time_bins[-1]
 
     spktrains = {ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict)}
+
     baks_args = dict()
     if baks_alpha is not None:
         baks_args['a'] = baks_alpha
@@ -293,12 +288,17 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
 
     result = {ind: {'rate': rate, 'time': time_bins} for ind, rate in viewitems(spk_rate_dict)}
 
+        
+    result = { ind: { 'rate': rate, 'time': time_bins }
+              for ind, rate in viewitems(spk_rate_dict) }
+    
     return result
+
 
 
 def spatial_information(population, trajectory, spkdict, time_range, position_bin_size, arena_id=None,
                         trajectory_id=None, output_file_path=None, information_attr_name='Mutual Information',
-                        **kwargs):
+                        progress=False, **kwargs):
     """
     Calculates mutual information for the given spatial trajectory and spike trains.
     :param population:
@@ -344,7 +344,9 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
             d_bin_probs[ibin] = 0.
 
     rate_bin_dict = spike_density_estimate(population, spkdict, time_bins, arena_id=arena_id,
-                                           trajectory_id=trajectory_id, output_file_path=output_file_path, **kwargs)
+                                           trajectory_id=trajectory_id, output_file_path=output_file_path,
+                                           progress=progress, **kwargs)
+
     MI_dict = {}
     for ind, valdict in viewitems(rate_bin_dict):
         MI = 0.
@@ -372,8 +374,9 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
     return MI_dict
 
 
+
 def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, trajectory_id=None, nstdev=1.5,
-                 binsteps=5, baseline_fraction=None, min_pf_width=10., output_file_path=None, verbose=False, **kwargs):
+                 binsteps=5, baseline_fraction=None, min_pf_width=10., output_file_path=None, progress=False, **kwargs):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     :param population: str
@@ -390,7 +393,11 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
     :param verbose: bool
     :return: dict
     """
-    x, y, d, t = trajectory
+
+    if progress:
+        from tqdm import tqdm
+    
+    (x, y, d, t) = trajectory
 
     pf_dict = {}
     pf_total_count = 0
@@ -399,14 +406,17 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
     pf_min = sys.maxsize
     pf_max = 0
     ncells = len(rate_dict)
-    for ind, valdict in viewitems(rate_dict):
-        x = valdict['time']
-        rate = valdict['rate']
-        m = np.mean(rate)
-        if verbose:
-            logger.info('%d / %d' % (cell_count, ncells))
-            logger.info('mean rate: %f' % m)
-        rate1 = np.subtract(rate, m)
+
+    if progress:
+        it = tqdm(viewitems(rate_dict))
+    else:
+        it = viewitems(rate_dict)
+        
+    for ind, valdict  in it:
+        x      = valdict['time']
+        rate   = valdict['rate']
+        m      = np.mean(rate)
+        rate1  = np.subtract(rate, m)
         if baseline_fraction is None:
             s = np.std(rate1)
         else:
@@ -441,10 +451,10 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
                 pf_consecutive_ibins.append(pf_ibin_range)
                 pf_consecutive_bins.append(pf_bin_range)
                 pf_widths.append(pf_width)
-            if verbose:
-                logger.info('place field widths: %s' % list(pf_widths))
+
             pf_filtered_ibins = [pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths)
                                  if pf_width >= min_pf_width]
+
             pf_count = len(pf_filtered_ibins)
             pf_ibins = [list(range(pf_ibin[0], pf_ibin[1] + 1)) for pf_ibin in pf_filtered_ibins]
             pf_mean_width = []
@@ -489,45 +499,46 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
     return pf_dict
 
 
-def activity_sequences(population, bin_size, rate_dict, binsteps=5, active_threshold=1.0):
+def coactive_sets (population, spkdict, time_bins, return_tree=False):
     """
-    Estimates activity ensembles from the given instantaneous spike rate dictionary.
+    Estimates co-active activity ensembles from the given spike dictionary.
     """
 
-    pf_dict = {}
-    pf_total_count = 0
-    cell_count = 0
-    pf_min = sys.maxsize
-    pf_max = 0
-    for ind, valdict in viewitems(rate_dict):
-        x = valdict['time']
-        rate = valdict['rate']
-        m = np.mean(rate)
-        tmin = x[0]
-        tmax = x[-1]
-        bins = np.arange(tmin, tmax, bin_size)
-        ac_ibins = []
-        ac_rate = []
-        for ibin in range(1, len(bins)):
-            binx = np.linspace(bins[ibin - 1], bins[ibin], binsteps)
-            r = np.mean(np.interp(binx, x, rate))
-            if r > active_threshold:
-                ac_ibins.append(ibin - 1)
-                ac_rate.append(r)
+    import sklearn
+    from sklearn.neighbors import BallTree
+    
+    acv_dict = { gid: np.histogram(np.asarray(lst), bins=time_bins)[0] 
+                 for (gid, lst) in viewitems(spkdict[population]) if len(lst) > 1 }
+    n_features = len(time_bins)-1
+    n_samples = len(acv_dict)
 
-        ac_ibins = consecutive(pf_ibins)
-        ac_onsets = [bins[ac_ibin_lst[0]] for ac_ibin_lst in ac_ibins]
-        ac_rates = [np.mean([bin_rates[ac_ibin] for ac_ibin in ac_ibin_lst]) for ac_ibin_lst in ac_ibins]
-        ac_count = len(ac_onsets)
+    active_gid = {}
+    active_bins = np.zeros((n_samples, n_features),dtype=np.bool)
+    for i, (gid, acv) in enumerate(viewitems(acv_dict)):
+        active_bins[i,:] = acv > 0
+        active_gid[i] = gid
+    
+    tree = BallTree(active_bins, metric='jaccard')
+    qbins = np.zeros((n_features, n_features),dtype=np.bool)
+    for ibin in xrange(n_features):
+        qbins[ibin,ibin] = True
 
-        ac_dict[ind] = {'ac_count': np.asarray([ac_count], dtype=np.uint32), \
-                        'ac_onset': np.asarray(ac_onsets, dtype=np.float32), \
-                        'ac_rate': np.asarray(ac_rates, dtype=np.float32)}
+    nnrs, nndists = tree.query_radius(qbins, r=1, return_distance=True)
 
-    if save:
-        write_cell_attributes(save, population, pf_dict, namespace='Activity Sequences')
+    fnnrs = []
+    fnndists = []
+    for i, (nns, nndist) in enumerate(itertools.izip(nnrs, nndists)):
+        inds = [ inn for inn, nn in enumerate(nns) if np.any(np.logical_and(active_bins[nn,:], active_bins[i,:])) ] 
+        fnns = np.asarray([ nns[inn] for inn in inds ])
+        fdist = np.asarray([ nndist[inn] for inn in inds ])
+        fnnrs.append(fnns)
+        fnndists.append(fdist)
 
-    return pf_dict
+    if return_tree:
+        return n_samples, fnnrs, fnndists, (tree, active_gid)
+    else:
+        return n_samples, fnnrs, fnndists
+
 
 
 def histogram_correlation(spkdata, bin_size=1., quantity='count'):

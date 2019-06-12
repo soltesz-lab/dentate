@@ -1,33 +1,28 @@
-import itertools, math, numbers, textwrap
+import numbers, os, copy
 from collections import defaultdict
-from mpi4py import MPI
+from scipy import interpolate, signal
 import numpy as np
-import sys, os
-from scipy import signal, interpolate
-import matplotlib.pyplot as plt
+from mpi4py import MPI
+import h5py
 import matplotlib as mpl
 import matplotlib.cm as cm
-import matplotlib.tri as tri
 import matplotlib.lines as mlines
-from matplotlib.offsetbox import AnchoredText
-from matplotlib import gridspec, mlab, rcParams
-from matplotlib.colors import BoundaryNorm
-from matplotlib.colors import LogNorm
-from matplotlib.ticker import MaxNLocator, FormatStrFormatter
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from matplotlib.animation import FuncAnimation
-from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import BoundaryNorm
+from matplotlib.offsetbox import AnchoredText
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import h5py
-from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, read_cell_attributes, \
-    bcast_cell_attributes, NeuroH5CellAttrGen, NeuroH5ProjectionGen, read_trees, read_tree_selection
-from dentate import utils
-from dentate.utils import *
-from dentate.io_utils import get_h5py_attr, set_h5py_attr
-import dentate.statedata as statedata
-from dentate.env import Env
-from dentate.cells import *
-from dentate.synapses import get_syn_mech_param, get_syn_filter_dict
 
+import dentate.statedata as statedata
+from dentate.cells import default_ordered_sec_types, get_distance_to_node
+from dentate.env import Env
+from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
+from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
+from dentate.utils import make_geometric_graph, viewitems, zip_longest, old_div, basestring
+from dentate.io_utils import get_h5py_attr, set_h5py_attr
+from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names, read_tree_selection
 
 try:
     import dentate.spikedata as spikedata
@@ -80,14 +75,22 @@ def show_figure():
         plt.show()
 
 
-def ifilternone(iterable):
-    for x in iterable:
-        if not (x is None):
-            yield x
+def save_figure(file_name_prefix, fig=None, **kwargs):
+    """
 
-
-def flatten(iterables):
-    return (elem for iterable in ifilternone(iterables) for elem in iterable)
+    :param file_name_prefix:
+    :param fig: :class:'plt.Figure'
+    :param kwargs: dict
+    """
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+    fig_file_path = '%s.%s' % (file_name_prefix, fig_options.figFormat)
+    if fig_options.saveFigDir is not None:
+        fig_file_path = '%s/%s' % (fig_options.saveFigDir, fig_file_path)
+    if fig is not None:
+        fig.savefig(fig_file_path)
+    else:
+        plt.savefig(fig_file_path)
 
 
 def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, **kwargs):
@@ -126,120 +129,6 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     if edge_scalars is not None:
         vec.glyph.color_mode = 'color_by_scalar'
     return vec
-
-
-def plot_PP_metrics(env, coords_path, features_path, distances_namespace, population='MPP',
-                    cell_type = 'grid', bin_size=250., metric='spacing', normed=False,
-                    graph_type = 'histogram2d', **kwargs):
-
-    """
-    :param env:
-    :param coords_path:
-    :param features_path:
-    :param distances_namespace:
-    :param population:
-    :param cell_type:
-    :param bin_size:
-    :param metric:
-    :param normed:
-    :param graph_type:
-    """
-    fig_options = copy.copy(default_fig_options)
-    fig_options.update(kwargs)
-
-    if cell_type == 'grid':
-        input_selectivity_namespace = 'Grid Selectivity'
-        cell_type_label = 'grid input'
-    elif cell_type == 'place':
-        input_selectivity_namespace = 'Place Selectivity'
-        cell_type_label = 'spatial input'
-    if metric == 'spacing' and cell_type == 'grid':
-        attribute = 'Grid Spacing'
-        cbar_label = 'Mean grid spacing (cm)'
-        feature_label = 'grid spacing'
-    elif metric == 'spacing' and cell_type == 'place':
-        attribute = 'Field Width'
-        cbar_label = 'Mean field width (cm)'
-        feature_label = 'spatial field width'
-    if metric == 'num-fields':
-        if cell_type == 'grid':
-            return
-        elif cell_type == 'place':
-            attribute = 'Num Fields'
-            cbar_label = 'Mean number of spatial fields'
-            feature_label = 'number of spatial fields'
-    if metric == 'orientation' and cell_type == 'grid':
-        attribute = 'Grid Orientation'
-        cbar_label = 'Mean grid orientation (rad)'
-        feature_label = 'grid orientation'
-    elif metric == 'orientation' and cell_type == 'place':
-        return 
-    
-    attr_gen = read_cell_attributes(features_path, population, input_selectivity_namespace)
-    attr_dict = {}
-    for (gid, features_dict) in attr_gen:
-        attr_dict[gid] = features_dict[attribute]
-    del attr_gen
-    present_gids = list(attr_dict.keys())
-
-    distances = read_cell_attributes(coords_path, population, distances_namespace)
-    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
-    del distances
-
-    distance_U, distance_V = [], []
-    attr_lst = []
-    for gid in present_gids:
-        distance_U.append(soma_distances[gid][0])
-        distance_V.append(soma_distances[gid][1])
-        attr_mean = np.mean(attr_dict[gid])
-        attr_lst.append(attr_mean)
-
-    distance_U = np.asarray(distance_U, dtype='float32')
-    distance_V = np.asarray(distance_V, dtype='float32')
-
-    distance_x_min = np.min(distance_U)
-    distance_x_max = np.max(distance_U)
-    distance_y_min = np.min(distance_V)
-    distance_y_max = np.max(distance_V)
- 
-    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
-
-    dx = int(old_div((distance_x_max - distance_x_min), bin_size))
-    dy = int(old_div((distance_y_max - distance_y_min), bin_size))
-
-    fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
-    ax = plt.gca()
-    ax.axis([x_min, x_max, y_min, y_max])
-        
-    (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=attr_lst, normed=normed)
-    (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
-    zeros = np.where(H2 == 0.0)
-    H = np.zeros(H1.shape)
-    nz = np.where(H2 > 0.0)
-    H[nz] = np.divide(H1[nz], H2[nz])
-    H[zeros] = None
-    if normed:
-        H[nz] = np.divide(H[nz], np.max(H[nz]))
-
-    X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T, cmap='jet')
-    cbar = fig.colorbar(pcm, ax=ax, shrink=0.48, aspect=20)
-    cbar.set_label(cbar_label, rotation=270., labelpad=20.)
-    
-    ax.set_ylabel('Transverse distance (um)', fontsize=fig_options.fontSize)
-    ax.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=fig_options.fontSize)
-    ax.set_title('%s %s: %s' % (population, cell_type_label, feature_label), fontsize=fig_options.fontSize)
-    ax.set_aspect('equal')
-    
-    if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
-            filename = fig_options.saveFig
-        else:
-            filename = '%s-%s-%s.%s' % (population, cell_type, metric, fig_options.figFormat)
-        plt.savefig(filename)
-
-    if fig_options.showFig:
-        show_figure()
 
 
 def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, bin_size = 50., metric='Indegree', normed = False, graph_type = 'histogram2d', **kwargs):
@@ -433,14 +322,14 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
     dist_u_bins = defaultdict(dict)
     dist_v_bins = defaultdict(dict)
     
-    for prj_gen_tuple in utils.zip_longest(*gg):
+    for prj_gen_tuple in zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]
         if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
             raise RuntimeError('destination %s: destination_gid %i not matched across multiple projection generators: '
                                '%s' % (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
 
         if destination_gid is not None:
-            for (source, (this_destination_gid,rest)) in utils.zip_longest(sources, prj_gen_tuple):
+            for (source, (this_destination_gid,rest)) in zip_longest(sources, prj_gen_tuple):
                 this_source_soma_distance_U = source_soma_distance_U[source]
                 this_source_soma_distance_V = source_soma_distance_V[source]
                 this_dist_bins = dist_bins[source]
@@ -1212,7 +1101,7 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
         z = zcoords[dend_idxs].reshape(-1,)
 
         # Make a NetworkX graph out of our point and edge data
-        g = utils.make_geometric_graph(x, y, z, edges)
+        g = make_geometric_graph(x, y, z, edges)
 
         # Compute minimum spanning tree using networkx
         # nx.mst returns an edge generator
@@ -1325,24 +1214,27 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-def plot_lfp(config, input_path, time_range = None, **kwargs):
+def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_size=1024, frequency_range=(0, 400.), overlap=0.5, **kwargs):
     '''
-    Line plot of LFP state variable (default: v). Returns the figure handle.
+    Line plot of LFP state variable (default: v). Returns figure handle.
 
     config: path to model configuration file
     input_path: file with LFP trace data
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-    time_variable: Name of variable containing spike times (default: 't')
     '''
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
     env = Env(config_file=config)
 
-    fig = plt.figure(figsize=fig_options.figSize)
-    ax = plt.gca()
+    nrows = len(env.lfpConfig)
+    if compute_psd:
+        ncols = 2
+    else:
+        ncols = 1
 
-    for lfp_label,lfp_config_dict in viewitems(env.lfpConfig):
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=fig_options.figSize, squeeze=False)
+    for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
         infile = h5py.File(input_path)
@@ -1360,25 +1252,53 @@ def plot_lfp(config, input_path, time_range = None, **kwargs):
                     vlst.append(v)
             t = np.asarray(tlst)
             v = np.asarray(vlst)
-        
-        ax.plot(t, v, label=lfp_label)
-        
-        ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-        ax.set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
 
-        # save figure
-        if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, basestring):
-                filename = fig_options.saveFig
-            else:
-                filename = namespace_id+'.%s' % fig_options.figFormat
-                plt.savefig(filename)
+        dt = lfp_config_dict['dt']
+
+        if compute_psd:
+            Fs = 1000. / dt
+
+            nperseg    = window_size
+            win        = signal.get_window('hanning', nperseg)
+            noverlap   = int(overlap * nperseg)
+
+            freqs, psd = signal.welch(v, fs=Fs, scaling='density', nperseg=nperseg, noverlap=noverlap,
+                                      window=win, return_onesided=True)
+
+            freqinds = np.where((freqs >= frequency_range[0]) & (freqs <= frequency_range[1]))
+
+            freqs = freqs[freqinds]
+            psd = psd[freqinds]
+            if np.all(psd):
+                psd = 10. * np.log10(psd)
+
+            peak_index = np.where(psd == np.max(psd))[0]
+
+
+        axes[iplot, 0].set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
+        axes[iplot, 0].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
+        axes[iplot, 0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+        axes[iplot, 0].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
+        if compute_psd:
+            axes[iplot, 1].plot(freqs, psd, linewidth=fig_options.lw)
+            axes[iplot, 1].set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
+            axes[iplot, 1].set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
+            axes[iplot, 1].set_title('PSD %s (peak: %.3g Hz)' % (namespace_id, freqs[peak_index]), fontsize=fig_options.fontSize)
+
+    # save figure
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, basestring):
+            filename = fig_options.saveFig
+        else:
+            filename = namespace_id+'.%s' % fig_options.figFormat
+            plt.savefig(filename)
                 
-        # show fig
-        if fig_options.showFig:
-            show_figure()
+    # show fig
+    if fig_options.showFig:
+        show_figure()
 
-        
+    return fig
+
 
 
 ## Plot intracellular state trace 
@@ -1502,6 +1422,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
+    print('population_names: %s' % str(population_names))
     total_num_cells = 0
     pop_num_cells = {}
     pop_start_inds = {}
@@ -1520,7 +1441,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     # sort according to start index        
     include.sort(key=lambda x: pop_start_inds[x])
     
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1543,7 +1464,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     minN = N
 
     avg_rates = {}
-    tsecs = old_div((time_range[1]-time_range[0]),1e3) 
+    tsecs = old_div((time_range[1]-time_range[0]),1e3)
     for i,pop_name in enumerate(spkpoplst):
         pop_num = len(pop_active_cells[pop_name])
         maxN = max(maxN, max(pop_active_cells[pop_name]))
@@ -1552,7 +1473,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
+                avg_rates[pop_name] = old_div(old_div(num_cell_spks[pop_name], pop_num), tsecs)
         
     
     pop_colors = { pop_name: color_list[ipop%len(raster_color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -1592,7 +1513,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     lgd_info = [(100. * fraction_active[pop_name], avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
             
     # set raster plot y tick labels to the middle of the index range for each population
-    for pop_name, a in utils.zip_longest(include, fig.axes[:-1]):
+    for pop_name, a in zip_longest(include, fig.axes[:-1]):
         maxN = max(pop_active_cells[pop_name])
         minN = min(pop_active_cells[pop_name])
         loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
@@ -1629,9 +1550,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
         if pop_rates:
-            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(include, lgd_info) ]
         else:
-            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(include, lgd_info) ]
         # Add legend
         lgd = fig.legend(sctplots, lgd_labels, loc = 'center right', 
                          fontsize='small', scatterpoints=1, markerscale=5.,
@@ -1640,9 +1561,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
        
     elif labels == 'overlay':
         if pop_rates:
-            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(include, lgd_info) ]
         else:
-            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in utils.zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(include, lgd_info) ]
         for i, (pop_name, lgd_info) in enumerate(zip(spkpoplst, lgd_info)):
                 at = AnchoredText(pop_name + ' ' + lgd_label,
                                   loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
@@ -1650,7 +1571,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         max_label_len = max([len(l) for l in lgd_labels])
         
     elif labels == 'yticks':
-        for pop_name, info, a in utils.zip_longest(include, lgd_info, fig.axes[:-1]):
+        for pop_name, info, a in zip_longest(include, lgd_info, fig.axes[:-1]):
             if pop_rates:
                 label = '%.02f%%\n%.2g Hz' % (info[0], info[1])
             else:
@@ -1751,7 +1672,7 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
     
     return scts + [lgd(scts), plt.text(0.05, 0.95, 't = %f ms' % t0, fontsize=fig_options.fontSize, transform=ax.transAxes)]
         
-aniplots = []
+spatial_raster_aniplots = []
         
 ## Plot spike raster
 def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_namespace='Arc Distances',
@@ -1811,7 +1732,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
         distance_U_dict[population] = distance_U
         distance_V_dict[population] = distance_V
         
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -1839,7 +1760,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, marker, pop_colors)
     ani = FuncAnimation(fig, func=update_spatial_rasters, frames=list(range(0, len(timebins)-1)), \
                         blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
-    aniplots.append(ani)
+    spatial_raster_aniplots.append(ani)
 
     # show fig 
     if fig_options.showFig:
@@ -1848,7 +1769,6 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     return fig
 
 
-## Plot netclamp results (intracellular trace of target cell + spike raster of presynaptic inputs)
 def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop', time_range = None, time_variable='t', intracellular_variable='v', labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker = ',', **kwargs): 
     ''' 
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
@@ -1892,7 +1812,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     include.reverse()
 
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
-                                           time_variable=time_variable, time_range=time_range)
+                                           spike_train_attr_name=time_variable, time_range=time_range)
     indata  = statedata.read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
                                     variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
 
@@ -1928,7 +1848,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
             if num_cell_spks[pop_name] == 0:
                 avg_rates[pop_name] = 0
             else:
-                avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
+                avg_rates[pop_name] = old_div(old_div(num_cell_spks[pop_name], pop_num), tsecs)
         
     
     pop_colors = { pop_name: color_list[ipop%len(color_list)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -2048,7 +1968,6 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     return fig
 
 
-## Plot spike rates
 def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
@@ -2075,7 +1994,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2092,7 +2011,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, a=4.77)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
@@ -2174,9 +2093,9 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     
     return fig
 
-## Plot spike histogram
+
 def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
-                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate',
+                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate', progress = False,
                           overlay=True, graph_type='bar', **kwargs):
     ''' 
     Plots spike histogram. Returns figure handle.
@@ -2210,7 +2129,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
             include.append(pop)
         include.reverse()
         
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2236,7 +2155,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
                 if num_cell_spks[pop_name] == 0:
                     avg_rates[pop_name] = 0
                 else:
-                    avg_rates[pop_name] = old_div(num_cell_spks[pop_name], old_div(pop_num, tsecs))
+                    avg_rates[pop_name] = old_div(old_div(num_cell_spks[pop_name], pop_num), tsecs)
             
     # Y-axis label
     if quantity == 'rate':
@@ -2259,8 +2178,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
-            count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
                 rate = dct['rate']
@@ -2277,7 +2195,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
             count_bin_dict = spikedata.spike_bin_counts(spkdict, time_bins)
             bin_dict      = defaultdict(lambda: {'counts':0, 'active': 0})
             for (ind, counts) in viewitems(count_bin_dict):
-                for ibin in range(0, len(time_bins)):
+                for ibin in range(0, len(time_bins)-1):
                     d = bin_dict[ibin]
                     d['counts'] += counts[ibin]
                     d['active'] += 1
@@ -2362,7 +2280,6 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     return fig
 
 
-## Plot spike distribution per cell
 def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, overlay=True, quantity = 'rate', graph_type = 'point', **kwargs):
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
@@ -2393,7 +2310,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2497,7 +2414,6 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
     return fig
 
 
-## Plot spike distribution per time
 def plot_spike_distribution_per_time (input_path, namespace_id, include = ['eachPop'],
                                       time_bin_size = 50.0, binCount = 10,
                                       time_variable='t', time_range = None, 
@@ -2532,7 +2448,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2562,22 +2478,22 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
 
         spkts         = spktlst[iplot]
         spkinds       = spkindlst[iplot]
-        bins          = np.arange(time_range[0], time_range[1], time_bin_size)
+        time_bins     = np.arange(time_range[0], time_range[1], time_bin_size)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        rate_bin_dict = spikedata.spike_bin_rates(spkdict, bins, t_start=time_range[0], t_stop=time_range[1])
-        max_count     = np.zeros(bins.size-1)
-        max_rate      = np.zeros(bins.size-1)
+        sdf_dict      = spikedata.spike_density_estimate(subset, spkdict, time_bins, return_counts=True)
+        max_rate      = np.zeros(time_bins.size-1)
+        max_count     = np.zeros(time_bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
-        for ind, (count_bins, rate_bins) in viewitems(rate_bin_dict):
-            counts     = count_bins
-            rates      = rate_bins
-            for ibin in range(1, bins.size+1):
+        for ind, dct in viewitems(sdf_dict):
+            rate      = dct['rate']
+            count     = dct['count']
+            for ibin in range(1, time_bins.size+1):
                 if counts[ibin-1] > 0:
                     d = bin_dict[ibin]
-                    d['counts'].append(counts[ibin-1])
-                    d['rates'].append(rates[ibin-1])
-            max_count  = np.maximum(max_count, np.asarray(count_bins))
-            max_rate   = np.maximum(max_rate, np.asarray(rate_bins))
+                    d['counts'].append(count[ibin-1])
+                    d['rates'].append(rate[ibin-1])
+            max_count  = np.maximum(max_count, count)
+            max_rate   = np.maximum(max_rate, rate)
 
         histlst  = []
         for ibin in sorted(bin_dict.keys()):
@@ -2659,6 +2575,7 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
                              alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of spatial information per cell. Returns figure handle.
+
     :param spike_input_path: str (path to file)
     :param spike_namespace_id: str
     :param trajectory_path: str (path to file)
@@ -2995,29 +2912,12 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
     return fig
 
 
-def save_figure(file_name_prefix, fig=None, **kwargs):
-    """
 
-    :param file_name_prefix:
-    :param fig: :class:'plt.Figure'
-    :param kwargs: dict
-    """
-    fig_options = copy.copy(default_fig_options)
-    fig_options.update(kwargs)
-    fig_file_path = '%s.%s' % (file_name_prefix, fig_options.figFormat)
-    if fig_options.saveFigDir is not None:
-        fig_file_path = '%s/%s' % (fig_options.saveFigDir, fig_file_path)
-    if fig is not None:
-        fig.savefig(fig_file_path)
-    else:
-        plt.savefig(fig_file_path)
-
-
-def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', 
-                   bin_size = 1., sliding_window = 256, overlap=0.0, smooth = 0, overlay = True,
-                   **kwargs):
+def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t',
+                    bin_size = 1., window_size = 1024, smooth = 0, frequency_range=(0, 100.), overlap=0.5,
+                    overlay = True, **kwargs):
     ''' 
-    Plots firing rate power spectral density (PSD). Returns figure handle.
+    Plots spike train power spectral density (PSD). Returns figure handle.
         - input_path: file with spike data
         - namespace_id: attribute namespace for spike events
         - include (['eachPop'|<population name>]): List of data series to include. 
@@ -3048,7 +2948,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable, 
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -3065,72 +2965,54 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
     fig, ax1 = plt.subplots(figsize=fig_options.figSize)
 
     time_bins  = np.arange(time_range[0], time_range[1], bin_size)
-
-    nperseg    = sliding_window
-    n_overlap  = sliding_window * overlap
+    nperseg    = window_size
     win        = signal.get_window('hanning', nperseg)
  
     psds = []
     # Plot separate line for each entry in include
     for iplot, (subset, spkinds, spkts) in enumerate(zip(spkpoplst, spkindlst, spktlst)):
 
-        spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, a=4.77)
-        min_freq   = float('inf')
-        max_freq   = float('-inf')
-        n_units    = len(sdf_dict)
+        spk_count, bin_edges = np.histogram(spkts, bins=time_bins)
 
-        psd_dict = {}
-        for (ind, dct) in viewitems(sdf_dict):
-            rate = dct['rate']
+        if smooth:
+            # smoothen firing rate histogram
+            hsignal = signal.savgol_filter(spk_count, window_length=5, polyorder=smooth, mode='nearest')
+        else:
+            hsignal = spk_count
 
-            if smooth:
-                # smoothen firing rate histogram
-                hsignal = signal.savgol_filter(rate, window_length=old_div(nperseg,2) + 1, polyorder=smooth) 
-            else:
-                hsignal = rate
+        Fs = 1000. / bin_size
 
-            Fs = 1000.0/bin_size
+        noverlap = int(overlap * nperseg)
+        freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, noverlap=noverlap, return_onesided=True)
+        freqinds = np.where((freqs >= frequency_range[0]) & (freqs <= frequency_range[1]))
 
-            freqs, psd = signal.welch(hsignal, fs=Fs, scaling='density', nperseg=nperseg, window=win,
-                                       noverlap=n_overlap, return_onesided=True)
-        
-            psd = 10*np.log10(psd)
-        
-            min_freq = min(np.min(freqs), min_freq)
-            max_freq = max(np.max(freqs), max_freq)
+        freqs = freqs[freqinds]
+        psd = psd[freqinds]
 
-            psd_dict[ind] = { 'psd': psd, 'freqs': freqs }
-            
-        freq_span = max_freq - min_freq
-        freq_bins = np.arange(min_freq, max_freq, 0.1)
+        if np.all(psd):
+            psd = 10. * np.log10(psd)
 
-        psd_bin_array = np.zeros((len(freq_bins),))
-        for (ind, dct) in viewitems(psd_dict):
-            interp_psd = np.interp(freq_bins, dct['freqs'], dct['psd'])
-            for ibin in range(0, len(freq_bins)):
-                bin_psd = interp_psd[ibin]
-                psd_bin_array[ibin] += bin_psd
+        min_freq = np.min(freqs)
+        max_freq = np.max(freqs)
 
-        psd_bin_mean = old_div(psd_bin_array, n_units)
-        peak_index = np.where(psd_bin_mean == np.max(psd_bin_mean))[0]
+        peak_index = np.where(psd == np.max(psd))[0]
         
         color = color_list[iplot%len(color_list)]
 
         if not overlay:
             label = str(subset)
             plt.subplot(len(spkpoplst),1,iplot+1)
-            plt.title ('%s (peak: %.3g Hz)' % (label, freq_bins[peak_index]), fontsize=fig_options.fontSize)
+            plt.title ('%s (peak: %.3g Hz)' % (label, freqs[peak_index]), fontsize=fig_options.fontSize)
 
-        plt.plot(freq_bins, psd_bin_mean, linewidth=fig_options.lw, color=color)
+        plt.plot(freqs, psd, linewidth=fig_options.lw, color=color)
         
         if iplot == 0:
             plt.ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize) # add yaxis in opposite side
         if iplot == len(spkpoplst)-1:
             plt.xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
-        plt.xlim([0, (old_div(Fs,2))-1])
+        plt.xlim([0, np.max(freqs)])
 
-        psds.append(psd_bin_mean)
+        psds.append(psd)
         
     if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
         try:
@@ -3143,7 +3025,7 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
         if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
-            filename = namespace_id+'_'+'ratePSD.%s' % fig_options.figFormat
+            filename = namespace_id+' '+'rate PSD.%s' % fig_options.figFormat
         plt.savefig(filename)
 
     # show fig 
@@ -3151,6 +3033,120 @@ def plot_rate_PSD (input_path, namespace_id, include = ['eachPop'], time_range =
         show_figure()
 
     return fig, psds
+
+
+def plot_selectivity_metrics (env, coords_path, features_path, distances_namespace, population='MPP',
+                              selectivity_type = 'grid', bin_size=250., metric='spacing', normed=False,
+                              graph_type = 'histogram2d', **kwargs):
+
+    """
+    :param env:
+    :param coords_path:
+    :param features_path:
+    :param distances_namespace:
+    :param population:
+    :param selectivity_type:
+    :param bin_size:
+    :param metric:
+    :param normed:
+    :param graph_type:
+    """
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    if selectivity_type == 'grid':
+        input_selectivity_namespace = 'Grid Selectivity'
+        selectivity_type_label = 'grid input'
+    elif selectivity_type == 'place':
+        input_selectivity_namespace = 'Place Selectivity'
+        selectivity_type_label = 'spatial input'
+    if metric == 'spacing' and selectivity_type == 'grid':
+        attribute = 'Grid Spacing'
+        cbar_label = 'Mean grid spacing (cm)'
+        feature_label = 'grid spacing'
+    elif metric == 'spacing' and selectivity_type == 'place':
+        attribute = 'Field Width'
+        cbar_label = 'Mean field width (cm)'
+        feature_label = 'spatial field width'
+    if metric == 'num-fields':
+        if selectivity_type == 'grid':
+            return
+        elif selectivity_type == 'place':
+            attribute = 'Num Fields'
+            cbar_label = 'Mean number of spatial fields'
+            feature_label = 'number of spatial fields'
+    if metric == 'orientation' and selectivity_type == 'grid':
+        attribute = 'Grid Orientation'
+        cbar_label = 'Mean grid orientation (rad)'
+        feature_label = 'grid orientation'
+    elif metric == 'orientation' and selectivity_type == 'place':
+        return
+
+    attr_gen = read_cell_attributes(features_path, population, input_selectivity_namespace)
+    attr_dict = {}
+    for (gid, features_dict) in attr_gen:
+        attr_dict[gid] = features_dict[attribute]
+    del attr_gen
+    present_gids = list(attr_dict.keys())
+
+    distances = read_cell_attributes(coords_path, population, distances_namespace)
+    soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances}
+    del distances
+
+    distance_U, distance_V = [], []
+    attr_lst = []
+    for gid in present_gids:
+        distance_U.append(soma_distances[gid][0])
+        distance_V.append(soma_distances[gid][1])
+        attr_mean = np.mean(attr_dict[gid])
+        attr_lst.append(attr_mean)
+
+    distance_U = np.asarray(distance_U, dtype='float32')
+    distance_V = np.asarray(distance_V, dtype='float32')
+
+    distance_x_min = np.min(distance_U)
+    distance_x_max = np.max(distance_U)
+    distance_y_min = np.min(distance_V)
+    distance_y_max = np.max(distance_V)
+
+    ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
+
+    dx = int(old_div((distance_x_max - distance_x_min), bin_size))
+    dy = int(old_div((distance_y_max - distance_y_min), bin_size))
+
+    fig = plt.figure(figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+    ax.axis([x_min, x_max, y_min, y_max])
+
+    (H1, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy], weights=attr_lst, normed=normed)
+    (H2, xedges, yedges) = np.histogram2d(distance_U, distance_V, bins=[dx, dy])
+    zeros = np.where(H2 == 0.0)
+    H = np.zeros(H1.shape)
+    nz = np.where(H2 > 0.0)
+    H[nz] = np.divide(H1[nz], H2[nz])
+    H[zeros] = None
+    if normed:
+        H[nz] = np.divide(H[nz], np.max(H[nz]))
+
+    X, Y = np.meshgrid(xedges, yedges)
+    pcm = ax.pcolormesh(X, Y, H.T, cmap='jet')
+    cbar = fig.colorbar(pcm, ax=ax, shrink=0.48, aspect=20)
+    cbar.set_label(cbar_label, rotation=270., labelpad=20.)
+
+    ax.set_ylabel('Transverse distance (um)', fontsize=fig_options.fontSize)
+    ax.set_xlabel('Longitudinal distance (um)\n\nBin size: %i x %i um' % (bin_size, bin_size), fontsize=fig_options.fontSize)
+    ax.set_title('%s %s: %s' % (population, selectivity_type_label, feature_label), fontsize=fig_options.fontSize)
+    ax.set_aspect('equal')
+
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, basestring):
+            filename = fig_options.saveFig
+        else:
+            filename = '%s-%s-%s.%s' % (population, selectivity_type, metric, fig_options.figFormat)
+        plt.savefig(filename)
+
+    if fig_options.showFig:
+        show_figure()
 
 
 def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, trajectory_id=None, **kwargs):
@@ -3175,15 +3171,16 @@ def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, traj
         ns = namespace_id
     else:
         ns = '%s %s' % (namespace_id, arena_id)
+
     logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
     fig, axes = plt.subplots(2, 5)
-    for module in range(1, 11):
+    for module in range(0, 10):
         rate_lst = []
-        for (gid, rate, _) in stimulus.read_feature(input_path, ns, population, module=module):
+        for (gid, rate) in stimulus.read_feature(input_path, ns, population, module=module):
             if np.max(rate) > 0.:
                 rate_lst.append(rate)
-        col = (module - 1) % 5
-        row = old_div((module - 1), 5)
+        col = module % 5
+        row = old_div(module, 5)
         M = max(M, len(rate_lst))
         N = len(rate_lst)
         rate_matrix = np.matrix(rate_lst)
@@ -3245,12 +3242,17 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
     dt = float(t[1] - t[0]) / 1000. # ms -> s
     T  = float(t[-1] - t[0]) / 1000. # ms -> s
 
+    if (arena_id is None) or (trajectory_id is None):
+        ns = stimulus_namespace
+    else:
+        ns = '%s %s %s' % (stimulus_namespace, arena_id, trajectory_id)
+
     for iplot, population in enumerate(include):
    
         spiketrain_dict = {}
-        logger.info('Reading vector stimulus data for population %s...' % population) 
+        logger.info('Reading stimulus data for population %s...' % population)
 
-        for (gid, rate, spiketrain, _) in stimulus.read_stimulus(input_path, stimulus_namespace, population): 
+        for (gid, rate, spiketrain, _) in stimulus.read_stimulus(input_path, ns, population):
             if from_spikes:
                 spiketrain_dict[gid] = len(spiketrain)
             else:
@@ -3292,7 +3294,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
 
         H = np.zeros_like(H1)
         H[nz] = np.divide(H1[nz], H2[nz])
-        if fromSpikes:
+        if from_spikes:
             H = np.divide(H, T)
         H[zeros] = None
 
@@ -3303,8 +3305,8 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
         axes.axis([x_min, x_max, y_min, y_max])
         axes.set_aspect('equal')
 
-        if fromSpikes:
-            title = '%s input firing rate\nTrial: %i' % (population, trajectory_id)
+        if from_spikes:
+            title = '%s input firing rate\nTrajectory: %s %s' % (population, arena_id, trajectory_id)
         else:
             title = '%s expected input firing rate' % population
         axes.set_title(title, fontsize=fig_options.fontSize)
@@ -3356,7 +3358,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
@@ -3457,7 +3459,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, time_variable=time_variable,
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']

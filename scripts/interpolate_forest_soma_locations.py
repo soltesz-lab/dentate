@@ -1,13 +1,25 @@
-import sys, os, time, gc, itertools, random, click, logging
-from mpi4py import MPI
-import numpy as np
-import dlib
-from neuroh5.io import read_population_ranges, scatter_read_trees, append_cell_attributes
-import dentate
-from dentate.geometry import DG_volume, make_volume, make_uvl_distance
-from dentate.env import Env
-from dentate.utils import *
+import gc
+import itertools
+import logging
+import os
+import random
+import sys
+import time
 
+import numpy as np
+
+import click
+import dentate
+import dlib
+from dentate.env import Env
+from dentate.geometry import DG_volume
+from dentate.geometry import make_uvl_distance
+from dentate.geometry import make_volume
+from dentate.utils import *
+from mpi4py import MPI
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import read_population_ranges
+from neuroh5.io import scatter_read_trees
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):

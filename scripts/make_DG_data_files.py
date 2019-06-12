@@ -1,4 +1,5 @@
 import h5py
+
 from dentate.utils import viewitems
 
 h5types_file = 'dentate_h5types.h5'
@@ -161,6 +162,3 @@ with h5py.File(DG_cells_file) as f:
     for p in DG_EXT_populations:
         for (vecstim_ns, vecstim_file) in viewitems(vecstim_dict):
             grp[p][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
-
-
-    

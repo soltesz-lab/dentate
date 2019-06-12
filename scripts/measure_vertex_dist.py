@@ -1,16 +1,27 @@
 from __future__ import division
 
-from builtins import str
+import gc
+import itertools
+import logging
+import math
+import os
+import sys
 from builtins import range
-from past.utils import old_div
-import sys, os, gc, itertools, math, click, logging
+from builtins import str
 from collections import defaultdict
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, bcast_cell_attributes, NeuroH5ProjectionGen
+
 import numpy as np
+
+import click
 from dentate import utils
 from dentate.utils import *
-
+from mpi4py import MPI
+from neuroh5.io import NeuroH5ProjectionGen
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_population_names
+from neuroh5.io import read_population_ranges
+from neuroh5.io import read_projection_names
+from past.utils import old_div
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):

@@ -1,10 +1,15 @@
 
-import sys, os, gc, math
-from mpi4py import MPI
+import gc
+import math
+import os
+import sys
+
 import click
 import dentate
-from dentate import utils, plot
+from dentate import plot
+from dentate import utils
 from dentate.env import Env
+from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
 
