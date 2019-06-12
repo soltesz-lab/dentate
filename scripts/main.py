@@ -9,8 +9,7 @@ import sys
 import numpy as np
 
 import click
-import dentate
-import dentate.network as network
+from dentate import network
 from dentate.env import Env
 from dentate.utils import list_find
 from mpi4py import MPI
