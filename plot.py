@@ -1424,6 +1424,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
+    print('population_names: %s' % str(population_names))
     total_num_cells = 0
     pop_num_cells = {}
     pop_start_inds = {}

@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
-from dentate.utils import map, range, zip, zip_longest, get_module_logger, old_div, read_from_yaml
+from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, old_div, read_from_yaml
 from neuroh5.h5py_io_utils import select_tree_attributes
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 
@@ -2020,7 +2020,7 @@ def make_input_source(env, gid, pop_id, input_source_dict):
         if 'spiketrains' in input_sources:
             spk_inds = input_sources['spiketrains']['gid']
             spk_ts = input_sources['spiketrains']['t']
-            data = spk_ts[np.where(spk_inds == pop_gid)]
+            data = spk_ts[np.where(spk_inds == gid)]
             cell.pp.play(h.Vector(data))
     else:
         template_name = input_gen['template']
