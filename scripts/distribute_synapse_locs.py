@@ -86,7 +86,7 @@ def global_syn_summary(comm, syn_stats, global_count, root):
             if comm.rank == root:
                 res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, old_div(np.sum(global_syn_count),global_count)))
         
-    return string.join(res, '\n')
+    return str.join('\n', res)
 
 def local_syn_summary(syn_stats_dict):
     res = []
@@ -95,7 +95,7 @@ def local_syn_summary(syn_stats_dict):
             syn_count_dict = syn_stats_dict[part_name][part_type]
             for syn_type, syn_count in list(syn_count_dict.items()):
                 res.append("%s %i: %s synapses: %i" % (part_name, part_type, syn_type, syn_count))
-    return string.join(res, '\n')
+    return str.join('\n', res)
 
 
 def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_dict, swc_set_dict, env, logger):
