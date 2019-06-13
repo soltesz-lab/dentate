@@ -1,15 +1,20 @@
-
+"""
+For stimulus_input_sources from MEC and LEC, grid and place field widths, and grid spacing are assumed to be
+topographically organized septo-temporally. Cells are assigned to one of ten discrete modules with distinct grid
+spacing and field width. We assign stimulus_input_sources to cells probabilistically as a function of septo-temporal
+position. The grid spacing across modules increases exponentially from 40 cm to 8 m. We then assume that GC, MC, and
+CA3c neurons with place fields receive input from multiple discrete modules, and therefore have field widths that vary
+with septo-temporal position, but are sample from a continuous rather than a discrete distribution.
+"""
 import click
 from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
-import dentate
 from dentate.env import Env
-from dentate.plot import plot_2D_rate_map
-from dentate.stimulus import SelectivityConfig, choose_stimulus_selectivity_type, get_2D_arena_spatial_mesh, get_stimulus_source
+from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure
+from dentate.stimulus import SourceSelectivityConfig, choose_source_selectivity_type, get_2D_arena_spatial_mesh, \
+    get_source_cell_config
 from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 
 logger = get_script_logger(os.path.basename(__file__))
 
@@ -22,6 +27,8 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
+
+
 sys.excepthook = mpi_excepthook
 
 
@@ -33,7 +40,6 @@ sys.excepthook = mpi_excepthook
 @click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
 @click.option("--output-path", type=click.Path(file_okay=True, dir_okay=False), default=None)
 @click.option("--arena-id", type=str, default='A')
-@click.option("--trajectory-id", type=str, default='Diag')
 @click.option("--populations", '-p', type=str, multiple=True)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -45,9 +51,15 @@ sys.excepthook = mpi_excepthook
 @click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
 @click.option("--plot", is_flag=True)
+@click.option("--show-fig", is_flag=True)
+@click.option("--save-fig", required=False, type=str, default=None)
+@click.option("--save-fig-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default=None)
+@click.option("--font-size", type=float, default=14)
+@click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, coords_path, output_path, distances_namespace, arena_id, trajectory_id, populations,
-         io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, plot, dry_run):
+def main(config, config_prefix, coords_path, output_path, distances_namespace, arena_id, populations, io_size,
+         chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, plot, show_fig,
+         save_fig, save_fig_dir, font_size, fig_format, dry_run):
     """
 
     :param config: str (.yaml file name)
@@ -67,6 +79,11 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     :param interactive: bool
     :param debug: bool
     :param plot: bool
+    :param show_fig: bool
+    :param save_fig: str (base file name)
+    :param save_fig_dir:  str (path to dir)
+    :param font_size: float
+    :param fig_format: str
     :param dry_run: bool
     """
     comm = MPI.COMM_WORLD
@@ -84,9 +101,19 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
         import matplotlib.pyplot as plt
         from dentate.plot import clean_axes
 
+    fig_options = copy.copy(default_fig_options)
+    fig_options.saveFigDir = save_fig_dir
+    fig_options.fontSize = font_size
+    fig_options.figFormat = fig_format
+    fig_options.showFig = show_fig
+
+    if save_fig is not None:
+        save_fig = '%s %s' % (save_fig, arena_id)
+    fig_options.saveFig = save_fig
+
     if not dry_run and rank == 0:
         if output_path is None:
-            raise RuntimeError('generate_DG_input_features: missing output_path')
+            raise RuntimeError('generate_DG_source_selectivity_features: missing output_path')
         if not os.path.isfile(output_path):
             input_file = h5py.File(coords_path, 'r')
             output_file = h5py.File(output_path, 'w')
@@ -103,17 +130,17 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_DG_input_features: specified population: %s not found in '
+                raise RuntimeError('generate_DG_source_selectivity_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_DG_input_features: selectivity type not specified for '
+                raise RuntimeError('generate_DG_source_selectivity_features: selectivity type not specified for '
                                    'population: %s' % population)
             with h5py.File(coords_path, 'r') as coords_f:
                 pop_size = population_ranges[population][1]
                 unique_gid_count = len(set(
                     coords_f['Populations'][population][distances_namespace]['U Distance']['Cell Index'][:]))
                 if pop_size != unique_gid_count:
-                    raise RuntimeError('generate_DG_input_features: only %i/%i unique cell indexes found '
+                    raise RuntimeError('generate_DG_source_selectivity_features: only %i/%i unique cell indexes found '
                                        'for specified population: %s in provided coords_path: %s' %
                                        (unique_gid_count, pop_size, population, coords_path))
                 if reference_u_arc_distance_bounds is None:
@@ -122,7 +149,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
                     except Exception:
-                        raise RuntimeError('generate_DG_input_features: problem locating attributes '
+                        raise RuntimeError('generate_DG_source_selectivity_features: problem locating attributes '
                                            'containing reference bounds in namespace: %s for population: %s from '
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
     reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
@@ -148,14 +175,15 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
 
     local_random = np.random.RandomState()
-    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
+    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Source Selectivity'])
     local_random.seed(selectivity_seed_offset - 1)
 
-    selectivity_config = SelectivityConfig(env.stimulus_config, local_random)
+    selectivity_config = SourceSelectivityConfig(env.stimulus_config, local_random)
     if plot and rank == 0:
-        selectivity_config.plot_module_probabilities()
+        selectivity_config.plot_module_probabilities(**fig_options())
 
-    context.update(locals())
+    if interactive and rank == 0:
+        context.update(locals())
 
     if gather:
         pop_distances = defaultdict(list)
@@ -165,7 +193,7 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     for population in populations:
 
         if rank == 0:
-            logger.info('Generating stimulus features for population %s...' % population)
+            logger.info('Generating source selectivity features for population %s...' % population)
         
         start_time = time.time()
         gid_count = defaultdict(lambda: 0)
@@ -181,21 +209,23 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
 
                 local_random.seed(int(selectivity_seed_offset + gid))
                 this_selectivity_type = \
-                    choose_stimulus_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
+                    choose_source_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
                                                      local_random=local_random)
-                stimulus_source = get_stimulus_source(selectivity_type=this_selectivity_type,
-                                                      selectivity_type_names=selectivity_type_names,
-                                                      population=population, stimulus_config=env.stimulus_config, arena=arena,
-                                                      selectivity_config=selectivity_config, distance=norm_u_arc_distance,
-                                                      local_random=local_random)
+                source_cell_config = get_source_cell_config(
+                    selectivity_type=this_selectivity_type, selectivity_type_names=selectivity_type_names,
+                    population=population, stimulus_config=env.stimulus_config, arena=arena,
+                    selectivity_config=selectivity_config, distance=norm_u_arc_distance, local_random=local_random)
                 this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                selectivity_attr_dict[this_selectivity_type_name][gid] = stimulus_source.get_selectivity_attr_dict()
-                rate_map = stimulus_source.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
+                selectivity_attr_dict[this_selectivity_type_name][gid] = source_cell_config.get_selectivity_attr_dict()
+                rate_map = source_cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
                 if debug and plot and rank == 0:
+                    fig_title = '%s %s cell %i' % (population, this_selectivity_type_name, gid)
+                    if save_fig is not None:
+                        fig_options.saveFig = '%s %s' % (save_fig, fig_title)
                     plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh, rate_map=rate_map,
                                      peak_rate = env.stimulus_config['Peak Rate'][population][this_selectivity_type],
-                                     title='%s %s cell %i\nNormalized cell position: %.3f' %
-                                           (population, this_selectivity_type_name, gid, norm_u_arc_distance))
+                                     title='%s\nNormalized cell position: %.3f' % (fig_title, norm_u_arc_distance),
+                                     **fig_options())
                 selectivity_attr_dict[this_selectivity_type_name][gid]['Arena Rate Map'] = \
                     np.asarray(rate_map, dtype='float32').reshape(-1,)
                 gid_count[this_selectivity_type_name] += 1
@@ -266,13 +296,19 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
                     axes.set_xlabel('Normalized cell position')
                     axes.set_ylabel('Cell count')
                     clean_axes(axes)
-                    fig.show()
+                    if save_fig is not None:
+                        save_figure('%s normalized distances histogram' % save_fig, fig=fig, **fig_options())
+                    if fig_options.showFig:
+                        fig.show()
                 for population in merged_rate_map_sum:
                     for selectivity_type_name in merged_rate_map_sum[population]:
+                        fig_title = '%s %s summed rate maps' % (population, this_selectivity_type_name)
+                        if save_fig is not None:
+                            fig_options.saveFig = '%s %s' % (save_fig, fig_title)
                         plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh,
                                          rate_map=merged_rate_map_sum[population][selectivity_type_name],
                                          title='Summed rate maps\n%s %s cells' %
-                                               (population, selectivity_type_name))
+                                               (population, selectivity_type_name), **fig_options())
 
     if interactive and rank == 0:
         context.update(locals())
