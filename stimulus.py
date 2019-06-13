@@ -167,6 +167,20 @@ class GridSourceCellConfig(object):
         self.y0 = selectivity_attr_dict['Y Offset'][0]
         self.grid_field_width_concentration_factor = selectivity_attr_dict['Field Width Concentration Factor'][0]
 
+    def gather_attributes(self):
+        """
+        Select a subset of selectivity attributes to gather across a population. Cell attributes have one value per
+        cell, component attributes have variable length per cell. A count is returned for the length of component
+        attribute lists.
+        :return: dict(val), count, None
+        """
+        gathered_cell_attr_dict = dict()
+        gathered_cell_attr_dict['Module ID'] = self.module_id
+        gathered_cell_attr_dict['Grid Spacing'] = self.grid_spacing
+        gathered_cell_attr_dict['Grid Orientation'] = self.grid_orientation
+
+        return gathered_cell_attr_dict, 0, None
+
     def get_selectivity_attr_dict(self):
         return {'Selectivity Type': np.array([self.selectivity_type], dtype='uint8'),
                 'Peak Rate': np.array([self.peak_rate], dtype='float32'),
@@ -257,6 +271,24 @@ class PlaceSourceCellConfig(object):
         self.field_width = selectivity_attr_dict['Field Width']
         self.x0 = selectivity_attr_dict['X Offset']
         self.y0 = selectivity_attr_dict['Y Offset']
+
+    def gather_attributes(self):
+        """
+        Select a subset of selectivity attributes to gather across a population. Cell attributes have one value per
+        cell, component attributes have variable length per cell. A count is returned for the length of component
+        attribute lists.
+        :return: dict(val), count, dict(list)
+        """
+        gathered_cell_attr_dict = dict()
+        gathered_comp_attr_dict = dict()
+
+        gathered_cell_attr_dict['Module ID'] = self.module_id
+        gathered_cell_attr_dict['Num Fields'] = self.num_fields
+
+        count = len(self.field_width)
+        gathered_comp_attr_dict['Field Width'] = self.field_width
+
+        return gathered_cell_attr_dict, count, gathered_comp_attr_dict
 
     def get_selectivity_attr_dict(self):
         return {'Selectivity Type': np.array([self.selectivity_type], dtype='uint8'),
@@ -368,8 +400,9 @@ def get_source_cell_config(selectivity_type, selectivity_type_names, population=
                       'reproducible')
         if selectivity_type_name == 'grid':
             source_cell_config = \
-                GridSourceCellConfig(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
-                                peak_rate=peak_rate, distance=distance, local_random=local_random)
+                GridSourceCellConfig(selectivity_type=selectivity_type, arena=arena,
+                                     selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
+                                     local_random=local_random)
         elif selectivity_type_name == 'place':
             if population in stimulus_config['Non-modular Place Selectivity Populations']:
                 modular = False
@@ -380,9 +413,10 @@ def get_source_cell_config(selectivity_type, selectivity_type_names, population=
                                    'population: %s' % population)
             num_field_probabilities = stimulus_config['Number Place Fields Probabilities'][population]
             source_cell_config = \
-                PlaceSourceCellConfig(selectivity_type=selectivity_type, arena=arena, selectivity_config=selectivity_config,
-                                 peak_rate=peak_rate, distance=distance, modular=modular,
-                                 num_field_probabilities=num_field_probabilities, local_random=local_random)
+                PlaceSourceCellConfig(selectivity_type=selectivity_type, arena=arena,
+                                      selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
+                                      modular=modular, num_field_probabilities=num_field_probabilities,
+                                      local_random=local_random)
         else:
             RuntimeError('get_source_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
 

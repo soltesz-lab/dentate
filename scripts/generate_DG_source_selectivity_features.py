@@ -1,10 +1,11 @@
 """
-For stimulus_input_sources from MEC and LEC, grid and place field widths, and grid spacing are assumed to be
+For "stimulus sources" from MEC and LEC, grid and place field widths, and grid spacing are assumed to be
 topographically organized septo-temporally. Cells are assigned to one of ten discrete modules with distinct grid
 spacing and field width. We assign stimulus_input_sources to cells probabilistically as a function of septo-temporal
 position. The grid spacing across modules increases exponentially from 40 cm to 8 m. We then assume that GC, MC, and
 CA3c neurons with place fields receive input from multiple discrete modules, and therefore have field widths that vary
-with septo-temporal position, but are sample from a continuous rather than a discrete distribution.
+with septo-temporal position, but are sampled from a continuous rather than a discrete distribution. Features are
+imposed on these "proxy sources" for microcircuit clamp simulations.
 """
 import click
 from mpi4py import MPI
@@ -57,7 +58,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--font-size", type=float, default=14)
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, coords_path, output_path, distances_namespace, arena_id, populations, io_size,
+def main(config, config_prefix, coords_path, distances_namespace, output_path, arena_id, populations, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, plot, show_fig,
          save_fig, save_fig_dir, font_size, fig_format, dry_run):
     """
@@ -65,8 +66,8 @@ def main(config, config_prefix, coords_path, output_path, distances_namespace, a
     :param config: str (.yaml file name)
     :param config_prefix: str (path to dir)
     :param coords_path: str (path to file)
-    :param output_path: str
     :param distances_namespace: str
+    :param output_path: str
     :param arena_id: str
     :param populations: tuple of str
     :param io_size: int

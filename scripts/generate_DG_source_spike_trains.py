@@ -160,7 +160,9 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
     trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
     this_spikes_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
 
-    if output_path is not None and rank == 0:
+    if not dry_run and rank == 0:
+        if output_path is None:
+            raise RuntimeError('generate_DG_source_spike_trains: missing output_path')
         if not os.path.isfile(output_path):
             with h5py.File(output_path, 'w') as output_file:
                 input_file = h5py.File(selectivity_path, 'r')
@@ -227,7 +229,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                     local_random.seed(int(input_spike_train_offset + gid))
                     spike_train = get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=0.025,
                                                                             generator=local_random)
-                    if debug and plot is not None and rank == 0:
+                    if debug and plot and rank == 0:
                         fig_title = '%s %s cell %i' % (population, this_selectivity_type_name, gid)
                         if save_fig is not None:
                             fig_options.saveFig = '%s %s' % (save_fig, fig_title)
@@ -258,7 +260,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                         logger.info('processed %i %s %s cells' %
                                     (merged_gid_count[this_selectivity_type_name], population,
                                      this_selectivity_type_name))
-                    if output_path is not None:
+                    if not dry_run:
                         append_cell_attributes(output_path, population, spikes_attr_dict,
                                                namespace=this_spikes_namespace, comm=comm, io_size=io_size,
                                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
@@ -268,7 +270,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                 comm.barrier()
                 if debug and iter_count == 10:
                     break
-            if output_path is not None:
+            if not dry_run:
                 append_cell_attributes(output_path, population, spikes_attr_dict,
                                        namespace=this_spikes_namespace, comm=comm, io_size=io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
