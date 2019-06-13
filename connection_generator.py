@@ -461,7 +461,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                             'Rank %i has %d possible sources from population %s for destination: %s, layer %s, gid: %i' % (
                             rank, len(source_gids), source_population, destination_population, str(layer),
                             destination_gid))
-
             count = generate_synaptic_connections(rank,
                                                   destination_gid,
                                                   ranstream_syn,

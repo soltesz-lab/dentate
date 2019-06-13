@@ -17,11 +17,10 @@ module load mpi4py
 
 set -x
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
 
 results_path=$SCRATCH/dentate/results/Test_GC_subnet_$SLURM_JOB_ID
@@ -41,7 +40,7 @@ ibrun -np 12 python2.7 ./scripts/main.py \
     --io-size=2 \
     --tstop=10 \
     --v-init=-75 \
-    --max-walltime-hours=1.0 \
+    --max-walltime-hours=1.25 \
     --cell-selection-path=./datasets/GC_subnet.yaml \
     --spike-input-path=$SCRATCH/dentate/results/Full_Scale_GC_Exc_Sat_LN_9533687.bw/dentatenet_Full_Scale_GC_Exc_Sat_LN_results.h5 \
     --spike-input-namespace='Spike Events' \

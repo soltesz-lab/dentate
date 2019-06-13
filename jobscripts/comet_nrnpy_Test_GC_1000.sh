@@ -40,5 +40,4 @@ ibrun -np 12 python2.7 ./scripts/main.py \
  --tstop=6 \
  --v-init=-75 \
  --max-walltime-hours=1 \
- --ldbal --lptbal \
  --verbose

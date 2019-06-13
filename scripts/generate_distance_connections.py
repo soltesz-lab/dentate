@@ -2,31 +2,21 @@
 ## Generates distance-weighted random connectivity between the specified populations.
 ##
 
-import gc
-import logging
-import os
-import os.path
-import sys
-
+import gc, logging, os, os.path, sys
+import click
+from mpi4py import MPI
 import h5py
 import numpy as np
-
-import click
 import dentate
 import dentate.utils as utils
 import rbf
 import rbf.basis
-from dentate.connection_generator import ConnectionProb
-from dentate.connection_generator import generate_uv_distance_connections
+from rbf.interpolate import RBFInterpolant
+from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
 from dentate.env import Env
 from dentate.geometry import measure_distances
 from dentate.neuron_utils import configure_hoc_env
-from mpi4py import MPI
-from neuroh5.io import bcast_cell_attributes
-from neuroh5.io import read_cell_attributes
-from neuroh5.io import read_population_names
-from neuroh5.io import read_population_ranges
-from rbf.interpolate import RBFInterpolant
+from neuroh5.io import bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -89,7 +79,7 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
         logger.info('Reading population coordinates...')
 
     soma_distances = {}
-    for population in populations:
+    for population in sorted(populations):
         coords_iter = bcast_cell_attributes(coords_path, population, 0, namespace=coords_namespace)
         distances_iter = bcast_cell_attributes(coords_path, population, 0, namespace=distances_namespace)
 
