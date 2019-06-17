@@ -4435,6 +4435,8 @@ def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=Non
     if norm is not None:
         non_zero = np.where(norm > 0.0)
         H[non_zero] = np.divide(H[non_zero], norm[non_zero])
+        H = np.ma.masked_where(norm == 0., H)
+
     if vmax is None:
         vmax = np.max(H)
     fig, axes = plt.subplots(figsize=(9.4, 4.8))
