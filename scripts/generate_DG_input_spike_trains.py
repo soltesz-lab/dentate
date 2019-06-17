@@ -4,7 +4,7 @@ import copy, random
 from mpi4py import MPI
 import h5py
 from dentate.env import Env
-from dentate.stimulus import get_source_cell_config, generate_linear_trajectory
+from dentate.stimulus import get_input_cell_config, generate_linear_trajectory
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from dentate.utils import *
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
@@ -40,7 +40,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--cache-size", type=int, default=50)
 @click.option("--write-size", type=int, default=10000)
 @click.option("--output-path", type=click.Path(file_okay=True, dir_okay=False), default=None)
-@click.option("--spikes-namespace", type=str, default='Input Source Spikes')
+@click.option("--spikes-namespace", type=str, default='Input Spikes')
 @click.option("--spike-train-attr-name", type=str, default='Spike Train')
 @click.option("--gather", is_flag=True)
 @click.option("--interactive", is_flag=True)
@@ -191,7 +191,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
         equilibrate_hann = None
 
     local_random = random.Random()
-    input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Source Spiketrains'])
+    input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
     if interactive and rank == 0:
         context.update(locals())
@@ -219,11 +219,11 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                 if gid is not None:
                     this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
                     this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                    source_cell_config = \
-                        get_source_cell_config(selectivity_type=this_selectivity_type,
+                    input_cell_config = \
+                        get_input_cell_config(selectivity_type=this_selectivity_type,
                                                selectivity_type_names=selectivity_type_names,
                                                selectivity_attr_dict=selectivity_attr_dict)
-                    rate_map = source_cell_config.get_rate_map(x=x, y=y)
+                    rate_map = input_cell_config.get_rate_map(x=x, y=y)
                     if equilibrate_hann is not None:
                         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_hann)
                     local_random.seed(int(input_spike_train_offset + gid))

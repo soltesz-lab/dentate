@@ -10,20 +10,17 @@ from dentate.utils import old_div, object, range, str
 from neuroh5.io import read_cell_attributes
 
 
-class SourceSelectivityConfig(object):
+class InputSelectivityConfig(object):
     def __init__(self, stimulus_config, local_random):
         """
-        MEC is divided into discrete modules with distinct grid
-        spacing and field width. Here we assume grid cells sample
-        uniformly from 10 modules with spacing that increases
-        exponentially from 40 cm to 8 m. While organized
-        dorsal-ventrally, there is no organization in the transverse or
-        septo-temporal extent of their projections to DG.  CA3 and LEC
-        are assumed to exhibit place fields. Their field width varies
-        septal-temporally. Here we assume a continuous exponential
-        gradient of field widths, with the same parameters as those
-        controlling MEC grid width.
-
+        We assume that "stimulus input cells" from MEC and LEC have grid spacing and spatial field widths that are
+        topographically organized septo-temporally. Cells are assigned to one of ten discrete modules with distinct
+        grid spacing and field width probabilistically according to septo-temporal position. The grid spacing across
+        modules increases exponentially from 40 cm to 8 m. We then assume that "proxy input cells" from GC, MC, and
+        CA3c neurons have place fields that result from sampling input from multiple discrete modules, and therefore
+        have field widths that vary continuously with septo-temporal position, rather than clustering into discrete
+        modules. Features are imposed on these "proxy input cells" during microcircuit clamp or network clamp
+        simulations.
         :param stimulus_config: dict
         :param local_random: :class:'np.random.RandomState
         """
@@ -37,19 +34,20 @@ class SourceSelectivityConfig(object):
                         self.num_modules)
         self.get_module_probability = \
             np.vectorize(lambda distance, offset:
-                         np.exp(-(old_div((distance - offset), (self.module_probability_width / 3. / np.sqrt(2.)))) ** 2.),
+                         np.exp(
+                             -(old_div((distance - offset), (self.module_probability_width / 3. / np.sqrt(2.)))) ** 2.),
                          excluded=['offset'])
 
         self.get_grid_module_spacing = \
             lambda distance: stimulus_config['Grid Spacing Parameters']['offset'] + \
-                      stimulus_config['Grid Spacing Parameters']['slope'] * \
-                      (np.exp(old_div(distance, stimulus_config['Grid Spacing Parameters']['tau'])) - 1.)
+                             stimulus_config['Grid Spacing Parameters']['slope'] * \
+                             (np.exp(old_div(distance, stimulus_config['Grid Spacing Parameters']['tau'])) - 1.)
         self.grid_module_spacing = \
             [self.get_grid_module_spacing(distance) for distance in np.linspace(0., 1., self.num_modules)]
         self.grid_spacing_sigma = stimulus_config['Grid Spacing Variance'] / 6.
         self.grid_field_width_concentration_factor = stimulus_config['Field Width Concentration Factor']['grid']
         self.grid_module_orientation = [local_random.uniform(0., np.pi / 3.) for i in range(self.num_modules)]
-        self.grid_orientation_sigma = stimulus_config['Grid Orientation Variance'] / 6.
+        self.grid_orientation_sigma = np.deg2rad(stimulus_config['Grid Orientation Variance'] / 6.)
 
         self.place_field_width_concentration_factor = stimulus_config['Field Width Concentration Factor']['place']
         self.place_module_field_widths = np.multiply(self.grid_module_spacing,
@@ -81,9 +79,9 @@ class SourceSelectivityConfig(object):
 
         p_sum = np.sum(p_modules, axis=0)
         p_density = np.divide(p_modules, p_sum)
-        fig, axes = plt.subplots(1,2, figsize=(10., 4.8))
+        fig, axes = plt.subplots(1, 2, figsize=(10., 4.8))
         for i in range(len(p_modules)):
-            axes[0].plot(distances, p_density[i,:], label='Module %i' % i)
+            axes[0].plot(distances, p_density[i, :], label='Module %i' % i)
         axes[0].set_title('Selectivity module assignment probabilities', fontsize=fig_options.fontSize)
         axes[0].set_xlabel('Normalized cell position', fontsize=fig_options.fontSize)
         axes[0].set_ylabel('Probability', fontsize=fig_options.fontSize)
@@ -114,14 +112,14 @@ class SourceSelectivityConfig(object):
         return np.average(self.place_module_field_widths, weights=p_modules)
 
 
-class GridSourceCellConfig(object):
-    def __init__(self, selectivity_type=None, arena=None, selectivity_config=None, 
+class GridInputCellConfig(object):
+    def __init__(self, selectivity_type=None, arena=None, selectivity_config=None,
                  peak_rate=None, distance=None, local_random=None, selectivity_attr_dict=None):
         """
 
         :param selectivity_type: int
         :param arena: namedtuple
-        :param selectivity_config: :class:'SourceSelectivityConfig'
+        :param selectivity_config: :class:'InputSelectivityConfig'
         :param peak_rate: float
         :param distance: float; u arc distance normalized to reference layer
         :param local_random: :class:'np.random.RandomState'
@@ -129,18 +127,23 @@ class GridSourceCellConfig(object):
         """
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
-        elif any([arg is None for arg in [selectivity_type, arena, selectivity_config, peak_rate, distance]]):
-            raise RuntimeError('GridSourceCellConfig: missing argument(s) required for object construction')
+        elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate, distance]]):
+            raise RuntimeError('GridInputCellConfig: missing argument(s) required for object construction')
         else:
             if local_random is None:
                 local_random = np.random.RandomState()
-                
+
             self.selectivity_type = selectivity_type
             self.peak_rate = peak_rate
             p_modules = selectivity_config.get_module_probabilities(distance)
             self.module_id = local_random.choice(selectivity_config.module_ids, p=p_modules)
 
             self.grid_spacing = selectivity_config.grid_module_spacing[self.module_id]
+            if arena is None:
+                arena_x_bounds = arena_y_bounds = (-self.grid_spacing, self.grid_spacing)
+            else:
+                arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=self.grid_spacing / 2.)
+
             if selectivity_config.grid_spacing_sigma > 0.:
                 delta_grid_spacing_factor = local_random.normal(0., selectivity_config.grid_spacing_sigma)
                 self.grid_spacing += self.grid_spacing * delta_grid_spacing_factor
@@ -150,11 +153,9 @@ class GridSourceCellConfig(object):
                 delta_grid_orientation = local_random.normal(0., selectivity_config.grid_orientation_sigma)
                 self.grid_orientation += delta_grid_orientation
 
-            x_bounds, y_bounds = get_2D_arena_bounds(arena=arena, margin=self.grid_spacing / 2.)
+            self.x0 = local_random.uniform(*arena_x_bounds)
+            self.y0 = local_random.uniform(*arena_y_bounds)
 
-            self.x0 = local_random.uniform(*x_bounds)
-            self.y0 = local_random.uniform(*y_bounds)
-            
             self.grid_field_width_concentration_factor = selectivity_config.grid_field_width_concentration_factor
 
     def init_from_attr_dict(self, selectivity_attr_dict):
@@ -201,12 +202,13 @@ class GridSourceCellConfig(object):
         :return: array
         """
         return np.multiply(get_grid_rate_map(self.x0, self.y0, self.grid_spacing, self.grid_orientation, x, y,
-                                 a=self.grid_field_width_concentration_factor), self.peak_rate)
+                                             a=self.grid_field_width_concentration_factor), self.peak_rate)
 
 
-class PlaceSourceCellConfig(object):
+class PlaceInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None, peak_rate=None, distance=None,
-                 modular=None, num_field_probabilities=None, local_random=None, selectivity_attr_dict=None):
+                 modular=None, num_place_field_probabilities=None, field_width=None, local_random=None,
+                 selectivity_attr_dict=None, adjust_to_arena=True):
         """
 
         :param selectivity_type: int
@@ -215,51 +217,64 @@ class PlaceSourceCellConfig(object):
         :param peak_rate: float
         :param distance: float; u arc distance normalized to reference layer
         :param modular: bool
-        :param num_field_probabilities: dict
+        :param num_place_field_probabilities: dict
+        :param field_width: float; option to enforce field_width rather than choose from distance-dependent distribution
         :param local_random: :class:'np.random.RandomState'
         :param selectivity_attr_dict: dict
+        :param adjust_to_arena: bool
         """
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
-        elif any([arg is None for arg in [selectivity_type, arena, selectivity_config, peak_rate, distance, modular,
-                                          num_field_probabilities]]):
-            raise RuntimeError('PlaceSourceCellConfig: missing argument(s) required for object construction')
+        elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate,
+                                          num_place_field_probabilities]]):
+            raise RuntimeError('PlaceInputCellConfig: missing argument(s) required for object construction')
         else:
             if local_random is None:
                 local_random = np.random.RandomState()
             self.selectivity_type = selectivity_type
             self.peak_rate = peak_rate
-            p_modules = selectivity_config.get_module_probabilities(distance)
-            if modular:
-                self.module_id = local_random.choice(selectivity_config.module_ids, p=p_modules)
-                self.mean_field_width = selectivity_config.place_module_field_widths[self.module_id]
-            else:
+            if field_width is not None:
+                self.mean_field_width = field_width
                 self.module_id = -1
-                self.mean_field_width = selectivity_config.get_expected_place_field_width(p_modules)
+                self.modular = False
+            elif distance is None or modular is None:
+                raise RuntimeError('PlaceInputCellConfig: missing argument(s) required for object construction')
+            else:
+                p_modules = selectivity_config.get_module_probabilities(distance)
+                if modular:
+                    self.module_id = local_random.choice(selectivity_config.module_ids, p=p_modules)
+                    self.mean_field_width = selectivity_config.place_module_field_widths[self.module_id]
+                else:
+                    self.module_id = -1
+                    self.mean_field_width = selectivity_config.get_expected_place_field_width(p_modules)
+            self.num_fields = get_num_place_fields(num_place_field_probabilities, self.mean_field_width, arena,
+                                                   local_random)
+            if arena is None:
+                arena_x_bounds = arena_y_bounds = (-self.mean_field_width, self.mean_field_width)
+            else:
+                arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena=arena, margin=self.mean_field_width / 2.)
 
-            num_fields_array, p_num_fields = \
-                normalize_num_field_probabilities(num_field_probabilities, return_item_arrays=True)
-            self.num_fields = local_random.choice(num_fields_array, p=p_num_fields)
             self.field_width = []
             self.x0 = []
             self.y0 = []
             for i in range(self.num_fields):
                 this_field_width = self.mean_field_width
-                if modular:
-                    if selectivity_config.place_module_field_width_sigma > 0.:
-                        delta_field_width_factor = local_random.normal(0., selectivity_config.place_module_field_width_sigma)
-                        this_field_width += self.mean_field_width * delta_field_width_factor
-                else:
-                    if selectivity_config.non_modular_place_field_width_sigma > 0.:
-                        delta_field_width_factor = \
-                            local_random.normal(0., selectivity_config.non_modular_place_field_width_sigma)
-                        this_field_width += self.mean_field_width * delta_field_width_factor
+                if modular is not None:
+                    if modular:
+                        if selectivity_config.place_module_field_width_sigma > 0.:
+                            delta_field_width_factor = \
+                                local_random.normal(0., selectivity_config.place_module_field_width_sigma)
+                            this_field_width += self.mean_field_width * delta_field_width_factor
+                    else:
+                        if selectivity_config.non_modular_place_field_width_sigma > 0.:
+                            delta_field_width_factor = \
+                                local_random.normal(0., selectivity_config.non_modular_place_field_width_sigma)
+                            this_field_width += self.mean_field_width * delta_field_width_factor
                 self.field_width.append(this_field_width)
 
-                x_bounds, y_bounds = get_2D_arena_bounds(arena=arena, margin=this_field_width / 2.)
-                this_x0 = local_random.uniform(*x_bounds)
-                this_y0 = local_random.uniform(*y_bounds)
-                
+                this_x0 = local_random.uniform(*arena_x_bounds)
+                this_y0 = local_random.uniform(*arena_y_bounds)
+
                 self.x0.append(this_x0)
                 self.y0.append(this_y0)
 
@@ -354,8 +369,8 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
     return rate_map
 
 
-def get_source_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None, arena=None,
-                        selectivity_config=None, distance=None, local_random=None, selectivity_attr_dict=None):
+def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None, arena=None,
+                          selectivity_config=None, distance=None, local_random=None, selectivity_attr_dict=None):
     """
 
     :param selectivity_type: int
@@ -363,67 +378,68 @@ def get_source_cell_config(selectivity_type, selectivity_type_names, population=
     :param population: str
     :param stimulus_config: dict
     :param arena: namedtuple
-    :param selectivity_config: :class:'SourceSelectivityConfig'
+    :param selectivity_config: :class:'InputSelectivityConfig'
     :param distance: float; u arc distance normalized to reference layer
     :param local_random: :class:'np.random.RandomState'
     :param selectivity_attr_dict: dict
     :return: instance of one of various InputCell classes
     """
-    selectivity_type_name = selectivity_type_names[selectivity_type]
     if selectivity_type not in selectivity_type_names:
-        raise RuntimeError('get_source_cell_config: enumerated selectivity type: %i not recognized' % selectivity_type)
+        raise RuntimeError('get_input_cell_config: enumerated selectivity type: %i not recognized' % selectivity_type)
+    selectivity_type_name = selectivity_type_names[selectivity_type]
 
     if selectivity_attr_dict is not None:
         if selectivity_type_name == 'grid':
-            source_cell_config = GridSourceCellConfig(selectivity_attr_dict=selectivity_attr_dict)
+            input_cell_config = GridInputCellConfig(selectivity_attr_dict=selectivity_attr_dict)
         elif selectivity_type_name == 'place':
-            source_cell_config = PlaceSourceCellConfig(selectivity_attr_dict=selectivity_attr_dict)
+            input_cell_config = PlaceInputCellConfig(selectivity_attr_dict=selectivity_attr_dict)
         else:
-            RuntimeError('get_source_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
+            RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
     elif any([arg is None for arg in [population, stimulus_config, arena]]):
-        raise RuntimeError('get_source_cell_config: missing argument(s) required to construct %s cell config object' %
+        raise RuntimeError('get_input_cell_config: missing argument(s) required to construct %s cell config object' %
                            selectivity_type_name)
     else:
-        if population not in stimulus_config['Peak Rate'] or selectivity_type not in stimulus_config['Peak Rate'][population]:
-            raise RuntimeError('get_source_cell_config: peak rate not specified for population: %s, selectivity type: '
+        if population not in stimulus_config['Peak Rate'] or \
+                selectivity_type not in stimulus_config['Peak Rate'][population]:
+            raise RuntimeError('get_input_cell_config: peak rate not specified for population: %s, selectivity type: '
                                '%s' % (population, selectivity_type_name))
         peak_rate = stimulus_config['Peak Rate'][population][selectivity_type]
 
         if selectivity_type_name in ['grid', 'place']:
             if selectivity_config is None:
-                raise RuntimeError('get_source_cell_config: missing required argument: selectivity_config')
+                raise RuntimeError('get_input_cell_config: missing required argument: selectivity_config')
             if distance is None:
-                raise RuntimeError('get_source_cell_config: missing required argument: distance')
+                raise RuntimeError('get_input_cell_config: missing required argument: distance')
             if local_random is None:
                 local_random = np.random.RandomState()
-                print('get_source_cell_config: warning: local_random argument not provided - randomness will not be '
+                print('get_input_cell_config: warning: local_random argument not provided - randomness will not be '
                       'reproducible')
         if selectivity_type_name == 'grid':
-            source_cell_config = \
-                GridSourceCellConfig(selectivity_type=selectivity_type, arena=arena,
-                                     selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
-                                     local_random=local_random)
+            input_cell_config = \
+                GridInputCellConfig(selectivity_type=selectivity_type, arena=arena,
+                                    selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
+                                    local_random=local_random)
         elif selectivity_type_name == 'place':
             if population in stimulus_config['Non-modular Place Selectivity Populations']:
                 modular = False
             else:
                 modular = True
-            if population not in stimulus_config['Number Place Fields Probabilities']:
-                raise RuntimeError('get_source_cell_config: probabilities for number of place fields not specified for '
+            if population not in stimulus_config['Num Place Field Probabilities']:
+                raise RuntimeError('get_input_cell_config: probabilities for number of place fields not specified for '
                                    'population: %s' % population)
-            num_field_probabilities = stimulus_config['Number Place Fields Probabilities'][population]
-            source_cell_config = \
-                PlaceSourceCellConfig(selectivity_type=selectivity_type, arena=arena,
-                                      selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
-                                      modular=modular, num_field_probabilities=num_field_probabilities,
-                                      local_random=local_random)
+            num_place_field_probabilities = stimulus_config['Num Place Field Probabilities'][population]
+            input_cell_config = \
+                PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena,
+                                     selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
+                                     modular=modular, num_place_field_probabilities=num_place_field_probabilities,
+                                     local_random=local_random)
         else:
-            RuntimeError('get_source_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
+            RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
 
-    return source_cell_config
+    return input_cell_config
 
 
-def choose_source_selectivity_type(p, local_random):
+def choose_input_selectivity_type(p, local_random):
     """
 
     :param p: dict: {str: float}
@@ -442,86 +458,154 @@ def get_active_cell_matrix(pop_activity, threshold=2.):
     return active_cell_matrix
 
 
-def normalize_num_field_probabilities(num_field_probabilities, return_item_arrays=False):
+def get_num_place_fields(num_place_field_probabilities, field_width, arena=None, local_random=None):
     """
-    Normalize the values in a dictionary to sum to 1.
-    :param p_dict: dict: {int: float}
+    Probability distributions for the number of place fields per cell are defined relative to the area of a standard
+    arena size with dimension length = 2. * field_width. Given an arena with arbitrary dimensions, the number of place
+    fields to distribute within the area of the arena is equivalent to a series of biased dice rolls.
+    :param num_place_field_probabilities: dict: {int: float}
+    :param field_width: float
+    :param arena: namedtuple
+    :param local_random: :class:'np.random.RandomState'
+    :return: int
+    """
+    num_fields_array, p_num_fields = normalize_num_place_field_probabilities(num_place_field_probabilities,
+                                                                             return_item_arrays=True)
+    if arena is None:
+        scale = 1.
+    else:
+        initial_area = (2. * field_width) ** 2.
+        arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=field_width / 2.)
+        arena_area = abs(arena_x_bounds[1] - arena_x_bounds[0]) * abs(arena_y_bounds[1] - arena_y_bounds[0])
+        scale = arena_area / initial_area
+    num_fields = 0
+    while scale > 0.:
+        if scale >= 1.:
+            scale -= 1.
+        else:
+            num_fields_array, p_num_fields = \
+                rescale_non_zero_num_place_field_probabilities(num_place_field_probabilities, scale,
+                                                               return_item_arrays=True)
+            scale = 0.
+        num_fields += local_random.choice(num_fields_array, p=p_num_fields)
+
+    return num_fields
+
+
+def normalize_num_place_field_probabilities(num_place_field_probabilities, return_item_arrays=False):
+    """
+    Normalizes provided probability distribution for the number of place fields per cell to sum to one. Can return
+    either a dictionary or a tuple of array.
+    :param num_place_field_probabilities: dict: {int: float}
     :param return_item_arrays: bool
     :return: dict or tuple of array
     """
-    num_fields_array = np.arange(len(num_field_probabilities))
-    p_num_fields = np.array([num_field_probabilities[i] for i in num_fields_array])
+    num_fields_array = np.arange(len(num_place_field_probabilities))
+    p_num_fields = np.array([num_place_field_probabilities[i] for i in num_fields_array])
     p_num_fields_sum = np.sum(p_num_fields)
     if p_num_fields_sum <= 0.:
-        raise RuntimeError('normalize_num_field_probabilities: invalid num_field_probabilities')
+        raise RuntimeError('normalize_num_place_field_probabilities: invalid num_place_field_probabilities')
     p_num_fields /= p_num_fields_sum
     if return_item_arrays:
         return num_fields_array, p_num_fields
     return {i: p_num_fields[i] for i in range(len(p_num_fields))}
 
 
-def calibrate_num_field_probabilities(num_field_probabilities, field_width, target_fraction_active=None, pop_size=10000,
-                                      bins=100, threshold=2., peak_rate=20., random_seed=0, plot=False):
+def rescale_non_zero_num_place_field_probabilities(num_place_field_probabilities, scale, return_item_arrays=False):
     """
-    Distribute 2D gaussian place fields within a square arena with length 2 * field_width according to the specified
-    probability distribution for number of place fields per cell. Modify the relative weight of the zero place field
-    category to achieve the target average fraction active across bins of the specified resolution. Return the resulting
-    modified num_field_probabilities.
-    Field density is defined as # of place fields / per cell in population / square cm.
-    :param num_field_probabilities: dict: {int: float}
-    :param field_width: float (cm)
+    Modify a probability distribution for the number of place fields per cell by scaling the probabilities of one or
+    greater fields, and compensating the probability of zero fields. Normalizes the modified probability distribution to
+    sum to one. Can return either a dictionary or a tuple of array.
+    :param num_place_field_probabilities: dict: {int: float}
+    :param scale: float
+    :param return_item_arrays: bool
+    :return: dict or tuple of array
+    """
+    num_fields_array, p_num_fields = normalize_num_place_field_probabilities(num_place_field_probabilities,
+                                                                             return_item_arrays=True)
+    if scale <= 0.:
+        raise RuntimeError('rescale_non_zero_num_place_field_probabilities: specified scale is invalid: %.3f' % scale)
+    p_num_fields *= scale
+    non_zero_p_num_fields_sum = np.sum(p_num_fields[1:])
+    if non_zero_p_num_fields_sum > 1.:
+        raise RuntimeError('rescale_non_zero_place_field_num_probabilities: the provided scale factor would generate '
+                           'an invalid distribution of place_field_num_probabilities')
+    p_num_fields[0] = 1. - non_zero_p_num_fields_sum
+
+    if return_item_arrays:
+        return num_fields_array, p_num_fields
+    return {i: p_num_fields[i] for i in range(len(p_num_fields))}
+
+
+def calibrate_num_place_field_probabilities(num_place_field_probabilities, field_width, peak_rate=20., threshold=2.,
+                                            target_fraction_active=None, pop_size=10000, bins=100, selectivity_type=1,
+                                            arena=None, selectivity_config=None, random_seed=0, plot=False):
+    """
+    Probability distributions for the number of place fields per cell are defined relative to the area of a standard
+    arena size with dimension length = 2. * field_width. This method measures the fraction of the population that is
+    active given the provided distribution of num_place_field_probabilities. If a target_fraction_active is provided,
+    the distribution is modified by scaling the probabilities of one or greater fields, and compensating the
+    probability of zero fields. Resulting modified probability distribution sums to one. Returns a dictionary.
+    :param num_place_field_probabilities: dict: {int: float}
+    :param field_width: float
+    :param peak_rate: float
+    :param threshold: float
     :param target_fraction_active: float
     :param pop_size: int
-    :param bins: int (divide field width into square bins to compute fraction active)
-    :param threshold: float (Hz)
-    :param peak_rate: float (Hz)
+    :param bins: int
+    :param selectivity_type: int
+    :param arena: namedtuple
+    :param selectivity_config: :class:'InputSelectivityConfig'
     :param random_seed: int
-    :return: dict
+    :param plot: bool
+    :return: dict: {int: float}
     """
-    x = np.linspace(-field_width / 2., field_width / 2., bins)
-    y = np.linspace(-field_width / 2., field_width / 2., bins)
+    if arena is None:
+        inner_x_bounds = inner_y_bounds = (-field_width / 2., field_width / 2.)
+        outer_x_bounds = outer_y_bounds = (-field_width, field_width)
+    else:
+        inner_x_bounds, inner_y_bounds = get_2D_arena_bounds(arena)
+        outer_x_bounds, outer_y_bounds = get_2D_arena_bounds(arena, margin=field_width / 2.)
+    x = np.linspace(inner_x_bounds[0], inner_x_bounds[1], bins)
+    y = np.linspace(inner_y_bounds[0], inner_y_bounds[1], bins)
     x_mesh, y_mesh = np.meshgrid(x, y, indexing='ij')
-    arena_area = (2. * field_width) ** 2.
 
-    local_np_random = np.random.RandomState()
+    outer_arena_area = abs(outer_x_bounds[1] - outer_x_bounds[0]) * abs(outer_y_bounds[1] - outer_y_bounds[0])
 
-    num_fields_array, p_num_fields = \
-        normalize_num_field_probabilities(num_field_probabilities, return_item_arrays=True)
+    local_random = np.random.RandomState()
 
     iteration_label = ' before:' if target_fraction_active is not None else ''
     for iteration in range(2):
-        local_np_random.seed(random_seed)
+        local_random.seed(random_seed)
         population_num_fields = []
         pop_activity = np.zeros((pop_size, len(x), len(y)))
         for i in range(pop_size):
-            num_fields = local_np_random.choice(num_fields_array, p=p_num_fields)
+            input_cell_config = \
+                PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena,
+                                     selectivity_config=selectivity_config, peak_rate=peak_rate,
+                                     num_place_field_probabilities=num_place_field_probabilities,
+                                     field_width=field_width, local_random=local_random, adjust_to_arena=False)
+            num_fields = input_cell_config.num_fields
             population_num_fields.append(num_fields)
-            for j in range(num_fields):
-                coords = local_np_random.uniform(-field_width, field_width, size=(2,))
-                pop_activity[i, :, :] = \
-                    np.add(pop_activity[i, :, :],
-                           peak_rate * get_place_rate_map(coords[0], coords[1], field_width, x_mesh, y_mesh))
+            if num_fields > 0:
+                rate_map = input_cell_config.get_rate_map(x_mesh, y_mesh)
+                pop_activity[i, :, :] = rate_map
         active_cell_matrix = get_active_cell_matrix(pop_activity, threshold)
         fraction_active_array = np.mean(active_cell_matrix, axis=0)
         fraction_active_mean = np.mean(fraction_active_array)
         fraction_active_variance = np.var(fraction_active_array)
-        num_fields_mean = np.mean(population_num_fields)
-        field_density = old_div(num_fields_mean, arena_area)
+        field_density = np.mean(population_num_fields) / outer_arena_area
 
-        print('calibrate_num_field_probabilities:%s field_width: %.2f, fraction active: mean: %.4f, var: %.4f; '
+        print('calibrate_num_place_field_probabilities:%s field_width: %.2f, fraction active: mean: %.4f, var: %.4f; '
               'field_density: %.4E' % (iteration_label, field_width, fraction_active_mean, fraction_active_variance,
                                        field_density))
+        sys.stdout.flush()
         if target_fraction_active is None:
             break
         if iteration == 0:
-            correction_factor = old_div(target_fraction_active, fraction_active_mean)
-            p_num_fields *= correction_factor
-            p_active = np.sum(p_num_fields[1:])
-            if p_active > 1.:
-                raise RuntimeError('calibrate_num_field_probabilities: it is not possible to achieve the requested'
-                                   'target fraction active: %.4f with the provided num_field_probabilities' %
-                                   target_fraction_active)
-            p_num_fields[0] = 1. - p_active
+            scale = target_fraction_active / fraction_active_mean
+            num_place_field_probabilities = \
+                rescale_non_zero_num_place_field_probabilities(num_place_field_probabilities, scale)
             iteration_label = ' after:'
     pop_activity_sum = np.sum(pop_activity, axis=0)
 
@@ -529,26 +613,40 @@ def calibrate_num_field_probabilities(num_field_probabilities, field_width, targ
         import matplotlib.pyplot as plt
         import math
         from dentate.plot import clean_axes
-        fig, axes = plt.subplots(3, 3, figsize=(9., 9.))
+        fig, axes = plt.subplots(2, 3, figsize=(9., 6.))
         for count, i in enumerate(range(0, pop_size, int(math.ceil(pop_size / 6.)))):
-            axes[old_div(count, 3)][count % 3].pcolor(x_mesh, y_mesh, pop_activity[i])
-        hist, edges = np.histogram(population_num_fields, bins=len(num_field_probabilities),
-                                   range=(-0.5, len(num_field_probabilities) - 0.5), density=True)
-        axes[2][0].bar(edges[1:] - 0.5, hist)
-        axes[2][0].set_title('Number of place fields')
-        axes[2][1].pcolor(x_mesh, y_mesh, pop_activity_sum, vmin=0.)
-        axes[2][1].set_title('Summed population activity')
-        axes[2][2].pcolor(x_mesh, y_mesh, fraction_active_array, vmin=0.)
-        axes[2][2].set_title('Fraction active')
+            axes[count // 3][count % 3].pcolor(x_mesh, y_mesh, pop_activity[i])
+        bins = max(population_num_fields) + 1
+        hist, edges = np.histogram(population_num_fields, bins=bins, range=(-0.5, bins - 0.5), density=True)
         clean_axes(axes)
         fig.suptitle('Field width: %.2f; Fraction active: %.4f' % (field_width, fraction_active_mean))
         fig.tight_layout()
-        plt.subplots_adjust(top=0.9)
+        plt.subplots_adjust(top=0.95)
         fig.show()
-    modified_num_field_probabilities = {i: p_num_fields[i] for i in range(len(p_num_fields))}
-    from dentate.utils import print_param_dict_like_yaml
-    print_param_dict_like_yaml(modified_num_field_probabilities)
-    return modified_num_field_probabilities
+
+        fig, axes = plt.subplots()
+        axes.bar(edges[1:] - 0.5, hist)
+        axes.set_title('Field width: %.2f; Number of place fields' % field_width)
+        clean_axes(axes)
+        fig.show()
+
+        fig, axes = plt.subplots()
+        pc = axes.pcolor(x_mesh, y_mesh, pop_activity_sum, vmin=0.)
+        cb = fig.colorbar(pc, ax=axes)
+        cb.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
+        axes.set_title('Field width: %.2f; Summed population activity' % field_width)
+        clean_axes(axes)
+        fig.show()
+
+        fig, axes = plt.subplots()
+        pc = axes.pcolor(x_mesh, y_mesh, fraction_active_array, vmin=0.)
+        cb = fig.colorbar(pc, ax=axes)
+        cb.set_label('Fraction active', rotation=270., labelpad=20.)
+        axes.set_title('Field width: %.2f; Fraction active' % field_width)
+        clean_axes(axes)
+        fig.show()
+
+    return num_place_field_probabilities
 
 
 def get_2D_arena_bounds(arena, margin=0.):
@@ -557,8 +655,8 @@ def get_2D_arena_bounds(arena, margin=0.):
     :param arena: namedtuple
     :return: tuple of (tuple of float)
     """
-    vertices_x = np.asarray([v[0] for v in arena.domain.vertices])
-    vertices_y = np.asarray([v[1] for v in arena.domain.vertices])
+    vertices_x = np.asarray([v[0] for v in arena.domain.vertices], dtype='float32')
+    vertices_y = np.asarray([v[1] for v in arena.domain.vertices], dtype='float32')
     arena_x_bounds = (np.min(vertices_x) - margin, np.max(vertices_x) + margin)
     arena_y_bounds = (np.min(vertices_y) - margin, np.max(vertices_y) + margin)
 
@@ -588,10 +686,10 @@ def generate_spatial_offsets(N, arena, start=0, scale_factor=2.0):
     smp = arena.domain.simplices
 
     # evenly disperse the nodes over the domain
-    out = min_energy_nodes(N,(vert,smp),iterations=50,dispersion_delta=0.15,start=start)
+    out = min_energy_nodes(N, (vert, smp), iterations=50, dispersion_delta=0.15, start=start)
     nodes = out[0]
     scaled_nodes = nodes * scale_factor
-    
+
     return (scaled_nodes, nodes, vert, smp)
 
 
@@ -608,9 +706,9 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     """
     velocity = trajectory.velocity  # (cm / s)
     spatial_resolution = velocity / 1000. * temporal_resolution
-    x = trajectory.path[:,0]
-    y = trajectory.path[:,1]
-    
+    x = trajectory.path[:, 0]
+    y = trajectory.path[:, 1]
+
     if equilibration_duration is not None:
         equilibration_distance = velocity / 1000. * equilibration_duration
         x = np.insert(x, 0, x[0] - equilibration_distance)
@@ -633,26 +731,24 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     return t, interp_x, interp_y, interp_distance
 
 
-def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1., scale_factor = 1.0,
-                                   origin_X = 0., origin_Y = 0., radius_range = np.arange(1., 0.05, -0.05),
-                                   initial_theta = np.deg2rad(180.), theta_step = np.deg2rad(300)):
-
+def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., scale_factor=1.0,
+                                   origin_X=0., origin_Y=0., radius_range=np.arange(1., 0.05, -0.05),
+                                   initial_theta=np.deg2rad(180.), theta_step=np.deg2rad(300)):
     # arena_dimension - minimum distance from origin to boundary (cm)
-    arena_x_bounds = [np.min(arena.domain.vertices[:,0]) * scale_factor,
-                      np.max(arena.domain.vertices[:,0]) * scale_factor]
-    arena_y_bounds = [np.min(arena.domain.vertices[:,1]) * scale_factor,
-                      np.max(arena.domain.vertices[:,1]) * scale_factor]
+    arena_x_bounds = [np.min(arena.domain.vertices[:, 0]) * scale_factor,
+                      np.max(arena.domain.vertices[:, 0]) * scale_factor]
+    arena_y_bounds = [np.min(arena.domain.vertices[:, 1]) * scale_factor,
+                      np.max(arena.domain.vertices[:, 1]) * scale_factor]
 
     start_theta = initial_theta
     start_x = origin_X + np.cos(start_theta) * arena_x_bounds[0]
     start_y = origin_Y + np.sin(start_theta) * arena_y_bounds[0]
 
     radius_range = (arena_x_bounds[1] - arena_x_bounds[0]) * radius_range
-    
+
     xs = []
     ys = []
     for radius in radius_range[1:]:
-
         end_theta = start_theta + theta_step
         theta = np.arange(start_theta, end_theta, np.deg2rad(spatial_resolution))
 
@@ -662,7 +758,7 @@ def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1
         xsteps = old_div(abs(end_x - start_x), spatial_resolution)
         ysteps = old_div(abs(end_y - start_y), spatial_resolution)
         nsteps = max(xsteps, ysteps)
-        
+
         linear_x = np.linspace(start_x, end_x, nsteps)
         linear_y = np.linspace(start_y, end_y, nsteps)
 
@@ -674,22 +770,22 @@ def generate_concentric_trajectory(arena, velocity = 30., spatial_resolution = 1
 
         xs.append(x)
         ys.append(y)
-    
+
         start_theta = end_theta
         start_x = x[-1]
         start_y = y[-1]
 
     x = np.concatenate(xs)
     y = np.concatenate(ys)
-    
+
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
-    
+
     t = (old_div(interp_distance, velocity * 1000.))  # ms
-    
+
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
-    
+
     d = interp_distance
 
     return t, interp_x, interp_y, d
@@ -715,8 +811,7 @@ def read_trajectory(input_path, arena_id, trajectory_id):
 
 
 def read_stimulus(stimulus_path, stimulus_namespace, population, module=None):
-
-    ratemap_lst    = []
+    ratemap_lst = []
     module_gid_set = set([])
     if module is not None:
         if not isinstance(module, int):
@@ -730,27 +825,26 @@ def read_stimulus(stimulus_path, stimulus_namespace, population, module=None):
     attr_gen = read_cell_attributes(stimulus_path, population, namespace=stimulus_namespace)
     for gid, stimulus_dict in attr_gen:
         if gid in module_gid_set or len(module_gid_set) == 0:
-            rate       = stimulus_dict['Trajectory Rate Map']
+            rate = stimulus_dict['Trajectory Rate Map']
             spiketrain = stimulus_dict['Spike Train']
             peak_index = np.where(rate == np.max(rate))[0][0]
             ratemap_lst.append((gid, rate, spiketrain, peak_index))
- 
+
     ## sort by peak_index
     ratemap_lst.sort(key=lambda item: item[3])
     return ratemap_lst
 
 
-def read_feature (feature_path, feature_namespace, population, module=None):
-
-    feature_lst    = []
+def read_feature(feature_path, feature_namespace, population, module=None):
+    feature_lst = []
 
     attr_gen = read_cell_attributes(feature_path, population, namespace=feature_namespace)
     for gid, feature_dict in attr_gen:
         gid_module = feature_dict['Module ID'][0]
         if (module is None) or (module == gid_module):
-            rate       = feature_dict['Arena Rate Map']
+            rate = feature_dict['Arena Rate Map']
             feature_lst.append((gid, rate))
- 
+
     return feature_lst
 
 
@@ -774,17 +868,16 @@ def bin_stimulus_features(features, t, bin_size, time_range):
 
     t_start, t_end = time_range
 
-
     edges = np.arange(t_start, t_end, bin_size)
-    nbins = edges.shape[0]-1 
-    nfeatures = features.shape[1] 
+    nbins = edges.shape[0] - 1
+    nfeatures = features.shape[1]
     binned_features = np.empty([nbins, nfeatures])
-    for i in range(nbins): 
+    for i in range(nbins):
         for j in range(nfeatures):
-            delta = edges[i+1] - edges[i]
-            bin_range = np.arange(edges[i], edges[i+1], delta / 5.)
-            ip_vals = np.interp(bin_range, t, features[:,j])
-            binned_features[i,j] = np.mean(ip_vals)
+            delta = edges[i + 1] - edges[i]
+            bin_range = np.arange(edges[i], edges[i + 1], delta / 5.)
+            ip_vals = np.interp(bin_range, t, features[:, j])
+            binned_features[i, j] = np.mean(ip_vals)
 
     return binned_features
 
@@ -792,11 +885,11 @@ def bin_stimulus_features(features, t, bin_size, time_range):
 ##
 ## Linearize position
 ##
-def linearize_trajectory (x, y):
+def linearize_trajectory(x, y):
     from sklearn.decomposition import PCA
     pca = PCA(n_components=1)
-    
-    T   = np.concatenate((x,y))
+
+    T = np.concatenate((x, y))
     T_transform = pca.fit_transform(T)
     T_linear = pca.inverse_transform(T_transform)
 

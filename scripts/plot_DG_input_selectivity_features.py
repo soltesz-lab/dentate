@@ -4,8 +4,8 @@ from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, read_population_ranges, bcast_cell_attributes
 from dentate.env import Env
-from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure, clean_axes
-from dentate.stimulus import get_2D_arena_spatial_mesh, get_source_cell_config
+from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure, clean_axes, plot_2D_histogram
+from dentate.stimulus import get_2D_arena_spatial_mesh, get_input_cell_config
 from dentate.utils import *
 
 logger = get_script_logger(os.path.basename(__file__))
@@ -86,6 +86,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
     fig_options.fontSize = font_size
     fig_options.figFormat = fig_format
     fig_options.showFig = show_fig
+    fig_options.figSize = (6.4, 4.8)
 
     if save_fig is not None:
         save_fig = '%s %s' % (save_fig, arena_id)
@@ -101,10 +102,10 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('plot_DG_source_selectivity_features: specified population: %s not found in '
+                raise RuntimeError('plot_DG_input_selectivity_features: specified population: %s not found in '
                                    'provided selectivity_path: %s' % (population, selectivity_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('plot_DG_source_selectivity_features: selectivity type not specified for '
+                raise RuntimeError('plot_DG_input_selectivity_features: selectivity type not specified for '
                                    'population: %s' % population)
             valid_selectivity_namespaces[population] = []
             with h5py.File(selectivity_path, 'r') as selectivity_f:
@@ -112,7 +113,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                     if 'Selectivity %s' % arena_id in this_namespace:
                         valid_selectivity_namespaces[population].append(this_namespace)
                 if len(valid_selectivity_namespaces[population]) == 0:
-                    raise RuntimeError('plot_DG_source_selectivity_features: no selectivity data in arena: %s found '
+                    raise RuntimeError('plot_DG_input_selectivity_features: no selectivity data in arena: %s found '
                                        'for specified population: %s in provided selectivity_path: %s' %
                                        (arena_id, population, selectivity_path))
 
@@ -124,14 +125,14 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
     if rank == 0:
         for population in populations:
             if population not in coords_population_ranges:
-                raise RuntimeError('plot_DG_source_selectivity_features: specified population: %s not found in '
+                raise RuntimeError('plot_DG_input_selectivity_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
             with h5py.File(coords_path, 'r') as coords_f:
                 pop_size = population_ranges[population][1]
                 unique_gid_count = len(set(
                     coords_f['Populations'][population][distances_namespace]['U Distance']['Cell Index'][:]))
                 if pop_size != unique_gid_count:
-                    raise RuntimeError('plot_DG_source_selectivity_features: only %i/%i unique cell indexes found '
+                    raise RuntimeError('plot_DG_input_selectivity_features: only %i/%i unique cell indexes found '
                                        'for specified population: %s in provided coords_path: %s' %
                                        (unique_gid_count, pop_size, population, coords_path))
                 if reference_u_arc_distance_bounds is None:
@@ -140,7 +141,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
                     except Exception:
-                        raise RuntimeError('plot_DG_source_selectivity_features: problem locating attributes '
+                        raise RuntimeError('plot_DG_input_selectivity_features: problem locating attributes '
                                            'containing reference bounds in namespace: %s for population: %s from '
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
                 if reference_v_arc_distance_bounds is None:
@@ -149,7 +150,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                             coords_f['Populations'][population][distances_namespace].attrs['Reference V Min'], \
                             coords_f['Populations'][population][distances_namespace].attrs['Reference V Max']
                     except Exception:
-                        raise RuntimeError('plot_DG_source_selectivity_features: problem locating attributes '
+                        raise RuntimeError('plot_DG_input_selectivity_features: problem locating attributes '
                                            'containing reference bounds in namespace: %s for population: %s from '
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
     reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
@@ -212,14 +213,14 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                     gid_count += 1
                     this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
                     this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                    source_cell_config = \
-                        get_source_cell_config(selectivity_type=this_selectivity_type,
+                    input_cell_config = \
+                        get_input_cell_config(selectivity_type=this_selectivity_type,
                                                selectivity_type_names=selectivity_type_names,
                                                selectivity_attr_dict=selectivity_attr_dict)
-                    rate_map = source_cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
+                    rate_map = input_cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
                     u_distances_by_cell.append(u_distances_by_gid[gid])
                     v_distances_by_cell.append(v_distances_by_gid[gid])
-                    this_cell_attrs, component_count, this_component_attrs = source_cell_config.gather_attributes()
+                    this_cell_attrs, component_count, this_component_attrs = input_cell_config.gather_attributes()
                     for attr_name, attr_val in viewitems(this_cell_attrs):
                         gathered_cell_attributes[attr_name].append(attr_val)
                     if component_count > 0:
@@ -242,8 +243,12 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                     break
 
             cell_count_hist, _, _ = np.histogram2d(u_distances_by_cell, v_distances_by_cell, bins=[u_edges, v_edges])
-            cell_component_hist, _, _ = np.histogram2d(u_distances_by_component, v_distances_by_component,
+            component_count_hist, _, _ = np.histogram2d(u_distances_by_component, v_distances_by_component,
                                                  bins=[u_edges, v_edges])
+
+            if debug:
+                context.update(locals())
+
             gathered_cell_attr_hist = dict()
             gathered_component_attr_hist = dict()
             for key in gathered_cell_attributes:
@@ -252,11 +257,11 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                                    weights=gathered_cell_attributes[key])
             for key in gathered_component_attributes:
                 gathered_component_attr_hist[key], _, _ = \
-                    np.histogram2d(u_distances_by_cell, v_distances_by_cell, bins=[u_edges, v_edges],
+                    np.histogram2d(u_distances_by_component, v_distances_by_component, bins=[u_edges, v_edges],
                                    weights=gathered_component_attributes[key])
             gid_count = comm.gather(gid_count, root=0)
             cell_count_hist = comm.gather(cell_count_hist, root=0)
-            cell_component_hist = comm.gather(cell_component_hist, root=0)
+            component_count_hist = comm.gather(component_count_hist, root=0)
             gathered_cell_attr_hist = comm.gather(gathered_cell_attr_hist, root=0)
             gathered_component_attr_hist = comm.gather(gathered_component_attr_hist, root=0)
             rate_map_sum_by_module = dict(rate_map_sum_by_module)
@@ -265,9 +270,9 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
             if rank == 0:
                 gid_count = sum(gid_count)
                 cell_count_hist = np.sum(cell_count_hist, axis=0)
-                cell_component_hist = np.sum(cell_component_hist, axis=0)
+                component_count_hist = np.sum(component_count_hist, axis=0)
                 merged_cell_attr_hist = defaultdict(lambda: np.zeros_like(cell_count_hist))
-                merged_component_attr_hist = defaultdict(lambda: np.zeros_like(cell_component_hist))
+                merged_component_attr_hist = defaultdict(lambda: np.zeros_like(component_count_hist))
                 for each_cell_attr_hist in gathered_cell_attr_hist:
                     for key in each_cell_attr_hist:
                         merged_cell_attr_hist[key] = np.add(merged_cell_attr_hist[key], each_cell_attr_hist[key])
@@ -281,9 +286,33 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                         merged_rate_map_sum_by_module[this_module_id] = \
                             np.add(merged_rate_map_sum_by_module[this_module_id],
                                    each_rate_map_sum_by_module[this_module_id])
-                if rank == 0:
-                    logger.info('Processing %i %s %s cells took %.2f s' %
-                                (gid_count, population, this_selectivity_type_name, time.time() - start_time))
+
+                logger.info('Processing %i %s %s cells took %.2f s' %
+                            (gid_count, population, this_selectivity_type_name, time.time() - start_time))
+
+                if debug:
+                    context.update(locals())
+
+                for key in merged_cell_attr_hist:
+                    fig_title = '%s %s cells %s distribution' % (population, this_selectivity_type_name, key)
+                    if save_fig is not None:
+                        fig_options.saveFig = '%s %s' % (save_fig, fig_title)
+                    title = '%s %s cells\n%s distribution' % (population, this_selectivity_type_name, key)
+                    plot_2D_histogram(merged_cell_attr_hist[key], x_edges=u_edges, y_edges=v_edges,
+                                      norm=cell_count_hist, ylabel='Transverse position (um)',
+                                      xlabel='Septo-temporal position (um)', title=title,
+                                      cbar_label='Mean value per bin', cbar=True, **fig_options())
+
+                for key in merged_component_attr_hist:
+                    fig_title = '%s %s cells %s distribution' % (population, this_selectivity_type_name, key)
+                    if save_fig is not None:
+                        fig_options.saveFig = '%s %s' % (save_fig, fig_title)
+                    title = '%s %s cells\n%s distribution' % (population, this_selectivity_type_name, key)
+                    plot_2D_histogram(merged_component_attr_hist[key], x_edges=u_edges, y_edges=v_edges,
+                                      norm=component_count_hist, ylabel='Transverse position (um)',
+                                      xlabel='Septo-temporal position (um)', title=title,
+                                      cbar_label='Mean value per bin', cbar=True, **fig_options())
+
                 for this_module_id in merged_rate_map_sum_by_module:
                     fig_title = '%s %s Module %i summed rate maps' % \
                                 (population, this_selectivity_type_name, this_module_id)
@@ -293,10 +322,6 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                                      rate_map=merged_rate_map_sum_by_module[this_module_id],
                                      title='%s %s summed rate maps\nModule %i' %
                                            (population, this_selectivity_type_name, this_module_id), **fig_options())
-
-            if debug:
-                context.update(locals())
-                return
 
     if interactive and rank == 0:
         context.update(locals())

@@ -1,20 +1,12 @@
-"""
-For "stimulus sources" from MEC and LEC, grid and place field widths, and grid spacing are assumed to be
-topographically organized septo-temporally. Cells are assigned to one of ten discrete modules with distinct grid
-spacing and field width. We assign stimulus_input_sources to cells probabilistically as a function of septo-temporal
-position. The grid spacing across modules increases exponentially from 40 cm to 8 m. We then assume that GC, MC, and
-CA3c neurons with place fields receive input from multiple discrete modules, and therefore have field widths that vary
-with septo-temporal position, but are sampled from a continuous rather than a discrete distribution. Features are
-imposed on these "proxy sources" for microcircuit clamp simulations.
-"""
+
 import click
 from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.env import Env
 from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure
-from dentate.stimulus import SourceSelectivityConfig, choose_source_selectivity_type, get_2D_arena_spatial_mesh, \
-    get_source_cell_config
+from dentate.stimulus import InputSelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, \
+    get_input_cell_config
 from dentate.utils import *
 
 logger = get_script_logger(os.path.basename(__file__))
@@ -114,7 +106,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
     if not dry_run and rank == 0:
         if output_path is None:
-            raise RuntimeError('generate_DG_source_selectivity_features: missing output_path')
+            raise RuntimeError('generate_DG_input_selectivity_features: missing output_path')
         if not os.path.isfile(output_path):
             input_file = h5py.File(coords_path, 'r')
             output_file = h5py.File(output_path, 'w')
@@ -131,17 +123,17 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_DG_source_selectivity_features: specified population: %s not found in '
+                raise RuntimeError('generate_DG_input_selectivity_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_DG_source_selectivity_features: selectivity type not specified for '
+                raise RuntimeError('generate_DG_input_selectivity_features: selectivity type not specified for '
                                    'population: %s' % population)
             with h5py.File(coords_path, 'r') as coords_f:
                 pop_size = population_ranges[population][1]
                 unique_gid_count = len(set(
                     coords_f['Populations'][population][distances_namespace]['U Distance']['Cell Index'][:]))
                 if pop_size != unique_gid_count:
-                    raise RuntimeError('generate_DG_source_selectivity_features: only %i/%i unique cell indexes found '
+                    raise RuntimeError('generate_DG_input_selectivity_features: only %i/%i unique cell indexes found '
                                        'for specified population: %s in provided coords_path: %s' %
                                        (unique_gid_count, pop_size, population, coords_path))
                 if reference_u_arc_distance_bounds is None:
@@ -150,7 +142,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
                     except Exception:
-                        raise RuntimeError('generate_DG_source_selectivity_features: problem locating attributes '
+                        raise RuntimeError('generate_DG_input_selectivity_features: problem locating attributes '
                                            'containing reference bounds in namespace: %s for population: %s from '
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
     reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
@@ -176,10 +168,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
 
     local_random = np.random.RandomState()
-    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Source Selectivity'])
+    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Selectivity'])
     local_random.seed(selectivity_seed_offset - 1)
 
-    selectivity_config = SourceSelectivityConfig(env.stimulus_config, local_random)
+    selectivity_config = InputSelectivityConfig(env.stimulus_config, local_random)
     if plot and rank == 0:
         selectivity_config.plot_module_probabilities(**fig_options())
 
@@ -210,15 +202,15 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
                 local_random.seed(int(selectivity_seed_offset + gid))
                 this_selectivity_type = \
-                    choose_source_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
+                    choose_input_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
                                                      local_random=local_random)
-                source_cell_config = get_source_cell_config(
+                input_cell_config = get_input_cell_config(
                     selectivity_type=this_selectivity_type, selectivity_type_names=selectivity_type_names,
                     population=population, stimulus_config=env.stimulus_config, arena=arena,
                     selectivity_config=selectivity_config, distance=norm_u_arc_distance, local_random=local_random)
                 this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                selectivity_attr_dict[this_selectivity_type_name][gid] = source_cell_config.get_selectivity_attr_dict()
-                rate_map = source_cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
+                selectivity_attr_dict[this_selectivity_type_name][gid] = input_cell_config.get_selectivity_attr_dict()
+                rate_map = input_cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
                 if debug and plot and rank == 0:
                     fig_title = '%s %s cell %i' % (population, this_selectivity_type_name, gid)
                     if save_fig is not None:
