@@ -186,7 +186,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     for population in populations:
 
         if rank == 0:
-            logger.info('Generating source selectivity features for population %s...' % population)
+            logger.info('Generating input selectivity features for population %s...' % population)
         
         start_time = time.time()
         gid_count = defaultdict(lambda: 0)
