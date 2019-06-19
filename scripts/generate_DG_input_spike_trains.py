@@ -4,7 +4,7 @@ import copy, random
 from mpi4py import MPI
 import h5py
 from dentate.env import Env
-from dentate.stimulus import get_source_cell_config, generate_linear_trajectory
+from dentate.stimulus import get_input_cell_config, generate_linear_trajectory
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from dentate.utils import *
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
@@ -40,7 +40,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--cache-size", type=int, default=50)
 @click.option("--write-size", type=int, default=10000)
 @click.option("--output-path", type=click.Path(file_okay=True, dir_okay=False), default=None)
-@click.option("--spikes-namespace", type=str, default='Input Source Spikes')
+@click.option("--spikes-namespace", type=str, default='Input Spikes')
 @click.option("--spike-train-attr-name", type=str, default='Spike Train')
 @click.option("--gather", is_flag=True)
 @click.option("--interactive", is_flag=True)
@@ -160,7 +160,9 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
     trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
     this_spikes_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
 
-    if output_path is not None and rank == 0:
+    if not dry_run and rank == 0:
+        if output_path is None:
+            raise RuntimeError('generate_DG_source_spike_trains: missing output_path')
         if not os.path.isfile(output_path):
             with h5py.File(output_path, 'w') as output_file:
                 input_file = h5py.File(selectivity_path, 'r')
@@ -189,7 +191,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
         equilibrate_hann = None
 
     local_random = random.Random()
-    input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Source Spiketrains'])
+    input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
     if interactive and rank == 0:
         context.update(locals())
@@ -217,17 +219,17 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                 if gid is not None:
                     this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
                     this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                    source_cell_config = \
-                        get_source_cell_config(selectivity_type=this_selectivity_type,
+                    input_cell_config = \
+                        get_input_cell_config(selectivity_type=this_selectivity_type,
                                                selectivity_type_names=selectivity_type_names,
                                                selectivity_attr_dict=selectivity_attr_dict)
-                    rate_map = source_cell_config.get_rate_map(x=x, y=y)
+                    rate_map = input_cell_config.get_rate_map(x=x, y=y)
                     if equilibrate_hann is not None:
                         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_hann)
                     local_random.seed(int(input_spike_train_offset + gid))
                     spike_train = get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=0.025,
                                                                             generator=local_random)
-                    if debug and plot is not None and rank == 0:
+                    if debug and plot and rank == 0:
                         fig_title = '%s %s cell %i' % (population, this_selectivity_type_name, gid)
                         if save_fig is not None:
                             fig_options.saveFig = '%s %s' % (save_fig, fig_title)
@@ -258,7 +260,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                         logger.info('processed %i %s %s cells' %
                                     (merged_gid_count[this_selectivity_type_name], population,
                                      this_selectivity_type_name))
-                    if output_path is not None:
+                    if not dry_run:
                         append_cell_attributes(output_path, population, spikes_attr_dict,
                                                namespace=this_spikes_namespace, comm=comm, io_size=io_size,
                                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
@@ -268,7 +270,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                 comm.barrier()
                 if debug and iter_count == 10:
                     break
-            if output_path is not None:
+            if not dry_run:
                 append_cell_attributes(output_path, population, spikes_attr_dict,
                                        namespace=this_spikes_namespace, comm=comm, io_size=io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)

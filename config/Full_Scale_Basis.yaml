@@ -7,7 +7,7 @@ Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
-Stimulus: !include Stimulus_Configuration.yaml
+Stimulus: !include Input_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
