@@ -1,25 +1,13 @@
-import gc
-import itertools
-import logging
-import os
-import random
-import sys
-import time
-
+import os, sys, itertools, logging, random, time
+from mpi4py import MPI
 import numpy as np
-
+import dlib
 import click
 import dentate
-import dlib
 from dentate.env import Env
-from dentate.geometry import DG_volume
-from dentate.geometry import make_uvl_distance
-from dentate.geometry import make_volume
+from dentate.geometry import DG_volume, make_uvl_distance, make_volume
 from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import append_cell_attributes
-from neuroh5.io import read_population_ranges
-from neuroh5.io import scatter_read_trees
+from neuroh5.io import append_cell_attributes, read_population_ranges, scatter_read_trees
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -35,7 +23,8 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
     
 
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
@@ -44,7 +33,7 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose):
+def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose):
 
     config_logging(verbose)
     logger = get_script_logger(__file__)
@@ -52,7 +41,7 @@ def main(config, forest_path, coords_path, populations, resolution, reltol, opti
     comm = MPI.COMM_WORLD
     rank = comm.rank  
 
-    env = Env(comm=comm, config_file=config)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
     swc_type_soma   = env.SWC_Types['soma']
 
     if io_size==-1:
@@ -89,16 +78,19 @@ def main(config, forest_path, coords_path, populations, resolution, reltol, opti
 
     min_l = float('inf')
     max_l = 0.0
-    
+
     for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
         min_u = min(min_extent[0], min_u)
         min_v = min(min_extent[1], min_v)
         min_l = min(min_extent[2], min_l)
-        
+
     for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
         max_u = max(max_extent[0], max_u)
         max_v = max(max_extent[1], max_v)
         max_l = max(max_extent[2], max_l)
+
+    rotate = env.geometry['Parametric Surface']['Rotation']
+    origin = env.geometry['Parametric Surface']['Origin']
     
     for population in populations:
         min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
@@ -197,7 +189,6 @@ def main(config, forest_path, coords_path, populations, resolution, reltol, opti
                                                                         population, \
                                                                         time.time()-start_time))
         del coords_dict
-        gc.collect()
 
         all_coords = comm.reduce(coords, root=0, op=mpi_op_concat)
             

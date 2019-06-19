@@ -12,21 +12,26 @@
 
 
 module load python
+module unload intel
+module load gnu
+module load mvapich2_ib
+module load mkl
 module load hdf5
-module load scipy
-module load mpi4py
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
+
+export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 export LD_PRELOAD=$MPIHOME/lib/libmpi.so
+ulimit -c unlimited
 
 set -x
 
-ibrun -np 48 python ./scripts/interpolate_forest_soma_locations.py \
-    --config=./config/Test_GC_1000.yaml \
-    --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_GC_forest_20181222.h5 \
-    --coords-path=$SCRATCH/dentate/Test_GC_1000/dentate_GC_coords_20180520.h5 \
+ibrun -np 24 python3 ./scripts/interpolate_forest_soma_locations.py \
+    --config-prefix=./config \
+    --config=Test_GC_1000.yaml \
+    --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_forest_20190612.h5 \
+    --coords-path=$SCRATCH/dentate/Test_GC_1000/DG_GC_1000_coords_20180618.h5 \
     -i GC --reltol=5 \
-    --io-size=4 -v
+    --io-size=8 -v

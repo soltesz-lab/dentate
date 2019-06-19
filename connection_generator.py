@@ -407,7 +407,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
     destination_population = connection_prob.destination_population
 
-    source_populations = list(connection_config[destination_population].keys())
+    source_populations = sorted(connection_config[destination_population].keys())
 
     for source_population in source_populations:
         if rank == 0:
