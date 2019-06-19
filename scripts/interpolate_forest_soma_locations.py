@@ -12,8 +12,8 @@ from neuroh5.io import append_cell_attributes, read_population_ranges, scatter_r
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
+    MPI.COMM_WORLD.Abort(1)
+
 sys.excepthook = mpi_excepthook
 
 def list_concat(a, b, datatype):
@@ -33,7 +33,8 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose):
+@click.option("--dry-run", is_flag=True)
+def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose, dry_run):
 
     config_logging(verbose)
     logger = get_script_logger(__file__)
@@ -178,18 +179,18 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                    min_extent[2], max_extent[2])
 
             count += 1
-            
-        append_cell_attributes(coords_path, population, coords_dict,
-                               namespace='Interpolated Coordinates', io_size=io_size, comm=comm)
 
-        global_count = comm.gather(count, root=0)
+        if not dry_run:
+            append_cell_attributes(coords_path, population, coords_dict,
+                                   namespace='Interpolated Coordinates', 
+                                   io_size=io_size, comm=comm)
+
+        global_count = np.sum(np.asarray(comm.gather(count, root=0)))
         if rank == 0:
             if global_count > 0:
                 logger.info('Interpolation of %i %s cells took %i s' % (np.sum(global_count), \
                                                                         population, \
                                                                         time.time()-start_time))
-        del coords_dict
-
         all_coords = comm.reduce(coords, root=0, op=mpi_op_concat)
             
         if rank == 0:
@@ -198,10 +199,10 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                 reindex_dict = { coords[0]: { 'New Cell Index' : np.array([(i+population_start)], dtype='uint32') }
                                      for (i, coords) in zip (coords_sort_idxs, all_coords) }
                 append_cell_attributes(coords_path, population, reindex_dict,
-                                           namespace='Tree Reindex', io_size=1, comm=comm0)
+                                       namespace='Tree Reindex', io_size=1, comm=comm0)
             
         comm0.Barrier()
-        MPI.Finalize()
+        comm.Barrier()
 
 
 if __name__ == '__main__':
