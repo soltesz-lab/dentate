@@ -1,9 +1,7 @@
 """Classes and procedures related to neuronal geometry and distance calculation."""
 import logging
 import math
-
 import numpy as np
-
 import rbf
 from dentate.alphavol import alpha_shape
 from dentate.rbf_surface import RBFSurface
@@ -400,7 +398,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
     return soma_distances
 
 
-def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
+def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, ip_dist=None, allgather=False):
     from rbf.interpolate import RBFInterpolant
 
     rank = env.comm.rank
@@ -452,32 +450,35 @@ def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_si
     origin_ranges = None
     ip_dist_u = None
     ip_dist_v = None
-    if rank == 0:
-        logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-        ip_volume = make_volume((min_u - safety, max_u + safety), \
-                                (min_v - safety, max_v + safety), \
-                                (min_l - safety, max_l + safety), \
-                                resolution=resolution, rotate=rotate)
+    if ip_dist is None:
+        if rank == 0:
+            logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
+            ip_volume = make_volume((min_u - safety, max_u + safety), \
+                                    (min_v - safety, max_v + safety), \
+                                    (min_l - safety, max_l + safety), \
+                                    resolution=resolution, rotate=rotate)
 
-        logger.info('Computing volume distances...')
-        vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
-        (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
-        logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
-                                   sigma=interp_sigma)
-        logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_uv, dist_v, order=interp_order, phi=interp_basis, \
-                                   sigma=interp_sigma)
-        logger.info('Broadcasting volume distance interpolants...')
-
+            logger.info('Computing volume distances...')
+            vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
+            (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
+            logger.info('Computing U volume distance interpolants...')
+            ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
+                                       sigma=interp_sigma)
+            logger.info('Computing V volume distance interpolants...')
+            ip_dist_v = RBFInterpolant(obs_uv, dist_v, order=interp_order, phi=interp_basis, \
+                                       sigma=interp_sigma)
+            logger.info('Broadcasting volume distance interpolants...')
+    else:
+        origin_ranges, ip_dist_u, ip_dist_v = ip_dist
+        
     origin_ranges = env.comm.bcast(origin_ranges, root=0)
     ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
     ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
-
+        
     soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
                                            interp_chunk_size=interp_chunk_size, allgather=allgather)
 
-    return origin_ranges, soma_distances
+    return soma_distances, (origin_ranges, ip_dist_u, ip_dist_v)
 
 
 def measure_distance_extents(env):
