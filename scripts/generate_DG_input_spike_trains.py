@@ -4,10 +4,15 @@ import copy, random
 from mpi4py import MPI
 import h5py
 from dentate.env import Env
-from dentate.stimulus import get_stimulus_source, generate_linear_trajectory
+from dentate.stimulus import get_input_cell_config, generate_linear_trajectory
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from dentate.utils import *
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
+from dentate.plot import default_fig_options, save_figure, plot_1D_rate_map
+
+logger = get_script_logger(os.path.basename(__file__))
+
+context = Struct(**dict(locals()))
 
 sys_excepthook = sys.excepthook
 
@@ -19,15 +24,13 @@ def mpi_excepthook(type, value, traceback):
 
 
 sys.excepthook = mpi_excepthook
-logger = get_script_logger(os.path.basename(__file__))
-context = Context()
 
 
 @click.command()
 @click.option("--config", required=True, type=str)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config')
-@click.option("--features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--arena-id", type=str, default='A')
 @click.option("--trajectory-id", type=str, default='Diag')
 @click.option("--populations", '-p', type=str, multiple=True)
@@ -42,6 +45,7 @@ context = Context()
 @click.option("--gather", is_flag=True)
 @click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
+@click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", required=False, type=str, default=None)
 @click.option("--save-fig-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default=None)
@@ -49,15 +53,15 @@ context = Context()
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, features_path, arena_id, trajectory_id, populations,
-         io_size, chunk_size, value_chunk_size, cache_size, write_size, output_path, spikes_namespace,
-         spike_train_attr_name, gather, interactive, debug, show_fig, save_fig, save_fig_dir, font_size, fig_format,
+def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, populations, io_size, chunk_size,
+         value_chunk_size, cache_size, write_size, output_path, spikes_namespace, spike_train_attr_name, gather,
+         interactive, debug, plot, show_fig, save_fig, save_fig_dir, font_size, fig_format,
          verbose, dry_run):
     """
 
     :param config: str (.yaml file name)
     :param config_prefix: str (path to dir)
-    :param features_path: str (path to file)
+    :param selectivity_path: str (path to file)
     :param arena_id: str
     :param trajectory_id: str
     :param populations: str
@@ -72,12 +76,14 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     :param gather: bool
     :param interactive: bool
     :param debug: bool
+    :param plot: bool
     :param show_fig: bool
     :param save_fig: str (base file name)
     :param save_fig_dir:  str (path to dir)
     :param font_size: float
     :param fig_format: str
     :param verbose: bool
+    :param dry_run: bool
     """
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -90,7 +96,21 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    population_ranges = read_population_ranges(features_path, comm)[0]
+    if plot:
+        import matplotlib.pyplot as plt
+        from dentate.plot import clean_axes
+
+    fig_options = copy.copy(default_fig_options)
+    fig_options.saveFigDir = save_fig_dir
+    fig_options.fontSize = font_size
+    fig_options.figFormat = fig_format
+    fig_options.showFig = show_fig
+
+    if save_fig is not None:
+        save_fig = '%s %s' % (save_fig, arena_id)
+    fig_options.saveFig = save_fig
+
+    population_ranges = read_population_ranges(selectivity_path, comm)[0]
 
     if len(populations) == 0:
         populations = ('MC', 'ConMC', 'LPP', 'GC', 'MPP', 'CA3c')
@@ -109,36 +129,23 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_DG_input_spike_trains: specified population: %s not found in '
-                                   'provided features_path: %s' % (population, features_path))
+                raise RuntimeError('generate_DG_source_spike_trains: specified population: %s not found in '
+                                   'provided selectivity_path: %s' % (population, selectivity_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_DG_input_spike_trains: selectivity type not specified for '
+                raise RuntimeError('generate_DG_source_spike_trains: selectivity type not specified for '
                                    'population: %s' % population)
             valid_selectivity_namespaces[population] = []
-            with h5py.File(features_path, 'r') as selectivity_f:
+            with h5py.File(selectivity_path, 'r') as selectivity_f:
                 for this_namespace in selectivity_f['Populations'][population]:
                     if 'Selectivity %s' % arena_id in this_namespace:
                         valid_selectivity_namespaces[population].append(this_namespace)
                 if len(valid_selectivity_namespaces[population]) == 0:
-                    raise RuntimeError('generate_DG_input_spike_trains: no selectivity data in arena: %s found '
-                                       'for specified population: %s in provided features_path: %s' %
-                                       (arena_id, population, features_path))
+                    raise RuntimeError('generate_DG_source_spike_trains: no selectivity data in arena: %s found '
+                                       'for specified population: %s in provided selectivity_path: %s' %
+                                       (arena_id, population, selectivity_path))
 
     valid_selectivity_namespaces = comm.bcast(valid_selectivity_namespaces, root=0)
     selectivity_type_names = dict((val, key) for (key, val) in viewitems(env.selectivity_types))
-
-    fig_options = None
-    if show_fig or save_fig is not None:
-        import matplotlib.pyplot as plt
-        from dentate.plot import plot_1D_rate_map, clean_axes, default_fig_options, save_figure
-        fig_options = copy.copy(default_fig_options)
-        fig_options.showFig = show_fig
-        if save_fig is not None:
-            save_fig = '%s %s' % (save_fig, arena_id)
-        fig_options.saveFig = save_fig
-        fig_options.saveFigDir = save_fig_dir
-        fig_options.fontSize = font_size
-        fig_options.figFormat = fig_format
 
     t, x, y, d = None, None, None, None
     if rank == 0:
@@ -153,10 +160,12 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
     this_spikes_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
 
-    if output_path is not None and rank == 0:
+    if not dry_run and rank == 0:
+        if output_path is None:
+            raise RuntimeError('generate_DG_source_spike_trains: missing output_path')
         if not os.path.isfile(output_path):
             with h5py.File(output_path, 'w') as output_file:
-                input_file = h5py.File(features_path, 'r')
+                input_file = h5py.File(selectivity_path, 'r')
                 input_file.copy('/H5Types', output_file)
                 input_file.close()
         with h5py.File(output_path, 'a') as f:
@@ -168,13 +177,14 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
             else:
                 loaded_t = f[trajectory_namespace]['t'][:]
                 if len(t) != len(loaded_t):
-                    raise RuntimeError('generate_DG_input_spike_trains: file at path: %s already contains the '
+                    raise RuntimeError('generate_DG_source_spike_trains: file at path: %s already contains the '
                                        'namespace: %s, but the dataset sizes are inconsistent with the provided input'
                                        'configuration' % (output_path, trajectory_namespace))
     comm.barrier()
 
     if 'Equilibration Duration' in env.stimulus_config and env.stimulus_config['Equilibration Duration'] > 0.:
-        equilibrate_len = int(old_div(env.stimulus_config['Equilibration Duration'], env.stimulus_config['Temporal Resolution']))
+        equilibrate_len = int(env.stimulus_config['Equilibration Duration'] /
+                              env.stimulus_config['Temporal Resolution'])
         from scipy.signal import hann
         equilibrate_hann = hann(2 * equilibrate_len)[:equilibrate_len]
     else:
@@ -183,7 +193,8 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     local_random = random.Random()
     input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
 
-    context.update(locals())
+    if interactive and rank == 0:
+        context.update(locals())
 
     if gather:
         spike_hist_resolution = 1000
@@ -194,30 +205,31 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
     for population in populations:
 
         if rank == 0:
-            logger.info('Generating spike trains for population %s...' % population)
+            logger.info('Generating input source spike trains for population %s...' % population)
 
         gid_count = defaultdict(lambda: 0)
         process_time = dict()
         for this_selectivity_namespace in valid_selectivity_namespaces[population]:
             start_time = time.time()
-            selectivity_attr_gen = NeuroH5CellAttrGen(features_path, population,
-                                                  namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
-                                                  cache_size=cache_size)
+            selectivity_attr_gen = NeuroH5CellAttrGen(selectivity_path, population,
+                                                      namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
+                                                      cache_size=cache_size)
             spikes_attr_dict = dict()
             for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
                 if gid is not None:
                     this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
                     this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                    stimulus_source = get_stimulus_source(selectivity_type=this_selectivity_type,
-                                                          selectivity_type_names=selectivity_type_names,
-                                                          selectivity_attr_dict=selectivity_attr_dict)
-                    rate_map = stimulus_source.get_rate_map(x=x, y=y)
+                    input_cell_config = \
+                        get_input_cell_config(selectivity_type=this_selectivity_type,
+                                               selectivity_type_names=selectivity_type_names,
+                                               selectivity_attr_dict=selectivity_attr_dict)
+                    rate_map = input_cell_config.get_rate_map(x=x, y=y)
                     if equilibrate_hann is not None:
                         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_hann)
                     local_random.seed(int(input_spike_train_offset + gid))
                     spike_train = get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=0.025,
                                                                             generator=local_random)
-                    if debug and fig_options is not None and rank == 0:
+                    if debug and plot and rank == 0:
                         fig_title = '%s %s cell %i' % (population, this_selectivity_type_name, gid)
                         if save_fig is not None:
                             fig_options.saveFig = '%s %s' % (save_fig, fig_title)
@@ -248,7 +260,7 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
                         logger.info('processed %i %s %s cells' %
                                     (merged_gid_count[this_selectivity_type_name], population,
                                      this_selectivity_type_name))
-                    if output_path is not None:
+                    if not dry_run:
                         append_cell_attributes(output_path, population, spikes_attr_dict,
                                                namespace=this_spikes_namespace, comm=comm, io_size=io_size,
                                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
@@ -258,7 +270,7 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
                 comm.barrier()
                 if debug and iter_count == 10:
                     break
-            if output_path is not None:
+            if not dry_run:
                 append_cell_attributes(output_path, population, spikes_attr_dict,
                                        namespace=this_spikes_namespace, comm=comm, io_size=io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
@@ -281,7 +293,7 @@ def main(config, config_prefix, features_path, arena_id, trajectory_id, populati
                         merged_spike_hist_sum[population][selectivity_type_name] = \
                             np.add(merged_spike_hist_sum[population][selectivity_type_name],
                                    each_spike_hist_sum[population][selectivity_type_name])
-            if fig_options is not None:
+            if plot:
                 for population in merged_spike_hist_sum:
                     for selectivity_type_name in merged_spike_hist_sum[population]:
                         fig_title = '%s %s summed spike PSTH' % (population, this_selectivity_type_name)

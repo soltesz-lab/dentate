@@ -21,8 +21,7 @@ from neuroh5.io import bcast_cell_attributes, read_cell_attributes, read_populat
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
+    MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
 
@@ -95,7 +94,19 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
     destination_populations = read_population_names(forest_path)
 
     if len(soma_distances) == 0:
-        soma_distances = measure_distances(env, soma_coords, allgather=True)
+        ip_dist_path = 'Distance Interpolant/%d/%d/%d' % resolution
+        ip_dist = None
+        if rank == 0:
+            f = h5py.File(coords_path, 'r')
+            if ip_dist_path in f:
+                ip_dist = pickle.loads(ip_dist_path)
+            f.close()
+        soma_distances, (origin_ranges, ip_dist_u, up_dist_v) = measure_distances(env, soma_coords, ip_dist=ip_dist, resolution=resolution, allgather=True)
+        if rank == 0:
+            f = h5py.File(coords_path, 'a')
+            if ip_dist_path not in f:
+                f[ip_dist_path] = pickle.dumps((origin_ranges, ip_dist_u, ip_dist_v))
+            f.close()
 
     for destination_population in destination_populations:
 

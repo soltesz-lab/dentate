@@ -1,16 +1,13 @@
 ## Model configuration of dentate gyrus network
-Model Name: dentatenet_Full_Scale_Pas
+Model Name: dentatenet_Full_Scale_Basis
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20181203.h5
-Connection Data: DG_Connections_Full_Scale_20181203.h5
-Gap Junction Data: DG_gapjunctions_20180721.h5
 Connection Generator: !include Full_Scale_Connections.yaml
 LFP: !include LFP.yaml
-Stimulus: !include Stimulus_Configuration.yaml
+Stimulus: !include Input_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
@@ -54,8 +51,6 @@ Cell Types:
       density: !include IS_synapse_density.yaml
   MPP:
     template: MPPCell
-    Vector Stimulus: Vector Stimulus 100
   LPP:
     template: LPPCell
-    Vector Stimulus: Vector Stimulus 100
 

@@ -1,18 +1,18 @@
 
-import os, sys, gc, logging
-import click
-import h5py
+import os, sys, gc, logging, pickle
+from mpi4py import MPI
 import numpy as np
+import click
 import rbf
 import rbf.basis
 from rbf.interpolate import RBFInterpolant
-from mpi4py import MPI
 import dentate
 import dentate.utils as utils
 from dentate.env import Env
 from dentate.geometry import measure_distances
 from dentate.utils import viewitems
 from neuroh5.io import append_cell_attributes, bcast_cell_attributes, read_population_names, read_population_ranges
+import h5py
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -59,10 +59,22 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
         del coords
         gc.collect()
 
-    origin_ranges, soma_distances = measure_distances(env, soma_coords, resolution=resolution)
+    ip_dist = None
+    ip_dist_path = 'Distance Interpolant/%d/%d/%d' % resolution
+    if rank == 0:
+        f = h5py.File(coords_path, 'r')
+        if ip_dist_path in f:
+            ip_dist = pickle.loads(ip_dist_path)
+        f.close()
+                
+    soma_distances, (origin_ranges, ip_dist_u, up_dist_v) = measure_distances(env, soma_coords, ip_dist=ip_dist, resolution=resolution)
+    if rank == 0:
+        f = h5py.File(coords_path, 'a')
+        if ip_dist_path not in f:
+            f[ip_dist_path] = pickle.dumps((origin_ranges, ip_dist_u, ip_dist_v))
+        f.close()
                                        
     for population in list(soma_distances.keys()):
-            
 
         if rank == 0:
             logger.info('Writing distances for population %s...' % population)

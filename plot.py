@@ -4361,11 +4361,12 @@ def plot_1D_rate_map(t, rate_map, peak_rate=None, spike_train=None, title=None, 
 
     if peak_rate is None:
         peak_rate = np.max(rate_map)
-    fig, axes = plt.subplots()
+    fig, axes = plt.subplots(figsize=fig_options.figSize)
     axes.plot(t, rate_map)
     if spike_train is not None:
         axes.plot(spike_train, np.ones_like(spike_train), 'k.')
     axes.set_ylim(0., peak_rate * 1.1)
+    axes.tick_params(labelsize=fig_options.fontSize)
     axes.set_ylabel('Firing rate (Hz)', fontsize=fig_options.fontSize)
     axes.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
     axes.set_title(title, fontsize=fig_options.fontSize)
@@ -4392,16 +4393,70 @@ def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, **kwargs):
 
     if peak_rate is None:
         peak_rate = np.max(rate_map)
-    fig, axes = plt.subplots()
+    fig, axes = plt.subplots(figsize=fig_options.figSize)
     pc = axes.pcolor(x, y, rate_map, vmin=0., vmax=peak_rate)
     axes.set_aspect('equal')
     cbar = fig.colorbar(pc, ax=axes)
     cbar.set_label('Firing Rate (Hz)', rotation=270., labelpad=20., fontsize=fig_options.fontSize)
     axes.set_xlabel('X Position (cm)', fontsize=fig_options.fontSize)
     axes.set_ylabel('Y Position (cm)', fontsize=fig_options.fontSize)
+    axes.tick_params(labelsize=fig_options.fontSize)
     clean_axes(axes)
     if title is not None:
         axes.set_title(title, fontsize=fig_options.fontSize)
+
+    if fig_options.saveFig is not None:
+        save_figure(fig_options.saveFig, fig=fig, **fig_options())
+
+    if fig_options.showFig:
+        fig.show()
+
+
+def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=None, title=None,
+                      cbar_label=None, cbar=True, vmin=0., vmax=None, **kwargs):
+    """
+
+    :param hist: ndarray
+    :param x_edges: ndarray
+    :param y_edges: ndarray
+    :param norm: ndarray; optionally normalize hist by nonzero elements of norm array
+    :param ylabel: str
+    :param xlabel: str
+    :param title: str
+    :param cbar_label: str
+    :param cbar: bool
+    :param vmin: float
+    :param vmax: float
+    """
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    H = np.copy(hist)
+    if norm is not None:
+        non_zero = np.where(norm > 0.0)
+        H[non_zero] = np.divide(H[non_zero], norm[non_zero])
+        H = np.ma.masked_where(norm == 0., H)
+
+    if vmax is None:
+        vmax = np.max(H)
+    fig, axes = plt.subplots(figsize=(9.4, 4.8))
+    pcm = axes.pcolormesh(x_edges, y_edges, H.T, vmin=vmin, vmax=vmax)
+    axes.set_aspect('equal')
+    axes.tick_params(labelsize=fig_options.fontSize)
+    divider = make_axes_locatable(axes)
+    cax = divider.append_axes("right", size="2.5%", pad=0.1)
+    if cbar:
+        cb = fig.colorbar(pcm, cax=cax)
+        cb.ax.tick_params(labelsize=fig_options.fontSize)
+        if cbar_label is not None:
+            cb.set_label(cbar_label, rotation=270., labelpad=20., fontsize=fig_options.fontSize)
+    if xlabel is not None:
+        axes.set_xlabel(xlabel, fontsize=fig_options.fontSize)
+    if ylabel is not None:
+        axes.set_ylabel(ylabel, fontsize=fig_options.fontSize)
+    if title is not None:
+        axes.set_title(title, fontsize=fig_options.fontSize)
+    clean_axes(axes)
 
     if fig_options.saveFig is not None:
         save_figure(fig_options.saveFig, fig=fig, **fig_options())
