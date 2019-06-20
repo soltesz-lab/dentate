@@ -59,17 +59,18 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
         gc.collect()
 
     ip_dist = None
+    ip_dist_path = 'Distance Interpolant/%d/%d/%d' % resolution
     if rank == 0:
         f = h5py.File(coords_path, 'r')
-        if 'Distance Interpolant' in f:
-            ip_dist = pickle.loads(f['Distance Interpolant'])
+        if ip_dist_path in f:
+            ip_dist = pickle.loads(ip_dist_path)
         f.close()
                 
     soma_distances, (origin_ranges, ip_dist_u, up_dist_v) = measure_distances(env, soma_coords, ip_dist=ip_dist, resolution=resolution)
     if rank == 0:
         f = h5py.File(coords_path, 'a')
-        if 'Distance Interpolant' not in f:
-            f['Distance Interpolant'] = pickle.dumps((origin_ranges, ip_dist_u, ip_dist_v))
+        if ip_dist_path not in f:
+            f[ip_dist_path] = pickle.dumps((origin_ranges, ip_dist_u, ip_dist_v))
         f.close()
                                        
     for population in list(soma_distances.keys()):
