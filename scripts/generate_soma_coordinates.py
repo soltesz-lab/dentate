@@ -2,7 +2,7 @@
 ## Generate soma coordinates within layer-specific volume.
 ##
 
-import os, sys, os.path, itertools, random, pickle, logging, click
+import os, sys, os.path, itertools, random, pickle, logging, click, gc
 import math
 from mpi4py import MPI
 import h5py
@@ -119,23 +119,26 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
     layer_alpha_shapes = {}
     layer_alpha_shape_path = 'Layer Alpha Shape/%d/%d/%d' % resolution
     if rank == 0:
-        has_layer_alpha_shapes = False
-        if geometry_path:
-            f = h5py.File(geometry_path,'r')
-            if layer_alpha_shape_path in f:
-                has_layer_alpha_shapes = True
-                layer_alpha_shapes = pickle.loads(f[layer_alpha_shape_path])
-            f.close()
-        if not has_layer_alpha_shapes:
-            for layer, extents in viewitems(layer_extents):
-                layer_alpha_shape = make_alpha_shape(extents[0], extents[1],
-                                                     alpha_radius=alpha_radius,
-                                                     rotate=rotate, resolution=resolution)
-                layer_alpha_shapes[layer] = layer_alpha_shape
+        for layer, extents in viewitems(layer_extents):
+            gc.collect()
+            has_layer_alpha_shape = False
             if geometry_path:
-                f = h5py.File(geometry_path,'a')
-                f[layer_alpha_shape_path] = pickle.dumps(layer_alpha_shapes)
+                this_layer_alpha_shape_path = '%s/%s' % (layer_alpha_shape_path, layer)
+                f = h5py.File(geometry_path)
+                if this_layer_alpha_shape_path in f:
+                    has_layer_alpha_shape = True
+                    this_layer_alpha_shape = pickle.loads(f[this_layer_alpha_shape_path])
+                    layer_alpha_shapes[layer] = this_layer_alpha_shape
                 f.close()
+            if not has_layer_alpha_shape:
+                this_layer_alpha_shape = make_alpha_shape(extents[0], extents[1],
+                                                          alpha_radius=alpha_radius,
+                                                          rotate=rotate, resolution=resolution)
+                layer_alpha_shapes[layer] = this_layer_alpha_shape
+                if geometry_path:
+                    f = h5py.File(geometry_path)
+                    f[this_layer_alpha_shape_path] = pickle.dumps(this_layer_alpha_shape)
+                    f.close()
     
     population_ranges = read_population_ranges(output_path, comm)[0]
 
@@ -296,6 +299,9 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
 
             
             sampled_coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
+            
+            
+
             coords_dict = { population_start+i :  { 'X Coordinate': np.asarray([x_coord],dtype=np.float32),
                                     'Y Coordinate': np.asarray([y_coord],dtype=np.float32),
                                     'Z Coordinate': np.asarray([z_coord],dtype=np.float32),

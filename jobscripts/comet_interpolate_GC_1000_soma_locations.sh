@@ -30,7 +30,8 @@ set -x
 ibrun -np 12 python3 ./scripts/interpolate_forest_soma_locations.py \
     --config-prefix=./config \
     --config=Test_GC_1000.yaml \
+    --resolution 40 40 10 \
     --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_forest_20190612.h5 \
-    --coords-path=$SCRATCH/dentate/Test_GC_1000/DG_GC_1000_coords_20180618.h5 \
+    --coords-path=$SCRATCH/dentate/Test_GC_1000/DG_GC_1000_coords_20180620.h5 \
     -i GC --reltol=5 \
     --io-size=4 -v
