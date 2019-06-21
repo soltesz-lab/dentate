@@ -3,7 +3,7 @@ import numpy as np
 from mpi4py import MPI
 
 from dentate.utils import get_module_logger, zip
-from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_info
+from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_selection, read_cell_attribute_info
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -44,51 +44,31 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
             unit_no = set(unit_no)
 
         state_dict = {}
-        valiter = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
+        if unit_no is None:
+            valiter = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
+        else:
+            valiter = read_cell_attribute_selection(input_file, pop_name, namespace=namespace_id,
+                                                    selection=list(unit_no), comm=comm)
 
         if time_range is None:
-            if unit_no is None:
-                for cellind, vals in valiter:
-                    if cellind is not None:
-                        tlst = []
-                        vlst = []
-                        for (t, v) in zip(vals[time_variable], vals[variable]):
-                            tlst.append(t)
-                            vlst.append(v)
-                        state_dict[cellind] = (np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
-            else:
-                for cellind, vals in valiter:
-                    if (cellind is not None) and (cellind in unit_no):
-                        tlst = []
-                        vlst = []
-                        for (t, v) in zip(vals[time_variable], vals[variable]):
-                            tlst.append(t)
-                            vlst.append(v)
-                        state_dict[cellind] = (np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
-
+            for cellind, vals in valiter:
+                if cellind is not None:
+                    tlst = []
+                    vlst = []
+                    for (t, v) in zip(vals[time_variable], vals[variable]):
+                        tlst.append(t)
+                        vlst.append(v)
+                    state_dict[cellind] = (np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
         else:
-            if unit_no is None:
-                for cellind, vals in valiter:
-                    if cellind is not None:
-                        tlst = []
-                        vlst = []
-                        for (t, v) in zip(vals[time_variable], vals[variable]):
-                            if time_range[0] <= t <= time_range[1]:
-                                tlst.append(t)
-                                vlst.append(v)
-                        state_dict[cellind] = (np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
-            else:
-                for cellind, vals in valiter:
-                    if cellind is not None:
-                        if cellind in unit_no:
-                            tlst = []
-                            vlst = []
-                            for (t, v) in zip(vals[time_variable], vals[variable]):
-                                if time_range[0] <= t <= time_range[1]:
-                                    tlst.append(t)
-                                    vlst.append(v)
-                            state_dict[cellind] = (
-                            np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
+            for cellind, vals in valiter:
+                if cellind is not None:
+                    tlst = []
+                    vlst = []
+                    for (t, v) in zip(vals[time_variable], vals[variable]):
+                        if time_range[0] <= t <= time_range[1]:
+                            tlst.append(t)
+                            vlst.append(v)
+                    state_dict[cellind] = (np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
 
         pop_state_dict[pop_name] = state_dict
 
