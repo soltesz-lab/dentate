@@ -10,8 +10,31 @@ from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_selection, read_c
 logger = get_module_logger(__name__)
 
 
+def query_state(input_file, population_names, namespace_id=None):
+
+    pop_state_dict = {}
+
+    logger.info('Reading state data...')
+
+    attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
+
+    for pop_name in attr_info_dict:
+        cell_index = None
+        pop_state_dict[pop_name] = {}
+        if namespace_id is None:
+            namespace_id_lst = attr_info_dict[pop_name].keys()
+        else:
+            namespace_id_lst = [namespace_id]
+        for this_namespace_id in namespace_id_lst:
+            print("Namespace: %s" % str(this_namespace_id))
+            for attr_name, attr_cell_index in attr_info_dict[pop_name][this_namespace_id]:
+                print("\tAttribute: %s" % str(attr_name))
+                for i in attr_cell_index:
+                    print("\t%d" % i)
+
+
 def read_state(input_file, population_names, namespace_id, time_variable='t', variable='v', time_range=None,
-               max_units=None, unit_no=None, query=False, comm=None):
+               max_units=None, unit_no=None, comm=None):
     if comm is None:
         comm = MPI.COMM_WORLD
     pop_state_dict = {}
@@ -19,10 +42,6 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
     logger.info('Reading state data...')
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
-
-    if query:
-        print(attr_info_dict)
-        return
 
     for pop_name in population_names:
         cell_index = None
