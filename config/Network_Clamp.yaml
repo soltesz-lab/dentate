@@ -121,5 +121,53 @@ Synaptic Optimization:
 #          GABA_A:
 #            g_unit: [0.0001, 0.003]
     Target firing rate: 10.0
+  HCC:
+    Parameter ranges:
+      GC:
+        apical:
+          AMPA:
+            g_unit: [0.0001, 0.003]
+        basal:
+          AMPA:
+            g_unit: [0.0001, 0.003]
+        soma:
+          AMPA:
+            g_unit: [0.0001, 0.003]
+      MC:
+        apical:
+          AMPA:
+            g_unit: [0.0001, 0.003]
+        basal:
+          AMPA:
+            g_unit: [0.0001, 0.003]
+        soma:
+          AMPA:
+            g_unit: [0.0001, 0.003]
+      HCC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+        basal:
+          GABA_A:
+            g_unit: [0.0001, 0.004]
+      NGFC:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      MOPP:
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+      IS:
+        basal:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+        apical:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+        soma:
+          GABA_A:
+            g_unit: [0.0001, 0.002]
+    Target firing rate: 10.0
       
 
