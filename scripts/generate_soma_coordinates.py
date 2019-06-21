@@ -72,6 +72,7 @@ def uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
 @click.option("--config-prefix", required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True), default="config")
 @click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--geometry-path", required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--output-namespace", type=str, default='Generated Coordinates')
 @click.option("--populations", '-i', type=str, multiple=True)
@@ -83,7 +84,7 @@ def uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', type=bool, default=False, is_flag=True)
-def main(config, config_prefix, types_path, template_path, output_path, output_namespace, populations, resolution, alpha_radius, nodeiter, optiter, io_size, chunk_size, value_chunk_size, verbose):
+def main(config, config_prefix, types_path, template_path, geometry_path, output_path, output_namespace, populations, resolution, alpha_radius, nodeiter, optiter, io_size, chunk_size, value_chunk_size, verbose):
 
     config_logging(verbose)
     logger = get_script_logger(script_name)
@@ -118,17 +119,23 @@ def main(config, config_prefix, types_path, template_path, output_path, output_n
     layer_alpha_shapes = {}
     layer_alpha_shape_path = 'Layer Alpha Shape/%d/%d/%d' % resolution
     if rank == 0:
-        f = h5py.File(output_path,'a')
-        if layer_alpha_shape_path in f:
-            layer_alpha_shapes = pickle.loads(f[layer_alpha_shape_path])
-        else:
+        has_layer_alpha_shapes = False
+        if geometry_path:
+            f = h5py.File(geometry_path,'r')
+            if layer_alpha_shape_path in f:
+                has_layer_alpha_shapes = True
+                layer_alpha_shapes = pickle.loads(f[layer_alpha_shape_path])
+            f.close()
+        if not has_layer_alpha_shapes:
             for layer, extents in viewitems(layer_extents):
                 layer_alpha_shape = make_alpha_shape(extents[0], extents[1],
                                                      alpha_radius=alpha_radius,
                                                      rotate=rotate, resolution=resolution)
                 layer_alpha_shapes[layer] = layer_alpha_shape
-            f[layer_alpha_shape_path] = pickle.dumps(layer_alpha_shapes)
-        f.close()
+            if geometry_path:
+                f = h5py.File(geometry_path,'a')
+                f[layer_alpha_shape_path] = pickle.dumps(layer_alpha_shapes)
+                f.close()
     
     population_ranges = read_population_ranges(output_path, comm)[0]
 
