@@ -124,7 +124,26 @@ def make_surface(extent_u, extent_v, obs_l, rotate=None, basis=rbf.basis.phs2, o
 
     return srf
 
+def make_alpha_shape(min_extent, max_extent, alpha_radius=120., **volume_kwargs):
 
+    logger.info("Constructing volume...")
+                
+    vol = make_volume((min_extent[0], max_extent[0]), 
+                      (min_extent[1], max_extent[1]), 
+                      (min_extent[2], max_extent[2]),
+                      **volume_kwargs)
+            
+    logger.info("Constructing volume triangulation...")
+
+    tri = vol.create_triangulation()
+
+    logger.info("Constructing alpha shape...")
+
+    alpha = alpha_shape([], alpha_radius, tri=tri)
+    
+    return alpha
+    
+    
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
     a, b are row vectors of points.
