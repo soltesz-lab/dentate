@@ -2,30 +2,20 @@
 ## Generate soma coordinates within layer-specific volume.
 ##
 
-import itertools
-import logging
+import os, sys, os.path, itertools, random, pickle, logging, click
 import math
-import os.path
-import random
-import sys
-
+from mpi4py import MPI
 import h5py
 import numpy as np
-
-import click
 import dlib
 import rbf
-from dentate.alphavol import alpha_shape
-from dentate.env import Env
-from dentate.geometry import DG_volume
-from dentate.geometry import make_uvl_distance
-from dentate.geometry import make_volume
-from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import append_cell_attributes
-from neuroh5.io import read_population_ranges
 from rbf.pde.geometry import contains
 from rbf.pde.nodes import min_energy_nodes
+from dentate.alphavol import alpha_shape
+from dentate.env import Env
+from dentate.geometry import DG_volume, make_uvl_distance, make_volume, make_alpha_shape
+from dentate.utils import *
+from neuroh5.io import append_cell_attributes, read_population_ranges
 
 script_name = os.path.basename(__file__)
 logger = get_script_logger(script_name)
@@ -61,18 +51,25 @@ def random_subset( iterator, K ):
 
     return result
 
-def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
-    result = (uvl_coords[0] <= pop_max_extent[0]) and \
-      (uvl_coords[0] > pop_min_extent[0]) and \
-      (uvl_coords[1] < pop_max_extent[1]) and \
-      (uvl_coords[1] > pop_min_extent[1]) and \
-      (uvl_coords[2] < pop_max_extent[2]) and \
-      (uvl_coords[2] > pop_min_extent[2])
-    return result
+def uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
+    for layer, count in pop_layers:
+        if count > 0:
+            min_extent = layer_extents[layer][0]
+            max_extent = layer_extents[layer][1]
+            result = (uvl_coords[0] < max_extent[0]) and \
+                     (uvl_coords[0] > min_extent[0]) and \
+                     (uvl_coords[1] < max_extent[1]) and \
+                     (uvl_coords[1] > min_extent[1]) and \
+                     (uvl_coords[2] < max_extent[2]) and \
+                     (uvl_coords[2] > min_extent[2])
+            if result:
+                return True
+    return False
 
 
 @click.command()
-@click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--config", required=True, type=str)
+@click.option("--config-prefix", required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True), default="config")
 @click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
@@ -86,7 +83,7 @@ def uvl_in_bounds(uvl_coords, pop_min_extent, pop_max_extent):
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', type=bool, default=False, is_flag=True)
-def main(config, types_path, template_path, output_path, output_namespace, populations, resolution, alpha_radius, nodeiter, optiter, io_size, chunk_size, value_chunk_size, verbose):
+def main(config, config_prefix, types_path, template_path, output_path, output_namespace, populations, resolution, alpha_radius, nodeiter, optiter, io_size, chunk_size, value_chunk_size, verbose):
 
     config_logging(verbose)
     logger = get_script_logger(script_name)
@@ -110,86 +107,95 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
             output_file.close()
     comm.barrier()
 
-    env = Env(comm=comm, config_file=config)
-
-    layer_min_extents = env.geometry['Parametric Surface']['Minimum Extent']
-    layer_max_extents = env.geometry['Parametric Surface']['Maximum Extent']
-    rotate = env.geometry['Parametric Surface']['Rotation']
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
 
     random_seed = int(env.modelConfig['Random Seeds']['Soma Locations'])
+    random.seed(random_seed)
+    
+    layer_extents = env.geometry['Parametric Surface']['Layer Extents']
+    rotate = env.geometry['Parametric Surface']['Rotation']
+
+    layer_alpha_shapes = {}
+    layer_alpha_shape_path = 'Layer Alpha Shape/%d/%d/%d' % resolution
+    if rank == 0:
+        f = h5py.File(output_path,'a')
+        if layer_alpha_shape_path in f:
+            layer_alpha_shapes = pickle.loads(f[layer_alpha_shape_path])
+        else:
+            for layer, extents in viewitems(layer_extents):
+                layer_alpha_shape = make_alpha_shape(extents[0], extents[1],
+                                                     alpha_radius=alpha_radius,
+                                                     rotate=rotate, resolution=resolution)
+                layer_alpha_shapes[layer] = layer_alpha_shape
+            f[layer_alpha_shape_path] = pickle.dumps(layer_alpha_shapes)
+        f.close()
     
     population_ranges = read_population_ranges(output_path, comm)[0]
 
     for population in populations:
 
-        if verbose and (rank == 0):
+        if rank == 0:
             logger.info( 'population: %s' % population )
 
         (population_start, population_count) = population_ranges[population]
 
-        pop_min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
-        pop_max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
-
-        if verbose and (rank == 0):
-            logger.info('min extent: %f %f %f' % (pop_min_extent[0],pop_min_extent[1],pop_min_extent[2]))
-            logger.info('max extent: %f %f %f' % (pop_max_extent[0],pop_max_extent[1],pop_max_extent[2]))
+        pop_layers = env.geometry['Cell Distribution'][population]
+        pop_layer_count = 0
+        for layer, count in viewitems(pop_layers):
+            pop_layer_count += count
+        assert(population_count == pop_layer_count)
 
         xyz_coords = None
         xyz_coords_interp = None
         uvl_coords_interp = None
         if rank == 0:
-            if verbose:
-                logger.info("Constructing volume...")
+
+            xyz_coords_lst = []
+            xyz_coords_interp_lst = []
+            uvl_coords_interp_lst = []
+            for layer, count in viewitems(pop_layers):
+
+                if count <= 0:
+                    continue
                 
-            vol = make_volume((pop_min_extent[0], pop_max_extent[0]), \
-                              (pop_min_extent[1], pop_max_extent[1]), \
-                              (pop_min_extent[2], pop_max_extent[2]), \
-                              rotate=rotate, resolution=resolution)
-            
-            if verbose:
-                logger.info("Constructing volume triangulation...")
-            tri = vol.create_triangulation()
-
-            if verbose:
-                logger.info("Constructing alpha shape...")
-            alpha = alpha_shape([], alpha_radius, tri=tri)
+                alpha = layer_alpha_shapes[layer]
     
-            vert = alpha.points
-            smp  = np.asarray(alpha.bounds, dtype=np.int64)
+                vert = alpha.points
+                smp  = np.asarray(alpha.bounds, dtype=np.int64)
 
-            N = int(population_count*2) # total number of nodes
-            node_count = 0
+                N = int(count*2) # layer-specific number of nodes
+                node_count = 0
 
-            if verbose:
                 logger.info("Generating %i nodes..." % N)
 
-            if verbose:
-                rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
-                rbf_logger.setLevel(logging.DEBUG)
-
-            while node_count < population_count:
-                # create N quasi-uniformly distributed nodes
-                out = min_energy_nodes(N,(vert,smp),iterations=nodeiter)
-                nodes = out[0]
-        
-                # remove nodes outside of the domain
-                in_nodes = nodes[contains(nodes,vert,smp)]
-                
-                node_count = len(in_nodes)
-                N = int(1.5*N)
-            
                 if verbose:
+                    rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
+                    rbf_logger.setLevel(logging.DEBUG)
+
+                while node_count < count:
+                    # create N quasi-uniformly distributed nodes
+                    out = min_energy_nodes(N,(vert,smp),iterations=nodeiter)
+                    nodes = out[0]
+        
+                    # remove nodes outside of the domain
+                    in_nodes = nodes[contains(nodes,vert,smp)]
+                    
+                    node_count = len(in_nodes)
+                    N = int(1.5*N)
+                
                     logger.info("%i interior nodes out of %i nodes generated" % (node_count, len(nodes)))
 
-            if verbose:
                 logger.info("Inverse interpolation of %i nodes..." % node_count)
 
-            xyz_coords = in_nodes.reshape(-1,3)
-            uvl_coords_interp = vol.inverse(xyz_coords)
-            xyz_coords_interp = vol(uvl_coords_interp[:,0],uvl_coords_interp[:,1],uvl_coords_interp[:,2],mesh=False).reshape(3,-1).T
+                xyz_coords_lst.append(in_nodes.reshape(-1,3))
+                uvl_coords_interp_lst.append(vol.inverse(xyz_coords))
+                xyz_coords_interp_lst.append(vol(uvl_coords_interp[:,0],uvl_coords_interp[:,1],uvl_coords_interp[:,2],mesh=False).reshape(3,-1).T)
 
-            if verbose:
-                logger.info("Broadcasting generated nodes...")
+            xyz_coords = np.concatenate(xyz_coords_lst)
+            xyz_coords_interp = np.concatenate(xyz_coords_interp_lst)
+            uvl_coords_interp = np.concatenate(uvl_coords_interp_lst)
+
+            logger.info("Broadcasting generated nodes...")
 
             
         xyz_coords = comm.bcast(xyz_coords, root=0)
@@ -209,19 +215,7 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
             coord_ind = i
             if i % size == rank:
 
-                xyz_error_interp  = np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords_interp[coord_ind,:]))
-
-                f_uvl_distance = make_uvl_distance(xyz_coords[coord_ind,:],rotate=rotate)
-                uvl_coords_opt,dist = dlib.find_min_global(f_uvl_distance, pop_min_extent, pop_max_extent, optiter)
-                xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], rotate=rotate)[0]
-                xyz_error_opt  = np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords_opt))
-
-                
-                if uvl_in_bounds(uvl_coords_opt, pop_min_extent, pop_max_extent) and \
-                   np.all (np.less (xyz_error_opt, xyz_error_interp)):
-                    uvl_coords  = uvl_coords_opt
-                    xyz_coords1 = xyz_coords_opt
-                elif uvl_in_bounds(uvl_coords_interp[coord_ind,:], pop_min_extent, pop_max_extent):
+                if uvl_in_bounds(uvl_coords_interp[coord_ind,:], layer_extents, pop_layers):
                     uvl_coords  = uvl_coords_interp[coord_ind,:].ravel()
                     xyz_coords1 = xyz_coords_interp[coord_ind,:].ravel()
                 else:
@@ -235,8 +229,8 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
                     if verbose:
                         logger.info('Rank %i: cell %i: %f %f %f' % (rank, i, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
 
-                    coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],\
-                                       uvl_coords[0],uvl_coords[1],uvl_coords[2]))
+                    coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],
+                                  uvl_coords[0],uvl_coords[1],uvl_coords[2]))
                                        
         
         total_xyz_error = np.zeros((3,))
@@ -249,9 +243,9 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
             if rank == 0:
                 logger.info('Total %i coordinates generated' % coords_count)
 
-        mean_xyz_error = np.asarray([old_div(total_xyz_error[0], coords_count), \
-                                     old_div(total_xyz_error[1], coords_count), \
-                                     old_div(total_xyz_error[2], coords_count)])
+        mean_xyz_error = np.asarray([(total_xyz_error[0] / coords_count), \
+                                     (total_xyz_error[1] / coords_count), \
+                                     (total_xyz_error[2] / coords_count)])
 
         
         if verbose:
@@ -273,19 +267,23 @@ def main(config, types_path, template_path, output_path, output_namespace, popul
                 for item in sublist:
                     all_coords.append(item)
 
-
             if coords_count < population_count:
                 logger.warning("Generating additional %i coordinates " % (population_count - len(all_coords)))
 
                 safety = 0.01
                 sampled_coords = all_coords
-                for i in range(population_count - len(all_coords)):
-                    coord_u = np.random.uniform(pop_min_extent[0] + safety, pop_max_extent[0] - safety)
-                    coord_v = np.random.uniform(pop_min_extent[1] + safety, pop_max_extent[1] - safety)
-                    coord_l = np.random.uniform(pop_min_extent[2] + safety, pop_max_extent[2] - safety)
-                    xyz_coords = DG_volume(coord_u, coord_v, coord_l, rotate=rotate).ravel()
-                    sampled_coords.append((xyz_coords[0],xyz_coords[1],xyz_coords[2],\
-                                           coord_u, coord_v, coord_l))
+                delta = population_count - len(all_coords)
+                for i in range(delta):
+                    for layer, count in pop_layers:
+                        if count > 0:
+                            min_extent = layer_extents[layer][0]
+                            max_extent = layer_extents[layer][1]
+                            coord_u = np.random.uniform(min_extent[0] + safety, max_extent[0] - safety)
+                            coord_v = np.random.uniform(min_extent[1] + safety, max_extent[1] - safety)
+                            coord_l = np.random.uniform(min_extent[2] + safety, max_extent[2] - safety)
+                            xyz_coords = DG_volume(coord_u, coord_v, coord_l, rotate=rotate).ravel()
+                            sampled_coords.append((xyz_coords[0],xyz_coords[1],xyz_coords[2],\
+                                                  coord_u, coord_v, coord_l))
             else:
                 sampled_coords = random_subset(all_coords, int(population_count))
 
