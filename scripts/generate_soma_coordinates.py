@@ -13,7 +13,7 @@ from rbf.pde.geometry import contains
 from rbf.pde.nodes import min_energy_nodes
 from dentate.alphavol import alpha_shape
 from dentate.env import Env
-from dentate.geometry import DG_volume, make_uvl_distance, make_volume, make_alpha_shape, load_alpha_shape, save_alpha_shape, get_total_extents
+from dentate.geometry import DG_volume, make_uvl_distance, make_volume, make_alpha_shape, load_alpha_shape, save_alpha_shape, get_total_extents, uvl_in_bounds
 from dentate.utils import *
 from neuroh5.io import append_cell_attributes, read_population_ranges
 
@@ -50,21 +50,6 @@ def random_subset( iterator, K ):
                 result[ s ] = item
 
     return result
-
-def uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
-    for layer, count in viewitems(pop_layers):
-        if count > 0:
-            min_extent = layer_extents[layer][0]
-            max_extent = layer_extents[layer][1]
-            result = (uvl_coords[0] < max_extent[0]) and \
-                     (uvl_coords[0] > min_extent[0]) and \
-                     (uvl_coords[1] < max_extent[1]) and \
-                     (uvl_coords[1] > min_extent[1]) and \
-                     (uvl_coords[2] < max_extent[2]) and \
-                     (uvl_coords[2] > min_extent[2])
-            if result:
-                return True
-    return False
 
 
 @click.command()

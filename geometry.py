@@ -115,6 +115,21 @@ def get_total_extents(layer_extents):
 
     return ((min_u, max_u), (min_v, max_v), (min_l, max_l))
 
+def uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
+    for layer, count in viewitems(pop_layers):
+        if count > 0:
+            min_extent = layer_extents[layer][0]
+            max_extent = layer_extents[layer][1]
+            result = (uvl_coords[0] < max_extent[0]) and \
+                     (uvl_coords[0] > min_extent[0]) and \
+                     (uvl_coords[1] < max_extent[1]) and \
+                     (uvl_coords[1] > min_extent[1]) and \
+                     (uvl_coords[2] < max_extent[2]) and \
+                     (uvl_coords[2] > min_extent[2])
+            if result:
+                return True
+    return False
+
 def make_volume(extent_u, extent_v, extent_l, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10],
                 return_xyz=False):
     """Creates an RBF volume based on the parametric equations of the dentate volume."""
