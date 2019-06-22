@@ -3,6 +3,7 @@ import logging
 import math
 import numpy as np
 import rbf
+import dentate
 from dentate.alphavol import alpha_shape
 from dentate.rbf_surface import RBFSurface
 from dentate.rbf_volume import RBFVolume
@@ -93,6 +94,26 @@ def DG_meshgrid(extent_u, extent_v, extent_l, resolution=[30, 30, 10], rotate=No
     else:
         return xyz
 
+def get_total_extents(layer_extents):
+
+    min_u = float('inf')
+    max_u = 0.0
+
+    min_v = float('inf')
+    max_v = 0.0
+
+    min_l = float('inf')
+    max_l = 0.0
+
+    for layer, extent in viewitems(layer_extents):
+        min_u = min(extent[0][0], min_u)
+        min_v = min(extent[0][1], min_v)
+        min_l = min(extent[0][2], min_l)
+        max_u = max(extent[1][0], max_u)
+        max_v = max(extent[1][1], max_v)
+        max_l = max(extent[1][2], max_l)
+
+    return ((min_u, max_u), (min_v, max_v), (min_l, max_l))
 
 def make_volume(extent_u, extent_v, extent_l, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10],
                 return_xyz=False):
@@ -146,9 +167,10 @@ def make_alpha_shape(min_extent, max_extent, alpha_radius=120., **volume_kwargs)
 def save_alpha_shape(file_path, dataset_path, alpha_shape):
     import h5py
     f = h5py.File(file_path)
-    f[dataset_path]['points'] = alpha_shape.points
-    f[dataset_path]['simplices'] = alpha_shape.simplices
-    f[dataset_path]['bounds'] = alpha_shape.bounds
+    grp = f.create_group(dataset_path)
+    grp['points'] = alpha_shape.points
+    grp['simplices'] = alpha_shape.simplices
+    grp['bounds'] = alpha_shape.bounds
     f.close()
 
 def load_alpha_shape(file_path, dataset_path):
@@ -156,9 +178,9 @@ def load_alpha_shape(file_path, dataset_path):
     f = h5py.File(file_path)
     alpha_shape = None
     if dataset_path in f:
-        points = f[dataset_path]['points']
-        simplices = f[dataset_path]['simplices']
-        bounds = f[dataset_path]['bounds']
+        points = f[dataset_path]['points'][:]
+        simplices = f[dataset_path]['simplices'][:]
+        bounds = f[dataset_path]['bounds'][:]
         alpha_shape = dentate.alphavol.AlphaShape(points, simplices, bounds)
     f.close()
     return alpha_shape
