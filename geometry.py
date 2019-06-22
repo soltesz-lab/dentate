@@ -142,8 +142,27 @@ def make_alpha_shape(min_extent, max_extent, alpha_radius=120., **volume_kwargs)
     alpha = alpha_shape([], alpha_radius, tri=tri)
     
     return alpha
-    
-    
+
+def save_alpha_shape(file_path, dataset_path, alpha_shape):
+    import h5py
+    f = h5py.File(file_path)
+    f[dataset_path]['points'] = alpha_shape.points
+    f[dataset_path]['simplices'] = alpha_shape.simplices
+    f[dataset_path]['bounds'] = alpha_shape.bounds
+    f.close()
+
+def load_alpha_shape(file_path, dataset_path):
+    import h5py
+    f = h5py.File(file_path)
+    alpha_shape = None
+    if dataset_path in f:
+        points = f[dataset_path]['points']
+        simplices = f[dataset_path]['simplices']
+        bounds = f[dataset_path]['bounds']
+        alpha_shape = dentate.alphavol.AlphaShape(points, simplices, bounds)
+    f.close()
+    return alpha_shape
+
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
     a, b are row vectors of points.

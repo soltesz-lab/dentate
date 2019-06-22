@@ -13,7 +13,7 @@ from rbf.pde.geometry import contains
 from rbf.pde.nodes import min_energy_nodes
 from dentate.alphavol import alpha_shape
 from dentate.env import Env
-from dentate.geometry import DG_volume, make_uvl_distance, make_volume, make_alpha_shape
+from dentate.geometry import DG_volume, make_uvl_distance, make_volume, make_alpha_shape, load_alpha_shape, save_alpha_shape
 from dentate.utils import *
 from neuroh5.io import append_cell_attributes, read_population_ranges
 
@@ -124,21 +124,16 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
             has_layer_alpha_shape = False
             if geometry_path:
                 this_layer_alpha_shape_path = '%s/%s' % (layer_alpha_shape_path, layer)
-                f = h5py.File(geometry_path)
-                if this_layer_alpha_shape_path in f:
+                this_layer_alpha_shape = load_alpha_shape(geometry_path, this_layer_alpha_shape_path)
+                if this_layer_alpha_shape is not None:
                     has_layer_alpha_shape = True
-                    this_layer_alpha_shape = pickle.loads(f[this_layer_alpha_shape_path])
-                    layer_alpha_shapes[layer] = this_layer_alpha_shape
-                f.close()
             if not has_layer_alpha_shape:
                 this_layer_alpha_shape = make_alpha_shape(extents[0], extents[1],
                                                           alpha_radius=alpha_radius,
                                                           rotate=rotate, resolution=resolution)
                 layer_alpha_shapes[layer] = this_layer_alpha_shape
                 if geometry_path:
-                    f = h5py.File(geometry_path)
-                    f[this_layer_alpha_shape_path] = pickle.dumps(this_layer_alpha_shape)
-                    f.close()
+                    save_alpha_shape(geometry_path, this_layer_alpha_shape_path, this_layer_alpha_shape)
     
     population_ranges = read_population_ranges(output_path, comm)[0]
 
