@@ -1,15 +1,15 @@
 #!/bin/bash
 #
-#SBATCH -J interpolate_GC_soma_locations
-#SBATCH -o ./results/interpolate_GC_soma_locations.%j.o
+#SBATCH -J reindex_GC_trees
+#SBATCH -o ./results/reindex_GC_trees.%j.o
 #SBATCH -p shared
-#SBATCH --ntasks=12
-#SBATCH -t 0:30:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=12
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
 #
-
 
 module load python
 module unload intel
@@ -27,11 +27,11 @@ ulimit -c unlimited
 
 set -x
 
-ibrun -np 1 python3 ./scripts/interpolate_forest_soma_locations.py \
-    --config-prefix=./config \
-    --config=Test_GC_1000.yaml \
-    --resolution 40 40 10 \
+ibrun -np 12 python3 ./scripts/reindex_trees.py \
+    --population=GC \
+    --sample-count=1000 \
+    --types-path=./datasets/dentate_h5types.h5 \
     --forest-path=$SCRATCH/dentate/Test_GC_1000/DGC_forest_20190622.h5 \
-    --coords-path=$SCRATCH/dentate/Test_GC_1000/DGC_coords_20190622.h5 \
-    -i GC --reltol=5 \
-    --io-size=1 -v
+    --output-path=$SCRATCH/dentate/Test_GC_1000/DGC_forest_reindex_20190622.h5 \
+    --index-path=$SCRATCH/dentate/Test_GC_1000/DGC_coords_20190622.h5 \
+    --io-size=4 -v

@@ -1,4 +1,4 @@
-import os, sys, itertools, logging, random, time
+import os, sys, itertools, logging, time
 from mpi4py import MPI
 import numpy as np
 import dlib

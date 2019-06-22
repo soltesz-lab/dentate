@@ -82,7 +82,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
         io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
-    sys.stdout.flush()
+
 
     if rank==0:
         if not os.path.isfile(output_path):
