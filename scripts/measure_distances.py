@@ -31,12 +31,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--alpha-radius", type=float, default=120.)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
+@click.option("--nsample", type=int, default=1000)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, geometry_path, populations, interp_chunk_size, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, geometry_path, populations, interp_chunk_size, resolution, alpha_radius, nsample, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(__file__)
@@ -60,6 +61,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
         del coords
         gc.collect()
 
+    
     origin_ranges=None
     ip_dist_u=None
     ip_dist_v=None
@@ -67,7 +69,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
     if rank == 0:
         has_ip_dist = False
         if geometry_path is not None:
-            f = h5py.File(geometry_path, 'r')
+            f = h5py.File(geometry_path)
             pkl_path = '%s/ip_dist.pkl' % ip_dist_path
             if pkl_path in f:
                 has_ip_dist = True
@@ -76,7 +78,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
             f.close()
         if not has_ip_dist:
             logger.info('Computing soma distances...')
-            (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution)
+            (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
             if geometry_path is not None:
                 f = h5py.File(geometry_path, 'a')
                 pkl_path = '%s/ip_dist.pkl' % ip_dist_path

@@ -212,8 +212,7 @@ def make_uvl_distance(xyz_coords, rotate=None):
     return f
 
 
-def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, alpha_radius=120., optiter=200,
-                         nodeitr=20):
+def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, alpha_radius=120., nodeitr=20):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -230,8 +229,6 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
         Parameter for creation of alpha volume that encloses the
         RBFVolume. Smaller values improve the quality of alpha volume,
         but increase the time for sampling points inside the volume.
-    optiter : int 
-        Number of iterations for optimization that interpolates X,Y,Z coordinates into parameteric U,V,L coordinates.  
     nodeitr : int 
         Number of iterations for distributing sampled points inside the volume.
     Returns
@@ -243,7 +240,6 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
         The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
 
     """
-    import dlib
     from rbf.pde.nodes import min_energy_nodes
     from rbf.pde.geometry import contains
 
@@ -317,26 +313,7 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
     min_extent = [np.min(ip_vol.u), np.min(ip_vol.v), np.min(ip_vol.l)]
     max_extent = [np.max(ip_vol.u), np.max(ip_vol.v), np.max(ip_vol.l)]
 
-    logger.info('Interpolation by optimization of UVL coordinates...')
-    all_node_uvl_coords = []
-    for i in range(0, xyz_coords.shape[0]):
-        logger.info("coordinates %i" % i)
-        this_xyz_coords = xyz_coords[i, :]
-        f_uvl_distance = make_uvl_distance(this_xyz_coords, rotate=rotate)
-        uvl_coords_opt, dist = dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
-        xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], rotate=rotate)[0]
-        xyz_error_opt = np.abs(np.subtract(xyz_coords[i, :], xyz_coords_opt))
-        logger.info('uvl_coords_opt: %s' % str(uvl_coords_opt))
-        logger.info('uvl_coords_interp: %s' % str(uvl_coords_interp[i, :]))
-        logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
-        logger.info('xyz_error_interp: %s' % str(xyz_error_interp[i, :]))
-        if np.all(np.less(xyz_error_interp[i, :], xyz_error_opt)):
-            coords = uvl_coords_interp[i, :]
-        else:
-            coords = np.asarray(uvl_coords_opt)
-        all_node_uvl_coords.append(coords.ravel())
-
-    node_uvl_coords = np.vstack(all_node_uvl_coords)
+    node_uvl_coords = uvl_coords_interp
     uvl_coords = np.vstack([boundary_uvl_coords, node_uvl_coords])
 
     logger.info('Computing volume distances...')
@@ -469,7 +446,8 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, layer_extents
 
     return soma_distances
 
-def make_distance_interpolant(env, resolution=[30, 30, 10]):
+def make_distance_interpolant(env, resolution=[30, 30, 10], nsample=1000):
+    from rbf.interpolate import RBFInterpolant
 
     layer_extents = env.geometry['Parametric Surface']['Layer Extents']
     (extent_u, extent_v, extent_l) = get_total_extents(layer_extents)
@@ -492,8 +470,12 @@ def make_distance_interpolant(env, resolution=[30, 30, 10]):
                             (min_l - safety, max_l + safety), \
                             resolution=resolution, rotate=rotate)
 
+    interp_sigma = 0.01
+    interp_basis = rbf.basis.ga
+    interp_order = 1
+
     logger.info('Computing volume distances...')
-    vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
+    vol_dist = get_volume_distances(ip_volume, origin_spec=origin, nsample=nsample)
     (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
     logger.info('Computing U volume distance interpolants...')
     ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
@@ -506,7 +488,6 @@ def make_distance_interpolant(env, resolution=[30, 30, 10]):
     
 
 def measure_distances(env, soma_coords, ip_dist, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
-    from rbf.interpolate import RBFInterpolant
 
     rank = env.comm.rank
 
@@ -516,10 +497,6 @@ def measure_distances(env, soma_coords, ip_dist, resolution=[30, 30, 10], interp
 
     rotate = env.geometry['Parametric Surface']['Rotation']
     origin = env.geometry['Parametric Surface']['Origin']
-
-    interp_sigma = 0.01
-    interp_basis = rbf.basis.ga
-    interp_order = 1
 
     origin_ranges, ip_dist_u, ip_dist_v = ip_dist
         
