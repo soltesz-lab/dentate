@@ -9,7 +9,7 @@ from rbf.interpolate import RBFInterpolant
 import dentate
 import dentate.utils as utils
 from dentate.env import Env
-from dentate.geometry import measure_distances
+from dentate.geometry import measure_distances, make_distance_interpolant
 from dentate.utils import viewitems
 from neuroh5.io import append_cell_attributes, bcast_cell_attributes, read_population_names, read_population_ranges
 import h5py
@@ -60,7 +60,9 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
         del coords
         gc.collect()
 
-    ip_dist = None
+    origin_ranges=None
+    ip_dist_u=None
+    ip_dist_v=None
     ip_dist_path = 'Distance Interpolant/%d/%d/%d' % resolution
     if rank == 0:
         has_ip_dist = False
@@ -70,7 +72,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
             if pkl_path in f:
                 has_ip_dist = True
                 ip_dist_dset = f[pkl_path]
-                ip_dist = pickle.loads(base64.b64decode(ip_dist_dset[()]))
+                origin_ranges, ip_dist_u, ip_dist_v = pickle.loads(base64.b64decode(ip_dist_dset[()]))
             f.close()
         if not has_ip_dist:
             logger.info('Computing soma distances...')
@@ -82,7 +84,8 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
                 pklstr = base64.b64encode(pkl)
                 f[pkl_path] = pklstr
                 f.close()
-            
+
+    env.comm.barrier()
     origin_ranges = env.comm.bcast(origin_ranges, root=0)
     ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
     ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
