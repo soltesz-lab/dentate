@@ -1,5 +1,5 @@
 
-import os, sys, gc, logging, pickle
+import os, sys, gc, logging, pickle, base64
 from mpi4py import MPI
 import numpy as np
 import click
@@ -26,6 +26,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-namespace", type=str, default='Sorted Coordinates')
+@click.option("--geometry-path", required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--interp-chunk-size", type=int, default=1000)
 @click.option("--alpha-radius", type=float, default=120.)
@@ -35,7 +36,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, coords_path, coords_namespace, populations, interp_chunk_size, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, coords_path, coords_namespace, geometry_path, populations, interp_chunk_size, resolution, alpha_radius, io_size, chunk_size, value_chunk_size, cache_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(__file__)
@@ -51,7 +52,7 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
     if rank == 0:
         logger.info('Reading population coordinates...')
         
-    for population in populations:
+    for population in sorted(populations):
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace, comm=comm)
 
@@ -62,19 +63,35 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
     ip_dist = None
     ip_dist_path = 'Distance Interpolant/%d/%d/%d' % resolution
     if rank == 0:
-        f = h5py.File(coords_path, 'r')
-        if ip_dist_path in f:
-            ip_dist = pickle.loads(f[ip_dist_path])
-        f.close()
+        has_ip_dist = False
+        if geometry_path is not None:
+            f = h5py.File(geometry_path, 'r')
+            pkl_path = '%s/ip_dist.pkl' % ip_dist_path
+            if pkl_path in f:
+                has_ip_dist = True
+                ip_dist_dset = f[pkl_path]
+                ip_dist = pickle.loads(base64.b64decode(ip_dist_dset[()]))
+            f.close()
+        if not has_ip_dist:
+            logger.info('Computing soma distances...')
+            (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution)
+            if geometry_path is not None:
+                f = h5py.File(geometry_path, 'a')
+                pkl_path = '%s/ip_dist.pkl' % ip_dist_path
+                pkl = pickle.dumps((origin_ranges, ip_dist_u, ip_dist_v))
+                pklstr = base64.b64encode(pkl)
+                f[pkl_path] = pklstr
+                f.close()
+            
+    origin_ranges = env.comm.bcast(origin_ranges, root=0)
+    ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
+    ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
                 
-    soma_distances, (origin_ranges, ip_dist_u, up_dist_v) = measure_distances(env, soma_coords, ip_dist=ip_dist, resolution=resolution)
-    if rank == 0:
-        f = h5py.File(coords_path, 'a')
-        if ip_dist_path not in f:
-            f[ip_dist_path] = pickle.dumps((origin_ranges, ip_dist_u, ip_dist_v))
-        f.close()
+    ip_dist = (origin_ranges, ip_dist_u, ip_dist_v)
+
+    soma_distances = measure_distances(env, soma_coords, ip_dist, resolution=resolution)
                                        
-    for population in list(soma_distances.keys()):
+    for population in list(sorted(soma_distances.keys())):
 
         if rank == 0:
             logger.info('Writing distances for population %s...' % population)
@@ -95,7 +112,8 @@ def main(config, coords_path, coords_namespace, populations, interp_chunk_size, 
             f['Populations'][population]['Arc Distances'].attrs['Reference V Min'] = origin_ranges[1][0]
             f['Populations'][population]['Arc Distances'].attrs['Reference V Max'] = origin_ranges[1][1]
             f.close()
-        comm.Barrier()
+
+    comm.Barrier()
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

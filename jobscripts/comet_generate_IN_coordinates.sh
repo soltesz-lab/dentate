@@ -5,7 +5,7 @@
 #SBATCH -p shared
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=12
-#SBATCH -t 8:00:00
+#SBATCH -t 12:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -36,7 +36,9 @@ ibrun -np 12 python3 ./scripts/generate_soma_coordinates.py -v \
     --types-path=./datasets/dentate_h5types.h5 \
     --geometry-path=./datasets/dentate_geometry.h5 \
     --template-path=./templates \
-    --resolution 30 30 10 \
-    -i AAC -i BC -i MC -i HC -i HCC -i IS -i MOPP -i NGFC -i MPP -i LPP -i ConMC -i CA3c \
+    --resolution 40 40 10 \
+    -i ConMC -i CA3c \
     --output-path=$SCRATCH/dentate/Full_Scale_Control/dentate_IN_coords_20190622.h5 \
     --output-namespace='Generated Coordinates' 
+
+#    -i AAC -i BC -i MC -i HC -i HCC -i IS -i MOPP -i NGFC -i MPP -i LPP -i ConMC -i CA3c 

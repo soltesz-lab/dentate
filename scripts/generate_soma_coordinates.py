@@ -260,7 +260,6 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
                 logger.warning("Generating additional %i coordinates " % (population_count - len(all_coords)))
 
                 safety = 0.01
-                sampled_coords = all_coords
                 delta = population_count - len(all_coords)
                 for i in range(delta):
                     for layer, count in viewitems(pop_layers):
@@ -271,10 +270,10 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
                             coord_v = np.random.uniform(min_extent[1] + safety, max_extent[1] - safety)
                             coord_l = np.random.uniform(min_extent[2] + safety, max_extent[2] - safety)
                             xyz_coords = DG_volume(coord_u, coord_v, coord_l, rotate=rotate).ravel()
-                            sampled_coords.append((xyz_coords[0],xyz_coords[1],xyz_coords[2],\
-                                                  coord_u, coord_v, coord_l))
-            else:
-                sampled_coords = random_subset(all_coords, int(population_count))
+                            all_coords.append((xyz_coords[0],xyz_coords[1],xyz_coords[2],\
+                                              coord_u, coord_v, coord_l))
+
+            sampled_coords = random_subset(all_coords, int(population_count))
 
             
             sampled_coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
