@@ -11,12 +11,12 @@ from dentate.utils import *
 from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
 import h5py
 
-#sys_excepthook = sys.excepthook
-#def mpi_excepthook(type, value, traceback):
-#    sys_excepthook(type, value, traceback)
-#    if MPI.COMM_WORLD.size > 1:
-#        MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 
 def update_syn_stats(env, syn_stats_dict, syn_dict):

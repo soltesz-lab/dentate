@@ -13,12 +13,12 @@
 
 
 
-#module load python
-#module unload intel
-#module load gnu
-#module load mvapich2_ib
-#module load mkl
-#module load hdf5
+module load python
+module unload intel
+module load gnu
+module load mvapich2_ib
+module load mkl
+module load hdf5
 
 
 export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
