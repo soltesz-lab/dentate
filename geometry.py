@@ -3,6 +3,7 @@ import logging
 import math
 import numpy as np
 import rbf
+import dentate
 from dentate.alphavol import alpha_shape
 from dentate.rbf_surface import RBFSurface
 from dentate.rbf_volume import RBFVolume
@@ -93,6 +94,41 @@ def DG_meshgrid(extent_u, extent_v, extent_l, resolution=[30, 30, 10], rotate=No
     else:
         return xyz
 
+def get_total_extents(layer_extents):
+
+    min_u = float('inf')
+    max_u = 0.0
+
+    min_v = float('inf')
+    max_v = 0.0
+
+    min_l = float('inf')
+    max_l = 0.0
+
+    for layer, extent in viewitems(layer_extents):
+        min_u = min(extent[0][0], min_u)
+        min_v = min(extent[0][1], min_v)
+        min_l = min(extent[0][2], min_l)
+        max_u = max(extent[1][0], max_u)
+        max_v = max(extent[1][1], max_v)
+        max_l = max(extent[1][2], max_l)
+
+    return ((min_u, max_u), (min_v, max_v), (min_l, max_l))
+
+def uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
+    for layer, count in viewitems(pop_layers):
+        if count > 0:
+            min_extent = layer_extents[layer][0]
+            max_extent = layer_extents[layer][1]
+            result = (uvl_coords[0] < max_extent[0]) and \
+                     (uvl_coords[0] > min_extent[0]) and \
+                     (uvl_coords[1] < max_extent[1]) and \
+                     (uvl_coords[1] > min_extent[1]) and \
+                     (uvl_coords[2] < max_extent[2]) and \
+                     (uvl_coords[2] > min_extent[2])
+            if result:
+                return True
+    return False
 
 def make_volume(extent_u, extent_v, extent_l, rotate=None, basis=rbf.basis.phs3, order=2, resolution=[30, 30, 10],
                 return_xyz=False):
@@ -142,8 +178,28 @@ def make_alpha_shape(min_extent, max_extent, alpha_radius=120., **volume_kwargs)
     alpha = alpha_shape([], alpha_radius, tri=tri)
     
     return alpha
-    
-    
+
+def save_alpha_shape(file_path, dataset_path, alpha_shape):
+    import h5py
+    f = h5py.File(file_path)
+    grp = f.create_group(dataset_path)
+    grp['points'] = alpha_shape.points
+    grp['simplices'] = alpha_shape.simplices
+    grp['bounds'] = alpha_shape.bounds
+    f.close()
+
+def load_alpha_shape(file_path, dataset_path):
+    import h5py
+    f = h5py.File(file_path)
+    alpha_shape = None
+    if dataset_path in f:
+        points = f[dataset_path]['points'][:]
+        simplices = f[dataset_path]['simplices'][:]
+        bounds = f[dataset_path]['bounds'][:]
+        alpha_shape = dentate.alphavol.AlphaShape(points, simplices, bounds)
+    f.close()
+    return alpha_shape
+
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
     a, b are row vectors of points.
@@ -156,7 +212,7 @@ def make_uvl_distance(xyz_coords, rotate=None):
     return f
 
 
-def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=250, alpha_radius=120., optiter=200,
+def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, alpha_radius=120., optiter=200,
                          nodeitr=20):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
@@ -318,8 +374,8 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=250, alp
     return (origin_ranges, obs_uv, distances_u, distances_v)
 
 
-def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, interp_chunk_size=1000,
-                          populations=None, allgather=False):
+def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, layer_extents, population_layers, 
+                          interp_chunk_size=1000, populations=None, allgather=False):
     """Interpolates path lengths of cell coordinates along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -336,10 +392,10 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
           where:
           - gid: cell identifier
           - u, v, l: floating point coordinates
-    population_extents: { population_name : limits }
-        A dictionary of maximum and minimum population coordinates in u,v,l space
-        Argument limits has the following type:
-         ((min_u, min_v, min_l), (max_u, max_v, max_l))
+    population_layers: { population_name : layers }
+        A dictionary of population count per layer
+        Argument layers has the following type:
+         { layer_name: count }
     allgather: boolean (default: False)
        if True, the results are gathered from all ranks and combined
     Returns
@@ -363,7 +419,7 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
             logger.info('Computing soma distances for population %s...' % pop)
         count = 0
         local_dist_dict = {}
-        limits = population_extents[pop]
+        pop_layer = population_layers[pop]
         u_obs = []
         v_obs = []
         gids = []
@@ -371,13 +427,10 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
             if gid % size == rank:
                 soma_u, soma_v, soma_l = coords
                 try:
-                    assert ((limits[1][0] - soma_u + 0.001 >= 0.) and (soma_u - limits[0][0] + 0.001 >= 0.))
-                    assert ((limits[1][1] - soma_v + 0.001 >= 0.) and (soma_v - limits[0][1] + 0.001 >= 0.))
-                    assert ((limits[1][2] - soma_l + 0.001 >= 0.) and (soma_l - limits[0][2] + 0.001 >= 0.))
+                    assert(uvl_in_bounds(coords, layer_extents, pop_layer))
                 except Exception as e:
-                    logger.error("gid %i: out of limits error for coordinates: %f %f %f limits: %f:%f %f:%f %f:%f )" % \
-                                 (gid, soma_u, soma_v, soma_l, limits[0][0], limits[1][0], limits[0][1], limits[1][1],
-                                  limits[0][2], limits[1][2]))
+                    logger.error("gid %i: out of limits error for coordinates: %f %f %f)" % \
+                                 (gid, soma_u, soma_v, soma_l))
                     raise e
 
                 u_obs.append(np.array([soma_u, soma_v, soma_l]).ravel())
@@ -416,109 +469,81 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, population_ex
 
     return soma_distances
 
+def make_distance_interpolant(env, resolution=[30, 30, 10]):
 
-def measure_distances(env, soma_coords, resolution=[30, 30, 10], interp_chunk_size=1000, ip_dist=None, allgather=False):
-    from rbf.interpolate import RBFInterpolant
-
-    rank = env.comm.rank
-
-    min_u = float('inf')
-    max_u = 0.0
-
-    min_v = float('inf')
-    max_v = 0.0
-
-    min_l = float('inf')
-    max_l = 0.0
-
-    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
-        min_u = min(min_extent[0], min_u)
-        min_v = min(min_extent[1], min_v)
-        min_l = min(min_extent[2], min_l)
-
-    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
-        max_u = max(max_extent[0], max_u)
-        max_v = max(max_extent[1], max_v)
-        max_l = max(max_extent[2], max_l)
-
-    population_extents = {}
-    for population in soma_coords:
-        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
-        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
-        population_extents[population] = (min_extent, max_extent)
+    layer_extents = env.geometry['Parametric Surface']['Layer Extents']
+    (extent_u, extent_v, extent_l) = get_total_extents(layer_extents)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
     origin = env.geometry['Parametric Surface']['Origin']
 
-    obs_uv = None
-    coeff_dist_u = None
-    coeff_dist_v = None
-
-    interp_sigma = 0.01
-    interp_basis = rbf.basis.ga
-    interp_order = 1
-
-    if rank == 0:
-        logger.info('Computing soma distances...')
+    min_u, max_u = extent_u
+    min_v, max_v = extent_v
+    min_l, max_l = extent_l
 
     ## This parameter is used to expand the range of L and avoid
     ## situations where the endpoints of L end up outside of the range
     ## of the distance interpolant
     safety = 0.01
 
-    origin_ranges = None
-    ip_dist_u = None
-    ip_dist_v = None
-    if ip_dist is None:
-        if rank == 0:
-            logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-            ip_volume = make_volume((min_u - safety, max_u + safety), \
-                                    (min_v - safety, max_v + safety), \
-                                    (min_l - safety, max_l + safety), \
-                                    resolution=resolution, rotate=rotate)
+    logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
+    ip_volume = make_volume((min_u - safety, max_u + safety), \
+                            (min_v - safety, max_v + safety), \
+                            (min_l - safety, max_l + safety), \
+                            resolution=resolution, rotate=rotate)
 
-            logger.info('Computing volume distances...')
-            vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
-            (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
-            logger.info('Computing U volume distance interpolants...')
-            ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
-                                       sigma=interp_sigma)
-            logger.info('Computing V volume distance interpolants...')
-            ip_dist_v = RBFInterpolant(obs_uv, dist_v, order=interp_order, phi=interp_basis, \
-                                       sigma=interp_sigma)
-            logger.info('Broadcasting volume distance interpolants...')
-    else:
-        origin_ranges, ip_dist_u, ip_dist_v = ip_dist
+    logger.info('Computing volume distances...')
+    vol_dist = get_volume_distances(ip_volume, origin_spec=origin)
+    (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
+    logger.info('Computing U volume distance interpolants...')
+    ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
+                                   sigma=interp_sigma)
+    logger.info('Computing V volume distance interpolants...')
+    ip_dist_v = RBFInterpolant(obs_uv, dist_v, order=interp_order, phi=interp_basis, \
+                                   sigma=interp_sigma)
+
+    return origin_ranges, ip_dist_u, ip_dist_v
+    
+
+def measure_distances(env, soma_coords, ip_dist, resolution=[30, 30, 10], interp_chunk_size=1000, allgather=False):
+    from rbf.interpolate import RBFInterpolant
+
+    rank = env.comm.rank
+
+    layer_extents = env.geometry['Parametric Surface']['Layer Extents']
+    cell_distribution = env.geometry['Cell Distribution']
+    (extent_u, extent_v, extent_l) = get_total_extents(layer_extents)
+
+    rotate = env.geometry['Parametric Surface']['Rotation']
+    origin = env.geometry['Parametric Surface']['Origin']
+
+    interp_sigma = 0.01
+    interp_basis = rbf.basis.ga
+    interp_order = 1
+
+    origin_ranges, ip_dist_u, ip_dist_v = ip_dist
         
     origin_ranges = env.comm.bcast(origin_ranges, root=0)
     ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
     ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
         
-    soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, population_extents, \
-                                           interp_chunk_size=interp_chunk_size, allgather=allgather)
+    soma_distances = interp_soma_distances(env.comm, ip_dist_u, ip_dist_v, soma_coords, 
+                                           layer_extents, cell_distribution, 
+                                           interp_chunk_size=interp_chunk_size, 
+                                           allgather=allgather)
 
-    return soma_distances, (origin_ranges, ip_dist_u, ip_dist_v)
+    return soma_distances
 
 
 def measure_distance_extents(env):
-    min_u = float('inf')
-    max_u = 0.0
 
-    min_v = float('inf')
-    max_v = 0.0
+    layer_extents = env.geometry['Parametric Surface']['Layer Extents']
 
-    min_l = float('inf')
-    max_l = 0.0
+    (extent_u, extent_v, extent_l) = get_total_extents(layer_extents)
 
-    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
-        min_u = min(min_extent[0], min_u)
-        min_v = min(min_extent[1], min_v)
-        min_l = min(min_extent[2], min_l)
-
-    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
-        max_u = max(max_extent[0], max_u)
-        max_v = max(max_extent[1], max_v)
-        max_l = max(max_extent[2], max_l)
+    min_u, max_u = extent_u
+    min_v, max_v = extent_v
+    min_l, max_l = extent_l
 
     rotate = env.geometry['Parametric Surface']['Rotation']
     origin_spec = env.geometry['Parametric Surface']['Origin']
@@ -577,24 +602,13 @@ def icp_transform(comm, env, soma_coords, projection_ls, population_extents, rot
 
     srf_resample = 25
 
-    min_u = float('inf')
-    max_u = 0.0
+    layer_extents = env.geometry['Parametric Surface']['Layer Extents']
 
-    min_v = float('inf')
-    max_v = 0.0
+    (extent_u, extent_v, extent_l) = get_total_extents(layer_extents)
 
-    min_l = float('inf')
-    max_l = 0.0
-
-    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
-        min_u = min(min_extent[0], min_u)
-        min_v = min(min_extent[1], min_v)
-        min_l = min(min_extent[2], min_l)
-
-    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
-        max_u = max(max_extent[0], max_u)
-        max_v = max(max_extent[1], max_v)
-        max_l = max(max_extent[2], max_l)
+    min_u, max_u = extent_u
+    min_v, max_v = extent_v
+    min_l, max_l = extent_l
 
     ## This parameter is used to expand the range of L and avoid
     ## situations where the endpoints of L end up outside of the range
@@ -619,7 +633,6 @@ def icp_transform(comm, env, soma_coords, projection_ls, population_extents, rot
         if rank == 0:
             logger.info('Computing point transformation for population %s...' % pop)
         count = 0
-        limits = population_extents[pop]
         xyz_coords = []
         gids = []
         for gid, coords in viewitems(coords_dict):
