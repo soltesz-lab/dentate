@@ -211,8 +211,38 @@ def make_uvl_distance(xyz_coords, rotate=None):
     f = lambda u, v, l: euclidean_distance(DG_volume(u, v, l, rotate=rotate), xyz_coords)
     return f
 
+def generate_nodes(alpha, nsample, nodeitr):
+    from rbf.pde.nodes import min_energy_nodes
+    from rbf.pde.geometry import contains
 
-def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, alpha_radius=120., nodeitr=20):
+    N = nsample * 2  # total number of nodes
+    node_count = 0
+    itr = nodeitr
+
+    vert = alpha.points
+    smp = np.asarray(alpha.bounds, dtype=np.int64)
+
+    while node_count < nsample:
+        logger.info("Generating %i nodes (%i iterations)..." % (N, itr))
+        # create N quasi-uniformly distributed nodes
+        out = min_energy_nodes(N, (vert, smp), iterations=itr)
+        nodes = out[0]
+
+        # remove nodes outside of the domain
+        in_nodes = nodes[contains(nodes, vert, smp)]
+
+        node_count = len(in_nodes)
+        N = int(1.5 * N)
+
+    logger.info("%i interior nodes generated (%i iterations)" % (node_count, itr))
+
+    xyz_coords = in_nodes.reshape(-1, 3)
+    
+    return xyz_coords
+    
+
+
+def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, alpha_radius=120., nodeitr=20, comm=None):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -231,6 +261,8 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
         but increase the time for sampling points inside the volume.
     nodeitr : int 
         Number of iterations for distributing sampled points inside the volume.
+    comm : MPIComm (optional)
+        mpi4py MPI communicator: if provided, node generation and distance computation will be performed in parallel
     Returns
     -------
     (Y1, X1, ... , YN, XN) where N is the number of dimensions of the volume.
@@ -240,113 +272,95 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
         The arc-distance from the starting index of the coordinate space to the corresponding coordinates in X.
 
     """
-    from rbf.pde.nodes import min_energy_nodes
-    from rbf.pde.geometry import contains
 
-    boundary_uvl_coords = np.array([[ip_vol.u[0], ip_vol.v[0], ip_vol.l[0]],
-                                    [ip_vol.u[0], ip_vol.v[-1], ip_vol.l[0]],
-                                    [ip_vol.u[-1], ip_vol.v[0], ip_vol.l[0]],
-                                    [ip_vol.u[-1], ip_vol.v[-1], ip_vol.l[0]],
-                                    [ip_vol.u[0], ip_vol.v[0], ip_vol.l[-1]],
-                                    [ip_vol.u[0], ip_vol.v[-1], ip_vol.l[-1]],
-                                    [ip_vol.u[-1], ip_vol.v[0], ip_vol.l[-1]],
-                                    [ip_vol.u[-1], ip_vol.v[-1], ip_vol.l[-1]]])
+    size = 1
+    rank = 0
+    if comm is not None:
+        rank = comm.rank
+        size = comm.size
 
-    resample = 10
-    span_U, span_V, span_L = ip_vol._resample_uvl(resample, resample, resample)
+    uvl_coords=None
+    origin_extent=None
+    origin_ranges=None
+    origin_pos_um=None
+    if rank == 0:
+        boundary_uvl_coords = np.array([[ip_vol.u[0], ip_vol.v[0], ip_vol.l[0]],
+                                        [ip_vol.u[0], ip_vol.v[-1], ip_vol.l[0]],
+                                        [ip_vol.u[-1], ip_vol.v[0], ip_vol.l[0]],
+                                        [ip_vol.u[-1], ip_vol.v[-1], ip_vol.l[0]],
+                                        [ip_vol.u[0], ip_vol.v[0], ip_vol.l[-1]],
+                                        [ip_vol.u[0], ip_vol.v[-1], ip_vol.l[-1]],
+                                        [ip_vol.u[-1], ip_vol.v[0], ip_vol.l[-1]],
+                                        [ip_vol.u[-1], ip_vol.v[-1], ip_vol.l[-1]]])
 
-    if origin_spec is None:
-        origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
-    else:
-        origin_coords = np.asarray([origin_spec['U'](span_U), origin_spec['V'](span_V), origin_spec['L'](span_L)])
+        resample = 10
+        span_U, span_V, span_L = ip_vol._resample_uvl(resample, resample, resample)
 
-    logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
+        if origin_spec is None:
+            origin_coords = np.asarray([np.median(span_U), np.median(span_V), np.max(span_L)])
+        else:
+            origin_coords = np.asarray([origin_spec['U'](span_U), origin_spec['V'](span_V), origin_spec['L'](span_L)])
+            
+        logger.info('Origin coordinates: %f %f %f' % (origin_coords[0], origin_coords[1], origin_coords[2]))
 
-    pos, extents = ip_vol.point_position(origin_coords[0], origin_coords[1], origin_coords[2])
+        pos, extents = ip_vol.point_position(origin_coords[0], origin_coords[1], origin_coords[2])
 
-    origin_pos = pos[0]
-    origin_extent = extents[0]
-    origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
-    origin_ranges = ((-(origin_pos[0] * origin_extent[0]), (1.0 - origin_pos[0]) * origin_extent[0]),
-                     (-(origin_pos[1] * origin_extent[1]), (1.0 - origin_pos[1]) * origin_extent[1]))
+        origin_pos = pos[0]
+        origin_extent = extents[0]
+        origin_pos_um = (origin_pos[0] * origin_extent[0], origin_pos[1] * origin_extent[1])
+        origin_ranges = ((-(origin_pos[0] * origin_extent[0]), (1.0 - origin_pos[0]) * origin_extent[0]),
+                        (-(origin_pos[1] * origin_extent[1]), (1.0 - origin_pos[1]) * origin_extent[1]))
 
-    logger.info(
-        'Origin position: %f %f extent: %f %f' % (origin_pos[0], origin_pos[1], origin_extent[0], origin_extent[1]))
-    logger.info('Origin ranges: %f : %f %f : %f' % (
-    origin_ranges[0][0], origin_ranges[0][1], origin_ranges[1][0], origin_ranges[1][1]))
+        logger.info(
+            'Origin position: %f %f extent: %f %f' % (origin_pos[0], origin_pos[1], origin_extent[0], origin_extent[1]))
+        logger.info('Origin ranges: %f : %f %f : %f' % (
+        origin_ranges[0][0], origin_ranges[0][1], origin_ranges[1][0], origin_ranges[1][1]))
 
-    logger.info("Creating volume triangulation...")
-    tri = ip_vol.create_triangulation()
+        logger.info("Creating volume triangulation...")
+        tri = ip_vol.create_triangulation()
 
-    logger.info("Constructing alpha shape...")
-    alpha = alpha_shape([], alpha_radius, tri=tri)
+        logger.info("Constructing alpha shape...")
+        alpha = alpha_shape([], alpha_radius, tri=tri)
+    
+        xyz_coords = generate_nodes(alpha, nsample, nodeitr)
 
-    vert = alpha.points
-    smp = np.asarray(alpha.bounds, dtype=np.int64)
+        logger.info('Inverse interpolation of UVL coordinates...')
+        uvl_coords_interp = ip_vol.inverse(xyz_coords)
+        xyz_coords_interp = ip_vol(uvl_coords_interp[:, 0], uvl_coords_interp[:, 1], uvl_coords_interp[:, 2],
+                                   mesh=False).reshape(3, -1).T
 
-    N = nsample * 2  # total number of nodes
-    node_count = 0
-    itr = nodeitr
+        xyz_error_interp = np.abs(np.subtract(xyz_coords, xyz_coords_interp))
 
-    while node_count < nsample:
-        logger.info("Generating %i nodes (%i iterations)..." % (N, itr))
-        # create N quasi-uniformly distributed nodes
-        out = min_energy_nodes(N, (vert, smp), iterations=itr)
-        nodes = out[0]
+        node_uvl_coords = uvl_coords_interp
+        uvl_coords = np.vstack([boundary_uvl_coords, node_uvl_coords])
 
-        # remove nodes outside of the domain
-        in_nodes = nodes[contains(nodes, vert, smp)]
+    if comm is not None:
+        uvl_coords = comm.bcast(uvl_coords, root=0)
+        origin_extent, origin_pos_um, origin_ranges = comm.bcast((origin_extent, origin_pos_um, origin_ranges), root=0)
 
-        node_count = len(in_nodes)
-        N = int(1.5 * N)
-
-    logger.info("%i interior nodes generated (%i iterations)" % (node_count, itr))
-
-    logger.info('Inverse interpolation of UVL coordinates...')
-    xyz_coords = in_nodes.reshape(-1, 3)
-    uvl_coords_interp = ip_vol.inverse(xyz_coords)
-    xyz_coords_interp = ip_vol(uvl_coords_interp[:, 0], uvl_coords_interp[:, 1], uvl_coords_interp[:, 2],
-                               mesh=False).reshape(3, -1).T
-
-    xyz_error_interp = np.abs(np.subtract(xyz_coords, xyz_coords_interp))
-
-    min_extent = [np.min(ip_vol.u), np.min(ip_vol.v), np.min(ip_vol.l)]
-    max_extent = [np.max(ip_vol.u), np.max(ip_vol.v), np.max(ip_vol.l)]
-
-    node_uvl_coords = uvl_coords_interp
-    uvl_coords = np.vstack([boundary_uvl_coords, node_uvl_coords])
-
-    logger.info('Computing volume distances...')
+    if rank == 0:
+        logger.info('Computing volume distances...')
+        
     ldists_u = []
     ldists_v = []
     obs_uvls = []
-    for uvl in uvl_coords:
-        sample_U = uvl[0]
-        sample_V = uvl[1]
-        sample_L = uvl[2]
-        pos, extent = ip_vol.point_position(sample_U, sample_V, sample_L)
+    for i, uvl in enumerate(uvl_coords):
+        if i % size == rank:
+            sample_U = uvl[0]
+            sample_V = uvl[1]
+            sample_L = uvl[2]
+            pos, extent = ip_vol.point_position(sample_U, sample_V, sample_L)
 
-        uvl_pos = pos[0]
-        uvl_extent = extent[0]
-
-        obs_uvls.append(uvl)
-        ldists_u.append(uvl_pos[0] * origin_extent[0] - origin_pos_um[0])
-        ldists_v.append(uvl_pos[1] * origin_extent[1] - origin_pos_um[1])
+            uvl_pos = pos[0]
+            uvl_extent = extent[0]
+            
+            obs_uvls.append(uvl)
+            ldists_u.append(uvl_pos[0] * origin_extent[0] - origin_pos_um[0])
+            ldists_v.append(uvl_pos[1] * origin_extent[1] - origin_pos_um[1])
 
     distances_u = np.asarray(ldists_u, dtype=np.float32)
     distances_v = np.asarray(ldists_v, dtype=np.float32)
-
     obs_uv = np.vstack(obs_uvls)
-
-    u_min_ind = np.argmin(distances_u)
-    u_max_ind = np.argmax(distances_u)
-    v_min_ind = np.argmin(distances_v)
-    v_max_ind = np.argmax(distances_v)
-
-    logger.info('U distance min: %f %s max: %f %s' % (
-    distances_u[u_min_ind], str(obs_uv[u_min_ind]), distances_u[u_max_ind], str(obs_uv[u_max_ind])))
-    logger.info('V distance min: %f %s max: %f %s' % (
-    distances_v[v_min_ind], str(obs_uv[v_min_ind]), distances_v[v_max_ind], str(obs_uv[v_max_ind])))
 
     return (origin_ranges, obs_uv, distances_u, distances_v)
 
@@ -449,6 +463,8 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, layer_extents
 def make_distance_interpolant(env, resolution=[30, 30, 10], nsample=1000):
     from rbf.interpolate import RBFInterpolant
 
+    rank = env.comm.rank
+
     layer_extents = env.geometry['Parametric Surface']['Layer Extents']
     (extent_u, extent_v, extent_l) = get_total_extents(layer_extents)
 
@@ -464,25 +480,44 @@ def make_distance_interpolant(env, resolution=[30, 30, 10], nsample=1000):
     ## of the distance interpolant
     safety = 0.01
 
-    logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
-    ip_volume = make_volume((min_u - safety, max_u + safety), \
-                            (min_v - safety, max_v + safety), \
-                            (min_l - safety, max_l + safety), \
-                            resolution=resolution, rotate=rotate)
+    ip_volume = None
+    if rank == 0:
+        logger.info('Creating volume: min_l = %f max_l = %f...' % (min_l, max_l))
+        ip_volume = make_volume((min_u - safety, max_u + safety), \
+                                (min_v - safety, max_v + safety), \
+                                (min_l - safety, max_l + safety), \
+                                resolution=resolution, rotate=rotate)
 
+    ip_volume = env.comm.bcast(ip_volume, root=0)
+        
     interp_sigma = 0.01
     interp_basis = rbf.basis.ga
     interp_order = 1
 
     logger.info('Computing volume distances...')
-    vol_dist = get_volume_distances(ip_volume, origin_spec=origin, nsample=nsample)
+    vol_dist = get_volume_distances(ip_volume, origin_spec=origin, nsample=nsample, comm=env.comm)
     (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
-    logger.info('Computing U volume distance interpolants...')
-    ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
+
+    obs_uvs = env.comm.gather(obs_uv, root=0)
+    dist_us = env.comm.gather(dist_u, root=0)
+    dist_vs = env.comm.gather(dist_v, root=0)
+
+    ip_dist_u=None
+    ip_dist_v=None
+    if rank == 0:
+        obs_uv = np.vstack(obs_uvs)
+        dist_u = np.concatenate(dist_us)
+        dist_v = np.concatenate(dist_vs)
+        logger.info('Computing U volume distance interpolants...')
+        ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
                                    sigma=interp_sigma)
-    logger.info('Computing V volume distance interpolants...')
-    ip_dist_v = RBFInterpolant(obs_uv, dist_v, order=interp_order, phi=interp_basis, \
+        logger.info('Computing V volume distance interpolants...')
+        ip_dist_v = RBFInterpolant(obs_uv, dist_v, order=interp_order, phi=interp_basis, \
                                    sigma=interp_sigma)
+
+    origin_ranges = env.comm.bcast(origin_ranges, root=0)
+    ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
+    ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
 
     return origin_ranges, ip_dist_u, ip_dist_v
     

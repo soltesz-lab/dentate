@@ -14,12 +14,12 @@ from dentate.utils import viewitems
 from neuroh5.io import append_cell_attributes, bcast_cell_attributes, read_population_names, read_population_ranges
 import h5py
 
-sys_excepthook = sys.excepthook
-def mpi_excepthook(type, value, traceback):
-    sys_excepthook(type, value, traceback)
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys_excepthook = sys.excepthook
+#def mpi_excepthook(type, value, traceback):
+#    sys_excepthook(type, value, traceback)
+#    if MPI.COMM_WORLD.size > 1:
+#        MPI.COMM_WORLD.Abort(1)
+#sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -62,12 +62,12 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
         gc.collect()
 
     
+    has_ip_dist=False
     origin_ranges=None
     ip_dist_u=None
     ip_dist_v=None
     ip_dist_path = 'Distance Interpolant/%d/%d/%d' % resolution
     if rank == 0:
-        has_ip_dist = False
         if geometry_path is not None:
             f = h5py.File(geometry_path)
             pkl_path = '%s/ip_dist.pkl' % ip_dist_path
@@ -76,9 +76,13 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
                 ip_dist_dset = f[pkl_path]
                 origin_ranges, ip_dist_u, ip_dist_v = pickle.loads(base64.b64decode(ip_dist_dset[()]))
             f.close()
-        if not has_ip_dist:
+    has_ip_dist = env.comm.bcast(has_ip_dist, root=0)
+    
+    if not has_ip_dist:
+        if rank == 0:
             logger.info('Computing soma distances...')
-            (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
+        (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
+        if rank == 0:
             if geometry_path is not None:
                 f = h5py.File(geometry_path, 'a')
                 pkl_path = '%s/ip_dist.pkl' % ip_dist_path
@@ -86,11 +90,6 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
                 pklstr = base64.b64encode(pkl)
                 f[pkl_path] = pklstr
                 f.close()
-
-    env.comm.barrier()
-    origin_ranges = env.comm.bcast(origin_ranges, root=0)
-    ip_dist_u = env.comm.bcast(ip_dist_u, root=0)
-    ip_dist_v = env.comm.bcast(ip_dist_v, root=0)
                 
     ip_dist = (origin_ranges, ip_dist_u, ip_dist_v)
 
