@@ -3,12 +3,20 @@
 Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
-import sys, click, os, logging
-from mpi4py import MPI
+import logging
+import os
+import sys
+
 import numpy as np
+
+import click
 import dentate
+from dentate import network
+from dentate import spikedata
+from dentate import utils
 from dentate.biophysics_utils import *
-from dentate import utils, spikedata, network
+from dentate.utils import *
+from mpi4py import MPI
 from nested.optimize_utils import *
 
 
@@ -140,8 +148,8 @@ def get_objectives_network_walltime(features, export=False):
     """
     objectives = dict()
     for feature_key in context.feature_names:
-        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
-                                   context.target_range[feature_key]) ** 2.
+        objectives[feature_key] = (old_div((features[feature_key] - context.target_val[feature_key]),
+                                   context.target_range[feature_key])) ** 2.
 
     return features, objectives
 
@@ -175,7 +183,7 @@ def compute_features_firing_rate(x, export=False):
 
     n = len(spike_density_dict)
     if n > 0:
-        mean_rate = mean_rate_sum / n 
+        mean_rate = old_div(mean_rate_sum, n) 
     else:
         mean_rate = 0.
 
@@ -193,8 +201,8 @@ def get_objectives(features, export=False):
     """
     objectives = dict()
     for feature_key in context.feature_names:
-        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
-                                   context.target_range[feature_key]) ** 2.
+        objectives[feature_key] = (old_div((features[feature_key] - context.target_val[feature_key]),
+                                   context.target_range[feature_key])) ** 2.
 
     return features, objectives
 

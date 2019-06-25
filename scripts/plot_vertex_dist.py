@@ -1,9 +1,14 @@
 
-import sys, gc, os, math
-from mpi4py import MPI
+import gc
+import math
+import os
+import sys
+
 import click
 import dentate
-from dentate import utils, plot
+from dentate import plot
+from dentate import utils
+from mpi4py import MPI
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -37,4 +42,3 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
-

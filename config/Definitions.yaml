@@ -42,7 +42,9 @@ Populations:
   LPP:  10
   CA3c: 11
   ConMC: 12
-Input Features:
+Input Selectivity Types:
   grid: 0
   place: 1
+  constant: 2
+  oscillatory: 3
 

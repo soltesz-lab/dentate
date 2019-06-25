@@ -1,11 +1,27 @@
+from __future__ import division
 
-import sys, os, gc, itertools, math, click, logging
+import gc
+import itertools
+import logging
+import math
+import os
+import sys
+from builtins import range
+from builtins import str
 from collections import defaultdict
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, read_projection_names, bcast_cell_attributes, NeuroH5ProjectionGen
+
 import numpy as np
-import dentate
-import dentate.utils as utils
+
+import click
+from dentate import utils
+from dentate.utils import *
+from mpi4py import MPI
+from neuroh5.io import NeuroH5ProjectionGen
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_population_names
+from neuroh5.io import read_population_ranges
+from neuroh5.io import read_projection_names
+from past.utils import old_div
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -14,8 +30,9 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
+
 def update_bins(bins, binsize, x):
-    i = math.floor(x / binsize)
+    i = math.floor(old_div(x, binsize))
     if i in bins:
         bins[i] += 1
     else:
@@ -129,7 +146,7 @@ def main(connectivity_path, output_path, coords_path, distances_namespace, desti
 
         if destination_gid is not None:
             logger.info('reading connections of gid %i' % destination_gid)
-            for (source, (this_destination_gid,rest)) in itertools.izip(sources, prj_gen_tuple):
+            for (source, (this_destination_gid,rest)) in zip(sources, prj_gen_tuple):
                 this_source_soma_distance_U = source_soma_distance_U[source]
                 this_source_soma_distance_V = source_soma_distance_V[source]
                 this_dist_bins = dist_bins[source]

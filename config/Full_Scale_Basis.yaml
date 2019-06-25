@@ -1,0 +1,56 @@
+## Model configuration of dentate gyrus network
+Model Name: dentatenet_Full_Scale_Basis
+Dataset Name: Full_Scale_Control
+Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
+Geometry: !include Geometry.yaml
+Random Seeds: !include Random.yaml
+Connection Generator: !include Full_Scale_Connections.yaml
+LFP: !include LFP.yaml
+Stimulus: !include Input_Configuration.yaml
+## Cell types for dentate gyrus model
+Cell Types:
+  GC:
+    template: DGC
+    template file: DGC.hoc
+    synapses:
+      correct_for_spines: True
+      density: !include GC_synapse_density.yaml
+  MC:
+    template: MossyCell
+    synapses:
+      weights: False
+      density: !include MC_synapse_density.yaml
+  HC:
+    template: HIPPCell
+    synapses:
+      density: !include HC_synapse_density.yaml
+  BC:
+    template: BasketCell
+    synapses:
+      density: !include BC_synapse_density.yaml
+  AAC:
+    template: AxoAxonicCell
+    synapses:
+      density: !include AAC_synapse_density.yaml
+  HCC:
+    template: HICAPCell
+    synapses:
+      density: !include HCC_synapse_density.yaml
+  NGFC:
+    template: NGFCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  MOPP:
+    template: MOPPCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  IS:
+    template: ISCell
+    synapses:
+      density: !include IS_synapse_density.yaml
+  MPP:
+    template: MPPCell
+  LPP:
+    template: LPPCell
+

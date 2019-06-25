@@ -1,9 +1,12 @@
 
-import sys, gc
-from mpi4py import MPI
+import gc
+import sys
+
 import click
 import dentate
-from dentate import plot, utils
+from dentate import plot
+from dentate import utils
+from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
 
@@ -31,6 +34,3 @@ def main(config, config_prefix, forest_path, coords_path, population, metric_nam
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
-
-
-    
