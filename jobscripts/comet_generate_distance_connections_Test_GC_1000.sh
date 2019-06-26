@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J generate_GC_distance_connections
-#SBATCH -o ./results/generate_GC_distance_connections.%j.o
+#SBATCH -J generate_distance_connections_Test_GC_1000
+#SBATCH -o ./results/generate_distance_connections_Test_GC_1000.%j.o
 #SBATCH --nodes=8
 #SBATCH --ntasks-per-node=12
 #SBATCH -t 5:00:00

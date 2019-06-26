@@ -349,16 +349,23 @@ def generate_synaptic_connections(rank,
                                               'Connections': {'distance': np.asarray([], dtype=np.float32)}
                                               })
                 cluster_seed += 1
-        prj_source_vertices_array = np.concatenate(prj_source_vertices)
+        if len(prj_source_vertices) > 0:
+            prj_source_vertices_array = np.concatenate(prj_source_vertices)
+        else:
+            prj_source_vertices_array = np.asarray([], dtype=np.uint32)
         del (prj_source_vertices)
-        prj_syn_ids_array = np.concatenate(prj_syn_ids)
+        if len(prj_syn_ids) > 0:
+            prj_syn_ids_array = np.concatenate(prj_syn_ids)
+        else:
+            prj_syn_ids_array = np.asarray([], dtype=np.uint32)
         del (prj_syn_ids)
-        prj_distances_array = np.concatenate(prj_distances)
+        if len(prj_distances) > 0:
+            prj_distances_array = np.concatenate(prj_distances)
+        else:
+            prj_distances_array = np.asarray([], dtype=np.float32)
         del (prj_distances)
         if len(prj_source_vertices_array) == 0:
-            logger.warning('Rank %i: source gid list is empty for gid: %i projection: %s len(syn_ids): %i' % (
-            rank, destination_gid, projection, len(prj_syn_ids)))
-
+            logger.warning('Rank %i: source gid list is empty for gid: %i projection: %s' % (rank, destination_gid, projection))
         count += len(prj_source_vertices_array)
         gid_dict[destination_gid] = (prj_source_vertices_array,
                                      {'Synapses': {'syn_id': np.asarray(prj_syn_ids_array, \
@@ -445,6 +452,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 source_layers = projection_config[source_population].layers
                 projection_prob_dict[source_population] = \
                     connection_prob.get_prob(destination_gid, source_population, source_layers)
+
 
                 for layer, (probs, source_gids, distances_u, distances_v) in \
                         viewitems(projection_prob_dict[source_population]):
