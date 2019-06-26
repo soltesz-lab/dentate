@@ -13,7 +13,7 @@
 module load python
 module unload intel
 module load gnu
-module load mvapich2_ib
+module load openmpi_ib
 module load mkl
 module load hdf5
 
@@ -29,7 +29,7 @@ set -x
 ibrun -np 96 python3 ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
        --config=Test_GC_1000.yaml \
-       --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_cells_20190612.h5 \
+       --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_cells_20190625.h5 \
        --connectivity-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_connections_20190625.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Test_GC_1000/DG_coords_20190625.h5 \
