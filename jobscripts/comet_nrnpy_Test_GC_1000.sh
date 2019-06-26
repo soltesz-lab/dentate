@@ -10,28 +10,31 @@
 #SBATCH --mail-type=END
 #
 
-module load python
-module load hdf5
-module load scipy
-module load mpi4py
+#module load python
+#module unload intel
+#module load gnu
+#module load openmpi_ib
+#module load mkl
+#module load hdf5
 
 set -x
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
+export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
+ulimit -c unlimited
 
 results_path=$SCRATCH/dentate/results/Test_GC_1000_$SLURM_JOB_ID
 export results_path
 
 mkdir -p $results_path
 
-git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
-git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
+#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+#git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 
-ibrun -np 12 python2.7 ./scripts/main.py \
+ibrun -np 12 python3 ./scripts/main.py \
  --config-file=Test_GC_1000.yaml  \
  --template-paths=../dgc/Mateos-Aparicio2014:templates \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \

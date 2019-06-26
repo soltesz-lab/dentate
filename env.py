@@ -281,10 +281,12 @@ class Env(object):
 
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
+            if rank == 0:
+                self.logger.info('env.connectivity_file_path = %s' % str(self.connectivity_file_path))
             for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
                 self.projection_dict[dst].append(src)
-        if rank == 0:
-            self.logger.info('projection_dict = %s' % str(self.projection_dict))
+            if rank == 0:
+                self.logger.info('projection_dict = %s' % str(self.projection_dict))
 
         self.lfpConfig = {}
         if 'LFP' in self.modelConfig:

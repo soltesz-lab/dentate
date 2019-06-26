@@ -3,18 +3,11 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import gc
-import itertools
-import time
+import os, sys, gc, itertools, time
 import numpy as np
-import os
+from mpi4py import MPI
 
-from dentate import cells
-from dentate import io_utils
-from dentate import lfp
-from dentate import lpt
-from dentate import simtime
-from dentate import synapses
+from dentate import cells, io_utils, lfp, lpt, simtime, synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap
 from dentate.utils import compose_iter, get_module_logger, profile_memory
 from dentate.utils import old_div, range, str, viewitems, zip, zip_longest
@@ -908,6 +901,7 @@ def init(env):
             lb.ExperimentalMechComplex()
 
     if rank == 0:
+        logger.info("Creating results file %s" % env.results_file_path)
         io_utils.mkout(env, env.results_file_path)
     if rank == 0:
         logger.info("*** Creating cells...")
