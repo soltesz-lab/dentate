@@ -1,6 +1,9 @@
-import numbers
-import numpy as np
 import itertools
+import numbers
+from builtins import zip
+
+import numpy as np
+
 
 def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_std=1.0,
                          center_ids=None, center_box=(-10.0, 10.0), random_state=None):
@@ -52,7 +55,7 @@ def make_random_clusters(centers, n_samples_per_center, n_features=2, cluster_st
 
     n_centers = centers.shape[0]
 
-    for i, (cid, n, std) in enumerate(itertools.izip(center_ids, n_samples_per_center, cluster_std)):
+    for i, (cid, n, std) in enumerate(zip(center_ids, n_samples_per_center, cluster_std)):
         X.append(centers[i] + rng.normal(scale=std, size=(n, n_features)))
         y += [cid] * n
 

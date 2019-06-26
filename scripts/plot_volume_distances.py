@@ -1,4 +1,5 @@
-import sys, click, logging
+from builtins import range
+import os, sys, click, logging
 from mpi4py import MPI
 import numpy as np
 import dentate
@@ -7,6 +8,7 @@ from dentate.geometry import make_volume, get_volume_distances
 from dentate.env import Env
 
 script_name = os.path.basename(__file__)
+
 
 @click.command()
 @click.option("--config", required=True, type=str)
@@ -57,7 +59,7 @@ def main(config, config_prefix, resolution, resample, alpha_radius, graph_type, 
         dist_dict[i] = { 'U Distance': np.asarray([dist_u[i]], dtype=np.float32), \
                          'V Distance': np.asarray([dist_v[i]], dtype=np.float32) }
     
-    plot.plot_positions ("DG Volume", iter(dist_dict.items()), verbose=verbose, saveFig=True, graphType=graph_type)
+    plot.plot_positions (env, "DG Volume", dist_dict, verbose=verbose, saveFig=True, graphType=graph_type)
         
 
 if __name__ == '__main__':

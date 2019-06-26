@@ -1,35 +1,26 @@
 """Implements a parametric surface as a tuple of RBF instances, one for u and v.
 Based on code from bspline_surface.py
 """
+from __future__ import division
 
 import math
-import numpy as np
+from builtins import object
+from builtins import range
 from collections import namedtuple
+
+import numpy as np
+
 import rbf
-from rbf.interpolate import RBFInterpolant
 import rbf.basis
+from past.utils import old_div
+from rbf.interpolate import RBFInterpolant
+
 
 def euclidean_distance(a, b):
     """Row-wise euclidean distance.
     a, b are row vectors of points.
     """
-    return np.sqrt(np.sum((a-b)**2,axis=1))
-
-
-def rotate3d(axis, theta):
-    """
-    Return the rotation matrix associated with counterclockwise rotation about
-    the given axis by theta radians.
-    """
-    axis = np.asarray(axis)
-    axis = axis/math.sqrt(np.dot(axis, axis))
-    a = math.cos(theta/2.0)
-    b, c, d = -axis*math.sin(theta/2.0)
-    aa, bb, cc, dd = a*a, b*b, c*c, d*d
-    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
-    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
-                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
-                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+    return np.sqrt(np.sum((a - b) ** 2, axis=1))
 
 
 def cartesian_product(arrays, out=None):
@@ -74,12 +65,12 @@ def cartesian_product(arrays, out=None):
     if out is None:
         out = np.zeros([n, len(arrays)], dtype=dtype)
 
-    m = n / arrays[0].size
-    out[:,0] = np.repeat(arrays[0], m)
+    m = old_div(n, arrays[0].size)
+    out[:, 0] = np.repeat(arrays[0], m)
     if arrays[1:]:
-        cartesian_product(arrays[1:], out=out[0:m,1:])
+        cartesian_product(arrays[1:], out=out[0:m, 1:])
         for j in range(1, arrays[0].size):
-            out[j*m:(j+1)*m,1:] = out[0:m,1:]
+            out[j * m:(j + 1) * m, 1:] = out[0:m, 1:]
     return out
 
 
@@ -98,12 +89,12 @@ class RBFSurface(object):
         basis: RBF basis function
         """
 
-        self._create_srf(u, v, xyz, order=order, basis=basis)
+        self._create_srf(u, v, xyz, order=order, phi=basis)
 
-        self.u  = u
-        self.v  = v
+        self.u = u
+        self.v = v
         self.order = order
-        
+
     def __call__(self, *args, **kwargs):
         """Convenience to allow evaluation of a RBFSurface
         instance via `foo(0, 0)` instead of `foo.ev(0, 0)`.
@@ -114,14 +105,14 @@ class RBFSurface(object):
 
         # Create surface definitions
         u, v = np.meshgrid(obs_u, obs_v, indexing='ij')
-        uv_obs = np.array([u.ravel(),v.ravel()]).T
+        uv_obs = np.array([u.ravel(), v.ravel()]).T
 
-        xsrf = RBFInterpolant(uv_obs,xyz[:,0],**kwargs)
-        ysrf = RBFInterpolant(uv_obs,xyz[:,1],**kwargs)
-        zsrf = RBFInterpolant(uv_obs,xyz[:,2],**kwargs)
+        xsrf = RBFInterpolant(uv_obs, xyz[:, 0], **kwargs)
+        ysrf = RBFInterpolant(uv_obs, xyz[:, 1], **kwargs)
+        zsrf = RBFInterpolant(uv_obs, xyz[:, 2], **kwargs)
 
-        usrf = RBFInterpolant(xyz,uv_obs[:,0],**kwargs)
-        vsrf = RBFInterpolant(xyz,uv_obs[:,1],**kwargs)
+        usrf = RBFInterpolant(xyz, uv_obs[:, 0], **kwargs)
+        vsrf = RBFInterpolant(xyz, uv_obs[:, 1], **kwargs)
 
         self._xsrf = xsrf
         self._ysrf = ysrf
@@ -161,13 +152,13 @@ class RBFSurface(object):
             U = su
             V = sv
 
-        uv_s = np.array([U.ravel(),V.ravel()]).T
+        uv_s = np.array([U.ravel(), V.ravel()]).T
         X = self._xsrf(uv_s)
         Y = self._ysrf(uv_s)
-        Z = self._zsrf(uv_s,)
+        Z = self._zsrf(uv_s, )
 
-        arr = np.array([X,Y,Z])
-        
+        arr = np.array([X, Y, Z])
+
         return arr.reshape(3, len(U), -1)
 
     def inverse(self, xyz):
@@ -185,50 +176,46 @@ class RBFSurface(object):
 
         U = self._usrf(xyz)
         V = self._vsrf(xyz)
-        
-        arr = np.array([U,V])
+
+        arr = np.array([U, V])
         return arr.T
 
-    
     def utan(self, su, sv, normalize=True):
 
-        u = np.array([su]).reshape(-1,)
-        v = np.array([sv]).reshape(-1,)
+        u = np.array([su]).reshape(-1, )
+        v = np.array([sv]).reshape(-1, )
 
-        dxdu = self._xsrf(u, v, diff=np.asarray([1,0,0]))
-        dydu = self._ysrf(u, v, diff=np.asarray([1,0,0]))
-        dzdu = self._zsrf(u, v, diff=np.asarray([1,0,0]))
+        dxdu = self._xsrf(u, v, diff=np.asarray([1, 0, 0]))
+        dydu = self._ysrf(u, v, diff=np.asarray([1, 0, 0]))
+        dzdu = self._zsrf(u, v, diff=np.asarray([1, 0, 0]))
 
         du = np.array([dxdu, dydu, dzdu]).T
 
         du = du.swapaxes(0, 1)
 
         if normalize:
-            du /= np.sqrt((du**2).sum(axis=2))[:, :, np.newaxis]
+            du /= np.sqrt((du ** 2).sum(axis=2))[:, :, np.newaxis]
 
         arr = du.transpose(2, 0, 1)
         return arr
 
-    
     def vtan(self, su, sv, normalize=True):
 
-        u = np.array([su]).reshape(-1,)
-        v = np.array([sv]).reshape(-1,)
-        
-        dxdv = self._xsrf(u, v, diff=np.asarray([0,1,0]))
-        dydv = self._ysrf(u, v, diff=np.asarray([0,1,0]))
-        dzdv = self._zsrf(u, v, diff=np.asarray([0,1,0]))
+        u = np.array([su]).reshape(-1, )
+        v = np.array([sv]).reshape(-1, )
+
+        dxdv = self._xsrf(u, v, diff=np.asarray([0, 1, 0]))
+        dydv = self._ysrf(u, v, diff=np.asarray([0, 1, 0]))
+        dzdv = self._zsrf(u, v, diff=np.asarray([0, 1, 0]))
         dv = np.array([dxdv, dydv, dzdv]).T
 
         dv = dv.swapaxes(0, 1)
 
         if normalize:
-            dv /= np.sqrt((dv**2).sum(axis=2))[:, :, np.newaxis]
+            dv /= np.sqrt((dv ** 2).sum(axis=2))[:, :, np.newaxis]
 
         arr = dv.transpose(2, 0, 1)
         return arr
-
-    
 
     def normal(self, su, sv):
         """Get normal(s) at (u, v).
@@ -243,26 +230,25 @@ class RBFSurface(object):
         Returns an array of shape 3 x len(u) x len(v)
         """
 
-        u = np.array([su]).reshape(-1,)
-        v = np.array([sv]).reshape(-1,)
+        u = np.array([su]).reshape(-1, )
+        v = np.array([sv]).reshape(-1, )
 
-        dxdus = self._xsrf(u, v, diff=np.asarray([1,0,0]))
-        dydus = self._ysrf(u, v, diff=np.asarray([1,0,0]))
-        dzdus = self._zsrf(u, v, diff=np.asarray([1,0,0]))
-        dxdvs = self._xsrf(u, v, diff=np.asarray([0,1,0]))
-        dydvs = self._ysrf(u, v, diff=np.asarray([0,1,0]))
-        dzdvs = self._zsrf(u, v, diff=np.asarray([0,1,0]))
+        dxdus = self._xsrf(u, v, diff=np.asarray([1, 0, 0]))
+        dydus = self._ysrf(u, v, diff=np.asarray([1, 0, 0]))
+        dzdus = self._zsrf(u, v, diff=np.asarray([1, 0, 0]))
+        dxdvs = self._xsrf(u, v, diff=np.asarray([0, 1, 0]))
+        dydvs = self._ysrf(u, v, diff=np.asarray([0, 1, 0]))
+        dzdvs = self._zsrf(u, v, diff=np.asarray([0, 1, 0]))
 
         normals = np.cross([dxdus, dydus, dzdus],
                            [dxdvs, dydvs, dzdvs],
                            axisa=0, axisb=0)
 
-        normals /= np.sqrt((normals**2).sum(axis=2))[:, :, np.newaxis]
+        normals /= np.sqrt((normals ** 2).sum(axis=2))[:, :, np.newaxis]
 
         arr = normals.transpose(2, 0, 1)
         return arr
 
-        
     def point_distance(self, su, sv, axis=0, interp_chunk_size=1000, axis_origin=None, return_coords=True):
         """Cumulative distance between pairs of (u, v) coordinates.
 
@@ -281,46 +267,46 @@ class RBFSurface(object):
         If the lengths of u and v are at least 2, returns the total arc length
         between each u,v pair.
         """
-        u = np.array([su]).reshape(-1,)
-        v = np.array([sv]).reshape(-1,)
+        u = np.array([su]).reshape(-1, )
+        v = np.array([sv]).reshape(-1, )
 
         input_axes = [u, v]
         if axis_origin is None:
             axis_origin = input_axes[axis][0]
 
         c = input_axes[axis]
-        
-        cl = (np.sort(c[np.where(c < axis_origin)[0]]))[::-1]
-        cr = np.sort(c[np.where(c >=  axis_origin)[0]])
 
-        ordered_axes = [(-1, [ cl if i == axis else x for (i, x) in enumerate(input_axes) ]), \
-                        (1, [ cr if i == axis else x for (i, x) in enumerate(input_axes) ])]
-        
-        aidx = [0,1]
+        cl = (np.sort(c[np.where(c < axis_origin)[0]]))[::-1]
+        cr = np.sort(c[np.where(c >= axis_origin)[0]])
+
+        ordered_axes = [(-1, [cl if i == axis else x for (i, x) in enumerate(input_axes)]), \
+                        (1, [cr if i == axis else x for (i, x) in enumerate(input_axes)])]
+
+        aidx = [0, 1]
         aidx.remove(axis)
 
         distances = []
-        coords    = [ [] for i in range(0,2) ]
+        coords = [[] for i in range(0, 2)]
         for (sgn, axes) in ordered_axes:
-            
+
             npts = axes[axis].shape[0]
-        
+
             if npts > 1:
-                paxes = [ axes[i] for i in aidx ]
+                paxes = [axes[i] for i in aidx]
                 prod = cartesian_product(paxes)
                 for ip, p in enumerate(prod):
-                    ecoords = [ x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes) ]
-                    pts  = self.ev(*ecoords, chunk_size=interp_chunk_size).reshape(3, -1).T                
-                    a = pts[1:,:]
-                    b = pts[0:npts-1,:]
-                    d = np.zeros(npts,)
+                    ecoords = [x if i == axis else p[aidx.index(i)] for (i, x) in enumerate(axes)]
+                    pts = self.ev(*ecoords, chunk_size=interp_chunk_size).reshape(3, -1).T
+                    a = pts[1:, :]
+                    b = pts[0:npts - 1, :]
+                    d = np.zeros(npts, )
                     d[1:npts] = np.cumsum(euclidean_distance(a, b))
                     if sgn < 0:
                         distances.append(np.negative(d))
                     else:
                         distances.append(d)
                     if return_coords:
-                        pcoords = [ x if i == axis else np.repeat(p[aidx.index(i)],npts) for (i, x) in enumerate(axes) ]
+                        pcoords = [x if i == axis else np.repeat(p[aidx.index(i)], npts) for (i, x) in enumerate(axes)]
                         for i, col in enumerate(pcoords):
                             coords[i].append(col)
 
@@ -372,13 +358,12 @@ class RBFSurface(object):
         # Sample the surface at the new u, v values and plot
         meshpts = self.ev(hru, hrv)
         m = mlab.mesh(*meshpts, **kwargs)
-        
+
         # Turn off perspective
         fig = mlab.gcf()
         fig.scene.camera.trait_set(parallel_projection=1)
         return fig
 
-        
     def copy(self):
         """Get a copy of the surface
         """
@@ -386,22 +371,21 @@ class RBFSurface(object):
         return deepcopy(self)
 
 
-
 def test_surface(u, v, l):
     import numpy as np
-    x = np.array(-500.* np.cos(u) * (5.3 - np.sin(u) + (1. + 0.138 * l) * np.cos(v)))
-    y = np.array(750. * np.sin(u) * (5.5 - 2. * np.sin(u) + (0.9 + 0.114*l) * np.cos(v)))
-    z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi-u)))
+    x = np.array(-500. * np.cos(u) * (5.3 - np.sin(u) + (1. + 0.138 * l) * np.cos(v)))
+    y = np.array(750. * np.sin(u) * (5.5 - 2. * np.sin(u) + (0.9 + 0.114 * l) * np.cos(v)))
+    z = np.array(2500. * np.sin(u) + (663. + 114. * l) * np.sin(v - 0.13 * (np.pi - u)))
     return np.array([x, y, z])
 
+
 def test_uv_isospline():
-    
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_u = np.linspace(-0.016 * np.pi, 1.01 * np.pi, 20)
+    obs_v = np.linspace(-0.23 * np.pi, 1.425 * np.pi, 20)
     obs_l = 1.0
 
     u, v = np.meshgrid(obs_u, obs_v, indexing='ij')
-    xyz = test_surface (u, v, obs_l).reshape(3, u.size).T
+    xyz = test_surface(u, v, obs_l).reshape(3, u.size).T
 
     order = [1]
     for ii in range(len(order)):
@@ -414,37 +398,36 @@ def test_uv_isospline():
         nvpts = V.shape[0]
 
     from mayavi import mlab
-        
+
     U, V = srf._resample_uv(10, 10)
     L = np.asarray([1.0])
-        
+
     nupts = U.shape[0]
     nvpts = V.shape[0]
     # Plot u,v-isosplines on the surface
     upts = srf(U, V[0], L)
-    vpts = srf(U[int(nupts/2)], V, L)
-    
+    vpts = srf(U[int(old_div(nupts, 2))], V, L)
+
     srf.mplot_surface(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
-    
+
     mlab.points3d(*upts, scale_factor=100.0, color=(1, 1, 0))
     mlab.points3d(*vpts, scale_factor=100.0, color=(1, 1, 0))
-    
+
     mlab.show()
-    
+
 
 def test_point_distance():
-    
-    obs_u = np.linspace(-0.016*np.pi, 1.01*np.pi, 20)
-    obs_v = np.linspace(-0.23*np.pi, 1.425*np.pi, 20)
+    obs_u = np.linspace(-0.016 * np.pi, 1.01 * np.pi, 20)
+    obs_v = np.linspace(-0.23 * np.pi, 1.425 * np.pi, 20)
     obs_l = 1.0
 
     u, v = np.meshgrid(obs_u, obs_v, indexing='ij')
-    xyz = test_surface (u, v, obs_l).reshape(3, u.size).T
+    xyz = test_surface(u, v, obs_l).reshape(3, u.size).T
 
     srf = RBFSurface(obs_u, obs_v, xyz, order=2)
 
     U, V = srf._resample_uv(5, 5)
-    
+
     dist, coords = srf.point_distance(U, V)
     print(dist)
     print(coords)
@@ -455,14 +438,7 @@ def test_point_distance():
     print(dist)
     print(coords)
 
-    
 
-    
 if __name__ == '__main__':
     test_uv_isospline()
 #    test_point_distance()
-     
-
-    
-    
-    

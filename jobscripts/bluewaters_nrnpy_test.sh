@@ -18,15 +18,13 @@
 #PBS -A bayj
 
 
-module swap PrgEnv-cray PrgEnv-gnu
-module load cray-hdf5-parallel
-module load bwpy 
+module load bwpy/2.0.1
 module load bwpy-mpi
 
 set -x
 
 export SCRATCH=/projects/sciteam/bayj
-export NEURONROOT=$SCRATCH/nrn
+export NEURONROOT=$SCRATCH/nrnintel
 export PYTHONPATH=$NEURONROOT/lib/python:$PYTHONPATH
 
 echo PYTHONPATH is $PYTHONPATH

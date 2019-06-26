@@ -1,5 +1,10 @@
-import sys, click, os
-from dentate import io_utils, utils, env
+import os
+import sys
+
+import click
+from dentate import env
+from dentate import io_utils
+from dentate import utils
 from env import Env
 
 

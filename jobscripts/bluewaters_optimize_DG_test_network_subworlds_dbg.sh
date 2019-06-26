@@ -1,5 +1,5 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=1080:ppn=8:xe
+#PBS -l nodes=72:ppn=8:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
@@ -13,18 +13,17 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
-#PBS -A baqc
+#PBS -A bayj
 
-module swap PrgEnv-cray PrgEnv-gnu
-module load cray-hdf5-parallel
-module load bwpy 
-module load bwpy-mpi
+module load bwpy/2.0.1
+module load craype-hugepages2M
 
 set -x
 
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
-export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
-export SCRATCH=/projects/sciteam/baqc
+export SCRATCH=/projects/sciteam/bayj
+export NEURONROOT=$SCRATCH/nrnintel
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 
@@ -37,11 +36,11 @@ mkdir -p $results_path
 
 cd tests
 
-aprun -n 8640 -b -- bwpy-environ -- \
+aprun -n 576 -b -- bwpy-environ -- \
     python2.7 -m nested.optimize  \
      --config-file-path=$DG_HOME/config/DG_test_network_subworlds_dbg.yaml \
      --output-dir=$results_path \
-     --pop-size=30 \
+     --pop-size=2 \
      --max-iter=5 \
      --path-length=1 \
      --disp \
@@ -53,6 +52,8 @@ aprun -n 8640 -b -- bwpy-environ -- \
      --config_prefix=$DG_HOME/config \
      --results_path=$results_path \
      --cell_selection_path=$DG_HOME/datasets/DG_slice.yaml \
-     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LN_9600226.bw/dentatenet_Full_Scale_GC_Exc_Sat_LN_results.h5 \
+     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LNN_9870802.bw/dentatenet_Full_Scale_GC_Exc_Sat_LNN_results.h5 \
      --spike_input_namespace='Spike Events' \
-     --max-walltime-hours 0.5
+     --max-walltime-hours=0.49 \
+     --max_walltime_hours=0.49 \
+     -v
