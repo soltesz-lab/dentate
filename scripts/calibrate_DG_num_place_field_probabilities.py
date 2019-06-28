@@ -25,7 +25,9 @@ context = Struct(**dict(locals()))
               default='config')
 @click.option("--arena-id", type=str, default='A')
 @click.option("--populations", '-p', type=str, multiple=True)
+@click.option("--module-ids", '-m', type=int, multiple=True)
 @click.option("--target-fraction-active", type=float, default=None)
+@click.option("--normalize-scale", type=bool, default=True)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
@@ -35,15 +37,18 @@ context = Struct(**dict(locals()))
 @click.option("--save-fig-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default=None)
 @click.option("--font-size", type=float, default=14)
 @click.option("--fig-format", required=False, type=str, default='svg')
-def main(config, config_prefix, arena_id, populations, target_fraction_active, verbose, interactive, debug, plot,
-         show_fig, save_fig, save_fig_dir, font_size, fig_format):
+def main(config, config_prefix, arena_id, populations, module_ids, target_fraction_active, normalize_scale, verbose,
+         interactive, debug, plot, show_fig, save_fig, save_fig_dir, font_size, fig_format):
     """
 
     :param config: str (.yaml file name)
     :param config_prefix: str (path to dir)
     :param arena_id: str
     :param populations: tuple of str
+    :param module_ids: tuple of int
     :param target_fraction_active: float
+    :param normalize_scale: bool; whether to interpret the scale of the num_place_field_probabilities distribution
+                                    as normalized to the scale of the mean place field width
     :param verbose: bool
     :param interactive: bool
     :param debug: bool
@@ -100,6 +105,12 @@ def main(config, config_prefix, arena_id, populations, target_fraction_active, v
     if interactive:
         context.update(locals())
 
+    if len(module_ids) == 0:
+        module_ids = selectivity_config.module_ids
+    elif not all([module_id in selectivity_config.module_ids for module_id in module_ids]):
+        raise RuntimeError('calibrate_DG_num_place_field_probabilities: invalid module_ids provided: %s' %
+                           str(module_ids))
+
     for population in populations:
 
         if population not in env.stimulus_config['Num Place Field Probabilities']:
@@ -114,7 +125,7 @@ def main(config, config_prefix, arena_id, populations, target_fraction_active, v
         peak_rate = env.stimulus_config['Peak Rate'][population][this_selectivity_type]
 
         start_time = time.time()
-        for module_id in selectivity_config.module_ids:
+        for module_id in module_ids:
             field_width = selectivity_config.place_module_field_widths[module_id]
             logger.info(
                 'Calibrating distribution of num_place_field_probabilities for population: %s, module: %i, '
@@ -122,7 +133,8 @@ def main(config, config_prefix, arena_id, populations, target_fraction_active, v
             modified_num_place_field_probabilities = \
                 calibrate_num_place_field_probabilities(num_place_field_probabilities, field_width,
                                                         peak_rate=peak_rate, selectivity_type=this_selectivity_type,
-                                                        arena=arena, selectivity_config=selectivity_config,
+                                                        arena=arena, normalize_scale=normalize_scale,
+                                                        selectivity_config=selectivity_config,
                                                         target_fraction_active=target_fraction_active,
                                                         random_seed=selectivity_seed_offset + module_id,
                                                         plot=plot and show_fig)

@@ -4,7 +4,7 @@ from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, read_population_ranges, bcast_cell_attributes
 from dentate.env import Env
-from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure, clean_axes, plot_2D_histogram
+from dentate.plot import plot_2D_rate_map, default_fig_options, plot_2D_histogram
 from dentate.stimulus import get_2D_arena_spatial_mesh, get_input_cell_config
 from dentate.utils import *
 
@@ -223,6 +223,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                     this_cell_attrs, component_count, this_component_attrs = input_cell_config.gather_attributes()
                     for attr_name, attr_val in viewitems(this_cell_attrs):
                         gathered_cell_attributes[attr_name].append(attr_val)
+                    gathered_cell_attributes['Mean Rate'].append(np.mean(rate_map))
                     if component_count > 0:
                         u_distances_by_component.extend([u_distances_by_gid[gid]] * component_count)
                         v_distances_by_component.extend([v_distances_by_gid[gid]] * component_count)

@@ -206,13 +206,15 @@ class GridInputCellConfig(object):
 
 
 class PlaceInputCellConfig(object):
-    def __init__(self, selectivity_type=None, arena=None, selectivity_config=None, peak_rate=None, distance=None,
-                 modular=None, num_place_field_probabilities=None, field_width=None, local_random=None,
-                 selectivity_attr_dict=None, adjust_to_arena=True):
+    def __init__(self, selectivity_type=None, arena=None, normalize_scale=True, selectivity_config=None,
+                 peak_rate=None, distance=None, modular=None, num_place_field_probabilities=None, field_width=None,
+                 local_random=None, selectivity_attr_dict=None):
         """
 
         :param selectivity_type: int
         :param arena: namedtuple
+        :param normalize_scale: bool; whether to interpret the scale of the num_place_field_probabilities distribution
+                                        as normalized to the scale of the mean place field width
         :param selectivity_config: :class:'SelectivityModuleConfig'
         :param peak_rate: float
         :param distance: float; u arc distance normalized to reference layer
@@ -221,11 +223,10 @@ class PlaceInputCellConfig(object):
         :param field_width: float; option to enforce field_width rather than choose from distance-dependent distribution
         :param local_random: :class:'np.random.RandomState'
         :param selectivity_attr_dict: dict
-        :param adjust_to_arena: bool
         """
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
-        elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate,
+        elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate, arena,
                                           num_place_field_probabilities]]):
             raise RuntimeError('PlaceInputCellConfig: missing argument(s) required for object construction')
         else:
@@ -247,13 +248,9 @@ class PlaceInputCellConfig(object):
                 else:
                     self.module_id = -1
                     self.mean_field_width = selectivity_config.get_expected_place_field_width(p_modules)
-            self.num_fields = get_num_place_fields(num_place_field_probabilities, self.mean_field_width, arena,
-                                                   local_random)
-            if arena is None:
-                arena_x_bounds = arena_y_bounds = (-self.mean_field_width, self.mean_field_width)
-            else:
-                arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena=arena, margin=self.mean_field_width / 2.)
-
+            self.num_fields = get_num_place_fields(num_place_field_probabilities, self.mean_field_width, arena=arena,
+                                                   normalize_scale=normalize_scale, local_random=local_random)
+            arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena=arena, margin=self.mean_field_width / 2.)
             self.field_width = []
             self.x0 = []
             self.y0 = []
@@ -458,7 +455,8 @@ def get_active_cell_matrix(pop_activity, threshold=2.):
     return active_cell_matrix
 
 
-def get_num_place_fields(num_place_field_probabilities, field_width, arena=None, local_random=None):
+def get_num_place_fields(num_place_field_probabilities, field_width, arena=None, normalize_scale=True,
+                         local_random=None):
     """
     Probability distributions for the number of place fields per cell are defined relative to the area of a standard
     arena size with dimension length = 2. * field_width. Given an arena with arbitrary dimensions, the number of place
@@ -466,18 +464,21 @@ def get_num_place_fields(num_place_field_probabilities, field_width, arena=None,
     :param num_place_field_probabilities: dict: {int: float}
     :param field_width: float
     :param arena: namedtuple
+    :param normalize_scale: bool
     :param local_random: :class:'np.random.RandomState'
     :return: int
     """
     num_fields_array, p_num_fields = normalize_num_place_field_probabilities(num_place_field_probabilities,
                                                                              return_item_arrays=True)
-    if arena is None:
+    if not normalize_scale:
         scale = 1.
     else:
-        initial_area = (2. * field_width) ** 2.
+        calibration_x_bounds = calibration_y_bounds = (-field_width, field_width)
+        calibration_area = abs(calibration_x_bounds[1] - calibration_x_bounds[0]) * \
+                           abs(calibration_y_bounds[1] - calibration_y_bounds[0])
         arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=field_width / 2.)
         arena_area = abs(arena_x_bounds[1] - arena_x_bounds[0]) * abs(arena_y_bounds[1] - arena_y_bounds[0])
-        scale = arena_area / initial_area
+        scale = arena_area / calibration_area
     num_fields = 0
     while scale > 0.:
         if scale >= 1.:
@@ -539,13 +540,17 @@ def rescale_non_zero_num_place_field_probabilities(num_place_field_probabilities
 
 def calibrate_num_place_field_probabilities(num_place_field_probabilities, field_width, peak_rate=20., threshold=2.,
                                             target_fraction_active=None, pop_size=10000, bins=100, selectivity_type=1,
-                                            arena=None, selectivity_config=None, random_seed=0, plot=False):
+                                            arena=None, normalize_scale=True, selectivity_config=None, random_seed=0,
+                                            plot=False):
     """
-    Probability distributions for the number of place fields per cell are defined relative to the area of a standard
-    arena size with dimension length = 2. * field_width. This method measures the fraction of the population that is
-    active given the provided distribution of num_place_field_probabilities. If a target_fraction_active is provided,
-    the distribution is modified by scaling the probabilities of one or greater fields, and compensating the
-    probability of zero fields. Resulting modified probability distribution sums to one. Returns a dictionary.
+    Given a probability distribution of the number of place fields per cell and a 2D arena, this method can either
+    report the fraction of the population that will be active per unit area, or re-scale the probability distribution to
+    achieve a target fraction active. The argument "normalize_scale" interprets the probability distribution as being
+    defined for an intrinsic area that scales with field_width. When "normalize_scale" is set to False, this method will
+    instead interpret the probability distribution as being defined over the area of the provided arena, buffered by
+    margins that scale with field_width. If a target_fraction_active is provided, the distribution is modified by
+    scaling the probabilities of one or greater fields, and compensating the probability of zero fields. Resulting
+    modified probability distribution sums to one. Returns a dictionary.
     :param num_place_field_probabilities: dict: {int: float}
     :param field_width: float
     :param peak_rate: float
@@ -555,22 +560,25 @@ def calibrate_num_place_field_probabilities(num_place_field_probabilities, field
     :param bins: int
     :param selectivity_type: int
     :param arena: namedtuple
+    :param normalize_scale: bool
     :param selectivity_config: :class:'InputSelectivityConfig'
     :param random_seed: int
     :param plot: bool
     :return: dict: {int: float}
     """
     if arena is None:
-        inner_x_bounds = inner_y_bounds = (-field_width / 2., field_width / 2.)
-        outer_x_bounds = outer_y_bounds = (-field_width, field_width)
+        inner_arena_x_bounds, inner_arena_y_bounds = (-field_width / 2., field_width / 2.)
+        outer_arena_x_bounds, outer_arena_y_bounds = (-field_width, field_width)
     else:
-        inner_x_bounds, inner_y_bounds = get_2D_arena_bounds(arena)
-        outer_x_bounds, outer_y_bounds = get_2D_arena_bounds(arena, margin=field_width / 2.)
-    x = np.linspace(inner_x_bounds[0], inner_x_bounds[1], bins)
-    y = np.linspace(inner_y_bounds[0], inner_y_bounds[1], bins)
+        inner_arena_x_bounds, inner_arena_y_bounds = get_2D_arena_bounds(arena)
+        outer_arena_x_bounds, outer_arena_y_bounds = get_2D_arena_bounds(arena, margin=field_width / 2.)
+
+    x = np.linspace(inner_arena_x_bounds[0], inner_arena_x_bounds[1], bins)
+    y = np.linspace(inner_arena_y_bounds[0], inner_arena_y_bounds[1], bins)
     x_mesh, y_mesh = np.meshgrid(x, y, indexing='ij')
 
-    outer_arena_area = abs(outer_x_bounds[1] - outer_x_bounds[0]) * abs(outer_y_bounds[1] - outer_y_bounds[0])
+    arena_area = abs(outer_arena_x_bounds[1] - outer_arena_x_bounds[0]) * \
+                 abs(outer_arena_y_bounds[1] - outer_arena_y_bounds[0])
 
     local_random = np.random.RandomState()
 
@@ -581,10 +589,10 @@ def calibrate_num_place_field_probabilities(num_place_field_probabilities, field
         pop_activity = np.zeros((pop_size, len(x), len(y)))
         for i in range(pop_size):
             input_cell_config = \
-                PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena,
+                PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena, normalize_scale=normalize_scale,
                                      selectivity_config=selectivity_config, peak_rate=peak_rate,
                                      num_place_field_probabilities=num_place_field_probabilities,
-                                     field_width=field_width, local_random=local_random, adjust_to_arena=False)
+                                     field_width=field_width, local_random=local_random)
             num_fields = input_cell_config.num_fields
             population_num_fields.append(num_fields)
             if num_fields > 0:
@@ -594,7 +602,7 @@ def calibrate_num_place_field_probabilities(num_place_field_probabilities, field
         fraction_active_array = np.mean(active_cell_matrix, axis=0)
         fraction_active_mean = np.mean(fraction_active_array)
         fraction_active_variance = np.var(fraction_active_array)
-        field_density = np.mean(population_num_fields) / outer_arena_area
+        field_density = np.mean(population_num_fields) / arena_area
 
         print('calibrate_num_place_field_probabilities:%s field_width: %.2f, fraction active: mean: %.4f, var: %.4f; '
               'field_density: %.4E' % (iteration_label, field_width, fraction_active_mean, fraction_active_variance,
@@ -616,34 +624,37 @@ def calibrate_num_place_field_probabilities(num_place_field_probabilities, field
         fig, axes = plt.subplots(2, 3, figsize=(9., 6.))
         for count, i in enumerate(range(0, pop_size, int(math.ceil(pop_size / 6.)))):
             axes[count // 3][count % 3].pcolor(x_mesh, y_mesh, pop_activity[i])
-        bins = max(population_num_fields) + 1
-        hist, edges = np.histogram(population_num_fields, bins=bins, range=(-0.5, bins - 0.5), density=True)
         clean_axes(axes)
         fig.suptitle('Field width: %.2f; Fraction active: %.4f' % (field_width, fraction_active_mean))
         fig.tight_layout()
-        plt.subplots_adjust(top=0.95)
+        fig.subplots_adjust(top=0.9)
         fig.show()
 
         fig, axes = plt.subplots()
+        bins = max(population_num_fields) + 1
+        hist, edges = np.histogram(population_num_fields, bins=bins, range=(-0.5, bins - 0.5), density=True)
         axes.bar(edges[1:] - 0.5, hist)
-        axes.set_title('Field width: %.2f; Number of place fields' % field_width)
+        fig.suptitle('Number of place fields\nField width: %.2f' % field_width)
         clean_axes(axes)
+        fig.subplots_adjust(top=0.85)
         fig.show()
 
         fig, axes = plt.subplots()
         pc = axes.pcolor(x_mesh, y_mesh, pop_activity_sum, vmin=0.)
         cb = fig.colorbar(pc, ax=axes)
         cb.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
-        axes.set_title('Field width: %.2f; Summed population activity' % field_width)
+        fig.suptitle('Summed population activity\nField width: %.2f' % field_width)
         clean_axes(axes)
+        fig.subplots_adjust(top=0.85)
         fig.show()
 
         fig, axes = plt.subplots()
         pc = axes.pcolor(x_mesh, y_mesh, fraction_active_array, vmin=0.)
         cb = fig.colorbar(pc, ax=axes)
         cb.set_label('Fraction active', rotation=270., labelpad=20.)
-        axes.set_title('Field width: %.2f; Fraction active' % field_width)
+        fig.suptitle('Fraction active\nField width: %.2f' % field_width)
         clean_axes(axes)
+        fig.subplots_adjust(top=0.85)
         fig.show()
 
     return num_place_field_probabilities
