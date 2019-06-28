@@ -1282,6 +1282,7 @@ def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_
     :param correct_g_pas: bool
     :param verbose: bool
     """
+
     if from_file:
         import_mech_dict_from_file(cell, mech_file_path)
     if (correct_cm or correct_g_pas) and env is None:
@@ -1361,8 +1362,8 @@ def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas, verbose=True):
         SA_seg = segment.area()
         num_spines = node.spine_count[i]
 
-        g_pas_correction_factor = old_div((SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas), \
-                                          (SA_seg * node.sec(segment.x).g_pas))
+        g_pas_correction_factor = ((SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) /
+                                   (SA_seg * node.sec(segment.x).g_pas))
         node.sec(segment.x).g_pas *= g_pas_correction_factor
         if verbose:
             logger.info('g_pas_correction_factor for gid: %i; %s seg %i: %.3f' %

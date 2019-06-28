@@ -105,7 +105,7 @@ def connect_cells(env):
         logger.info('*** Connectivity file path is %s' % connectivity_file_path)
         logger.info('*** Reading projections: ')
 
-    for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
+    for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
 
         if rank == 0:
             logger.info('*** Reading projections of population %s' % postsyn_name)
@@ -115,6 +115,7 @@ def connect_cells(env):
             correct_for_spines = synapse_config['correct_for_spines']
         else:
             correct_for_spines = False
+
 
         if 'unique' in synapse_config:
             unique = synapse_config['unique']
@@ -185,6 +186,7 @@ def connect_cells(env):
 
                 del cell_attributes_dict[weights_namespace]
 
+
         first_gid = None
         for gid in syn_attrs.gids():
             if mech_file_path is not None:
@@ -193,10 +195,11 @@ def connect_cells(env):
                 hoc_cell = env.pc.gid2cell(gid)
                 biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=hoc_cell, env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, mech_file_path=mech_file_path, reset_cable=True,
-                                          from_file=True, correct_cm=correct_for_spines,
-                                          correct_g_pas=correct_for_spines, env=env,
-                                          verbose=((rank == 0) and (first_gid == gid)))
+                    cells.init_biophysics(biophys_cell, env=env, mech_file_path=mech_file_path, 
+                                          reset_cable=True, from_file=(mech_file_path is not None), 
+                                          correct_cm=correct_for_spines,
+                                          correct_g_pas=correct_for_spines, 
+                                          verbose=(first_gid == gid))
                 except IndexError:
                     raise IndexError('*** connect_cells: population: %s; gid: %i; could not load biophysics from path: '
                                      '%s' % (postsyn_name, gid, mech_file_path))
@@ -314,7 +317,7 @@ def connect_cell_selection(env):
 
     input_sources = {pop_name: set([]) for pop_name in env.celltypes}
 
-    for (postsyn_name, presyn_names) in viewitems(env.projection_dict):
+    for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
 
         if rank == 0:
             logger.info('*** Postsynaptic population: %s' % postsyn_name)
@@ -398,7 +401,7 @@ def connect_cell_selection(env):
                     cells.init_biophysics(biophys_cell, \
                                           mech_file_path=mech_file_path, \
                                           reset_cable=True, \
-                                          from_file=True, \
+                                          from_file=(mech_file_path is not None), \
                                           correct_cm=correct_for_spines, \
                                           correct_g_pas=correct_for_spines, \
                                           env=env, verbose=((rank == 0) and (first_gid == gid)))
@@ -768,7 +771,7 @@ def make_input_cells(env, input_sources):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    for pop_name, input_gid_range in viewitems(input_sources):
+    for pop_name, input_gid_range in sorted(viewitems(input_sources)):
         pop_index = int(env.Populations[pop_name])
         if env.netclamp_config is None:
             spike_generator = None
@@ -836,21 +839,24 @@ def init_input_cells(env, input_sources=None):
                 if rank == 0:
                     logger.info("*** Initializing stimulus population %s" % pop_name)
 
-                if len(vecstim_dict['spiketrain']) > 0:
+                spiketrain = vecstim_dict['spiketrain']
+                if len(spiketrain) > 0:
+                    if np.min(spiketrain) < 0.:
+                        spiketrain += abs(np.min(spiketrain))
                     logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                (gid, len(vecstim_dict['spiketrain']),
-                                 vecstim_dict['spiketrain'][0], vecstim_dict['spiketrain'][-1]))
+                                (gid, len(spiketrain),
+                                 spiketrain[0], spiketrain[-1]))
                 else:
                     logger.info("*** Spike train for gid %i is of length %i" %
-                                (gid, len(vecstim_dict['spiketrain'])))
+                                (gid, len(spiketrain)))
 
-                vecstim_dict['spiketrain'] += env.stimulus_onset
+                spiketrain += env.stimulus_onset
                 cell = env.pc.gid2cell(gid)
-                cell.play(h.Vector(vecstim_dict['spiketrain']))
+                cell.play(h.Vector(spiketrain))
 
     if input_sources is not None:
         if (env.spike_input_path is not None) and (env.spike_input_ns is not None):
-            for pop_name, gid_range in viewitems(input_sources):
+            for pop_name, gid_range in sorted(viewitems(input_sources)):
 
                 if rank == 0:
                     logger.info("*** Initializing input source %s" % pop_name)
@@ -954,7 +960,7 @@ def init(env):
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     st = time.time()
     if env.cell_selection is None:
-        for lfp_label, lfp_config_dict in viewitems(env.lfpConfig):
+        for lfp_label, lfp_config_dict in sorted(viewitems(env.lfpConfig)):
             env.lfp[lfp_label] = \
                 lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], rho=lfp_config_dict['rho'],
                         dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
