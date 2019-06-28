@@ -14,16 +14,16 @@ import rbf.basis
 from rbf.interpolate import RBFInterpolant
 from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
 from dentate.env import Env
-from dentate.geometry import measure_distances
+from dentate.geometry import make_distance_interpolant, measure_distances
 from dentate.neuron_utils import configure_hoc_env
 from neuroh5.io import bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges
 
-sys_excepthook = sys.excepthook
-def mpi_excepthook(type, value, traceback):
-    sys_excepthook(type, value, traceback)
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys_excepthook = sys.excepthook
+#def mpi_excepthook(type, value, traceback):
+#     sys_excepthook(type, value, traceback)
+#     if MPI.COMM_WORLD.size > 1:
+#         MPI.COMM_WORLD.Abort(1)
+#sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -70,16 +70,14 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
             input_file.close()
             output_file.close()
     comm.barrier()
-
     
     population_ranges = read_population_ranges(coords_path)[0]
-    populations = list(population_ranges.keys())
-    
-    if rank == 0:
-        logger.info('Reading population coordinates...')
+    populations = sorted(list(population_ranges.keys()))
 
     soma_distances = {}
-    for population in sorted(populations):
+    for population in populations:
+        if rank == 0:
+            logger.info('Reading %s population coordinates...' % population)
         coords_iter = bcast_cell_attributes(coords_path, population, 0, namespace=coords_namespace)
         distances_iter = bcast_cell_attributes(coords_path, population, 0, namespace=distances_namespace)
 
@@ -92,10 +90,13 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
         
         gc.collect()
 
-    destination_populations = read_population_names(forest_path)
+    destination_populations = sorted(read_population_names(forest_path))
 
     if len(soma_distances) == 0:
-        soma_distances = measure_distances(env, soma_coords, allgather=True)
+        (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
+        ip_dist = (origin_ranges, ip_dist_u, ip_dist_v)
+        soma_distances = measure_distances(env, soma_coords, ip_dist, resolution=resolution)
+
 
     for destination_population in destination_populations:
 

@@ -1,28 +1,15 @@
-import gc
-import itertools
-import logging
-import os
-import string
-import sys
-import time
-from collections import defaultdict
-
-import h5py
-import numpy as np
-
+import os, sys, gc, logging, string, time, itertools
+from mpi4py import MPI
 import click
+from collections import defaultdict
+import numpy as np
 import dentate
-from dentate import cells
-from dentate import neuron_utils
-from dentate import synapses
-from dentate import utils
+from dentate import cells, neuron_utils, synapses, utils
 from dentate.env import Env
 from dentate.neuron_utils import configure_hoc_env
 from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import NeuroH5TreeGen
-from neuroh5.io import append_cell_attributes
-from neuroh5.io import read_population_ranges
+from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
+import h5py
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -199,7 +186,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
         logger.info('Rank %i population: %s' % (rank, population))
         (population_start, _) = pop_ranges[population]
         template_class = env.load_cell_template(population)
-        
+
         density_dict = env.celltypes[population]['synapses']['density']
         layer_set_dict = defaultdict(set)
         swc_set_dict = defaultdict(set)

@@ -1,11 +1,7 @@
 
-import os
-import sys
-
-import click
+import os, sys, click
 import dentate
-from dentate import plot
-from dentate import utils
+from dentate import plot, utils, statedata
 from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
@@ -27,6 +23,7 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
 
     utils.config_logging(verbose)
 
+    
     if t_max is None:
         time_range = None
     else:
@@ -39,6 +36,10 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
         populations = ['eachPop']
     else:
         populations = list(populations)
+
+    if query:
+        statedata.query_state(state_path, populations, namespace_id=state_namespace)
+        sys.exit()
         
     if len(unit_no) == 0:
         unit_no = None
@@ -46,7 +47,7 @@ def main(state_path, state_namespace, populations, max_units, unit_no, t_variabl
     plot.plot_intracellular_state (state_path, state_namespace, include=populations, time_range=time_range,
                                    time_variable=t_variable, variable=variable,
                                    max_units=max_units, unit_no=unit_no,
-                                   fontSize=font_size, saveFig=True, query=query)
+                                   fontSize=font_size, saveFig=True)
     
 
 

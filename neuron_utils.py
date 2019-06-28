@@ -1,12 +1,10 @@
 import os
-
-from dentate.utils import *
-from neuron import h
-
 try:
     from mpi4py import MPI  # Must come before importing NEURON
 except Exception:
     pass
+from dentate.utils import *
+from neuron import h
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)

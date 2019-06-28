@@ -1302,7 +1302,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
 
 
 ## Plot intracellular state trace 
-def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', variable='v', max_units = 1, unit_no = None, query = False, labels = None, marker = '|', **kwargs): 
+def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', variable='v', max_units = 1, unit_no = None, labels = None, marker = '|', **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1334,10 +1334,7 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
 
     data = statedata.read_state (input_path, include, namespace_id, time_variable=time_variable,
                                  variable=variable, time_range=time_range, 
-                                 max_units = max_units, unit_no = unit_no, query = query)
-
-    if query:
-        return
+                                 max_units = max_units, unit_no = unit_no)
 
     states     = data['states']
     

@@ -1,13 +1,9 @@
-import itertools
-import math
-import sys
+import sys, itertools, math
 from collections import defaultdict
-
 import numpy as np
-
-from dentate import utils
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
-from utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, old_div
+import dentate
+from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, old_div
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env

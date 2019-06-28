@@ -121,8 +121,9 @@ def mkout(env, results_filename):
     dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
     data_file_path = os.path.join(dataset_path, env.modelConfig['Cell Data'])
     data_file = h5py.File(data_file_path, 'r')
-    results_file = h5py.File(results_filename, 'w')
-    data_file.copy('/H5Types', results_file)
+    results_file = h5py.File(results_filename)
+    if 'H5Types' not in results_file:
+        data_file.copy('/H5Types', results_file)
     data_file.close()
     results_file.close()
 
@@ -140,7 +141,7 @@ def spikeout(env, output_path):
     id_vec = np.array(env.id_vec, dtype=np.uint32)
 
     binlst = []
-    typelst = list(env.celltypes.keys())
+    typelst = sorted(env.celltypes.keys())
     for k in typelst:
         binlst.append(env.celltypes[k]['start'])
 
@@ -187,7 +188,7 @@ def recsout(env, output_path):
     t_vec = np.arange(0, env.tstop + env.dt, env.dt, dtype=np.float32)
 
     for pop_name in sorted(env.celltypes.keys()):
-        for rec_type, recs in viewitems(env.recs_dict[pop_name]):
+        for rec_type, recs in sorted(viewitems(env.recs_dict[pop_name])):
             attr_dict = {}
             for rec in recs:
                 gid = rec['gid']

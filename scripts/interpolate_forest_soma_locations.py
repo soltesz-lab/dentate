@@ -1,11 +1,11 @@
-import os, sys, itertools, logging, random, time
+import os, sys, itertools, logging, time
 from mpi4py import MPI
 import numpy as np
 import dlib
 import click
 import dentate
 from dentate.env import Env
-from dentate.geometry import DG_volume, make_uvl_distance, make_volume
+from dentate.geometry import DG_volume, make_uvl_distance, make_volume, get_total_extents, uvl_in_bounds
 from dentate.utils import *
 from neuroh5.io import append_cell_attributes, read_population_ranges, scatter_read_trees
 
@@ -14,6 +14,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
+
 sys.excepthook = mpi_excepthook
 
 def list_concat(a, b, datatype):
@@ -33,7 +34,8 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose):
+@click.option("--dry-run", is_flag=True)
+def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose, dry_run):
 
     config_logging(verbose)
     logger = get_script_logger(__file__)
@@ -69,52 +71,29 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
     comm0 = comm.Split(color, 0)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
-
-    min_u = float('inf')
-    max_u = 0.0
-
-    min_v = float('inf')
-    max_v = 0.0
-
-    min_l = float('inf')
-    max_l = 0.0
-
-    for layer, min_extent in viewitems(env.geometry['Parametric Surface']['Minimum Extent']):
-        min_u = min(min_extent[0], min_u)
-        min_v = min(min_extent[1], min_v)
-        min_l = min(min_extent[2], min_l)
-
-    for layer, max_extent in viewitems(env.geometry['Parametric Surface']['Maximum Extent']):
-        max_u = max(max_extent[0], max_u)
-        max_v = max(max_extent[1], max_v)
-        max_l = max(max_extent[2], max_l)
-
-    rotate = env.geometry['Parametric Surface']['Rotation']
     origin = env.geometry['Parametric Surface']['Origin']
+    layer_extents = env.geometry['Parametric Surface']['Layer Extents']
+
+    ((min_u, max_u), (min_v, max_v), (min_l, max_l)) = get_total_extents(layer_extents)
+
+    ## This parameter is used to expand the range of L and avoid
+    ## situations where the endpoints of L end up outside of the range
+    ## of the distance interpolant
+    safety = 0.01
+
+    ip_volume = make_volume((min_u-safety, max_u+safety), \
+                            (min_v-safety, max_v+safety), \
+                            (min_l-safety, max_l+safety), \
+                            resolution=resolution, rotate=rotate)
     
     for population in populations:
-        min_extent = env.geometry['Cell Layers']['Minimum Extent'][population]
-        max_extent = env.geometry['Cell Layers']['Maximum Extent'][population]
-        
+        pop_layers = env.geometry['Cell Distribution'][population]        
+
         if rank == 0:
             logger.info('Reading forest for population %s...' % population)
             
         (trees, forestSize) = scatter_read_trees(forest_path, population, io_size=io_size, comm=comm)
         (population_start, _) = pop_ranges[population]
-
-        if rank == 0:
-            logger.info('Constructing volume...')
-
-        ## This parameter is used to expand the range of L and avoid
-        ## situations where the endpoints of L end up outside of the range
-        ## of the distance interpolant
-        safety = 0.01
-
-        ip_volume = make_volume((min_u-safety, max_u+safety), \
-                                (min_v-safety, max_v+safety), \
-                                (min_l-safety, max_l+safety), \
-                                resolution=resolution, rotate=rotate)
-
 
         if rank == 0:
             logger.info('Interpolating forest coordinates...')
@@ -133,23 +112,13 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
             px       = xs[0]
             py       = ys[0]
             pz       = zs[0]
+
             xyz_coords = np.array([px,py,pz]).reshape(3,1).T
-
             uvl_coords_interp = ip_volume.inverse(xyz_coords)[0]
-            xyz_coords_interp = ip_volume(uvl_coords_interp[0],uvl_coords_interp[1],uvl_coords_interp[2]).ravel()
-            xyz_error_interp  = np.abs(np.subtract(xyz_coords, xyz_coords_interp))[0]
-
-            f_uvl_distance = make_uvl_distance(xyz_coords,rotate=rotate)
-            uvl_coords,dist = \
-              dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
-
-            xyz_coords1 = DG_volume(uvl_coords[0], uvl_coords[1], uvl_coords[2], rotate=rotate)[0]
+            xyz_coords1 = DG_volume(uvl_coords_interp[0], uvl_coords_interp[1], uvl_coords_interp[2], 
+                                    rotate=rotate)[0]
             xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
-
-            if np.all (np.less (xyz_error_interp, xyz_error)):
-                uvl_coords = uvl_coords_interp
-                xyz_coords1 = xyz_coords_interp
-                xyz_error = xyz_error_interp
+            uvl_coords = uvl_coords_interp
             
             if rank == 0:
                 logger.info('xyz_coords: %s' % str(xyz_coords))
@@ -165,31 +134,29 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                  'L Coordinate': np.array([uvl_coords[2]], dtype='float32'),
                                  'Interpolation Error': np.asarray(xyz_error, dtype='float32') }
 
-            if (uvl_coords[0] <= max_extent[0]) and (uvl_coords[0] >= min_extent[0]) and \
-                (uvl_coords[1] <= max_extent[1]) and (uvl_coords[1] >= min_extent[1]) and \
-                (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
+            if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and \
+               (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
                     coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
             else:
-                if not ((uvl_coords[0] <= max_extent[0]) and (uvl_coords[0] >= min_extent[0]) and \
-                            (uvl_coords[1] <= max_extent[1]) and (uvl_coords[1] >= min_extent[1])):
+                if not uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
                     logger.warning("Rank %d: uvl coords %f %f %f out of range %f : %f  %f : %f %f : %f", rank, 
                                    uvl_coords[0], uvl_coords[1], uvl_coords[2],
-                                   min_extent[0], max_extent[0], min_extent[1], max_extent[1],
-                                   min_extent[2], max_extent[2])
+                                   min_u, max_u, min_v, max_v,
+                                   min_l, max_l)
 
             count += 1
-            
-        append_cell_attributes(coords_path, population, coords_dict,
-                               namespace='Interpolated Coordinates', io_size=io_size, comm=comm)
 
-        global_count = comm.gather(count, root=0)
+        if not dry_run:
+            append_cell_attributes(coords_path, population, coords_dict,
+                                   namespace='Interpolated Coordinates', 
+                                   io_size=io_size, comm=comm)
+
+        global_count = np.sum(np.asarray(comm.gather(count, root=0)))
         if rank == 0:
             if global_count > 0:
                 logger.info('Interpolation of %i %s cells took %i s' % (np.sum(global_count), \
                                                                         population, \
                                                                         time.time()-start_time))
-        del coords_dict
-
         all_coords = comm.reduce(coords, root=0, op=mpi_op_concat)
             
         if rank == 0:
@@ -198,10 +165,9 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                 reindex_dict = { coords[0]: { 'New Cell Index' : np.array([(i+population_start)], dtype='uint32') }
                                      for (i, coords) in zip (coords_sort_idxs, all_coords) }
                 append_cell_attributes(coords_path, population, reindex_dict,
-                                           namespace='Tree Reindex', io_size=1, comm=comm0)
+                                       namespace='Tree Reindex', comm=comm0)
             
-        comm0.Barrier()
-        MPI.Finalize()
+        comm.barrier()
 
 
 if __name__ == '__main__':
