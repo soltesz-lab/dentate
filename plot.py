@@ -67,7 +67,6 @@ mpl.rcParams['font.size'] = 14.
 mpl.rcParams['font.sans-serif'] = 'Arial'
 mpl.rcParams['text.usetex'] = False
 
-
 def show_figure():
     try:
         plt.show(block=False)
