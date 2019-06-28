@@ -497,7 +497,7 @@ def connect_gjs(env):
                                  comm=env.comm)
 
         ggid = 2e6
-        for name in gapjunctions:
+        for name in sorted(gapjunctions.keys()):
             if rank == 0:
                 logger.info("*** Creating gap junctions %s" % str(name))
             prj = graph[name[0]][name[1]]
@@ -674,7 +674,7 @@ def make_cell_selection(env):
     dataset_path = env.dataset_path
     data_file_path = env.data_file_path
 
-    pop_names = list(env.cell_selection.keys())
+    pop_names = sorted(env.cell_selection.keys())
 
     for pop_name in pop_names:
         if rank == 0:
@@ -810,8 +810,7 @@ def init_input_cells(env, input_sources=None):
     dataset_path = env.dataset_path
     input_file_path = env.data_file_path
 
-    pop_names = list(env.celltypes.keys())
-    pop_names.sort()
+    pop_names = sorted(env.celltypes.keys())
 
     for pop_name in pop_names:
         if 'Vector Stimulus' in env.celltypes[pop_name]:
@@ -851,6 +850,7 @@ def init_input_cells(env, input_sources=None):
                                 (gid, len(spiketrain)))
 
                 spiketrain += env.stimulus_onset
+                assert(env.pc.gid_exists(gid))
                 cell = env.pc.gid2cell(gid)
                 cell.play(h.Vector(spiketrain))
 
@@ -885,6 +885,7 @@ def init_input_cells(env, input_sources=None):
                         logger.info("*** Spike train for gid %i is of length %i" %
                                     (gid, len(cell_spikes_dict['t'])))
 
+                    assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
                     input_cell.play(h.Vector(cell_spikes_dict['t']))
 
