@@ -1,9 +1,10 @@
-import sys, itertools, math
+import sys, math
 from collections import defaultdict
 import numpy as np
+from scipy import interpolate
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
 import dentate
-from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, old_div
+from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, old_div, zip
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -516,14 +517,14 @@ def coactive_sets (population, spkdict, time_bins, return_tree=False):
     
     tree = BallTree(active_bins, metric='jaccard')
     qbins = np.zeros((n_features, n_features),dtype=np.bool)
-    for ibin in xrange(n_features):
+    for ibin in range(n_features):
         qbins[ibin,ibin] = True
 
     nnrs, nndists = tree.query_radius(qbins, r=1, return_distance=True)
 
     fnnrs = []
     fnndists = []
-    for i, (nns, nndist) in enumerate(itertools.izip(nnrs, nndists)):
+    for i, (nns, nndist) in enumerate(zip(nnrs, nndists)):
         inds = [ inn for inn, nn in enumerate(nns) if np.any(np.logical_and(active_bins[nn,:], active_bins[i,:])) ] 
         fnns = np.asarray([ nns[inn] for inn in inds ])
         fdist = np.asarray([ nndist[inn] for inn in inds ])
@@ -534,6 +535,54 @@ def coactive_sets (population, spkdict, time_bins, return_tree=False):
         return n_samples, fnnrs, fnndists, (tree, active_gid)
     else:
         return n_samples, fnnrs, fnndists
+
+
+def spatial_coactive_sets (population, spkdict, time_bins, trajectory, return_tree=False):
+    """
+    Estimates spatially co-active activity ensembles from the given spike dictionary.
+    """
+
+    import sklearn
+    from sklearn.neighbors import BallTree
+
+    x, y, d, t = trajectory
+
+    pch_x = interpolate.pchip(t, x)
+    pch_y = interpolate.pchip(t, y)
+
+    spatial_bins = np.column_stack([pch_x(time_bins[:-1]), pch_y(time_bins[:-1])])
+    
+    acv_dict = { gid: np.histogram(np.asarray(lst), bins=time_bins)[0] 
+                 for (gid, lst) in viewitems(spkdict[population]) if len(lst) > 1 }
+    n_features = len(time_bins)-1
+    n_samples = len(acv_dict)
+
+    active_gid = {}
+    active_bins = np.zeros((n_samples, n_features),dtype=np.bool)
+    for i, (gid, acv) in enumerate(viewitems(acv_dict)):
+        active_bins[i,:] = acv > 0
+        active_gid[i] = gid
+    
+    tree = BallTree(active_bins, metric='jaccard')
+    qbins = np.zeros((n_features, n_features),dtype=np.bool)
+    for ibin in range(n_features):
+        qbins[ibin,ibin] = True
+
+    nnrs, nndists = tree.query_radius(qbins, r=1, return_distance=True)
+
+    fnnrs = []
+    fnndists = []
+    for i, (nns, nndist) in enumerate(zip(nnrs, nndists)):
+        inds = [ inn for inn, nn in enumerate(nns) if np.any(np.logical_and(active_bins[nn,:], active_bins[i,:])) ] 
+        fnns = np.asarray([ nns[inn] for inn in inds ])
+        fdist = np.asarray([ nndist[inn] for inn in inds ])
+        fnnrs.append(fnns)
+        fnndists.append(fdist)
+
+    if return_tree:
+        return n_samples, spatial_bins, fnnrs, fnndists, (tree, active_gid)
+    else:
+        return n_samples, spatial_bins, fnnrs, fnndists
 
 
 
