@@ -2,18 +2,28 @@
 ## Generates distance-weighted random connectivity between the specified populations.
 ##
 
-import sys, os, os.path, gc, click, logging
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
-from neuron import h
+import gc
+import logging
+import os
+import os.path
+import sys
+
 import h5py
 import numpy as np
-import rbf
+
+import click
 import dentate
-from dentate.gapjunctions import generate_gj_connections
-from dentate.env import Env
 import dentate.utils as utils
+import rbf
+from dentate.env import Env
+from dentate.gapjunctions import generate_gj_connections
 from dentate.neuron_utils import configure_hoc_env
+from mpi4py import MPI
+from neuroh5.io import bcast_cell_attributes
+from neuroh5.io import read_cell_attributes
+from neuroh5.io import read_population_names
+from neuroh5.io import read_population_ranges
+from neuron import h
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
