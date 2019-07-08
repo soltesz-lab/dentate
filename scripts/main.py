@@ -3,13 +3,14 @@
 Dentate Gyrus model simulation script.
 """
 __author__ = 'See AUTHORS.md'
-import sys, click, os
-from mpi4py import MPI
+import os, sys
 import numpy as np
-import dentate
-import dentate.network as network
+import click
+from mpi4py import MPI
+from dentate import network
 from dentate.env import Env
 from dentate.utils import list_find
+
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -20,6 +21,7 @@ def mpi_excepthook(type, value, traceback):
     :return:
     """
     sys_excepthook(type, value, traceback)
+    sys.stderr.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 

@@ -1,20 +1,20 @@
-
+import logging
 import os
 import sys
-import logging
-import numpy as np
-from mayavi import mlab
-import scipy.integrate as integrate
-import matplotlib.pyplot as plt
 
-import rbf
-from rbf.interpolate import RBFInterpolant
-import rbf.basis
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.integrate as integrate
+
 import quadpy
+import rbf
+import rbf.basis
+from connection_generator import get_volume_distances
+from DG_volume import make_volume
+from mayavi import mlab
+from rbf.interpolate import RBFInterpolant
 
 sys.path.insert(0,'/home/dhadjia1/soltesz-lab/dentate')
-from DG_volume import make_volume
-from connection_generator import get_volume_distances
 
 logging.basicConfig()
 script_name = 'test_point_distances_quadrature_2.py'
@@ -215,7 +215,7 @@ def trajectory_calculations(ip_vol, cache, dimension=None):
         
         distance_matrix = np.zeros((Nx, Nt, Nt))
         for d in range(0,len(distances)):    
-            for (i,j) in distances[d].keys():
+            for (i,j) in distances[d]:
                 td1, fd1, nd1, td2, fd2, nd2, diff_nd12 = distances[d][(i,j)]
                 distance_matrix[d][i][j] = diff_nd12 
         distance_matrix = np.asarray(distance_matrix)
@@ -353,4 +353,3 @@ if __name__ == '__main__':
     trajectories = np.asarray(trajectories)
     Nu, Nt, Np, D = trajectories.shape
     trajectory_size = np.arange(Np)
-    

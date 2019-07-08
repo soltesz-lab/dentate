@@ -146,7 +146,7 @@ def assign_cells_to_module(gid_normed_distances, p_width=2./3, displace=0.1):
     #for i in xrange(len(p_density)):
     #    plt.plot(renormalized_positions, p_density[i][valid_indices])
 
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     local_random = np.random.RandomState()
     gid_module_assignments = dict()
 
@@ -169,7 +169,7 @@ def determine_cell_participation(gid_module_assignments):
 
     input_config        = context.env.inputConfig[context.stimulus_id]
     feature_type_dict   = input_config['feature type']
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     feature_type_random = np.random.RandomState(feature_seed_offset - 1)
     num_field_random    = np.random.RandomState(feature_seed_offset - 1)
 
@@ -233,7 +233,7 @@ def build_cell_attributes(gid_attributes, gid_normed_distances, total_num_fields
     nmodules       = 10
     modules        = np.arange(nmodules)
     curr_module    = {mod + 1: int(0) for mod in modules}
-    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Features'])
+    feature_seed_offset = int(context.env.modelConfig['Random Seeds']['Input Spatial Selectivity'])
     
     local_random        = np.random.RandomState(feature_seed_offset - 1)
     grid_orientation    = [ local_random.uniform(0., np.pi/3.) for i in range(nmodules) ]
@@ -313,11 +313,11 @@ def save_to_h5(cell_attributes):
             elif cell['Feature Type'][0] == feature_place:
                 place_cells[gid] = cell
                 
-        append_cell_attributes(context.output_path, population, grid_cells, namespace='Grid Input Features',\
+        append_cell_attributes(context.output_path, population, grid_cells, namespace='Grid Selectivity',\
                                comm=context.comm, io_size=context.io_size, chunk_size=context.chunk_size,\
                                value_chunk_size=context.value_chunk_size)
 
-        append_cell_attributes(context.output_path, population, place_cells, namespace='Place Input Features',\
+        append_cell_attributes(context.output_path, population, place_cells, namespace='Place Selectivity',\
                                comm=context.comm, io_size=context.io_size, chunk_size=context.chunk_size,\
                                value_chunk_size=context.value_chunk_size)
     

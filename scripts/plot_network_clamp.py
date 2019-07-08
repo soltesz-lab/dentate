@@ -1,9 +1,11 @@
 
-import sys, os 
+import os
+import sys
+
 import click
 import dentate
-from dentate import utils, plot
-
+from dentate import plot
+from dentate import utils
 
 script_name = os.path.basename(__file__)
 

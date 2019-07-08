@@ -1,19 +1,19 @@
-
-
-import sys, os
-from collections import defaultdict, deque
-import dlib
+import os
+from collections import defaultdict
+from mpi4py import MPI
 import numpy as np
-import dentate
-from dentate.neuron_utils import *
-from dentate import utils, spikedata, synapses
-from utils import viewitems, mpi_mean
+
+import dlib
+from dentate import spikedata
+from dentate import synapses
+from dentate.neuron_utils import h
+from dentate.utils import get_module_logger, old_div, viewitems
 
 # This logger will inherit its settings from the root logger, created in dentate.env
-logger = utils.get_module_logger(__name__)
+logger = get_module_logger(__name__)
 
 
-class NetworkOptimizer():
+class NetworkOptimizer(object):
     """
     Network optimizer based on dlib's global function search
 
@@ -22,7 +22,10 @@ class NetworkOptimizer():
     Creates a global optimizer for optimizing the network firing rate as a
     function of synaptic conductances.  
     """
-    def __init__(self, env, dt_opt=125.0, fname=None, bin_size=5.0, objective=lambda (env, opt_targets): -pop_firing_distance(env, opt_targets), objreduce=mpi_mean):
+
+    def __init__(self, env, dt_opt=125.0, fname=None, bin_size=5.0,
+                 objective=lambda env_opt_targets: -pop_firing_distance(env_opt_targets[0], env_opt_targets[1]),
+                 objreduce=mpi_mean):
 
         """
         Default constructor for the network optimizer.
@@ -32,7 +35,7 @@ class NetworkOptimizer():
         :param str fname: File name for restoring and/or saving results,
         progress and settings.
         """
-        
+
         if fname is None:
             if opt_params is None:
                 raise ValueError("No file name and no parameters specified")
@@ -46,7 +49,7 @@ class NetworkOptimizer():
         self.dt_opt = dt_opt
         self.t_start = h.t
         self.bin_size = bin_size
-        
+
         self.param_range_tuples = defaultdict(list)
         self.opt_targets = {}
         self.specs = {}
@@ -59,35 +62,34 @@ class NetworkOptimizer():
             param_ranges = params['Parameter ranges']
             opt_target = params['Target firing rate']
             param_range_tuples = []
-            for source, source_dict in sorted(viewitems(param_ranges), key=lambda (k,v): k):
-                for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda (k,v): k):
-                    for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda (k,v): k):
-                        for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda (k,v): k):
+            for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
+                for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
+                    for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
+                        for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
                             param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
 
             self.param_range_tuples[pop_name] = param_range_tuples
             self.opt_targets[pop_name] = opt_target
             self.pop_index[pop_name] = i
 
-
-        min_values = [ param_range[0]
-                        for _, param_range_tuples in viewitems(self.param_range_ruples)
-                           for source, sec_type, syn_name, param_name, param_range in param_range_tuples ]
-        max_values = [ param_range[1]
-                        for _, param_range_tuples in viewitems(self.param_range_ruples)
-                           for source, sec_type, syn_name, param_name, param_range in param_range_tuples ]
+        min_values = [param_range[0]
+                      for _, param_range_tuples in viewitems(self.param_range_ruples)
+                      for source, sec_type, syn_name, param_name, param_range in param_range_tuples]
+        max_values = [param_range[1]
+                      for _, param_range_tuples in viewitems(self.param_range_ruples)
+                      for source, sec_type, syn_name, param_name, param_range in param_range_tuples]
         spec = dlib.function_spec(bound1=min_values, bound2=max_values)
-            
-        old_evals = [] ## TODO load from file
+
+        old_evals = []  ## TODO load from file
         optimizer = dlib.global_function_search(spec, initial_function_evals=old_evals)
-        
+
         self.optimizer = optimizer
         self.spec = spec
         self.opt_coords = None
         self.fih = h.FInitializeHandler(1, self.run)
         self.objective = objective
         self.objreduce = objreduce
-        
+
     def run(self):
         """
         Simulate the network; pause at every dt_opt ms, evaluate the
@@ -98,9 +100,9 @@ class NetworkOptimizer():
             local_obj = self.objective(self.env, self.opt_targets)
             global_obj = self.objreduce(self.env.comm, local_obj)
             this_coords.set(global_obj)
-            specs, evals = self.optimizer.get_function_evaluations() 
+            specs, evals = self.optimizer.get_function_evaluations()
             e = evals[0]
-            
+
         next_coords = self.optimizer.get_next_x()
         for pop_index, pop_name in viewitems(self.pop_index):
             biophys_cell_dict = self.env.biophys_cells[pop_name]
@@ -113,13 +115,12 @@ class NetworkOptimizer():
                                               origin='soma', update_targets=True)
                 cell = self.env.pc.gid2cell(gid)
         self.opt_coords = next_coords
-        
+
         ## Add another event to the event queue, to 
         ## execute run again, dt_opt ms from now
         h.cvode.event(h.t + self.dt_opt, self.run)
         self.t_start = h.t
 
-        
     def from_param_vector(self, pop_name, params):
         """
         Given a list of parameter values, use param_range_tuples
@@ -128,12 +129,11 @@ class NetworkOptimizer():
         """
         result = []
         param_range_tuples = self.param_range_tuples[pop_name]
-        assert(len(params) == len(param_range_tuples))
+        assert (len(params) == len(param_range_tuples))
         for i, (source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
             result.append((source, sec_type, syn_name, param_name, params[i]))
         return result
 
-    
     def to_param_vector(self, pop_name, params):
         """
         Given a list of parameter tuples, return a list of parameter values.
@@ -143,7 +143,7 @@ class NetworkOptimizer():
             result.append(param_value)
         return result
 
-    
+
 def pop_firing_rates(env):
     """
     Computes the mean firing rate for each population in the network.
@@ -152,13 +152,14 @@ def pop_firing_rates(env):
 
     t_start = self.t_start
     t_stop = h.t
-    
-    time_bins  = np.arange(t_start, t_stop, self.bin_size)
-    rate_dict = { pop_name: np.mean(spikedata.spike_density_estimate (pop_name, spike_dict, time_bins))
-                  for pop_name, spike_dict in viewitems(pop_spike_dict) }
+
+    time_bins = np.arange(t_start, t_stop, self.bin_size)
+    rate_dict = {pop_name: np.mean(spikedata.spike_density_estimate(pop_name, spike_dict, time_bins))
+                 for pop_name, spike_dict in viewitems(pop_spike_dict)}
 
     return rate_dict
-    
+
+
 def pop_firing_distance(env, opt_targets):
     """
     Computes the distance vector between target firing rates
@@ -167,16 +168,15 @@ def pop_firing_distance(env, opt_targets):
 
     rate_dict = pop_firing_rates(env)
 
-    a = np.asarray([ opt_targets[pop_name] for pop_name in sorted(self.pop_index.keys()) ])
+    a = np.asarray([opt_targets[pop_name] for pop_name in sorted(self.pop_index.keys())])
     sqdist = np.asarray([(a[self.pop_index[pop_name]] - rate) ** 2 for _, rate in viewitems(rate_dict[pop_name])
-                        for pop_name in sorted(self.pop_index.keys()) ])
-    
+                         for pop_name in sorted(self.pop_index.keys())])
+
     return sqdist
 
 
 def mpi_mean(comm, value):
-    
     global_sum = np.zeros(value.shape, dtype='float32')
     comm.Allreduce(value, global_sum, op=MPI.SUM)
     count = comm.size
-    return global_sum / count
+    return old_div(global_sum, count)

@@ -145,7 +145,7 @@ class GridCell(InputCell):
         max_rate = transfer(3.)
         rate_map = self.peak_rate * transfer(inner_sum) / max_rate
         self.rate_map = rate_map
-        
+
         return rate_map
     
 class PlaceCell(InputCell):

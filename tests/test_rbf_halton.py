@@ -1,17 +1,23 @@
+from __future__ import division
+
+import time
+from builtins import range
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+import rbf
+from past.utils import old_div
+from rbf.halton import halton
 
 # Make sure ghalton is installed -> $ pip install ghalton 
 
-import numpy as np
-import matplotlib.pyplot as plt
-import time
-import rbf
-from rbf.halton import halton
 
 
 def benchmark(seed, points, n=5):
 
     halton_times = []
-    for i in xrange(n):
+    for i in range(n):
         tic = time.time()
         points_halton = generate_points(seed*i, points)
         elapsed = time.time() - tic
@@ -20,7 +26,7 @@ def benchmark(seed, points, n=5):
     halton_avg   = np.mean(halton_times)
 
     uniform_times = []
-    for i in xrange(n):
+    for i in range(n):
         tic = time.time()
         points_uniform = np.random.uniform(low=0., high=1., size=(points,2))
         elapsed = time.time() - tic
@@ -64,13 +70,11 @@ if __name__ == '__main__':
         points_halton_2 = generate_points(5, npoints, dim=dim)
         points_random   = np.random.uniform(low=0., high=1., size=(npoints, dim))
 
-        axes[i/2,i%2].scatter(points_halton_1[:,0], points_halton_1[:,1], c='r')
-        axes[i/2,i%2].scatter(points_halton_2[:,0], points_halton_2[:,1], c='b')
-        axes[i/2,i%2].scatter(points_random[:,0], points_random[:,1], c='g')
-        axes[i/2,i%2].legend(['halton seed 3', 'halton seed 5', 'random uniform'])
-        axes[i/2,i%2].set_title('num points: %i' % npoints)
+        axes[old_div(i,2),i%2].scatter(points_halton_1[:,0], points_halton_1[:,1], c='r')
+        axes[old_div(i,2),i%2].scatter(points_halton_2[:,0], points_halton_2[:,1], c='b')
+        axes[old_div(i,2),i%2].scatter(points_random[:,0], points_random[:,1], c='g')
+        axes[old_div(i,2),i%2].legend(['halton seed 3', 'halton seed 5', 'random uniform'])
+        axes[old_div(i,2),i%2].set_title('num points: %i' % npoints)
 
 
     plt.show()
-
-  

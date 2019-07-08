@@ -2,9 +2,8 @@ import numpy as np
 import scipy.integrate as integrate
 
 import rbf
-from rbf.interpolate import RBFInterpolant
 import rbf.basis
-
+from rbf.interpolate import RBFInterpolant
 
 
 def get_x(vol, p, diff=None):
@@ -78,12 +77,3 @@ def choose_trajectory(vol, u=None, v=None, l=None, ur=1, vr=1):
         L = vol.l
     pts = vol(U,V,L)
     return pts, pts.shape
-
-
-
-
-
-
-    
-        
-        

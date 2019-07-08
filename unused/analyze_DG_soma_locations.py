@@ -1,7 +1,7 @@
-from function_lib import *
+from __future__ import print_function
+from builtins import range
+from unused.function_lib import *
 import random
-from mpl_toolkits.mplot3d import Axes3D
-
 
 coords_dir = '../morphologies/'
 # coords_file = 'dentate_Sampled_Soma_Locations_test.h5'
