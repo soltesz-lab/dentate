@@ -1008,10 +1008,6 @@ def run(env, output=True, shutdown=True):
     env.simtime.reset()
     h.finitialize(env.v_init)
 
-    ## more accurate integration of synaptic discontinuities
-    if hasattr(h, 'nrn_netrec_state_adjust'):
-        h.nrn_netrec_state_adjust = 1
-
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 

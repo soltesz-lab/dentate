@@ -17,9 +17,8 @@
 #PBS -W umask=0027
 #PBS -A bayj
 
-
 module load bwpy/2.0.1
-module load craype-hugepages2M
+
 
 set -x
 
