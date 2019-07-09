@@ -181,7 +181,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
         if t_min is None:
             t_range = [0.0, t_max]
         else:
-            r_range = [t_min, t_max]
+            t_range = [t_min, t_max]
 
     ## Attribute namespace that contains recorded spike events
     if env.results_id is None:
@@ -504,6 +504,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
 @click.option("--tstop", '-t', type=float, default=150.0, help='simulation end time')
+@click.option("--t-max", type=float)
+@click.option("--t-min", type=float)
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -520,8 +522,11 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--results-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
-def go(config_file, population, gid, generate_inputs, generate_weights, tstop, template_paths, dataset_prefix,
+
+def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min,
+       template_paths, dataset_prefix,
        config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, profile_memory):
+
     """
     Runs network clamp simulation for the specified cell.
     """
@@ -537,7 +542,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
          generate_inputs_pops=set(generate_inputs), \
          generate_weights_pops=set(generate_weights), \
          spike_events_namespace=spike_events_namespace, \
-         t_var='t', t_min=None, t_max=None)
+         t_var='t', t_min=t_min, t_max=t_max)
 
     run(env)
     write_output(env)
@@ -555,6 +560,8 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
 @click.option("--tstop", '-t', type=float, default=150.0, help='simulation end time')
+@click.option("--t-max", type=float)
+@click.option("--t-min", type=float)
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -570,7 +577,10 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.argument('target')
-def optimize(config_file, population, gid, generate_inputs, generate_weights, tstop, opt_iter, template_paths,
+
+
+def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
+             template_paths,
              dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
@@ -588,7 +598,7 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, ts
          generate_inputs_pops=set(generate_inputs), \
          generate_weights_pops=set(generate_weights), \
          spike_events_namespace=spike_events_namespace, \
-         t_var='t', t_min=None, t_max=None)
+         t_var='t', t_min=t_min, t_max=t_max)
 
     if target == 'rate':
         optimize_rate(env, population, gid, opt_iter=opt_iter)
