@@ -147,8 +147,8 @@ def spikeout(env, output_path):
 
     binvect = np.array(binlst)
     sort_idx = np.argsort(binvect, axis=0)
+    pop_names = [typelst[i] for i in sort_idx]
     bins = binvect[sort_idx][1:]
-    types = [typelst[i] for i in sort_idx]
     inds = np.digitize(id_vec, bins)
 
     if env.results_id is None:
@@ -156,22 +156,24 @@ def spikeout(env, output_path):
     else:
         namespace_id = "Spike Events %s" % str(env.results_id)
 
-    for i in range(0, len(types)):
+    for i, pop_name in enumerate(pop_names):
         spkdict = {}
         sinds = np.where(inds == i)
         if len(sinds) > 0:
             ids = id_vec[sinds]
             ts = t_vec[sinds]
             for j in range(0, len(ids)):
-                id = ids[j]
+                gid = ids[j]
                 t = ts[j]
-                if id in spkdict:
-                    spkdict[id]['t'].append(t)
+                if gid in spkdict:
+                    spkdict[gid]['t'].append(t)
                 else:
-                    spkdict[id] = {'t': [t]}
-            for j in spkdict:
-                spkdict[j]['t'] = np.array(spkdict[j]['t'], dtype=np.float32)
-        pop_name = types[i]
+                    spkdict[gid] = {'t': [t]}
+            for gid in spkdict:
+                spkdict[gid]['t'] = np.array(spkdict[gid]['t'], dtype=np.float32)
+                if gid in env.spike_onset_delay:
+                    spkdict[gid]['t'] -= env.spike_onset_delay[gid]
+                
         write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
         del (spkdict)
 

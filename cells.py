@@ -606,6 +606,7 @@ class BiophysCell(object):
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
+        self.spike_onset_delay = 0.
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
@@ -1061,7 +1062,7 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
-def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.):
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0.):
     """
     Initializes the spike detector in the given cell according to the
     given arguments or a spike detector configuration of the mechanism
@@ -1070,8 +1071,9 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.)
     :param cell: :class:'BiophysCell'
     :param node [optional]:  :class:'SHocNode
     :param distance: float
-    :param delay: float
     :param threshold: float
+    :param delay: float
+    :param onset_delay: float
     """
     
     if 'spike detector' in cell.mech_dict:
@@ -1080,6 +1082,8 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.)
         distance = config['distance']
         threshold = config['threshold']
         delay = config['delay']
+        onset_delay = config['onset delay']
+    
         
     if node is None:
         if cell.axon:
@@ -1098,6 +1102,8 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.)
                 cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
                 break
 
+    cell.onset_delay = onset_delay
+            
     return cell.spike_detector
         
 
@@ -2156,6 +2162,10 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
+    # if the spike detector is located in a compartment other than soma,
+    # record the spike time delay relative to soma
+    if hasattr(cell, 'spike_onset_delay'):
+        env.spike_onset_delay[gid] = cell.spike_onset_delay
 
     
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
