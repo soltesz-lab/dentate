@@ -948,13 +948,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 
                 if int(nc.wcnt()) >= i:
                     old = nc.weight[i]
-                    try:
-                        nc.weight[i] = val
-                    except Exception as e:
-                        print('config_syn: param %s val: %s = %s' % (param, str(type(val)), str(val)))
-                        print('config_syn: params = %s' % (str(params)))
-                        print('config_syn: rules = %s' % (str(rules)))
-                        raise e
+                    nc.weight[i] = val
                     nc_param = True
                     failed = False
         if failed:
@@ -1245,7 +1239,6 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
         else:
             raise RuntimeError('update_syn_mech_by_sec_type: rule for synaptic mechanism: %s parameter: %s was not '
                                'specified properly' % (syn_name, param_name))
-        print('update_syn_mech: syn_name %s: param %s = %s' % (syn_name, param_name, str(mech_param_contents)))
         for param_content_entry in mech_param_contents:
             update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, param_content_entry,
                                               update_targets, verbose)
@@ -2169,7 +2162,6 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
     source_weights = [1.0 if x <= fraction else 0.0 for x in local_random.uniform(size=len(source_syn_dict))]
-    print('source_weights (fraction %.3f) = %s' % (fraction, str(source_weights)))
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
     for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
