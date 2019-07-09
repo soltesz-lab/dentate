@@ -31,27 +31,29 @@ def get_env_spike_dict(env, t_start=0.0):
 
     binvect = np.array(binlst)
     sort_idx = np.argsort(binvect, axis=0)
+    pop_names = [typelst[i] for i in sort_idx]
     bins = binvect[sort_idx][1:]
-    types = [typelst[i] for i in sort_idx]
     inds = np.digitize(id_vec, bins)
 
     pop_spkdict = {}
-    for i in range(0, len(types)):
-        pop_name = types[i]
+    for i, pop_name in enumerate(pop_names):
         spkdict = {}
         sinds = np.where(inds == i)
         if len(sinds) > 0:
             ids = id_vec[sinds]
             ts = t_vec[sinds]
             for j in range(0, len(ids)):
-                id = ids[j]
+                gid = ids[j]
                 t = ts[j]
                 if id in spkdict:
-                    spkdict[id].append(t)
+                    spkdict[gid].append(t)
                 else:
-                    spkdict[id] = [t]
-            for j in spkdict:
-                spkdict[j] = np.array(spkdict[j], dtype=np.float32)
+                    spkdict[gid] = [t]
+            for gid in spkdict:
+                spkdict[gid] = np.array(spkdict[gid], dtype=np.float32)
+                if gid in env.spike_onset_delay:
+                    spkdict[gid]['t'] -= env.spike_onset_delay[gid]
+
         pop_spkdict[pop_name] = spkdict
 
     return pop_spkdict

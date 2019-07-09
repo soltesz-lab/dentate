@@ -92,6 +92,7 @@ class Env(object):
         self.cells = []
         self.gjlist = []
         self.biophys_cells = defaultdict(dict)
+        self.spike_onset_delay = {}
         self.v_sample_dict = {}
 
         if comm is None:
