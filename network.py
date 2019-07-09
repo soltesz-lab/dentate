@@ -152,11 +152,11 @@ def connect_cells(env):
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=cell_attr_namespaces, comm=env.comm,
+                                                                namespaces=sorted(cell_attr_namespaces), comm=env.comm,
                                                                 io_size=env.io_size)
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=cell_attr_namespaces, comm=env.comm,
+                                                                namespaces=sorted(cell_attr_namespaces), comm=env.comm,
                                                                 node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
@@ -1007,10 +1007,6 @@ def run(env, output=True, shutdown=True):
 
     env.simtime.reset()
     h.finitialize(env.v_init)
-
-    ## more accurate integration of synaptic discontinuities
-    if hasattr(h, 'nrn_netrec_state_adjust'):
-        h.nrn_netrec_state_adjust = 1
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)

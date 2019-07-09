@@ -19,7 +19,6 @@
 
 
 module load bwpy/2.0.1
-module load craype-hugepages2M
 
 set -x
 
@@ -47,7 +46,7 @@ aprun -n 32768 -b -- bwpy-environ -- \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=10000 \
+    --tstop=9500 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
