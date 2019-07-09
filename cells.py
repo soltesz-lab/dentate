@@ -609,7 +609,7 @@ class BiophysCell(object):
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
-            self.spike_detector = connect2target(self, self.soma[0].sec(0.5))
+            self.spike_detector = connect2target(self, self.soma[0].sec, loc=0.5)
         if self.mech_file_path is not None:
             import_mech_dict_from_file(self, self.mech_file_path)
 
@@ -1081,7 +1081,7 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.)
         threshold = config['threshold']
         delay = config['delay']
         
-    if sec is None:
+    if node is None:
         if cell.axon:
             node = cell.axon[0]
         elif cell.soma:
@@ -1089,7 +1089,7 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.)
         else:
             raise RuntimeError('init_spike_detector: cell has neither soma nor axon compartment')
 
-    sec_seg_locs = [seg.x for seg in sec]
+    sec_seg_locs = [seg.x for seg in node.sec]
     if get_distance_to_node(cell, cell.tree.root, node, loc=sec_seg_locs[-1]) < distance:
         cell.spike_detector = connect2target(cell, node.sec, loc=1., delay=delay, threshold=threshold)
     else:
