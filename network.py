@@ -1007,6 +1007,10 @@ def run(env, output=True, shutdown=True):
     if hasattr(h, 'nrn_netrec_state_adjust'):
         h.nrn_netrec_state_adjust = 1
 
+    ## sparse parallel transfer
+    if hasattr(h, 'nrn_sparse_partrans'):
+        h.nrn_sparse_partrans = 1
+
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 

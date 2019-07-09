@@ -55,5 +55,4 @@ aprun -n 576 -b -- bwpy-environ -- \
      --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LNN_9870802.bw/dentatenet_Full_Scale_GC_Exc_Sat_LNN_results.h5 \
      --spike_input_namespace='Spike Events' \
      --max-walltime-hours=0.49 \
-     --max_walltime_hours=0.49 \
      -v
