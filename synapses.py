@@ -4,8 +4,9 @@ import traceback
 from collections import defaultdict
 import numpy as np
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, import_mech_dict_from_file, make_neurotree_graph
+from dentate.cells import custom_filter_if_terminal, custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
-from dentate.utils import NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, viewitems, zip, zip_longest, partitionn, old_div
+from dentate.utils import NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, viewitems, zip, zip_longest, partitionn
 from neuroh5.io import write_cell_attributes
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -205,7 +206,7 @@ class SynapseAttributes(object):
             edge_dists = edge_attrs['Connections'][distance_attr_index]
 
             if set_edge_delays:
-                delays = [((old_div(distance, connection_velocity)) + h.dt) for distance in edge_dists]
+                delays = [((distance / connection_velocity) + h.dt) for distance in edge_dists]
             else:
                 delays = None
 
@@ -944,7 +945,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 failed = False
             else:
                 i = mech_rules['netcon_params'][param]
-
+                
                 if int(nc.wcnt()) >= i:
                     old = nc.weight[i]
                     nc.weight[i] = val
@@ -1232,15 +1233,14 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
     for param_name, param_content in viewitems(mech_content):
         # accommodate either a dict, or a list of dicts specifying rules for a single parameter
         if isinstance(param_content, dict):
-            mech_content = [param_content]
+            mech_param_contents = [param_content]
         elif isinstance(param_content, list):
-            mech_content = param_content
+            mech_param_contents = param_content
         else:
             raise RuntimeError('update_syn_mech_by_sec_type: rule for synaptic mechanism: %s parameter: %s was not '
                                'specified properly' % (syn_name, param_name))
-
-        for mech_content_entry in mech_content:
-            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, mech_content_entry,
+        for param_content_entry in mech_param_contents:
+            update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, param_content_entry,
                                               update_targets, verbose)
 
 
@@ -1626,7 +1626,7 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
         else:
             prev = None
             for i in range(sec.n3d()):
-                pos = old_div(sec.arc3d(i), sec.L)
+                pos = (sec.arc3d(i) / sec.L)
                 if pos >= x:
                     if (prev is None) or (abs(pos - x) < abs(prev - x)):
                         return content[name][secnodes[i]]
@@ -1815,7 +1815,7 @@ def synapse_seg_counts(syn_type_dict, layer_dict, layer_density_dicts, sec_index
                 else:
                     ran = None
                 if ran is not None:
-                    l = old_div(L, nseg)
+                    l = (L / nseg)
                     dens = ran.normal(density_dict['mean'], density_dict['variance'])
                     rc = dens * l
                     segcount_total += rc
@@ -1894,7 +1894,7 @@ def distribute_uniform_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                     int_seg_count = math.floor(seg_count)
                     syn_count = 0
                     while syn_count < int_seg_count:
-                        syn_loc = seg_start + seg_range * (old_div((syn_count + 1), math.ceil(seg_count)))
+                        syn_loc = seg_start + seg_range * (syn_count + 1) / math.ceil(seg_count)
                         assert ((syn_loc <= 1) & (syn_loc >= 0))
                         if syn_loc < 1.0:
                             syn_locs.append(syn_loc)
@@ -2028,7 +2028,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                         interval += sample
                         while interval < L_seg_end:
                             if interval >= L_seg_start:
-                                syn_loc = old_div(interval, L)
+                                syn_loc = (interval / L)
                                 assert ((syn_loc <= 1) and (syn_loc >= seg_start))
                                 if syn_loc < 1.0:
                                     syn_locs.append(syn_loc)
@@ -2162,7 +2162,6 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
     local_random = np.random.RandomState()
     local_random.seed(int(seed))
     source_weights = [1.0 if x <= fraction else 0.0 for x in local_random.uniform(size=len(source_syn_dict))]
-    print('source_weights (fraction %.3f) = %s' % (fraction, str(source_weights)))
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
     for this_source_gid, this_weight in zip(source_syn_dict, source_weights):

@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
-from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, old_div, read_from_yaml
+from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml
 from neuroh5.h5py_io_utils import select_tree_attributes
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 
@@ -523,7 +523,7 @@ class STree2(object):
         print("found 'multiple cylinder soma' w/ total soma surface=*.3f" % total_surf)
 
         # define apropriate radius
-        radius = np.sqrt(old_div(total_surf, (4 * np.pi)))
+        radius = np.sqrt(total_surf / (4 * np.pi))
 
         s_node_1 = SNode2(2)
         r = self.root.content["p3d"]
@@ -780,7 +780,7 @@ class SHocNode(SNode2):
                 return self.content['layer'][0]
             else:
                 for i in range(self.sec.n3d()):
-                    if old_div(self.sec.arc3d(i), self.sec.L) >= x:
+                    if (self.sec.arc3d(i) / self.sec.L) >= x:
                         return self.content['layer'][i]
         else:
             return None
@@ -858,7 +858,7 @@ def lambda_f(sec, f=freq):
     diam = np.mean([seg.diam for seg in sec])
     Ra = sec.Ra
     cm = np.mean([seg.cm for seg in sec])
-    return 1e5 * math.sqrt(old_div(diam, (4. * math.pi * f * Ra * cm)))
+    return 1e5 * math.sqrt(diam / (4. * math.pi * f * Ra * cm))
 
 
 def d_lambda_nseg(sec, lam=d_lambda, f=freq):
@@ -873,7 +873,7 @@ def d_lambda_nseg(sec, lam=d_lambda, f=freq):
     :return : int
     """
     L = sec.L
-    return int(old_div((old_div(L, (lam * lambda_f(sec, f))) + 0.9), 2)) * 2 + 1
+    return int(((L / (lam * lambda_f(sec, f))) + 0.9) / 2) * 2 + 1
 
 
 def append_section(cell, sec_type, sec_index=None, sec=None):
@@ -1388,7 +1388,7 @@ def correct_node_for_spines_cm(node, env, gid, verbose=True):
     for i, segment in enumerate(node.sec):
         SA_seg = segment.area()
         num_spines = node.spine_count[i]
-        cm_correction_factor = old_div((SA_seg + cm_fraction * num_spines * SA_spine), SA_seg)
+        cm_correction_factor = (SA_seg + cm_fraction * num_spines * SA_spine) / SA_seg
         node.sec(segment.x).cm *= cm_correction_factor
         if verbose:
             logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
@@ -1675,7 +1675,7 @@ def inherit_mech_param(donor, mech_name, param_name):
     :return: float
     """
     # accesses the last segment of the section
-    loc = old_div(donor.sec.nseg, (donor.sec.nseg + 1.))
+    loc = donor.sec.nseg / (donor.sec.nseg + 1.)
     try:
         if mech_name in ['cable', 'ions']:
             if mech_name == 'cable' and param_name == 'Ra':
@@ -1725,7 +1725,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
 
         # No need to insert the mechanism into the section if no segment matches location constraints
         min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)
-        max_seg_distance = get_distance_to_node(cell, donor, node, old_div((0.5 + node.sec.nseg - 1), node.sec.nseg))
+        max_seg_distance = get_distance_to_node(cell, donor, node, (0.5 + node.sec.nseg - 1) / node.sec.nseg)
         if (min_distance is None or max_seg_distance > min_distance) and \
                 (max_distance is None or min_seg_distance <= max_distance):
             # insert the mechanism first
@@ -1767,11 +1767,11 @@ def get_param_val_by_distance(distance, baseline, slope, min_distance, max_dista
             distance -= min_distance
             if tau is not None:
                 if xhalf is not None:  # sigmoidal gradient
-                    offset = baseline - old_div(slope, (1. + np.exp(old_div(xhalf, tau))))
-                    value = offset + old_div(slope, (1. + np.exp(old_div((xhalf - distance), tau))))
+                    offset = baseline - (slope / (1. + np.exp(xhalf / tau)))
+                    value = offset + (slope / (1. + np.exp((xhalf - distance) / tau)))
                 else:  # exponential gradient
                     offset = baseline - slope
-                    value = offset + slope * np.exp(old_div(distance, tau))
+                    value = offset + slope * np.exp(distance / tau)
             else:  # linear gradient
                 value = baseline + slope * distance
             if min_val is not None and value < min_val:
@@ -1885,7 +1885,7 @@ def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, *
     else:
         raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
                            '%s' % node.type)
-    slope = old_div((end_val - start_val), node.sec.L)
+    slope = (end_val - start_val) / node.sec.L
     if 'slope' in rules:
         if direction < 0.:
             slope = min(rules['slope'], slope)
