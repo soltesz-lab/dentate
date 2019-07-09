@@ -175,7 +175,7 @@ def connect_cells(env):
                                           verbose=((rank == 0) and (first_gid == gid)))
                 except IndexError:
                     raise IndexError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
-                                     % (postsyn_name, gid, mech_file_path))
+                                     (postsyn_name, gid, mech_file_path))
 
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
