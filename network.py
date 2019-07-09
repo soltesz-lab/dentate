@@ -67,27 +67,6 @@ def lpt_bal(env):
                 part_rank = part_rank + 1
 
 
-def register_cell(env, pop_name, gid, cell):
-    """
-    Registers a cell in a network environment.
-
-    :param env: an instance of the `dentate.Env` class
-    :param pop_name: population name
-    :param gid: gid
-    :param cell: cell instance
-    """
-    rank = env.comm.rank
-    env.gidset.add(gid)
-    env.cells.append(cell)
-    env.pc.set_gid2node(gid, rank)
-    # Tell the ParallelContext that this cell is a spike source
-    # for all other hosts. NetCon is temporary.
-    nc = cell.connect2target(h.nil)
-    nc.delay = env.dt
-    env.pc.cell(gid, nc, 1)
-    # Record spikes of this cell
-    env.pc.spike_record(gid, env.t_vec, env.id_vec)
-
 
 def connect_cells(env):
     """
@@ -597,19 +576,22 @@ def make_cells(env):
                     first_gid = gid
 
                 hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
-                if mech_file_path is not None:
+                if mech_file_path is None:
+                    cells.register_cell(env, pop_name, gid, hoc_cell)
+                else:
                     biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
                                                      hoc_cell=hoc_cell, env=env,
                                                      mech_file_path=mech_file_path)
+                    cells.init_spike_detector(biophys_cell)
+                    cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
                     if rank == 0 and gid == first_gid:
                         logger.info('*** make_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
                                     (pop_name, gid, mech_file_path))
-                
+
                 if rank == 0 and first_gid == gid:
                     for sec in list(hoc_cell.all):
                         h.psection(sec=sec)
-                register_cell(env, pop_name, gid, hoc_cell)
                 # Record voltages from a subset of cells
                 if hoc_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
@@ -651,7 +633,7 @@ def make_cells(env):
                 cell_z = cell_coords_dict['Z Coordinate'][0]
                 hoc_cell.position(cell_x, cell_y, cell_z)
 
-                register_cell(env, pop_name, gid, hoc_cell)
+                cells.register_cell(env, pop_name, gid, hoc_cell)
                 num_cells += 1
 
         h.define_shape()
@@ -710,12 +692,15 @@ def make_cell_selection(env):
                 if first_gid == None:
                     first_gid = gid
 
-                hoc_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid,
-                                                       dataset_path=dataset_path)
-                if mech_file_path is not None:
+                hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
+                if mech_file_path is None:
+                    cells.register_cell(env, pop_name, gid, hoc_cell)
+                else:
                     biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
                                                      hoc_cell=hoc_cell, env=env,
                                                      mech_file_path=mech_file_path)
+                    cells.init_spike_detector(biophys_cell)
+                    cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
                     if rank == 0 and gid == first_gid:
                         logger.info('*** make_cell_selection: population: %s; gid: %i; loaded biophysics from path: %s' %
@@ -726,7 +711,6 @@ def make_cell_selection(env):
                     for sec in list(hoc_cell.all):
                         h.psection(sec=sec)
 
-                register_cell(env, pop_name, gid, hoc_cell)
                 if hoc_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
                         rec = make_rec(gid, pop_name, gid, hoc_cell, \
@@ -758,7 +742,7 @@ def make_cell_selection(env):
                 cell_y = cell_coords_dict['Y Coordinate'][0]
                 cell_z = cell_coords_dict['Z Coordinate'][0]
                 hoc_cell.position(cell_x, cell_y, cell_z)
-                register_cell(env, pop_name, gid, hoc_cell)
+                cell.register_cell(env, pop_name, gid, hoc_cell)
                 if hoc_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
                         rec = make_rec(gid, pop_name, gid, hoc_cell, \

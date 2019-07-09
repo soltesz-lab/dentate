@@ -2132,6 +2132,32 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     return cell
 
 
+def register_cell(env, pop_name, gid, cell):
+    """
+    Registers a cell in a network environment.
+
+    :param env: an instance of the `dentate.Env` class
+    :param pop_name: population name
+    :param gid: gid
+    :param cell: cell instance
+    """
+    rank = env.comm.rank
+    env.gidset.add(gid)
+    env.pc.set_gid2node(gid, rank)
+    hoc_cell = getattr(cell, 'hoc_cell', cell)
+    env.cells.append(hoc_cell)
+    # Tell the ParallelContext that this cell is a spike source
+    # for all other hosts. NetCon is temporary.
+    if hasattr(cell, 'spike_detector'):
+        nc = cell.spike_detector
+    else:
+        nc = hoc_cell.connect2target(h.nil)
+    nc.delay += env.dt
+    env.pc.cell(gid, nc, 1)
+    # Record spikes of this cell
+    env.pc.spike_record(gid, env.t_vec, env.id_vec)
+
+    
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """
     Determines minimum stimulus sufficient to induce a spike in a cell. 
