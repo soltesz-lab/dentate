@@ -135,11 +135,6 @@ def connect_cells(env):
         else:
             has_weights = False
 
-        if 'mech_file_path' in env.celltypes[postsyn_name]:
-            mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
-        else:
-            mech_file_path = None
-
         if rank == 0:
             logger.info('*** Mechanism file for population %s is %s' % (postsyn_name, str(mech_file_path)))
 
@@ -192,21 +187,16 @@ def connect_cells(env):
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
-                hoc_cell = env.pc.gid2cell(gid)
-                biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=hoc_cell, env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, env=env, mech_file_path=mech_file_path, 
-                                          reset_cable=True, from_file=(mech_file_path is not None), 
+                    biophys_cell = env.biophys_cells[postsyn_name][gid]
+                    cells.init_biophysics(biophys_cell, env=env, 
+                                          reset_cable=True, 
                                           correct_cm=correct_for_spines,
                                           correct_g_pas=correct_for_spines, 
                                           verbose=(first_gid == gid))
                 except IndexError:
-                    raise IndexError('*** connect_cells: population: %s; gid: %i; could not load biophysics from path: '
-                                     '%s' % (postsyn_name, gid, mech_file_path))
-                env.biophys_cells[postsyn_name][gid] = biophys_cell
-                if rank == 0 and gid == first_gid:
-                    logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
-                                (postsyn_name, gid, mech_file_path))
+                    raise IndexError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
+                                     % (postsyn_name, gid, mech_file_path))
 
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
@@ -396,23 +386,17 @@ def connect_cell_selection(env):
             if mech_file_path is not None:
                 if first_gid is None:
                     first_gid = gid
-                biophys_cell = cells.BiophysCell(gid=gid, pop_name=postsyn_name, hoc_cell=env.pc.gid2cell(gid), env=env)
                 try:
-                    cells.init_biophysics(biophys_cell, \
-                                          mech_file_path=mech_file_path, \
-                                          reset_cable=True, \
-                                          from_file=(mech_file_path is not None), \
-                                          correct_cm=correct_for_spines, \
-                                          correct_g_pas=correct_for_spines, \
+                    biophys_cell = env.biophys_cells[postsyn_name][gid]
+                    cells.init_biophysics(biophys_cell,
+                                          reset_cable=True,
+                                          correct_cm=correct_for_spines,
+                                          correct_g_pas=correct_for_spines,
                                           env=env, verbose=((rank == 0) and (first_gid == gid)))
                 except IndexError:
-                    raise IndexError('connect_cells: population: %s; gid: %i; could not load biophysics from path: '
-                                     '%s' % (postsyn_name, gid, mech_file_path))
-                env.biophys_cells[postsyn_name][gid] = biophys_cell
-                if rank == 0 and gid == first_gid:
-                    logger.info('*** connect_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
-                                (postsyn_name, gid, mech_file_path))
-
+                    raise IndexError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
+                                     % (postsyn_name, gid, mech_file_path))
+                
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                           comm=env.comm, namespaces=['Synapses', 'Connections'])
         env.edge_count[postsyn_name] = 0
@@ -576,7 +560,7 @@ def make_cells(env):
         if rank == 0:
             logger.info("*** Creating population %s" % pop_name)
         env.load_cell_template(pop_name)
-
+        
         v_sample_set = set([])
         env.v_sample_dict[pop_name] = v_sample_set
 
@@ -584,6 +568,11 @@ def make_cells(env):
                          env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
             if ranstream_v_sample.uniform() <= env.vrecord_fraction:
                 v_sample_set.add(gid)
+
+        if 'mech_file_path' in env.celltypes[pop_name]:
+            mech_file_path = env.celltypes[pop_name]['mech_file_path']
+        else:
+            mech_file_path = None
 
         num_cells = 0
         if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
@@ -607,16 +596,25 @@ def make_cells(env):
                 if first_gid is None:
                     first_gid = gid
 
-                model_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
+                hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
+                if mech_file_path is not None:
+                    biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
+                                                     hoc_cell=hoc_cell, env=env,
+                                                     mech_file_path=mech_file_path)
+                    env.biophys_cells[pop_name][gid] = biophys_cell
+                    if rank == 0 and gid == first_gid:
+                        logger.info('*** make_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
+                                    (pop_name, gid, mech_file_path))
+                
                 if rank == 0 and first_gid == gid:
-                    for sec in list(model_cell.all):
+                    for sec in list(hoc_cell.all):
                         h.psection(sec=sec)
-                register_cell(env, pop_name, gid, model_cell)
+                register_cell(env, pop_name, gid, hoc_cell)
                 # Record voltages from a subset of cells
-                if model_cell.is_art() == 0:
+                if hoc_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
-                        rec = make_rec(gid, pop_name, gid, model_cell, \
-                                       sec=list(model_cell.soma)[0], \
+                        rec = make_rec(gid, pop_name, gid, hoc_cell, \
+                                       sec=list(hoc_cell.soma)[0], \
                                        dt=env.dt, loc=0.5, param='v', \
                                        description='Soma')
                         env.recs_dict[pop_name]['Soma'].append(rec)
@@ -646,14 +644,14 @@ def make_cells(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, pop_name, gid)
+                hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
                 cell_z = cell_coords_dict['Z Coordinate'][0]
-                model_cell.position(cell_x, cell_y, cell_z)
+                hoc_cell.position(cell_x, cell_y, cell_z)
 
-                register_cell(env, pop_name, gid, model_cell)
+                register_cell(env, pop_name, gid, hoc_cell)
                 num_cells += 1
 
         h.define_shape()
@@ -690,6 +688,11 @@ def make_cell_selection(env):
         for gid in gid_range:
             v_sample_set.add(gid)
 
+        if 'mech_file_path' in env.celltypes[pop_name]:
+            mech_file_path = env.celltypes[pop_name]['mech_file_path']
+        else:
+            mech_file_path = None
+
         num_cells = 0
         if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
             if rank == 0:
@@ -707,17 +710,27 @@ def make_cell_selection(env):
                 if first_gid == None:
                     first_gid = gid
 
-                model_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid,
+                hoc_cell = cells.make_neurotree_cell(templateClass, neurotree_dict=tree, gid=gid,
                                                        dataset_path=dataset_path)
+                if mech_file_path is not None:
+                    biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
+                                                     hoc_cell=hoc_cell, env=env,
+                                                     mech_file_path=mech_file_path)
+                    env.biophys_cells[pop_name][gid] = biophys_cell
+                    if rank == 0 and gid == first_gid:
+                        logger.info('*** make_cell_selection: population: %s; gid: %i; loaded biophysics from path: %s' %
+                                    (pop_name, gid, mech_file_path))
+
+
                 if rank == 0 and first_gid == gid:
-                    for sec in list(model_cell.all):
+                    for sec in list(hoc_cell.all):
                         h.psection(sec=sec)
 
-                register_cell(env, pop_name, gid, model_cell)
-                if model_cell.is_art() == 0:
+                register_cell(env, pop_name, gid, hoc_cell)
+                if hoc_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
-                        rec = make_rec(gid, pop_name, gid, model_cell, \
-                                       sec=list(model_cell.soma)[0], \
+                        rec = make_rec(gid, pop_name, gid, hoc_cell, \
+                                       sec=list(hoc_cell.soma)[0], \
                                        dt=env.dt, loc=0.5, param='v', \
                                        description='Soma')
                         env.recs_dict[pop_name]['Soma'].append(rec)
@@ -739,17 +752,17 @@ def make_cell_selection(env):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
-                model_cell = cells.make_hoc_cell(env, pop_name, gid)
+                hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
 
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
                 cell_z = cell_coords_dict['Z Coordinate'][0]
-                model_cell.position(cell_x, cell_y, cell_z)
-                register_cell(env, pop_name, gid, model_cell)
-                if model_cell.is_art() == 0:
+                hoc_cell.position(cell_x, cell_y, cell_z)
+                register_cell(env, pop_name, gid, hoc_cell)
+                if hoc_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
-                        rec = make_rec(gid, pop_name, gid, model_cell, \
-                                       sec=list(model_cell.soma)[0], \
+                        rec = make_rec(gid, pop_name, gid, hoc_cell, \
+                                       sec=list(hoc_cell.soma)[0], \
                                        dt=env.dt, loc=0.5, param='v', \
                                        description='Soma')
                         env.recs_dict[pop_name]['Soma'].append(rec)

@@ -92,11 +92,12 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
 
     cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
                             tree_dict=tree_dict, load_synapses=load_synapses,
-                            synapses_dict=synapses_dict)
+                            synapses_dict=synapses_dict, mech_file_path=mech_file_path)
 
     if mech_file_path is not None:
-        init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
-                        correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+        init_biophysics(cell, reset_cable=True, 
+                        correct_cm=correct_for_spines,
+                        correct_g_pas=correct_for_spines, env=env)
     synapses.init_syn_mech_attrs(cell, env)
 
     env.biophys_cells[pop_name][gid] = cell
