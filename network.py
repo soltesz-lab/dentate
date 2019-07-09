@@ -114,8 +114,6 @@ def connect_cells(env):
         else:
             has_weights = False
 
-        if rank == 0:
-            logger.info('*** Mechanism file for population %s is %s' % (postsyn_name, str(mech_file_path)))
 
         if rank == 0:
             logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
@@ -162,8 +160,8 @@ def connect_cells(env):
 
 
         first_gid = None
-        for gid in syn_attrs.gids():
-            if mech_file_path is not None:
+        if postsyn_name in env.biophys_cells:
+            for gid in syn_attrs.gids():
                 if first_gid is None:
                     first_gid = gid
                 try:
@@ -209,10 +207,8 @@ def connect_cells(env):
         comm0 = env.comm.Split(2 if len(gids) > 0 else 0, 0)
 
         for gid in gids:
-
             if first_gid is None:
                 first_gid = gid
-
             if gid in env.biophys_cells[postsyn_name]:
                 biophys_cell = env.biophys_cells[postsyn_name][gid]
                 synapses.init_syn_mech_attrs(biophys_cell, env)
@@ -361,8 +357,8 @@ def connect_cell_selection(env):
                 del weight_attributes_iter
 
         first_gid = None
-        for gid in syn_attrs.gids():
-            if mech_file_path is not None:
+        if postsyn_name in env.biophys_cells:
+            for gid in syn_attrs.gids():
                 if first_gid is None:
                     first_gid = gid
                 try:
@@ -539,6 +535,7 @@ def make_cells(env):
         if rank == 0:
             logger.info("*** Creating population %s" % pop_name)
         env.load_cell_template(pop_name)
+
         
         v_sample_set = set([])
         env.v_sample_dict[pop_name] = v_sample_set
@@ -550,6 +547,8 @@ def make_cells(env):
 
         if 'mech_file_path' in env.celltypes[pop_name]:
             mech_file_path = env.celltypes[pop_name]['mech_file_path']
+            if rank == 0:
+                logger.info('*** Mechanism file for population %s is %s' % (pop_name, str(mech_file_path)))
         else:
             mech_file_path = None
 
