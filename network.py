@@ -895,6 +895,14 @@ def init(env):
     from neuron import h
     configure_hoc_env(env)
 
+    ## more accurate integration of synaptic discontinuities
+    if hasattr(h, 'nrn_netrec_state_adjust'):
+        h.nrn_netrec_state_adjust = 1
+
+    ## sparse parallel transfer
+    if hasattr(h, 'nrn_sparse_partrans'):
+        h.nrn_sparse_partrans = 1
+
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     if env.optldbal or env.optlptbal:
@@ -1002,14 +1010,6 @@ def run(env, output=True, shutdown=True):
 
     env.simtime.reset()
     h.finitialize(env.v_init)
-
-    ## more accurate integration of synaptic discontinuities
-    if hasattr(h, 'nrn_netrec_state_adjust'):
-        h.nrn_netrec_state_adjust = 1
-
-    ## sparse parallel transfer
-    if hasattr(h, 'nrn_sparse_partrans'):
-        h.nrn_sparse_partrans = 1
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)
