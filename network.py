@@ -172,7 +172,7 @@ def connect_cells(env):
                                           reset_cable=True, 
                                           correct_cm=correct_for_spines,
                                           correct_g_pas=correct_for_spines, 
-                                          verbose=(first_gid == gid))
+                                          verbose=((rank == 0) and (first_gid == gid)))
                 except IndexError:
                     raise IndexError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
                                      % (postsyn_name, gid, mech_file_path))
