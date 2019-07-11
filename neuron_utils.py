@@ -160,6 +160,12 @@ def configure_hoc_env(env):
     h.tstop = env.tstop
     if 'celsius' in env.globals:
         h.celsius = env.globals['celsius']
+    ## more accurate integration of synaptic discontinuities
+    if hasattr(h, 'nrn_netrec_state_adjust'):
+        h.nrn_netrec_state_adjust = 1
+    ## sparse parallel transfer
+    if hasattr(h, 'nrn_sparse_partrans'):
+        h.nrn_sparse_partrans = 1
 
 
 def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', description=''):

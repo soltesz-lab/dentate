@@ -79,7 +79,10 @@ Synapses:
           weight: 1.0
           sat: 0.9
         NMDA:
-          g_unit: 0.002
+          Kd: 4.331929
+          g_unit: 0.004316527
+          gamma: 0.08130658
+          vshift: 9.592656
           weight: 1.0
     LPP:
       type: excitatory
@@ -96,7 +99,10 @@ Synapses:
           weight: 1.0
           sat: 0.9
         NMDA:
-          g_unit: 0.0022
+          Kd: 4.331929
+          g_unit: 0.004516527
+          gamma: 0.08130658
+          vshift: 9.592656
           weight: 1.0
     MC:   
       type: excitatory
@@ -113,7 +119,7 @@ Synapses:
           weight: 1.0
           sat: 0.9
         NMDA:
-          g_unit: 0.00035
+          g_unit: 0.0008
           weight: 1.0
     AAC:
       type: inhibitory
@@ -124,7 +130,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 0.5
-          tau_offset: 8.0
+          tau_offset: 10.0
           e: -75
           g_unit: 0.001
           weight: 1.0
@@ -171,7 +177,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 2.5
-          tau_offset: 10.0
+          tau_offset: 11.0
           e: -75
           g_unit: 0.003
           weight: 1.0
@@ -247,7 +253,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 11.0
+          tau_offset: 10.0
           e: -75
           g_unit: 0.00175
           weight: 1.0
@@ -406,7 +412,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.0004
           weight: 1.0
     BC:   
       type: inhibitory
@@ -414,21 +420,13 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [0.67, 1.0]
       contacts: 5.0
-      swctype mechanisms:
-        basal:
-          GABA_A:
-            dur_onset: 0.22
-            tau_offset: 3.35
-            e: -75
-            g_unit: 0.002
-            weight: 1.0
-        soma:
-          GABA_A:
-            dur_onset: 0.22
-            tau_offset: 3.35
-            e: -75
-            g_unit: 0.0008
-            weight: 1.0
+      mechanisms:
+        GABA_A:
+          dur_onset: 0.22
+          tau_offset: 3.35
+          e: -75
+          g_unit: 0.00427
+          weight: 1.0
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -440,7 +438,7 @@ Synapses:
           dur_onset: 0.6
           tau_offset: 4.78
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.000664
           weight: 1.0
     HC:   
       type: inhibitory
@@ -453,7 +451,7 @@ Synapses:
           dur_onset: 0.46
           tau_offset: 4.43
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.00214
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -493,21 +491,13 @@ Synapses:
       layers: [Hilus, Hilus]
       proportions: [0.33, 1.0]
       contacts: 1.0
-      swctype mechanisms:
-        basal:
-          GABA_A:
-            dur_onset: 0.46
-            tau_offset: 4.43
-            e: -75
-            g_unit: 0.0029
-            weight: 1.0
-        apical:
-          GABA_A:
-            dur_onset: 0.46
-            tau_offset: 4.43
-            e: -75
-            g_unit: 0.0021
-            weight: 1.0
+      mechanisms:
+        GABA_A:
+          dur_onset: 0.46
+          tau_offset: 4.43
+          e: -75
+          g_unit: 0.002
+          weight: 1.0
   AAC:
     GC:   
       type: excitatory
@@ -657,81 +647,39 @@ Synapses:
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, GCL]
       proportions: [0.68, 0.68, 0.68, 1.0]
-      swctype mechanisms:
-        apical:
-          AMPA:
-            dur_onset: 0.3
-            tau_offset: 6.2
-            e: 0
-            sat: 0.9
-            g_unit: 0.00124
-            weight: 1.0
-        basal:
-          AMPA:
-            dur_onset: 0.3
-            tau_offset: 6.2
-            e: 0
-            sat: 0.9
-            g_unit: 0.00235
-            weight: 1.0
-        soma:
-          AMPA:
-            dur_onset: 0.3
-            tau_offset: 6.2
-            e: 0
-            sat: 0.9
-            g_unit: 0.00274
-            weight: 1.0
+      mechanisms:
+        AMPA:
+          dur_onset: 0.3
+          tau_offset: 6.2
+          e: 0
+          sat: 0.9
+          g_unit: 0.003
+          weight: 1.0
     MC:   
       type: excitatory
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, IML]
       proportions: [0.32, 0.32, 0.32, 1.0]
-      swctype mechanisms:
-        apical:
-          AMPA:
-            dur_onset: 0.9
-            tau_offset: 3.6
-            e: 0
-            sat: 0.9
-            g_unit: 0.00128
-            weight: 1.0
-        basal:
-          AMPA:
-            dur_onset: 0.9
-            tau_offset: 3.6
-            e: 0
-            sat: 0.9
-            g_unit: 0.00283
-            weight: 1.0
-        soma:
-          AMPA:
-            dur_onset: 0.9
-            tau_offset: 3.6
-            e: 0
-            sat: 0.9
-            g_unit: 0.0009
-            weight: 1.0
+      mechanisms:
+        AMPA:
+          dur_onset: 0.9
+          tau_offset: 3.6
+          e: 0
+          sat: 0.9
+          g_unit: 0.002
+          weight: 1.0
     HCC:  
       type: inhibitory
       sections: [basal, apical, apical, apical]
       layers: [Hilus, Hilus, GCL, IML]
       proportions: [0.3, 0.3, 1.0, 1.0]
-      swctype mechanisms:
-        apical:
-          GABA_A:
-            dur_onset: 0.72
-            tau_offset: 4.7
-            e: -75
-            g_unit: 0.00125
-            weight: 1.0
-        basal:
-          GABA_A:
-            dur_onset: 0.72
-            tau_offset: 4.7
-            e: -75
-            g_unit: 0.002
-            weight: 1.0
+      mechanisms:
+        GABA_A:
+          dur_onset: 0.72
+          tau_offset: 4.7
+          e: -75
+          g_unit: 0.0006
+          weight: 1.0
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -760,35 +708,20 @@ Synapses:
           dur_onset:  4.2
           tau_offset: 16.2
           e: -75
-          g_unit: 0.0004
+          g_unit: 0.000168
           weight: 1.0
     IS: 
       type: inhibitory
       sections: [basal, apical, soma]
       layers: [Hilus, Hilus, Hilus]
       proportions: [0.7, 0.7, 1.0]
-      swctype mechanisms:
-        apical:
-          GABA_A:
-            dur_onset: 0.46
-            tau_offset: 4.43
-            e: -75
-            g_unit: 0.0018
-            weight: 1.0
-        basal:
-          GABA_A:
-            dur_onset: 0.46
-            tau_offset: 4.43
-            e: -75
-            g_unit: 0.0007
-            weight: 1.0
-        soma:
-          GABA_A:
-            dur_onset: 0.46
-            tau_offset: 4.43
-            e: -75
-            g_unit: 0.0005
-            weight: 1.0
+      mechanisms:
+        GABA_A:
+          dur_onset: 0.46
+          tau_offset: 4.43
+          e: -75
+          g_unit: 0.0015
+          weight: 1.0
   NGFC:
     MPP:
       type: excitatory

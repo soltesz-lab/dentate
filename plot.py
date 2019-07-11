@@ -2773,7 +2773,8 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
         populations = list(population_names)
 
     this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
-
+    this_spike_namespace = spike_namespace_id
+    
     spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
                                           spike_train_attr_name=spike_train_attr_name, time_range=time_range)
 
