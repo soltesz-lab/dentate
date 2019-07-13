@@ -1,11 +1,8 @@
 from __future__ import absolute_import, division
-
-import copy, datetime, gc, itertools, logging, math, numbers, os.path
+import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 import pprint, string, sys, time
-
 from builtins import input, map, next, object, range, str, zip
 from collections import Iterable, defaultdict, namedtuple
-
 import numpy as np
 import scipy
 import yaml
@@ -14,6 +11,14 @@ from scipy import sparse
 from past.utils import old_div
 from past.builtins import basestring
 
+class DDExpr(object):
+    def __init__(self, expr):
+        self.sympy = importlib.import_module('sympy')
+        self.expr = self.sympy.parsing.sympy_parser.parse_expr(expr)
+        self.feval = self.sympy.lambdify(self.sympy.abc.x, expr, "numpy")
+
+    def __call__(self):
+        return self.feval
 
 class Struct(object):
     def __init__(self, **items):

@@ -5,7 +5,7 @@ from mpi4py import MPI
 import yaml
 from dentate.neuron_utils import h, find_template
 from dentate.synapses import SynapseAttributes
-from dentate.utils import IncludeLoader, config_logging, get_root_logger, str, viewitems, zip, viewitems
+from dentate.utils import IncludeLoader, DDExpr, config_logging, get_root_logger, str, viewitems, zip, viewitems
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
@@ -44,6 +44,7 @@ DomainConfig = namedtuple('Domain',
 TrajectoryConfig = namedtuple('Trajectory',
                               ['velocity',
                                'path'])
+
 
 
 class Env(object):
@@ -503,9 +504,16 @@ class Env(object):
                 if val_swctype_mechparams is not None:
                     for swc_type in val_swctype_mechparams:
                         swc_type_index = self.SWC_Types[swc_type]
-                        res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
+                        if isinstance(val_swctype_mechparams[swc_type], dict):
+                            if 'dd expr' in val_swctype_mechparams[swc_type]:
+                                res_mechparams[swc_type_index] = DDExpr(val_swctype_mechparams[swc_type]['dd expr'])
+                        else:
+                            res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
                 else:
-                    res_mechparams['default'] = val_mechparams
+                    if isinstance(val_mechparams, dict):
+                        res_mechparams['default'] = DDExpr(val_mechparams['dd expr'])
+                    else:
+                        res_mechparams['default'] = val_mechparams
 
                 connection_dict[key_postsyn][key_presyn] = \
                     SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, val_contacts, \

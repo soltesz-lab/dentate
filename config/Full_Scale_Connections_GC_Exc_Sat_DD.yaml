@@ -141,16 +141,16 @@ Synapses:
           GABA_A:
             dur_onset: 0.5
             tau_offset:
-              expr: 1.55 * x + 1.0
+              dd expr: 1.55 * x + 1.0
             e: -75
             g_unit: 
-              expr: 0.003 * exp(-1.25 * x)
+              dd expr: 0.003 * exp(-1.25 * x)
             weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.25
             tau_offset:
-              expr: 1.55*x + 1.0
+              dd expr: 1.55*x + 1.0
             e: -75
             g_unit: 0.001
             weight: 1.0
@@ -267,19 +267,19 @@ Synapses:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 
-              expr: 1.55*x + 1.0
+              dd expr: 1.55*x + 1.0
             e: -75
             g_unit: 
-              expr: 0.0003 * exp(-1.25 * x)
+              dd expr: 0.0003 * exp(-1.25 * x)
             weight: 1.0
         apical:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 
-              expr: 1.55*x + 1.0
+              dd expr: 1.55*x + 1.0
             e: -75
             g_unit: 
-              expr: 0.0012 * exp(-1.25 * x)
+              dd expr: 0.0012 * exp(-1.25 * x)
             weight: 1.0
     AAC:  
       type: inhibitory
@@ -291,10 +291,10 @@ Synapses:
         GABA_A:
           dur_onset: 0.6
           tau_offset: 
-            expr: 1.55*x + 1.0
+            dd expr: 1.55*x + 1.0
           e: -75
           g_unit: 
-            expr: 0.0012 * exp(-1.25 * x)
+            dd expr: 0.0012 * exp(-1.25 * x)
           weight: 1.0
     HCC:  
       type: inhibitory
