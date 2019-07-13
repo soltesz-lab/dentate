@@ -129,8 +129,7 @@ class ConnectionProb(object):
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
 
-            if ((distance_u > 0.0) and (distance_v > 0.0) and
-                    ((max_distance_u - distance_u) > 0.0) and ((max_distance_v - distance_v) > 0.0)):
+            if ((max_distance_u - distance_u) > 0.0) and ((max_distance_v - distance_v) > 0.0):
                 source_u_lst.append(source_u)
                 source_v_lst.append(source_v)
                 distance_u_lst.append(distance_u)
