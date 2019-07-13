@@ -14,7 +14,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 def combine_rstats(a, b, dtype):
     combined = RunningStats.combine(a, b)
@@ -58,7 +58,7 @@ def main(connections_path, destination, sources, io_size, verbose):
                                                     namespaces=['Connections'], \
                                                     comm=comm) for source in sources]
 
-    distance_stats_dict = defaultdict(RunningStats)
+    distance_stats_dict = { source: RunningStats() for source in sources }
     for attr_gen_package in zip(*connection_gen_list):
         local_time = time.time()
         conn_attr_dict = None
@@ -78,7 +78,8 @@ def main(connections_path, destination, sources, io_size, verbose):
             logger.info('Rank: %i received destination_gid as None' % rank)
         gid_count += 1
 
-    for source, distance_stats in viewitems(distance_stats_dict):
+    for source in sorted(distance_stats_dict):
+        distance_stats = distance_stats_dict[source]
         all_stats = comm.reduce(distance_stats, root=0, op=mpi_op_combine_rstats)
         if rank == 0:
             logger.info('Projection %s -> %s: mean distance: n=%d min=%.2f max=%.f mean=%.2f variance=%.3f' % \

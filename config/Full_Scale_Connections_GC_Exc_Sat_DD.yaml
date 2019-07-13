@@ -125,10 +125,10 @@ Synapses:
         GABA_A:
           dur_onset: 0.5
           tau_offset: 
-            expr: 1.55*x + 1.0
+            dd expr: 1.55*x + 1.0
           e: -75
           g_unit: 
-            expr: 0.001 * exp(-1.25 * x)
+            dd expr: 0.001 * exp(-1.25 * x)
           weight: 1.0
     BC:   
       type: inhibitory

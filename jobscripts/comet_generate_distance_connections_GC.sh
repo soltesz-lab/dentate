@@ -1,14 +1,15 @@
 #!/bin/bash
 #
-#SBATCH -J generate_distance_connections_Test_GC_1000
-#SBATCH -o ./results/generate_distance_connections_Test_GC_1000.%j.o
-#SBATCH --nodes=8
+#SBATCH -J generate_distance_connections_GC
+#SBATCH -o ./results/generate_distance_connections_GC.%j.o
+#SBATCH --nodes=64
 #SBATCH --ntasks-per-node=12
 #SBATCH -t 5:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
 #
+
 
 module load python
 module unload intel
@@ -26,12 +27,12 @@ ulimit -c unlimited
 
 set -x
 
-ibrun -np 96 python3.5 ./scripts/generate_distance_connections.py \
+ibrun -np 768 python3.5 ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
-       --config=Test_GC_1000.yaml \
-       --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_cells_20190625.h5 \
-       --connectivity-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_connections_20190625.h5 \
+       --config=Full_Scale_GC_Exc_Sat.yaml \
+       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20181222_compressed.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190712.h5 \
        --connectivity-namespace=Connections \
-       --coords-path=$SCRATCH/dentate/Test_GC_1000/DG_coords_20190625.h5 \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190712.h5 \
        --coords-namespace=Coordinates \
-       --io-size=24 --cache-size=20 --write-size=40 --value-chunk-size=200000 --chunk-size=50000 -v --dry-run
+       --io-size=160 --cache-size=10 --write-size=40 --value-chunk-size=200000 --chunk-size=50000 -v

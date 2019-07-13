@@ -14,11 +14,13 @@ from past.builtins import basestring
 class DDExpr(object):
     def __init__(self, expr):
         self.sympy = importlib.import_module('sympy')
-        self.expr = self.sympy.parsing.sympy_parser.parse_expr(expr)
-        self.feval = self.sympy.lambdify(self.sympy.abc.x, expr, "numpy")
+        self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
+        self.sympy_abc = importlib.import_module('sympy.abc')
+        self.expr = self.sympy_parser.parse_expr(expr)
+        self.feval = self.sympy.lambdify(self.sympy_abc.x, expr, "numpy")
 
-    def __call__(self):
-        return self.feval
+    def __call__(self, x):
+        return self.feval(x)
 
 class Struct(object):
     def __init__(self, **items):

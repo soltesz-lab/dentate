@@ -953,7 +953,10 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 
                 if int(nc.wcnt()) >= i:
                     old = nc.weight[i]
-                    nc.weight[i] = val
+                    if isinstance(val, DDExpr):
+                        nc.weight[i] = val(nc.delay)
+                    else:
+                        nc.weight[i] = val
                     nc_param = True
                     failed = False
         if failed:

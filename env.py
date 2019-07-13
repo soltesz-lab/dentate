@@ -436,6 +436,21 @@ class Env(object):
     def parse_globals(self):
         self.globals = self.modelConfig['Global Parameters']
 
+    def parse_syn_mechparams(self, mechparams_dict):
+        res = {}
+        for mech_name, mech_params in viewitems(mechparams_dict):
+            mech_params1 = {}
+            for k, v in viewitems(mech_params):
+                if isinstance(v, dict):
+                    if 'dd expr' in v:
+                        mech_params1[k] = DDExpr(v['dd expr'])
+                    else:
+                        raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
+                else:
+                    mech_params1[k] = v
+            res[mech_name] = mech_params1
+        return res
+
     def parse_connection_config(self):
         """
 
@@ -485,12 +500,12 @@ class Env(object):
                     val_contacts = syn_dict['contacts']
                 else:
                     val_contacts = 1
-                val_mechparams = None
-                val_swctype_mechparams = None
+                mechparams_dict = None
+                swctype_mechparams_dict = None
                 if 'mechanisms' in syn_dict:
-                    val_mechparams = syn_dict['mechanisms']
+                    mechparams_dict = syn_dict['mechanisms']
                 else:
-                    val_swctype_mechparams = syn_dict['swctype mechanisms']
+                    swctype_mechparams_dict = syn_dict['swctype mechanisms']
 
                 res_type = self.Synapse_Types[val_type]
                 res_synsections = []
@@ -501,19 +516,12 @@ class Env(object):
                     res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
                     res_synlayers.append(self.layers[name])
-                if val_swctype_mechparams is not None:
-                    for swc_type in val_swctype_mechparams:
+                if swctype_mechparams_dict is not None:
+                    for swc_type in swctype_mechparams_dict:
                         swc_type_index = self.SWC_Types[swc_type]
-                        if isinstance(val_swctype_mechparams[swc_type], dict):
-                            if 'dd expr' in val_swctype_mechparams[swc_type]:
-                                res_mechparams[swc_type_index] = DDExpr(val_swctype_mechparams[swc_type]['dd expr'])
-                        else:
-                            res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
+                        res_mechparams[swc_type_index] = self.parse_syn_mechparams(swctype_mechparams_dict[swc_type])
                 else:
-                    if isinstance(val_mechparams, dict):
-                        res_mechparams['default'] = DDExpr(val_mechparams['dd expr'])
-                    else:
-                        res_mechparams['default'] = val_mechparams
+                    res_mechparams['default'] = self.parse_syn_mechparams(mechparams_dict)
 
                 connection_dict[key_postsyn][key_presyn] = \
                     SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, val_contacts, \
