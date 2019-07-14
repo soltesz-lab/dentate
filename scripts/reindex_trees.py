@@ -140,7 +140,5 @@ def main(population, forest_path, output_path, index_path, types_path, index_nam
     if rank == 0:
         logger.info('Appended reindexed trees to %s' % output_path)
 
-    MPI.Finalize()
-
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

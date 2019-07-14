@@ -18,12 +18,12 @@ from dentate.geometry import make_distance_interpolant, measure_distances
 from dentate.neuron_utils import configure_hoc_env
 from neuroh5.io import bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges
 
-#sys_excepthook = sys.excepthook
-#def mpi_excepthook(type, value, traceback):
-#     sys_excepthook(type, value, traceback)
-#     if MPI.COMM_WORLD.size > 1:
-#         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+     sys_excepthook(type, value, traceback)
+     if MPI.COMM_WORLD.size > 1:
+         MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
 
 
 @click.command()

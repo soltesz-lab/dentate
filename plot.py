@@ -9,7 +9,7 @@ import matplotlib.cm as cm
 import matplotlib.lines as mlines
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FuncAnimation, writers
 from matplotlib.colors import BoundaryNorm
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator
@@ -1761,7 +1761,11 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     # show fig 
     if fig_options.showFig:
         show_figure()
-    
+
+    if fig_options.saveFig:
+        Writer = writers['ffmpeg']
+        writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+        ani.save('%s spatial raster.mp4' % namespace_id, writer=writer)
     return fig
 
 
@@ -2769,7 +2773,8 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
         populations = list(population_names)
 
     this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
-
+    this_spike_namespace = spike_namespace_id
+    
     spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
                                           spike_train_attr_name=spike_train_attr_name, time_range=time_range)
 

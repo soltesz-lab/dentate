@@ -1,5 +1,5 @@
 import h5py
-
+import dentate
 from dentate.utils import viewitems
 
 h5types_file = 'dentate_h5types.h5'

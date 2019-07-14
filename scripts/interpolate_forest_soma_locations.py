@@ -1,7 +1,6 @@
 import os, sys, itertools, logging, time
 from mpi4py import MPI
 import numpy as np
-import dlib
 import click
 import dentate
 from dentate.env import Env
@@ -14,7 +13,6 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-
 sys.excepthook = mpi_excepthook
 
 def list_concat(a, b, datatype):
@@ -31,11 +29,10 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--reltol", type=float, default=10.)
-@click.option("--optiter", type=int, default=200)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose, dry_run):
+def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, io_size, verbose, dry_run):
 
     config_logging(verbose)
     logger = get_script_logger(__file__)
@@ -81,10 +78,14 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
     ## of the distance interpolant
     safety = 0.01
 
-    ip_volume = make_volume((min_u-safety, max_u+safety), \
-                            (min_v-safety, max_v+safety), \
-                            (min_l-safety, max_l+safety), \
-                            resolution=resolution, rotate=rotate)
+    ip_volume = None
+    if rank == 0:
+        ip_volume = make_volume((min_u-safety, max_u+safety), \
+                                (min_v-safety, max_v+safety), \
+                                (min_l-safety, max_l+safety), \
+                                resolution=resolution, rotate=rotate)
+
+    ip_volume = env.comm.bcast(ip_volume, root=0)
     
     for population in populations:
         pop_layers = env.geometry['Cell Distribution'][population]        

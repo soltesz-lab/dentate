@@ -1,22 +1,13 @@
-import gc
-import logging
-import os
-import sys
-import time
+import os, sys, time, gc
+import logging, click
 from collections import defaultdict
-
+from mpi4py import MPI
 import h5py
 import numpy as np
-
-import click
 import dentate.synapses as synapses
 from dentate import utils
 from dentate.env import Env
-from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import NeuroH5ProjectionGen
-from neuroh5.io import append_cell_attributes
-from neuroh5.io import read_population_ranges
+from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -90,14 +81,12 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
     gid_count = 0
     start_time = time.time()
 
-    connection_gen_list = []
-    for source in sources:
-        connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, \
-                                                        namespaces=['Synapses'], \
-                                                        comm=comm))
+    connection_gen_list = [NeuroH5ProjectionGen(connections_path, source, destination, \
+                                                    namespaces=['Synapses'], \
+                                                    comm=comm) for source in sources]
 
     weights_dict = {}
-    for itercount, attr_gen_package in enumerate(utils.zip_longest(*connection_gen_list)):
+    for attr_gen_package in utils.zip_longest(*connection_gen_list):
         local_time = time.time()
         source_syn_dict = defaultdict(list)
         source_gid_array = None

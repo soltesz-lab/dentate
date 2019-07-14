@@ -606,22 +606,13 @@ class BiophysCell(object):
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
+        self.spike_onset_delay = 0.
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
-            if self.axon:
-                axon_seg_locs = [seg.x for seg in self.axon[0].sec]
-                if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=axon_seg_locs[-1]) < 100.:
-                    self.spike_detector = connect2target(self, self.axon[-1].sec, loc=1.)
-                else:
-                    for loc in axon_seg_locs:
-                        if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=loc) >= 100.:
-                            self.spike_detector = connect2target(self, self.axon[-1].sec, loc=loc)
-                            break
-            elif self.soma:
-                self.spike_detector = connect2target(self, self.soma[0].sec)
-            if self.mech_file_path is not None:
-                import_mech_dict_from_file(self, self.mech_file_path)
+            self.spike_detector = connect2target(self, self.soma[0].sec, loc=0.5)
+        if self.mech_file_path is not None:
+            import_mech_dict_from_file(self, self.mech_file_path)
 
     @property
     def gid(self):
@@ -1071,6 +1062,51 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0.):
+    """
+    Initializes the spike detector in the given cell according to the
+    given arguments or a spike detector configuration of the mechanism
+    dictionary of the cell, if one exists.
+
+    :param cell: :class:'BiophysCell'
+    :param node [optional]:  :class:'SHocNode
+    :param distance: float
+    :param threshold: float
+    :param delay: float
+    :param onset_delay: float
+    """
+    
+    if 'spike detector' in cell.mech_dict:
+        config = cell.mech_dict['spike detector']
+        node = getattr(cell, config['section'])[0]
+        distance = config['distance']
+        threshold = config['threshold']
+        delay = config['delay']
+        onset_delay = config['onset delay']
+    
+        
+    if node is None:
+        if cell.axon:
+            node = cell.axon[0]
+        elif cell.soma:
+            node = cell.soma[0]
+        else:
+            raise RuntimeError('init_spike_detector: cell has neither soma nor axon compartment')
+
+    sec_seg_locs = [seg.x for seg in node.sec]
+    if get_distance_to_node(cell, cell.tree.root, node, loc=sec_seg_locs[-1]) < distance:
+        cell.spike_detector = connect2target(cell, node.sec, loc=1., delay=delay, threshold=threshold)
+    else:
+        for loc in sec_seg_locs:
+            if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
+                cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
+                break
+
+    cell.onset_delay = onset_delay
+            
+    return cell.spike_detector
+        
+
 def init_nseg(sec, spatial_res=0, verbose=True):
     """
     Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
@@ -1266,7 +1302,7 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
 
-def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False,
+def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False,
                     correct_g_pas=False, verbose=True):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
@@ -1277,14 +1313,11 @@ def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_
     :param env: :class:'Env'
     :param mech_file_path: str (path)
     :param reset_cable: bool
-    :param from_file: bool
     :param correct_cm: bool
     :param correct_g_pas: bool
     :param verbose: bool
     """
 
-    if from_file:
-        import_mech_dict_from_file(cell, mech_file_path)
     if (correct_cm or correct_g_pas) and env is None:
         raise ValueError('init_biophysics: missing Env object; required to parse network configuration and count '
                          'synapses.')
@@ -1302,7 +1335,6 @@ def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_
                     update_biophysics_by_sec_type(cell, sec_type)
     if correct_g_pas:
         correct_cell_for_spines_g_pas(cell, env, verbose=verbose)
-
 
 def reset_cable_by_node(cell, node, verbose=True):
     """
@@ -2034,7 +2066,7 @@ def make_input_source(env, gid, pop_id, input_source_dict):
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
-                     load_weights=False, set_edge_delays=True):
+                     load_weights=False, set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -2051,7 +2083,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if tree_dict is None:
         tree_dict = select_tree_attributes(gid, env.comm, env.data_file_path, pop_name)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
-    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
+    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
@@ -2106,6 +2138,36 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     return cell
 
 
+def register_cell(env, pop_name, gid, cell):
+    """
+    Registers a cell in a network environment.
+
+    :param env: an instance of the `dentate.Env` class
+    :param pop_name: population name
+    :param gid: gid
+    :param cell: cell instance
+    """
+    rank = env.comm.rank
+    env.gidset.add(gid)
+    env.pc.set_gid2node(gid, rank)
+    hoc_cell = getattr(cell, 'hoc_cell', cell)
+    env.cells.append(hoc_cell)
+    # Tell the ParallelContext that this cell is a spike source
+    # for all other hosts. NetCon is temporary.
+    if hasattr(cell, 'spike_detector'):
+        nc = cell.spike_detector
+    else:
+        nc = hoc_cell.connect2target(h.nil)
+    nc.delay += env.dt
+    env.pc.cell(gid, nc, 1)
+    # Record spikes of this cell
+    env.pc.spike_record(gid, env.t_vec, env.id_vec)
+    # if the spike detector is located in a compartment other than soma,
+    # record the spike time delay relative to soma
+    if hasattr(cell, 'spike_onset_delay'):
+        env.spike_onset_delay[gid] = cell.spike_onset_delay
+
+    
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """
     Determines minimum stimulus sufficient to induce a spike in a cell. 
