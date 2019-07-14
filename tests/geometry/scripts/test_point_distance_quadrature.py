@@ -1,19 +1,20 @@
 
+import logging
 import os
 import sys
-import logging
+
 import numpy as np
-from mayavi import mlab
 
 import rbf
-from rbf.interpolate import RBFInterpolant
 import rbf.basis
+#from dentate.DG_volume import make_volume
+from connection_generator import get_volume_distances
+from DG_volume import make_volume
+from mayavi import mlab
+from rbf.interpolate import RBFInterpolant
 
 #import dentate
 sys.path.insert(0,'/home/dhadjia1/soltesz-lab/dentate')
-from DG_volume import make_volume
-#from dentate.DG_volume import make_volume
-from connection_generator import get_volume_distances
 
 logging.basicConfig()
 script_name = 'test_point_distances_quadrature.py'
@@ -120,7 +121,3 @@ if __name__ == '__main__':
     mlab.points3d(*xyz_integration, scale_factor=100.0, opacity=0.5, color=(0,0,1))
 
     mlab.show()  
-
-   
-
-    

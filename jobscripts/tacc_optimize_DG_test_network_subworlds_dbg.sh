@@ -15,7 +15,7 @@ module load phdf5/1.8.16
 set -x
 
 export NEURONROOT=$HOME/bin/nrnpython2
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$NEURONROOT/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate

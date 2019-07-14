@@ -1,12 +1,16 @@
 """Procedures to fit 3d point clouds to an alpha shape"""
+from __future__ import division
 
 import numpy as np
+
+from past.utils import old_div
+
 
 ##
 ## Plane fitting to a point cloud:
 ## https://stackoverflow.com/questions/38754668/plane-fitting-in-a-3d-point-cloud
 ##
-def PCA(data, correlation = False, sort = True):
+def PCA(data, correlation=False, sort=True):
     """ Applies Principal Component Analysis to the data
 
     Parameters
@@ -45,14 +49,14 @@ def PCA(data, correlation = False, sort = True):
     """
 
     mean = np.mean(data, axis=0)
-    
+
     data_adjust = data - mean
 
     #: the data is transposed due to np.cov/corrcoef syntax
     if correlation:
         matrix = np.corrcoef(data_adjust.T)
     else:
-        matrix = np.cov(data_adjust.T) 
+        matrix = np.cov(data_adjust.T)
 
     eigenvalues, eigenvectors = np.linalg.eig(matrix)
 
@@ -60,12 +64,12 @@ def PCA(data, correlation = False, sort = True):
         #: sort eigenvalues and eigenvectors
         sort = eigenvalues.argsort()[::-1]
         eigenvalues = eigenvalues[sort]
-        eigenvectors = eigenvectors[:,sort]
+        eigenvectors = eigenvectors[:, sort]
 
     return eigenvalues, eigenvectors
 
 
-def points_plane_fit (points, equation=False):
+def points_plane_fit(points, equation=False):
     """ Computes the best fitting plane of the given points
 
     Parameters
@@ -98,11 +102,10 @@ def points_plane_fit (points, equation=False):
     w, v = PCA(points)
 
     #: the normal of the plane is the last eigenvector
-    normal = v[:,2]
+    normal = v[:, 2]
 
     #: get a point from the plane
     point = np.mean(points, axis=0)
-
 
     if equation:
         a, b, c = normal
@@ -111,22 +114,23 @@ def points_plane_fit (points, equation=False):
     else:
         return point, normal
 
-    
+
 ##
 ## Skew-symmetric cross-product of a 3d vector:
 ##
 def ssc(v):
     return np.stack(([0., -v[2], v[1]], \
-                    [v[2], 0., -v[0]], \
-                    [-v[1], v[0], 0.]))
-              
+                     [v[2], 0., -v[0]], \
+                     [-v[1], v[0], 0.]))
+
+
 ##              
 ## Computes a rotation matrix R that rotates unit vector a onto unit vector b.
 ## Based on code from:
 ## https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
 ##
-def rotvector3d(A,B):
-    AxB = np.cross(A,B)
-    s   = np.linalg.norm(AxB)
-    return np.eye(3,) + ssc(AxB) + \
-              np.linalg.matrix_power(ssc(AxB),2) * (1.0 - np.dot(A,B)) / (s**2)
+def rotvector3d(A, B):
+    AxB = np.cross(A, B)
+    s = np.linalg.norm(AxB)
+    return np.eye(3, ) + ssc(AxB) + \
+           old_div(np.linalg.matrix_power(ssc(AxB), 2) * (1.0 - np.dot(A, B)), (s ** 2))
