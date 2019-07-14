@@ -2,13 +2,9 @@
 
 import gc, math, time
 from collections import defaultdict
-
 import numpy as np
 from scipy.stats import norm
-
-from dentate.utils import get_module_logger, list_find_all, old_div, random_choice_w_replacement, random_clustered_shuffle, range, str, zip, viewitems
-
-
+from dentate.utils import get_module_logger, list_find_all, random_choice_w_replacement, random_clustered_shuffle, range, str, zip, viewitems
 from neuroh5.io import NeuroH5CellAttrGen, append_graph
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -129,8 +125,7 @@ class ConnectionProb(object):
             distance_u = abs(destination_distance_u - source_distance_u)
             distance_v = abs(destination_distance_v - source_distance_v)
 
-            if ((distance_u > 0.0) and (distance_v > 0.0) and
-                    ((max_distance_u - distance_u) > 0.0) and ((max_distance_v - distance_v) > 0.0)):
+            if ((max_distance_u - distance_u) > 0.0) and ((max_distance_v - distance_v) > 0.0):
                 source_u_lst.append(source_u)
                 source_v_lst.append(source_v)
                 distance_u_lst.append(distance_u)
@@ -166,7 +161,7 @@ class ConnectionProb(object):
             psum = np.sum(p)
             assert ((p >= 0.).all() and (p <= 1.).all())
             if psum > 0.:
-                pn = old_div(p, p.sum())
+                pn = p / p.sum()
             else:
                 pn = p
             prob_dict[layer] = (pn.ravel(), source_gid.ravel(), distance_u.ravel(), distance_v.ravel())
@@ -429,6 +424,10 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                     projection_config[source_population].proportions,
                                     projection_config[source_population].contacts)
                                for source_population in source_populations}
+
+    
+    comm.barrier()
+
     total_count = 0
     gid_count = 0
     connection_dict = defaultdict(lambda: {})

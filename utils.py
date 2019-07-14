@@ -1,12 +1,8 @@
-from __future__ import absolute_import
-from __future__ import division
-
-import copy, datetime, gc, itertools, logging, math, numbers, os.path
+from __future__ import absolute_import, division
+import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 import pprint, string, sys, time
-
 from builtins import input, map, next, object, range, str, zip
 from collections import Iterable, defaultdict, namedtuple
-
 import numpy as np
 import scipy
 import yaml
@@ -15,6 +11,16 @@ from scipy import sparse
 from past.utils import old_div
 from past.builtins import basestring
 
+class DDExpr(object):
+    def __init__(self, expr):
+        self.sympy = importlib.import_module('sympy')
+        self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
+        self.sympy_abc = importlib.import_module('sympy.abc')
+        self.expr = self.sympy_parser.parse_expr(expr)
+        self.feval = self.sympy.lambdify(self.sympy_abc.x, expr, "numpy")
+
+    def __call__(self, x):
+        return self.feval(x)
 
 class Struct(object):
     def __init__(self, **items):
@@ -53,6 +59,87 @@ class Context(object):
     def __getitem__(self, key):
         return self.__dict__[key]
 
+
+class RunningStats(object):
+
+    def __init__(self):
+        self.n = 0
+        self.m1 = 0.
+        self.m2 = 0.
+        self.m3 = 0.
+        self.m4 = 0.
+        self.min = float('inf')
+        self.max = float('-inf')
+        
+    def clear(self):
+        self.n = 0
+        self.m1 = 0.
+        self.m2 = 0.
+        self.m3 = 0.
+        self.m4 = 0.
+        self.min = float('inf')
+        self.max = float('-inf')
+        
+
+    def update(self, x):
+        self.min = min(self.min, x)
+        self.max = max(self.max, x)
+        n1 = self.n
+        self.n += 1
+        n = self.n
+        delta = x - self.m1
+        delta_n = delta / n
+        delta_n2 = delta_n * delta_n
+        term1 = delta * delta_n * n1
+        self.m1 += delta_n
+        self.m4 += term1 * delta_n2 * (n*n - 3*n + 3) + 6 * delta_n2 * self.m2 - 4 * delta_n * self.m3
+        self.m3 += term1 * delta_n * (n - 2) - 3 * delta_n * self.m2
+        self.m2 += term1
+
+    def mean(self):
+        return self.m1
+
+    def variance(self):
+        return self.m1 / (self.n - 1.0)
+
+    def standard_deviation(self):
+        return math.sqrt(self.variance())
+
+    def skewness(self):
+        return math.sqrt(self.n) * self.m3 / (self.m2 ** 1.5)
+
+    def kurtosis(self):
+        return self.n * self.m4 / (self.m2*self.m2) - 3.0
+        
+    
+    @classmethod
+    def combine(cls, a, b):
+        combined = cls()
+        
+        combined.n = a.n + b.n
+        combined.min = min(a.min, b.min)
+        combined.max = max(a.max, b.max)
+    
+        delta = b.m1 - a.m1;
+        delta2 = delta*delta;
+        delta3 = delta*delta2;
+        delta4 = delta2*delta2;
+    
+        combined.m1 = (a.n*a.m1 + b.n*b.m1) / combined.n;
+        
+        combined.m2 = a.m2 + b.m2 + delta2 * a.n * b.n / combined.n
+    
+        combined.m3 = a.m3 + b.m3 + delta3 * a.n * b.n * (a.n - b.n)/(combined.n*combined.n)
+        combined.m3 += 3.0*delta * (a.n*b.m2 - b.n*a.m2) / combined.n
+    
+        combined.m4 = a.m4 + b.m4 + delta4*a.n*b.n * (a.n*a.n - a.n*b.n + b.n*b.n) / \
+          (combined.n*combined.n*combined.n)
+        combined.m4 += 6.0*delta2 * (a.n*a.n*b.m2 + b.n*b.n*a.m2)/(combined.n*combined.n) + \
+          4.0*delta*(a.n*b.m3 - b.n*a.m3) / combined.n
+    
+        return combined
+
+    
 
 class IncludeLoader(yaml.Loader):
     """
@@ -509,7 +596,7 @@ def profile_memory(logger):
 
 
 def update_bins(bins, binsize, *xs):
-    idxs = tuple(math.floor(old_div(x, binsize)) for x in xs)
+    idxs = tuple(math.floor(x / binsize) for x in xs)
     if idxs in bins:
         bins[idxs] += 1
     else:
@@ -583,11 +670,11 @@ def baks(spktimes, time, a=1.5, b=None):
         sumnum = sumnum + numerator
         sumdenom = sumdenom + denominator
 
-    h = (old_div(gamma(a), gamma(a + 0.5))) * (old_div(sumnum, sumdenom))
+    h = (gamma(a) / gamma(a + 0.5)) * (sumnum / sumdenom)
 
     rate = np.zeros((len(time),))
     for j in range(n):
-        K = (1. / (np.sqrt(2. * np.pi) * h)) * np.exp(old_div(-((time - spktimes[j]) ** 2), (2. * h ** 2)))
+        K = (1. / (np.sqrt(2. * np.pi) * h)) * np.exp(-((time - spktimes[j]) ** 2) / (2. * h ** 2))
         rate = rate + K
 
     return rate, h
@@ -605,8 +692,8 @@ def kde_scipy(x, y, bin_size, **kwargs):
     y_min = np.min(y)
     y_max = np.max(y)
 
-    dx = int(old_div((x_max - x_min), bin_size))
-    dy = int(old_div((y_max - x_min), bin_size))
+    dx = int((x_max - x_min) / bin_size)
+    dy = int((y_max - x_min) / bin_size)
 
     xx, yy = np.meshgrid(np.linspace(x_min, x_max, dx), \
                          np.linspace(y_min, y_max, dy))
@@ -701,8 +788,8 @@ def akde(X, grid=None, gam=None, errtol=10 ** -5, maxiter=100, seed=0, verbose=F
         gam = int(math.ceil(math.sqrt(n)))
 
     if grid is None:
-        step = old_div(scaling, (2 ** 12 - 1))
-        npts = int(math.ceil(old_div(scaling, step))) + 1
+        step = scaling / (2 ** 12 - 1)
+        npts = int(math.ceil(scaling / step)) + 1
         grid = np.linspace(smin, smax, npts)
 
     grid = grid.reshape((-1, 1))
@@ -712,7 +799,7 @@ def akde(X, grid=None, gam=None, errtol=10 ** -5, maxiter=100, seed=0, verbose=F
 
     ## algorithm initialization
     local_random = np.random.RandomState(seed=seed)
-    bw = 0.2 / (n ** (old_div(d, (d + 4.))))
+    bw = 0.2 / (n ** (d / (d + 4.)))
     perm = local_random.permutation(n)
     ##perm = list(xrange(0, n))
     mus = X[perm[0:gam], :]
@@ -727,7 +814,7 @@ def akde(X, grid=None, gam=None, errtol=10 ** -5, maxiter=100, seed=0, verbose=F
     for i in range(maxiter):
         Eold = ent
         (w, mus, sigmas, bw, ent) = akde_reg_EM(w, mus, sigmas, bw, X)
-        err = abs(old_div((ent - Eold), ent))
+        err = abs((ent - Eold) / ent)
         if verbose:
             print('Iter.    Err.      Bandwidth \n')
             print('%4i    %8.2e   %8.2e\n' % (i, err, bw))
@@ -738,7 +825,7 @@ def akde(X, grid=None, gam=None, errtol=10 ** -5, maxiter=100, seed=0, verbose=F
         if (err < errtol):
             break
 
-    pdf = old_div(akde_probfun(mesh, w, mus, sigmas), scaling)
+    pdf = akde_probfun(mesh, w, mus, sigmas) / scaling
 
     return pdf, grid
 
@@ -776,9 +863,9 @@ def akde_reg_EM(w, mus, sigmas, bw, X):
     for i in (np.where(w > 0.))[0]:
         mus[i, :] = np.dot(p[:, i].reshape((-1, 1)).T, np.divide(X, w[i]))
         Xcentered = np.subtract(X, mus[i, :])
-        sigmas[i, :] = np.dot(p[:, i].reshape((-1, 1)).T, old_div((Xcentered ** 2.), w[i])) + bw ** 2.
+        sigmas[i, :] = np.dot(p[:, i].reshape((-1, 1)).T, (Xcentered ** 2.) / w[i]) + bw ** 2.
 
-    w = old_div(w, np.sum(w))
+    w = w / np.sum(w)
     curv = np.mean(np.exp(logpsigd - logpdf))
     bw = 1. / ((4. * n * (4. * math.pi) ** (d / 2.) * curv) ** (1. / (d + 2.)))
     return (w, mus, sigmas, bw, ent)

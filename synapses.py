@@ -6,7 +6,7 @@ import numpy as np
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, import_mech_dict_from_file, make_neurotree_graph
 from dentate.cells import custom_filter_if_terminal, custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
-from dentate.utils import NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, viewitems, zip, zip_longest, partitionn
+from dentate.utils import DDExpr, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, viewitems, zip, zip_longest, partitionn
 from neuroh5.io import write_cell_attributes
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -936,9 +936,14 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
             if syn is None:
                 failed = False
             else:
-                setattr(syn, param, val)
-                mech_param = True
-                failed = False
+                if isinstance(val, DDExpr) and (nc is not None):
+                    setattr(syn, param, val(nc.delay))
+                    mech_param = True
+                    failed = False
+                else:
+                    setattr(syn, param, val)
+                    mech_param = True
+                    failed = False
 
         elif param in mech_rules['netcon_params']:
             if nc is None:
@@ -948,7 +953,10 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 
                 if int(nc.wcnt()) >= i:
                     old = nc.weight[i]
-                    nc.weight[i] = val
+                    if isinstance(val, DDExpr):
+                        nc.weight[i] = val(nc.delay)
+                    else:
+                        nc.weight[i] = val
                     nc_param = True
                     failed = False
         if failed:

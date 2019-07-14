@@ -493,8 +493,9 @@ def make_distance_interpolant(env, resolution=[30, 30, 10], nsample=1000):
     interp_sigma = 0.01
     interp_basis = rbf.basis.ga
     interp_order = 1
-
-    logger.info('Computing volume distances...')
+    
+    if rank == 0:
+        logger.info('Computing reference distances...')
     vol_dist = get_volume_distances(ip_volume, origin_spec=origin, nsample=nsample, comm=env.comm)
     (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
 

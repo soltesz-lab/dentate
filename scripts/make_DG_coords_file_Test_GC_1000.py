@@ -4,15 +4,15 @@ import h5py
 
 h5types_file = 'dentate_h5types.h5'
 
-DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP", "CA3c", "ConMC"]
+DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP"]
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
-DG_EXT_populations = ["MPP", "LPP", "CA3c", "ConMC"]
+DG_EXT_populations = ["MPP", "LPP"]
 
-DG_coords_file = "DG_coords_20190712.h5"
+DG_coords_file = "DG_coords_20190619.h5"
 
-DG_GC_coordinate_file  = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_coordinate_file  = "dentate_IN_coords_dist_20190622.h5"
-DG_EXT_coordinate_file = "dentate_IN_coords_dist_20190622.h5"
+DG_GC_coordinate_file  = "DG_GC_1000_coords_20180618.h5"
+DG_IN_coordinate_file  = "DG_coords_20190521.h5"
+DG_EXT_coordinate_file = "DG_coords_20190521.h5"
 
 
 coordinate_files = {
@@ -27,26 +27,23 @@ coordinate_files = {
      'NGFC': DG_IN_coordinate_file,
      'MPP':  DG_EXT_coordinate_file,
      'LPP':  DG_EXT_coordinate_file,
-     'CA3c':  DG_EXT_coordinate_file,
-     'ConMC':  DG_EXT_coordinate_file
 }
 
+coordinate_ns = 'Coordinates'
 coordinate_ns_generated = 'Generated Coordinates'
 coordinate_ns_interpolated = 'Interpolated Coordinates'
 coordinate_namespaces = {
-     'AAC':  coordinate_ns_generated,
-     'BC':   coordinate_ns_generated,
+     'AAC':  coordinate_ns,
+     'BC':   coordinate_ns,
      'GC':   coordinate_ns_interpolated,
-     'HC':   coordinate_ns_generated,
-     'HCC':  coordinate_ns_generated,
-     'IS':   coordinate_ns_generated,
-     'MC':   coordinate_ns_generated,
-     'MOPP': coordinate_ns_generated,
-     'NGFC': coordinate_ns_generated,
-     'MPP':  coordinate_ns_generated,
-     'LPP':  coordinate_ns_generated,
-     'CA3c':  coordinate_ns_generated,
-     'ConMC':  coordinate_ns_generated
+     'HC':   coordinate_ns,
+     'HCC':  coordinate_ns,
+     'IS':   coordinate_ns,
+     'MC':   coordinate_ns,
+     'MOPP': coordinate_ns,
+     'NGFC': coordinate_ns,
+     'MPP':  coordinate_ns,
+     'LPP':  coordinate_ns,
 }
 
 ## Creates H5Types entries
