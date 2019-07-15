@@ -108,7 +108,7 @@ Synapses:
       sections: [ais]
       layers: [GCL]
       proportions: [1.0]
-      mechanisms:
+      swctype mechanisms:
         ais:
           GABA_A:
             tau_rise: 0.3
@@ -301,7 +301,7 @@ Synapses:
       sections: [soma, basal]
       layers: [Hilus, Hilus]
       proportions: [1.0, 1.0, 1.0]
-      mechanisms:
+      swctype mechanisms:
         soma:
           AMPA:
             tau_rise: 0.3

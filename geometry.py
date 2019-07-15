@@ -3,6 +3,7 @@ import logging
 import math
 import numpy as np
 import rbf
+from mpi4py import MPI
 import dentate
 from dentate.alphavol import alpha_shape
 from dentate.rbf_surface import RBFSurface
@@ -242,7 +243,7 @@ def generate_nodes(alpha, nsample, nodeitr):
     
 
 
-def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, alpha_radius=120., nodeitr=20, comm=None):
+def get_volume_distances(ip_vol, origin_spec=None, nsample=1000, alpha_radius=120., nodeitr=20, comm=None):
     """Computes arc-distances along the dimensions of an `RBFVolume` instance.
 
     Parameters
@@ -251,8 +252,6 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
         An interpolated volume instance of class RBFVolume.
     origin_coords : array(float)
         Origin point to use for distance computation.
-    rotate : (float,float,float)
-        Rotation angle (optional)
     nsample : int
         Number of points to sample inside the volume.
     alpha_radius : float
@@ -334,6 +333,7 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
         node_uvl_coords = uvl_coords_interp
         uvl_coords = np.vstack([boundary_uvl_coords, node_uvl_coords])
 
+    comm.barrier()
     if comm is not None:
         uvl_coords = comm.bcast(uvl_coords, root=0)
         origin_extent, origin_pos_um, origin_ranges = comm.bcast((origin_extent, origin_pos_um, origin_ranges), root=0)
@@ -360,9 +360,10 @@ def get_volume_distances(ip_vol, origin_spec=None, rotate=None, nsample=1000, al
 
     distances_u = np.asarray(ldists_u, dtype=np.float32)
     distances_v = np.asarray(ldists_v, dtype=np.float32)
-    obs_uv = np.vstack(obs_uvls)
+    obs_uvl = np.asarray(np.vstack(obs_uvls), dtype=np.float32)
+    
 
-    return (origin_ranges, obs_uv, distances_u, distances_v)
+    return (origin_ranges, obs_uvl, distances_u, distances_v)
 
 
 def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, layer_extents, population_layers, 
@@ -401,13 +402,13 @@ def interp_soma_distances(comm, ip_dist_u, ip_dist_v, soma_coords, layer_extents
     size = comm.size
 
     if populations is None:
-        populations = list(soma_coords.keys())
+        populations = sorted(soma_coords.keys())
 
     soma_distances = {}
     for pop in populations:
         coords_dict = soma_coords[pop]
         if rank == 0:
-            logger.info('Computing soma distances for population %s...' % pop)
+            logger.info('Computing soma distances for %d cells from population %s...' % (len(coords_dict), pop))
         count = 0
         local_dist_dict = {}
         pop_layer = population_layers[pop]
@@ -496,24 +497,38 @@ def make_distance_interpolant(env, resolution=[30, 30, 10], nsample=1000):
     
     if rank == 0:
         logger.info('Computing reference distances...')
-    vol_dist = get_volume_distances(ip_volume, origin_spec=origin, nsample=nsample, comm=env.comm)
-    (origin_ranges, obs_uv, dist_u, dist_v) = vol_dist
 
-    obs_uvs = env.comm.gather(obs_uv, root=0)
-    dist_us = env.comm.gather(dist_u, root=0)
-    dist_vs = env.comm.gather(dist_v, root=0)
+    vol_dist = get_volume_distances(ip_volume, origin_spec=origin, nsample=nsample, comm=env.comm)
+    (origin_ranges, obs_uvl, dist_u, dist_v) = vol_dist
+
+    if rank == 0:
+        logger.info('Done computing reference distances...')
+    
+    sendcounts = np.array(env.comm.gather(len(obs_uvl), root=0))
+    displs = np.concatenate([np.asarray([0]), np.cumsum(sendcounts)[:-1]])
+
+    obs_uvs = None
+    dist_us = None
+    dist_vs = None
+    if rank == 0:
+        obs_uvs = np.zeros((np.sum(sendcounts), 3), dtype=np.float32)
+        dist_us = np.zeros(np.sum(sendcounts), dtype=np.float32)
+        dist_vs = np.zeros(np.sum(sendcounts), dtype=np.float32)
+
+    uvl_datatype = MPI.FLOAT.Create_contiguous(3).Commit() 
+    env.comm.Gatherv(sendbuf=obs_uvl, recvbuf=(obs_uvs, sendcounts, displs, uvl_datatype), root=0)
+    uvl_datatype.Free()
+    env.comm.Gatherv(sendbuf=dist_u, recvbuf=(dist_us, sendcounts, displs, MPI.FLOAT), root=0)
+    env.comm.Gatherv(sendbuf=dist_v, recvbuf=(dist_vs, sendcounts, displs, MPI.FLOAT), root=0)
 
     ip_dist_u=None
     ip_dist_v=None
     if rank == 0:
-        obs_uv = np.vstack(obs_uvs)
-        dist_u = np.concatenate(dist_us)
-        dist_v = np.concatenate(dist_vs)
         logger.info('Computing U volume distance interpolants...')
-        ip_dist_u = RBFInterpolant(obs_uv, dist_u, order=interp_order, phi=interp_basis, \
+        ip_dist_u = RBFInterpolant(obs_uvs, dist_us, order=interp_order, phi=interp_basis, \
                                    sigma=interp_sigma)
         logger.info('Computing V volume distance interpolants...')
-        ip_dist_v = RBFInterpolant(obs_uv, dist_v, order=interp_order, phi=interp_basis, \
+        ip_dist_v = RBFInterpolant(obs_uvs, dist_vs, order=interp_order, phi=interp_basis, \
                                    sigma=interp_sigma)
 
     origin_ranges = env.comm.bcast(origin_ranges, root=0)
