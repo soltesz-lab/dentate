@@ -1,7 +1,8 @@
 import os, sys, itertools, logging, time
+import click
 from mpi4py import MPI
 import numpy as np
-import click
+import dlib
 import dentate
 from dentate.env import Env
 from dentate.geometry import DG_volume, make_uvl_distance, make_volume, get_total_extents, uvl_in_bounds
@@ -28,11 +29,12 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--coords-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
-@click.option("--reltol", type=float, default=10.)
+@click.option("--reltol", type=float, default=5.)
+@click.option("--optiter", type=int, default=100)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, io_size, verbose, dry_run):
+def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose, dry_run):
 
     config_logging(verbose)
     logger = get_script_logger(__file__)
@@ -144,6 +146,20 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                    uvl_coords[0], uvl_coords[1], uvl_coords[2],
                                    min_u, max_u, min_v, max_v,
                                    min_l, max_l)
+                else:
+                    f_uvl_distance = make_uvl_distance(xyz_coords,rotate=rotate)
+                    min_extent = (min_u,min_v,min_l)
+                    max_extent = (max_u,max_v,max_l)
+                    uvl_coords,dist = \
+                      dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
+
+                    xyz_coords1 = DG_volume(uvl_coords[0], uvl_coords[1], uvl_coords[2], rotate=rotate)[0]
+                    xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
+
+                    if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and \
+                      (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
+                        coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+                     
 
             count += 1
 
