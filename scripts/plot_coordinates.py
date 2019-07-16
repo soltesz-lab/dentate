@@ -1,4 +1,4 @@
-import sys
+import os, sys
 import numpy as np
 import click
 from dentate import plot, utils
