@@ -221,7 +221,7 @@ def optimize_inverse_uvl_coords(xyz_coords, rotate, layer_extents, pop_layers, o
             min_extent = layer_extents[layer][0]
             max_extent = layer_extents[layer][1]
             uvl_coords,dist = dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
-            if uvl_in_bounds(coords, layer_extents, { layer: count }):
+            if uvl_in_bounds(uvl_coords, layer_extents, { layer: count }):
                 return uvl_coords
     return None
 

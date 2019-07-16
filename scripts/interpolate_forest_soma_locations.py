@@ -13,7 +13,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 def list_concat(a, b, datatype):
     return a+b
@@ -130,9 +130,9 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                 xyz_coords_opt = None
                 xyz_error_opt = None
 
-            if (xyz_error_opt is not None) and 
-               (xyz_error_opt[0] < xyz_error_interp[0]) and
-               (xyz_error_opt[1] < xyz_error_interp[1]) and
+            if (xyz_error_opt is not None) and \
+               (xyz_error_opt[0] < xyz_error_interp[0]) and \
+               (xyz_error_opt[1] < xyz_error_interp[1]) and \
                (xyz_error_opt[2] < xyz_error_interp[2]):
                 uvl_coords = uvl_coords_opt
                 xyz_error = xyz_error_opt
@@ -160,11 +160,11 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                  'L Coordinate': np.array([uvl_coords[2]], dtype='float32'),
                                  'Interpolation Error': np.asarray(xyz_error, dtype='float32') }
 
-            if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and
+            if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and \
                (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and (xyz_error[2] <= reltol):
                 coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
             else:
-                logger.warning("Rank %d: uvl coords %f %f %f not added to reindexing")
+                logger.warning("Rank %d: uvl coords %s not added to reindexing" % (rank, str(uvl_coords)))
 
             count += 1
 
