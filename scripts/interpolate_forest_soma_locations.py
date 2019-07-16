@@ -78,7 +78,7 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
     ## This parameter is used to expand the range of L and avoid
     ## situations where the endpoints of L end up outside of the range
     ## of the distance interpolant
-    safety = 0.01
+    safety = 0.001
 
     ip_volume = None
     if rank == 0:
@@ -137,28 +137,24 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                  'L Coordinate': np.array([uvl_coords[2]], dtype='float32'),
                                  'Interpolation Error': np.asarray(xyz_error, dtype='float32') }
 
-            if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and \
-               (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
+            if uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
+                if (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
                     coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
-            else:
-                if not uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
-                    logger.warning("Rank %d: uvl coords %f %f %f out of range %f : %f  %f : %f %f : %f", rank, 
-                                   uvl_coords[0], uvl_coords[1], uvl_coords[2],
-                                   min_u, max_u, min_v, max_v,
-                                   min_l, max_l)
                 else:
                     f_uvl_distance = make_uvl_distance(xyz_coords,rotate=rotate)
-                    min_extent = (min_u,min_v,min_l)
-                    max_extent = (max_u,max_v,max_l)
-                    uvl_coords,dist = \
-                      dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
-
+                    min_extent = [min_u,min_v,min_l]
+                    max_extent = [max_u,max_v,max_l]
+                    uvl_coords,dist = dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
+                    
                     xyz_coords1 = DG_volume(uvl_coords[0], uvl_coords[1], uvl_coords[2], rotate=rotate)[0]
                     xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
-
-                    if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and \
-                      (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
+                    
+                    if (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
                         coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+            else:
+                logger.warning("Rank %d: uvl coords %f %f %f out of range %f : %f  %f : %f %f : %f", rank, 
+                               uvl_coords[0], uvl_coords[1], uvl_coords[2],
+                               min_u, max_u, min_v, max_v, min_l, max_l)
                      
 
             count += 1

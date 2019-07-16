@@ -121,12 +121,12 @@ def uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
         if count > 0:
             min_extent = layer_extents[layer][0]
             max_extent = layer_extents[layer][1]
-            result = (uvl_coords[0] < max_extent[0] + 0.01) and \
-                     (uvl_coords[0] > min_extent[0] - 0.01) and \
-                     (uvl_coords[1] < max_extent[1] + 0.01) and \
-                     (uvl_coords[1] > min_extent[1] - 0.01) and \
-                     (uvl_coords[2] < max_extent[2] + 0.01) and \
-                     (uvl_coords[2] > min_extent[2] - 0.01)
+            result = (uvl_coords[0] < (max_extent[0] + 0.001)) and \
+                     (uvl_coords[0] > (min_extent[0] - 0.001)) and \
+                     (uvl_coords[1] < (max_extent[1] + 0.001)) and \
+                     (uvl_coords[1] > (min_extent[1] - 0.001)) and \
+                     (uvl_coords[2] < (max_extent[2] + 0.001)) and \
+                     (uvl_coords[2] > (min_extent[2] - 0.001))
             if result:
                 return True
     return False
