@@ -212,6 +212,20 @@ def make_uvl_distance(xyz_coords, rotate=None):
     f = lambda u, v, l: euclidean_distance(DG_volume(u, v, l, rotate=rotate), xyz_coords)
     return f
 
+
+def optimize_inverse_uvl_coords(xyz_coords, rotate, layer_extents, pop_layers, optiter=100):
+    import dlib
+    f_uvl_distance = make_uvl_distance(xyz_coords,rotate=rotate)
+    for layer, count in viewitems(pop_layers):
+        if count > 0:
+            min_extent = layer_extents[layer][0]
+            max_extent = layer_extents[layer][1]
+            uvl_coords,dist = dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
+            if uvl_in_bounds(coords, layer_extents, { layer: count }):
+                return uvl_coords
+    return None
+
+
 def generate_nodes(alpha, nsample, nodeitr):
     from rbf.pde.nodes import min_energy_nodes
     from rbf.pde.geometry import contains

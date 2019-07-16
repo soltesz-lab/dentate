@@ -2,10 +2,9 @@ import os, sys, itertools, logging, time
 import click
 from mpi4py import MPI
 import numpy as np
-import dlib
 import dentate
 from dentate.env import Env
-from dentate.geometry import DG_volume, make_uvl_distance, make_volume, get_total_extents, uvl_in_bounds
+from dentate.geometry import DG_volume, make_uvl_distance, make_volume, get_total_extents, uvl_in_bounds, optimize_inverse_uvl_coords
 from dentate.utils import *
 from neuroh5.io import append_cell_attributes, read_population_ranges, scatter_read_trees
 
@@ -118,17 +117,41 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
 
             xyz_coords = np.array([px,py,pz]).reshape(3,1).T
             uvl_coords_interp = ip_volume.inverse(xyz_coords)[0]
-            xyz_coords1 = DG_volume(uvl_coords_interp[0], uvl_coords_interp[1], uvl_coords_interp[2], 
-                                    rotate=rotate)[0]
-            xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
-            uvl_coords = uvl_coords_interp
+            xyz_coords_interp = DG_volume(uvl_coords_interp[0], uvl_coords_interp[1], uvl_coords_interp[2], 
+                                           rotate=rotate)[0]
+            xyz_error_interp   = np.abs(np.subtract(xyz_coords, xyz_coords_interp))[0]
+
+            uvl_coords_opt = optimize_inverse_uvl_coords(xyz_coords, rotate, layer_extents, pop_layers)
+            if uvl_coords_opt:
+                xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], 
+                                            rotate=rotate)[0]
+                xyz_error_opt   = np.abs(np.subtract(xyz_coords, xyz_coords_opt))[0]
+            else:
+                xyz_coords_opt = None
+                xyz_error_opt = None
+
+            if (xyz_error_opt is not None) and 
+               (xyz_error_opt[0] < xyz_error_interp[0]) and
+               (xyz_error_opt[1] < xyz_error_interp[1]) and
+               (xyz_error_opt[2] < xyz_error_interp[2]):
+                uvl_coords = uvl_coords_opt
+                xyz_error = xyz_error_opt
+                xyz_coords1 = xyz_coords_opt
+            else:
+                uvl_coords = uvl_coords_interp
+                xyz_error = xyz_error_interp
+                xyz_coords1 = xyz_coords_interp
             
             if rank == 0:
                 logger.info('xyz_coords: %s' % str(xyz_coords))
-                logger.info('uvl_coords: %s' % str(uvl_coords))
-                logger.info('xyz_coords1: %s' % str(xyz_coords1))
-                logger.info('xyz_error: %s' % str(xyz_error))
-            
+                logger.info('uvl_coords_interp: %s' % str(uvl_coords_interp))
+                logger.info('xyz_coords_interp: %s' % str(xyz_coords_interp))
+                logger.info('xyz_error_interp: %s' % str(xyz_error_interp))
+                logger.info('uvl_coords_opt: %s' % str(uvl_coords_opt))
+                logger.info('xyz_coords_opt: %s' % str(xyz_coords_opt))
+                logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
+
+                
             coords_dict[gid] = { 'X Coordinate': np.array([xyz_coords1[0]], dtype='float32'),
                                  'Y Coordinate': np.array([xyz_coords1[1]], dtype='float32'),
                                  'Z Coordinate': np.array([xyz_coords1[2]], dtype='float32'),
@@ -137,25 +160,11 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                  'L Coordinate': np.array([uvl_coords[2]], dtype='float32'),
                                  'Interpolation Error': np.asarray(xyz_error, dtype='float32') }
 
-            if uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
-                if (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
-                    coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
-                else:
-                    f_uvl_distance = make_uvl_distance(xyz_coords,rotate=rotate)
-                    min_extent = [min_u,min_v,min_l]
-                    max_extent = [max_u,max_v,max_l]
-                    uvl_coords,dist = dlib.find_min_global(f_uvl_distance, min_extent, max_extent, optiter)
-                    
-                    xyz_coords1 = DG_volume(uvl_coords[0], uvl_coords[1], uvl_coords[2], rotate=rotate)[0]
-                    xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
-                    
-                    if (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
-                        coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+            if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and
+               (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and (xyz_error[2] <= reltol):
+                coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
             else:
-                logger.warning("Rank %d: uvl coords %f %f %f out of range %f : %f  %f : %f %f : %f", rank, 
-                               uvl_coords[0], uvl_coords[1], uvl_coords[2],
-                               min_u, max_u, min_v, max_v, min_l, max_l)
-                     
+                logger.warning("Rank %d: uvl coords %f %f %f not added to reindexing")
 
             count += 1
 
