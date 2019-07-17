@@ -147,7 +147,7 @@ def spikeout(env, output_path):
 
     binvect = np.array(binlst)
     sort_idx = np.argsort(binvect, axis=0)
-    pop_names = [typelst[i] for i in sort_idx]
+    pop_names = sorted([typelst[i] for i in sort_idx])
     bins = binvect[sort_idx][1:]
     inds = np.digitize(id_vec, bins)
 
