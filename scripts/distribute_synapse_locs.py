@@ -16,7 +16,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
 def update_syn_stats(env, syn_stats_dict, syn_dict):
@@ -131,10 +131,11 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
+@click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, config_prefix, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
-         cache_size, verbose, dry_run):
+         cache_size, write_size, verbose, dry_run):
     """
 
     :param config:
@@ -158,7 +159,6 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    comm.barrier()
     env = Env(comm=MPI.COMM_WORLD, config_file=config, config_prefix=config_prefix, template_paths=template_path)
 
     configure_hoc_env(env)
@@ -204,9 +204,10 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
                            'total': { 'excitatory': 0, 'inhibitory': 0 } }
 
         count = 0
+        gid_count = 0
+        synapse_dict = {}
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             local_time = time.time()
-            synapse_dict = {}
             if gid is not None:
                 logger.info('Rank %i gid: %i' % (rank, gid))
                 cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
@@ -235,20 +236,26 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
                 num_syns = len(synapse_dict[gid]['syn_ids'])
                 logger.info('Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid))
                 logger.info('%s gid %i synapses: %s' % (population, gid, local_syn_summary(this_syn_stats)))
-                count += 1
+                gid_count += 1
             else:
                 logger.info('Rank %i gid is None' % rank)
-            if not dry_run:
+            if (not dry_run) and (gid_count % write_size == 0):
                 append_cell_attributes(output_path, population, synapse_dict,
                                        namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
                                        value_chunk_size=value_chunk_size, cache_size=cache_size)
+                synapse_dict = {}
+                gc.collect()
             syn_stats[population] = syn_stats_dict
-            del synapse_dict
-            gc.collect()
+            count += 1
 
-        global_count = comm.gather(count, root=0)
+        if not dry_run:
+            append_cell_attributes(output_path, population, synapse_dict,
+                                   namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
+                                   value_chunk_size=value_chunk_size, cache_size=cache_size)
 
-        if count > 0:
+        global_count = comm.gather(gid_count, root=0)
+
+        if gid_count > 0:
             color = 1
         else:
             color = 0

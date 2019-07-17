@@ -28,8 +28,8 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--coords-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
-@click.option("--reltol", type=float, default=5.)
-@click.option("--optiter", type=int, default=100)
+@click.option("--reltol", type=float, default=10.)
+@click.option("--optiter", type=int, default=250)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
@@ -121,7 +121,7 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                            rotate=rotate)[0]
             xyz_error_interp   = np.abs(np.subtract(xyz_coords, xyz_coords_interp))[0]
 
-            uvl_coords_opt = optimize_inverse_uvl_coords(xyz_coords, rotate, layer_extents, pop_layers)
+            uvl_coords_opt = optimize_inverse_uvl_coords(xyz_coords, rotate, layer_extents, pop_layers, optiter=optiter)
             if uvl_coords_opt:
                 xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], 
                                             rotate=rotate)[0]
@@ -150,6 +150,7 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                 logger.info('uvl_coords_opt: %s' % str(uvl_coords_opt))
                 logger.info('xyz_coords_opt: %s' % str(xyz_coords_opt))
                 logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
+                logger.info('uvl_in_bounds: %s' % str(uvl_in_bounds(uvl_coords, layer_extents, pop_layers)))
 
                 
             coords_dict[gid] = { 'X Coordinate': np.array([xyz_coords1[0]], dtype='float32'),
@@ -164,7 +165,8 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and (xyz_error[2] <= reltol):
                 coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
             else:
-                logger.warning("Rank %d: uvl coords %s not added to reindexing" % (rank, str(uvl_coords)))
+                logger.warning("Rank %d: uvl coords %s not added to new index (in bounds: %s; error: %s)" % \
+                               (rank, str(uvl_coords), str(uvl_in_bounds(uvl_coords, layer_extents, pop_layers)), str(xyz_error)))
 
             count += 1
 
