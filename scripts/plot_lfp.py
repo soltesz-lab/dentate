@@ -1,12 +1,9 @@
 
-import os
-import sys
-
+import os, sys
 import click
 import dentate
 from dentate import plot
 from dentate import utils
-from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
 
@@ -33,10 +30,10 @@ def main(config_path, input_path, t_max, t_min, psd, window_size, overlap, frequ
         else:
             time_range = [t_min, t_max]
 
-    plot.plot_lfp (config_path, input_path, time_range=time_range, compute_psd=psd, window_size=window_size,
+    plot.plot_lfp (config_path, input_path, time_range=time_range, \
+                   compute_psd=psd, window_size=window_size, \
                    overlap=overlap, frequency_range=frequency_range,
                    fontSize=font_size, saveFig=True)
-    
     
 
 if __name__ == '__main__':
