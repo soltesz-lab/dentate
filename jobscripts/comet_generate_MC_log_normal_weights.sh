@@ -12,25 +12,27 @@
 
 
 module load python
+module unload intel
+module load gnu
+module load openmpi_ib
+module load mkl
 module load hdf5
-module load scipy
-module load mpi4py
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
+
+export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
 
 set -x
 
 ibrun -np 720  \
- python2.7 $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
+ python3.5 $HOME/model/dentate/scripts/generate_log_normal_weights_as_cell_attr.py \
     -d MC -s GC \
     --config-prefix=./config \
     --config=Full_Scale_GC_Exc_Sat_LNN.yaml \
-    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20190503.h5 \
+    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20190717.h5 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190430_compressed.h5 \
     --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
 

@@ -10,29 +10,30 @@
 #SBATCH --mail-type=BEGIN
 #
 
-
 module load python
+module unload intel
+module load gnu
+module load openmpi_ib
+module load mkl
 module load hdf5
-module load scipy
-module load mpi4py
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
+
+export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
 
 set -x
 
 
-ibrun -np 240 python ./scripts/generate_distance_connections.py \
+ibrun -np 240 python3.5 ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
        --config=Full_Scale_GC_Exc_Sat.yaml \
        --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20190325_compressed.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190430.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190717.h5 \
        --connectivity-namespace=Connections \
-       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190122.h5 \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190717.h5 \
        --coords-namespace=Coordinates \
        --io-size=12 --cache-size=20 --write-size=40 -v
 
