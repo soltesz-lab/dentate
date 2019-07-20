@@ -9,7 +9,7 @@ from scipy.spatial.distance import euclidean
 
 from dentate import cells
 from dentate.neuron_utils import h
-from dentate.utils import get_module_logger, old_div, viewitems
+from dentate.utils import get_module_logger, viewitems
 from neuroh5.io import append_graph, read_tree_selection
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -200,7 +200,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
     total_count = 0
     gid_count = 0
 
-    for (i, (pp, gj_config)) in enumerate(viewitems(gj_config_dict)):
+    for (i, (pp, gj_config)) in enumerate(sorted(viewitems(gj_config_dict))):
         if rank == 0:
             logger.info('Generating gap junction connections between populations %s and %s...' % pp)
 
@@ -217,6 +217,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
 
         template_name_a = env.celltypes[population_a]['template']
         template_name_b = env.celltypes[population_b]['template']
+
         env.load_cell_template(population_a)
         env.load_cell_template(population_b)
         template_class_a = getattr(h, template_name_a)
@@ -262,22 +263,29 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         gids_a = np.concatenate(gids_a)
         gids_b = np.concatenate(gids_b)
         gj_probs = np.concatenate(gj_probs)
-        gj_probs = old_div(gj_probs, gj_probs.sum())
+        gj_probs = gj_probs / gj_probs.sum()
         gj_distances = np.concatenate(gj_distances)
         gids_a = np.asarray(gids_a, dtype=np.uint32)
         gids_b = np.asarray(gids_b, dtype=np.uint32)
 
         cell_dict_a = {}
         selection_a = set(gids_a)
+        if rank == 0:
+            logger.info('Reading tree selection of population %s (%d cells)...' % (pp[0], len(selection_a)))
         (tree_iter_a, _) = read_tree_selection(forest_path, population_a, list(gids_a))
         for (gid, tree_dict) in tree_iter_a:
             cell_dict_a[gid] = cells.make_neurotree_cell(template_class_a, neurotree_dict=tree_dict, gid=gid)
 
         cell_dict_b = {}
         selection_b = set(gids_b)
+        if rank == 0:
+            logger.info('Reading tree selection of population %s (%d cells)...' % (pp[1], len(selection_b)))
         (tree_iter_b, _) = read_tree_selection(forest_path, population_b, list(gids_b))
         for (gid, tree_dict) in tree_iter_b:
             cell_dict_b[gid] = cells.make_neurotree_cell(template_class_b, neurotree_dict=tree_dict, gid=gid)
+
+        if rank == 0:
+            logger.info('Generating gap junction pairs between populations %s and %s...' % pp)
 
         gj_dict = {}
         count = generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params,
