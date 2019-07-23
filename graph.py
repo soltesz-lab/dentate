@@ -304,16 +304,22 @@ def spatial_bin_graph(connectivity_path, coords_path, distances_namespace, desti
     u_bin_edges = { destination: dict(ChainMap(*comm.gather(dict(local_u_bin_graph), root=0))) }
     v_bin_edges = { destination: dict(ChainMap(*comm.gather(dict(local_v_bin_graph), root=0))) }
 
-    n = len(u_bin_edges[destination])
+    nu = len(u_bins)
     u_bin_graph = nx.Graph()
     for pop in [destination]+sources:
-        for i in range(n):
+        for i in range(nu):
             u_bin_graph.add_node((pop, i))
-            v_bin_graph.add_node((pop, i))
+
 
     for i, sources in viewitems(u_bin_edges[destination]):
         for source, ids in viewitems(sources):
             u_bin_graph.add_edges_from([((source, j), (destination, i)) for j in ids])
+
+    nv = len(v_bins)
+    v_bin_graph = nx.Graph()
+    for pop in [destination]+sources:
+        for i in range(nv):
+            v_bin_graph.add_node((pop, i))
 
     for i, sources in viewitems(v_bin_edges[destination]):
         for source, ids in viewitems(sources):
