@@ -174,7 +174,7 @@ def spikeout(env, output_path):
                 if gid in env.spike_onset_delay:
                     spkdict[gid]['t'] -= env.spike_onset_delay[gid]
                 
-        write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm)
+        write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
         del (spkdict)
 
 
@@ -199,7 +199,7 @@ def recsout(env, output_path):
                 namespace_id = "Intracellular Voltage %s" % rec_type
             else:
                 namespace_id = "Intracellular Voltage %s %s" % (rec_type, str(env.results_id))
-            write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm)
+            write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
 
 
 def lfpout(env, output_path):

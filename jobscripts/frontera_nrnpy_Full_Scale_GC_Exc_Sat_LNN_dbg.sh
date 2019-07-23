@@ -5,7 +5,7 @@
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 256            # Total # of nodes 
-#SBATCH -n 12288           # Total # of mpi tasks
+#SBATCH -n 14336           # Total # of mpi tasks
 #SBATCH -t 01:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
@@ -34,15 +34,8 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 
 export I_MPI_EXTRA_FILESYSTEM=enable
 export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
-export I_MPI_JOB_FAST_STARTUP=1
-export I_MPI_OFA_DYNAMIC_QPS=0
-export I_MPI_ADJUST_GATHER=3
-export I_MPI_ADJUST_GATHERV=3
-export I_MPI_ADJUST_SCATTER=3
-export I_MPI_ADJUST_SCATTERV=2
 export I_MPI_ADJUST_ALLGATHER=4
 export I_MPI_ADJUST_ALLGATHERV=4
-export I_MPI_ADJUST_ALLREDUCE=6
 
 ibrun python3 ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat_LNN.yaml  \
@@ -54,7 +47,7 @@ ibrun python3 ./scripts/main.py  \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
-    --max-walltime-hours=2.0 \
+    --max-walltime-hours=1.0 \
     --vrecord-fraction=0.001 \
     --verbose
 
