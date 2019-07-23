@@ -15,7 +15,8 @@ from matplotlib.offsetbox import AnchoredText
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import dentate.statedata as statedata
+from dentate.graph import vertex_distribution, vertex_metrics
+from dentate.statedata import read_state
 from dentate.cells import default_ordered_sec_types, get_distance_to_node
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
@@ -93,10 +94,11 @@ def save_figure(file_name_prefix, fig=None, **kwargs):
 
 
 def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, **kwargs):
-    """ Shows graph edges using Mayavi
+    """ 
+    Shows graph edges using Mayavi
 
-        Parameters
-        -----------
+    Parameters
+    -----------
         x: ndarray
             x coordinates of the points
         y: ndarray
@@ -130,6 +132,64 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     return vec
 
 
+def plot_spatial_bin_graph(label, graph, destination, sources, dx, **kwargs):
+    
+    import pyveplot as hvpl
+    import networkx as nx
+
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    filename = '%s.%s' % (label, fig_options.figFormat)
+    fig = hvpl.Hiveplot( '%.svg')
+
+    axis_origin = (150, 200)
+    axis_dict = {}
+    
+    axis_dict[destination] = hvpl.Axis( axis_origin, (150, -350), stroke="black", stroke_width=2)
+    for source in sources:
+        axis_end = (300, 300)
+        axis = hvpl.Axis( axis_origin, axis_end, stroke="yellowgreen", stroke_width=2)
+        axis_dict[source] = axis
+
+    fig.axes = axis_dict.values()
+
+    n = len(graph[destination])
+    for i in range(n):
+        nd = hvpl.Node(i)
+        axis = hvpl.axes[0]
+        axis.add_node(nd, i*dx)
+
+        degree = float(nx.degree(g, n)) / 5.0
+        nd.dwg = nd.dwg.rect(insert = (nd.x - (degree/2.0), nd.y - (degree/2.0)),
+                             size   = (degree, degree),
+                             fill   = 'midnightblue',
+                             fill_opacity = 0.5,
+                             stroke = random.choice(['royalblue','indigo','blue','purple']),
+                             stroke_width = 0.1)
+
+    # edges from axis0 to axis1
+    for e in g.edges():
+        if (e[0] in axis0.nodes) and (e[1] in axis1.nodes):
+            h.connect(axis0, e[0],
+                    45,  # angle of invisible axis for source control points
+                    axis1, e[1], 
+                    -45, # angle of invisible axis for target control points
+                    stroke_width   = 0.34,  # pass any SVG attributes to an edge
+                    stroke_opacity = 0.4,
+                    stroke         = 'purple',
+                    )
+        if (e[1] in axis0.nodes) and (e[0] in axis1.nodes):
+            h.connect(axis0, e[1], 45,  
+                    axis1, e[0], -45, 
+                    stroke_width   = 0.34,  # pass any SVG attributes to an edge
+                    stroke_opacity = 0.4,
+                    stroke         = 'purple',
+                    )
+
+    fig.save()
+    
+
 def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, bin_size = 50., metric='Indegree', normed = False, graph_type = 'histogram2d', **kwargs):
     """
     Plot vertex metric with respect to septo-temporal position (longitudinal and transverse arc distances to reference points).
@@ -144,44 +204,8 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    (population_ranges, _) = read_population_ranges(coords_path)
-
-    destination_start = population_ranges[destination][0]
-    destination_count = population_ranges[destination][1]
-
-    if sources == ():
-        sources = []
-        for (src, dst) in read_projection_names(connectivity_path):
-            if dst == destination:
-                sources.append(src)
+    (distance_U, distance_V, degrees_dict) = vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, bin_size, metric)
     
-    degrees_dict = {}
-    with h5py.File(connectivity_path, 'r') as f:
-        for source in sources:
-            degrees_dict[source] = f['Nodes'][vertex_metrics_namespace]['%s %s -> %s' % (metric, source, destination)]['Attribute Value'][0:destination_count]
-            
-    for source in sources:
-        logger.info('projection: %s -> %s: max: %i min: %i mean: %i stdev: %i (%d units)' % \
-                        (source, destination, \
-                         np.max(degrees_dict[source]), \
-                         np.min(degrees_dict[source]), \
-                         np.mean(degrees_dict[source]), \
-                         np.std(degrees_dict[source]), \
-                         len(degrees_dict[source])))
-
-    if metric == 'Indegree':
-        distances = read_cell_attributes(coords_path, destination, namespace=distances_namespace)
-        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
-        del distances
-    elif metric == 'Outdegree':
-        distances = read_cell_attributes(coords_path, sources[0], namespace=distances_namespace)
-        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
-        del distances
-        
-    gids = sorted(soma_distances.keys())
-    distance_U = np.asarray([ soma_distances[gid][0] for gid in gids ])
-    distance_V = np.asarray([ soma_distances[gid][1] for gid in gids ])
-
     distance_x_min = np.min(distance_U)
     distance_x_max = np.max(distance_U)
     distance_y_min = np.min(distance_V)
@@ -251,8 +275,8 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
             show_figure()
 
 
-def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destination, sources, 
-                        bin_size=20.0, cache_size=100, comm=None, **kwargs):
+def plot_vertex_distribution(connectivity_path, coords_path, distances_namespace, destination, sources, 
+                             bin_size=20.0, cache_size=100, comm=None, **kwargs):
     """
     Plot vertex distribution with respect to septo-temporal distance
 
@@ -270,93 +294,18 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
         comm = MPI.COMM_WORLD
 
     rank = comm.Get_rank()
+
+    vertex_distribution_dict = vertex_distribution(connectivity_path, coords_path,
+                                                   distances_namespace,
+                                                   destination, sources,
+                                                   bin_size, cache_size, comm=comm)
         
-    (population_ranges, _) = read_population_ranges(coords_path)
-
-    destination_start = population_ranges[destination][0]
-    destination_count = population_ranges[destination][1]
-
-    if rank == 0:
-        logger.info('reading %s distances...' % destination)
-    destination_soma_distances = bcast_cell_attributes(coords_path, destination, namespace=distances_namespace, comm=comm, root=0)
-    
-
-    destination_soma_distance_U = {}
-    destination_soma_distance_V = {}
-    for k,v in destination_soma_distances:
-        destination_soma_distance_U[k] = v['U Distance'][0]
-        destination_soma_distance_V[k] = v['V Distance'][0]
-
-    del(destination_soma_distances)
-
-    if sources == ():
-        sources = []
-        for (src, dst) in read_projection_names(connectivity_path):
-            if dst == destination:
-                sources.append(src)
-
-    source_soma_distances = {}
-    for s in sources:
-        if rank == 0:
-            logger.info('reading %s distances...' % s)
-        source_soma_distances[s] = bcast_cell_attributes(coords_path, s, namespace=distances_namespace, comm=comm, root=0)
-
-    
-    source_soma_distance_U = {}
-    source_soma_distance_V = {}
-    for s in sources:
-        this_source_soma_distance_U = {}
-        this_source_soma_distance_V = {}
-        for k,v in source_soma_distances[s]:
-            this_source_soma_distance_U[k] = v['U Distance'][0]
-            this_source_soma_distance_V[k] = v['V Distance'][0]
-        source_soma_distance_U[s] = this_source_soma_distance_U
-        source_soma_distance_V[s] = this_source_soma_distance_V
-    del(source_soma_distances)
-
-    logger.info('reading connections %s -> %s...' % (str(sources), destination))
-    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
-
-    dist_bins = defaultdict(dict)
-    dist_u_bins = defaultdict(dict)
-    dist_v_bins = defaultdict(dict)
-    
-    for prj_gen_tuple in zip_longest(*gg):
-        destination_gid = prj_gen_tuple[0][0]
-        if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
-            raise RuntimeError('destination %s: destination_gid %i not matched across multiple projection generators: '
-                               '%s' % (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
-
-        if destination_gid is not None:
-            for (source, (this_destination_gid,rest)) in zip_longest(sources, prj_gen_tuple):
-                this_source_soma_distance_U = source_soma_distance_U[source]
-                this_source_soma_distance_V = source_soma_distance_V[source]
-                this_dist_bins = dist_bins[source]
-                this_dist_u_bins = dist_u_bins[source]
-                this_dist_v_bins = dist_v_bins[source]
-                (source_indexes, attr_dict) = rest
-                dst_U = destination_soma_distance_U[destination_gid]
-                dst_V = destination_soma_distance_V[destination_gid]
-                for source_gid in source_indexes:
-                    dist_u = dst_U - this_source_soma_distance_U[source_gid]
-                    dist_v = dst_V - this_source_soma_distance_V[source_gid]
-                    dist = abs(dist_u) + abs(dist_v)
-                
-                    update_bins(this_dist_bins, bin_size, dist)
-                    update_bins(this_dist_u_bins, bin_size, dist_u)
-                    update_bins(this_dist_v_bins, bin_size, dist_v)
-
-    add_bins_op = MPI.Op.Create(add_bins, commute=True)
-    for source in sources:
-        dist_bins[source] = comm.reduce(dist_bins[source], op=add_bins_op)
-        dist_u_bins[source] = comm.reduce(dist_u_bins[source], op=add_bins_op)
-        dist_v_bins[source] = comm.reduce(dist_v_bins[source], op=add_bins_op)
                     
     if rank == 0:
         for source in sources:
-            dist_hist_vals, dist_bin_edges = finalize_bins(dist_bins[source], bin_size)
-            dist_u_hist_vals, dist_u_bin_edges = finalize_bins(dist_u_bins[source], bin_size)
-            dist_v_hist_vals, dist_v_bin_edges = finalize_bins(dist_v_bins[source], bin_size)
+            dist_hist_vals, dist_bin_edges = vertex_distribution_dict['Total distance'][destination][source]
+            dist_u_hist_vals, dist_u_bin_edges = vertex_distribution_dict['U distance'][destination][source]
+            dist_v_hist_vals, dist_v_bin_edges = vertex_distribution_dict['V distance'][destination][source]
 
             fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10,6))
             fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fig_options.fontSize)
@@ -1331,9 +1280,9 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
         for pop in population_names:
             include.append(pop)
 
-    data = statedata.read_state (input_path, include, namespace_id, time_variable=time_variable,
-                                 variable=variable, time_range=time_range, 
-                                 max_units = max_units, unit_no = unit_no)
+    data = read_state (input_path, include, namespace_id, time_variable=time_variable,
+                       variable=variable, time_range=time_range, 
+                       max_units = max_units, unit_no = unit_no)
 
     states     = data['states']
     
@@ -1813,8 +1762,8 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
                                            spike_train_attr_name=time_variable, time_range=time_range)
-    indata  = statedata.read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
-                                    variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
+    indata  = read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
+                          variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
