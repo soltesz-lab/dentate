@@ -132,7 +132,7 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     return vec
 
 
-def plot_spatial_bin_graph(label, graph, destination, sources, dx, **kwargs):
+def plot_spatial_bin_graph(label, graph_dict, axis_length = 300., **kwargs):
     
     import pyveplot as hvpl
     import networkx as nx
@@ -143,22 +143,26 @@ def plot_spatial_bin_graph(label, graph, destination, sources, dx, **kwargs):
     filename = '%s.%s' % (label, fig_options.figFormat)
     fig = hvpl.Hiveplot( '%.svg')
 
-    axis_origin = (150, 200)
-    axis_dict = {}
+    n = graph_dict['NU']
     
-    axis_dict[destination] = hvpl.Axis( axis_origin, (150, -350), stroke="black", stroke_width=2)
+    
+    axis_origin = (150., axis_length)
+    axis_end = (150., 0.)
+    angle_deg = 360. / (len(sources) + 1)
+    
+    axis_dict = {}
+    axis_dict[destination] = hvpl.Axis( axis_origin, axis_end, stroke="black", stroke_width=2)
     for source in sources:
-        axis_end = (300, 300)
+        this_axis_end = rotate(axis_end, angle_deg)
         axis = hvpl.Axis( axis_origin, axis_end, stroke="yellowgreen", stroke_width=2)
         axis_dict[source] = axis
 
     fig.axes = axis_dict.values()
 
-    n = len(graph[destination])
     for i in range(n):
         nd = hvpl.Node(i)
         axis = hvpl.axes[0]
-        axis.add_node(nd, i*dx)
+        axis.add_node(nd, float(i)/float(n) * axis_length)
 
         degree = float(nx.degree(g, n)) / 5.0
         nd.dwg = nd.dwg.rect(insert = (nd.x - (degree/2.0), nd.y - (degree/2.0)),

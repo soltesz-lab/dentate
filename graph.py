@@ -3,7 +3,7 @@
 import gc, math, time
 from collections import defaultdict, ChainMap
 import numpy as np
-from dentate.utils import get_module_logger, list_find_all, range, str, zip, viewitems
+from dentate.utils import get_module_logger, list_find_all, range, str, zip, viewitems, zip_longest
 from dentate.utils import Struct, add_bins, update_bins, finalize_bins
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names
 
@@ -267,7 +267,8 @@ def spatial_bin_graph(connectivity_path, coords_path, distances_namespace, desti
         source_v_bins[s] = this_source_v_bins
     del(source_soma_distances)
 
-    logger.info('reading connections %s -> %s...' % (str(sources), destination))
+    if rank == 0:
+        logger.info('reading connections %s -> %s...' % (str(sources), destination))
     gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
 
     dist_bins = defaultdict(dict)
@@ -292,7 +293,7 @@ def spatial_bin_graph(connectivity_path, coords_path, distances_namespace, desti
                 this_source_v_bins = source_v_bins[source]
                 (source_indexes, attr_dict) = rest
                 source_u_bin_dict = defaultdict(int)
-                source_b_bin_dict = defaultdict(int)
+                source_v_bin_dict = defaultdict(int)
                 for source_gid in source_indexes:
                     source_u_bin = this_source_u_bins[source_gid]
                     source_v_bin = this_source_v_bins[source_gid]
@@ -300,30 +301,41 @@ def spatial_bin_graph(connectivity_path, coords_path, distances_namespace, desti
                     source_v_bin_dict[source_v_bin] += 1
                 local_u_bin_graph[dest_u_bin][source] = source_u_bin_dict
                 local_v_bin_graph[dest_v_bin][source] = source_v_bin_dict
-                    
-    u_bin_edges = { destination: dict(ChainMap(*comm.gather(dict(local_u_bin_graph), root=0))) }
-    v_bin_edges = { destination: dict(ChainMap(*comm.gather(dict(local_v_bin_graph), root=0))) }
 
-    nu = len(u_bins)
-    u_bin_graph = nx.Graph()
-    for pop in [destination]+sources:
-        for i in range(nu):
-            u_bin_graph.add_node((pop, i))
+    local_u_bin_graphs = comm.gather(dict(local_u_bin_graph), root=0)
+    local_v_bin_graphs = comm.gather(dict(local_v_bin_graph), root=0)
 
-
-    for i, sources in viewitems(u_bin_edges[destination]):
-        for source, ids in viewitems(sources):
-            u_bin_graph.add_edges_from([((source, j), (destination, i)) for j in ids])
-
-    nv = len(v_bins)
-    v_bin_graph = nx.Graph()
-    for pop in [destination]+sources:
-        for i in range(nv):
-            v_bin_graph.add_node((pop, i))
-
-    for i, sources in viewitems(v_bin_edges[destination]):
-        for source, ids in viewitems(sources):
-            v_bin_graph.add_edges_from([((source, j), (destination, i)) for j in ids])
+    u_bin_graph = None
+    v_bin_graph = None
+    nu = None
+    nv = None
     
-    return (u_bin_graph, v_bin_graph)
+    if rank == 0:
+        
+        u_bin_edges = { destination: dict(ChainMap(*local_u_bin_graphs)) }
+        v_bin_edges = { destination: dict(ChainMap(*local_v_bin_graphs)) }
+
+        nu = len(u_bins)
+        u_bin_graph = nx.Graph()
+        for pop in [destination]+list(sources):
+            for i in range(nu):
+                u_bin_graph.add_node((pop, i))
+                
+        for i, sources in viewitems(u_bin_edges[destination]):
+            for source, ids in viewitems(sources):
+                u_bin_graph.add_edges_from([((source, j), (destination, i)) for j in ids])
+
+        nv = len(v_bins)
+        v_bin_graph = nx.Graph()
+        for pop in [destination]+list(sources):
+            for i in range(nv):
+                v_bin_graph.add_node((pop, i))
+
+        for i, sources in viewitems(v_bin_edges[destination]):
+            for source, ids in viewitems(sources):
+                v_bin_graph.add_edges_from([((source, j), (destination, i)) for j in ids])
+
+    return { 'destination': destination, 'sources': sources,
+             'NU': nu, 'NV': nv,
+             'U graph': u_bin_graph, 'V graph': v_bin_graph }
 
