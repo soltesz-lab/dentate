@@ -37,6 +37,7 @@ def main(config, config_prefix, connectivity_path, coords_path, output_path, ver
     v_bin_graph_pkl_str = base64.b64encode(v_bin_graph_pkl) 
 
     f = h5py.File(output_path)
+    dataset_path = 'Spatial Bin Graph/%.02f' % bin_size
     grp = f.create_group(dataset_path)
     grp['U graph.pkl'] = u_bin_graph_pkl_str
     grp['V graph.pkl'] = v_bin_graph_pkl_str
