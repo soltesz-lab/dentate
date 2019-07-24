@@ -440,16 +440,24 @@ Synapses:
         basal:
           GABA_A:
             dur_onset: 0.22
-            tau_offset: 3.35
+            tau_offset:
+              expr: 1.55 * x + 1.0
+	      parameter: delay
             e: -75
-            g_unit: 0.002
+            g_unit: 
+              expr: 0.003 * exp(-1.25 * x)
+	      parameter: delay
             weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.22
-            tau_offset: 3.35
+            tau_offset:
+              expr: 1.55 * x + 1.0
+	      parameter: delay
             e: -75
-            g_unit: 0.0008
+            g_unit: 
+              expr: 0.0008 * exp(-1.25 * x)
+	      parameter: delay
             weight: 1.0
     HCC:  
       type: inhibitory
