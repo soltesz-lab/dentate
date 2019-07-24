@@ -2,12 +2,19 @@
 import os, sys, pickle, base64
 import click
 import dentate
-from dentate import plot
-from dentate import utils
+from dentate import plot, utils, geometry, graph
+from dentate.env import Env
 from mpi4py import MPI
 import h5py
 
 script_name = os.path.basename(__file__)
+
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+#sys.excepthook = mpi_excepthook
 
 @click.command()
 @click.option("--config", required=True, type=str)
@@ -28,20 +35,22 @@ def main(config, config_prefix, connectivity_path, coords_path, output_path, ver
 
     env = Env(config_file=config, config_prefix=config_prefix)
 
-    (u_bin_graph, v_bin_graph) = spatial_bin_graph(connectivity_path, coords_path, distances_namespace,
-                                                   destination, sources, extents, bin_size=bin_size, comm=MPI.COMM_WORLD)
+    layer_extents = env.geometry['Parametric Surface']['Layer Extents']
+    (extent_u, extent_v, extent_l) = geometry.get_total_extents(layer_extents)
 
-    u_bin_graph_pkl = pickle.dumps(u_bin_graph)
-    u_bin_graph_pkl_str = base64.b64encode(u_bin_graph_pkl) 
-    v_bin_graph_pkl = pickle.dumps(v_bin_graph)
-    v_bin_graph_pkl_str = base64.b64encode(v_bin_graph_pkl) 
+    extents = geometry.measure_distance_extents(env)
+    
+    comm=MPI.COMM_WORLD
+    
+    graph_dict = graph.spatial_bin_graph(connectivity_path, coords_path, distances_namespace,
+                                         destination, sources, extents,
+                                         bin_size=bin_size, comm=comm)
 
-    f = h5py.File(output_path)
-    grp = f.create_group(dataset_path)
-    grp['U graph.pkl'] = u_bin_graph_pkl_str
-    grp['V graph.pkl'] = v_bin_graph_pkl_str
-    f.close()
+    if comm.rank == 0:
+        graph.save_spatial_bin_graph(output_path, graph_dict)
 
+    comm.barrier()
+    
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(script_name), sys.argv)+1):])

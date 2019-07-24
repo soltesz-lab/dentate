@@ -5,7 +5,7 @@ from mpi4py import MPI
 import yaml
 from dentate.neuron_utils import h, find_template
 from dentate.synapses import SynapseAttributes
-from dentate.utils import IncludeLoader, DDExpr, config_logging, get_root_logger, str, viewitems, zip, viewitems
+from dentate.utils import IncludeLoader, DExpr, config_logging, get_root_logger, str, viewitems, zip, viewitems
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
@@ -442,8 +442,8 @@ class Env(object):
             mech_params1 = {}
             for k, v in viewitems(mech_params):
                 if isinstance(v, dict):
-                    if 'dd expr' in v:
-                        mech_params1[k] = DDExpr(v['dd expr'])
+                    if 'expr' in v:
+                        mech_params1[k] = DExpr(v['parameter'], v['expr'])
                     else:
                         raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
                 else:
