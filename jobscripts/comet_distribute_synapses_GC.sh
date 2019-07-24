@@ -32,7 +32,7 @@ ibrun -np 1024 python3 ./scripts/distribute_synapse_locs.py \
     --config-prefix=./config \
     --config=Full_Scale_Basis.yaml \
     --template-path=$HOME/model/dgc/Mateos-Aparicio2014:templates --populations=GC \
-    --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_reindex_20190716_compressed.h5 \
-    --output-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20190716.h5 \
+    --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_reindex_20190717_compressed.h5 \
+    --output-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20190717.h5 \
     --io-size=256 --write-size=10 --cache-size=$((2 * 1024 * 1024)) \
     --chunk-size=50000 --value-chunk-size=100000 -v

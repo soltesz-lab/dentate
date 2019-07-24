@@ -50,4 +50,8 @@ CA3c:
   default:
     width: [3000., 5000.]
     offset: [0., 0.]
+ConMC:
+  IML:
+    width:  [5000., 4000.]
+    offset: [0., 0.]
     

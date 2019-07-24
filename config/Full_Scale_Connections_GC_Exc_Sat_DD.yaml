@@ -234,19 +234,31 @@ Synapses:
         NMDA:
           g_unit: 0.004
           weight: 1.0
+    CA3c:   
+      type: excitatory
+      sections: [apical]
+      layers: [Hilus]
+      proportions: [0.13]
+      contacts: 1.0
+      mechanisms:
+        AMPA:
+          tau_rise: 0.5
+          tau_decay: 3.6
+          e: 0
+          g_unit: 0.002
     MC:   
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.2]
+      proportions: [0.07]
       contacts: 3.0
       mechanisms:
         AMPA:
           dur_onset: 0.5
-          tau_offset: 6.2
+          tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.005
+          g_unit: 0.001
           weight: 1.0
     HC:   
       type: inhibitory
@@ -335,11 +347,22 @@ Synapses:
           sat: 0.9
           g_unit: 0.007
           weight: 1.0
+    CA3c:   
+      type: excitatory
+      sections: [soma, apical]
+      layers: [Hilus, Hilus]
+      proportions: [0.18, 0.18]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.5
+          tau_decay: 3.6
+          e: 0
+          g_unit: 0.0042
     MC:   
       type: excitatory
       sections: [soma, apical]
       layers: [Hilus, Hilus]
-      proportions: [0.28, 0.28]
+      proportions: [0.1, 0.1]
       contacts: 1.0
       mechanisms:
         AMPA:
@@ -378,9 +401,9 @@ Synapses:
   BC:
     GC:   
       type: excitatory
-      sections: [soma, basal]
-      layers: [Hilus, Hilus]
-      proportions: [1.0, 1.0, 1.0]
+      sections: [soma, basal, basal]
+      layers: [Hilus, Hilus, GCL]
+      proportions: [1.0, 0.85, 1.0]
       contacts: 1.0
       mechanisms:
           AMPA:
@@ -416,6 +439,18 @@ Synapses:
           e:     0
           g_unit: 0.000225
           weight: 1.0
+    CA3c:   
+      type: excitatory
+      sections: [basal]
+      layers: [Hilus]
+      proportions: [0.15]
+      contacts: 1.0
+      mechanisms:
+        AMPA:
+          tau_rise: 0.5
+          tau_decay: 3.6
+          e: 0
+          g_unit: 0.0005
     MC:   
       type: excitatory
       sections: [apical, apical]
@@ -440,16 +475,24 @@ Synapses:
         basal:
           GABA_A:
             dur_onset: 0.22
-            tau_offset: 3.35
+            tau_offset:
+              expr: 1.55 * x + 1.0
+	      parameter: delay
             e: -75
-            g_unit: 0.002
+            g_unit: 
+              expr: 0.003 * exp(-1.25 * x)
+	      parameter: delay
             weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.22
-            tau_offset: 3.35
+            tau_offset:
+              expr: 1.55 * x + 1.0
+	      parameter: delay
             e: -75
-            g_unit: 0.0008
+            g_unit: 
+              expr: 0.0008 * exp(-1.25 * x)
+	      parameter: delay
             weight: 1.0
     HCC:  
       type: inhibitory
@@ -535,7 +578,7 @@ Synapses:
       type: excitatory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
-      proportions: [1.0, 1.0]
+      proportions: [0.85, 1.0]
       mechanisms:
         AMPA:
           dur_onset: 0.3
@@ -581,6 +624,17 @@ Synapses:
           sat: 0.9
           g_unit: 0.004
           weight: 1.0
+    CA3c:   
+      type: excitatory
+      sections: [basal]
+      layers: [Hilus]
+      proportions: [0.15]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.3
+          tau_decay: 3.6
+          e: 0
+          g_unit: 0.0005
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -708,7 +762,7 @@ Synapses:
       type: excitatory
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, IML]
-      proportions: [0.32, 0.32, 0.32, 1.0]
+      proportions: [0.32, 0.12, 0.12, 1.0]
       swctype mechanisms:
         apical:
           AMPA:
@@ -734,6 +788,17 @@ Synapses:
             sat: 0.9
             g_unit: 0.0009
             weight: 1.0
+    CA3c:   
+      type: excitatory
+      sections: [basal, apical]
+      layers: [Hilus, Hilus]
+      proportions: [0.2, 0.2]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.9
+          tau_decay: 3.6
+          e: 0
+          g_unit: 0.0043
     HCC:  
       type: inhibitory
       sections: [basal, apical, apical, apical]

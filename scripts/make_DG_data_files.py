@@ -6,27 +6,27 @@ h5types_file = 'dentate_h5types.h5'
 
 DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP"]
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
-DG_EXT_populations = ["MPP", "LPP"]
+DG_EXT_populations = ["MPP", "LPP", "ConMC", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20190512.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20190512.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20190720.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20190720.h5"
 
-DG_GC_coordinate_file  = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
-DG_EXT_coordinate_file = "dentate_Full_Scale_Control_coords_20180717.h5"
+DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
+DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
+DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 
-DG_GC_forest_file = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_forest_file = "DG_IN_forest_20190325.h5"
+DG_GC_forest_file = "DGC_forest_reindex_20190717_compressed.h5"
+DG_IN_forest_file = "DG_IN_forest_20190325_compressed.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20181222_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20190325_compressed.h5"
 
-DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20190503_compressed.h5"
-DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20190503_compressed.h5"
-DG_IN_syn_weights_N_file = "DG_IN_syn_weights_N_20190503_compressed.h5"
+DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20190717_compressed.h5"
+DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20190717_compressed.h5"
+DG_IN_syn_weights_N_file = "DG_IN_syn_weights_N_20190717_compressed.h5"
 
-DG_IN_connectivity_file = "DG_IN_connections_20190430_compressed.h5"
-DG_GC_connectivity_file = "DG_GC_connections_20190430_compressed.h5"
+DG_IN_connectivity_file = "DG_IN_connections_20190717_compressed.h5"
+DG_GC_connectivity_file = "DG_GC_connections_20190717_compressed.h5"
 
 DG_vecstim_file_dict = { 
     'A HDiag': "DG_PP_spiketrains_A_20190512.h5", 

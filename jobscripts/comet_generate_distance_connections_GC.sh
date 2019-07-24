@@ -30,9 +30,9 @@ set -x
 ibrun -np 768 python3.5 ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
        --config=Full_Scale_GC_Exc_Sat.yaml \
-       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20181222_compressed.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190712.h5 \
+       --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20190717_compressed.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717.h5 \
        --connectivity-namespace=Connections \
-       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190712.h5 \
+       --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190717.h5 \
        --coords-namespace=Coordinates \
        --io-size=160 --cache-size=10 --write-size=40 --value-chunk-size=200000 --chunk-size=50000 -v
