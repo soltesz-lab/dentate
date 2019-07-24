@@ -1,9 +1,14 @@
 import os, sys, gc, copy, time
 import numpy as np
 from collections import defaultdict, ChainMap
-from dentate.utils import object, range, str, Struct
-from neuroh5.io import read_cell_attributes, NeuroH5CellAttrGen
+from dentate.utils import get_module_logger, object, range, str, Struct
+from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen
 import h5py
+
+
+## This logger will inherit its setting from its root logger, dentate,
+## which is created in module env
+logger = get_module_logger(__name__)
 
 
 class InputSelectivityConfig(object):
@@ -406,8 +411,8 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                 raise RuntimeError('get_input_cell_config: missing required argument: distance')
             if local_random is None:
                 local_random = np.random.RandomState()
-                print('get_input_cell_config: warning: local_random argument not provided - randomness will not be '
-                      'reproducible')
+                logger.warning('get_input_cell_config: local_random argument not provided - randomness will not be '
+                               'reproducible')
         if selectivity_type_name == 'grid':
             input_cell_config = \
                 GridInputCellConfig(selectivity_type=selectivity_type, arena=arena,
@@ -799,7 +804,7 @@ def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., s
     return t, interp_x, interp_y, d
 
 
-def generate_input_selectivity_features(env, population, coords_path, output_path, selectivity_type_namespaces, distances_namespace='Arc Distances', comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+def generate_input_selectivity_features(env, population, arena, selectivity_config, selectivity_type_names, selectivity_type_namespaces, coords_path, output_path, distances_namespace='Arc Distances', comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
     if comm is None:
         comm = MPI.COMM_WORLD
     if io_size <= 0:
@@ -822,9 +827,19 @@ def generate_input_selectivity_features(env, population, coords_path, output_pat
                                 'coords_path: %s' % (distances_namespace, population, coords_path))
 
     reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
+
+    arena_x_mesh, arena_y_mesh = None, None
+    if rank == 0:
+        arena_x_mesh, arena_y_mesh = \
+            get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
+    arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
+    arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
+    
+    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Selectivity'])
+    local_random = np.random.RandomState()
     
     pop_norm_distances = {}
-    rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh)))
+    rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh))
     start_time = time.time()
     gid_count = defaultdict(lambda: 0)
     
@@ -882,18 +897,17 @@ def generate_input_selectivity_features(env, population, coords_path, output_pat
             del selectivity_attr_dict
             selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
 
-        if not dry_run:
-            for selectivity_type_name in selectivity_attr_dict:
-                selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
-                append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
-                                       namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        del selectivity_attr_dict
-        if rank == 0:
-            for selectivity_type_name in merged_gid_count:
-                logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
-                      (merged_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
-                       (time.time() - start_time)))
+    if not dry_run:
+        for selectivity_type_name in selectivity_attr_dict:
+            selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
+            append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
+                                   namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
+                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+    if rank == 0:
+        for selectivity_type_name in merged_gid_count:
+            logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
+                (merged_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
+                (time.time() - start_time)))
 
 
     comm.barrier()

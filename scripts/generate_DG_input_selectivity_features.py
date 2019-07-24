@@ -18,7 +18,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
 def debug_callback(context):
@@ -148,7 +148,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
                            (arena_id, config_prefix + '/' + config))
 
-    selectivity_type_names = dict((val, key) for (key, val) in viewitems(env.selectivity_types))
+    selectivity_type_names = dict([ (val, key) for (key, val) in viewitems(env.selectivity_types) ])
     selectivity_type_namespaces = dict()
     for this_selectivity_type in selectivity_type_names:
         this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
@@ -157,12 +157,6 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         selectivity_type_namespaces[this_selectivity_type_name] = ''.join(chars) + ' Selectivity %s' % arena_id
 
     arena = env.stimulus_config['Arena'][arena_id]
-    arena_x_mesh, arena_y_mesh = None, None
-    if rank == 0:
-        arena_x_mesh, arena_y_mesh = \
-            get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
-    arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
-    arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
 
     local_random = np.random.RandomState()
     selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Selectivity'])
@@ -183,9 +177,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     for population in populations:
 
         this_pop_norm_distances, this_rate_map_sum = \
-          generate_input_selectivity_features(env, population,
-                                              coords_path, output_path, 
+          generate_input_selectivity_features(env, population, arena, 
+                                              selectivity_config, selectivity_type_names,
                                               selectivity_type_namespaces,
+                                              coords_path, output_path, 
                                               distances_namespace=distances_namespace,
                                               comm=comm, io_size=io_size, write_every=write_every,
                                               chunk_size=chunk_size, value_chunk_size=value_chunk_size,
@@ -198,6 +193,13 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             
                 
     if gather:
+        arena_x_mesh, arena_y_mesh = None, None
+        if rank == 0:
+            arena_x_mesh, arena_y_mesh = \
+              get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
+        arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
+        arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
+
         pop_norm_distances = comm.gather(pop_norm_distances, root=0)
         rate_map_sum = dict([(key, dict(val.items())) for key, val in viewitems(rate_map_sum)])
         rate_map_sum = comm.gather(rate_map_sum, root=0)
