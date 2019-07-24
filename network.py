@@ -196,7 +196,7 @@ def connect_cells(env):
 
             last_time = time.time()
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
-            logger.info('Rank %i: took %f s to initialize edge attributes for projection %s -> %s' % \
+            logger.info('Rank %i: took %.02f s to initialize edge attributes for projection %s -> %s' % \
                         (rank, time.time() - last_time, presyn_name, postsyn_name))
             del graph[postsyn_name][presyn_name]
 
@@ -223,7 +223,7 @@ def connect_cells(env):
                 env, gid, postsyn_name, cell=postsyn_cell, unique=unique, insert=True, insert_netcons=True)
 
             if rank == 0 and gid == first_gid:
-                logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
+                logger.info('Rank %i: took %.02f s to configure %i synapses, %i synaptic mechanisms, %i network '
                             'connections for gid %d' % \
                             (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
                 hoc_cell = env.pc.gid2cell(gid)
@@ -244,7 +244,7 @@ def connect_cells(env):
         gc.collect()
 
         if rank == 0:
-            logger.info('Rank %i: took %f s to configure synapses for population %s' %
+            logger.info('Rank %i: took %.02f s to configure synapses for population %s' %
                         (rank, time.time() - pop_last_time, postsyn_name))
 
 
@@ -414,7 +414,7 @@ def connect_cell_selection(env):
                                                                         insert=True, insert_netcons=True)
 
         if rank == 0 and gid == first_gid:
-            logger.info('Rank %i: took %f s to configure %i synapses, %i synaptic mechanisms, %i network '
+            logger.info('Rank %i: took %.02f s to configure %i synapses, %i synaptic mechanisms, %i network '
                         'connections for gid %d; cleanup flag is %s' % \
                         (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid, str(env.cleanup)))
             hoc_cell = env.pc.gid2cell(gid)

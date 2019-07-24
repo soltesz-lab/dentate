@@ -1,13 +1,9 @@
-import copy
-import gc
-import sys
-import time
-
-import h5py
+import os, sys, gc, copy, time
 import numpy as np
-
-from dentate.utils import old_div, object, range, str
-from neuroh5.io import read_cell_attributes
+from collections import defaultdict, ChainMap
+from dentate.utils import object, range, str, Struct
+from neuroh5.io import read_cell_attributes, NeuroH5CellAttrGen
+import h5py
 
 
 class InputSelectivityConfig(object):
@@ -35,13 +31,13 @@ class InputSelectivityConfig(object):
         self.get_module_probability = \
             np.vectorize(lambda distance, offset:
                          np.exp(
-                             -(old_div((distance - offset), (self.module_probability_width / 3. / np.sqrt(2.)))) ** 2.),
+                             -(((distance - offset) / (self.module_probability_width / 3. / np.sqrt(2.)))) ** 2.),
                          excluded=['offset'])
 
         self.get_grid_module_spacing = \
             lambda distance: stimulus_config['Grid Spacing Parameters']['offset'] + \
                              stimulus_config['Grid Spacing Parameters']['slope'] * \
-                             (np.exp(old_div(distance, stimulus_config['Grid Spacing Parameters']['tau'])) - 1.)
+                             (np.exp(distance / stimulus_config['Grid Spacing Parameters']['tau']) - 1.)
         self.grid_module_spacing = \
             [self.get_grid_module_spacing(distance) for distance in np.linspace(0., 1., self.num_modules)]
         self.grid_spacing_sigma = stimulus_config['Grid Spacing Variance'] / 6.
@@ -335,8 +331,8 @@ def get_place_rate_map(x0, y0, width, x, y):
     :param y: array
     :return: array
     """
-    return np.exp(-(old_div((x - x0), (width / 3. / np.sqrt(2.)))) ** 2.) * \
-           np.exp(-(old_div((y - y0), (width / 3. / np.sqrt(2.)))) ** 2.)
+    return np.exp(-(((x - x0) / (width / 3. / np.sqrt(2.)))) ** 2.) * \
+           np.exp(-(((y - y0) / (width / 3. / np.sqrt(2.)))) ** 2.)
 
 
 def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
@@ -356,18 +352,19 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
 
     inner_sum = np.zeros_like(x)
     for theta in theta_k:
-        inner_sum += np.cos((old_div((4. * np.pi), (np.sqrt(3.) * spacing))) *
+        inner_sum += np.cos(((4. * np.pi) / (np.sqrt(3.) * spacing)) *
                             (np.cos(theta - orientation) * (x - x0) +
                              np.sin(theta - orientation) * (y - y0)))
     transfer = lambda z: np.exp(a * (z - b)) - 1.
     max_rate = transfer(3.)
-    rate_map = old_div(transfer(inner_sum), max_rate)
+    rate_map = transfer(inner_sum) / max_rate
 
     return rate_map
 
 
-def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None, arena=None,
-                          selectivity_config=None, distance=None, local_random=None, selectivity_attr_dict=None):
+def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None,
+                          arena=None, selectivity_config=None, distance=None, local_random=None,
+                          selectivity_attr_dict=None):
     """
 
     :param selectivity_type: int
@@ -734,7 +731,7 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     interp_distance = np.arange(distance.min(), distance.max() + spatial_resolution / 2., spatial_resolution)
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
-    t = old_div(interp_distance, velocity / 1000.)  # ms
+    t = (interp_distance / velocity) / 1000.  # ms
 
     t -= equilibration_duration
     interp_distance -= equilibration_distance
@@ -766,8 +763,8 @@ def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., s
         end_x = origin_X + np.cos(start_theta) * radius
         end_y = origin_Y + np.sin(start_theta) * radius
 
-        xsteps = old_div(abs(end_x - start_x), spatial_resolution)
-        ysteps = old_div(abs(end_y - start_y), spatial_resolution)
+        xsteps = abs(end_x - start_x) / spatial_resolution
+        ysteps = abs(end_y - start_y) / spatial_resolution
         nsteps = max(xsteps, ysteps)
 
         linear_x = np.linspace(start_x, end_x, nsteps)
@@ -792,7 +789,7 @@ def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., s
     distance = np.insert(np.cumsum(np.sqrt(np.sum([np.diff(x) ** 2., np.diff(y) ** 2.], axis=0))), 0, 0.)
     interp_distance = np.arange(distance[0], distance[-1], spatial_resolution)
 
-    t = (old_div(interp_distance, velocity * 1000.))  # ms
+    t = (interp_distance / velocity) * 1000.  # ms
 
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
@@ -801,6 +798,107 @@ def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., s
 
     return t, interp_x, interp_y, d
 
+
+def generate_input_selectivity_features(env, population, coords_path, output_path, selectivity_type_namespaces, distances_namespace='Arc Distances', comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    if io_size <= 0:
+        io_size = comm.size
+    rank = comm.rank
+
+    if rank == 0:
+        logger.info('Generating input selectivity features for population %s...' % population)
+
+    reference_u_arc_distance_bounds = None
+    if rank == 0:
+        try:
+            with h5py.File(coords_path, 'r') as coords_f:
+                reference_u_arc_distance_bounds = \
+                  coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
+                  coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
+        except Exception:
+            raise RuntimeError('generate_input_selectivity_features: problem locating attributes '
+                                'containing reference bounds in namespace: %s for population: %s from '
+                                'coords_path: %s' % (distances_namespace, population, coords_path))
+
+    reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
+    
+    pop_norm_distances = {}
+    rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh)))
+    start_time = time.time()
+    gid_count = defaultdict(lambda: 0)
+    
+    distances_attr_gen = NeuroH5CellAttrGen(coords_path, population, namespace=distances_namespace, comm=comm, io_size=io_size, cache_size=cache_size)
+
+    selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+    for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
+        if gid is not None:
+            u_arc_distance = distances_attr_dict['U Distance'][0]
+            norm_u_arc_distance = ((u_arc_distance - reference_u_arc_distance_bounds[0]) /
+                                   (reference_u_arc_distance_bounds[1] - reference_u_arc_distance_bounds[0]))
+
+            local_random.seed(int(selectivity_seed_offset + gid))
+            this_selectivity_type = \
+              choose_input_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
+                                            local_random=local_random)
+            input_cell_config = get_input_cell_config(
+                    selectivity_type=this_selectivity_type, selectivity_type_names=selectivity_type_names,
+                    population=population, stimulus_config=env.stimulus_config, arena=arena,
+                    selectivity_config=selectivity_config, distance=norm_u_arc_distance, local_random=local_random)
+            this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
+            selectivity_attr_dict[this_selectivity_type_name][gid] = input_cell_config.get_selectivity_attr_dict()
+            rate_map = input_cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
+            if debug and rank == 0:
+                callback, context = debug
+                this_context = Struct(**dict(context()))
+                this_context.update(dict(locals()))
+                callback(this_context)
+            selectivity_attr_dict[this_selectivity_type_name][gid]['Arena Rate Map'] = \
+              np.asarray(rate_map, dtype='float32').reshape(-1,)
+            gid_count[this_selectivity_type_name] += 1
+
+            pop_norm_distances[gid] = norm_u_arc_distance
+            rate_map_sum[this_selectivity_type_name] = \
+              np.add(rate_map_sum[this_selectivity_type_name], rate_map)
+
+        gid_count_dict = dict(gid_count.items())
+        gid_count_dict = comm.gather(gid_count_dict, root=0)
+        if rank == 0:
+            merged_gid_count = defaultdict(lambda: 0)
+            for each_gid_count in gid_count_dict:
+                for selectivity_type_name in each_gid_count:
+                    merged_gid_count[selectivity_type_name] += each_gid_count[selectivity_type_name]
+            total_gid_count = np.sum(list(merged_gid_count.values()))
+
+        if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+            if rank == 0:
+                logger.info('generated selectivity features for %i %s cells' % (total_gid_count, population))
+            if not dry_run:
+                for selectivity_type_name in selectivity_attr_dict:
+                    selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
+                    append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
+                                           namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
+                                           chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            del selectivity_attr_dict
+            selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+
+        if not dry_run:
+            for selectivity_type_name in selectivity_attr_dict:
+                selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
+                append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
+                                       namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        del selectivity_attr_dict
+        if rank == 0:
+            for selectivity_type_name in merged_gid_count:
+                logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
+                      (merged_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
+                       (time.time() - start_time)))
+
+
+    comm.barrier()
+    
+    return pop_norm_distances, rate_map_sum
 
 def read_trajectory(input_path, arena_id, trajectory_id):
     """
