@@ -11,11 +11,12 @@ from scipy import sparse
 from past.utils import old_div
 from past.builtins import basestring
 
-class DDExpr(object):
-    def __init__(self, expr):
+class DExpr(object):
+    def __init__(self, parameter, expr):
         self.sympy = importlib.import_module('sympy')
         self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
         self.sympy_abc = importlib.import_module('sympy.abc')
+        self.parameter = parameter
         self.expr = self.sympy_parser.parse_expr(expr)
         self.feval = self.sympy.lambdify(self.sympy_abc.x, expr, "numpy")
 
@@ -635,6 +636,45 @@ def add_bins(bins1, bins2, datatype):
         else:
             bins1[item] = bins2[item]
     return bins1
+
+def power_spectrogram(signal: np.ndarray,
+                      fs: int,
+                      window_size: int,
+                      window_overlap: float) -> (np.ndarray, np.ndarray, np.ndarray):
+    """
+    Computes the power spectrum of the specified signal.
+    
+    A Hanning window with the specified size and overlap is used.
+    
+    Parameters
+    ----------
+    signal: numpy.ndarray
+        The input signal
+    fs: int
+        Sampling frequency of the input signal
+    window_size: int
+        Size of the Hann windows in samples
+    window_overlap: float
+        Overlap between Hann windows as fraction of window_size
+
+    Returns
+    -------
+    f: numpy.ndarray
+        Array of frequency values for the first axis of the returned spectrogram
+    t: numpy.ndarray
+        Array of time values for the second axis of the returned spectrogram
+    sxx: numpy.ndarray
+        Power spectrogram of the input signal with axes [frequency, time]
+    """
+    from scipy.signal import spectrogram, get_window
+
+    nperseg    = window_size
+    win        = get_window('hanning', nperseg)
+    noverlap   = int(window_overlap * nperseg)
+
+    f, t, sxx = spectrogram(x=signal, fs=fs, window=win, noverlap=noverlap, mode="magnitude")
+
+    return f, t, sxx
 
 
 def baks(spktimes, time, a=1.5, b=None):

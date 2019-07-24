@@ -137,8 +137,10 @@ def main(population, forest_path, output_path, index_path, types_path, index_nam
     append_cell_attributes(output_path, population, new_coords_dict, \
                            namespace=coords_namespace, io_size=io_size, comm=comm)
 
+    comm.barrier()
     if rank == 0:
         logger.info('Appended reindexed trees to %s' % output_path)
+
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

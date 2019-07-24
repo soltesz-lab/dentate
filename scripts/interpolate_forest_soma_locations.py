@@ -1,10 +1,10 @@
 import os, sys, itertools, logging, time
+import click
 from mpi4py import MPI
 import numpy as np
-import click
 import dentate
 from dentate.env import Env
-from dentate.geometry import DG_volume, make_uvl_distance, make_volume, get_total_extents, uvl_in_bounds
+from dentate.geometry import DG_volume, make_uvl_distance, make_volume, get_total_extents, uvl_in_bounds, optimize_inverse_uvl_coords
 from dentate.utils import *
 from neuroh5.io import append_cell_attributes, read_population_ranges, scatter_read_trees
 
@@ -13,7 +13,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 def list_concat(a, b, datatype):
     return a+b
@@ -29,10 +29,11 @@ mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--resolution", type=(int,int,int), default=(30,30,10))
 @click.option("--reltol", type=float, default=10.)
+@click.option("--optiter", type=int, default=250)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, io_size, verbose, dry_run):
+def main(config, config_prefix, forest_path, coords_path, populations, resolution, reltol, optiter, io_size, verbose, dry_run):
 
     config_logging(verbose)
     logger = get_script_logger(__file__)
@@ -76,7 +77,7 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
     ## This parameter is used to expand the range of L and avoid
     ## situations where the endpoints of L end up outside of the range
     ## of the distance interpolant
-    safety = 0.01
+    safety = 0.001
 
     ip_volume = None
     if rank == 0:
@@ -116,17 +117,42 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
 
             xyz_coords = np.array([px,py,pz]).reshape(3,1).T
             uvl_coords_interp = ip_volume.inverse(xyz_coords)[0]
-            xyz_coords1 = DG_volume(uvl_coords_interp[0], uvl_coords_interp[1], uvl_coords_interp[2], 
-                                    rotate=rotate)[0]
-            xyz_error   = np.abs(np.subtract(xyz_coords, xyz_coords1))[0]
-            uvl_coords = uvl_coords_interp
+            xyz_coords_interp = DG_volume(uvl_coords_interp[0], uvl_coords_interp[1], uvl_coords_interp[2], 
+                                           rotate=rotate)[0]
+            xyz_error_interp   = np.abs(np.subtract(xyz_coords, xyz_coords_interp))[0]
+
+            uvl_coords_opt = optimize_inverse_uvl_coords(xyz_coords, rotate, layer_extents, pop_layers, optiter=optiter)
+            if uvl_coords_opt:
+                xyz_coords_opt = DG_volume(uvl_coords_opt[0], uvl_coords_opt[1], uvl_coords_opt[2], 
+                                            rotate=rotate)[0]
+                xyz_error_opt   = np.abs(np.subtract(xyz_coords, xyz_coords_opt))[0]
+            else:
+                xyz_coords_opt = None
+                xyz_error_opt = None
+
+            if (xyz_error_opt is not None) and \
+               (xyz_error_opt[0] < xyz_error_interp[0]) and \
+               (xyz_error_opt[1] < xyz_error_interp[1]) and \
+               (xyz_error_opt[2] < xyz_error_interp[2]):
+                uvl_coords = uvl_coords_opt
+                xyz_error = xyz_error_opt
+                xyz_coords1 = xyz_coords_opt
+            else:
+                uvl_coords = uvl_coords_interp
+                xyz_error = xyz_error_interp
+                xyz_coords1 = xyz_coords_interp
             
             if rank == 0:
                 logger.info('xyz_coords: %s' % str(xyz_coords))
-                logger.info('uvl_coords: %s' % str(uvl_coords))
-                logger.info('xyz_coords1: %s' % str(xyz_coords1))
-                logger.info('xyz_error: %s' % str(xyz_error))
-            
+                logger.info('uvl_coords_interp: %s' % str(uvl_coords_interp))
+                logger.info('xyz_coords_interp: %s' % str(xyz_coords_interp))
+                logger.info('xyz_error_interp: %s' % str(xyz_error_interp))
+                logger.info('uvl_coords_opt: %s' % str(uvl_coords_opt))
+                logger.info('xyz_coords_opt: %s' % str(xyz_coords_opt))
+                logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
+                logger.info('uvl_in_bounds: %s' % str(uvl_in_bounds(uvl_coords, layer_extents, pop_layers)))
+
+                
             coords_dict[gid] = { 'X Coordinate': np.array([xyz_coords1[0]], dtype='float32'),
                                  'Y Coordinate': np.array([xyz_coords1[1]], dtype='float32'),
                                  'Z Coordinate': np.array([xyz_coords1[2]], dtype='float32'),
@@ -136,14 +162,11 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                                  'Interpolation Error': np.asarray(xyz_error, dtype='float32') }
 
             if uvl_in_bounds(uvl_coords, layer_extents, pop_layers) and \
-               (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and  (xyz_error[2] <= reltol):
-                    coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+               (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and (xyz_error[2] <= reltol):
+                coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
             else:
-                if not uvl_in_bounds(uvl_coords, layer_extents, pop_layers):
-                    logger.warning("Rank %d: uvl coords %f %f %f out of range %f : %f  %f : %f %f : %f", rank, 
-                                   uvl_coords[0], uvl_coords[1], uvl_coords[2],
-                                   min_u, max_u, min_v, max_v,
-                                   min_l, max_l)
+                logger.warning("Rank %d: uvl coords %s not added to new index (in bounds: %s; error: %s)" % \
+                               (rank, str(uvl_coords), str(uvl_in_bounds(uvl_coords, layer_extents, pop_layers)), str(xyz_error)))
 
             count += 1
 
