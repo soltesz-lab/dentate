@@ -7,7 +7,6 @@ import math
 from mpi4py import MPI
 import h5py
 import numpy as np
-import dlib
 import rbf
 from rbf.pde.geometry import contains
 from rbf.pde.nodes import min_energy_nodes
