@@ -5,16 +5,20 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Connection Generator: !include Full_Scale_Connections.yaml
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
 LFP: !include LFP.yaml
 Stimulus: !include Input_Configuration.yaml
+Analysis: !include Analysis_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
     template: DGC
-    template file: DGC.hoc
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
+      weights: True
+      weights namespace: Log-Normal Weights
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
@@ -53,4 +57,6 @@ Cell Types:
     template: MPPCell
   LPP:
     template: LPPCell
+  CA3c:
+    template: CA3Cell
 

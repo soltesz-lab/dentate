@@ -29,8 +29,6 @@ export NEURONROOT=$SCRATCH/nrnintel3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
-echo python is `which python2.7`
-
 results_path=./results/Full_Scale_GC_Exc_Sat_DD_LNN_Diag_$PBS_JOBID
 export results_path
 

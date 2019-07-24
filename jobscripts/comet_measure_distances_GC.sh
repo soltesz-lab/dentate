@@ -32,7 +32,7 @@ ibrun -np 96 python3.5 ./scripts/measure_distances.py \
     --config=./config/Full_Scale_Basis.yaml --resolution 40 40 10 \
      -i GC \
     --geometry-path=./datasets/dentate_geometry.h5 \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DGC_coords_reindex_20190716.h5 \
+    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DGC_coords_reindex_20190717.h5 \
     --coords-namespace='Interpolated Coordinates' \
     --io-size=24 \
     -v

@@ -1,9 +1,5 @@
 
-import gc
-import math
-import os
-import sys
-
+import os, sys, gc, math
 import click
 import dentate
 from dentate import plot
@@ -33,9 +29,9 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
     utils.config_logging(verbose)
     comm = MPI.COMM_WORLD
 
-    plot.plot_vertex_dist (connectivity_path, coords_path, distances_namespace,
-                           destination, source, bin_size, fontSize=font_size,
-                           saveFig=True, comm=comm)
+    plot.plot_vertex_distribution (connectivity_path, coords_path, distances_namespace,
+                                   destination, source, bin_size, fontSize=font_size,
+                                   saveFig=True, comm=comm)
 
 
     
