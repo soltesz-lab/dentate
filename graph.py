@@ -1,11 +1,12 @@
 """Classes and procedures related to neuronal connectivity graph analysis. """
 
-import gc, math, time
+import gc, math, time, pickle, base64
 from collections import defaultdict, ChainMap
 import numpy as np
 from dentate.utils import get_module_logger, list_find_all, range, str, zip, viewitems, zip_longest
 from dentate.utils import Struct, add_bins, update_bins, finalize_bins
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names
+import h5py
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -214,9 +215,9 @@ def spatial_bin_graph(connectivity_path, coords_path, distances_namespace, desti
         
     destination_soma_distances = bcast_cell_attributes(coords_path, destination, namespace=distances_namespace, comm=comm, root=0)
 
-    ((u_min, u_max), (v_min, v_max)) = extents
-    u_bins = np.arange(u_min, u_max, bin_size)
-    v_bins = np.arange(v_min, v_max, bin_size)
+    ((x_min, x_max), (y_min, y_max)) = extents 
+    u_bins = np.arange(x_min, x_max, bin_size)
+    v_bins = np.arange(y_min, y_max, bin_size)
 
     dest_u_bins = {}
     dest_v_bins = {}
@@ -321,9 +322,9 @@ def spatial_bin_graph(connectivity_path, coords_path, distances_namespace, desti
             for i in range(nu):
                 u_bin_graph.add_node((pop, i))
                 
-        for i, sources in viewitems(u_bin_edges[destination]):
-            for source, ids in viewitems(sources):
-                u_bin_graph.add_edges_from([((source, j), (destination, i)) for j in ids])
+        for i, ss in viewitems(u_bin_edges[destination]):
+            for source, ids in viewitems(ss):
+                u_bin_graph.add_weighted_edges_from([((source, j), (destination, i), count) for j, count in viewitems(ids)])
 
         nv = len(v_bins)
         v_bin_graph = nx.Graph()
@@ -331,11 +332,62 @@ def spatial_bin_graph(connectivity_path, coords_path, distances_namespace, desti
             for i in range(nv):
                 v_bin_graph.add_node((pop, i))
 
-        for i, sources in viewitems(v_bin_edges[destination]):
-            for source, ids in viewitems(sources):
-                v_bin_graph.add_edges_from([((source, j), (destination, i)) for j in ids])
+        for i, ss in viewitems(v_bin_edges[destination]):
+            for source, ids in viewitems(ss):
+                v_bin_graph.add_weighted_edges_from([((source, j), (destination, i), count) for j, count in viewitems(ids)])
 
-    return { 'destination': destination, 'sources': sources,
-             'NU': nu, 'NV': nv,
+    label = '%s to %s' % (str(sources), destination)
+
+    return { 'label': label, 'bin size': bin_size, 'destination': destination, 'sources': sources,
              'U graph': u_bin_graph, 'V graph': v_bin_graph }
 
+
+def save_spatial_bin_graph(output_path, graph_dict):
+    
+    bin_size = graph_dict['bin size']
+    label_pkl = pickle.dumps(graph_dict['label'])
+    label_pkl_str = base64.b64encode(label_pkl)
+    destination_pkl = pickle.dumps(graph_dict['destination'])
+    destination_pkl_str = base64.b64encode(destination_pkl)
+    sources_pkl = pickle.dumps(graph_dict['sources'])
+    sources_pkl_str = base64.b64encode(sources_pkl)
+    u_bin_graph = graph_dict['U graph']
+    u_bin_graph_pkl = pickle.dumps(u_bin_graph)
+    u_bin_graph_pkl_str = base64.b64encode(u_bin_graph_pkl) 
+    v_bin_graph = graph_dict['V graph']
+    v_bin_graph_pkl = pickle.dumps(v_bin_graph)
+    v_bin_graph_pkl_str = base64.b64encode(v_bin_graph_pkl)
+
+    f = h5py.File(output_path)
+    dataset_path = 'Spatial Bin Graph/%.02f' % bin_size
+    grp = f.create_group(dataset_path)
+    grp['bin size'] = bin_size
+    grp['label.pkl'] = label_pkl_str
+    grp['destination.pkl'] = destination_pkl_str
+    grp['sources.pkl']     = sources_pkl_str
+    grp['U graph.pkl'] = u_bin_graph_pkl_str
+    grp['V graph.pkl'] = v_bin_graph_pkl_str
+    f.close()
+    
+
+def load_spatial_bin_graph(input_path, dataset_path):
+    
+    f = h5py.File(input_path, 'r')
+    grp = f[dataset_path]
+    bin_size = grp['bin size'][()]
+    label_dset = grp['label.pkl']
+    destination_dset = grp['destination.pkl']
+    sources_dset = grp['sources.pkl']
+    u_bin_graph_dset = grp['U graph.pkl']
+    v_bin_graph_dset = grp['V graph.pkl']
+
+    label = pickle.loads(base64.b64decode(label_dset[()]))
+    destination = pickle.loads(base64.b64decode(destination_dset[()]))
+    sources = pickle.loads(base64.b64decode(sources_dset[()]))
+    
+    u_bin_graph = pickle.loads(base64.b64decode(u_bin_graph_dset[()]))
+    v_bin_graph = pickle.loads(base64.b64decode(v_bin_graph_dset[()]))
+    f.close()
+
+    return { 'label': label, 'bin size': bin_size, 'destination': destination, 'sources': sources,
+             'U graph': u_bin_graph, 'V graph': v_bin_graph }

@@ -132,66 +132,49 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     return vec
 
 
-def plot_spatial_bin_graph(label, graph_dict, axis_length = 300., **kwargs):
+def plot_spatial_bin_graph(graph_dict, **kwargs):
     
-    import pyveplot as hvpl
+    import hiveplot as hv
     import networkx as nx
-
+    
+    edge_color_list = ['red','crimson','coral','purple']
+    
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    filename = '%s.%s' % (label, fig_options.figFormat)
-    fig = hvpl.Hiveplot( '%.svg')
+    label = graph_dict['label']
+    GU = graph_dict['U graph']
 
-    n = graph_dict['NU']
-    
-    
-    axis_origin = (150., axis_length)
-    axis_end = (150., 0.)
-    angle_deg = 360. / (len(sources) + 1)
-    
-    axis_dict = {}
-    axis_dict[destination] = hvpl.Axis( axis_origin, axis_end, stroke="black", stroke_width=2)
+    destination = graph_dict['destination']
+    sources = graph_dict['sources']
+
+    nodes = {}
+    nodes[destination] = [(s,d) for s, d in GU.nodes() if s == destination]
     for source in sources:
-        this_axis_end = rotate(axis_end, angle_deg)
-        axis = hvpl.Axis( axis_origin, axis_end, stroke="yellowgreen", stroke_width=2)
-        axis_dict[source] = axis
+        nodes[source] = [(s,d) for s, d in GU.nodes() if s == source]
 
-    fig.axes = axis_dict.values()
+    snodes = {}
+    for group, nodelist in viewitems(nodes):
+        snodes[group] = sorted(nodelist)
 
-    for i in range(n):
-        nd = hvpl.Node(i)
-        axis = hvpl.axes[0]
-        axis.add_node(nd, float(i)/float(n) * axis_length)
+    edges = {}
+    for source in sources:
+        edges[source] = [(u,v,d) for u,v,d in GU.edges(data=True) if v[0] == source]
 
-        degree = float(nx.degree(g, n)) / 5.0
-        nd.dwg = nd.dwg.rect(insert = (nd.x - (degree/2.0), nd.y - (degree/2.0)),
-                             size   = (degree, degree),
-                             fill   = 'midnightblue',
-                             fill_opacity = 0.5,
-                             stroke = random.choice(['royalblue','indigo','blue','purple']),
-                             stroke_width = 0.1)
+    nodes_cmap = dict()
+    nodes_cmap[destination] = 'blue'
+    for i, source in enumerate(sources):
+        nodes_cmap[source] = raster_color_list[i]
 
-    # edges from axis0 to axis1
-    for e in g.edges():
-        if (e[0] in axis0.nodes) and (e[1] in axis1.nodes):
-            h.connect(axis0, e[0],
-                    45,  # angle of invisible axis for source control points
-                    axis1, e[1], 
-                    -45, # angle of invisible axis for target control points
-                    stroke_width   = 0.34,  # pass any SVG attributes to an edge
-                    stroke_opacity = 0.4,
-                    stroke         = 'purple',
-                    )
-        if (e[1] in axis0.nodes) and (e[0] in axis1.nodes):
-            h.connect(axis0, e[1], 45,  
-                    axis1, e[0], -45, 
-                    stroke_width   = 0.34,  # pass any SVG attributes to an edge
-                    stroke_opacity = 0.4,
-                    stroke         = 'purple',
-                    )
+    edges_cmap = dict()
+    for i, source in enumerate(sources):
+        edges_cmap[source] = color_list[i]
 
-    fig.save()
+    hvpl = hv.HivePlot(snodes, edges, nodes_cmap, edges_cmap)
+    hvpl.draw()
+
+    filename = '%s.%s' % (label, fig_options.figFormat)
+    plt.savefig(filename)
     
 
 def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, bin_size = 50., metric='Indegree', normed = False, graph_type = 'histogram2d', **kwargs):

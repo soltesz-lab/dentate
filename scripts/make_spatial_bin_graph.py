@@ -14,7 +14,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 @click.command()
 @click.option("--config", required=True, type=str)
@@ -38,35 +38,16 @@ def main(config, config_prefix, connectivity_path, coords_path, output_path, ver
     layer_extents = env.geometry['Parametric Surface']['Layer Extents']
     (extent_u, extent_v, extent_l) = geometry.get_total_extents(layer_extents)
 
+    extents = geometry.measure_distance_extents(env)
+    
     comm=MPI.COMM_WORLD
     
     graph_dict = graph.spatial_bin_graph(connectivity_path, coords_path, distances_namespace,
-                                         destination, sources, (extent_u, extent_v),
+                                         destination, sources, extents,
                                          bin_size=bin_size, comm=comm)
 
     if comm.rank == 0:
-
-        destination_pkl = pickle.dumps(graph_dict['destination'])
-        destination_pkl_str = base64.b64encode(destination_pkl)
-        sources_pkl = pickle.dumps(graph_dict['sources'])
-        sources_pkl_str = base64.b64encode(sources_pkl)
-        u_bin_graph = graph_dict['U graph']
-        u_bin_graph_pkl = pickle.dumps(u_bin_graph)
-        u_bin_graph_pkl_str = base64.b64encode(u_bin_graph_pkl) 
-        v_bin_graph = graph_dict['V graph']
-        v_bin_graph_pkl = pickle.dumps(v_bin_graph)
-        v_bin_graph_pkl_str = base64.b64encode(v_bin_graph_pkl)
-        
-        f = h5py.File(output_path)
-        dataset_path = 'Spatial Bin Graph/%.02f' % bin_size
-        grp = f.create_group(dataset_path)
-        grp['NU'] = graph_dict['NU']
-        grp['NV'] = graph_dict['NV']
-        grp['destination.pkl'] = destination_pkl_str
-        grp['sources.pkl']     = sources_pkl_str
-        grp['U graph.pkl'] = u_bin_graph_pkl_str
-        grp['V graph.pkl'] = v_bin_graph_pkl_str
-        f.close()
+        graph.save_spatial_bin_graph(output_path, graph_dict)
 
     comm.barrier()
     
