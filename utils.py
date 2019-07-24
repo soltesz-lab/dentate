@@ -11,11 +11,12 @@ from scipy import sparse
 from past.utils import old_div
 from past.builtins import basestring
 
-class DDExpr(object):
-    def __init__(self, expr):
+class DExpr(object):
+    def __init__(self, parameter, expr):
         self.sympy = importlib.import_module('sympy')
         self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
         self.sympy_abc = importlib.import_module('sympy.abc')
+        self.parameter = parameter
         self.expr = self.sympy_parser.parse_expr(expr)
         self.feval = self.sympy.lambdify(self.sympy_abc.x, expr, "numpy")
 
