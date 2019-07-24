@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH -J compute_vertex_metrics
-#SBATCH -o ./results/compute_vertex_metrics.%j.o
+#SBATCH -o ./results/compute_vertex_metrics_IN.%j.o
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 1:00:00
@@ -22,7 +22,7 @@ ulimit -c unlimited
 
 set -x
 
-input=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 
+input=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190722_compressed.h5 
 
 ibrun -np 96 $HOME/src/neuroh5/build/neurograph_vertex_metrics --indegree --outdegree -i 24 \
     $input
