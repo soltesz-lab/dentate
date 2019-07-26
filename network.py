@@ -10,7 +10,7 @@ from mpi4py import MPI
 from dentate import cells, io_utils, lfp, lpt, simtime, synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap
 from dentate.utils import compose_iter, get_module_logger, profile_memory
-from dentate.utils import old_div, range, str, viewitems, zip, zip_longest
+from dentate.utils import range, str, viewitems, zip, zip_longest
 from neuroh5.io import bcast_graph, read_cell_attribute_selection, read_graph_selection, read_tree_selection, \
     scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees
 
@@ -31,7 +31,7 @@ def ld_bal(env):
     max_sum_cx = env.pc.allreduce(sum_cx, 2)
     sum_cx = env.pc.allreduce(sum_cx, 1)
     if rank == 0:
-        logger.info("*** expected load balance %.2f" % (old_div(old_div(sum_cx, nhosts), max_sum_cx)))
+        logger.info("*** expected load balance %.2f" % (((sum_cx / nhosts) / max_sum_cx)))
 
 
 def lpt_bal(env):
@@ -795,7 +795,6 @@ def init_input_cells(env, input_sources=None):
     :param input_sources: a dictionary of the form { pop_name, gid_sources }
     If provided, the set of gids specified in gid_sources will be 
     initialized with pre-recorded spike trains read from env.spike_input_path / env.spike_input_ns.
-    TODO: 'Vector Stimulus' and 'spiketrain' should not be a hard-coded namespace and attr_name to load input spikes.
     """
 
     rank = int(env.pc.id())
@@ -809,9 +808,14 @@ def init_input_cells(env, input_sources=None):
     pop_names = sorted(env.celltypes.keys())
 
     for pop_name in pop_names:
-        if 'Vector Stimulus' in env.celltypes[pop_name]:
-            vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
-
+        if 'spike train' in env.celltypes[pop_name]:
+            if env.arena_id and env.trajectory_id:
+                vecstim_namespace = '%s %s %s' % (env.celltypes[pop_name]['spike train']['namespace'], \
+                                                env.arena_id, env.trajectory_id)
+            else:
+                vecstim_namespace = env.celltypes[pop_name]['spike train']['namespace']
+            vecstim_attr = env.celltypes[pop_name]['spike train']['attribute']
+            
             if env.cell_selection is None:
                 if env.node_ranks is None:
                     cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
@@ -834,7 +838,7 @@ def init_input_cells(env, input_sources=None):
                 if rank == 0:
                     logger.info("*** Initializing stimulus population %s" % pop_name)
 
-                spiketrain = vecstim_dict['spiketrain']
+                spiketrain = vecstim_dict[vecstim_attr]
                 if len(spiketrain) > 0:
                     if np.min(spiketrain) < 0.:
                         spiketrain += abs(np.min(spiketrain))
@@ -902,7 +906,7 @@ def init(env):
         lb = h.LoadBalance()
         if not os.path.isfile("mcomplex.dat"):
             lb.ExperimentalMechComplex()
-
+            
     if rank == 0:
         logger.info("Creating results file %s" % env.results_file_path)
         io_utils.mkout(env, env.results_file_path)
@@ -1031,7 +1035,7 @@ def run(env, output=True, shutdown=True):
     comptime = env.pc.step_time()
     cwtime = comptime + env.pc.step_wait()
     maxcw = env.pc.allreduce(cwtime, 2)
-    meancomp = old_div(env.pc.allreduce(comptime, 1), nhosts)
+    meancomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
     gjtime = env.pc.vtransfer_time()
@@ -1052,7 +1056,7 @@ def run(env, output=True, shutdown=True):
         logger.info("  numerical integration time: %g seconds" % env.pc.integ_time())
         logger.info("  voltage transfer time: %g seconds" % gjtime)
         if maxcw > 0:
-            logger.info("Load balance = %g" % (old_div(meancomp, maxcw)))
+            logger.info("Load balance = %g" % (meancomp / maxcw))
         if meangj > 0:
             logger.info("Mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
             for i in range(nhosts):

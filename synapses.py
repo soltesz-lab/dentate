@@ -8,7 +8,7 @@ from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, 
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
 from dentate.utils import DExpr, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
-    viewitems, zip, zip_longest, partitionn
+     viewitems, zip, zip_longest, partitionn
 from neuroh5.io import write_cell_attributes
 
 # This logger will inherit its settings from the root logger, created in dentate.env
