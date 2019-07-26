@@ -4,27 +4,30 @@ import copy, random
 from mpi4py import MPI
 import h5py
 from dentate.env import Env
-from dentate.stimulus import get_input_cell_config, generate_linear_trajectory
-from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
+from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains
 from dentate.utils import *
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.plot import default_fig_options, save_figure, plot_1D_rate_map
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 
 logger = get_script_logger(os.path.basename(__file__))
 
 context = Struct(**dict(locals()))
 
 sys_excepthook = sys.excepthook
-
-
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
+#sys.excepthook = mpi_excepthook
 
-
-sys.excepthook = mpi_excepthook
-
+def debug_callback(context):
+    fig_title = '%s %s cell %i' % (context.population, context.this_selectivity_type_name, context.gid)
+    fig_options = copy.copy(context.fig_options)
+    if context.save_fig is not None:
+        fig_options.saveFig = '%s %s' % (context.save_fig, fig_title)
+    plot_1D_rate_map(t=t, rate_map=context.rate_map,
+                     peak_rate=context.env.stimulus_config['Peak Rate'][context.population][context.this_selectivity_type],
+                     spike_train=context.spike_train, title=fig_title, **fig_options())
 
 @click.command()
 @click.option("--config", required=True, type=str)
@@ -152,11 +155,14 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
         t, x, y, d = generate_linear_trajectory(trajectory,
                                                 temporal_resolution=env.stimulus_config['Temporal Resolution'],
                                                 equilibration_duration=env.stimulus_config['Equilibration Duration'])
+
+    
     t = comm.bcast(t, root=0)
     x = comm.bcast(x, root=0)
     y = comm.bcast(y, root=0)
     d = comm.bcast(d, root=0)
 
+    trajectory = t, x, y, d
     trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
     this_spikes_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
 
@@ -187,104 +193,37 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                               env.stimulus_config['Temporal Resolution'])
         from scipy.signal import hann
         equilibrate_hann = hann(2 * equilibrate_len)[:equilibrate_len]
+        equilibrate = (equilibrate_hann, equilibrate_len)
     else:
-        equilibrate_hann = None
+        equilibrate = None
 
-    local_random = random.Random()
-    input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
-
-    if interactive and rank == 0:
+    if rank == 0:
         context.update(locals())
 
-    if gather:
-        spike_hist_resolution = 1000
-        spike_hist_edges = np.linspace(min(t), max(t), spike_hist_resolution + 1)
-        spike_hist_sum = defaultdict(lambda: defaultdict(lambda: np.zeros(spike_hist_resolution)))
+    spike_hist_sum_dict = {}
+    spike_hist_resolution = 1000
 
-    write_every = max(1, int(math.floor(old_div(write_size, comm.size))))
+    write_every = max(1, int(math.floor(write_size / comm.size)))
     for population in populations:
 
-        if rank == 0:
-            logger.info('Generating input source spike trains for population %s...' % population)
+        this_spike_hist_sum = \
+          generate_input_spike_trains(env, population, trajectory, selectivity_path, selectivity_type_names,
+                                      valid_selectivity_namespaces,
+                                      output_path, output_namespace=this_spikes_namespace,
+                                      spike_train_attr_name=spike_train_attr_name,
+                                      spike_hist_resolution=spike_hist_resolution,
+                                      equilibrate=equilibrate,
+                                      comm=comm, io_size=io_size,
+                                      write_every=write_every, chunk_size=chunk_size,
+                                      value_chunk_size=value_chunk_size,
+                                      dry_run=dry_run, debug= (debug_callback, context) if debug else False)
+        if gather:
+            spike_hist_sum_dict[population] = this_spike_hist_sum
 
-        gid_count = defaultdict(lambda: 0)
-        process_time = dict()
-        for this_selectivity_namespace in valid_selectivity_namespaces[population]:
-            start_time = time.time()
-            selectivity_attr_gen = NeuroH5CellAttrGen(selectivity_path, population,
-                                                      namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
-                                                      cache_size=cache_size)
-            spikes_attr_dict = dict()
-            for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
-                if gid is not None:
-                    this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
-                    this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
-                    input_cell_config = \
-                        get_input_cell_config(selectivity_type=this_selectivity_type,
-                                               selectivity_type_names=selectivity_type_names,
-                                               selectivity_attr_dict=selectivity_attr_dict)
-                    rate_map = input_cell_config.get_rate_map(x=x, y=y)
-                    if equilibrate_hann is not None:
-                        rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_hann)
-                    local_random.seed(int(input_spike_train_offset + gid))
-                    spike_train = get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=0.025,
-                                                                            generator=local_random)
-                    if debug and plot and rank == 0:
-                        fig_title = '%s %s cell %i' % (population, this_selectivity_type_name, gid)
-                        if save_fig is not None:
-                            fig_options.saveFig = '%s %s' % (save_fig, fig_title)
-                        plot_1D_rate_map(t=t, rate_map=rate_map,
-                                         peak_rate=env.stimulus_config['Peak Rate'][population][this_selectivity_type],
-                                         spike_train=spike_train, title=fig_title, **fig_options())
-                    spikes_attr_dict[gid] = dict()
-                    spikes_attr_dict[gid]['Selectivity Type'] = np.array([this_selectivity_type], dtype='uint8')
-                    spikes_attr_dict[gid]['Trajectory Rate Map'] = np.asarray(rate_map, dtype='float32')
-                    spikes_attr_dict[gid][spike_train_attr_name] = np.asarray(spike_train, dtype='float32')
-                    gid_count[this_selectivity_type_name] += 1
-                    if gather:
-                        hist, edges = np.histogram(spike_train, bins=spike_hist_edges)
-                        spike_hist_sum[population][this_selectivity_type_name] = \
-                            np.add(spike_hist_sum[population][this_selectivity_type_name], hist)
-
-                gid_count_dict = dict(gid_count.items())
-                gid_count_dict = comm.gather(gid_count_dict, root=0)
-                if rank == 0:
-                    merged_gid_count = defaultdict(lambda: 0)
-                    for each_gid_count in gid_count_dict:
-                        for selectivity_type_name in each_gid_count:
-                            merged_gid_count[selectivity_type_name] += each_gid_count[selectivity_type_name]
-                    total_gid_count = np.sum(list(merged_gid_count.values()))
-
-                if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
-                    if rank == 0:
-                        logger.info('processed %i %s %s cells' %
-                                    (merged_gid_count[this_selectivity_type_name], population,
-                                     this_selectivity_type_name))
-                    if not dry_run:
-                        append_cell_attributes(output_path, population, spikes_attr_dict,
-                                               namespace=this_spikes_namespace, comm=comm, io_size=io_size,
-                                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                    del spikes_attr_dict
-                    spikes_attr_dict = dict()
-                sys.stdout.flush()
-                comm.barrier()
-                if debug and iter_count == 10:
-                    break
-            if not dry_run:
-                append_cell_attributes(output_path, population, spikes_attr_dict,
-                                       namespace=this_spikes_namespace, comm=comm, io_size=io_size,
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-            del spikes_attr_dict
-            process_time[this_selectivity_type_name] = time.time() - start_time
-        if rank == 0:
-            for selectivity_type_name in merged_gid_count:
-                logger.info('processed %i/%i %s %s cells in %.2f s' %
-                            (merged_gid_count[selectivity_type_name], total_gid_count, population,
-                             selectivity_type_name, process_time[selectivity_type_name]))
 
     if gather:
-        spike_hist_sum = dict([(key, dict(val.items())) for key, val in viewitems(spike_hist_sum)])
-        spike_hist_sum = comm.gather(spike_hist_sum, root=0)
+        this_spike_hist_sum = dict([(key, dict(val.items())) for key, val in viewitems(spike_hist_sum_dict)])
+        spike_hist_sum = comm.gather(this_spike_hist_sum, root=0)
         if rank == 0:
             merged_spike_hist_sum = defaultdict(lambda: defaultdict(lambda: np.zeros(spike_hist_resolution)))
             for each_spike_hist_sum in spike_hist_sum:
@@ -294,8 +233,9 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
                             np.add(merged_spike_hist_sum[population][selectivity_type_name],
                                    each_spike_hist_sum[population][selectivity_type_name])
             if plot:
-                for population in merged_spike_hist_sum:
-                    for selectivity_type_name in merged_spike_hist_sum[population]:
+                spike_hist_edges = np.linspace(min(t), max(t), spike_hist_resolution + 1)
+                for population, this_selectivity_type_name in viewitems(merged_spike_hist_sum):
+                    for this_selectivity_type_name in merged_spike_hist_sum[population]:
                         fig_title = '%s %s summed spike PSTH' % (population, this_selectivity_type_name)
                         if save_fig is not None:
                             fig_options.saveFig = '%s %s' % (save_fig, fig_title)
@@ -313,7 +253,7 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
 
                         if fig_options.showFig:
                             fig.show()
-
+        comm.barrier()
     if interactive and rank == 0:
         context.update(locals())
 
