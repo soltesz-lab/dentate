@@ -242,10 +242,12 @@ Synapses:
       contacts: 1.0
       mechanisms:
         AMPA:
-          tau_rise: 0.5
-          tau_decay: 3.6
+          dur_onset: 0.5
+          tau_offset: 3.6
           e: 0
           g_unit: 0.002
+          weight: 1.0
+          sat: 0.9
     MC:   
       type: excitatory
       sections: [apical]
@@ -354,10 +356,12 @@ Synapses:
       proportions: [0.18, 0.18]
       mechanisms:
         AMPA:
-          tau_rise: 0.5
-          tau_decay: 3.6
+          dur_onset: 0.5
+          tau_offset: 3.6
           e: 0
           g_unit: 0.0042
+          weight: 1.0
+          sat: 0.9
     MC:   
       type: excitatory
       sections: [soma, apical]
@@ -447,10 +451,12 @@ Synapses:
       contacts: 1.0
       mechanisms:
         AMPA:
-          tau_rise: 0.5
-          tau_decay: 3.6
+          dur_onset: 0.5
+          tau_offset: 3.6
           e: 0
           g_unit: 0.0005
+          weight: 1.0
+          sat: 0.9
     MC:   
       type: excitatory
       sections: [apical, apical]
@@ -631,10 +637,12 @@ Synapses:
       proportions: [0.15]
       mechanisms:
         AMPA:
-          tau_rise: 0.3
-          tau_decay: 3.6
+          dur_onset: 0.3
+          tau_offset: 3.6
           e: 0
           g_unit: 0.0005
+          weight: 1.0
+          sat: 0.9
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -795,10 +803,12 @@ Synapses:
       proportions: [0.2, 0.2]
       mechanisms:
         AMPA:
-          tau_rise: 0.9
-          tau_decay: 3.6
+          dur_onset: 0.9
+          tau_offset: 3.6
           e: 0
           g_unit: 0.0043
+          weight: 1.0
+          sat: 0.9
     HCC:  
       type: inhibitory
       sections: [basal, apical, apical, apical]
@@ -1065,16 +1075,5 @@ Synapses:
           e: -75
           g_unit: 0.0010
           weight: 1.0
-Connection Velocity:
-  AAC: 250.0
-  BC: 250.0
-  HC: 250.0
-  HCC: 250.0
-  MC: 250.0
-  NGFC: 250.0
-  MOPP: 250.0
-  MPP: 250.0
-  LPP: 250.0
-  IS: 250.0
-  GC: 250.0
+Connection Velocity: !include Connection_Velocity.yaml
 Gap Junctions: !include Gap_Junctions_Control.yaml
