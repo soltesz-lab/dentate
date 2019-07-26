@@ -3,10 +3,12 @@ import time
 import traceback
 from collections import defaultdict
 import numpy as np
-from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, import_mech_dict_from_file, make_neurotree_graph
-from dentate.cells import custom_filter_if_terminal, custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
+from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
+    import_mech_dict_from_file, make_neurotree_graph, custom_filter_if_terminal, \
+    custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
-from dentate.utils import DDExpr, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, viewitems, zip, zip_longest, partitionn
+from dentate.utils import DDExpr, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
+    viewitems, zip, zip_longest, partitionn
 from neuroh5.io import write_cell_attributes
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -1513,7 +1515,7 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
                              update_targets=update_targets, verbose=verbose)
 
 
-def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, update_targets=False):
+def init_syn_mech_attrs(cell, env=None, reset_mech_dict=False, update_targets=False):
     """Consults a dictionary specifying parameters of NEURON synaptic mechanisms (point processes) for each type of
     section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance. Calls
     update_syn_mech_by_sec_type to set placeholder values in the syn_mech_attrs_dict of a SynapseAttributes object. If
@@ -1522,13 +1524,12 @@ def init_syn_mech_attrs(cell, env=None, mech_file_path=None, from_file=False, up
 
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
-    :param mech_file_path: str (path)
-    :param from_file: bool
+    :param reset_mech_dict: bool
     :param update_targets: bool
 
     """
-    if from_file:
-        import_mech_dict_from_file(cell, mech_file_path)
+    if reset_mech_dict:
+        cell.mech_dict = copy.deepcopy(cell.init_mech_dict)
     for sec_type in default_ordered_sec_types:
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
             if cell.nodes[sec_type] and 'synapses' in cell.mech_dict[sec_type]:
