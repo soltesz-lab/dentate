@@ -7,7 +7,8 @@ from mpi4py import MPI
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses
-from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_source,  report_topology, register_cell
+from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_source, \
+    report_topology, register_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 from dentate.utils import list_find, list_index, old_div, range, str, viewitems, zip_longest, get_module_logger
@@ -94,7 +95,7 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
                             tree_dict=tree_dict, load_synapses=load_synapses,
                             synapses_dict=synapses_dict, mech_file_path=mech_file_path)
 
-    init_spike_detector(cell)
+    # init_spike_detector(cell)
     if mech_file_path is not None:
         init_biophysics(cell, reset_cable=True, 
                         correct_cm=correct_for_spines,

@@ -9,8 +9,8 @@ from mpi4py import MPI
 
 from dentate import cells, io_utils, lfp, lpt, simtime, synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap
-from dentate.utils import compose_iter, get_module_logger, profile_memory
-from dentate.utils import old_div, range, str, viewitems, zip, zip_longest
+from dentate.utils import compose_iter, get_module_logger, profile_memory, old_div, range, str, viewitems, zip, \
+    zip_longest
 from neuroh5.io import bcast_graph, read_cell_attribute_selection, read_graph_selection, read_tree_selection, \
     scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees
 
@@ -581,7 +581,7 @@ def make_cells(env):
                     biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
                                                      hoc_cell=hoc_cell, env=env,
                                                      mech_file_path=mech_file_path)
-                    cells.init_spike_detector(biophys_cell)
+                    # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
                     if rank == 0 and gid == first_gid:
@@ -698,7 +698,7 @@ def make_cell_selection(env):
                     biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
                                                      hoc_cell=hoc_cell, env=env,
                                                      mech_file_path=mech_file_path)
-                    cells.init_spike_detector(biophys_cell)
+                    # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
                     if rank == 0 and gid == first_gid:
