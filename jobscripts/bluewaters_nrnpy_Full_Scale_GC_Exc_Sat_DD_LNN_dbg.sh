@@ -41,7 +41,8 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 
 aprun -n 32768 -b -- bwpy-environ -- \
     python3.6 ./scripts/main.py  \
-    --config-file=Full_Scale_GC_Exc_Sat_DD_LNN_Diag.yaml  \
+    --config-file=Full_Scale_GC_Exc_Sat_DD_LNN.yaml  \
+    --arena-id=A --trajectory-id=Diag \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
