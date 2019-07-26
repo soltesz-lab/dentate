@@ -54,7 +54,17 @@ Cell Types:
       density: !include IS_synapse_density.yaml
   MPP:
     template: MPPCell
-    Vector Stimulus: Vector Stimulus A Diag
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
   LPP:
     template: LPPCell
-    Vector Stimulus: Vector Stimulus A Diag
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  CA3c:
+    template: CA3Cell
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+

@@ -31,6 +31,8 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
+@click.option("--arena-id", required=True, type=str,
+              help='name of arena used for spatial stimulus')
 @click.option("--cell-selection-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
               help='name of file specifying subset of cells gids to be instantiated')
 @click.option("--config-file", required=True, type=str, help='model configuration file name')
@@ -53,6 +55,8 @@ sys.excepthook = mpi_excepthook
 @click.option("--vrecord-fraction", type=float, default=0.001,
               help='fraction of cells to record intracellular voltage from')
 @click.option("--coredat", is_flag=True, help='Save CoreNEURON data')
+@click.option("--trajectory-id", required=True, type=str,
+              help='name of trajectory used for spatial stimulus')
 @click.option("--tstop", type=int, default=1, help='physical time to simulate (ms)')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
 @click.option("--stimulus-onset", type=float, default=1.0, help='starting time of stimulus (ms)')
@@ -70,8 +74,8 @@ sys.excepthook = mpi_excepthook
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage while constructing the network')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
-def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
-         results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init,
+def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
+         results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, trajectory_id, tstop, v_init,
          stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
          dt, ldbal, lptbal, cleanup, profile_memory, verbose, dry_run):
 
