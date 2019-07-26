@@ -67,4 +67,3 @@ Cell Types:
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
-
