@@ -2,6 +2,7 @@ import os, sys, gc, copy, time
 import numpy as np
 from collections import defaultdict, ChainMap
 from dentate.utils import get_module_logger, object, range, str, Struct
+from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen
 import h5py
 
@@ -736,9 +737,9 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
     interp_distance = np.arange(distance.min(), distance.max() + spatial_resolution / 2., spatial_resolution)
     interp_x = np.interp(interp_distance, distance, x)
     interp_y = np.interp(interp_distance, distance, y)
-    t = (interp_distance / velocity) / 1000.  # ms
+    t = interp_distance / (velocity / 1000.)  # ms
 
-    t -= equilibration_duration
+    t = np.subtract(t, equilibration_duration)
     interp_distance -= equilibration_distance
 
     return t, interp_x, interp_y, interp_distance
@@ -913,6 +914,104 @@ def generate_input_selectivity_features(env, population, arena, selectivity_conf
     comm.barrier()
     
     return pop_norm_distances, rate_map_sum
+
+def generate_input_spike_trains(env, population, trajectory, selectivity_path, selectivity_type_names, selectivity_type_namespaces, output_path, output_namespace='Input Spikes', spike_train_attr_name='Spike Train', spike_hist_resolution=1000, equilibrate=None, comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    if io_size <= 0:
+        io_size = comm.size
+    rank = comm.rank
+
+    t, x, y, d = trajectory
+
+    
+    local_random = np.random.RandomState()
+    input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
+
+    spike_hist_sum = defaultdict(lambda: np.zeros(spike_hist_resolution))
+
+    gid_count = defaultdict(lambda: 0)
+    process_time = dict()
+    for this_selectivity_namespace in selectivity_type_namespaces[population]:
+
+        if rank == 0:
+            logger.info('Generating input source spike trains for population %s [%s]...' % (population, this_selectivity_namespace))
+            
+        start_time = time.time()
+        selectivity_attr_gen = NeuroH5CellAttrGen(selectivity_path, population,
+                                                  namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
+                                                  cache_size=cache_size)
+        spikes_attr_dict = dict()
+        for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
+            if gid is not None:
+                this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
+                this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
+                input_cell_config = \
+                  get_input_cell_config(selectivity_type=this_selectivity_type,
+                                            selectivity_type_names=selectivity_type_names,
+                                            selectivity_attr_dict=selectivity_attr_dict)
+                rate_map = input_cell_config.get_rate_map(x=x, y=y)
+                if equilibrate is not None:
+                    equilibrate_filter, equilibrate_len = equilibrate
+                    rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
+                local_random.seed(int(input_spike_train_offset + gid))
+                spike_train = get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=0.025,
+                                                                        generator=local_random)
+                if debug and rank == 0:
+                    callback, context = debug
+                    this_context = Struct(**dict(context()))
+                    this_context.update(dict(locals()))
+                    callback(this_context)
+
+                spikes_attr_dict[gid] = dict()
+                spikes_attr_dict[gid]['Selectivity Type'] = np.array([this_selectivity_type], dtype='uint8')
+                spikes_attr_dict[gid]['Trajectory Rate Map'] = np.asarray(rate_map, dtype='float32')
+                spikes_attr_dict[gid][spike_train_attr_name] = np.asarray(spike_train, dtype='float32')
+                gid_count[this_selectivity_type_name] += 1
+                spike_hist_edges = np.linspace(min(t), max(t), spike_hist_resolution + 1)
+                hist, edges = np.histogram(spike_train, bins=spike_hist_edges)
+                spike_hist_sum[this_selectivity_type_name] = \
+                      np.add(spike_hist_sum[this_selectivity_type_name], hist)
+
+            gid_count_dict = dict(gid_count.items())
+            gid_count_dict = comm.gather(gid_count_dict, root=0)
+            if rank == 0:
+                merged_gid_count = defaultdict(lambda: 0)
+                for each_gid_count in gid_count_dict:
+                    for selectivity_type_name in each_gid_count:
+                        merged_gid_count[selectivity_type_name] += each_gid_count[selectivity_type_name]
+                total_gid_count = np.sum(list(merged_gid_count.values()))
+
+            if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+                if rank == 0:
+                    logger.info('generated spike trains for %i %s %s cells' %
+                                (merged_gid_count[this_selectivity_type_name], population,
+                                this_selectivity_type_name))
+                if not dry_run:
+                    append_cell_attributes(output_path, population, spikes_attr_dict,
+                                            namespace=output_namespace, comm=comm, io_size=io_size,
+                                            chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                    del spikes_attr_dict
+                    spikes_attr_dict = dict()
+
+            if debug and iter_count == 10:
+                break
+            
+        if not dry_run:
+            append_cell_attributes(output_path, population, spikes_attr_dict,
+                                    namespace=output_namespace, comm=comm, io_size=io_size,
+                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        process_time[this_selectivity_type_name] = time.time() - start_time
+            
+        if rank == 0:
+            for selectivity_type_name in merged_gid_count:
+                logger.info('generated spike trains for %i/%i %s %s cells in %.2f s' %
+                            (merged_gid_count[selectivity_type_name], total_gid_count, population,
+                             selectivity_type_name, process_time[selectivity_type_name]))
+
+    return spike_hist_sum
+
 
 def read_trajectory(input_path, arena_id, trajectory_id):
     """

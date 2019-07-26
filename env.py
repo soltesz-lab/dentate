@@ -52,9 +52,10 @@ class Env(object):
     Network model configuration.
     """
 
-    def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
-                 config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0,
-                 vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
+    def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
+                 dataset_prefix=None, config_prefix=None, results_path=None, results_id=None,
+                 node_rank_file=None, io_size=0, vrecord_fraction=0, coredat=False, tstop=0,
+                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
                  cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
@@ -84,6 +85,8 @@ class Env(object):
         :param cache_queries: bool; whether to use a cache to speed up queries to filter_synapses
         :param verbose: bool; print verbose diagnostic messages while constructing the network
         """
+        self.kwargs = kwargs
+        
         self.SWC_Types = {}
         self.Synapse_Types = {}
         self.layers = {}
@@ -275,7 +278,8 @@ class Env(object):
 
         if 'Stimulus' in self.modelConfig:
             self.parse_stimulus_config()
-
+        self.init_stimulus_config(**kwargs)
+            
         if 'Analysis' in self.modelConfig:
             self.analysis_config = self.modelConfig['Analysis']
         else:
@@ -342,6 +346,21 @@ class Env(object):
                                 np.asarray(path_y, dtype=np.float32)))
 
         return TrajectoryConfig(velocity, path)
+
+    def init_stimulus_config(self, arena_id=None, trajectory_id=None, **kwargs):
+        stimulus_config = self.stimulus_config
+        if arena_id is None:
+            raise RuntimeError('init_stimulus_config: arena id parameter is not provided')
+        if trajectory_id is None:
+            raise RuntimeError('init_stimulus_config: trajectory id parameter is not provided')
+        if arena_id in self.stimulus_config['Arena']:
+            self.arena_id = arena_id
+        else:
+            raise RuntimeError('init_stimulus_config: arena id parameter not found in stimulus configuration')
+        if trajectory_id in self.stimulus_config['Arena'].trajectories['trajectory']:
+            self.trajectory_id = trajectory_id
+        else:
+            raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
 
     def parse_stimulus_config(self):
         stimulus_dict = self.modelConfig['Stimulus']
