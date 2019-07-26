@@ -795,7 +795,6 @@ def init_input_cells(env, input_sources=None):
     :param input_sources: a dictionary of the form { pop_name, gid_sources }
     If provided, the set of gids specified in gid_sources will be 
     initialized with pre-recorded spike trains read from env.spike_input_path / env.spike_input_ns.
-    TODO: 'Vector Stimulus' and 'spiketrain' should not be a hard-coded namespace and attr_name to load input spikes.
     """
 
     rank = int(env.pc.id())
@@ -809,9 +808,10 @@ def init_input_cells(env, input_sources=None):
     pop_names = sorted(env.celltypes.keys())
 
     for pop_name in pop_names:
-        if 'Vector Stimulus' in env.celltypes[pop_name]:
-            vecstim_namespace = env.celltypes[pop_name]['Vector Stimulus']
-
+        if 'spike train' in env.celltypes[pop_name]:
+            vecstim_namespace = env.celltypes[pop_name]['spike train']['namespace']
+            vecstim_attr = env.celltypes[pop_name]['spike train']['attribute']
+            
             if env.cell_selection is None:
                 if env.node_ranks is None:
                     cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
@@ -834,7 +834,7 @@ def init_input_cells(env, input_sources=None):
                 if rank == 0:
                     logger.info("*** Initializing stimulus population %s" % pop_name)
 
-                spiketrain = vecstim_dict['spiketrain']
+                spiketrain = vecstim_dict[vecstim_attr]
                 if len(spiketrain) > 0:
                     if np.min(spiketrain) < 0.:
                         spiketrain += abs(np.min(spiketrain))
