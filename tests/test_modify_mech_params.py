@@ -6,7 +6,7 @@ import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
 from past.utils import old_div
-from dentate.cells import modify_mech_param, update_mechanism_by_sec_type
+from dentate.cells import modify_mech_param, update_mechanism_by_sec_type, import_mech_dict_from_file
 
 context = Context()
 
@@ -134,13 +134,14 @@ def cm_correction_test(cell, env, mech_file_path):
     :param env:
     :param mech_file_path:
     """
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, correct_cm=False,
-                    correct_g_pas=False, env=context.env, verbose=context.verbose)
+    import_mech_dict_from_file(cell, mech_file_path)
+    init_biophysics(cell, reset_cable=True, correct_cm=False, correct_g_pas=False, env=context.env,
+                    verbose=context.verbose)
     old_nseg, old_distances = count_nseg(cell)
     plot_mech_param_distribution(cell, 'pas', 'g', export='dend_gpas.hdf5', overwrite=True,
                                  param_label='dend.g_pas', show=False)
     plot_cable_param_distribution(cell, 'cm', export='cm.hdf5', param_label='cm', show=False, overwrite=True)
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, correct_cm=True,
+    init_biophysics(cell, reset_cable=True, reset_mech_dict=True, correct_cm=True,
                     correct_g_pas=True, env=context.env, verbose=context.verbose)
     new_nseg, new_distances = count_nseg(cell)
     compare_nseg([old_nseg, new_nseg], [old_distances, new_distances], ['before', 'after'])
@@ -156,28 +157,29 @@ def standard_cable_tests(cell, mech_file_path):
     :param cell: :class:'BiophysCell'
     :param mech_file_path: str
     """
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path, verbose=context.verbose)
+    import_mech_dict_from_file(cell, mech_file_path)
+    init_biophysics(cell, reset_cable=True, verbose=context.verbose)
     plot_cable_param_distribution(cell, 'cm', export='cm.hdf5', show=False, overwrite=True)
     modify_mech_param(cell, 'soma', 'cable', 'cm', value=2.)
     init_biophysics(cell, reset_cable=True, verbose=context.verbose)
     plot_cable_param_distribution(cell, 'cm', export='cm.hdf5', show=False)
     plot_mech_param_from_file('cm', None, 'cm.hdf5', param_label='cm', yunits='uF/cm2', ylabel='Specific capacitance')
 
-    init_biophysics(cell, reset_cable=True, from_file=True, verbose=context.verbose)
+    init_biophysics(cell, reset_cable=True, reset_mech_dict=True, verbose=context.verbose)
     plot_cable_param_distribution(cell, 'Ra', export='Ra.hdf5', show=False, overwrite=True)
     modify_mech_param(cell, 'soma', 'cable', 'Ra', value=200.)
     init_biophysics(cell, reset_cable=True, verbose=context.verbose)
     plot_cable_param_distribution(cell, 'Ra', export='Ra.hdf5', show=False)
     plot_mech_param_from_file('Ra', None, 'Ra.hdf5', param_label='Ra', yunits='Ohm*cm', ylabel='Axial resistivity')
 
-    init_biophysics(cell, reset_cable=True, from_file=True, verbose=context.verbose)
+    init_biophysics(cell, reset_cable=True, reset_mech_dict=True, verbose=context.verbose)
     old_nseg, old_distances = count_nseg(cell)
     modify_mech_param(cell, 'soma', 'cable', 'spatial_res', value=2.)
     init_biophysics(cell, reset_cable=True, verbose=context.verbose)
     new_nseg, new_distances = count_nseg(cell)
     compare_nseg([old_nseg, new_nseg], [old_distances, new_distances], ['before', 'after'])
 
-    init_biophysics(cell, reset_cable=True, from_file=True, verbose=context.verbose)
+    init_biophysics(cell, reset_cable=True, reset_mech_dict=True, verbose=context.verbose)
     plot_cable_param_distribution(cell, 'cm', export='cm.hdf5', show=False, overwrite=True)
     modify_mech_param(cell, 'apical', 'cable', 'cm', value=2.)
     init_biophysics(cell, reset_cable=True, verbose=context.verbose)
@@ -254,10 +256,8 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_hoc_env(env)
-
-    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     mech_file_path = config_prefix + '/' + mech_file
-    
+    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     context.update(locals())
 
     standard_modify_mech_param_tests(cell)
