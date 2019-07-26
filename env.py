@@ -357,7 +357,7 @@ class Env(object):
             self.arena_id = arena_id
         else:
             raise RuntimeError('init_stimulus_config: arena id parameter not found in stimulus configuration')
-        if trajectory_id in self.stimulus_config['Arena'].trajectories['trajectory']:
+        if trajectory_id in self.stimulus_config['Arena'][arena_id].trajectories:
             self.trajectory_id = trajectory_id
         else:
             raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
