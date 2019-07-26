@@ -581,7 +581,7 @@ def make_cells(env):
                     biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
                                                      hoc_cell=hoc_cell, env=env,
                                                      mech_file_path=mech_file_path)
-                    cells.init_spike_detector(biophys_cell)
+                    # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
                     if rank == 0 and gid == first_gid:
@@ -698,7 +698,7 @@ def make_cell_selection(env):
                     biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
                                                      hoc_cell=hoc_cell, env=env,
                                                      mech_file_path=mech_file_path)
-                    cells.init_spike_detector(biophys_cell)
+                    # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
                     if rank == 0 and gid == first_gid:
