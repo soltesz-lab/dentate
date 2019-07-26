@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
-from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml
+from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
 from neuroh5.h5py_io_utils import select_tree_attributes
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 
@@ -602,6 +602,7 @@ class BiophysCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = mech_file_path
+        self.init_mech_dict = dict()
         self.mech_dict = dict()
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
@@ -1281,7 +1282,8 @@ def import_mech_dict_from_file(cell, mech_file_path=None):
         raise IOError('import_mech_dict_from_file: invalid mech_file_path: %s' % mech_file_path)
     else:
         cell.mech_file_path = mech_file_path
-    cell.mech_dict = read_from_yaml(cell.mech_file_path)
+    cell.init_mech_dict = read_from_yaml(cell.mech_file_path)
+    cell.mech_dict = copy.deepcopy(cell.init_mech_dict)
 
 
 def export_mech_dict(cell, mech_file_path=None, output_dir=None):
@@ -1302,8 +1304,8 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
 
-def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False,
-                    correct_g_pas=False, verbose=True):
+def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_g_pas=False, reset_mech_dict=False,
+                    verbose=True):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
     each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance.
@@ -1311,16 +1313,17 @@ def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False,
     root. Warning! Do not reset cable after inserting synapses!
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
-    :param mech_file_path: str (path)
     :param reset_cable: bool
     :param correct_cm: bool
     :param correct_g_pas: bool
+    :param reset_mech_dict: bool
     :param verbose: bool
     """
-
     if (correct_cm or correct_g_pas) and env is None:
         raise ValueError('init_biophysics: missing Env object; required to parse network configuration and count '
                          'synapses.')
+    if reset_mech_dict:
+        cell.mech_dict = copy.deepcopy(cell.init_mech_dict)
     if reset_cable:
         for sec_type in default_ordered_sec_types:
             if sec_type in cell.mech_dict and sec_type in cell.nodes:
@@ -1335,6 +1338,7 @@ def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False,
                     update_biophysics_by_sec_type(cell, sec_type)
     if correct_g_pas:
         correct_cell_for_spines_g_pas(cell, env, verbose=verbose)
+
 
 def reset_cable_by_node(cell, node, verbose=True):
     """
@@ -2077,6 +2081,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     :param load_edges: bool
     :param load_weights: bool
     :param set_edge_delays: bool
+    :param mech_file_path: str (path)
     :return: :class:'BiophysCell'
     """
     env.load_cell_template(pop_name)
