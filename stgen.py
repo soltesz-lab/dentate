@@ -43,7 +43,7 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     :param t: corresponding time values (ms)
     :param dt: temporal resolution for spike times (ms)
     :param refractory: absolute deadtime following a spike (ms)
-    :param generator: :class:'random.Random()'
+    :param generator: :class:'np.random.RandomState()'
     :return: list of m spike times (ms)
     """
     if generator is None:
@@ -65,12 +65,12 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     i = 0
     ISI_memory = 0.
     while i < len(interp_t):
-        x = generator.random()
+        x = generator.uniform(0.0, 1.0)
         if x > 0.:
             ISI = old_div(-np.log(x), max_rate)
             i += int(old_div(ISI, dt))
             ISI_memory += ISI
-            if (i < len(interp_t)) and (generator.random() <= old_div(interp_rate[i], max_rate)) and ISI_memory >= 0.:
+            if (i < len(interp_t)) and (generator.uniform(0.0, 1.0) <= old_div(interp_rate[i], max_rate)) and ISI_memory >= 0.:
                 spike_times.append(interp_t[i])
                 ISI_memory = -refractory
     return spike_times
