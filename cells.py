@@ -611,7 +611,6 @@ class BiophysCell(object):
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
-            # self.spike_detector = connect2target(self, self.soma[0].sec, loc=0.5)
         if self.mech_file_path is not None:
             import_mech_dict_from_file(self, self.mech_file_path)
         init_spike_detector(self)
@@ -2165,7 +2164,7 @@ def register_cell(env, pop_name, gid, cell):
         nc = cell.spike_detector
     else:
         nc = hoc_cell.connect2target(h.nil)
-    nc.delay += env.dt
+    nc.delay = max(env.dt, nc.delay)
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)

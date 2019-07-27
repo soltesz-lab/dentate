@@ -157,7 +157,7 @@ class SynapseAttributes(object):
         connection_velocity = float(self.env.connection_velocity[presyn_name])
 
         if delays is None:
-            delays = [h.dt] * len(edge_syn_ids)
+            delays = [1.1*h.dt] * len(edge_syn_ids)
 
         syn_id_dict = self.syn_id_attr_dict[gid]
 
@@ -208,7 +208,7 @@ class SynapseAttributes(object):
             edge_dists = edge_attrs['Connections'][distance_attr_index]
 
             if set_edge_delays:
-                delays = [((distance / connection_velocity) + h.dt) for distance in edge_dists]
+                delays = [max((distance / connection_velocity), 1.1*h.dt) for distance in edge_dists]
             else:
                 delays = None
 
