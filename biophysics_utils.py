@@ -111,6 +111,8 @@ class QuickSim(object):
         :param units: str
         :param description: str
         """
+        if cell.tree.root.sec.cell() != node.sec.cell():
+            raise RuntimeError('QuickSim: append_rec: target cell does not match target node')
         if name is None:
             name = 'rec%i' % len(self.recs)
         elif name in self.recs:
@@ -213,6 +215,8 @@ class QuickSim(object):
         :param dur: float
         :param description: str
         """
+        if cell.tree.root.sec.cell() != node.sec.cell():
+            raise RuntimeError('QuickSim: append_stim: target cell does not match target node')
         if name is None:
             name = 'stim%i' % len(self.stims)
         elif name in self.stims:
@@ -408,7 +412,6 @@ class QuickSim(object):
         self._cvode = state
 
     cvode = property(get_cvode, set_cvode)
-
 
 
 @click.command()
