@@ -2208,3 +2208,76 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
     thr = h.threshold(iclamp._ref_amp)
 
     return thr
+
+
+def get_spike_shape(vm, spike_times, equilibrate=0., dt=0.025, th_dvdt=10.):
+    """
+    Given a voltage recording from a cell section, and a list of spike times recorded from a spike detector NetCon,
+    report features of the spike shape, including the delay between the recorded section and the spike detector.
+    :param vm: array
+    :param spike_times: array
+    :param equilibrate: float
+    :param dt: float
+    :param th_dvdt: float; slope of voltage change at spike threshold
+    :return: dict
+    """
+    start = int((equilibrate + 1.) / dt)  # start time after equilibrate, expressed in time step
+    vm = vm[start:]
+    dvdt = np.gradient(vm, dt)  # slope of voltage change
+    th_x_indexes = np.where(dvdt >= th_dvdt)[0]
+    if th_x_indexes.any():
+        th_x = th_x_indexes[0] - int(1.6 / dt)  # the true spike onset is before the slope threshold is crossed
+    else:
+        th_x_indexes = np.where(vm > -30.)[0]
+        if th_x_indexes.any():
+            th_x = th_x_indexes[0] - int(2. / dt)
+        else:
+            return None
+    th_v = vm[th_x]
+    v_before = np.mean(vm[th_x - int(0.1 / dt):th_x])
+
+    spike_detector_delay = spike_times[0] - (equilibrate + 1. + th_x * dt)
+    window_dur = 100.  # ms
+    fAHP_window_dur = 20.  # ms
+    ADP_min_start = 5.  # ms
+    ADP_window_dur = 75. # ms
+    if len(spike_times) > 1:
+        window_dur = min(window_dur, spike_times[1] - spike_times[0])
+    window_end = min(len(vm), th_x + int(window_dur / dt))
+    fAHP_window_end = min(window_end, th_x + int(fAHP_window_dur / dt))
+    ADP_min_start_len = min(window_end - th_x, int(ADP_min_start / dt))
+    ADP_window_end = min(window_end, th_x + int(ADP_window_dur / dt))
+
+    x_peak = np.argmax(vm[th_x:window_end]) + th_x
+    v_peak = vm[x_peak]
+
+    # find fAHP trough
+    rising_x = np.where(dvdt[x_peak+1:fAHP_window_end] > 0.)[0]
+    if rising_x.any():
+        fAHP_window_end = x_peak + 1 + rising_x[0]
+    x_fAHP = np.argmin(vm[x_peak:fAHP_window_end]) + x_peak
+    v_fAHP = vm[x_fAHP]
+    fAHP = v_before - v_fAHP
+
+    # find ADP and mAHP
+    rising_x = np.where(dvdt[x_fAHP:ADP_window_end] > 0.)[0]
+    if not rising_x.any():
+        ADP = 0.
+        mAHP = 0.
+    else:
+        falling_x = np.where(dvdt[x_fAHP + rising_x[0]:ADP_window_end] < 0.)[0]
+        if not falling_x.any():
+            ADP = 0.
+            mAHP = 0.
+        else:
+            x_ADP = np.argmax(vm[x_fAHP + rising_x[0]:x_fAHP + rising_x[0] + falling_x[0]]) + x_fAHP + rising_x[0]
+            if x_ADP - th_x < ADP_min_start_len:
+                ADP = 0.
+                mAHP = 0.
+            else:
+                v_ADP = vm[x_ADP]
+                ADP = v_ADP - v_fAHP
+                mAHP = v_before - np.min(vm[x_ADP:window_end])
+
+    return {'v_peak': v_peak, 'th_v': th_v, 'fAHP': fAHP, 'ADP': ADP, 'mAHP': mAHP,
+            'spike_detector_delay': spike_detector_delay}
