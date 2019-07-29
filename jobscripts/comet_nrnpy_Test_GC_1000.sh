@@ -10,12 +10,12 @@
 #SBATCH --mail-type=END
 #
 
-#module load python
-#module unload intel
-#module load gnu
-#module load openmpi_ib
-#module load mkl
-#module load hdf5
+module load python
+module unload intel
+module load gnu
+module load openmpi_ib
+module load mkl
+module load hdf5
 
 set -x
 
@@ -30,8 +30,8 @@ export results_path
 
 mkdir -p $results_path
 
-#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
-#git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
+git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 
 ibrun -np 48 python3 ./scripts/main.py \
