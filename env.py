@@ -274,7 +274,7 @@ class Env(object):
 
         if 'Stimulus' in self.modelConfig:
             self.parse_stimulus_config()
-        self.init_stimulus_config(**kwargs)
+            self.init_stimulus_config(**kwargs)
             
         self.analysis_config = None
         if 'Analysis' in self.modelConfig:
@@ -343,7 +343,6 @@ class Env(object):
         return TrajectoryConfig(velocity, path)
 
     def init_stimulus_config(self, arena_id=None, trajectory_id=None, **kwargs):
-        stimulus_config = self.stimulus_config
         if arena_id is None:
             raise RuntimeError('init_stimulus_config: arena id parameter is not provided')
         if trajectory_id is None:
