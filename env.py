@@ -190,7 +190,10 @@ class Env(object):
         # Spike input path
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_namespace
-
+        self.spike_input_attribute_info = None
+        if self.spike_input_path is not None:
+            self.spike_input_attribute_info = \
+              read_cell_attribute_info(self.spike_input_path, list(self.Populations.keys()), comm=self.comm)
                 
         self.config_prefix = config_prefix
 
@@ -212,16 +215,15 @@ class Env(object):
         if 'Global Parameters' in self.modelConfig:
             self.parse_globals()
 
+        self.geometry = None
         if 'Geometry' in self.modelConfig:
             self.geometry = self.modelConfig['Geometry']
-        else:
-            self.geometry = None
 
         if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
 
         self.celltypes = self.modelConfig['Cell Types']
-        self.cellAttributeInfo = {}
+        self.cell_attribute_info = {}
 
         # The name of this model
         if 'Model Name' in self.modelConfig:
@@ -266,19 +268,17 @@ class Env(object):
         if node_rank_file:
             self.load_node_ranks(node_rank_file)
 
+        self.netclamp_config = None
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
-        else:
-            self.netclamp_config = None
 
         if 'Stimulus' in self.modelConfig:
             self.parse_stimulus_config()
             self.init_stimulus_config(**kwargs)
             
+        self.analysis_config = None
         if 'Analysis' in self.modelConfig:
             self.analysis_config = self.modelConfig['Analysis']
-        else:
-            self.analysis_config = None
 
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
@@ -688,10 +688,10 @@ class Env(object):
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
-        self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
+        self.cell_attribute_info = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
         if rank == 0:
-            self.logger.info('attribute info: %s' % str(self.cellAttributeInfo))
+            self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
 
     def load_cell_template(self, popName):
         """
