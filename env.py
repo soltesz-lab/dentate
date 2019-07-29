@@ -191,16 +191,7 @@ class Env(object):
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_namespace
 
-        self.node_ranks = None
-        if node_rank_file:
-            with open(node_rank_file) as fp:
-                dval = {}
-                lines = fp.readlines()
-                for l in lines:
-                    a = l.split(' ')
-                    dval[int(a[0])] = int(a[1])
-                self.node_ranks = dval
-
+                
         self.config_prefix = config_prefix
 
         if config_file is not None:
@@ -270,6 +261,10 @@ class Env(object):
             self.connectivity_file_path = None
             self.forest_file_path = None
             self.gapjunctions_file_path = None
+
+        self.node_ranks = None
+        if node_rank_file:
+            self.load_node_ranks(node_rank_file)
 
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
@@ -634,6 +629,31 @@ class Env(object):
         else:
             self.gapjunctions = None
 
+            
+    def load_node_ranks(self, node_rank_file):
+        with open(node_rank_file) as fp:
+            dval = {}
+            lines = fp.readlines()
+            for l in lines:
+                a = l.split(' ')
+                dval[int(a[0])] = int(a[1])
+            self.node_ranks = dval
+
+        typenames = sorted(self.celltypes.keys())
+
+        num_total = 0
+        for k in typenames:
+            num_total += num
+
+        for gid in range(num_total):
+            if gid not in self.node_ranks:
+                logger.warning('load_node_ranks: gid is not present in node ranks file %s; '
+                               'gid to rank assignment will not be used'  % node_rank_file)
+                self.node_ranks = None
+                break
+        
+
+            
     def load_celltypes(self):
         """
 
