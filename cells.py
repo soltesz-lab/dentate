@@ -582,7 +582,6 @@ class BiophysCell(object):
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
     """
-
     def __init__(self, gid, pop_name, hoc_cell=None, mech_file_path=None, env=None):
         """
 
@@ -1070,7 +1069,7 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
     dictionary of the cell, if one exists.
 
     :param cell: :class:'BiophysCell'
-    :param node [optional]:  :class:'SHocNode
+    :param node: :class:'SHocNode
     :param distance: float
     :param threshold: float
     :param delay: float
