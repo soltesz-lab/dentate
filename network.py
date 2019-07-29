@@ -553,7 +553,7 @@ def make_cells(env):
             mech_file_path = None
 
         num_cells = 0
-        if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
+        if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
@@ -603,7 +603,7 @@ def make_cells(env):
                 num_cells += 1
             del trees
 
-        elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
+        elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
@@ -675,7 +675,7 @@ def make_cell_selection(env):
             mech_file_path = None
 
         num_cells = 0
-        if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
+        if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
@@ -720,7 +720,7 @@ def make_cell_selection(env):
 
                 num_cells += 1
 
-        elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
+        elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
@@ -855,23 +855,30 @@ def init_input_cells(env, input_sources=None):
                 cell.play(h.Vector(spiketrain))
 
     if input_sources is not None:
-        if (env.spike_input_path is not None) and (env.spike_input_ns is not None):
-            for pop_name, gid_range in sorted(viewitems(input_sources)):
+        for pop_name, gid_range in sorted(viewitems(input_sources)):
+            if rank == 0:
+                logger.info("*** Initializing input source %s" % pop_name)
 
-                if rank == 0:
-                    logger.info("*** Initializing input source %s" % pop_name)
+            if (env.cell_selection is not None) and (pop_name in env.cell_selection):
+                local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
+            else:
+                local_gid_range = gid_range
+            gid_ranges = env.comm.allgather(local_gid_range)
+            this_gid_range = []
+            for gid_range in gid_ranges:
+                for gid in gid_range:
+                    if gid % nhosts == rank:
+                        this_gid_range.append(gid)
 
-                if (env.cell_selection is not None) and (pop_name in env.cell_selection):
-                    local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
-                else:
-                    local_gid_range = gid_range
-                gid_ranges = env.comm.allgather(local_gid_range)
-                this_gid_range = []
-                for gid_range in gid_ranges:
-                    for gid in gid_range:
-                        if gid % nhosts == rank:
-                            this_gid_range.append(gid)
-
+            has_spike_train = False
+            if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
+                if (pop_name in env.spike_input_attribute_info) and \
+                   (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
+                   has_spike_train = True
+                   
+                    
+            if has_spike_train:
+                
                 cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
                                                                  this_gid_range, \
                                                                  namespace=env.spike_input_ns, \
@@ -888,7 +895,8 @@ def init_input_cells(env, input_sources=None):
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
                     input_cell.play(h.Vector(cell_spikes_dict['t']))
-
+                
+                    
 
 def init(env):
     """
