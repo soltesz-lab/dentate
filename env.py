@@ -191,16 +191,7 @@ class Env(object):
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_namespace
 
-        self.node_ranks = None
-        if node_rank_file:
-            with open(node_rank_file) as fp:
-                dval = {}
-                lines = fp.readlines()
-                for l in lines:
-                    a = l.split(' ')
-                    dval[int(a[0])] = int(a[1])
-                self.node_ranks = dval
-
+                
         self.config_prefix = config_prefix
 
         if config_file is not None:
@@ -270,6 +261,10 @@ class Env(object):
             self.connectivity_file_path = None
             self.forest_file_path = None
             self.gapjunctions_file_path = None
+
+        self.node_ranks = None
+        if node_rank_file:
+            self.load_node_ranks(node_rank_file)
 
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
@@ -633,6 +628,40 @@ class Env(object):
         else:
             self.gapjunctions = None
 
+            
+    def load_node_ranks(self, node_rank_file):
+
+        rank = 0
+        if self.comm is not None:
+            rank = self.comm.Get_rank()
+
+        with open(node_rank_file) as fp:
+            dval = {}
+            lines = fp.readlines()
+            for l in lines:
+                a = l.split(' ')
+                dval[int(a[0])] = int(a[1])
+            self.node_ranks = dval
+
+        pop_names = sorted(self.celltypes.keys())
+
+        for pop_name in pop_names:
+            present = False
+            num = self.celltypes[pop_name]['num']
+            start = self.celltypes[pop_name]['start']
+            for gid in range(start, start+num):
+                if gid in self.node_ranks:
+                    present = True
+                    break
+            if not present:
+                if rank == 0:
+                    self.logger.warning('load_node_ranks: gids assigned to population %s are not present in node ranks file %s; '
+                                        'gid to rank assignment will not be used'  % (pop_name, node_rank_file))
+                self.node_ranks = None
+                break
+        
+
+            
     def load_celltypes(self):
         """
 
