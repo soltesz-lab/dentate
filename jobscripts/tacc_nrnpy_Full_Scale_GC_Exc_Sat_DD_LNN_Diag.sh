@@ -20,7 +20,7 @@ export NEURONROOT=$HOME/bin/nrnpython3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
-results_path=./results/Full_Scale_GC_Exc_Sat_DD_LNN_Diag_$SLURM_JOB_ID
+results_path=$WORK/dentate/results/Full_Scale_GC_Exc_Sat_DD_LNN_Diag_$SLURM_JOB_ID
 export results_path
 
 cd $SLURM_SUBMIT_DIR
@@ -40,7 +40,7 @@ ibrun python3.7 ./scripts/main.py  \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \
-    --max-walltime-hours=4.0 \
+    --max-walltime-hours=11.9 \
     --vrecord-fraction=0.001 \
     --node-rank-file=parts.6144 \
     --verbose

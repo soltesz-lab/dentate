@@ -582,7 +582,6 @@ class BiophysCell(object):
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
     """
-
     def __init__(self, gid, pop_name, hoc_cell=None, mech_file_path=None, env=None):
         """
 
@@ -611,7 +610,6 @@ class BiophysCell(object):
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
-            # self.spike_detector = connect2target(self, self.soma[0].sec, loc=0.5)
         if self.mech_file_path is not None:
             import_mech_dict_from_file(self, self.mech_file_path)
         init_spike_detector(self)
@@ -1071,7 +1069,7 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
     dictionary of the cell, if one exists.
 
     :param cell: :class:'BiophysCell'
-    :param node [optional]:  :class:'SHocNode
+    :param node: :class:'SHocNode
     :param distance: float
     :param threshold: float
     :param delay: float
@@ -2038,7 +2036,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
         hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
                                        dataset_path=dataset_path)
     else:
-        if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
+        if pop_name in env.cell_attribute_info and 'Trees' in env.cell_attribute_info[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             data_file_path, pop_name, gid)
         else:
@@ -2102,7 +2100,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if load_synapses:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, synapses_dict)
-        elif (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
+        elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
             synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
                                                           comm=env.comm)
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
@@ -2165,7 +2163,7 @@ def register_cell(env, pop_name, gid, cell):
         nc = cell.spike_detector
     else:
         nc = hoc_cell.connect2target(h.nil)
-    nc.delay += env.dt
+    nc.delay = max(env.dt, nc.delay)
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -2209,3 +2207,76 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
     thr = h.threshold(iclamp._ref_amp)
 
     return thr
+
+
+def get_spike_shape(vm, spike_times, equilibrate=0., dt=0.025, th_dvdt=10.):
+    """
+    Given a voltage recording from a cell section, and a list of spike times recorded from a spike detector NetCon,
+    report features of the spike shape, including the delay between the recorded section and the spike detector.
+    :param vm: array
+    :param spike_times: array
+    :param equilibrate: float
+    :param dt: float
+    :param th_dvdt: float; slope of voltage change at spike threshold
+    :return: dict
+    """
+    start = int((equilibrate + 1.) / dt)  # start time after equilibrate, expressed in time step
+    vm = vm[start:]
+    dvdt = np.gradient(vm, dt)  # slope of voltage change
+    th_x_indexes = np.where(dvdt >= th_dvdt)[0]
+    if th_x_indexes.any():
+        th_x = th_x_indexes[0] - int(1.6 / dt)  # the true spike onset is before the slope threshold is crossed
+    else:
+        th_x_indexes = np.where(vm > -30.)[0]
+        if th_x_indexes.any():
+            th_x = th_x_indexes[0] - int(2. / dt)
+        else:
+            return None
+    th_v = vm[th_x]
+    v_before = np.mean(vm[th_x - int(0.1 / dt):th_x])
+
+    spike_detector_delay = spike_times[0] - (equilibrate + 1. + th_x * dt)
+    window_dur = 100.  # ms
+    fAHP_window_dur = 20.  # ms
+    ADP_min_start = 5.  # ms
+    ADP_window_dur = 75. # ms
+    if len(spike_times) > 1:
+        window_dur = min(window_dur, spike_times[1] - spike_times[0])
+    window_end = min(len(vm), th_x + int(window_dur / dt))
+    fAHP_window_end = min(window_end, th_x + int(fAHP_window_dur / dt))
+    ADP_min_start_len = min(window_end - th_x, int(ADP_min_start / dt))
+    ADP_window_end = min(window_end, th_x + int(ADP_window_dur / dt))
+
+    x_peak = np.argmax(vm[th_x:window_end]) + th_x
+    v_peak = vm[x_peak]
+
+    # find fAHP trough
+    rising_x = np.where(dvdt[x_peak+1:fAHP_window_end] > 0.)[0]
+    if rising_x.any():
+        fAHP_window_end = x_peak + 1 + rising_x[0]
+    x_fAHP = np.argmin(vm[x_peak:fAHP_window_end]) + x_peak
+    v_fAHP = vm[x_fAHP]
+    fAHP = v_before - v_fAHP
+
+    # find ADP and mAHP
+    rising_x = np.where(dvdt[x_fAHP:ADP_window_end] > 0.)[0]
+    if not rising_x.any():
+        ADP = 0.
+        mAHP = 0.
+    else:
+        falling_x = np.where(dvdt[x_fAHP + rising_x[0]:ADP_window_end] < 0.)[0]
+        if not falling_x.any():
+            ADP = 0.
+            mAHP = 0.
+        else:
+            x_ADP = np.argmax(vm[x_fAHP + rising_x[0]:x_fAHP + rising_x[0] + falling_x[0]]) + x_fAHP + rising_x[0]
+            if x_ADP - th_x < ADP_min_start_len:
+                ADP = 0.
+                mAHP = 0.
+            else:
+                v_ADP = vm[x_ADP]
+                ADP = v_ADP - v_fAHP
+                mAHP = v_before - np.min(vm[x_ADP:window_end])
+
+    return {'v_peak': v_peak, 'th_v': th_v, 'fAHP': fAHP, 'ADP': ADP, 'mAHP': mAHP,
+            'spike_detector_delay': spike_detector_delay}

@@ -1,30 +1,22 @@
-import gc
-import logging
-import os
-import pprint
-import sys
-import time
+import sys, os, gc, pprint, time
 from collections import defaultdict
-
-import h5py
+from mpi4py import MPI
 import numpy as np
 import yaml
-
 import click
+import dentate
 import dentate.synapses as synapses
 import dentate.utils as utils
 from dentate.env import Env
-from mpi4py import MPI
-from neuroh5.io import read_cell_attributes
-from neuroh5.io import read_graph_selection
-from neuroh5.io import read_population_ranges
+from neuroh5.io import read_cell_attributes, read_graph_selection, read_population_ranges
+import h5py
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
 @click.command()

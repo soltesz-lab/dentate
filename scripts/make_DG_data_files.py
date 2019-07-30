@@ -29,10 +29,10 @@ DG_IN_connectivity_file = "DG_IN_connections_20190722_compressed.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20190717_compressed.h5"
 
 DG_vecstim_file_dict = { 
-    'A HDiag': "DG_input_spike_trains_20190724_compressed.h5",
+#    'A HDiag': "DG_input_spike_trains_20190724_compressed.h5",
     'A Diag': "DG_input_spike_trains_20190724_compressed.h5",
-    'A DiagU5': "DG_input_spike_trains_20190724_compressed.h5",
-    'A DiagL5': "DG_input_spike_trains_20190724_compressed.h5",
+#    'A DiagU5': "DG_input_spike_trains_20190724_compressed.h5",
+#    'A DiagL5': "DG_input_spike_trains_20190724_compressed.h5",
 }
 
 vecstim_dict = {'Input Spikes %s' % stim_id : stim_file for stim_id, stim_file in viewitems(DG_vecstim_file_dict)}

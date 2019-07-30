@@ -806,6 +806,35 @@ def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., s
 
 
 def generate_input_selectivity_features(env, population, arena, selectivity_config, selectivity_type_names, selectivity_type_namespaces, coords_path, output_path, distances_namespace='Arc Distances', comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+    """
+    Generates input selectivity features for the given population and
+    writes to the given output path, in the selectivity type-specific
+    namespace provided through argument selectivity_type_namespaces.
+    The set of selectivity attributes is determined by procedure
+    get_selectivity_attr_dict in the respective input cell
+    configuration class (e.g. PlaceInputCellConfig or GridInputCellConfig).
+
+    :param env
+    :param population: str
+    :param arena: str
+    :param selectivity_config: 
+    :param selectivity_type_names: 
+    :param selectivity_type_namespaces: 
+    :param coords_path: str
+    :param output_path: str
+    :param distances_namespace: str
+    :param comm: 
+    :param io_size: int
+    :param cache_size: int
+    :param chunk_size: int
+    :param write_every: int
+    :param cache_size: int
+    :param value_chunk_size: int
+    :param verbose: bool
+    :param debug: bool
+    :param dry_run: bool
+
+    """
     if comm is None:
         comm = MPI.COMM_WORLD
     if io_size <= 0:
@@ -916,6 +945,32 @@ def generate_input_selectivity_features(env, population, arena, selectivity_conf
     return pop_norm_distances, rate_map_sum
 
 def generate_input_spike_trains(env, population, trajectory, selectivity_path, selectivity_type_names, selectivity_type_namespaces, output_path, output_namespace='Input Spikes', spike_train_attr_name='Spike Train', spike_hist_resolution=1000, equilibrate=None, comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+    """
+    Generates spike trains for the given population according to the
+    input selectivity rate maps contained in the given selectivity
+    file, and writes the spike trains to the given output path and
+    namespace provided through argument output_namespace.
+
+    :param env:
+    :param population: str
+    :param trajectory: 
+    :param selectivity_path: str (path to file)
+    :param selectivity_type_names: 
+    :param selectivity_type_namespaces: 
+    :param output_path: str (path to file)
+    :param output_namespace: str
+    :param spike_train_attr_name: str
+    :param spike_hist_resolution: str
+    :param equilibrate: bool
+    :param comm: 
+    :param io_size: int
+    :param chunk_size: int
+    :param value_chunk_size: int
+    :param cache_size: int
+    :param write_every: int
+    :param debug: bool
+    :param dry_run: bool
+    """
 
     if comm is None:
         comm = MPI.COMM_WORLD
