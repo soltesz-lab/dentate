@@ -1,7 +1,9 @@
+from builtins import str
+
 import click
 from dentate.biophysics_utils import *
 from dentate.plot import *
-
+from dentate.synapses import modify_syn_param
 
 context = Context()
 
@@ -40,40 +42,40 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
                                              description='stage0', show=False, overwrite=True)
         modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
                          filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
-                         update_targets=True)
+                         update_targets=True, verbose=context.verbose)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_attrs.hdf5',
                                              description='stage1', show=False)
         modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name,
                          filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
                          origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
-                         append=True)
+                         append=True, verbose=context.verbose)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_attrs.hdf5',
                                              description='stage2', show=False)
         if context.verbose:
-            print 'standard_modify_syn_param tests with cache_queries: %s took %.2f s' % \
-                  (str(env.cache_queries), time.time() - start_time)
+            print('standard_modify_syn_param tests with cache_queries: %s took %.2f s' % \
+                  (str(env.cache_queries), time.time() - start_time))
         plot_syn_attr_from_file(syn_name, param_name, 'syn_attrs.hdf5', param_label=param_label)
     else:
         param_name = 'weight'
         param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
         modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name, value=0.0005,
                          filters={'syn_types': ['excitatory']}, origin='soma', slope=0.0001, tau=50., xhalf=200.,
-                         update_targets=True)
+                         update_targets=True, verbose=context.verbose)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_weights.hdf5',
                                              description='stage2', show=False)
         modify_syn_param(cell, env, sec_type, syn_name, param_name=param_name,
                          filters={'syn_types': ['excitatory'], 'layers': ['OML']}, origin='apical',
                          origin_filters={'syn_types': ['excitatory'], 'layers': ['MML']}, update_targets=True,
-                         append=True)
+                         append=True, verbose=context.verbose)
         plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                              from_target_attrs=True, param_label=param_label, export='syn_weights.hdf5',
                                              description='stage3', show=False)
         if context.verbose:
-            print 'standard_modify_syn_param tests with cache_queries: %s took %.2f s' % \
-                  (str(env.cache_queries), time.time() - start_time)
+            print('standard_modify_syn_param tests with cache_queries: %s took %.2f s' % \
+                  (str(env.cache_queries), time.time() - start_time))
     param_name = 'weight'
     param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
     plot_syn_attr_from_file(syn_name, param_name, 'syn_weights.hdf5', param_label=param_label)
@@ -119,14 +121,13 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose,
               cache_queries=cache_queries)
     configure_hoc_env(env)
-
+    mech_file_path = config_prefix + '/' + mech_file
     context.update(locals())
 
-    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights)
-    mech_file_path = config_prefix + '/' + mech_file
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
-                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=context.env,
-                    verbose=verbose)
+    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights,
+                            mech_file_path=mech_file_path)
+    init_biophysics(cell, reset_cable=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines,
+                    env=context.env, verbose=verbose)
     context.update(locals())
 
     standard_modify_syn_param_tests(cell, env)

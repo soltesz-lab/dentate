@@ -15,7 +15,7 @@ module load phdf5/1.8.16
 set -x
 
 export NEURONROOT=$HOME/bin/nrnpython2
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$NEURONROOT/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
 results_path=./results/Full_Scale_GC_Exc_Sat_LNN_$SLURM_JOB_ID
@@ -40,5 +40,6 @@ ibrun python2.7 ./scripts/main.py  \
     --stimulus-onset=50.0 \
     --max-walltime-hours=4.0 \
     --vrecord-fraction=0.001 \
+    --node-rank-file=parts.6144 \
     --verbose
 

@@ -1,5 +1,5 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=288:ppn=16:xe
+#PBS -l nodes=72:ppn=16:xe
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
@@ -23,7 +23,7 @@ set -x
 
 export SCRATCH=/projects/sciteam/bayj
 export NEURONROOT=$SCRATCH/nrnintel
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -37,11 +37,11 @@ mkdir -p $results_path
 
 cd tests
 
-aprun -n 4608 -b -- bwpy-environ -- \
+aprun -n 1152 -b -- bwpy-environ -- \
     python2.7 -m nested.optimize  \
      --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
      --output-dir=$results_path \
-     --pop-size=16 \
+     --pop-size=4 \
      --max-iter=4 \
      --path-length=1 \
      --disp \
@@ -55,5 +55,6 @@ aprun -n 4608 -b -- bwpy-environ -- \
      --cell_selection_path=$DG_HOME/datasets/DG_slice.yaml \
      --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LNN_9870802.bw/dentatenet_Full_Scale_GC_Exc_Sat_LNN_results.h5 \
      --spike_input_namespace='Spike Events' \
-     --max_walltime_hours 3.75 \
-     --io_size 64
+     --max-walltime-hours=3.75 \
+     --io-size=64 \
+     -v

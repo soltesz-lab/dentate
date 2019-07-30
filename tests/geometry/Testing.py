@@ -1,18 +1,20 @@
 
-import os, sys
+import os
+import sys
+
 import numpy as np
 import scipy.integrate as integrate
 from scipy import interpolate
 
+import Geometry_Suite as geom
 import rbf
-from rbf.interpolate import RBFInterpolant
 import rbf.basis
+from connection_generator import get_volume_distances
+from DG_volume import make_volume
+from rbf.interpolate import RBFInterpolant
 
 sys.path.insert(0, '/home/dhadjia1/soltesz-lab/dentate')
-from DG_volume import make_volume
-from connection_generator import get_volume_distances
 
-import Geometry_Suite as geom
 
 
 class Testing(object):
@@ -103,4 +105,3 @@ if __name__ == '__main__':
 
     y3, y3_end, traj2, elapsed_time = testing.euclidean_interpolate_test(int(nu/2), int(nl/2), 'v',res=20)
     print(y3_end, elapsed_time)
-

@@ -1,7 +1,7 @@
-import sys, os, gc
+import os,  sys
 import click
 import dentate
-from dentate import utils, plot
+from dentate import plot, utils
 from dentate.env import Env
 from neuroh5.io import read_cell_attributes
 
@@ -20,10 +20,10 @@ def main(config, config_prefix, coords_path, distances_namespace, population, gr
 
     utils.config_logging(verbose)
 
-    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
-    
     env = Env(config_file=config, config_prefix=config_prefix)
-    
+
+    soma_distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+
     plot.plot_positions (env, population, soma_distances, bin_size=bin_size, graph_type=graph_type, saveFig=True)
         
 

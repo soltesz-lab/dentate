@@ -1,6 +1,7 @@
+import h5py
 import numpy as np
 import pandas as pd
-import h5py
+
 
 def h5_get_group (h, groupname):
     if groupname in list(h.keys()):
@@ -51,5 +52,3 @@ def import_voxeldb (inputfile,outputfile,colsep=' ',bufsize=1000000):
 
 
 import_voxeldb("hippocampus-voxeldb.txt",'Hippocampus_voxeldb.h5')
-
-

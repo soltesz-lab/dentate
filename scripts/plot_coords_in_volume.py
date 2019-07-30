@@ -1,8 +1,11 @@
 import sys
-from mpi4py import MPI
+
 import numpy as np
-from dentate import plot
+
 import click
+from dentate import plot
+from mpi4py import MPI
+
 
 def list_find (f, lst):
     i=0

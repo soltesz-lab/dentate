@@ -1,9 +1,10 @@
 
-import sys, gc, os, math
-from mpi4py import MPI
+import os, sys, gc, math
 import click
 import dentate
-from dentate import utils, plot
+from dentate import plot
+from dentate import utils
+from mpi4py import MPI
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -28,13 +29,12 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
     utils.config_logging(verbose)
     comm = MPI.COMM_WORLD
 
-    plot.plot_vertex_dist (connectivity_path, coords_path, distances_namespace,
-                           destination, source, bin_size, fontSize=font_size,
-                           saveFig=True, comm=comm)
+    plot.plot_vertex_distribution (connectivity_path, coords_path, distances_namespace,
+                                   destination, source, bin_size, fontSize=font_size,
+                                   saveFig=True, comm=comm)
 
 
     
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
-

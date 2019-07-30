@@ -2,25 +2,25 @@
 ## Generates distance-weighted random connectivity between the specified populations.
 ##
 
-import sys, os, os.path, gc, click, logging
-from mpi4py import MPI
-from neuroh5.io import read_population_ranges, read_population_names, bcast_cell_attributes, read_cell_attributes
-from neuron import h
-import h5py
+import os, os.path, sys, gc, logging
 import numpy as np
+import click
+from mpi4py import MPI
+import h5py
 import rbf
 import dentate
-from dentate.gapjunctions import generate_gj_connections
-from dentate.env import Env
 import dentate.utils as utils
+from dentate.env import Env
+from dentate.gapjunctions import generate_gj_connections
 from dentate.neuron_utils import configure_hoc_env
+from neuroh5.io import bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -66,7 +66,7 @@ def main(config, template_path, types_path, forest_path, connectivity_path, conn
     comm.barrier()
     
     population_ranges = read_population_ranges(coords_path)[0]
-    populations = list(population_ranges.keys())
+    populations = sorted(population_ranges.keys())
     
     if rank == 0:
         logger.info('Reading population coordinates...')
