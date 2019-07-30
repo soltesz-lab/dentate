@@ -55,7 +55,7 @@ class Env(object):
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
                  dataset_prefix=None, config_prefix=None, results_path=None, results_id=None,
                  node_rank_file=None, io_size=0, vrecord_fraction=0, coredat=False, tstop=0,
-                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
+                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5, checkpoint_interval=500.0, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
                  cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
@@ -131,6 +131,9 @@ class Env(object):
 
         # The location of required hoc libraries
         self.hoc_lib_path = hoc_lib_path
+
+        # Checkpoint interval in ms of simulation time
+        self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
 
         # The location of all datasets
         self.dataset_prefix = dataset_prefix
@@ -310,6 +313,7 @@ class Env(object):
         self.connectcellstime = 0
         self.connectgjstime = 0
 
+        self.checkpoint = None
         self.simtime = None
         self.lfp = {}
 

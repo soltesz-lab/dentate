@@ -994,6 +994,7 @@ def init(env):
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
     env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
+    env.checkpoint = io_utils.CheckpointEvent(env, env.checkpoint_interval)
     h.v_init = env.v_init
     h.stdinit()
     if env.coredat:
@@ -1046,7 +1047,6 @@ def run(env, output=True, shutdown=True):
         if env.vrecord_fraction > 0.:
             if rank == 0:
                 logger.info("*** Writing intracellular trace data")
-            t_vec = np.arange(0, h.tstop + h.dt, h.dt, dtype=np.float32)
             io_utils.recsout(env, env.results_file_path)
         env.pc.barrier()
         if rank == 0:
