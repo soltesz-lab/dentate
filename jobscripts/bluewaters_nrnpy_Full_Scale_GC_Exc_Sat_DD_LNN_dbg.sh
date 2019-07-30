@@ -53,6 +53,6 @@ aprun -n 32768 -b -- bwpy-environ -- \
     --stimulus-onset=50.0 \
     --max-walltime-hours=0.475 \
     --vrecord-fraction=0.001 \
-    --node-rank-file=parts_GC_Exc.32768 \
+    --ldbal --lptbal \
     --verbose
 
