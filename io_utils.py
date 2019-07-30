@@ -2,8 +2,9 @@ import os
 import h5py
 import numpy as np
 import dentate
-from dentate.utils import Struct, range, str, viewitems, basestring, Iterable
+from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, get_module_logger
 from neuroh5.io import write_cell_attributes, append_cell_attributes
+from neuron import h
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -38,7 +39,7 @@ class CheckpointEvent(object):
 
     def checkpoint(self):
         if (h.t > 0):
-            rank = int(env.pc.id())
+            rank = int(self.env.pc.id())
             if rank == 0:
                 logger.info("*** Writing spike data up to %.2f ms" % h.t)
             spikeout(self.env, self.env.results_file_path, clear_data=True)
