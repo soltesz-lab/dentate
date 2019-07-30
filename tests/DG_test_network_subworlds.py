@@ -3,20 +3,13 @@
 Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
-import logging
-import os
-import sys
-
-import numpy as np
-
+import os, sys, logging
 import click
-import dentate
-from dentate import network
-from dentate import spikedata
-from dentate import utils
-from dentate.biophysics_utils import *
-from dentate.utils import *
+import numpy as np
 from mpi4py import MPI
+import dentate
+from dentate import network, spikedata, utils
+from dentate.env import Env
 from nested.optimize_utils import *
 
 
@@ -34,7 +27,7 @@ def mpi_excepthook(type, value, traceback):
 
 
 sys_excepthook = sys.excepthook
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
 context = Context()
@@ -83,7 +76,10 @@ def init_network():
 
     """
     np.seterr(all='raise')
+    print('init_network: context.kwargs = ', context.kwargs)
+    print('init_network: context.comm = ', context.comm)
     context.env = Env(comm=context.comm, results_id=context.results_id, **context.kwargs)
+    print('init_network: context.env = ', context.env)
     network.init(context.env)
 
 

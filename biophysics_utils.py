@@ -111,6 +111,8 @@ class QuickSim(object):
         :param units: str
         :param description: str
         """
+        if cell.tree.root.sec.cell() != node.sec.cell():
+            raise RuntimeError('QuickSim: append_rec: target cell does not match target node')
         if name is None:
             name = 'rec%i' % len(self.recs)
         elif name in self.recs:
@@ -157,7 +159,7 @@ class QuickSim(object):
             raise KeyError('QuickSim: get_rec: cannot find recording with name: %s' % name)
 
     def modify_rec(self, name, node=None, loc=None, object=None, param='_ref_v', ylabel=None, units=None,
-                   description=None):
+                   description=None, cell=None):
         """
 
         :param name: str
@@ -168,6 +170,7 @@ class QuickSim(object):
         :param ylabel: str
         :param units: str
         :param description: str
+        :param cell: class'BiophysCell'
         """
         if not self.has_rec(name):
             raise KeyError('QuickSim: modify_rec: cannot find recording with name: %s' % name)
@@ -175,10 +178,20 @@ class QuickSim(object):
             self.recs[name]['ylabel'] = ylabel
         if units is not None:
             self.recs[name]['units'] = units
+
+        if cell is not None:
+            if node is None:
+                raise RuntimeError('QuickSim: modify_rec: cannot change target cell without specifying new target '
+                                   'node')
+            elif cell.tree.root.sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_rec: target cell does not match target node')
+            self.recs[name]['cell'] = cell
+
         if node is not None:
+            if self.recs[name]['cell'].tree.root.sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_rec: target cell does not match target node')
             self.recs[name]['node'] = node
-            if node.sec.cell() is not self.recs[name]['cell']:
-                self.recs[name]['cell'] = node.sec.cell()
+
         if loc is not None:
             self.recs[name]['loc'] = loc
         if object is None:
@@ -202,6 +215,8 @@ class QuickSim(object):
         :param dur: float
         :param description: str
         """
+        if cell.tree.root.sec.cell() != node.sec.cell():
+            raise RuntimeError('QuickSim: append_stim: target cell does not match target node')
         if name is None:
             name = 'stim%i' % len(self.stims)
         elif name in self.stims:
@@ -248,19 +263,21 @@ class QuickSim(object):
         :param cell: :class:'BiophysCell'
         """
         if cell is not None:
-            if node is None or self.stims[name]['node'].sec.cell() != node.sec.cell():
+            if node is None:
                 raise RuntimeError('QuickSim: modify_stim: cannot change target cell without specifying new target '
                                    'node')
+            elif cell.tree.root.sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_stim: target cell does not match target node')
             self.stims[name]['cell'] = cell
         if not (node is None and loc is None):
             if node is not None:
-                if cell is None and self.stims[name]['node'].sec.cell() != node.sec.cell():
-                    raise RuntimeError('QuickSim: modify_stim: cannot change target node to new cell without '
-                                       'specifying new target cell')
+                if self.stims[name]['cell'].tree.root.sec.cell() != node.sec.cell():
+                    raise RuntimeError('QuickSim: modify_stim: target cell does not match target node')
                 self.stims[name]['node'] = node
             if loc is None:
                 loc = self.stims[name]['stim'].get_segment().x
             self.stims[name]['stim'].loc(self.stims[name]['node'].sec(loc))
+
         if amp is not None:
             self.stims[name]['stim'].amp = amp
         if delay is not None:
@@ -395,7 +412,6 @@ class QuickSim(object):
         self._cvode = state
 
     cvode = property(get_cvode, set_cvode)
-
 
 
 @click.command()

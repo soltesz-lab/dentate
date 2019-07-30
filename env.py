@@ -55,7 +55,7 @@ class Env(object):
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
                  dataset_prefix=None, config_prefix=None, results_path=None, results_id=None,
                  node_rank_file=None, io_size=0, vrecord_fraction=0, coredat=False, tstop=0,
-                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
+                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5, checkpoint_interval=500.0, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
                  cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
@@ -132,6 +132,9 @@ class Env(object):
         # The location of required hoc libraries
         self.hoc_lib_path = hoc_lib_path
 
+        # Checkpoint interval in ms of simulation time
+        self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
+
         # The location of all datasets
         self.dataset_prefix = dataset_prefix
 
@@ -190,17 +193,11 @@ class Env(object):
         # Spike input path
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_namespace
-
-        self.node_ranks = None
-        if node_rank_file:
-            with open(node_rank_file) as fp:
-                dval = {}
-                lines = fp.readlines()
-                for l in lines:
-                    a = l.split(' ')
-                    dval[int(a[0])] = int(a[1])
-                self.node_ranks = dval
-
+        self.spike_input_attribute_info = None
+        if self.spike_input_path is not None:
+            self.spike_input_attribute_info = \
+              read_cell_attribute_info(self.spike_input_path, list(self.Populations.keys()), comm=self.comm)
+                
         self.config_prefix = config_prefix
 
         if config_file is not None:
@@ -221,16 +218,15 @@ class Env(object):
         if 'Global Parameters' in self.modelConfig:
             self.parse_globals()
 
+        self.geometry = None
         if 'Geometry' in self.modelConfig:
             self.geometry = self.modelConfig['Geometry']
-        else:
-            self.geometry = None
 
         if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
 
         self.celltypes = self.modelConfig['Cell Types']
-        self.cellAttributeInfo = {}
+        self.cell_attribute_info = {}
 
         # The name of this model
         if 'Model Name' in self.modelConfig:
@@ -271,19 +267,21 @@ class Env(object):
             self.forest_file_path = None
             self.gapjunctions_file_path = None
 
+        self.node_ranks = None
+        if node_rank_file:
+            self.load_node_ranks(node_rank_file)
+
+        self.netclamp_config = None
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
-        else:
-            self.netclamp_config = None
 
         if 'Stimulus' in self.modelConfig:
             self.parse_stimulus_config()
-        self.init_stimulus_config(**kwargs)
+            self.init_stimulus_config(**kwargs)
             
+        self.analysis_config = None
         if 'Analysis' in self.modelConfig:
             self.analysis_config = self.modelConfig['Analysis']
-        else:
-            self.analysis_config = None
 
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
@@ -315,6 +313,7 @@ class Env(object):
         self.connectcellstime = 0
         self.connectgjstime = 0
 
+        self.checkpoint = None
         self.simtime = None
         self.lfp = {}
 
@@ -348,19 +347,17 @@ class Env(object):
         return TrajectoryConfig(velocity, path)
 
     def init_stimulus_config(self, arena_id=None, trajectory_id=None, **kwargs):
-        stimulus_config = self.stimulus_config
-        if arena_id is None:
-            raise RuntimeError('init_stimulus_config: arena id parameter is not provided')
-        if trajectory_id is None:
-            raise RuntimeError('init_stimulus_config: trajectory id parameter is not provided')
-        if arena_id in self.stimulus_config['Arena']:
-            self.arena_id = arena_id
-        else:
-            raise RuntimeError('init_stimulus_config: arena id parameter not found in stimulus configuration')
-        if trajectory_id in self.stimulus_config['Arena'][arena_id].trajectories:
-            self.trajectory_id = trajectory_id
-        else:
-            raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
+        if arena_id is not None:
+            if trajectory_id is None:
+                raise RuntimeError('init_stimulus_config: trajectory id parameter is not provided')
+            if arena_id in self.stimulus_config['Arena']:
+                self.arena_id = arena_id
+            else:
+                raise RuntimeError('init_stimulus_config: arena id parameter not found in stimulus configuration')
+            if trajectory_id in self.stimulus_config['Arena'][arena_id].trajectories:
+                self.trajectory_id = trajectory_id
+            else:
+                raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
 
     def parse_stimulus_config(self):
         stimulus_dict = self.modelConfig['Stimulus']
@@ -634,6 +631,40 @@ class Env(object):
         else:
             self.gapjunctions = None
 
+            
+    def load_node_ranks(self, node_rank_file):
+
+        rank = 0
+        if self.comm is not None:
+            rank = self.comm.Get_rank()
+
+        with open(node_rank_file) as fp:
+            dval = {}
+            lines = fp.readlines()
+            for l in lines:
+                a = l.split(' ')
+                dval[int(a[0])] = int(a[1])
+            self.node_ranks = dval
+
+        pop_names = sorted(self.celltypes.keys())
+
+        for pop_name in pop_names:
+            present = False
+            num = self.celltypes[pop_name]['num']
+            start = self.celltypes[pop_name]['start']
+            for gid in range(start, start+num):
+                if gid in self.node_ranks:
+                    present = True
+                    break
+            if not present:
+                if rank == 0:
+                    self.logger.warning('load_node_ranks: gids assigned to population %s are not present in node ranks file %s; '
+                                        'gid to rank assignment will not be used'  % (pop_name, node_rank_file))
+                self.node_ranks = None
+                break
+        
+
+            
     def load_celltypes(self):
         """
 
@@ -661,10 +692,10 @@ class Env(object):
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
-        self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
+        self.cell_attribute_info = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
         if rank == 0:
-            self.logger.info('attribute info: %s' % str(self.cellAttributeInfo))
+            self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
 
     def load_cell_template(self, popName):
         """

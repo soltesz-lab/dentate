@@ -553,7 +553,7 @@ def make_cells(env):
             mech_file_path = None
 
         num_cells = 0
-        if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
+        if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
@@ -603,7 +603,7 @@ def make_cells(env):
                 num_cells += 1
             del trees
 
-        elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
+        elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
@@ -675,7 +675,7 @@ def make_cell_selection(env):
             mech_file_path = None
 
         num_cells = 0
-        if (pop_name in env.cellAttributeInfo) and ('Trees' in env.cellAttributeInfo[pop_name]):
+        if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
@@ -720,7 +720,7 @@ def make_cell_selection(env):
 
                 num_cells += 1
 
-        elif (pop_name in env.cellAttributeInfo) and ('Coordinates' in env.cellAttributeInfo[pop_name]):
+        elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
@@ -768,12 +768,25 @@ def make_input_cells(env, input_sources):
     nhosts = int(env.pc.nhost())
 
     for pop_name, input_gid_range in sorted(viewitems(input_sources)):
+
         pop_index = int(env.Populations[pop_name])
-        if env.netclamp_config is None:
+
+        has_spike_train = False
+        if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
+            if (pop_name in env.spike_input_attribute_info) and \
+              (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
+                has_spike_train = True
+
+        if has_spike_train:
             spike_generator = None
         else:
-            spike_generator = env.netclamp_config.input_generators[pop_name]
+            if env.netclamp_config is None:
+                spike_generator = None
+            else:
+                spike_generator = env.netclamp_config.input_generators[pop_name]
+
         input_source_dict = {pop_index: {'gen': spike_generator}}
+
         if (env.cell_selection is not None) and (pop_name in env.cell_selection):
             local_input_gid_range = input_gid_range.difference(set(env.cell_selection[pop_name]))
         else:
@@ -855,23 +868,30 @@ def init_input_cells(env, input_sources=None):
                 cell.play(h.Vector(spiketrain))
 
     if input_sources is not None:
-        if (env.spike_input_path is not None) and (env.spike_input_ns is not None):
-            for pop_name, gid_range in sorted(viewitems(input_sources)):
+        for pop_name, gid_range in sorted(viewitems(input_sources)):
+            if rank == 0:
+                logger.info("*** Initializing input source %s" % pop_name)
 
-                if rank == 0:
-                    logger.info("*** Initializing input source %s" % pop_name)
+            if (env.cell_selection is not None) and (pop_name in env.cell_selection):
+                local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
+            else:
+                local_gid_range = gid_range
+            gid_ranges = env.comm.allgather(local_gid_range)
+            this_gid_range = []
+            for gid_range in gid_ranges:
+                for gid in gid_range:
+                    if gid % nhosts == rank:
+                        this_gid_range.append(gid)
 
-                if (env.cell_selection is not None) and (pop_name in env.cell_selection):
-                    local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
-                else:
-                    local_gid_range = gid_range
-                gid_ranges = env.comm.allgather(local_gid_range)
-                this_gid_range = []
-                for gid_range in gid_ranges:
-                    for gid in gid_range:
-                        if gid % nhosts == rank:
-                            this_gid_range.append(gid)
-
+            has_spike_train = False
+            if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
+                if (pop_name in env.spike_input_attribute_info) and \
+                   (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
+                   has_spike_train = True
+                   
+                    
+            if has_spike_train:
+                
                 cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
                                                                  this_gid_range, \
                                                                  namespace=env.spike_input_ns, \
@@ -888,7 +908,8 @@ def init_input_cells(env, input_sources=None):
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
                     input_cell.play(h.Vector(cell_spikes_dict['t']))
-
+                
+                    
 
 def init(env):
     """
@@ -973,6 +994,7 @@ def init(env):
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
     env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
+    env.checkpoint = io_utils.CheckpointEvent(env, env.checkpoint_interval)
     h.v_init = env.v_init
     h.stdinit()
     if env.coredat:
@@ -1025,7 +1047,6 @@ def run(env, output=True, shutdown=True):
         if env.vrecord_fraction > 0.:
             if rank == 0:
                 logger.info("*** Writing intracellular trace data")
-            t_vec = np.arange(0, h.tstop + h.dt, h.dt, dtype=np.float32)
             io_utils.recsout(env, env.results_file_path)
         env.pc.barrier()
         if rank == 0:

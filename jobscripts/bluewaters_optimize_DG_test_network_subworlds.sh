@@ -41,9 +41,10 @@ aprun -n 1152 -b -- bwpy-environ -- \
     python2.7 -m nested.optimize  \
      --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
      --output-dir=$results_path \
-     --pop-size=4 \
-     --max-iter=4 \
-     --path-length=1 \
+     --pop_size=4 \
+     --max_iter=4 \
+     --path_length=1 \
+     --framework=pc \
      --disp \
      --procs-per-worker=288 \
      --no-cleanup \
