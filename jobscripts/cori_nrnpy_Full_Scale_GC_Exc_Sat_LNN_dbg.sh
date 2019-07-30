@@ -2,9 +2,9 @@
 #
 #SBATCH -J dentate_Full_Scale_GC_Exc_Sat_LNN
 #SBATCH -o ./results/dentate_Full_Scale_GC_Exc_Sat_LNN.%j.o
-#SBATCH -N 320
+#SBATCH -N 64
 #SBATCH --ntasks-per-node=32
-#SBATCH -p debug
+#SBATCH -q debug
 #SBATCH -t 0:30:00
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
 #SBATCH -C haswell   # Use Haswell nodes
@@ -29,12 +29,13 @@ export PYTHONPATH=$HOME/model:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnintel/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/.local/cori/2.7-anaconda-5.2/lib/python2.7/site-packages:$PYTHONPATH
 export LD_PRELOAD=/lib64/libreadline.so.6
+export HDF5_USE_FILE_LOCKING=FALSE
 
 echo python is `which python`
 
 set -x
 
-srun -n 10240 -c 2 python ./scripts/main.py \
+srun -n 2048 -c 2 python ./scripts/main.py \
  --config-file=Full_Scale_GC_Exc_Sat_LNN.yaml \
  --template-paths=../dgc/Mateos-Aparicio2014:templates \
  --dataset-prefix="$SCRATCH/dentate" \
@@ -45,6 +46,4 @@ srun -n 10240 -c 2 python ./scripts/main.py \
  --vrecord-fraction=0.001 \
  --max-walltime-hours=0.48 \
  --results-write-time=600 \
- --ldbal \
- --lptbal \
  --verbose
