@@ -61,6 +61,8 @@ sys.excepthook = mpi_excepthook
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
 @click.option("--stimulus-onset", type=float, default=1.0, help='starting time of stimulus (ms)')
 @click.option("--max-walltime-hours", type=float, default=1.0, help='maximum wall time (hours)')
+@click.option("--checkpoint-interval", type=float, default=500.0,
+              help='checkpoint interval in ms of simulation time')
 @click.option("--results-write-time", type=float, default=360.0, help='time to write out results at end of simulation')
 @click.option("--spike-input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='path to file for input spikes when cell selection is specified')
@@ -76,7 +78,7 @@ sys.excepthook = mpi_excepthook
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
          results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, trajectory_id, tstop, v_init,
-         stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
+         stimulus_onset, max_walltime_hours, checkpoint_interval, results_write_time, spike_input_path, spike_input_namespace,
          dt, ldbal, lptbal, cleanup, profile_memory, verbose, dry_run):
 
     profile_time = False
