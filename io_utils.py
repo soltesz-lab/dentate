@@ -30,12 +30,17 @@ class CheckpointEvent(object):
 
     def __init__(self, env, dt_checkpoint=500.0):
         if (int(env.pc.id()) == 0):
-            logger.info("*** checkpoint interval is %.2f ms of simulation time" % dt_checkpoint)
+            if dt_checkpoint > 0.:
+                logger.info("*** checkpoint interval is %.2f ms of simulation time" % dt_checkpoint)
+            else:
+                logger.info("*** checkpoint interval is disabled")
         self.env = env
         self.last_checkpoint = 0.
         self.dt_checkpoint = dt_checkpoint
-        self.fih_checkpoint = h.FInitializeHandler(1, self.checkpoint)
-
+        self.fih_checkpoint = None
+        if dt_checkpoint > 0.:
+            env.pc.timeout(env.results_write_time)
+            self.fih_checkpoint = h.FInitializeHandler(1, self.checkpoint)
 
     def checkpoint(self):
         if (h.t > 0):
