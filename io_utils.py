@@ -183,12 +183,9 @@ def spikeout(env, output_path, clear_data=False):
 
     binlst = []
     typelst = sorted(env.celltypes.keys())
-    for k in typelst:
-        binlst.append(env.celltypes[k]['start'])
-
-    binvect = np.array(binlst)
+    binvect = np.asarray([env.celltypes[k]['start'] for k in typelst ])
     sort_idx = np.argsort(binvect, axis=0)
-    pop_names = sorted([typelst[i] for i in sort_idx])
+    pop_names = [typelst[i] for i in sort_idx]
     bins = binvect[sort_idx][1:]
     inds = np.digitize(id_vec, bins)
 
@@ -214,7 +211,6 @@ def spikeout(env, output_path, clear_data=False):
                 spkdict[gid]['t'] = np.array(spkdict[gid]['t'], dtype=np.float32)
                 if gid in env.spike_onset_delay:
                     spkdict[gid]['t'] -= env.spike_onset_delay[gid]
-                
         append_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
         del (spkdict)
 

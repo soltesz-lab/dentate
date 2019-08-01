@@ -27,7 +27,7 @@ def mpi_excepthook(type, value, traceback):
 
 
 sys_excepthook = sys.excepthook
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 
 context = Context()
@@ -62,13 +62,17 @@ def config_worker():
     """
 
     """
+    utils.config_logging(context.verbose)
+    context.logger = utils.get_script_logger(os.path.basename(__file__))
     if 'results_id' not in context():
         context.results_id = 'DG_test_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
-        init_network()
-        utils.config_logging(context.verbose)
-        context.logger = utils.get_script_logger(os.path.basename(__file__))
+        try:
+            init_network()
+        except Exception as err:
+            context.logger.exception(err)
+            raise err
         context.bin_size = 5.0
 
 def init_network():
@@ -76,10 +80,7 @@ def init_network():
 
     """
     np.seterr(all='raise')
-    print('init_network: context.kwargs = ', context.kwargs)
-    print('init_network: context.comm = ', context.comm)
     context.env = Env(comm=context.comm, results_id=context.results_id, **context.kwargs)
-    print('init_network: context.env = ', context.env)
     network.init(context.env)
 
 
