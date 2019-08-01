@@ -34,15 +34,16 @@ git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
 
-ibrun -np 48 python3 ./scripts/main.py \
+ibrun -np 144 python3 ./scripts/main.py \
  --config-file=Test_GC_1000.yaml  \
  --arena-id=A --trajectory-id=Diag \
  --template-paths=../dgc/Mateos-Aparicio2014:templates \
  --dataset-prefix="/oasis/scratch/comet/iraikov/temp_project/dentate" \
  --results-path=$results_path \
  --io-size=24 \
- --tstop=6 \
+ --tstop=50 \
  --v-init=-75 \
+ --checkpoint-interval=10 \
  --max-walltime-hours=1 \
  --node-rank-file=parts.12 \
  --verbose

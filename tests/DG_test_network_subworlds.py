@@ -3,20 +3,13 @@
 Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
-import logging
-import os
-import sys
-
-import numpy as np
-
+import os, sys, logging
 import click
-import dentate
-from dentate import network
-from dentate import spikedata
-from dentate import utils
-from dentate.biophysics_utils import *
-from dentate.utils import *
+import numpy as np
 from mpi4py import MPI
+import dentate
+from dentate import network, spikedata, utils
+from dentate.env import Env
 from nested.optimize_utils import *
 
 
@@ -69,13 +62,17 @@ def config_worker():
     """
 
     """
+    utils.config_logging(context.verbose)
+    context.logger = utils.get_script_logger(os.path.basename(__file__))
     if 'results_id' not in context():
         context.results_id = 'DG_test_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
-        init_network()
-        utils.config_logging(context.verbose)
-        context.logger = utils.get_script_logger(os.path.basename(__file__))
+        try:
+            init_network()
+        except Exception as err:
+            context.logger.exception(err)
+            raise err
         context.bin_size = 5.0
 
 def init_network():

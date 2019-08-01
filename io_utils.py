@@ -1,8 +1,15 @@
 import os
 import h5py
 import numpy as np
-from dentate.utils import Struct, range, str, viewitems, basestring, Iterable
-from neuroh5.io import write_cell_attributes
+import dentate
+from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, get_module_logger
+from neuroh5.io import write_cell_attributes, append_cell_attributes
+from neuron import h
+
+
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = get_module_logger(__name__)
+
 
 grp_h5types = 'H5Types'
 grp_projections = 'Projections'
@@ -17,6 +24,39 @@ path_population_projections = '/%s/Population projections' % grp_h5types
 
 # Default I/O configuration
 default_io_options = Struct(io_size=-1, chunk_size=1000, value_chunk_size=1000, cache_size=50, write_size=10000)
+
+
+class CheckpointEvent(object):
+
+    def __init__(self, env, dt_checkpoint=500.0):
+        if (int(env.pc.id()) == 0):
+            if dt_checkpoint > 0.:
+                logger.info("*** checkpoint interval is %.2f ms of simulation time" % dt_checkpoint)
+            else:
+                logger.info("*** checkpoint interval is disabled")
+        self.env = env
+        self.last_checkpoint = 0.
+        self.dt_checkpoint = dt_checkpoint
+        self.fih_checkpoint = None
+        if dt_checkpoint > 0.:
+            env.pc.timeout(env.results_write_time)
+            self.fih_checkpoint = h.FInitializeHandler(1, self.checkpoint)
+
+    def checkpoint(self):
+        if (h.t > 0):
+            rank = int(self.env.pc.id())
+            if rank == 0:
+                logger.info("*** Writing spike data up to %.2f ms" % h.t)
+            spikeout(self.env, self.env.results_file_path, clear_data=True)
+            if self.env.vrecord_fraction > 0.:
+                if rank == 0:
+                    logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
+                recsout(self.env, self.env.results_file_path, t_start=self.last_checkpoint, clear_data=True)
+            
+        self.last_checkpoint = h.t
+        if (h.t + self.dt_checkpoint) < h.tstop:
+            h.cvode.event(h.t + self.dt_checkpoint, self.checkpoint)
+
 
 def h5_get_group(h, groupname):
     if groupname in h:
@@ -128,12 +168,13 @@ def mkout(env, results_filename):
     results_file.close()
 
 
-def spikeout(env, output_path):
+def spikeout(env, output_path, clear_data=False):
     """
     Writes spike time to specified NeuroH5 output file.
 
     :param env:
     :param output_path:
+    :param clear_data: 
     :return:
     """
 
@@ -142,12 +183,9 @@ def spikeout(env, output_path):
 
     binlst = []
     typelst = sorted(env.celltypes.keys())
-    for k in typelst:
-        binlst.append(env.celltypes[k]['start'])
-
-    binvect = np.array(binlst)
+    binvect = np.asarray([env.celltypes[k]['start'] for k in typelst ])
     sort_idx = np.argsort(binvect, axis=0)
-    pop_names = sorted([typelst[i] for i in sort_idx])
+    pop_names = [typelst[i] for i in sort_idx]
     bins = binvect[sort_idx][1:]
     inds = np.digitize(id_vec, bins)
 
@@ -173,34 +211,39 @@ def spikeout(env, output_path):
                 spkdict[gid]['t'] = np.array(spkdict[gid]['t'], dtype=np.float32)
                 if gid in env.spike_onset_delay:
                     spkdict[gid]['t'] -= env.spike_onset_delay[gid]
-                
-        write_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
+        append_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
         del (spkdict)
 
+    if clear_data:
+        env.t_vec.resize(0)
+        env.id_vec.resize(0)
 
-def recsout(env, output_path):
+
+def recsout(env, output_path, t_start=0., clear_data=False):
     """
     Writes intracellular voltage traces to specified NeuroH5 output file.
 
     :param env:
     :param output_path:
-    :param recs:
+    :param clear_data:
     :return:
     """
-    t_vec = np.arange(0, env.tstop + env.dt, env.dt, dtype=np.float32)
+    t_vec = np.arange(t_start, env.tstop + env.dt, env.dt, dtype=np.float32)
 
     for pop_name in sorted(env.celltypes.keys()):
         for rec_type, recs in sorted(viewitems(env.recs_dict[pop_name])):
             attr_dict = {}
             for rec in recs:
                 gid = rec['gid']
-                attr_dict[gid] = {'v': np.array(rec['vec'], dtype=np.float32), 't': t_vec}
+                attr_dict[gid] = {'v': np.array(rec['vec'], copy=clear_data, dtype=np.float32), 't': t_vec}
+                if clear_data:
+                    rec['vec'].resize(0)
             if env.results_id is None:
                 namespace_id = "Intracellular Voltage %s" % rec_type
             else:
                 namespace_id = "Intracellular Voltage %s %s" % (rec_type, str(env.results_id))
-            write_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
-
+            append_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
+            
 
 def lfpout(env, output_path):
     """
@@ -208,7 +251,7 @@ def lfpout(env, output_path):
 
     :param env:
     :param output_path:
-    :param lfp:
+    :param clear_data:
     :return:
     """
 

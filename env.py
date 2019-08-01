@@ -55,7 +55,7 @@ class Env(object):
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
                  dataset_prefix=None, config_prefix=None, results_path=None, results_id=None,
                  node_rank_file=None, io_size=0, vrecord_fraction=0, coredat=False, tstop=0,
-                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
+                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5, checkpoint_interval=500.0, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
                  cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
@@ -132,6 +132,9 @@ class Env(object):
         # The location of required hoc libraries
         self.hoc_lib_path = hoc_lib_path
 
+        # Checkpoint interval in ms of simulation time
+        self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
+
         # The location of all datasets
         self.dataset_prefix = dataset_prefix
 
@@ -186,14 +189,6 @@ class Env(object):
         if cell_selection_path is not None:
             with open(cell_selection_path) as fp:
                 self.cell_selection = yaml.load(fp, IncludeLoader)
-
-        # Spike input path
-        self.spike_input_path = spike_input_path
-        self.spike_input_ns = spike_input_namespace
-        self.spike_input_attribute_info = None
-        if self.spike_input_path is not None:
-            self.spike_input_attribute_info = \
-              read_cell_attribute_info(self.spike_input_path, list(self.Populations.keys()), comm=self.comm)
                 
         self.config_prefix = config_prefix
 
@@ -232,6 +227,14 @@ class Env(object):
         if 'Dataset Name' in self.modelConfig:
             self.datasetName = self.modelConfig['Dataset Name']
 
+        # Spike input path
+        self.spike_input_path = spike_input_path
+        self.spike_input_ns = spike_input_namespace
+        self.spike_input_attribute_info = None
+        if self.spike_input_path is not None:
+            self.spike_input_attribute_info = \
+              read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=self.comm)
+        print('spike input attributes: ', self.spike_input_attribute_info)
         if results_path:
             if self.results_id is None:
                 self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
@@ -310,6 +313,7 @@ class Env(object):
         self.connectcellstime = 0
         self.connectgjstime = 0
 
+        self.checkpoint = None
         self.simtime = None
         self.lfp = {}
 
