@@ -741,7 +741,7 @@ def make_cell_selection(env):
                 cell_y = cell_coords_dict['Y Coordinate'][0]
                 cell_z = cell_coords_dict['Z Coordinate'][0]
                 hoc_cell.position(cell_x, cell_y, cell_z)
-                cell.register_cell(env, pop_name, gid, hoc_cell)
+                cells.register_cell(env, pop_name, gid, hoc_cell)
                 if hoc_cell.is_art() == 0:
                     if gid in env.v_sample_dict[pop_name]:
                         rec = make_rec(gid, pop_name, gid, hoc_cell, \

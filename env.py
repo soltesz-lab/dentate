@@ -189,14 +189,6 @@ class Env(object):
         if cell_selection_path is not None:
             with open(cell_selection_path) as fp:
                 self.cell_selection = yaml.load(fp, IncludeLoader)
-
-        # Spike input path
-        self.spike_input_path = spike_input_path
-        self.spike_input_ns = spike_input_namespace
-        self.spike_input_attribute_info = None
-        if self.spike_input_path is not None:
-            self.spike_input_attribute_info = \
-              read_cell_attribute_info(self.spike_input_path, list(self.Populations.keys()), comm=self.comm)
                 
         self.config_prefix = config_prefix
 
@@ -235,6 +227,14 @@ class Env(object):
         if 'Dataset Name' in self.modelConfig:
             self.datasetName = self.modelConfig['Dataset Name']
 
+        # Spike input path
+        self.spike_input_path = spike_input_path
+        self.spike_input_ns = spike_input_namespace
+        self.spike_input_attribute_info = None
+        if self.spike_input_path is not None:
+            self.spike_input_attribute_info = \
+              read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=self.comm)
+        print('spike input attributes: ', self.spike_input_attribute_info)
         if results_path:
             if self.results_id is None:
                 self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
