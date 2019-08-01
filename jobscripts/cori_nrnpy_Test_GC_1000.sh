@@ -2,8 +2,8 @@
 #
 #SBATCH -J dentate_Test_GC_1000
 #SBATCH -o ./results/dentate_Test_GC_1000.%j.o
-#SBATCH -N 4
-#SBATCH --ntasks-per-node=32
+#SBATCH -N 8
+#SBATCH --ntasks-per-node=24
 #SBATCH -q debug
 #SBATCH -t 0:30:00
 #SBATCH -L SCRATCH   # Job requires $SCRATCH file system
@@ -13,8 +13,8 @@
 #
 
 module unload craype-hugepages2M
-module swap intel intel/18.0.3.222
-module load cray-hdf5-parallel
+#module swap PrgEnv-intel PrgEnv-gnu
+module load cray-hdf5-parallel/1.10.5.0
 module load python/3.7-anaconda-2019.07
 
 results_path=$SCRATCH/dentate/results/Test_GC_1000_$SLURM_JOB_ID
@@ -28,20 +28,20 @@ mkdir -p $results_path
 export PYTHONPATH=$HOME/model:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnintel3/lib/python:$PYTHONPATH
 export LD_PRELOAD=/lib64/libreadline.so.7
-export HDF5_USE_FILE_LOCKING=FALSE
+#export HDF5_USE_FILE_LOCKING=FALSE
 
 echo python is `which python`
 echo PYTHONPATH is $PYTHONPATH
 
 set -x
 
-srun -n 128 -c 2 python ./scripts/main.py \
+srun -n 192 -c 2 python ./scripts/main.py \
  --config-file=Test_GC_1000.yaml \
  --arena-id=A --trajectory-id=Diag \
  --template-paths=../dgc/Mateos-Aparicio2014:templates \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \
- --io-size=24 \
+ --io-size=48 \
  --tstop=150 \
  --v-init=-75 \
  --vrecord-fraction=0.001 \
