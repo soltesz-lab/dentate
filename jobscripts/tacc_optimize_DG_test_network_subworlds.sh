@@ -4,8 +4,8 @@
 #SBATCH -o ./results/optimize_dentate_subworlds.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_dentate_subworlds.e%j       # Name of stderr error file
 #SBATCH -p skx-normal      # Queue (partition) name
-#SBATCH -N 128             # Total # of nodes 
-#SBATCH -n 6144            # Total # of mpi tasks
+#SBATCH -N 32              # Total # of nodes 
+#SBATCH -n 1536            # Total # of mpi tasks
 #SBATCH -t 04:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
@@ -31,7 +31,7 @@ cd tests
 ibrun python2.7 -m nested.optimize  \
      --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
      --output-dir=$results_path \
-     --pop-size=16 \
+     --pop-size=4 \
      --max-iter=5 \
      --path-length=1 \
      --disp \
@@ -45,5 +45,5 @@ ibrun python2.7 -m nested.optimize  \
      --cell_selection_path=$DG_HOME/datasets/DG_slice.yaml \
      --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LNN_3365444/dentatenet_Full_Scale_GC_Exc_Sat_LNN_results.h5 \
      --spike_input_namespace='Spike Events' \
-     --max-walltime-hours=3.75 \
-     --io-size=32
+     --max_walltime_hours 3.75 \
+     --io_size 32
