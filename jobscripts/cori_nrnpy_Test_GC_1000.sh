@@ -28,7 +28,7 @@ mkdir -p $results_path
 export PYTHONPATH=$HOME/model:$PYTHONPATH
 export PYTHONPATH=$HOME/bin/nrnintel3/lib/python:$PYTHONPATH
 export LD_PRELOAD=/lib64/libreadline.so.7
-#export HDF5_USE_FILE_LOCKING=FALSE
+export HDF5_USE_FILE_LOCKING=FALSE
 
 echo python is `which python`
 echo PYTHONPATH is $PYTHONPATH
