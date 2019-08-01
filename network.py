@@ -994,7 +994,6 @@ def init(env):
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
     env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
-    env.checkpoint = io_utils.CheckpointEvent(env, env.checkpoint_interval)
     h.v_init = env.v_init
     h.stdinit()
     if env.coredat:
@@ -1025,33 +1024,33 @@ def run(env, output=True, shutdown=True):
     env.id_vec.resize(0)
 
     h.t = 0
-    h.tstop = env.tstop
-
     env.simtime.reset()
     h.finitialize(env.v_init)
 
     env.pc.barrier()
-    env.pc.psolve(h.tstop)
 
+    tsegments = np.concatenate((np.arange(0, env.tstop, env.checkpoint_interval)[1:], np.asarray([env.tstop])))
+    h.t = 0.
+    for tstop in tsegments:
+        h.tstop = tstop
+        env.pc.psolve(h.tstop)
+        if output:
+            if rank == 0:
+                logger.info("*** Writing spike data up to %.2f ms" % h.t)
+            io_utils.spikeout(self.env, self.env.results_file_path, t_start=self.last_checkpoint, clear_data=env.checkpoint_clear_data)
+            if self.env.vrecord_fraction > 0.:
+                if rank == 0:
+                    logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
+                io_utils.recsout(self.env, self.env.results_file_path, t_start=self.last_checkpoint, clear_data=env.checkpoint_clear_data)
+            self.last_checkpoint = h.t
+            
     if rank == 0:
         logger.info("*** Simulation completed")
 
+    io_utils.lfpout(self.env, self.output_path.results_file_path):
+        
     if shutdown:
         del env.cells
-
-    env.pc.barrier()
-    if output:
-        if rank == 0:
-            logger.info("*** Writing spike data")
-        io_utils.spikeout(env, env.results_file_path)
-        if env.vrecord_fraction > 0.:
-            if rank == 0:
-                logger.info("*** Writing intracellular trace data")
-            io_utils.recsout(env, env.results_file_path)
-        env.pc.barrier()
-        if rank == 0:
-            logger.info("*** Writing local field potential data")
-            io_utils.lfpout(env, env.results_file_path)
 
     comptime = env.pc.step_time()
     cwtime = comptime + env.pc.step_wait()

@@ -26,37 +26,6 @@ path_population_projections = '/%s/Population projections' % grp_h5types
 default_io_options = Struct(io_size=-1, chunk_size=1000, value_chunk_size=1000, cache_size=50, write_size=10000)
 
 
-class CheckpointEvent(object):
-
-    def __init__(self, env, dt_checkpoint=500.0):
-        if (int(env.pc.id()) == 0):
-            if dt_checkpoint > 0.:
-                logger.info("*** checkpoint interval is %.2f ms of simulation time" % dt_checkpoint)
-            else:
-                logger.info("*** checkpoint interval is disabled")
-        self.env = env
-        self.last_checkpoint = 0.
-        self.dt_checkpoint = dt_checkpoint
-        self.fih_checkpoint = None
-        if dt_checkpoint > 0.:
-            env.pc.timeout(env.results_write_time)
-            self.fih_checkpoint = h.FInitializeHandler(1, self.checkpoint)
-
-    def checkpoint(self):
-        if (h.t > 0):
-            rank = int(self.env.pc.id())
-            if rank == 0:
-                logger.info("*** Writing spike data up to %.2f ms" % h.t)
-            spikeout(self.env, self.env.results_file_path, clear_data=True)
-            if self.env.vrecord_fraction > 0.:
-                if rank == 0:
-                    logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
-                recsout(self.env, self.env.results_file_path, t_start=self.last_checkpoint, clear_data=True)
-            
-        self.last_checkpoint = h.t
-        if (h.t + self.dt_checkpoint) < h.tstop:
-            h.cvode.event(h.t + self.dt_checkpoint, self.checkpoint)
-
 
 def h5_get_group(h, groupname):
     if groupname in h:
@@ -168,7 +137,7 @@ def mkout(env, results_filename):
     results_file.close()
 
 
-def spikeout(env, output_path, clear_data=False):
+def spikeout(env, output_path, t_start=0., clear_data=False):
     """
     Writes spike time to specified NeuroH5 output file.
 
@@ -203,10 +172,11 @@ def spikeout(env, output_path, clear_data=False):
             for j in range(0, len(ids)):
                 gid = ids[j]
                 t = ts[j]
-                if gid in spkdict:
-                    spkdict[gid]['t'].append(t)
-                else:
-                    spkdict[gid] = {'t': [t]}
+                if t >= t_start:
+                    if gid in spkdict:
+                        spkdict[gid]['t'].append(t)
+                    else:
+                        spkdict[gid] = {'t': [t]}
             for gid in spkdict:
                 spkdict[gid]['t'] = np.array(spkdict[gid]['t'], dtype=np.float32)
                 if gid in env.spike_onset_delay:
