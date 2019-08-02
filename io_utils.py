@@ -198,14 +198,17 @@ def recsout(env, output_path, t_start=0., clear_data=False):
     :param clear_data:
     :return:
     """
-    t_vec = np.arange(t_start, env.tstop + env.dt, env.dt, dtype=np.float32)
+    t_rec = env.t_rec
 
     for pop_name in sorted(env.celltypes.keys()):
         for rec_type, recs in sorted(viewitems(env.recs_dict[pop_name])):
             attr_dict = {}
             for rec in recs:
                 gid = rec['gid']
-                attr_dict[gid] = {'v': np.array(rec['vec'], copy=clear_data, dtype=np.float32), 't': t_vec}
+                data_vec = np.array(rec['vec'], copy=clear_data, dtype=np.float32)
+                time_vec = np.array(t_rec, copy=clear_data, dtype=np.float32)
+                tinds = np.where(time_vec >= t_start)
+                attr_dict[gid] = {'v': data_vec[tinds], 't': time_vec[tinds] }
                 if clear_data:
                     rec['vec'].resize(0)
             if env.results_id is None:
@@ -213,6 +216,8 @@ def recsout(env, output_path, t_start=0., clear_data=False):
             else:
                 namespace_id = "Intracellular Voltage %s %s" % (rec_type, str(env.results_id))
             append_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
+    if clear_data:
+        env.t_rec.resize(0)
             
 
 def lfpout(env, output_path):

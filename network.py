@@ -410,7 +410,7 @@ def connect_cell_selection(env):
         cell = env.pc.gid2cell(gid)
         pop_name = find_gid_pop(env.celltypes, gid)
 
-        if gid in env.biophys_cells[postsyn_name]:
+        if gid in env.biophys_cells[pop_name]:
             biophys_cell = env.biophys_cells[pop_name][gid]
             synapses.init_syn_mech_attrs(biophys_cell, env)
             

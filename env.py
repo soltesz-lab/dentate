@@ -305,10 +305,12 @@ class Env(object):
 
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
+        self.t_rec = h.Vector() # Timestamps of intracellular traces on this host
+        self.t_rec.record(h._ref_t)
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = {'Soma': [], 'Axon hillock': [], 'Apical dendrite': [], 'Basal dendrite': []}
-
+            
         # used to calculate model construction times and run time
         self.mkcellstime = 0
         self.mkstimtime = 0
