@@ -278,7 +278,7 @@ def connect_cell_selection(env):
         logger.info('*** Connectivity file path is %s' % connectivity_file_path)
         logger.info('*** Reading projections: ')
 
-    selection_pop_names = list(env.cell_selection.keys())
+    selection_pop_names = sorted(env.cell_selection.keys())
 
     input_sources = {pop_name: set([]) for pop_name in env.celltypes}
 
@@ -409,6 +409,11 @@ def connect_cell_selection(env):
 
         cell = env.pc.gid2cell(gid)
         pop_name = find_gid_pop(env.celltypes, gid)
+
+        if gid in env.biophys_cells[pop_name]:
+            biophys_cell = env.biophys_cells[pop_name][gid]
+            synapses.init_syn_mech_attrs(biophys_cell, env)
+            
         syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
                                                                         cell=cell, unique=unique, \
                                                                         insert=True, insert_netcons=True)
