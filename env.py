@@ -230,6 +230,9 @@ class Env(object):
         if 'Dataset Name' in self.modelConfig:
             self.datasetName = self.modelConfig['Dataset Name']
 
+        if rank == 0:
+            self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
+
         # Spike input path
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_namespace
@@ -248,9 +251,6 @@ class Env(object):
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             self.parse_gapjunction_config()
-
-        if rank == 0:
-            self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
 
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
@@ -306,7 +306,6 @@ class Env(object):
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
         self.t_rec = h.Vector() # Timestamps of intracellular traces on this host
-        self.t_rec.record(h._ref_t)
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = {'Soma': [], 'Axon hillock': [], 'Apical dendrite': [], 'Basal dendrite': []}

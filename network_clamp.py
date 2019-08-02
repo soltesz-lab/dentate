@@ -7,7 +7,7 @@ from mpi4py import MPI
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses
-from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_source, \
+from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_cell, \
     report_topology, register_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
@@ -256,7 +256,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
             ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
-                cell = make_input_source(env, presyn_gid, presyn_id, input_source_dict)
+                cell = make_input_cell(env, presyn_gid, presyn_id, input_source_dict)
                 register_cell(env, presyn_id, presyn_gid, cell)
 
     source_weight_params = generate_weights(env, weight_source_dict, this_syn_attrs)

@@ -2045,7 +2045,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
-def make_input_source(env, gid, pop_id, input_source_dict):
+def make_input_cell(env, gid, pop_id, input_source_dict):
     """
     Instantiates an input generator according to the given cell template.
     """

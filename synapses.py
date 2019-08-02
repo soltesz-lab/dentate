@@ -8,7 +8,7 @@ from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, 
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
 from dentate.utils import DExpr, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
-     viewitems, zip, zip_longest, partitionn
+     viewitems, viewkeys, zip, zip_longest, partitionn
 from neuroh5.io import write_cell_attributes
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -599,8 +599,11 @@ class SynapseAttributes(object):
     def clear_filter_cache(self):
         self.filter_cache.clear()
 
+    def has_gid(self, gid):
+        return (gid in self.syn_id_attr_dict)
+
     def gids(self):
-        return list(self.syn_id_attr_dict.keys())
+        return viewkeys(self.syn_id_attr_dict)
 
     def items(self):
         return viewitems(self.syn_id_attr_dict)

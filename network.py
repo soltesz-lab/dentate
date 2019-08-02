@@ -161,19 +161,20 @@ def connect_cells(env):
 
         first_gid = None
         if postsyn_name in env.biophys_cells:
-            for gid in syn_attrs.gids():
+            for gid in env.biophys_cells[postsyn_name]:
                 if first_gid is None:
                     first_gid = gid
                 try:
-                    biophys_cell = env.biophys_cells[postsyn_name][gid]
-                    cells.init_biophysics(biophys_cell, env=env, 
-                                          reset_cable=True, 
-                                          correct_cm=correct_for_spines,
-                                          correct_g_pas=correct_for_spines, 
-                                          verbose=((rank == 0) and (first_gid == gid)))
-                except IndexError:
-                    raise IndexError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
-                                     (postsyn_name, gid, mech_file_path))
+                    if syn_attrs.has_gid(gid):
+                        biophys_cell = env.biophys_cells[postsyn_name][gid]
+                        cells.init_biophysics(biophys_cell, env=env, 
+                                              reset_cable=True, 
+                                              correct_cm=correct_for_spines,
+                                              correct_g_pas=correct_for_spines, 
+                                              verbose=((rank == 0) and (first_gid == gid)))
+                except KeyError:
+                    raise KeyError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
+                                     (postsyn_name, gid))
 
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
@@ -203,7 +204,7 @@ def connect_cells(env):
         first_gid = None
         pop_last_time = time.time()
 
-        gids = syn_attrs.gids()
+        gids = list(syn_attrs.gids())
         comm0 = env.comm.Split(2 if len(gids) > 0 else 0, 0)
 
         for gid in gids:
@@ -358,19 +359,20 @@ def connect_cell_selection(env):
 
         first_gid = None
         if postsyn_name in env.biophys_cells:
-            for gid in syn_attrs.gids():
+            for gid in env.biophys_cells[postsyn_name]:
                 if first_gid is None:
                     first_gid = gid
                 try:
-                    biophys_cell = env.biophys_cells[postsyn_name][gid]
-                    cells.init_biophysics(biophys_cell,
-                                          reset_cable=True,
-                                          correct_cm=correct_for_spines,
-                                          correct_g_pas=correct_for_spines,
-                                          env=env, verbose=((rank == 0) and (first_gid == gid)))
-                except IndexError:
-                    raise IndexError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
-                                     % (postsyn_name, gid, mech_file_path))
+                    if syn_attrs.has_gid(gid):
+                        biophys_cell = env.biophys_cells[postsyn_name][gid]
+                        cells.init_biophysics(biophys_cell,
+                                              reset_cable=True,
+                                              correct_cm=correct_for_spines,
+                                              correct_g_pas=correct_for_spines,
+                                              env=env, verbose=((rank == 0) and (first_gid == gid)))
+                except KeyError:
+                    raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
+                                     % (postsyn_name, gid))
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                           comm=env.comm, namespaces=['Synapses', 'Connections'])
@@ -401,7 +403,8 @@ def connect_cell_selection(env):
     ## This section instantiates the synaptic mechanisms and netcons for each connection.
     ##
     first_gid = None
-    for gid in syn_attrs.gids():
+    gids = list(syn_attrs.gids())
+    for gid in gids:
 
         last_time = time.time()
         if first_gid is None:
@@ -1001,6 +1004,7 @@ def init(env):
     env.simtime = simtime.SimTimeEvent(env.pc, env.tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
+    env.t_rec.record(h._ref_t)
     if env.coredat:
         env.pc.nrnbbcore_write("dentate.coredat")
     if env.optldbal or env.optlptbal:
