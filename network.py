@@ -993,7 +993,7 @@ def init(env):
     lfp_time = time.time() - st
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
-    env.simtime = simtime.SimTimeEvent(env.pc, env.max_walltime_hours, env.results_write_time, max_setup_time)
+    env.simtime = simtime.SimTimeEvent(env.pc, env.tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
     if env.coredat:
@@ -1032,7 +1032,10 @@ def run(env, output=True, shutdown=True):
     tsegments = np.concatenate((np.arange(0, env.tstop, env.checkpoint_interval)[1:], np.asarray([env.tstop])))
     h.t = 0.
     for tstop in tsegments:
-        h.tstop = tstop
+        if tstop < env.simtime.tstop:
+            h.tstop = tstop
+        else:
+            h.tstop = env.simtime.tstop:
         env.pc.psolve(h.tstop)
         if output:
             if rank == 0:
