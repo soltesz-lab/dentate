@@ -96,5 +96,5 @@ class SimTimeEvent(object):
                 logger.info("*** computation time so far is %.2f and total computation time is %.2f s" % (
                 self.tcsum, self.walltime_max))
         self.walltime_checksimtime = wt
-        if (h.t + self.dt_checksimtime < env.tstop):
+        if (h.t + self.dt_checksimtime < self.tstop):
             h.cvode.event(h.t + self.dt_checksimtime, self.checksimtime)

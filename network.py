@@ -1032,10 +1032,12 @@ def run(env, output=True, shutdown=True):
     tsegments = np.concatenate((np.arange(0, env.tstop, env.checkpoint_interval)[1:], np.asarray([env.tstop])))
     h.t = 0.
     for tstop in tsegments:
-        if tstop < env.simtime.tstop:
+        if (h.t+env.dt) > env.simtime.tstop:
+            break
+        elif tstop < env.simtime.tstop:
             h.tstop = tstop
         else:
-            h.tstop = env.simtime.tstop:
+            h.tstop = env.simtime.tstop
         env.pc.psolve(h.tstop)
         if output:
             if rank == 0:
