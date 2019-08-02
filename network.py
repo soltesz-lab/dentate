@@ -1037,17 +1037,17 @@ def run(env, output=True, shutdown=True):
         if output:
             if rank == 0:
                 logger.info("*** Writing spike data up to %.2f ms" % h.t)
-            io_utils.spikeout(self.env, self.env.results_file_path, t_start=self.last_checkpoint, clear_data=env.checkpoint_clear_data)
-            if self.env.vrecord_fraction > 0.:
+            io_utils.spikeout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
+            if env.vrecord_fraction > 0.:
                 if rank == 0:
                     logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
-                io_utils.recsout(self.env, self.env.results_file_path, t_start=self.last_checkpoint, clear_data=env.checkpoint_clear_data)
-            self.last_checkpoint = h.t
+                io_utils.recsout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
+            env.last_checkpoint = h.t
             
     if rank == 0:
         logger.info("*** Simulation completed")
 
-    io_utils.lfpout(self.env, self.output_path.results_file_path):
+    io_utils.lfpout(env, env.results_file_path)
         
     if shutdown:
         del env.cells
