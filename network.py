@@ -805,7 +805,7 @@ def make_input_cells(env, input_sources):
             for gid in gid_range:
                 if (gid % nhosts == rank) and not env.pc.gid_exists(gid):
                     input_cell = cells.make_input_cell(env, gid, pop_index, input_source_dict)
-                    register_cell(env, pop_name, gid, input_cell)
+                    cells.register_cell(env, pop_name, gid, input_cell)
 
 
 def init_input_cells(env, input_sources=None):
@@ -849,11 +849,14 @@ def init_input_cells(env, input_sources=None):
                                                                      comm=env.comm, io_size=env.io_size)
                 cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
             else:
-                gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
+                if pop_name in env.cell_selection:
+                    gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
 
-                cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
-                                                                  namespace=vecstim_namespace, \
-                                                                  comm=env.comm)
+                    cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
+                                                                      namespace=vecstim_namespace, \
+                                                                      comm=env.comm)
+                else:
+                    cell_vecstim_iter = []
 
             for (gid, vecstim_dict) in cell_vecstim_iter:
                 if rank == 0:
