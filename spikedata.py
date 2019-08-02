@@ -97,6 +97,8 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         # Time Range
         if time_range is None or time_range[1] is None:
             for spkind, spkts in spkiter:
+                print('spkind: ', spkind)
+                print('spkts: ', spkts)
                 for spkt in spkts[spike_train_attr_name]:
                     pop_spkindlst.append(spkind)
                     pop_spktlst.append(spkt)
