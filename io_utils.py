@@ -206,8 +206,8 @@ def recsout(env, output_path, t_start=0., clear_data=False):
             for rec in recs:
                 gid = rec['gid']
                 data_vec = np.array(rec['vec'], copy=clear_data, dtype=np.float32)
-                time_vec = np.array(t_rec, copy=clear_data, dtype=np.float32)
-                tinds = np.where(time_vec >= t_start)
+                time_vec = np.array(t_rec, copy=clear_data, dtype=np.float32)[:-1]
+                tinds = np.where(time_vec >= t_start)[0]
                 attr_dict[gid] = {'v': data_vec[tinds], 't': time_vec[tinds] }
                 if clear_data:
                     rec['vec'].resize(0)

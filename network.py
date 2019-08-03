@@ -1007,7 +1007,6 @@ def init(env):
     env.simtime = simtime.SimTimeEvent(env.pc, env.tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
-    env.t_rec.record(h._ref_t)
     if env.coredat:
         env.pc.nrnbbcore_write("dentate.coredat")
     if env.optldbal or env.optlptbal:
@@ -1032,6 +1031,8 @@ def run(env, output=True, shutdown=True):
     if rank == 0:
         logger.info("*** Running simulation")
 
+    env.t_rec.record(h._ref_t, env.dt)
+    env.t_rec.resize(0)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 

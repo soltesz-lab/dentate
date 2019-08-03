@@ -39,6 +39,7 @@ export I_MPI_ADJUST_ALLGATHERV=4
 
 ibrun python3 ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat_LNN.yaml  \
+    --arena-id=A --trajectory-id=Diag \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH/dentate" \
     --results-path=$results_path \
