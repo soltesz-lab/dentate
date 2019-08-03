@@ -866,12 +866,14 @@ def init_input_cells(env, input_sources=None):
                 if len(spiketrain) > 0:
                     if np.min(spiketrain) < 0.:
                         spiketrain += abs(np.min(spiketrain))
-                    logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                (gid, len(spiketrain),
-                                 spiketrain[0], spiketrain[-1]))
+                    if rank == 0:
+                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                    (gid, len(spiketrain),
+                                    spiketrain[0], spiketrain[-1]))
                 else:
-                    logger.info("*** Spike train for gid %i is of length %i" %
-                                (gid, len(spiketrain)))
+                    if rank == 0:
+                        logger.info("*** Spike train for gid %i is of length %i" %
+                                    (gid, len(spiketrain)))
 
                 spiketrain += env.stimulus_onset
                 assert(env.pc.gid_exists(gid))
@@ -909,12 +911,14 @@ def init_input_cells(env, input_sources=None):
                                                                  comm=env.comm)
                 for gid, cell_spikes_dict in cell_spikes_iter:
                     if len(cell_spikes_dict['t']) > 0:
-                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                    (gid, len(cell_spikes_dict['t']),
-                                     cell_spikes_dict['t'][0], cell_spikes_dict['t'][-1]))
+                        if rank == 0:
+                            logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                        (gid, len(cell_spikes_dict['t']),
+                                        cell_spikes_dict['t'][0], cell_spikes_dict['t'][-1]))
                     else:
-                        logger.info("*** Spike train for gid %i is of length %i" %
-                                    (gid, len(cell_spikes_dict['t'])))
+                        if rank == 0:
+                            logger.info("*** Spike train for gid %i is of length %i" %
+                                        (gid, len(cell_spikes_dict['t'])))
 
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
