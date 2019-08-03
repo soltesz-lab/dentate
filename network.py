@@ -1065,7 +1065,8 @@ def run(env, output=True, shutdown=True):
     if rank == 0:
         logger.info("*** Simulation completed")
 
-    io_utils.lfpout(env, env.results_file_path)
+    if rank == 0 and output:
+        io_utils.lfpout(env, env.results_file_path)
         
     if shutdown:
         del env.cells
