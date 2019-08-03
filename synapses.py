@@ -1622,7 +1622,7 @@ def sample_syn_mech_attrs(env, pop_name, gids, comm=None):
     if comm is None:
         comm = env.comm
 
-    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm})
+    write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm, 'io_size': env.io_size})
 
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
