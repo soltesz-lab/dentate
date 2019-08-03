@@ -191,7 +191,9 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    (distance_U, distance_V, degrees_dict) = vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination, sources, bin_size, metric)
+    (distance_U, distance_V, degrees_dict) = \
+        vertex_metrics(connectivity_path, coords_path, vertex_metrics_namespace, distances_namespace, destination,
+                       sources, bin_size, metric)
     
     distance_x_min = np.min(distance_U)
     distance_x_max = np.max(distance_U)
@@ -353,7 +355,8 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
     rank = comm.Get_rank()
 
     source_soma_distances = bcast_cell_attributes(coords_path, source, namespace=distances_namespace, comm=comm, root=0)
-    destination_soma_distances = bcast_cell_attributes(coords_path, destination, namespace=distances_namespace, comm=comm, root=0)
+    destination_soma_distances = \
+        bcast_cell_attributes(coords_path, destination, namespace=distances_namespace, comm=comm, root=0)
 
     ((total_x_min,total_x_max),(total_y_min,total_y_max)) = measure_distance_extents(env)
 
@@ -528,8 +531,7 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
 
     ((x_min, x_max), (y_min, y_max)) = measure_distance_extents(env)
 
-    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, \
-                                         bins=[dx, dy], weights=tree_metrics_array)
+    (H, xedges, yedges) = np.histogram2d(distance_U_array, distance_V_array, bins=[dx, dy], weights=tree_metrics_array)
 
 
     ax.axis([x_min, x_max, y_min, y_max])

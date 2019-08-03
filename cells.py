@@ -1598,7 +1598,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
 
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
-        traceback.print_tb(sys.exc_info()[2])
+        traceback.print_exc(file=sys.stdout)
         if param_name is not None:
             print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
                   (mech_name, param_name, node.name))
