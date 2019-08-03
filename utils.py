@@ -637,6 +637,7 @@ def add_bins(bins1, bins2, datatype):
             bins1[item] = bins2[item]
     return bins1
 
+
 def power_spectrogram(signal: np.ndarray,
                       fs: int,
                       window_size: int,

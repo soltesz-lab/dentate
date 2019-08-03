@@ -1231,7 +1231,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
         update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets, verbose)
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
-        traceback.print_tb(sys.exc_info()[2])
+        traceback.print_exc(file=sys.stdout)
         print('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s' %
               (syn_name, param_name, sec_type))
         raise e
