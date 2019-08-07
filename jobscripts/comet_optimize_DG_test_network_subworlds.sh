@@ -47,13 +47,14 @@ ibrun -np 576 python3 -m nested.optimize  \
     --verbose \
     --procs_per_worker=144 \
     --no_cleanup \
+    --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$SCRATCH/dentate" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
     --cell_selection_path=$DG_HOME/datasets/DG_slice_20190729.yaml \
     --spike_input_path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
-    --spike_input_namespace='Input Spikes' \
+    --spike_input_namespace='Input Spikes A Diag' \
     --max-walltime-hours=3.75 \
     --io-size=1 \
     -v

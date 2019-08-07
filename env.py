@@ -277,6 +277,9 @@ class Env(object):
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
 
+        self.stimulus_config = None
+        self.arena_id = None
+        self.trajectory_id = None
         if 'Stimulus' in self.modelConfig:
             self.parse_stimulus_config()
             self.init_stimulus_config(**kwargs)
