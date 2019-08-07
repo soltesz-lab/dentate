@@ -7,7 +7,7 @@ import dlib
 from dentate import spikedata
 from dentate import synapses
 from dentate.neuron_utils import h
-from dentate.utils import get_module_logger, old_div, viewitems
+from dentate.utils import get_module_logger, viewitems
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -179,4 +179,4 @@ def mpi_mean(comm, value):
     global_sum = np.zeros(value.shape, dtype='float32')
     comm.Allreduce(value, global_sum, op=MPI.SUM)
     count = comm.size
-    return old_div(global_sum, count)
+    return (global_sum / count)
