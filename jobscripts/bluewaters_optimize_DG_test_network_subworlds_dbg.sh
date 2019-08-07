@@ -16,13 +16,14 @@
 #PBS -A bayj
 
 module load bwpy/2.0.1
-module load craype-hugepages2M
 
 set -x
 
+export LC_ALL=en_IE.utf8
+export LANG=en_IE.utf8
 export SCRATCH=/projects/sciteam/bayj
-export NEURONROOT=$SCRATCH/nrnintel
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export NEURONROOT=$SCRATCH/nrnintel3
+export PYTHONPATH=$HOME/model:$HOME/model/dentate/tests:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -34,25 +35,25 @@ cd $PBS_O_WORKDIR
 
 mkdir -p $results_path
 
-cd tests
-
 aprun -n 576 -b -- bwpy-environ -- \
-    python2.7 -m nested.optimize  \
-     --config-file-path=$DG_HOME/config/DG_test_network_subworlds_dbg.yaml \
-     --output-dir=$results_path \
-     --pop-size=2 \
-     --max-iter=5 \
-     --path-length=1 \
-     --disp \
-     --procs-per-worker=288 \
-     --no-cleanup \
-     --verbose \
-     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
-     --dataset_prefix="$SCRATCH" \
-     --config_prefix=$DG_HOME/config \
-     --results_path=$results_path \
-     --cell_selection_path=$DG_HOME/datasets/DG_slice.yaml \
-     --spike_input_path=$DG_HOME/results/Full_Scale_GC_Exc_Sat_LNN_9870802.bw/dentatenet_Full_Scale_GC_Exc_Sat_LNN_results.h5 \
-     --spike_input_namespace='Spike Events' \
-     --max-walltime-hours=0.49 \
-     -v
+    python3.6  -m nested.optimize  \
+    --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
+    --output-dir=$results_path \
+    --pop_size=4 \
+    --max_iter=4 \
+    --path_length=1 \
+    --framework=pc \
+    --disp \
+    --verbose \
+    --procs_per_worker=144 \
+    --no_cleanup \
+    --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
+    --dataset_prefix="$SCRATCH" \
+    --config_prefix=$DG_HOME/config \
+    --results_path=$results_path \
+    --cell_selection_path=$DG_HOME/datasets/DG_slice_20190729.yaml \
+    --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
+    --spike_input_namespace='Input Spikes' \
+    --max-walltime-hours=3.75 \
+    --io-size=1 \
+    -v

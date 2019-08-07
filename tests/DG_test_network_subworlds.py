@@ -8,7 +8,7 @@ import click
 import numpy as np
 from mpi4py import MPI
 import dentate
-from dentate import network, spikedata, utils
+from dentate import network, synapses, spikedata, utils
 from dentate.env import Env
 from nested.optimize_utils import *
 
@@ -111,9 +111,12 @@ def update_network(x, context=None):
                 syn_types = \
                     [context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['type']]
                 for sec_type in sec_types:
-                    modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, param_name=syn_param_name,
-                                     filters={'syn_types': syn_types, 'sources': [presyn_name], 'layers': layers},
-                                     value=x_dict[param_name], update_targets=True, verbose=True)
+                    synapses.modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, 
+                                              param_name=syn_param_name,
+                                              filters={'syn_types': syn_types, 
+                                                       'sources': [presyn_name], 'layers': layers},
+                                              value=x_dict[param_name], update_targets=True, 
+                                              verbose=True)
 
 
 def compute_features_network_walltime(x, export=False):

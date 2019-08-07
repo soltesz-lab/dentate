@@ -966,7 +966,10 @@ def make_input_cells(env, input_sources):
             if env.netclamp_config is None:
                 spike_generator = None
             else:
-                spike_generator = env.netclamp_config.input_generators[pop_name]
+                if pop_name in env.netclamp_config.input_generators:
+                    spike_generator = env.netclamp_config.input_generators[pop_name]
+                else:
+                    raise RuntimeError("make_input_cells: population %s has neither input spike trains nor input generator configuration" % pop_name)
 
         input_source_dict = {pop_index: {'gen': spike_generator}}
 
@@ -1086,25 +1089,37 @@ def init_input_cells(env, input_sources=None):
                    
                     
             if has_spike_train:
-                
+
+                if 'spike train' in env.celltypes[pop_name]:
+                    vecstim_attr = env.celltypes[pop_name]['spike train']['attribute']
+                else:
+                    vecstim_attr = None
+
                 cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
                                                                  this_gid_range, \
                                                                  namespace=env.spike_input_ns, \
                                                                  comm=env.comm)
                 for gid, cell_spikes_dict in cell_spikes_iter:
-                    if len(cell_spikes_dict['t']) > 0:
+                    spiketrain = None
+                    if vecstim_attr in cell_spikes_dict:
+                        spiketrain = cell_spikes_dict[vecstim_attr]
+                    elif 't' in cell_spikes_dict:
+                        spiketrain = cell_spikes_dict['t']
+                    else:
+                        raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input namespace %s" % (gid, env.spike_input_ns))
+                        
+                    if len(spiketrain) > 0:
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                        (gid, len(cell_spikes_dict['t']),
-                                        cell_spikes_dict['t'][0], cell_spikes_dict['t'][-1]))
+                                        (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i" %
-                                        (gid, len(cell_spikes_dict['t'])))
+                                        (gid, len(spiketrain)))
 
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
-                    input_cell.play(h.Vector(cell_spikes_dict['t']))
+                    input_cell.play(h.Vector(spiketrain))
 
                     
 def write_input_cell_selection(env, input_sources, write_kwds={}):
@@ -1334,7 +1349,8 @@ def run(env, output=True, shutdown=True):
     if rank == 0:
         logger.info("*** Simulation completed")
 
-    io_utils.lfpout(env, env.results_file_path)
+    if rank == 0 and output:
+        io_utils.lfpout(env, env.results_file_path)
         
     if shutdown:
         del env.cells

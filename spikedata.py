@@ -25,11 +25,8 @@ def get_env_spike_dict(env, t_start=0.0):
         id_vec = id_vec[inds]
 
     binlst = []
-    typelst = list(env.celltypes.keys())
-    for k in typelst:
-        binlst.append(env.celltypes[k]['start'])
-
-    binvect = np.array(binlst)
+    typelst = sorted(env.celltypes.keys())
+    binvect = np.asarray([env.celltypes[k]['start'] for k in typelst ])
     sort_idx = np.argsort(binvect, axis=0)
     pop_names = [typelst[i] for i in sort_idx]
     bins = binvect[sort_idx][1:]
@@ -45,12 +42,13 @@ def get_env_spike_dict(env, t_start=0.0):
             for j in range(0, len(ids)):
                 gid = ids[j]
                 t = ts[j]
-                if id in spkdict:
-                    spkdict[gid].append(t)
-                else:
-                    spkdict[gid] = [t]
+                if t >= t_start:
+                    if gid in spkdict:
+                        spkdict[gid]['t'].append(t)
+                    else:
+                        spkdict[gid] = {'t': [t]}
             for gid in spkdict:
-                spkdict[gid] = np.array(spkdict[gid], dtype=np.float32)
+                spkdict[gid]['t'] = np.array(spkdict[gid]['t'], dtype=np.float32)
                 if gid in env.spike_onset_delay:
                     spkdict[gid]['t'] -= env.spike_onset_delay[gid]
 

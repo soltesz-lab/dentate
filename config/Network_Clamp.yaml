@@ -26,7 +26,23 @@ Input Generator:
     template: StimCell
     params:
       rate: 5.
+  IS:
+    template: StimCell
+    params:
+      rate: 2.
+  NGFC:
+    template: StimCell
+    params:
+      rate: 2.
+  MOPP:
+    template: StimCell
+    params:
+      rate: 2.
   MC:
+    template: StimCell
+    params:
+      rate: 2.
+  CA3c:
     template: StimCell
     params:
       rate: 2.

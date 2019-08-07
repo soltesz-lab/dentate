@@ -53,5 +53,7 @@ aprun -n 32768 -b -- bwpy-environ -- \
     --stimulus-onset=50.0 \
     --max-walltime-hours=9.9 \
     --vrecord-fraction=0.001 \
+    --checkpoint-interval=1000 \
+    --checkpoint-clear-data \
     --verbose
 
