@@ -44,13 +44,13 @@ def get_env_spike_dict(env, t_start=0.0):
                 t = ts[j]
                 if t >= t_start:
                     if gid in spkdict:
-                        spkdict[gid]['t'].append(t)
+                        spkdict[gid].append(t)
                     else:
-                        spkdict[gid] = {'t': [t]}
+                        spkdict[gid] = [t]
             for gid in spkdict:
-                spkdict[gid]['t'] = np.array(spkdict[gid]['t'], dtype=np.float32)
+                spkdict[gid] = np.array(spkdict[gid], dtype=np.float32)
                 if gid in env.spike_onset_delay:
-                    spkdict[gid]['t'] -= env.spike_onset_delay[gid]
+                    spkdict[gid] -= env.spike_onset_delay[gid]
 
         pop_spkdict[pop_name] = spkdict
 
