@@ -3,7 +3,7 @@ import numpy as np
 from mpi4py import MPI
 
 from dentate.utils import get_module_logger, zip
-from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_selection, read_cell_attribute_info
+from neuroh5.io import read_cell_attributes, read_cell_attribute_selection, read_cell_attribute_info
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -64,7 +64,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
 
         state_dict = {}
         if unit_no is None:
-            valiter = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
+            valiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, comm=comm)
         else:
             valiter = read_cell_attribute_selection(input_file, pop_name, namespace=namespace_id,
                                                     selection=list(unit_no), comm=comm)
