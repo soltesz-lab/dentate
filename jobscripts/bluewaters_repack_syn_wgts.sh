@@ -22,11 +22,10 @@ set -x
 
 cd $PBS_O_WORKDIR
 
-export prefix=/projects/sciteam/baqc/Full_Scale_Control
-export input=$prefix/DG_GC_forest_syns_log_normal_weights_20180914.h5
-export output=$prefix/DG_GC_forest_syns_log_normal_weights_20180914_compressed.h5
+export input=$SCRATCH/dentate/results/
+export output=$SCRATCH/dentate/results/
 
-aprun h5repack -v -f SHUF -f GZIP=9 -i $input -o $output
+h5repack -v -f SHUF -f GZIP=9 -i $input -o $output
 
 
 

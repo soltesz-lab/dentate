@@ -263,7 +263,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.003
+          g_unit: 0.004
           weight: 1.0
     HC:   
       type: inhibitory
@@ -362,7 +362,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 3.6
           e: 0
-          g_unit: 0.007
+          g_unit: 0.004
           weight: 1.0
           sat: 0.9
     MC:   
@@ -377,7 +377,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.007
+          g_unit: 0.004
           weight: 1.0
     HC:  
       type: inhibitory
@@ -809,7 +809,7 @@ Synapses:
           dur_onset: 0.9
           tau_offset: 3.6
           e: 0
-          g_unit: 0.0043
+          g_unit: 0.001
           weight: 1.0
           sat: 0.9
     HCC:  
