@@ -1,9 +1,9 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=160:ppn=8:xe
+#PBS -l nodes=400:ppn=8:xe
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
-#PBS -l walltime=5:00:00
+#PBS -l walltime=6:00:00
 ### set the job name
 #PBS -N optimize_DG_test_network_subworlds
 ### set the job stdout and stderr
@@ -36,17 +36,17 @@ cd $PBS_O_WORKDIR
 
 mkdir -p $results_path
 
-aprun -n 1280 -b -- bwpy-environ -- \
+aprun -n 3200 -b -- bwpy-environ -- \
     python3.6 -m nested.optimize  \
     --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
     --output-dir=$results_path \
-    --pop_size=4 \
+    --pop_size=8 \
     --max_iter=4 \
     --path_length=1 \
     --framework=pc \
     --disp \
     --verbose \
-    --procs_per_worker=320 \
+    --procs_per_worker=400 \
     --no_cleanup \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$SCRATCH" \
@@ -55,6 +55,6 @@ aprun -n 1280 -b -- bwpy-environ -- \
     --cell_selection_path=$DG_HOME/datasets/DG_slice_20190729.yaml \
     --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
     --spike_input_namespace='Input Spikes' \
-    --max_walltime_hours=3.75 \
+    --max_walltime_hours=5.75 \
     --io_size=24 \
     -v
