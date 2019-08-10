@@ -501,7 +501,7 @@ def write_connection_selection(env, write_kwds={}):
                                                             namespace='Synapse Attributes', comm=env.comm)
         
         syn_attributes_output_dict = dict(list(syn_attributes_iter))
-        write_cell_attributes(env.results_path, pop_name, syn_attributes_output_dict, namespace='Synapse Attributes', **write_kwds)
+        write_cell_attributes(env.write_selection_file_path, postsyn_name, syn_attributes_output_dict, namespace='Synapse Attributes', **write_kwds)
         del syn_attributes_output_dict
         del syn_attributes_iter
         
@@ -511,14 +511,13 @@ def write_connection_selection(env, write_kwds={}):
                                                                        selection=gid_range,
                                                                        namespace=weights_namespace, comm=env.comm)
                 weight_attributes_output_dict = dict(list(weight_attributes_iter))
-                write_cell_attributes(env.results_path, pop_name, weight_attributes_output_dict, namespace=weights_namespace, **write_kwds)
+                write_cell_attributes(env.write_selection_file_path, postsyn_name, weight_attributes_output_dict, namespace=weights_namespace, **write_kwds)
                 del weight_attributes_output_dict
                 del weight_attributes_iter
 
                 
         (graph, attr_info) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                                   comm=env.comm, namespaces=['Synapses', 'Connections'])
-        output_graph_dict = {}
         for presyn_name in presyn_names:
 
             edge_iter = graph[postsyn_name][presyn_name]
@@ -549,9 +548,8 @@ def write_connection_selection(env, write_kwds={}):
                                              {'Synapses': {'syn_id': edge_syn_ids},
                                               'Connections': {'distance': edge_dists} })
 
-            output_graph_dict[postsyn_name][presyn_name] = gid_dict
-            
-        write_graph(env.results_path, output_graph_dict, io_size=io_size, comm=comm)
+            write_graph(env.write_selection_file_path, presyn_name, postsyn_name, gid_dict,
+                        comm=env.comm, io_size=env.io_size)
 
 
 def connect_gjs(env):
@@ -910,7 +908,7 @@ def write_cell_selection(env, write_kwds={}):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, comm=env.comm)
+            (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, comm=env.comm,  topology=False)
              
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
@@ -934,8 +932,10 @@ def write_cell_selection(env, write_kwds={}):
                 num_cells += 1
 
             
-        write_cell_attributes(env.results_path, pop_name, trees_output_dict, namespace='Trees', **write_kwds)
-        write_cell_attributes(env.results_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
+        if rank == 0:
+            logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, env.results_file_path))
+        write_cell_attributes(env.write_selection_file_path, pop_name, trees_output_dict, namespace='Trees', **write_kwds)
+        write_cell_attributes(env.write_selection_file_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
 
 
 def make_input_cells(env, input_sources):
@@ -1154,6 +1154,8 @@ def write_input_cell_selection(env, input_sources, write_kwds={}):
                                                     env.arena_id, env.trajectory_id)
                 else:
                     vecstim_namespace = env.celltypes[pop_name]['spike train']['namespace']
+            else:
+                vecstim_namespace = None
 
             has_vecstim = False
             if env.cell_attribute_info is not None:
@@ -1162,10 +1164,13 @@ def write_input_cell_selection(env, input_sources, write_kwds={}):
                      has_vecstim = True
 
             if has_vecstim:
+                this_gid_range = []
+                for gid in gid_range:
+                    if gid % nhosts == rank:
+                        this_gid_range.append(gid)
 
-                gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
-
-                cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
+                cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, 
+                                                                  this_gid_range, \
                                                                   namespace=vecstim_namespace, \
                                                                   comm=env.comm)
                 spikes_output_dict.update(dict(list(cell_vecstim_iter)))
@@ -1195,7 +1200,7 @@ def write_input_cell_selection(env, input_sources, write_kwds={}):
                 spikes_output_dict.update(dict(list(cell_spikes_iter)))
                 del cell_spikes_iter
                 
-        write_cell_attributes(env.results_path, pop_name, spikes_output_dict, namespace=env.spike_input_ns, **write_kwds)
+        write_cell_attributes(env.write_selection_file_path, pop_name, spikes_output_dict, namespace=env.spike_input_ns, **write_kwds)
                 
                     
 
@@ -1219,6 +1224,8 @@ def init(env):
     if rank == 0:
         logger.info("Creating results file %s" % env.results_file_path)
         io_utils.mkout(env, env.results_file_path)
+        if env.write_selection_file_path is not None:
+            io_utils.mkout(env, env.write_selection_file_path)
     if rank == 0:
         logger.info("*** Creating cells...")
     st = time.time()
@@ -1235,7 +1242,7 @@ def init(env):
     env.mkcellstime = time.time() - st
     if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
-    local_num_cells = imapreduce(viewitems(env.cells), lambda k, v: len(v), lambda ax, x: ax+x)
+    local_num_cells = imapreduce(viewitems(env.cells), lambda kv: len(kv[1]), lambda ax, x: ax+x)
     logger.info("*** Rank %i created %i cells" % (rank, local_num_cells))
     if env.cell_selection is None:
         st = time.time()
@@ -1270,8 +1277,8 @@ def init(env):
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
     st = time.time()
     init_input_cells(env, input_selection)
-    if env.write_selection and (env.cell_selection is not None): 
-        write_input_cell_selection(env)
+    if (env.cell_selection is not None) and env.write_selection: 
+        write_input_cell_selection(env, input_selection)
     env.mkstimtime = time.time() - st
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)

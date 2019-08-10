@@ -43,8 +43,9 @@ ibrun -np 12 python3 ./scripts/main.py \
     --io-size=2 \
     --tstop=10 \
     --v-init=-75 \
-    --max-walltime-hours=1.25 \
+    --max-walltime-hours=1.75 \
     --cell-selection-path=./datasets/GC_subnet.yaml \
+    --write-selection \
     --spike-input-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
     --spike-input-namespace='Input Spikes' \
     --verbose

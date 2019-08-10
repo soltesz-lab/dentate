@@ -1565,9 +1565,6 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
     syn_attrs = env.synapse_attributes
     rules = syn_attrs.syn_param_rules
 
-    if gids is None:
-        gids = 
-    
     if syn_names is None:
         syn_names = list(syn_attrs.syn_name_index_dict.keys())
 

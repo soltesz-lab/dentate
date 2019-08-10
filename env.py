@@ -186,16 +186,7 @@ class Env(object):
         # cache queries to filter_synapses
         self.cache_queries = cache_queries
 
-        # Cell selection for simulations of subsets of the network
-        self.cell_selection = None
-        self.write_selection = write_selection
-        self.cell_selection_path = cell_selection_path
-        if cell_selection_path is not None:
-            with open(cell_selection_path) as fp:
-                self.cell_selection = yaml.load(fp, IncludeLoader)
-                
         self.config_prefix = config_prefix
-
         if config_file is not None:
             if config_prefix is not None:
                 config_file_path = self.config_prefix + '/' + config_file
@@ -233,6 +224,17 @@ class Env(object):
 
         if rank == 0:
             self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
+
+        # Cell selection for simulations of subsets of the network
+        self.cell_selection = None
+        self.write_selection_file_path = None
+        self.write_selection = write_selection
+        self.cell_selection_path = cell_selection_path
+        if cell_selection_path is not None:
+            with open(cell_selection_path) as fp:
+                self.cell_selection = yaml.load(fp, IncludeLoader)
+            if self.write_selection:
+                self.write_selection_file_path =  "%s/%s_selection.h5" % (self.results_path, self.modelName)
 
         # Spike input path
         self.spike_input_path = spike_input_path
