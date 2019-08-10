@@ -76,13 +76,14 @@ sys.excepthook = mpi_excepthook
 @click.option('--cleanup/--no-cleanup', default=True,
               help='delete from memory the synapse attributes metadata after specifying connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage while constructing the network')
+@click.option("--write-selection", is_flag=True, help='write out cell and connectivity data for selection')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
          results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, trajectory_id, tstop, v_init,
          stimulus_onset, max_walltime_hours, checkpoint_clear_data, checkpoint_interval, results_write_time,
-         spike_input_path, spike_input_namespace,
-         dt, ldbal, lptbal, cleanup, profile_memory, verbose, dry_run):
+         spike_input_path, spike_input_namespace, dt, ldbal, lptbal, cleanup, profile_memory, write_selection,
+         verbose, dry_run):
 
     profile_time = False
 

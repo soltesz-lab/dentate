@@ -1,9 +1,8 @@
-import sys, os, gc, pprint, time
+import sys, os, gc, pprint, time, click
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
 import yaml
-import click
 import dentate
 import dentate.synapses as synapses
 import dentate.utils as utils
@@ -16,7 +15,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -57,7 +56,7 @@ def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, d
     output_dict = defaultdict(set)
     
     for population in pop_ranges:
-        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace, comm=comm, io_size=io_size)
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
         
