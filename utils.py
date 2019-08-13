@@ -369,6 +369,16 @@ def ifilternone(iterable):
 def flatten(iterables):
     return (elem for iterable in ifilternone(iterables) for elem in iterable)
 
+def imapreduce(iterable, fmap, freduce, init=None):
+    it = iter(iterable)
+    if init is None:
+        value = fmap(next(it))
+    else:
+        value = init
+    for x in it:
+        value = freduce(value, fmap(x))
+    return value
+        
 
 def make_geometric_graph(x, y, z, edges):
     """ Builds a NetworkX graph with xyz node coordinates and the node indices
