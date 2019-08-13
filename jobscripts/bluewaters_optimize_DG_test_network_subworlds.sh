@@ -5,10 +5,10 @@
 ### set the wallclock time
 #PBS -l walltime=6:00:00
 ### set the job name
-#PBS -N optimize_DG_test_network_subworlds
+#PBS -N optimize_DG_network_subworlds
 ### set the job stdout and stderr
-#PBS -e ./results/optimize_DG_test_network_subworlds.$PBS_JOBID.err
-#PBS -o ./results/optimize_DG_test_network_subworlds.$PBS_JOBID.out
+#PBS -e ./results/optimize_DG_network_subworlds.$PBS_JOBID.err
+#PBS -o ./results/optimize_DG_network_subworlds.$PBS_JOBID.out
 ### set email notification
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
@@ -24,12 +24,12 @@ export LC_ALL=en_IE.utf8
 export LANG=en_IE.utf8
 export SCRATCH=/projects/sciteam/bayj
 export NEURONROOT=$SCRATCH/nrnintel3
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/tests:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$HOME/model/dentate:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 
-results_path=$DG_HOME/results/optimize_DG_test_network_subworlds.$PBS_JOBID
+results_path=$DG_HOME/results/optimize_DG_network_subworlds.$PBS_JOBID
 export results_path
 
 cd $PBS_O_WORKDIR
@@ -38,7 +38,7 @@ mkdir -p $results_path
 
 aprun -n 3200 -b -- bwpy-environ -- \
     python3.6 -m nested.optimize  \
-    --config-file-path=$DG_HOME/config/DG_test_network_subworlds_config.yaml \
+    --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds_config.yaml \
     --output-dir=$results_path \
     --pop_size=8 \
     --max_iter=4 \

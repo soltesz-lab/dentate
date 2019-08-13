@@ -11,7 +11,7 @@ from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detec
     report_topology, register_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import list_find, list_index, old_div, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -311,7 +311,7 @@ def run(env):
     comptime = env.pc.step_time()
     cwtime = comptime + env.pc.step_wait()
     maxcw = env.pc.allreduce(cwtime, 2)
-    avgcomp = old_div(env.pc.allreduce(comptime, 1), nhosts)
+    avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
     if rank == 0:
@@ -370,7 +370,7 @@ def run_with(env, param_dict):
     comptime = env.pc.step_time()
     cwtime = comptime + env.pc.step_wait()
     maxcw = env.pc.allreduce(cwtime, 2)
-    avgcomp = old_div(env.pc.allreduce(comptime, 1), nhosts)
+    avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
     if rank == 0:
