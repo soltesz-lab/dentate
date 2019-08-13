@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Dentate Gyrus model simulation script for optimization with nested.optimize
+Dentate Gyrus model optimization script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
 import os, sys, logging
@@ -65,7 +65,7 @@ def config_worker():
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
     if 'results_id' not in context():
-        context.results_id = 'DG_test_network_subworlds_%s_%s' % \
+        context.results_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         try:
@@ -81,7 +81,7 @@ def config_worker():
         opt_targets = opt_params['Targets']
     else:
         raise RuntimeError(
-            "network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
+            "optimize_network_subworlds: population %s does not have optimization configuration" % pop_name)
 
     param_bounds = {}
     param_names = []
