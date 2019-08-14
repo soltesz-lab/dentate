@@ -55,8 +55,8 @@ def main(optimize_config_file_path, output_dir, export, export_file_path, label,
     # requires a global variable context: :class:'Context'
     context.update(locals())
     config_optimize_interactive(__file__, config_file_path=optimize_config_file_path, output_dir=output_dir,
-                                export=export, export_file_path=export_file_path, label=label, disp=verbose)
-
+                                export=export, export_file_path=export_file_path, label=label, disp=verbose,
+                                interface='ParallelContextInterface')
 
 def config_worker():
     """
