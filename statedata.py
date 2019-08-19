@@ -50,13 +50,16 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
             if variable == attr_name:
                 cell_index = attr_cell_index
 
+        cell_set = set(cell_index)
+                
         # Limit to max_units
         if unit_no is None:
-            if (max_units is not None) and (len(cell_index) > max_units):
+            if (max_units is not None) and (len(cell_set) > max_units):
                 logger.info('  Reading only randomly sampled %i out of %i units for population %s' % (
-                max_units, len(cell_index), pop_name))
-                sample_inds = np.random.randint(0, len(cell_index) - 1, size=int(max_units))
-                unit_no = set([cell_index[i] for i in sample_inds])
+                max_units, len(cell_set), pop_name))
+                sample_inds = np.random.randint(0, len(cell_set) - 1, size=int(max_units))
+                cell_set_lst = list(cell_set)
+                unit_no = set([cell_set_lst[i] for i in sample_inds])
             else:
                 unit_no = set(cell_index)
         else:
