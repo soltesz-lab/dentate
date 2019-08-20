@@ -1,6 +1,5 @@
 optimization_title: DG_optimize_network_subworlds
 param_gen: PopulationAnnealing
-target_population: GC
 feature_names:
 - firing rate
 objective_names:

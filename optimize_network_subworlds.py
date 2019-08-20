@@ -78,6 +78,8 @@ def config_worker():
             raise err
         context.bin_size = 5.0
     
+    pop_name = context.target_population
+
     if (pop_name in context.env.netclamp_config.optimize_parameters):
         opt_params = context.env.netclamp_config.optimize_parameters[pop_name]
         param_ranges = opt_params['Parameter ranges']
@@ -115,10 +117,11 @@ def config_worker():
         return result
 
     context.param_names = param_names
-    context.param_bounds = param_bounds
+    context.bounds = [ param_bounds[key] for key in param_names ]
     context.x0 = param_initial_dict
     context.from_param_vector = from_param_vector
     context.to_param_vector = to_param_vector
+
     
 def config_controller():
     """
@@ -174,12 +177,10 @@ def config_controller():
         return result
 
     context.param_names = param_names
-    context.param_bounds = param_bounds
+    context.bounds = [ param_bounds[key] for key in param_names ]
     context.x0 = param_initial_dict
     context.from_param_vector = from_param_vector
     context.to_param_vector = to_param_vector
-    
-
         
 def init_env():
     """

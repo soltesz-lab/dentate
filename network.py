@@ -746,9 +746,9 @@ def make_cells(env):
             for i, (gid, cell_coords_dict) in enumerate(coords):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
+                    logger.info(str(cell_coords_dict))
 
                 hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
-
                 cell_x = cell_coords_dict['X Coordinate'][0]
                 cell_y = cell_coords_dict['Y Coordinate'][0]
                 cell_z = cell_coords_dict['Z Coordinate'][0]
@@ -1253,10 +1253,12 @@ def init(env):
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
 
-    st = time.time()
     if env.profile_memory and rank == 0:
         profile_memory(logger)
 
+    st = time.time()
+    if rank == 0:
+        logger.info("*** Creating connections: time = %g seconds" % st)
     if env.cell_selection is None:
         connect_cells(env)
         input_selection = None
@@ -1268,13 +1270,16 @@ def init(env):
     env.pc.barrier()
     env.connectcellstime = time.time() - st
 
-    if env.profile_memory and rank == 0:
-        profile_memory(logger)
-
+    if rank == 0:
+        logger.info("*** Done creating connections: time = %g seconds" % time.time())
     if rank == 0:
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
+
+    if env.profile_memory and rank == 0:
+        profile_memory(logger)
+
     st = time.time()
     init_input_cells(env, input_selection)
     if (env.cell_selection is not None) and env.write_selection: 
