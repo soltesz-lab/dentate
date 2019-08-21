@@ -1,11 +1,10 @@
 import sys, os, time, gc, click, logging
 from collections import defaultdict
-# from itertools import zip_longest
 import numpy as np
 from mpi4py import MPI
 import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
-    read_cell_attribute_selection, NeuroH5ProjectionGen
+    scatter_read_cell_attributes, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
 from dentate import utils, stimulus
@@ -22,13 +21,37 @@ connections_path: contains existing mapping of syn_id to source_gid
     unaltered initial log-normal weights
     
 """
+def weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
+    rank = comm.rank
+    send_syn_ids = []
+    send_weights = []
+    for gid in query:
+        if gid in initial_weights_dict:
+            this_initial_weights_dict = initial_weights_dict[gid]
+            syn_ids = this_initial_weights_dict['syn_id']
+            weights = this_initial_weights_dict[syn_name]
+            send_syn_ids.append(syn_ids)
+            send_weights.append(weights)
+            if clear:
+                del(initial_weights_dict[gid])
+        else:
+            send_syn_ids.append(None)
+            send_weights.append(None)
+    recv_syn_ids = comm.alltoall(send_syn_ids)
+    recv_weights = comm.alltoall(send_weights)
+    syn_weight_dict = {}
+    for syn_id_array, recv_weight_array in zip(recv_syn_ids, recv_weights):
+        if syn_id_array is not None:
+            for (syn_id, weight) in zip(syn_id_array, recv_weight_array):
+                syn_weight_dict[int(syn_id)] = float(weight) 
+    return syn_weight_dict
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 
@@ -38,6 +61,7 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 @click.option("--stimulus-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
 @click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--synapse-name", type=str, default='AMPA')
 @click.option("--initial-weights-namespace", type=str, default='Weights')
 @click.option("--structured-weights-namespace", type=str, default='Structured Weights')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -53,7 +77,7 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weights_namespace,
+def main(config, stimulus_path, stimulus_namespace, weights_path, synapse_name, initial_weights_namespace,
          structured_weights_namespace, connections_path, destination, sources, arena_id, trajectory_id, target_sparsity,
          io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
     """
@@ -96,16 +120,16 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     """
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(script_name)
+    logger = utils.get_script_logger(__file__)
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
-
+    nranks = comm.size
 
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        logger.info('%s: %i ranks have been allocated' % (script_name, comm.size))
+        logger.info('%s: %i ranks have been allocated' % (__file__, comm.size))
 
     env = Env(comm=comm, config_file=config, io_size=io_size)
 
@@ -116,16 +140,21 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     for source in sources:
         stimulus_attr_gen = bcast_cell_attributes(stimulus_path, source, namespace=this_stimulus_namespace, root=0, comm=env.comm)
         stimulus_attrs[source] = { gid: attr_dict for gid, attr_dict in stimulus_attr_gen }
+        if rank == 0:
+            logger.info('Read stimulus data for %i cells in population %s' % (len(stimulus_attrs[source]), source))
 
     cell_attributes_dict = scatter_read_cell_attributes(weights_path, destination, 
-                                                        namespaces=[initial_weights_namespace], comm=env.comm,
-                                                        io_size=env.io_size)
+                                                        namespaces=[initial_weights_namespace], 
+                                                        comm=env.comm, io_size=env.io_size)
     initial_weights_dict = None
     if initial_weights_namespace in cell_attributes_dict:
         initial_weights_iter = cell_attributes_dict[initial_weights_namespace]
         initial_weights_dict = { gid: attr_dict for gid, attr_dict in initial_weights_iter }
     else:
         raise RuntimeError('Initial weights namespace %s was not found in file %s' % (initial_weights_namespace, weights_path))
+    
+    logger.info('Rank %i; destination: %s; read synaptic weights for %i cells' %
+                (rank, destination, len(initial_weights_dict)))
 
     local_random = np.random.RandomState()
 
@@ -141,7 +170,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
 
     default_run_vel = trajectory.velocity  # cm/s
 
-    trajectory_namespace = 'Trajectory %s %s' % (str(arena_id), str(stimulus_id))
+    trajectory_namespace = 'Trajectory %s %s' % (str(arena_id), str(trajectory_id))
     if rank == 0:
         import h5py
         with h5py.File(stimulus_path) as f:
@@ -177,9 +206,8 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
     start_time = time.time()
 
     connection_gen_list = []
-    for source in sources:
 
-    connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm)
+    connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
                                for source in sources ]
 
     structured_weights_dict = {}
@@ -196,13 +224,15 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
             raise Exception('Rank: %i; destination: %s; destination_gid not matched across multiple attribute '
                             'generators: %s' % (rank, destination,
                                                 [attr_gen_items[0] for attr_gen_items in attr_gen_package]))
+
+        query_initial_weights_dict = comm.alltoall([destination_gid]*nranks)
+        syn_weight_dict = weights_dict_alltoall(comm, synapse_name, initial_weights_dict, query_initial_weights_dict, clear=True)
         
         if destination_gid is not None:
-            
-            this_initial_weights_dict = initial_weights_dict[destination_gid]
-            syn_weight_dict = { int(syn_id): float(weight) for (syn_id, weight) in 
-                                zip(np.nditer(this_initial_weights_dict['syn_id']),
-                                     np.nditer(this_initial_weights_dict['weight'])) }
+
+            logger.info('Rank %i; destination: %s; gid %i; received synaptic weights for %i synapses' %
+                        (rank, destination, destination_gid, len(syn_weight_dict)))
+            comm.barrier()
             local_random.seed(int(destination_gid + seed_offset))
             for source, (this_destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
                 syn_ids = conn_attr_dict['Synapses']['syn_id']
@@ -221,12 +251,16 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                 this_source_syn_map = source_syn_map[source]
                 this_stimulus_attrs = stimulus_attrs[source]
                 if modify_weights:
-                    ordered_syn_ids = sorted(viewitems(this_source_syn_map), key=lambda item: item[1][1], reverse=True)
-                    candidate_source_gids = [ item[0] for item in ordered_syn_ids[(0:len(ordered_syn_ids)*.2)] ]
+                    source_syn_wgt_sum = {} 
+                    for source_gid, source_syns in viewitems(this_source_syn_map):
+                        wgt_sum = np.sum(np.asarray([ item[1] for item in source_syns ]))
+                        source_syn_wgt_sum[source_gid] = wgt_sum
+                    ordered_source_gids = sorted(viewitems(source_syn_wgt_sum), key=lambda item: item[1], reverse=True)
+                    candidate_source_gids = [ item[0] for item in ordered_source_gids[:int(len(ordered_source_gids)*.2)] ]
                     candidate_locs = set([])
                     for this_source_gid in candidate_source_gids:
-                        rate = stimulus_attrs[this_source_gid]['Trajectory Rate Map']
-                        for index in np.where(rate >= np.median(rate)):
+                        rate = this_stimulus_attrs[this_source_gid]['Trajectory Rate Map']
+                        for index in np.nditer(np.where(rate >= np.median(rate))):
                             candidate_locs.add(d[index])
                     peak_loc = local_random.choice(list(candidate_locs))
                     this_plasticity_kernel = plasticity_kernel(d, peak_loc)
@@ -251,7 +285,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, initial_weight
                         syn_weight_dict[this_syn_id] += delta_weight
             structured_weights_dict[destination_gid] = \
                 {'syn_id': np.array(list(syn_peak_index_map.keys())).astype('uint32', copy=False),
-                 'weight': np.array([syn_weight_dict[syn_id] for syn_id in syn_peak_index_map]).astype('float32',
+                 synapse_name: np.array([syn_weight_dict[syn_id] for syn_id in syn_peak_index_map]).astype('float32',
                                                                                                       copy=False),
                  'peak index': np.array(list(syn_peak_index_map.values())).astype('uint32', copy=False),
                  'structured': np.array([(1 if modify_weights else 0)], dtype='uint8')}
