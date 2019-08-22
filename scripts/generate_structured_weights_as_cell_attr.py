@@ -9,6 +9,7 @@ import dentate
 from dentate.env import Env
 from dentate import utils, stimulus
 from dentate.utils import *
+import h5py
 
 
 """
@@ -51,7 +52,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 
@@ -60,6 +61,7 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--stimulus-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--stimulus-namespace", type=str, default='Vector Stimulus')
+@click.option("--output-weights-path", required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--synapse-name", type=str, default='AMPA')
 @click.option("--initial-weights-namespace", type=str, default='Weights')
@@ -77,7 +79,7 @@ peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, stimulus_path, stimulus_namespace, weights_path, synapse_name, initial_weights_namespace,
+def main(config, stimulus_path, stimulus_namespace, output_weights_path, weights_path, synapse_name, initial_weights_namespace,
          structured_weights_namespace, connections_path, destination, sources, arena_id, trajectory_id, target_sparsity,
          io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
     """
@@ -133,9 +135,24 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, synapse_name, 
 
     env = Env(comm=comm, config_file=config, io_size=io_size)
 
+    if output_weights_path is None:
+        output_weights_path = weights_path
+
+    
+    if (not dry_run) and (rank==0):
+        if not os.path.isfile(output_weights_path):
+            input_file  = h5py.File(weights_path,'r')
+            output_file = h5py.File(output_weights_path,'w')
+            input_file.copy('/H5Types',output_file)
+            input_file.close()
+            output_file.close()
+    env.comm.barrier()
+
+
     this_structured_weights_namespace = '%s %s %s' % (structured_weights_namespace, arena_id, trajectory_id)
     this_stimulus_namespace = '%s %s %s' % (stimulus_namespace, arena_id, trajectory_id)
-
+    if rank == 0:
+        logger.info('Reading stimulus data...')
     stimulus_attrs = {}
     for source in sources:
         stimulus_attr_gen = bcast_cell_attributes(stimulus_path, source, namespace=this_stimulus_namespace, root=0, comm=env.comm)
@@ -143,6 +160,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, synapse_name, 
         if rank == 0:
             logger.info('Read stimulus data for %i cells in population %s' % (len(stimulus_attrs[source]), source))
 
+    env.comm.barrier()
     cell_attributes_dict = scatter_read_cell_attributes(weights_path, destination, 
                                                         namespaces=[initial_weights_namespace], 
                                                         comm=env.comm, io_size=env.io_size)
@@ -172,7 +190,6 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, synapse_name, 
 
     trajectory_namespace = 'Trajectory %s %s' % (str(arena_id), str(trajectory_id))
     if rank == 0:
-        import h5py
         with h5py.File(stimulus_path) as f:
           group = f[trajectory_namespace]
           dataset = group['x']
@@ -304,7 +321,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, synapse_name, 
         gid_count += 1
         if gid_count % write_size == 0:
             if not dry_run:
-                append_cell_attributes(weights_path, destination, structured_weights_dict,
+                append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                        namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
             structured_weights_dict.clear()
@@ -315,7 +332,7 @@ def main(config, stimulus_path, stimulus_namespace, weights_path, synapse_name, 
         del conn_attr_dict
         # gc.collect()
     if not dry_run:
-        append_cell_attributes(weights_path, destination, structured_weights_dict,
+        append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
     global_count = comm.gather(count, root=0)
