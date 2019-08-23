@@ -648,10 +648,7 @@ def add_bins(bins1, bins2, datatype):
     return bins1
 
 
-def power_spectrogram(signal: np.ndarray,
-                      fs: int,
-                      window_size: int,
-                      window_overlap: float) -> (np.ndarray, np.ndarray, np.ndarray):
+def power_spectrogram(signal, fs, window_size, window_overlap):
     """
     Computes the power spectrum of the specified signal.
     

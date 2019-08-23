@@ -1,7 +1,11 @@
 """Classes and procedures related to neuronal connectivity graph analysis. """
 
 import gc, math, time, pickle, base64
-from collections import defaultdict, ChainMap
+from collections import defaultdict
+try:
+    from collections import ChainMap
+except ImportError as e:
+    print(('dentate.graph: problem importing ChainMap:', e))
 import numpy as np
 from dentate.utils import get_module_logger, list_find_all, range, str, zip, viewitems, zip_longest
 from dentate.utils import Struct, add_bins, update_bins, finalize_bins
