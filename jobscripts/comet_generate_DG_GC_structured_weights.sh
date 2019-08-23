@@ -3,7 +3,7 @@
 #SBATCH -J generate_DG_GC_structured_weights
 #SBATCH -o ./results/generate_DG_GC_structured_weights.%j.o
 #SBATCH --nodes=64
-#SBATCH --ntasks-per-node=12
+#SBATCH --ntasks-per-node=8
 #SBATCH -t 8:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -29,7 +29,7 @@ set -x
 
 
 
-ibrun -np  768 \
+ibrun -np  512 \
     python3.5 $HOME/model/dentate/scripts/generate_structured_weights_as_cell_attr.py \
     -d GC -s MPP -s LPP \
     --config=./config/Full_Scale_GC_Exc_Sat_LNN.yaml \
@@ -40,7 +40,7 @@ ibrun -np  768 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 \
     --stimulus-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
     --stimulus-namespace='Input Spikes' --arena-id=A --trajectory-id=Diag \
-    --io-size=160 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=40 -v
+    --io-size=256 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=30 -v
 
 
 
