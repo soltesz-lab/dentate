@@ -1026,11 +1026,13 @@ def init_input_cells(env, input_sources=None):
                     if env.node_ranks is None:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                          namespaces=[vecstim_namespace],
+                                                                         mask=set([vecstim_attr]),
                                                                          comm=env.comm, io_size=env.io_size)
                     else:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                          namespaces=[vecstim_namespace],
                                                                          node_rank_map=env.node_ranks,
+                                                                         mask=set([vecstim_attr]),
                                                                          comm=env.comm, io_size=env.io_size)
                     cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
                 else:
