@@ -99,7 +99,7 @@ forest_syns_files = {
 }
 
 syn_weight_files = {
-     'GC': { "Log-Normal Weights": DG_GC_syn_weights_file },
+     'GC': { "Structured Weights A Diag": DG_GC_syn_weights_file },
      'MC': { "Log-Normal Weights": DG_IN_syn_weights_LN_file,
              "Normal Weights": DG_IN_syn_weights_N_file }
 
