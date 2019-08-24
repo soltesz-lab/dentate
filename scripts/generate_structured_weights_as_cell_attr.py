@@ -249,7 +249,6 @@ def main(config, stimulus_path, stimulus_namespace, output_weights_path, weights
 
             logger.info('Rank %i; destination: %s; gid %i; received synaptic weights for %i synapses' %
                         (rank, destination, destination_gid, len(syn_weight_dict)))
-            comm.barrier()
             local_random.seed(int(destination_gid + seed_offset))
             for source, (this_destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
                 syn_ids = conn_attr_dict['Synapses']['syn_id']

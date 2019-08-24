@@ -35,12 +35,12 @@ ibrun -np  512 \
     --config=./config/Full_Scale_GC_Exc_Sat_LNN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
     --structured-weights-namespace='Structured Weights' \
-    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_SLN_20190821.h5 \
+    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_SLN_20190824.h5 \
     --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_LN_20190717_compressed.h5 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 \
     --stimulus-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
     --stimulus-namespace='Input Spikes' --arena-id=A --trajectory-id=Diag \
-    --io-size=256 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=30 -v
+    --io-size=256 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=40 -v
 
 
 
