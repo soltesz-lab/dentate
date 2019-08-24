@@ -8,8 +8,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20190809.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20190809.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20190824.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20190824.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
@@ -21,7 +21,7 @@ DG_IN_forest_file = "DG_IN_forest_20190325_compressed.h5"
 DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20190325_compressed.h5"
 
-DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20190717_compressed.h5"
+DG_GC_syn_weights_file = "DG_GC_syn_weights_SLN_20190824_compressed.h5"
 DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20190809_compressed.h5"
 DG_IN_syn_weights_N_file = "DG_IN_syn_weights_N_20190809_compressed.h5"
 
