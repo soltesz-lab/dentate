@@ -144,9 +144,10 @@ def connect_cells(env):
                     weights_syn_ids = cell_weights_dict['syn_id']
                     for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
                         if syn_name not in syn_attrs.syn_mech_names:
-                            logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
-                                           'not found in network configuration' %
-                                           (postsyn_name, gid, syn_name))
+                            if first_gid == gid:
+                                logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                               'not found in network configuration' %
+                                               (postsyn_name, gid, syn_name))
                         else:
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
