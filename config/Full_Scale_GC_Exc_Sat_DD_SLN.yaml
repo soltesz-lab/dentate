@@ -21,7 +21,7 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights: True
-      weights namespace: Structured Weights A Diag
+      weights namespace: 'Structured Weights A Diag'
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
