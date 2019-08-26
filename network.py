@@ -124,12 +124,14 @@ def connect_cells(env):
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces), comm=env.comm,
-                                                                io_size=env.io_size)
+                                                                namespaces=sorted(cell_attr_namespaces), 
+                                                                mask=set(syn_attrs.syn_mech_names),
+                                                                comm=env.comm, io_size=env.io_size)
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces), comm=env.comm,
-                                                                node_rank_map=env.node_ranks,
+                                                                namespaces=sorted(cell_attr_namespaces), 
+                                                                mask=set(syn_attrs.syn_mech_names),
+                                                                comm=env.comm, node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
         del cell_attributes_dict['Synapse Attributes']
@@ -142,9 +144,9 @@ def connect_cells(env):
                     if first_gid is None:
                         first_gid = gid
                     weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    for syn_name in cell_weights_dict:
                         if syn_name not in syn_attrs.syn_mech_names:
-                            if first_gid == gid:
+                            if rank == 0 and first_gid == gid:
                                 logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
                                                'not found in network configuration' %
                                                (postsyn_name, gid, syn_name))
@@ -153,9 +155,9 @@ def connect_cells(env):
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
                                                                zip_longest(weights_syn_ids,
                                                                            [{'weight': x} for x in weights_values]))
-                    if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                            if rank == 0 and gid == first_gid:
+                                logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                            (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
 
                 del cell_attributes_dict[weights_namespace]
 
@@ -348,14 +350,21 @@ def connect_cell_selection(env):
                     if first_gid is None:
                         first_gid = gid
                     weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values = cell_weights_dict[syn_name]
-                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                           zip_longest(weights_syn_ids, \
-                                                                       [{'weight': x} for x in weights_values]))
-                    if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+
+                    for syn_name in cell_weights_dict:
+                        if syn_name not in syn_attrs.syn_mech_names:
+                            if rank == 0 and first_gid == gid:
+                                logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                               'not found in network configuration' %
+                                               (postsyn_name, gid, syn_name))
+                        else:
+                            weights_values = cell_weights_dict[syn_name]
+                            syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                                                   zip_longest(weights_syn_ids, \
+                                                                                   [{'weight': x} for x in weights_values]))
+                            if rank == 0 and gid == first_gid:
+                                logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                            (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
                 del weight_attributes_iter
 
         first_gid = None
