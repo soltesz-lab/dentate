@@ -1297,6 +1297,7 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
             
     def anim_rates():
         for frame in range(len(time_bins)-1):
+            t0 = time_bins[frame]
             logger.info('frame %d' % frame)
             for p, (pop_name, rates) in enumerate(sorted(viewitems(spkrate_dict))):
                 rate_array = np.asarray([this_rates[frame] for this_rates in rates[1]])
