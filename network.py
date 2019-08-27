@@ -116,7 +116,7 @@ def connect_cells(env):
 
 
         if rank == 0:
-            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
+            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
 
         cell_attr_namespaces = ['Synapse Attributes']
 
@@ -132,28 +132,32 @@ def connect_cells(env):
         syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
         del cell_attributes_dict
 
+
         if has_weights:
+            if rank == 0:
+                logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
+            weight_attr_mask = list(syn_attrs.syn_mech_names)
+            weight_attr_mask.append('syn_id')
             if env.node_ranks is None:
                 weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                      namespaces=sorted(cell_attr_namespaces), 
-                                                                      mask=set(syn_attrs.syn_mech_names),
+                                                                      namespaces=sorted(weights_namespaces), 
+                                                                      mask=set(weight_attr_mask),
                                                                       comm=env.comm, io_size=env.io_size)
             else:
                 weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                      namespaces=sorted(cell_attr_namespaces), 
-                                                                      mask=set(syn_attrs.syn_mech_names),
+                                                                      namespaces=sorted(weights_namespaces), 
+                                                                      mask=set(weight_attr_mask),
                                                                       comm=env.comm, node_rank_map=env.node_ranks,
                                                                       io_size=env.io_size)
 
-        for weights_namespace in weights_namespaces:
-            if weights_namespace in weight_attributes_dict:
+            for weights_namespace in sorted(weight_attributes_dict.keys()):
                 syn_weights_iter = weight_attributes_dict[weights_namespace]
                 first_gid = None
                 for gid, cell_weights_dict in syn_weights_iter:
                     if first_gid is None:
                         first_gid = gid
                     weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in cell_weights_dict:
+                    for syn_name in [syn_name for syn_name in sorted(cell_weights_dict.keys()) if syn_name != 'syn_id']:
                         if syn_name not in syn_attrs.syn_mech_names:
                             if rank == 0 and first_gid == gid:
                                 logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
@@ -192,9 +196,7 @@ def connect_cells(env):
         for presyn_name in presyn_names:
 
             if rank == 0:
-                logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
-
-            logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
+                logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
             if env.node_ranks is None:
                 (graph, a) = scatter_read_graph(connectivity_file_path, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
@@ -204,7 +206,9 @@ def connect_cells(env):
                                                 node_rank_map=env.node_ranks,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
-            logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
+            if rank == 0:
+                logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
+
             edge_iter = graph[postsyn_name][presyn_name]
 
             last_time = time.time()
