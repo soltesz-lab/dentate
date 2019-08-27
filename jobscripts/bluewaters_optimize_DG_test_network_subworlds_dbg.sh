@@ -1,5 +1,5 @@
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=100:ppn=32:xe
+#PBS -l nodes=400:ppn=32:xe
 ### which queue to use
 #PBS -q debug
 ### set the wallclock time
@@ -36,11 +36,11 @@ cd $PBS_O_WORKDIR
 
 mkdir -p $results_path
 
-aprun -n 800 -N 8 -d 4 -b -- bwpy-environ -- \
+aprun -n 3200 -N 8 -d 4 -b -- bwpy-environ -- \
     python3.6 -m nested.optimize  \
     --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds_config.yaml \
     --output-dir=$results_path \
-    --pop_size=2 \
+    --pop_size=8 \
     --max_iter=1 \
     --path_length=1 \
     --framework=pc \

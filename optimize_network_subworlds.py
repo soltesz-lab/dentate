@@ -10,8 +10,9 @@ from mpi4py import MPI
 import dentate
 from dentate import network, synapses, spikedata, utils
 from dentate.env import Env
+import nested
 from nested.optimize_utils import *
-
+from nested.parallel import get_parallel_interface
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -41,8 +42,9 @@ context = Context()
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
 @click.option("--bin-size", type=float, default=5.0)
+@click.option("--procs-per-worker", type=int, default=1)
 @click.option("--verbose", is_flag=True)
-def main(optimize_config_file_path, output_dir, export, export_file_path, label, bin_size, verbose):
+def main(optimize_config_file_path, output_dir, export, export_file_path, label, bin_size, procs_per_worker, verbose):
     """
 
     :param optimize_config_file_path: str
@@ -54,9 +56,10 @@ def main(optimize_config_file_path, output_dir, export, export_file_path, label,
     """
     # requires a global variable context: :class:'Context'
     context.update(locals())
+    interface=get_parallel_interface(procs_per_worker=procs_per_worker)
     config_optimize_interactive(__file__, config_file_path=optimize_config_file_path, output_dir=output_dir,
                                 export=export, export_file_path=export_file_path, label=label, disp=verbose,
-                                interface='ParallelContextInterface')
+                                interface=interface)
 
 def config_worker():
     """
@@ -118,10 +121,73 @@ def config_worker():
     context.x0 = param_initial_dict
     context.from_param_vector = from_param_vector
     context.to_param_vector = to_param_vector
-    context.target_val = opt_targets
-    context.target_range = opt_targets
 
+    
+def config_controller():
+    """
+
+    """
+    utils.config_logging(context.verbose)
+    context.logger = utils.get_script_logger(os.path.basename(__file__))
+    if 'results_id' not in context():
+        context.results_id = 'DG_optimize_network_subworlds_%s_%s' % \
+                             (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
+    if 'env' not in context():
+        try:
+            init_env()
+        except Exception as err:
+            context.logger.exception(err)
+            raise err
+        context.bin_size = 5.0
+    
+    if (pop_name in context.env.netclamp_config.optimize_parameters):
+        opt_params = context.env.netclamp_config.optimize_parameters[pop_name]
+        param_ranges = opt_params['Parameter ranges']
+        opt_targets = opt_params['Targets']
+    else:
+        raise RuntimeError(
+            "optimize_network_subworlds: population %s does not have optimization configuration" % pop_name)
+
+    param_bounds = {}
+    param_names = []
+    param_initial_dict = {}
+    param_range_tuples = []
+    for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
+        for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
+            for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
+                for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
+                    param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
+                    param_key = '%s_%s_%s_%s' % (source, sec_type, syn_name, param_name)
+                    param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                    param_initial_dict[param_key] = param_initial_value
+                    param_bounds[param_key] = param_range
+                    param_names.append(param_key)
+                    
+    def from_param_vector(params):
+        result = []
+        assert (len(params) == len(param_range_tuples))
+        for i, (source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+            result.append((source, sec_type, syn_name, param_name, params[i]))
+        return result
+
+    def to_param_vector(params):
+        result = []
+        for (source, sec_type, syn_name, param_name, param_value) in params:
+            result.append(param_value)
+        return result
+
+    context.param_names = param_names
+    context.bounds = [ param_bounds[key] for key in param_names ]
+    context.x0 = param_initial_dict
+    context.from_param_vector = from_param_vector
+    context.to_param_vector = to_param_vector
         
+def init_env():
+    """
+
+    """
+    context.env = Env(comm=context.comm, results_id=context.results_id, **context.kwargs)
+    
 def init_network():
     """
 
@@ -208,6 +274,7 @@ def compute_features_firing_rate(x, export=False):
     else:
         mean_rate = 0.
 
+    print("mean firing rate: %f" % mean_rate)
     results['firing rate'] = mean_rate
 
     return results

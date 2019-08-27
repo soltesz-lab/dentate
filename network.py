@@ -116,47 +116,63 @@ def connect_cells(env):
 
 
         if rank == 0:
-            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
+            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
 
         cell_attr_namespaces = ['Synapse Attributes']
-        if has_weights:
-            cell_attr_namespaces.extend(weights_namespaces)
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces), comm=env.comm,
-                                                                io_size=env.io_size)
+                                                                namespaces=sorted(cell_attr_namespaces), 
+                                                                comm=env.comm, io_size=env.io_size)
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces), comm=env.comm,
-                                                                node_rank_map=env.node_ranks,
+                                                                namespaces=sorted(cell_attr_namespaces), 
+                                                                comm=env.comm, node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
-        del cell_attributes_dict['Synapse Attributes']
+        del cell_attributes_dict
 
-        for weights_namespace in weights_namespaces:
-            if weights_namespace in cell_attributes_dict:
-                syn_weights_iter = cell_attributes_dict[weights_namespace]
+
+        if has_weights:
+            if rank == 0:
+                logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
+            weight_attr_mask = list(syn_attrs.syn_mech_names)
+            weight_attr_mask.append('syn_id')
+            if env.node_ranks is None:
+                weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                      namespaces=sorted(weights_namespaces), 
+                                                                      mask=set(weight_attr_mask),
+                                                                      comm=env.comm, io_size=env.io_size)
+            else:
+                weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                      namespaces=sorted(weights_namespaces), 
+                                                                      mask=set(weight_attr_mask),
+                                                                      comm=env.comm, node_rank_map=env.node_ranks,
+                                                                      io_size=env.io_size)
+
+            for weights_namespace in sorted(weight_attributes_dict.keys()):
+                syn_weights_iter = weight_attributes_dict[weights_namespace]
                 first_gid = None
                 for gid, cell_weights_dict in syn_weights_iter:
                     if first_gid is None:
                         first_gid = gid
                     weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    for syn_name in [syn_name for syn_name in sorted(cell_weights_dict.keys()) if syn_name != 'syn_id']:
                         if syn_name not in syn_attrs.syn_mech_names:
-                            logger.info('*** connect_cells: population: %s; gid: %i; syn_name: %s '
-                                        'not found in network configuration' %
-                                        (postsyn_name, gid, syn_name))
-                            raise Exception
-                        weights_values = cell_weights_dict[syn_name]
-                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
-                                                           zip_longest(weights_syn_ids,
-                                                                       [{'weight': x} for x in weights_values]))
-                    if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                            if rank == 0 and first_gid == gid:
+                                logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                               'not found in network configuration' %
+                                               (postsyn_name, gid, syn_name))
+                        else:
+                            weights_values = cell_weights_dict[syn_name]
+                            syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                               zip_longest(weights_syn_ids,
+                                                                           [{'weight': x} for x in weights_values]))
+                            if rank == 0 and gid == first_gid:
+                                logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                            (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
 
-                del cell_attributes_dict[weights_namespace]
+                del weight_attributes_dict[weights_namespace]
 
 
         first_gid = None
@@ -180,9 +196,7 @@ def connect_cells(env):
         for presyn_name in presyn_names:
 
             if rank == 0:
-                logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
-
-            logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
+                logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
             if env.node_ranks is None:
                 (graph, a) = scatter_read_graph(connectivity_file_path, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
@@ -192,7 +206,9 @@ def connect_cells(env):
                                                 node_rank_map=env.node_ranks,
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
-            logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
+            if rank == 0:
+                logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
+
             edge_iter = graph[postsyn_name][presyn_name]
 
             last_time = time.time()
@@ -347,14 +363,21 @@ def connect_cell_selection(env):
                     if first_gid is None:
                         first_gid = gid
                     weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values = cell_weights_dict[syn_name]
-                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                           zip_longest(weights_syn_ids, \
-                                                                       [{'weight': x} for x in weights_values]))
-                    if rank == 0 and gid == first_gid:
-                        logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
-                                    (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+
+                    for syn_name in cell_weights_dict:
+                        if syn_name not in syn_attrs.syn_mech_names:
+                            if rank == 0 and first_gid == gid:
+                                logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                               'not found in network configuration' %
+                                               (postsyn_name, gid, syn_name))
+                        else:
+                            weights_values = cell_weights_dict[syn_name]
+                            syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
+                                                                   zip_longest(weights_syn_ids, \
+                                                                                   [{'weight': x} for x in weights_values]))
+                            if rank == 0 and gid == first_gid:
+                                logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                                            (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
                 del weight_attributes_iter
 
         first_gid = None
@@ -1026,11 +1049,13 @@ def init_input_cells(env, input_sources=None):
                     if env.node_ranks is None:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                          namespaces=[vecstim_namespace],
+                                                                         mask=set([vecstim_attr]),
                                                                          comm=env.comm, io_size=env.io_size)
                     else:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                          namespaces=[vecstim_namespace],
                                                                          node_rank_map=env.node_ranks,
+                                                                         mask=set([vecstim_attr]),
                                                                          comm=env.comm, io_size=env.io_size)
                     cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
                 else:
