@@ -119,26 +119,35 @@ def connect_cells(env):
             logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
 
         cell_attr_namespaces = ['Synapse Attributes']
-        if has_weights:
-            cell_attr_namespaces.extend(weights_namespaces)
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=sorted(cell_attr_namespaces), 
-                                                                mask=set(syn_attrs.syn_mech_names),
                                                                 comm=env.comm, io_size=env.io_size)
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=sorted(cell_attr_namespaces), 
-                                                                mask=set(syn_attrs.syn_mech_names),
                                                                 comm=env.comm, node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
         syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
-        del cell_attributes_dict['Synapse Attributes']
+        del cell_attributes_dict
+
+        if has_weights:
+            if env.node_ranks is None:
+                weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                      namespaces=sorted(cell_attr_namespaces), 
+                                                                      mask=set(syn_attrs.syn_mech_names),
+                                                                      comm=env.comm, io_size=env.io_size)
+            else:
+                weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                      namespaces=sorted(cell_attr_namespaces), 
+                                                                      mask=set(syn_attrs.syn_mech_names),
+                                                                      comm=env.comm, node_rank_map=env.node_ranks,
+                                                                      io_size=env.io_size)
 
         for weights_namespace in weights_namespaces:
-            if weights_namespace in cell_attributes_dict:
-                syn_weights_iter = cell_attributes_dict[weights_namespace]
+            if weights_namespace in weight_attributes_dict:
+                syn_weights_iter = weight_attributes_dict[weights_namespace]
                 first_gid = None
                 for gid, cell_weights_dict in syn_weights_iter:
                     if first_gid is None:
@@ -159,7 +168,7 @@ def connect_cells(env):
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
 
-                del cell_attributes_dict[weights_namespace]
+                del weight_attributes_dict[weights_namespace]
 
 
         first_gid = None
