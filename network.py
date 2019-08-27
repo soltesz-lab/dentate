@@ -346,7 +346,7 @@ def connect_cell_selection(env):
             mech_file_path = None
 
         if rank == 0:
-            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
+            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
 
         syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
                                                             namespace='Synapse Attributes', comm=env.comm)
@@ -354,17 +354,20 @@ def connect_cell_selection(env):
         del (syn_attributes_iter)
 
         if has_weights:
-            for weights_namespace in weights_namespaces:
+            if rank == 0:
+                logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
+            weight_attr_mask = list(syn_attrs.syn_mech_names)
+            weight_attr_mask.append('syn_id')
+            for weights_namespace in sorted(weights_namespaces.keys()):
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                       selection=gid_range,
+                                                                       selection=gid_range, mask=weight_attr_mask,
                                                                        namespace=weights_namespace, comm=env.comm)
                 first_gid = None
                 for gid, cell_weights_dict in weight_attributes_iter:
                     if first_gid is None:
                         first_gid = gid
                     weights_syn_ids = cell_weights_dict['syn_id']
-
-                    for syn_name in cell_weights_dict:
+                    for syn_name in [syn_name for syn_name in sorted(cell_weights_dict.keys()) if syn_name != 'syn_id']:
                         if syn_name not in syn_attrs.syn_mech_names:
                             if rank == 0 and first_gid == gid:
                                 logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
@@ -1064,6 +1067,7 @@ def init_input_cells(env, input_sources=None):
                         
                         cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
                                                                           namespace=vecstim_namespace, \
+                                                                          mask=set([vecstim_attr]), \
                                                                           comm=env.comm)
                     else:
                         cell_vecstim_iter = []
