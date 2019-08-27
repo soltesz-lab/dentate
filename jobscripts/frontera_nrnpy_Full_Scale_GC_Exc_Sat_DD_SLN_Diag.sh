@@ -5,7 +5,7 @@
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 512             # Total # of nodes 
-#SBATCH -n 28672            # Total # of mpi tasks
+#SBATCH --ntasks-per-node=56            # # of mpi tasks per node
 #SBATCH -t 8:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
@@ -52,7 +52,7 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --stimulus-onset=0.0 \
     --max-walltime-hours=7.9 \
     --vrecord-fraction=0.001 \
-    --checkpoint-interval=1000.0 \
+    --checkpoint-interval=5000.0 \
     --checkpoint-clear-data \
     --verbose
 

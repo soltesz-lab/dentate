@@ -28,7 +28,7 @@ def mpi_excepthook(type, value, traceback):
 
 
 sys_excepthook = sys.excepthook
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
 @click.command()
