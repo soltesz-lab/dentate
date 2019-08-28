@@ -189,82 +189,103 @@ proc topol() {
 
 proc biophys() {
     
+    celsius = 34.0
+    
+    Vrest = -67
+    
+    Rm = 20000*5
+    
+    gH = 0.0005
+    
+    gKvAsoma = 0.0165*.3*1.5
+    gKvAdend = 0.004*.7*1.5
+    
+    // *2.3 gives 2x frequency & no depol. block
+    gKvEaxon =  0.05104*2.3
+    gKvEsoma =  0.0319*2.3
+    gKvEdend =  2*0.023*2.3
+    
+    gNasoma = 0.0107
+    gNadend = 2*0.0117
+    gNaaxon = 0.01712
+    
+    eleak = -67	
+
     forsec all {
-        Ra=100
+        Ra=150
+        cm = 1.3
     }
     
     forsec soma { distance() }
-
-    forsec all {
-	insert ccanl
-	catau_ccanl = 1
-	caiinf_ccanl = 5.e-6
-	insert borgka
-	gkabar_borgka=0.0008
-	insert nca  // HAV-N- Ca channel
-	gncabar_nca=0.0  
-	insert lca
-	glcabar_lca=0.0015
-	insert gskch
-	gskbar_gskch=0.003
-	insert cagk
-	gkbar_cagk=0.003
-	insert hyperde3
-	ghyfbar_hyperde3=0.000015
-	ghysbar_hyperde3=0.000015
-    }
     
     forsec soma {
-        insert ichan2  //ildikos ichan
-	gnatbar_ichan2=0.2  
-	gkfbar_ichan2=0.006  
-	gl_ichan2 = 0.000036
-        cm=0.5
+        insert KvAsom
+    	gmax_KvAsom = gKvAsoma
+	insert HCNsom
+	gmax_HCNsom = gH 
+	insert Kdrsom  // Kvsoma
+	gmax_Kdrsom = gKvEsoma 
+	insert Navsom // Navsoma
+	gmax_Navsom = gNasoma
+	insert pas
+	g_pas = 1/Rm
+	e_pas = eleak  	
     } 
     
     forsec apical {
-        for (x,0) {
-            insert ichan2
-            cm=1.1
-            if (distance(x) <= 75) {
-	        gnatbar_ichan2=0.2  
-	        gkfbar_ichan2=0.006
-	        gl_ichan2 = 0.000036
-            } else {
-	        gnatbar_ichan2=0.0
-	        gkfbar_ichan2=0.00
-	        gl_ichan2 = 0.000036
-            }
-        }
+	insert KvAsom
+    	gmax_KvAsom = gKvAdend
+	insert Kdrsom // Kvdend
+	gmax_Kdrsom = gKvEdend
+	insert Navsom // Navdend
+	gmax_Navsom = gNadend
+	insert pas
+	g_pas = 1/Rm
+	e_pas = eleak  	
     }
     
     forsec basal {
-        for (x,0) {
-            insert ichan2
-            cm=1.1
-            if (distance(x) <= 75) {
-	        gnatbar_ichan2=0.2  
-	        gkfbar_ichan2=0.006
-	        gl_ichan2 = 0.000036
-            } else {
-	        gnatbar_ichan2=0.0
-	        gkfbar_ichan2=0.00
-	        gl_ichan2 = 0.000036
-            }
-        }
+	insert KvAsom
+    	gmax_KvAsom = gKvAdend
+	insert Kdrsom // Kvdend
+	gmax_Kdrsom = gKvEdend
+	insert Navsom // Navdend
+	gmax_Navsom = gNadend
+	insert pas
+	g_pas = 1/Rm
+	e_pas = eleak  	
     }
     
+    ais {
+	insert Kdrsom // ch_Kvsoma //ch_Kvaxon
+	gmax_Kdrsom = gKvEaxon
+	insert Navsom // ch_Navsoma //ch_Navaxon
+	gmax_Navsom = gNaaxon
+	insert pas
+	g_pas = 1/Rm
+	e_pas = eleak  	
+    }
     
-    forsec all {
-        enat = 55
-        ekf = -90
-        ek= -90
-        esk= -90
-        elca=130
-	el_ichan2 =-70.45
-	ehyf=-40 ehys=-40
-        cao_ccanl=2
-    }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+    hillock {
+	insert Kdrsom // ch_Kvsoma //ch_Kvaxon
+	gmax_Kdrsom = gKvEaxon
+	insert Navsom // ch_Navsoma //ch_Navaxon
+	gmax_Navsom = gNaaxon
+	insert pas
+	g_pas = 1/Rm
+	e_pas = eleak  	
+    }
+    
+    axon {
+	insert Kdrsom // ch_Kvsoma //ch_Kvaxon
+	gmax_Kdrsom = gKvEaxon
+	insert Navsom // ch_Navsoma //ch_Navaxon
+	gmax_Navsom = gNaaxon
+	insert pas
+	g_pas = 1/Rm
+	e_pas = eleak  	
+    }
+    
     
 }
 
