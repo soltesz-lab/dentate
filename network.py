@@ -358,9 +358,9 @@ def connect_cell_selection(env):
                 logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
             weight_attr_mask = list(syn_attrs.syn_mech_names)
             weight_attr_mask.append('syn_id')
-            for weights_namespace in sorted(weights_namespaces.keys()):
+            for weights_namespace in sorted(weights_namespaces):
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                       selection=gid_range, mask=weight_attr_mask,
+                                                                       selection=gid_range, mask=set(weight_attr_mask),
                                                                        namespace=weights_namespace, comm=env.comm)
                 first_gid = None
                 for gid, cell_weights_dict in weight_attributes_iter:
@@ -532,7 +532,7 @@ def write_connection_selection(env, write_kwds={}):
         del syn_attributes_iter
         
         if has_weights:
-            for weights_namespace in weights_namespaces:
+            for weights_namespace in sorted(weights_namespaces):
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                        selection=gid_range,
                                                                        namespace=weights_namespace, comm=env.comm)
