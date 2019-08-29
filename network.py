@@ -1079,11 +1079,11 @@ def init_input_cells(env, input_sources=None):
 
                     spiketrain = vecstim_dict[vecstim_attr]
                     if len(spiketrain) > 0:
+                        spiketrain = np.sort(spiketrain)
                         spiketrain += float(env.stimulus_config['Equilibration Duration'])
-                        if rank == 0:
-                            logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                        (gid, len(spiketrain),
-                                        spiketrain[0], spiketrain[-1]))
+                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                    (gid, len(spiketrain),
+                                     spiketrain[0], spiketrain[-1]))
                     else:
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i" %
@@ -1111,11 +1111,18 @@ def init_input_cells(env, input_sources=None):
                         this_gid_range.append(gid)
 
             has_spike_train = False
+            spike_input_source_path = []
             if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
                 if (pop_name in env.spike_input_attribute_info) and \
                    (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
                    has_spike_train = True
-                   
+                   spike_input_source_path.append(env.spike_input_path)
+            if (env.cell_attribute_info is not None) and (env.spike_input_ns is not None):
+                if (pop_name in env.cell_attribute_info) and \
+                        (env.spike_input_ns in env.cell_attribute_info[pop_name]):
+                    has_spike_train = True
+                    spike_input_source_path.append(env.input_file_path)
+
                     
             if has_spike_train:
 
@@ -1124,11 +1131,12 @@ def init_input_cells(env, input_sources=None):
                 else:
                     vecstim_attr = None
 
-                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
-                                                                 this_gid_range, \
-                                                                 namespace=env.spike_input_ns, \
-                                                                 comm=env.comm)
-                for gid, cell_spikes_dict in cell_spikes_iter:
+                    
+                cell_spikes_iters = [ read_cell_attribute_selection(input_path, pop_name, \
+                                                                    this_gid_range, \
+                                                                    namespace=env.spike_input_ns, \
+                                                                    comm=env.comm) for input_path in spike_input_source_path ]
+                for gid, cell_spikes_dict in itertools.chain.from_iterable(cell_spikes_iters):
                     spiketrain = None
                     if vecstim_attr in cell_spikes_dict:
                         spiketrain = cell_spikes_dict[vecstim_attr]
@@ -1138,12 +1146,12 @@ def init_input_cells(env, input_sources=None):
                         raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input namespace %s" % (gid, env.spike_input_ns))
                         
                     if len(spiketrain) > 0:
+                        spiketrain = np.sort(spiketrain)
                         if np.min(spiketrain) < 0.:
                             spiketrain += float(env.stimulus_config['Equilibration Duration'])
 
-                        if rank == 0:
-                            logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                        (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                    (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i" %
@@ -1232,7 +1240,8 @@ def write_input_cell_selection(env, input_sources, write_kwds={}):
                 spikes_output_dict.update(dict(list(cell_spikes_iter)))
                 del cell_spikes_iter
                 
-        write_cell_attributes(env.write_selection_file_path, pop_name, spikes_output_dict, namespace=env.spike_input_ns, **write_kwds)
+        write_cell_attributes(env.write_selection_file_path, pop_name, spikes_output_dict,  \
+                              namespace=env.spike_input_ns, **write_kwds)
                 
                     
 
