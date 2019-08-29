@@ -934,12 +934,13 @@ def write_cell_selection(env, write_kwds={}):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, comm=env.comm,  topology=False)
+            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
+                                                                 namespace='Trees', comm=env.comm)
              
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
-            for i, (gid, tree) in enumerate(trees):
+            for i, (gid, tree) in enumerate(cell_attributes_iter):
                 trees_output_dict[gid] = tree
                 num_cells += 1
 
@@ -1078,8 +1079,7 @@ def init_input_cells(env, input_sources=None):
 
                     spiketrain = vecstim_dict[vecstim_attr]
                     if len(spiketrain) > 0:
-                        if np.min(spiketrain) < 0.:
-                            spiketrain += abs(np.min(spiketrain))
+                        spiketrain += float(env.stimulus_config['Equilibration Duration'])
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
                                         (gid, len(spiketrain),
@@ -1138,6 +1138,9 @@ def init_input_cells(env, input_sources=None):
                         raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input namespace %s" % (gid, env.spike_input_ns))
                         
                     if len(spiketrain) > 0:
+                        if np.min(spiketrain) < 0.:
+                            spiketrain += float(env.stimulus_config['Equilibration Duration'])
+
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
                                         (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))

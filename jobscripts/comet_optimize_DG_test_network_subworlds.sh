@@ -38,7 +38,7 @@ mkdir -p $results_path
 ibrun -np 300 python3 -m nested.optimize  \
     --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds_config.yaml \
     --output-dir=$results_path \
-    --pop_size=1 \
+    --pop_size=2 \
     --max_iter=1 \
     --path_length=1 \
     --framework=pc \
@@ -55,6 +55,7 @@ ibrun -np 300 python3 -m nested.optimize  \
     --spike_input_path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --max_walltime_hours=1.9 \
+    --target_population=GC \
     --io_size=24 \
     -v
 
