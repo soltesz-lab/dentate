@@ -122,6 +122,7 @@ def config_worker():
     context.from_param_vector = from_param_vector
     context.to_param_vector = to_param_vector
     context.target_val = opt_targets
+    context.target_range = opt_targets
     
 def config_controller():
     """
@@ -182,6 +183,7 @@ def config_controller():
     context.from_param_vector = from_param_vector
     context.to_param_vector = to_param_vector
     context.target_val = opt_targets
+    context.target_range = opt_targets
         
 def init_env():
     """
