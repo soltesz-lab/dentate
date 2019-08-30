@@ -122,6 +122,7 @@ def config_worker():
     context.from_param_vector = from_param_vector
     context.to_param_vector = to_param_vector
     context.target_val = opt_targets
+    context.target_range = opt_targets
     
 def config_controller():
     """
@@ -182,6 +183,7 @@ def config_controller():
     context.from_param_vector = from_param_vector
     context.to_param_vector = to_param_vector
     context.target_val = opt_targets
+    context.target_range = opt_targets
         
 def init_env():
     """
@@ -275,7 +277,6 @@ def compute_features_firing_rate(x, export=False):
     else:
         mean_rate = 0.
 
-    print("mean firing rate: %f" % mean_rate)
     results['firing rate'] = mean_rate
 
     return results
