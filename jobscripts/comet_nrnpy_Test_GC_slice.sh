@@ -33,7 +33,7 @@ mkdir -p $results_path
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 #git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-ibrun -np 120 python3 ./scripts/main.py \
+ibrun -np 120 gdb -q -batch -x $HOME/gdb_script --args python3 ./scripts/main.py \
     --arena-id=A --trajectory-id=Diag \
     --config-file=Full_Scale_GC_Exc_Sat_DD_LNN.yaml \
     --config-prefix=./config \
