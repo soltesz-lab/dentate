@@ -277,7 +277,6 @@ def compute_features_firing_rate(x, export=False):
     else:
         mean_rate = 0.
 
-    print("mean firing rate: %f" % mean_rate)
     results['firing rate'] = mean_rate
 
     return results

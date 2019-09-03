@@ -299,7 +299,7 @@ def connect_cell_selection(env):
 
     input_sources = {pop_name: set([]) for pop_name in env.celltypes}
 
-    for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
+    for postsyn_name in sorted(env.projection_dict.keys()):
 
         if rank == 0:
             logger.info('*** Postsynaptic population: %s' % postsyn_name)
@@ -307,9 +307,11 @@ def connect_cell_selection(env):
         if postsyn_name not in selection_pop_names:
             continue
 
+        presyn_names = sorted(env.projection_dict[postsyn_name].keys())
+
         input_sources[postsyn_name] = set([])
 
-        gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
+        gid_range = [gid for gid in env.cell_selection[postsyn_name] if env.pc.gid_exists(gid)]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -399,22 +401,27 @@ def connect_cell_selection(env):
                 except KeyError:
                     raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
                                      % (postsyn_name, gid))
+
+        logger.info('*** Rank %i: reading graph selection for gids %s' % (rank, str(gid_range)))
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
+                                          projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
                                           comm=env.comm, namespaces=['Synapses', 'Connections'])
-        env.edge_count[postsyn_name] = 0
-        for presyn_name in presyn_names:
 
-            if rank == 0:
+        env.edge_count[postsyn_name] = 0
+        if postsyn_name in graph:
+            for presyn_name in presyn_names:
+
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
-            edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
+                edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
+                
+                syn_edge_iter = compose_iter(lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
+                                             edge_iters)
+                syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
 
-            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
-                                                compose_iter(
-                                                    lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
-                                                    edge_iters))
-            del graph[postsyn_name][presyn_name]
+                del graph[postsyn_name][presyn_name]
+
 
     ##
     ## This section instantiates cells that are not part of the
@@ -490,15 +497,13 @@ def write_connection_selection(env, write_kwds={}):
 
     for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
 
-        if rank == 0:
-            logger.info('*** Writing connectivity selection for postsynaptic population: %s' % postsyn_name)
 
         if postsyn_name not in selection_pop_names:
             continue
 
         input_sources[postsyn_name] = set([])
 
-        gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
+        gid_range = [gid for gid in env.cell_selection[postsyn_name] if env.pc.gid_exists(gid)]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
 
@@ -521,7 +526,7 @@ def write_connection_selection(env, write_kwds={}):
             has_weights = False
 
         if rank == 0:
-            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
+            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
 
         syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
                                                             namespace='Synapse Attributes', comm=env.comm)
@@ -542,6 +547,10 @@ def write_connection_selection(env, write_kwds={}):
                 del weight_attributes_iter
 
                 
+        if rank == 0:
+            logger.info('*** Writing connectivity selection for postsynaptic population: %s' % postsyn_name)
+
+        logger.info('*** Rank %i: reading graph selection for gids %s' % (rank, str(gid_range)))
         (graph, attr_info) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                                   comm=env.comm, namespaces=['Synapses', 'Connections'])
         for presyn_name in presyn_names:
@@ -565,6 +574,8 @@ def write_connection_selection(env, write_kwds={}):
                                   (presyn_name, postsyn_name))
 
             gid_dict = {}
+            edge_count = 0
+            node_count = 0
             for (postsyn_gid, edges) in edge_iter:
                 presyn_gids, edge_attrs = edges
                 edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
@@ -573,9 +584,12 @@ def write_connection_selection(env, write_kwds={}):
                 gid_dict[postsyn_gid] = (presyn_gids,
                                              {'Synapses': {'syn_id': edge_syn_ids},
                                               'Connections': {'distance': edge_dists} })
-
-            write_graph(env.write_selection_file_path, presyn_name, postsyn_name, gid_dict,
-                        comm=env.comm, io_size=env.io_size)
+                edge_count += len(presyn_gids)
+                node_count += 1
+            logger.info('*** Rank %d: Writing projection %s -> %s selection: %d nodes, %d edges' % (rank, presyn_name, postsyn_name, node_count, edge_count))
+            write_graph(env.write_selection_file_path, \
+                        src_pop_name=presyn_name, dst_pop_name=postsyn_name, \
+                        edges=gid_dict, comm=env.comm, io_size=env.io_size)
 
 
 def connect_gjs(env):
@@ -959,7 +973,7 @@ def write_cell_selection(env, write_kwds={}):
 
             
         if rank == 0:
-            logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, env.results_file_path))
+            logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, env.write_selection_file_path))
         write_cell_attributes(env.write_selection_file_path, pop_name, trees_output_dict, namespace='Trees', **write_kwds)
         write_cell_attributes(env.write_selection_file_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
 
