@@ -307,7 +307,7 @@ def connect_cell_selection(env):
         if postsyn_name not in selection_pop_names:
             continue
 
-        presyn_names = sorted(env.projection_dict[postsyn_name].keys())
+        presyn_names = sorted(env.projection_dict[postsyn_name])
 
         input_sources[postsyn_name] = set([])
 
@@ -552,26 +552,29 @@ def write_connection_selection(env, write_kwds={}):
 
         logger.info('*** Rank %i: reading graph selection for gids %s' % (rank, str(gid_range)))
         (graph, attr_info) = read_graph_selection(connectivity_file_path, selection=gid_range, \
+                                                  projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
                                                   comm=env.comm, namespaces=['Synapses', 'Connections'])
         for presyn_name in presyn_names:
 
-            edge_iter = graph[postsyn_name][presyn_name]
+            edge_iter = []
+            if postsyn_name in graph:
+                edge_iter = graph[postsyn_name][presyn_name]
 
-            if postsyn_name in attr_info and presyn_name in attr_info[postsyn_name]:
-                edge_attr_info = attr_info[postsyn_name][presyn_name]
-            else:
-                raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
-                                (presyn_name, postsyn_name))
+                if postsyn_name in attr_info and presyn_name in attr_info[postsyn_name]:
+                    edge_attr_info = attr_info[postsyn_name][presyn_name]
+                else:
+                    raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
+                                        (presyn_name, postsyn_name))
 
-            if 'Synapses' in edge_attr_info and \
-                'syn_id' in edge_attr_info['Synapses'] and \
-                'Connections' in edge_attr_info and \
-                'distance' in edge_attr_info['Connections']:
-                syn_id_attr_index = edge_attr_info['Synapses']['syn_id']
-                distance_attr_index = edge_attr_info['Connections']['distance']
-            else:
-                raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
-                                  (presyn_name, postsyn_name))
+                if 'Synapses' in edge_attr_info and \
+                        'syn_id' in edge_attr_info['Synapses'] and \
+                        'Connections' in edge_attr_info and \
+                        'distance' in edge_attr_info['Connections']:
+                    syn_id_attr_index = edge_attr_info['Synapses']['syn_id']
+                    distance_attr_index = edge_attr_info['Connections']['distance']
+                else:
+                    raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
+                                           (presyn_name, postsyn_name))
 
             gid_dict = {}
             edge_count = 0
