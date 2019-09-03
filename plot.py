@@ -118,10 +118,7 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     from mayavi import mlab
     if edge_color is not None:
         kwargs['color'] = edge_color
-    mlab.points3d(x[0],y[0],z[0],
-                  mode='cone',
-                  scale_factor=50,
-                  **kwargs)
+    #p = mlab.points3d(x[0],y[0],z[0], mode='cone', scale_factor=50, **kwargs)
     vec = mlab.quiver3d(x[start_idx],
                         y[start_idx],
                         z[start_idx],
@@ -945,6 +942,60 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
     mlab.show()
 
 
+def plot_tree_graph(tree_dict, edge_color, line_width, color_edge_scalars=True):
+
+    import networkx as nx
+    
+    xcoords = tree_dict['x']
+    ycoords = tree_dict['y']
+    zcoords = tree_dict['z']
+    swc_type = tree_dict['swc_type']
+    layer    = tree_dict['layer']
+    secnodes = tree_dict['section_topology']['nodes']
+    src      = tree_dict['section_topology']['src']
+    dst      = tree_dict['section_topology']['dst']
+    
+    dend_idxs = np.where(swc_type == 4)[0]
+    dend_idx_set = set(dend_idxs.flat)
+    
+    edges = []
+    for sec, nodes in viewitems(secnodes):
+        for i in range(1, len(nodes)):
+            srcnode = nodes[i-1]
+            dstnode = nodes[i]
+            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                edges.append((srcnode, dstnode))
+    for (s,d) in zip(src,dst):
+        srcnode = secnodes[s][-1]
+        dstnode = secnodes[d][0]
+        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+            edges.append((srcnode, dstnode))
+
+    x = xcoords.reshape(-1,)
+    y = ycoords.reshape(-1,)
+    z = zcoords.reshape(-1,)
+
+    # Make a NetworkX graph out of our point and edge data
+    g = make_geometric_graph(x, y, z, edges)
+
+    # Compute minimum spanning tree using networkx
+    # nx.mst returns an edge generator
+    edges = nx.minimum_spanning_tree(g).edges(data=True)
+    start_idx, end_idx, _ = np.array(list(edges)).T
+    start_idx = start_idx.astype(np.int)
+    end_idx   = end_idx.astype(np.int)
+    if color_edge_scalars:
+        edge_scalars = z[start_idx]
+        edge_color = None
+    else:
+        edge_scalars = None
+                                        
+    # Plot this with Mayavi
+    vec = plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
+                     opacity=0.8, colormap='summer', line_width=line_width)
+    return vec
+
+
 def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
     
     env = Env(config_file=config)
@@ -1013,56 +1064,8 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
     for (gid,tree_dict) in tree_iter:
 
         logger.info('plotting tree %i' % gid)
-        xcoords = tree_dict['x']
-        ycoords = tree_dict['y']
-        zcoords = tree_dict['z']
-        swc_type = tree_dict['swc_type']
-        layer    = tree_dict['layer']
-        secnodes = tree_dict['section_topology']['nodes']
-        src      = tree_dict['section_topology']['src']
-        dst      = tree_dict['section_topology']['dst']
-
-        dend_idxs = np.where(swc_type == 4)[0]
-        dend_idx_set = set(dend_idxs.flat)
-
-        edges = []
-        for sec, nodes in viewitems(secnodes):
-            for i in range(1, len(nodes)):
-                srcnode = nodes[i-1]
-                dstnode = nodes[i]
-                if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                    edges.append((srcnode, dstnode))
-        for (s,d) in zip(src,dst):
-            srcnode = secnodes[s][-1]
-            dstnode = secnodes[d][0]
-            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                edges.append((srcnode, dstnode))
-
-                
-        x = xcoords[dend_idxs].reshape(-1,)
-        y = ycoords[dend_idxs].reshape(-1,)
-        z = zcoords[dend_idxs].reshape(-1,)
-
-        # Make a NetworkX graph out of our point and edge data
-        g = make_geometric_graph(x, y, z, edges)
-
-        # Compute minimum spanning tree using networkx
-        # nx.mst returns an edge generator
-        edges = nx.minimum_spanning_tree(g).edges(data=True)
-        start_idx, end_idx, _ = np.array(list(edges)).T
-        start_idx = start_idx.astype(np.int)
-        end_idx   = end_idx.astype(np.int)
-        if color_edge_scalars:
-            edge_scalars = z[start_idx]
-            edge_color = None
-        else:
-            edge_scalars = None
-            edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
-                                        
-        # Plot this with Mayavi
-        plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
-                       opacity=0.8, colormap='summer', line_width=line_width)
-
+        edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
+        plot_tree_graph(tree_dict, edge_color, line_width, color_edge_scalars=color_edge_scalars)
             
     from dentate.geometry import make_volume
 
@@ -1095,7 +1098,8 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
     
 def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespace, spike_input_path,
                           spike_input_namespace, time_variable='t', marker_scale=10., compute_rates=False, 
-                          time_step = 5.0, subvol=False, rotate_anim=False, time_range=None, **kwargs):
+                          time_step = 5.0, subvol=False, rotate_anim=False, time_range=None,
+                          line_width=1., forest_path=None, plot_trees=False, **kwargs):
 
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
@@ -1213,7 +1217,8 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
                            rotate=rotate)
 
     logger.info('Plotting volume...')
-
+    #mlab.options.offscreen = True
+    
     mlab.figure(bgcolor=(0,0,0),size=(1280,1024))
     fig = mlab.gcf()
     fig.scene.render_window.multi_samples = 8
@@ -1231,30 +1236,42 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
     t0 = time_bins[0]
     t1 = time_bins[1]
 
-    pts_plots = []
+    logger.info("time_bins: %s" % str(time_bins))
+    pts_plots = defaultdict(list)
     if compute_rates:
         for pop_name, rates in sorted(viewitems(spkrate_dict)):
             inds = rates[0]
             cinds = inds - population_ranges[pop_name][0]
-            initial_pts = coords_dict[pop_name][cinds,:]
             rate_array = np.asarray([this_rates[0] for this_rates in rates[1]])
             category = pop_categories[pop_name]
-            x = initial_pts[:,0]
-            y = initial_pts[:,1]
-            z = initial_pts[:,2]
-            s = rate_array 
-            nodes = mlab.points3d(x, y, z, s, colormap=category_colormaps[category], scale_factor=marker_scale)
-            nodes.glyph.color_mode = 'color_by_scalar'
-            pts_plots.append(nodes)
+            initial_pts = coords_dict[pop_name][cinds,:]
+            if (pop_name in plot_trees) and forest_path:
+                (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=inds.tolist())
+                color = hex2rgb(category_colors[category%len(category_colors)])
+                for (gid,tree_dict) in tree_iter:
+                    pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
+            else:
+                x = initial_pts[:,0]
+                y = initial_pts[:,1]
+                z = initial_pts[:,2]
+                s = rate_array
+                nodes = mlab.points3d(x, y, z, s, colormap=category_colormaps[category], scale_factor=marker_scale)
+                nodes.glyph.color_mode = 'color_by_scalar'
+                pts_plots[pop_name].append(nodes)
     else:
         for p, (pop_name, spkinds, spkts) in enumerate(data):
             rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
             cinds = spkinds[rinds] - population_ranges[pop_name][0]
-            initial_pts = coords_dict[pop_name][cinds,:]
             category = pop_categories[pop_name]
             color = hex2rgb(category_colors[category%len(category_colors)])
-            nodes = mlab.points3d(*initial_pts.T, color=color, scale_factor=marker_scale)
-            pts_plots.append(nodes)
+            if (pop_name in plot_trees) and forest_path:
+                (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=spkinds[rinds].tolist())
+                for (gid,tree_dict) in tree_iter:
+                    pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
+            else:
+                initial_pts = coords_dict[pop_name][cinds,:]
+                nodes = mlab.points3d(*initial_pts.T, color=color, scale_factor=marker_scale)
+                pts_plots[pop_name].append(nodes)
 
     #fig.scene.x_plus_view()
 
@@ -1283,16 +1300,33 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
             logger.info('frame %d' % frame)
             t0 = time_bins[frame]
             t1 = time_bins[frame+1]
+            fig.scene.disable_render = True
             for p, (pop_name, spkinds, spkts) in enumerate(data):
                 rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
                 cinds = spkinds[rinds] - population_ranges[pop_name][0]
-                frame_pts = coords_dict[pop_name][cinds,:]
-                pts_plots[p].mlab_source.reset(x=frame_pts[:,0], y=frame_pts[:,1], z=frame_pts[:,2], scale_factor=marker_scale)
+                if (pop_name in plot_trees) and forest_path:
+                    category = pop_categories[pop_name]
+                    color = hex2rgb(category_colors[category%len(category_colors)])
+                    for obj in pts_plots[pop_name]:
+                        obj.remove()
+                    pts_plots[pop_name].clear()
+                    inds = spkinds[rinds].tolist()
+                    logger.info('reading tree indices %s' % str(inds))
+                    (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=inds)
+                    for (gid,tree_dict) in tree_iter:
+                        pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
+                else:
+                    frame_pts = coords_dict[pop_name][cinds,:]
+                    pts_plots[pop_name][0].mlab_source.reset(x=frame_pts[:,0], y=frame_pts[:,1], z=frame_pts[:,2], scale_factor=marker_scale)
+            # Update time
+            time_text.text = 't = %.02f ms' % t0
             # Reposition the camera
             if rotate_anim:
                 mlab.view(azimuth=(-1.*frame) % 360.)
-            # Update time
-            time_text.text = 't = %.02f ms' % t0
+            else:
+                mlab.view(azimuth=0., distance=3000.)
+            fig.scene.disable_render = False
+            logger.info('completed frame %d' % frame)
             yield
             
     def anim_rates():
@@ -1302,7 +1336,15 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
             for p, (pop_name, rates) in enumerate(sorted(viewitems(spkrate_dict))):
                 rate_array = np.asarray([this_rates[frame] for this_rates in rates[1]])
                 s = rate_array 
-                pts_plots[p].mlab_source.set(scalars = s)
+                if (pop_name in plot_trees) and forest_path:
+                    for obj in pts_plots[pop_name]:
+                        obj.remove()
+                    pts_plots[pop_name].clear()
+                    (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=spkinds[rinds].tolist())
+                    for (gid,tree_dict) in tree_iter:
+                        pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
+                else:
+                    pts_plots[pop_name][0].mlab_source.set(scalars = s)
             # Reposition the camera
             if rotate_anim:
                 mlab.view(azimuth=(-1.*frame) % 360.)
@@ -1310,9 +1352,9 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
             yield
 
     if compute_rates:
-        do_anim = mlab.animate(anim_rates)
+        do_anim = mlab.animate(anim_rates, support_movie=True)
     else:
-        do_anim = mlab.animate(anim_spikes)
+        do_anim = mlab.animate(anim_spikes, support_movie=True)
 
     if fig_options.saveFig:
         fig.scene.movie_maker.record = True
