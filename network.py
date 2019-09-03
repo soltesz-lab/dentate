@@ -872,8 +872,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
-                                                                 namespace='Coordinates', comm=env.comm)
+            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, namespace='Coordinates', comm=env.comm)
 
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
