@@ -304,12 +304,13 @@ def connect_cell_selection(env):
         if rank == 0:
             logger.info('*** Postsynaptic population: %s' % postsyn_name)
 
+        input_sources[postsyn_name] = set([])
+
         if postsyn_name not in selection_pop_names:
             continue
 
         presyn_names = sorted(env.projection_dict[postsyn_name])
 
-        input_sources[postsyn_name] = set([])
 
         gid_range = [gid for gid in env.cell_selection[postsyn_name] if env.pc.gid_exists(gid)]
 
@@ -1080,7 +1081,7 @@ def init_input_cells(env, input_sources=None):
                     cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
                 else:
                     if pop_name in env.cell_selection:
-                        gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
+                        gid_range = [gid for gid in env.cell_selection[pop_name] if env.pc.gid_exists(gid)]
                         
                         cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
                                                                           namespace=vecstim_namespace, \
@@ -1151,6 +1152,7 @@ def init_input_cells(env, input_sources=None):
                 cell_spikes_iters = [ read_cell_attribute_selection(input_path, pop_name, \
                                                                     this_gid_range, \
                                                                     namespace=env.spike_input_ns, \
+                                                                    mask=set([vecstim_attr, 't']), \
                                                                     comm=env.comm) for input_path in spike_input_source_path ]
                 for gid, cell_spikes_dict in itertools.chain.from_iterable(cell_spikes_iters):
                     spiketrain = None
