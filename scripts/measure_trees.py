@@ -1,15 +1,24 @@
-import sys, os, time, itertools, click, logging
+import itertools
+import logging
+import os
+import sys
+import time
 from collections import defaultdict
-import numpy as np
-from mpi4py import MPI
-from neuron import h
-from neuroh5.io import NeuroH5TreeGen, read_population_ranges, append_cell_attributes
+
 import h5py
-import dentate
-from dentate.env import Env
+import numpy as np
+
+import click
 import dentate.cells as cells
 import dentate.synapses as synapses
-from dentate.utils import list_find, get_script_logger
+from dentate import utils
+from dentate.env import Env
+from dentate.utils import *
+from mpi4py import MPI
+from neuroh5.io import NeuroH5TreeGen
+from neuroh5.io import append_cell_attributes
+from neuroh5.io import read_population_ranges
+from neuron import h
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -107,7 +116,7 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
                         for seg in sec.allseg():
                             L     = seg.sec.L
                             nseg  = seg.sec.nseg
-                            seg_l = L/nseg
+                            seg_l = old_div(L,nseg)
                             seg_area = h.area(seg.x)
                             layer = cells.get_node_attribute('layer', morph_dict, seg.sec, secnodes, seg.x)
                             layer = layer if layer > 0 else (prev_layer if prev_layer is not None else 1)

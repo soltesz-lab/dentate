@@ -1,35 +1,41 @@
 import h5py
+import dentate
+from dentate.utils import viewitems
 
 h5types_file = 'dentate_h5types.h5'
 
-DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP"]
+DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "MPP", "LPP", "CA3c"]
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
-DG_EXT_populations = ["MPP", "LPP"]
+DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20190204.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20190204.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20190824.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20190824.h5"
 
-DG_GC_coordinate_file  = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
-DG_EXT_coordinate_file = "dentate_Full_Scale_Control_coords_20180717.h5"
+DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
+DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
+DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 
-DG_GC_forest_file = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_forest_file = "DG_IN_forest_20181226.h5"
+DG_GC_forest_file = "DGC_forest_reindex_20190717_compressed.h5"
+DG_IN_forest_file = "DG_IN_forest_20190325_compressed.h5"
 
-DG_GC_forest_syns_file = "DGC_forest_syns_20181222_compressed.h5"
-DG_IN_forest_syns_file = "DG_IN_forest_syns_20190123_compressed.h5"
+DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"
+DG_IN_forest_syns_file = "DG_IN_forest_syns_20190325_compressed.h5"
 
-DG_GC_syn_weights_file = "DG_GC_syn_weights_LN_20190131_compressed.h5"
-DG_IN_syn_weights_file = "DG_IN_syn_weights_LN_20190204_compressed.h5"
+DG_GC_syn_weights_file = "DG_GC_syn_weights_SLN_20190824_compressed.h5"
+DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20190809_compressed.h5"
+DG_IN_syn_weights_N_file = "DG_IN_syn_weights_N_20190809_compressed.h5"
 
-DG_IN_connectivity_file = "DG_IN_connections_20190204_compressed.h5"
-DG_GC_connectivity_file = "DG_GC_connections_20181225_compressed.h5"
+DG_IN_connectivity_file = "DG_IN_connections_20190806_compressed.h5"
+DG_GC_connectivity_file = "DG_GC_connections_20190717_compressed.h5"
 
 DG_vecstim_file_dict = { 
-    100: "DG_PP_spiketrains_100_20181017.h5", 
+#    'A HDiag': "DG_input_spike_trains_20190724_compressed.h5",
+    'A Diag': "DG_input_spike_trains_20190724_compressed.h5",
+#    'A DiagU5': "DG_input_spike_trains_20190724_compressed.h5",
+#    'A DiagL5': "DG_input_spike_trains_20190724_compressed.h5",
 }
 
-vecstim_dict = { 'Vector Stimulus %i' % stim_id : stim_file for stim_id, stim_file in DG_vecstim_file_dict.items() }
+vecstim_dict = {'Input Spikes %s' % stim_id : stim_file for stim_id, stim_file in viewitems(DG_vecstim_file_dict)}
      
 
 
@@ -43,24 +49,27 @@ coordinate_files = {
      'MC':   DG_IN_coordinate_file,
      'MOPP': DG_IN_coordinate_file,
      'NGFC': DG_IN_coordinate_file,
+     'CA3c':  DG_EXT_coordinate_file,
      'MPP':  DG_EXT_coordinate_file,
      'LPP':  DG_EXT_coordinate_file
 }
 
+coordinate_ns = 'Coordinates'
 coordinate_ns_generated = 'Generated Coordinates'
 coordinate_ns_interpolated = 'Interpolated Coordinates'
 coordinate_namespaces = {
-     'AAC':  coordinate_ns_generated,
-     'BC':   coordinate_ns_generated,
-     'GC':   coordinate_ns_interpolated,
-     'HC':   coordinate_ns_generated,
-     'HCC':  coordinate_ns_generated,
-     'IS':   coordinate_ns_generated,
-     'MC':   coordinate_ns_generated,
-     'MOPP': coordinate_ns_generated,
-     'NGFC': coordinate_ns_generated,
-     'MPP':  coordinate_ns_generated,
-     'LPP':  coordinate_ns_generated
+     'AAC':  coordinate_ns,
+     'BC':   coordinate_ns,
+     'GC':   coordinate_ns,
+     'HC':   coordinate_ns,
+     'HCC':  coordinate_ns,
+     'IS':   coordinate_ns,
+     'MC':   coordinate_ns,
+     'MOPP': coordinate_ns,
+     'NGFC': coordinate_ns,
+     'CA3c':  coordinate_ns,
+     'MPP':  coordinate_ns,
+     'LPP':  coordinate_ns
 }
     
 
@@ -90,8 +99,11 @@ forest_syns_files = {
 }
 
 syn_weight_files = {
-     'GC': { "Log-Normal Weights": DG_GC_syn_weights_file },
-     'MC': { "Log-Normal Weights": DG_IN_syn_weights_file }
+     'GC': { "Structured Weights A Diag": DG_GC_syn_weights_file },
+     'MC': { "Log-Normal Weights": DG_IN_syn_weights_LN_file,
+             "Normal Weights": DG_IN_syn_weights_N_file }
+
+
 }
 
 ## Creates H5Types entries
@@ -151,8 +163,5 @@ with h5py.File(DG_cells_file) as f:
     grp = f["Populations"]
 
     for p in DG_EXT_populations:
-        for (vecstim_ns, vecstim_file) in vecstim_dict.items():
+        for (vecstim_ns, vecstim_file) in viewitems(vecstim_dict):
             grp[p][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
-
-
-    

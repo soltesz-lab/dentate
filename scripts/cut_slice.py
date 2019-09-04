@@ -1,13 +1,14 @@
-
-import sys, os, time, gc, click, logging, yaml, pprint
+import sys, os, gc, pprint, time, click
 from collections import defaultdict
-import numpy as np
 from mpi4py import MPI
+import numpy as np
+import yaml
+import dentate
+import dentate.synapses as synapses
+import dentate.utils as utils
+from dentate.env import Env
 from neuroh5.io import read_cell_attributes, read_graph_selection, read_population_ranges
 import h5py
-from dentate.env import Env
-import dentate.utils as utils
-import dentate.synapses as synapses
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -15,6 +16,7 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
+
 
 @click.command()
 @click.option("--config", '-c', required=True, type=str)
@@ -53,8 +55,8 @@ def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, d
 
     output_dict = defaultdict(set)
     
-    for population in pop_ranges.keys():
-        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    for population in pop_ranges:
+        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace, comm=comm, io_size=io_size)
         soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
         del distances
         
@@ -98,4 +100,3 @@ def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, d
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
-

@@ -787,16 +787,5 @@ Synapses:
           e: -75
           weight: 0.0010
 
-Connection Velocity:
-  AAC: 250.0
-  BC: 250.0
-  HC: 250.0
-  HCC: 250.0
-  MC: 250.0
-  NGFC: 250.0
-  MOPP: 250.0
-  MPP: 250.0
-  LPP: 250.0
-  IS: 250.0
-  GC: 250.0
+Connection Velocity: !include Connection_Velocity.yaml
 Gap Junctions: !include Gap_Junctions_Control.yaml

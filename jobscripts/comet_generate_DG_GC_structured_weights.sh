@@ -2,9 +2,9 @@
 #
 #SBATCH -J generate_DG_GC_structured_weights
 #SBATCH -o ./results/generate_DG_GC_structured_weights.%j.o
-#SBATCH --nodes=32
-#SBATCH --ntasks-per-node=24
-#SBATCH -t 6:00:00
+#SBATCH --nodes=64
+#SBATCH --ntasks-per-node=8
+#SBATCH -t 8:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -12,32 +12,35 @@
 
 
 module load python
+module unload intel
+module load gnu
+module load openmpi_ib
+module load mkl
 module load hdf5
-module load scipy
-module load mpi4py
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
+
+export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-export LD_PRELOAD=$MPIHOME/lib/libmpi.so
-
 ulimit -c unlimited
 
 set -x
 
-nodefile=`generate_pbs_nodefile`
 
-mpirun_rsh -export-all -hostfile $nodefile -np 768  python \
- $HOME/model/dentate/scripts/generate_structured_weights_as_cell_attr.py \
- -d GC -s LPP -s MPP \
- --config=./config/Full_Scale_Control.yaml \
- --stimulus-path=$SCRATCH/dentate/Full_Scale_Control/DG_PP_features_100_20180406.h5 \
- --stimulus-namespace='Vector Stimulus' \
- --initial-weights-namespace='Weights' --structured-weights-namespace='Structured Weights' \
- --weights-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_structured_weights_20180407.h5 \
- --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_compressed_20180319.h5 \
- --stimulus-id=100 \
- --io-size=160 --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v --dry-run
+
+ibrun -np  512 \
+    python3.5 $HOME/model/dentate/scripts/generate_structured_weights_as_cell_attr.py \
+    -d GC -s MPP -s LPP \
+    --config=./config/Full_Scale_GC_Exc_Sat_LNN.yaml \
+    --initial-weights-namespace='Log-Normal Weights' \
+    --structured-weights-namespace='Structured Weights' \
+    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_SLN_20190824.h5 \
+    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_LN_20190717_compressed.h5 \
+    --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 \
+    --stimulus-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
+    --stimulus-namespace='Input Spikes' --arena-id=A --trajectory-id=Diag \
+    --io-size=256 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=40 -v
+
 
 

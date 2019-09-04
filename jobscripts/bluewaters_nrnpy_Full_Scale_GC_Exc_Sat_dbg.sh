@@ -3,7 +3,7 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=512:ppn=16:xe
 ### which queue to use
-#PBS -q high
+#PBS -q debug
 ### set the wallclock time
 #PBS -l walltime=0:30:00
 ### set the job name
@@ -15,7 +15,7 @@
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
 #PBS -W umask=0027
-#PBS -A baqc
+#PBS -A bayj
 
 
 module swap PrgEnv-cray PrgEnv-gnu
@@ -25,9 +25,10 @@ module load bwpy-mpi
 
 set -x
 
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$HOME/bin/nrn/lib/python:/projects/sciteam/baqc/site-packages:$PYTHONPATH
-export PATH=$HOME/bin/nrn/x86_64/bin:$PATH
-export SCRATCH=/projects/sciteam/baqc
+export SCRATCH=/projects/sciteam/bayj
+export NEURONROOT=$SCRATCH/nrn
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export PATH=$NEURONROOT/x86_64/bin:$PATH
 
 echo python is `which python`
 results_path=./results/Full_Scale_GC_Exc_Sat_dbg_$PBS_JOBID
@@ -46,12 +47,12 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 
 aprun -n 8192 -b -- bwpy-environ -- \
     python2.7 ./scripts/main.py  \
-    --config-file=Full_Scale_GC_Exc_Sat.yaml  \
+    --config-file=Full_Scale_GC_Exc_Sat_Diag.yaml  \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=5000 \
+    --tstop=50 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=50.0 \

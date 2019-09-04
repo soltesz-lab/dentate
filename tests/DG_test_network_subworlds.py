@@ -3,12 +3,13 @@
 Dentate Gyrus model simulation script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
-import sys, click, os, logging
-from mpi4py import MPI
+import os, sys, logging
+import click
 import numpy as np
+from mpi4py import MPI
 import dentate
-from dentate.biophysics_utils import *
-from dentate import utils, spikedata, network
+from dentate import network, synapses, spikedata, utils
+from dentate.env import Env
 from nested.optimize_utils import *
 
 
@@ -61,13 +62,17 @@ def config_worker():
     """
 
     """
+    utils.config_logging(context.verbose)
+    context.logger = utils.get_script_logger(os.path.basename(__file__))
     if 'results_id' not in context():
         context.results_id = 'DG_test_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
-        init_network()
-        utils.config_logging(context.verbose)
-        context.logger = utils.get_script_logger(os.path.basename(__file__))
+        try:
+            init_network()
+        except Exception as err:
+            context.logger.exception(err)
+            raise err
         context.bin_size = 5.0
 
 def init_network():
@@ -106,9 +111,12 @@ def update_network(x, context=None):
                 syn_types = \
                     [context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['type']]
                 for sec_type in sec_types:
-                    modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, param_name=syn_param_name,
-                                     filters={'syn_types': syn_types, 'sources': [presyn_name], 'layers': layers},
-                                     value=x_dict[param_name], update_targets=True, verbose=True)
+                    synapses.modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, 
+                                              param_name=syn_param_name,
+                                              filters={'syn_types': syn_types, 
+                                                       'sources': [presyn_name], 'layers': layers},
+                                              value=x_dict[param_name], update_targets=True, 
+                                              verbose=True)
 
 
 def compute_features_network_walltime(x, export=False):
@@ -140,8 +148,7 @@ def get_objectives_network_walltime(features, export=False):
     """
     objectives = dict()
     for feature_key in context.feature_names:
-        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
-                                   context.target_range[feature_key]) ** 2.
+        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) / context.target_range[feature_key]) ** 2.
 
     return features, objectives
 
@@ -156,6 +163,7 @@ def compute_features_firing_rate(x, export=False):
     update_source_contexts(x, context)
     context.env.results_id = '%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
+
     network.run(context.env, output=context.output_results, shutdown=False)
 
     pop_spike_dict = spikedata.get_env_spike_dict(context.env)
@@ -174,7 +182,7 @@ def compute_features_firing_rate(x, export=False):
 
     n = len(spike_density_dict)
     if n > 0:
-        mean_rate = mean_rate_sum / n 
+        mean_rate = mean_rate_sum / n
     else:
         mean_rate = 0.
 
@@ -192,8 +200,7 @@ def get_objectives(features, export=False):
     """
     objectives = dict()
     for feature_key in context.feature_names:
-        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) /
-                                   context.target_range[feature_key]) ** 2.
+        objectives[feature_key] = ((features[feature_key] - context.target_val[feature_key]) / context.target_range[feature_key]) ** 2.
 
     return features, objectives
 

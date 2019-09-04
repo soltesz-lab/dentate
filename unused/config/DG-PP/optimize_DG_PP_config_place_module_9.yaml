@@ -1,0 +1,48 @@
+bounds:
+  prob_inactive: !!python/tuple
+  - 0.0
+  - 1.0
+  pr: !!python/tuple
+  - 0.0
+  - 0.95
+feature_names:
+- fraction active
+- coefficient of variation
+update_context:
+- - optimize_DG_PP_features
+  - update
+get_features_stages:
+- source: optimize_DG_PP_features
+  compute_features: calculate_features
+get_objectives:
+  optimize_DG_PP_features: get_objectives
+kwargs:
+  num_grid: 4000
+  num_place: 6000
+  module: 9
+  local_seed: 64
+  fraction_active_target: 0.05
+  active_threshold: 2.0
+  a: 0.70
+  b: -1.5
+  c: 0.90
+objective_names:
+- variation error
+- fraction active mean error
+- fraction active var error
+optimization_title: optimize_DG_PP_features
+param_gen: PopulationAnnealing
+param_names:
+- prob_inactive
+- pr
+target_range:
+  variation error: 0.05
+  fraction active mean error: 0.01
+  fraction active var error: 0.05
+target_val:
+  variation error:  0.10
+  fraction active mean error: 0.0
+  fraction active var error: 0.0
+x0:
+  prob_inactive: 0.5
+  pr: 0.33

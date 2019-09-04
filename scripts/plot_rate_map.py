@@ -1,8 +1,10 @@
 
 import sys
-import numpy as np
-import matplotlib.pyplot as plt
+from builtins import range
+from builtins import str
 
+import matplotlib.pyplot as plt
+import numpy as np
 
 nmodules = 10
 modules = np.arange(nmodules)
@@ -87,6 +89,3 @@ show_img(LPP_total_sum, 'LPP total')
 
 
 plt.show()
-
-
-

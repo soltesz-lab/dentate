@@ -1,9 +1,13 @@
 
-import sys, gc, os
-from mpi4py import MPI
+import gc
+import os
+import sys
+
 import click
 import dentate
-from dentate import utils, plot
+from dentate import plot
+from dentate import utils
+from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
 
@@ -47,6 +51,3 @@ def main(spike_events_path, spike_events_namespace, populations, bin_size, t_var
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
-
-
-    

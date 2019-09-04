@@ -1,7 +1,16 @@
+from __future__ import division
 
-from numpy import array, log
-import numpy as np
 import random
+from builtins import object
+from builtins import range
+from builtins import str
+
+import numpy as np
+from numpy import array
+from numpy import log
+
+from past.utils import old_div
+
 
 """
 neurotools.stgen
@@ -34,35 +43,40 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     :param t: corresponding time values (ms)
     :param dt: temporal resolution for spike times (ms)
     :param refractory: absolute deadtime following a spike (ms)
-    :param generator: :class:'random.Random()'
+    :param generator: :class:'np.random.RandomState()'
     :return: list of m spike times (ms)
     """
     if generator is None:
         generator = random
     interp_t = np.arange(t[0], t[-1] + dt, dt)
-    interp_rate = np.interp(interp_t, t, rate)
+    try:
+        interp_rate = np.interp(interp_t, t, rate)
+    except Exception:
+        print('t shape: %s rate shape: %s' % (str(t.shape), str(rate.shape)))
     interp_rate /= 1000.
-    non_zero = np.where(interp_rate > 0.)[0]
-    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
     spike_times = []
+    non_zero = np.where(interp_rate > 1.e-100)[0]
+    if len(non_zero) == 0:
+        return spike_times
+    interp_rate[non_zero] = 1. / (1. / interp_rate[non_zero] - refractory)
     max_rate = np.max(interp_rate)
     if not max_rate > 0.:
         return spike_times
     i = 0
     ISI_memory = 0.
     while i < len(interp_t):
-        x = generator.random()
+        x = generator.uniform(0.0, 1.0)
         if x > 0.:
-            ISI = -np.log(x) / max_rate
-            i += int(ISI / dt)
+            ISI = old_div(-np.log(x), max_rate)
+            i += int(old_div(ISI, dt))
             ISI_memory += ISI
-            if (i < len(interp_t)) and (generator.random() <= interp_rate[i] / max_rate) and ISI_memory >= 0.:
+            if (i < len(interp_t)) and (generator.uniform(0.0, 1.0) <= old_div(interp_rate[i], max_rate)) and ISI_memory >= 0.:
                 spike_times.append(interp_t[i])
                 ISI_memory = -refractory
     return spike_times
 
 
-class StGen:
+class StGen(object):
 
     def __init__(self, rng=None, seed=None):
         """ 
@@ -111,7 +125,7 @@ class StGen:
 
         """
 
-        if rng==None:
+        if rng == None:
             self.rng = np.random.RandomState()
         else:
             self.rng = rng
@@ -120,10 +134,9 @@ class StGen:
             self.rng.seed(seed)
         self.rpy_checked = False
 
-    def seed(self,seed):
+    def seed(self, seed):
         """ seed the gsl rng with a given seed """
         self.rng.seed(seed)
-
 
     def poisson_generator(self, rate, t_start=0.0, t_stop=1000.0, debug=False):
         """
@@ -146,16 +159,16 @@ class StGen:
             inh_poisson_generator, inh_adaptingmarkov_generator
         """
 
-        #number = int((t_stop-t_start)/1000.0*2.0*rate)
-        
+        # number = int((t_stop-t_start)/1000.0*2.0*rate)
+
         # less wasteful than double length method above
-        n = (t_stop-t_start)/1000.0*rate
-        number = np.ceil(n+3*np.sqrt(n))
-        if number<100:
-            number = min(5+np.ceil(2*n),100)
-        
+        n = (t_stop - t_start) / 1000.0 * rate
+        number = np.ceil(n + 3 * np.sqrt(n))
+        if number < 100:
+            number = min(5 + np.ceil(2 * n), 100)
+
         if number > 0:
-            isi = self.rng.exponential(1.0/rate, int(number))*1000.0
+            isi = self.rng.exponential(1.0 / rate, int(number)) * 1000.0
             if number > 1:
                 spikes = np.add.accumulate(isi)
             else:
@@ -163,33 +176,34 @@ class StGen:
         else:
             spikes = np.array([])
 
-        spikes+=t_start
+        spikes += t_start
         i = np.searchsorted(spikes, t_stop)
 
         extra_spikes = []
-        if i==len(spikes):
+        if i == len(spikes):
             # ISI buf overrun
-            
-            t_last = spikes[-1] + self.rng.exponential(1.0/rate, 1)[0]*1000.0
 
-            while (t_last<t_stop):
+            t_last = spikes[-1] + self.rng.exponential(1.0 / rate, 1)[0] * 1000.0
+
+            while (t_last < t_stop):
                 extra_spikes.append(t_last)
-                t_last += self.rng.exponential(1.0/rate, 1)[0]*1000.0
-            
-            spikes = np.concatenate((spikes,extra_spikes))
+                t_last += self.rng.exponential(1.0 / rate, 1)[0] * 1000.0
+
+            spikes = np.concatenate((spikes, extra_spikes))
 
             if debug:
-                print("ISI buf overrun handled. len(spikes)=%d, len(extra_spikes)=%d" % (len(spikes),len(extra_spikes)))
+                print("ISI buf overrun handled. len(spikes)=%d, len(extra_spikes)=%d" % (
+                len(spikes), len(extra_spikes)))
 
 
         else:
-            spikes = np.resize(spikes,(i,))
+            spikes = np.resize(spikes, (i,))
 
         if debug:
             return spikes, extra_spikes
         else:
             return spikes
-            
+
     def inh_poisson_generator(self, rate, t, t_stop):
         """
         Returns a SpikeTrain whose spikes are a realization of an inhomogeneous 
@@ -222,7 +236,7 @@ class StGen:
             poisson_generator, inh_adaptingmarkov_generator
         """
 
-        if np.shape(t)!=np.shape(rate):
+        if np.shape(t) != np.shape(rate):
             raise ValueError('shape mismatch: t,rate must be of the same shape')
 
         # get max rate and generate poisson process to be thinned
@@ -232,23 +246,19 @@ class StGen:
         # return empty if no spikes
         if len(ps) == 0:
             return np.array([])
-        
+
         # gen uniform rand on 0,1 for each spike
         rn = np.array(self.rng.uniform(0, 1, len(ps)))
 
         # instantaneous rate for each spike
-        
-        idx=np.searchsorted(t,ps)-1
+
+        idx = np.searchsorted(t, ps) - 1
         spike_rate = rate[idx]
 
         # thin and return spikes
-        spike_train = ps[rn<spike_rate/rmax]
+        spike_train = ps[rn < old_div(spike_rate, rmax)]
 
         return spike_train
-
-
-
-
 
     def _inh_adaptingmarkov_generator_python(self, a, bq, tau, t, t_stop):
 
@@ -301,7 +311,7 @@ class StGen:
 
         from numpy import shape
 
-        if shape(t)!=shape(a) or shape(a)!=shape(bq):
+        if shape(t) != shape(a) or shape(a) != shape(bq):
             raise ValueError('shape mismatch: t,a,b must be of the same shape')
 
         # get max rate and generate poisson process to be thinned
@@ -309,24 +319,23 @@ class StGen:
         ps = self.poisson_generator(rmax, t_start=t[0], t_stop=t_stop)
 
         isi = np.zeros_like(ps)
-        isi[1:] = ps[1:]-ps[:-1]
-        isi[0] = ps[0] #-0.0 # assume spike at 0.0
+        isi[1:] = ps[1:] - ps[:-1]
+        isi[0] = ps[0]  # -0.0 # assume spike at 0.0
 
         # return empty if no spikes
         if len(ps) == 0:
-            return SpikeTrain(np.array([]), t_start=t[0],t_stop=t_stop)
-
+            return SpikeTrain(np.array([]), t_start=t[0], t_stop=t_stop)
 
         # gen uniform rand on 0,1 for each spike
         rn = np.array(self.rng.uniform(0, 1, len(ps)))
 
         # instantaneous a,bq for each spike
 
-        idx=np.searchsorted(t,ps)-1
+        idx = np.searchsorted(t, ps) - 1
         spike_a = a[idx]
         spike_bq = bq[idx]
 
-        keep = np.zeros(shape(ps),bool)
+        keep = np.zeros(shape(ps), bool)
 
         # thin spikes
 
@@ -334,34 +343,30 @@ class StGen:
         t_last = 0.0
         t_i = 0
         # initial adaptation state is unadapted, i.e. large t_s
-        t_s = 1000*tau
+        t_s = 1000 * tau
 
-        while(i<len(ps)):
+        while (i < len(ps)):
             # find index in "t" time, without searching whole array each time
-            t_i = np.searchsorted(t[t_i:],ps[i],'right')-1+t_i
+            t_i = np.searchsorted(t[t_i:], ps[i], 'right') - 1 + t_i
 
             # evolve adaptation state
-            t_s+=isi[i]
+            t_s += isi[i]
 
-            if rn[i]<a[t_i]*np.exp(-bq[t_i]*np.exp(-t_s/tau))/rmax:
+            if rn[i] < old_div(a[t_i] * np.exp(-bq[t_i] * np.exp(old_div(-t_s, tau))), rmax):
                 # keep spike
                 keep[i] = True
                 # remap t_s state
-                t_s = -tau*np.log(np.exp(-t_s/tau)+1)
-            i+=1
-
+                t_s = -tau * np.log(np.exp(old_div(-t_s, tau)) + 1)
+            i += 1
 
         spike_train = ps[keep]
 
         return spike_train
 
-
     # use slow python implementation for the time being
     # TODO: provide optimized C/weave implementation if possible
 
-        
     inh_adaptingmarkov_generator = _inh_adaptingmarkov_generator_python
-
 
     def _inh_2Dadaptingmarkov_generator_python(self, a, bq, tau_s, tau_r, qrqs, t, t_stop):
 
@@ -421,7 +426,7 @@ class StGen:
 
         from numpy import shape
 
-        if shape(t)!=shape(a) or shape(a)!=shape(bq):
+        if shape(t) != shape(a) or shape(a) != shape(bq):
             raise ValueError('shape mismatch: t,a,b must be of the same shape')
 
         # get max rate and generate poisson process to be thinned
@@ -429,24 +434,23 @@ class StGen:
         ps = self.poisson_generator(rmax, t_start=t[0], t_stop=t_stop)
 
         isi = np.zeros_like(ps)
-        isi[1:] = ps[1:]-ps[:-1]
-        isi[0] = ps[0] #-0.0 # assume spike at 0.0
+        isi[1:] = ps[1:] - ps[:-1]
+        isi[0] = ps[0]  # -0.0 # assume spike at 0.0
 
         # return empty if no spikes
         if len(ps) == 0:
             return np.array([])
-
 
         # gen uniform rand on 0,1 for each spike
         rn = np.array(self.rng.uniform(0, 1, len(ps)))
 
         # instantaneous a,bq for each spike
 
-        idx=np.searchsorted(t,ps)-1
+        idx = np.searchsorted(t, ps) - 1
         spike_a = a[idx]
         spike_bq = bq[idx]
 
-        keep = np.zeros(shape(ps),bool)
+        keep = np.zeros(shape(ps), bool)
 
         # thin spikes
 
@@ -454,42 +458,35 @@ class StGen:
         t_last = 0.0
         t_i = 0
         # initial adaptation state is unadapted, i.e. large t_s
-        t_s = 1000*tau_s
-        t_r = 1000*tau_s
+        t_s = 1000 * tau_s
+        t_r = 1000 * tau_s
 
-        while(i<len(ps)):
+        while (i < len(ps)):
             # find index in "t" time, without searching whole array each time
-            t_i = np.searchsorted(t[t_i:],ps[i],'right')-1+t_i
+            t_i = np.searchsorted(t[t_i:], ps[i], 'right') - 1 + t_i
 
             # evolve adaptation state
-            t_s+=isi[i]
-            t_r+=isi[i]
+            t_s += isi[i]
+            t_r += isi[i]
 
-            if rn[i]<a[t_i]*np.exp(-bq[t_i]*(np.exp(-t_s/tau_s)+qrqs*np.exp(-t_r/tau_r)))/rmax:
+            if rn[i] < old_div(
+                    a[t_i] * np.exp(-bq[t_i] * (np.exp(old_div(-t_s, tau_s)) + qrqs * np.exp(old_div(-t_r, tau_r)))),
+                    rmax):
                 # keep spike
                 keep[i] = True
                 # remap t_s state
-                t_s = -tau_s*np.log(np.exp(-t_s/tau_s)+1)
-                t_r = -tau_r*np.log(np.exp(-t_r/tau_r)+1)
-            i+=1
-
+                t_s = -tau_s * np.log(np.exp(old_div(-t_s, tau_s)) + 1)
+                t_r = -tau_r * np.log(np.exp(old_div(-t_r, tau_r)) + 1)
+            i += 1
 
         spike_train = ps[keep]
 
         return spike_train
 
-
     # use slow python implementation for the time being
     # TODO: provide optimized C/weave implementation if possible
 
-        
     inh_2Dadaptingmarkov_generator = _inh_2Dadaptingmarkov_generator_python
-
-
-
-
-
-
 
     def _OU_generator_python(self, dt, tau, sigma, y0, t_start=0.0, t_stop=1000.0, time_it=False):
         """ 
@@ -516,28 +513,25 @@ class StGen:
         if time_it:
             t1 = time.time()
 
-        t     = np.arange(t_start,t_stop,dt)
-        N     = len(t)
-        y     = np.zeros(N,float)
-        gauss = self.rng.standard_normal(N-1)
-        y[0]  = y0
-        fac   = dt/tau
-        noise = np.sqrt(2*fac)*sigma
-        
+        t = np.arange(t_start, t_stop, dt)
+        N = len(t)
+        y = np.zeros(N, float)
+        gauss = self.rng.standard_normal(N - 1)
+        y[0] = y0
+        fac = old_div(dt, tau)
+        noise = np.sqrt(2 * fac) * sigma
 
         # python loop... bad+slow!
-        for i in range(1,N):
-            y[i] = y[i-1]+fac*(y0-y[i-1])+noise*gauss[i-1]
+        for i in range(1, N):
+            y[i] = y[i - 1] + fac * (y0 - y[i - 1]) + noise * gauss[i - 1]
 
         if time_it:
-            print(time.time()-1)
-        
-        return (y,t)
+            print(time.time() - 1)
 
-        
+        return (y, t)
+
     # use slow python implementation for the time being
     # TODO: provide optimized C/weave implementation if possible
-
 
     def _OU_generator_python2(self, dt, tau, sigma, y0, t_start=0.0, t_stop=1000.0, time_it=False):
         """ 
@@ -564,29 +558,28 @@ class StGen:
         if time_it:
             t1 = time.time()
 
-        t     = np.arange(t_start,t_stop,dt)
-        N     = len(t)
-        y     = np.zeros(N,float)
-        y[0]  = y0
-        fac   = dt/tau
-        gauss = fac*y0+np.sqrt(2*fac)*sigma*self.rng.standard_normal(N-1)
-        mfac = 1-fac
-        
+        t = np.arange(t_start, t_stop, dt)
+        N = len(t)
+        y = np.zeros(N, float)
+        y[0] = y0
+        fac = old_div(dt, tau)
+        gauss = fac * y0 + np.sqrt(2 * fac) * sigma * self.rng.standard_normal(N - 1)
+        mfac = 1 - fac
+
         # python loop... bad+slow!
-        for i in range(1,N):
-            idx = i-1
-            y[i] = y[idx]*mfac+gauss[idx]
+        for i in range(1, N):
+            idx = i - 1
+            y[i] = y[idx] * mfac + gauss[idx]
 
         if time_it:
-            print(time.time()-t1)
+            print(time.time() - t1)
 
-        return (y,t)
+        return (y, t)
 
     # use slow python implementation for the time being
     # TODO: provide optimized C/weave implementation if possible
 
-
-    def OU_generator_weave1(self, dt,tau,sigma,y0,t_start=0.0,t_stop=1000.0,time_it=False):
+    def OU_generator_weave1(self, dt, tau, sigma, y0, t_start=0.0, t_stop=1000.0, time_it=False):
         """ 
         Generates an Orstein Ulbeck process using the forward euler method. The function returns
         an AnalogSignal object.
@@ -610,23 +603,21 @@ class StGen:
             OU_generator
         """
         import scipy.weave
-        
+
         import time
 
         if time_it:
             t1 = time.time()
 
-
-        t = np.arange(t_start,t_stop,dt)
+        t = np.arange(t_start, t_stop, dt)
         N = len(t)
-        y = np.zeros(N,float)
+        y = np.zeros(N, float)
         y[0] = y0
-        fac = dt/tau
-        gauss = fac*y0+np.sqrt(2*fac)*sigma*self.rng.standard_normal(N-1)
-        
-        
+        fac = old_div(dt, tau)
+        gauss = fac * y0 + np.sqrt(2 * fac) * sigma * self.rng.standard_normal(N - 1)
+
         # python loop... bad+slow!
-        #for i in xrange(1,len(t)):
+        # for i in xrange(1,len(t)):
         #    y[i] = y[i-1]+dt/tau*(y0-y[i-1])+np.sqrt(2*dt/tau)*sigma*np.random.normal()
 
         # use weave instead
@@ -640,15 +631,13 @@ class StGen:
         }
         """
 
-        scipy.weave.inline(code,['y', 'gauss', 'fac'],
-                     type_converters=scipy.weave.converters.blitz)
-
+        scipy.weave.inline(code, ['y', 'gauss', 'fac'],
+                           type_converters=scipy.weave.converters.blitz)
 
         if time_it:
-            print('Elapsed ',time.time()-t1,' seconds.')
+            print('Elapsed %.3f seconds.' % (time.time() - t1))
 
-        return (y,t)
-
+        return (y, t)
 
     OU_generator = _OU_generator_python2
 
@@ -662,7 +651,7 @@ class StGen:
 # Operations on spike trains
 
 
-def shotnoise_fromspikes(spike_train,q,tau,dt=0.1,t_start=None, t_stop=None, eps = 1.0e-8):
+def shotnoise_fromspikes(spike_train, q, tau, dt=0.1, t_start=None, t_stop=None, eps=1.0e-8):
     """ 
     Convolves the provided spike train with shot decaying exponentials
     yielding so called shot noise if the spike train is Poisson-like.  
@@ -696,11 +685,10 @@ def shotnoise_fromspikes(spike_train,q,tau,dt=0.1,t_start=None, t_stop=None, eps
     st = spike_train
 
     if t_start is not None and t_stop is not None:
-        assert t_stop>t_start
+        assert t_stop > t_start
 
     # time of vanishing significance
-    vs_t = -tau*np.log(eps/q)
-
+    vs_t = -tau * np.log(old_div(eps, q))
 
     if t_stop == None:
         t_stop = st.t_stop
@@ -714,56 +702,50 @@ def shotnoise_fromspikes(spike_train,q,tau,dt=0.1,t_start=None, t_stop=None, eps
         window_start = st.t_start
     else:
         window_start = t_start
-        if t_start>st.t_start:
+        if t_start > st.t_start:
             t_start = st.t_start
-            
 
-    t = np.arange(t_start,t_stop,dt)
+    t = np.arange(t_start, t_stop, dt)
 
+    kern = q * np.exp(old_div(-np.arange(0.0, vs_t, dt), tau))
 
-    kern = q*np.exp(-np.arange(0.0,vs_t,dt)/tau)
+    idx = np.clip(np.searchsorted(t, st.spike_times, 'right') - 1, 0, len(t) - 1)
 
-    idx = np.clip(np.searchsorted(t,st.spike_times,'right')-1,0,len(t)-1)
-
-    a = np.zeros(np.shape(t),float)
+    a = np.zeros(np.shape(t), float)
 
     a[idx] = 1.0
 
-    y = np.convolve(a,kern)[0:len(t)]
+    y = np.convolve(a, kern)[0:len(t)]
 
-    signal_t = np.arange(window_start,t_stop,dt)
+    signal_t = np.arange(window_start, t_stop, dt)
     signal_y = y[-len(t):]
-    return (signal_y,signal_t)
+    return (signal_y, signal_t)
 
 
-
-
-def _gen_g_add(spikes,q,tau,t,eps = 1.0e-8):
+def _gen_g_add(spikes, q, tau, t, eps=1.0e-8):
     """
 
     spikes is a SpikeTrain object
 
     """
 
-    #spikes = poisson_generator(rate,t[-1])
+    # spikes = poisson_generator(rate,t[-1])
 
-    gd_s = np.zeros(t.shape,float)
+    gd_s = np.zeros(t.shape, float)
 
-    dt = t[1]-t[0]
+    dt = t[1] - t[0]
 
     # time of vanishing significance
-    vs_t = -tau*np.log(eps/q)
-    kern = q*np.exp(-np.arange(0.0,vs_t,dt)/tau)
+    vs_t = -tau * np.log(old_div(eps, q))
+    kern = q * np.exp(old_div(-np.arange(0.0, vs_t, dt), tau))
 
     vs_idx = len(kern)
 
-    idx = np.clip(np.searchsorted(t,spikes.spike_times),0,len(t)-1)
-    idx2 = np.clip(idx+vs_idx,0,len(gd_s))
-    idx3 = idx2-idx
+    idx = np.clip(np.searchsorted(t, spikes.spike_times), 0, len(t) - 1)
+    idx2 = np.clip(idx + vs_idx, 0, len(gd_s))
+    idx3 = idx2 - idx
 
     for i in range(len(idx)):
-
         gd_s[idx[i]:idx2[i]] += kern[0:idx3[i]]
 
     return gd_s
-

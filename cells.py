@@ -1,22 +1,583 @@
-import os, itertools, collections, traceback
-from dentate.utils import viewitems
-from dentate.neuron_utils import *
-from neuroh5.h5py_io_utils import *
+import collections, os, sys, traceback, copy, datetime, math
+import numpy as np
+from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
+from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
+from neuroh5.h5py_io_utils import select_tree_attributes
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
-try:
-    import btmorph
-except Exception:
-    pass
-
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
 
+##
+## SNode2/STree2 structures from btmorph by B.T.Nielsen.
+##
+class P3D2(object):
+    """
+    Basic container to represent and store 3D information
+    """
+
+    def __init__(self, xyz, radius, type=7):
+        """ Constructor.
+
+        Parameters
+        -----------
+
+        xyz : numpy.array
+            3D location
+        radius : float
+        type : int
+            Type asscoiated with the segment according to SWC standards
+        """
+        self.xyz = xyz
+        self.radius = radius
+        self.type = type
+
+    def __str__(self):
+        return "P3D2 [%.2f %.2f %.2f], R=%.2f" % (self.xyz[0], self.xyz[1], self.xyz[2], self.radius)
+
+
+class SNode2(object):
+    """
+    Simple Node for use with a simple Tree (STree)
+    
+    By design, the "content" should be a dictionary. (2013-03-08)
+    """
+
+    def __init__(self, index):
+        """
+        Constructor.
+
+        Parameters
+        -----------
+        index : int
+           Index, unique name of the :class:`SNode2`
+        """
+        self.parent = None
+        self.index = index
+        self.children = []
+        self.content = {}
+
+    def get_parent(self):
+        """
+        Return the parent node of this one.
+
+        Returns
+        -------
+        parent : :class:`SNode2`
+           In case of the root, None is returned.Otherwise a :class:`SNode2` is returned
+        """
+        return self.__parent
+
+    def set_parent(self, parent):
+        """
+        Set the parent node of a given other node
+
+        Parameters
+        ----------
+        node : :class:`SNode2`
+        """
+        self.__parent = parent
+
+    parent = property(get_parent, set_parent)
+
+    def get_index(self):
+        """
+        Return the index of this node
+
+        Returns
+        -------
+        index : int
+        """
+        return self.__index
+
+    def set_index(self, index):
+        """
+        Set the unqiue name of a node
+
+        Parameters
+        ----------
+
+        index : int
+        """
+        self.__index = index
+
+    index = property(get_index, set_index)
+
+    def get_children(self):
+        """
+        Return the children nodes of this one (if any)
+
+        Returns
+        -------
+        children : list :class:`SNode2`
+           In case of a leaf an empty list is returned
+        """
+        return self.__children
+
+    def set_children(self, children):
+        """
+        Set the children nodes of this one
+
+        Parameters
+        ----------
+
+        children: list :class:`SNode2`
+        """
+        self.__children = children
+
+    children = property(get_children, set_children)
+
+    def get_content(self):
+        """
+        Return the content dict of a :class:`SNode2`
+
+        Returns
+        -------
+        parent : :class:`SNode2`
+           In case of the root, None is returned.Otherwise a :class:`SNode2` is returned
+        """
+        return self.__content
+
+    def set_content(self, content):
+        """
+        Set the content of a node. The content must be a dict
+
+        Parameters
+        ----------
+        content : dict
+            dict with content. For use in btmorph at least a 'p3d' entry should be present
+        """
+        if isinstance(content, dict):
+            self.__content = content
+        else:
+            raise Exception("SNode2.set_content must receive a dict")
+
+    content = property(get_content, set_content)
+
+    def add_child(self, child_node):
+        """
+        add a child to the children list of a given node
+
+        Parameters
+        -----------
+        node :  :class:`SNode2`
+        """
+        self.children.append(child_node)
+
+    def make_empty(self):
+        """
+        Clear the node. Unclear why I ever implemented this. Probably to cover up some failed garbage collection
+        """
+        self.parent = None
+        self.content = {}
+        self.children = []
+
+    def remove_child(self, child):
+        """
+        Remove a child node from the list of children of a specific node
+
+        Parameters
+        -----------
+        node :  :class:`SNode2`
+            If the child doesn't exist, you get into problems.
+        """
+        self.children.remove(child)
+
+    def __str__(self):
+        return 'SNode2 (ID: ' + str(self.index) + ')'
+
+    def __lt__(self, other):
+        if self.index < other.index:
+            return True
+
+    def __le__(self, other):
+        if self.index <= other.index:
+            return True
+
+    def __gt__(self, other):
+        if self.index > other.index:
+            return True
+
+    def __ge__(self, other):
+        if self.index >= other.index:
+            return True
+
+    def __copy__(self):  # customization of copy.copy
+        ret = SNode2(self.index)
+        for child in self.children:
+            ret.add_child(child)
+        ret.content = self.content
+        ret.parent = self.parent
+        return ret
+
+
+class STree2(object):
+    '''
+    Simple tree for use with a simple Node (:class:`SNode2`).
+
+    While the class is designed to contain binary trees (for neuronal morphologies) the number of children is not limited.
+    As such, this is a generic implementation of a tree structure as a linked list.
+    '''
+
+    def __init__(self):
+        """
+        Default constructor. No arguments are passed.
+        """
+        self.root = None
+
+    def __iter__(self):
+        nodes = []
+        self._gather_nodes(self.root, nodes)
+        for n in nodes:
+            yield n
+
+    def __getitem__(self, index):
+        return self._find_node(self.root, index)
+
+    def set_root(self, node):
+        """
+        Set the root node of the tree
+
+        Parameters
+        -----------
+        node : :class:`SNode2`
+            to-be-root node
+        """
+        if not node is None:
+            node.parent = None
+        self.__root = node
+
+    def get_root(self):
+        """
+        Obtain the root node
+
+        Returns
+        -------
+        root : :class:`SNode2`
+        """
+        return self.__root
+
+    root = property(get_root, set_root)
+
+    def is_root(self, node):
+        """
+        Check whether a node is the root node
+
+        Returns
+        --------
+        is_root : boolean
+            True is the queried node is the root, False otherwise
+        """
+        if node.parent is None:
+            return True
+        else:
+            return False
+
+    def is_leaf(self, node):
+        """
+        Check whether a node is a leaf node, i.e., a node without children
+
+        Returns
+        --------
+        is_leaf : boolean
+            True is the queried node is a leaf, False otherwise
+        """
+        if len(node.children) == 0:
+            return True
+        else:
+            return False
+
+    def add_node_with_parent(self, node, parent):
+        """
+        Add a node to the tree under a specific parent node
+
+        Parameters
+        -----------
+        node : :class:`SNode2`
+            node to be added
+        parent : :class:`SNode2`
+            parent node of the newly added node
+        """
+        node.parent = parent
+        if not parent is None:
+            parent.add_child(node)
+
+    def remove_node(self, node):
+        """
+        Remove a node from the tree
+
+        Parameters
+        -----------
+        node : :class:`SNode2`
+            node to be removed
+        """
+        node.parent.remove_child(node)
+        self._deep_remove(node)
+
+    def _deep_remove(self, node):
+        children = node.children
+        node.make_empty()
+        for child in children:
+            self._deep_remove(child)
+
+    def get_nodes(self):
+        """
+        Obtain a list of all nodes int the tree
+
+        Returns
+        -------
+        all_nodes : list of :class:`SNode2`
+        """
+        n = []
+        self._gather_nodes(self.root, n)
+        return n
+
+    def get_sub_tree(self, fake_root):
+        """
+        Obtain the subtree starting from the given node
+
+        Parameters
+        -----------
+        fake_root : :class:`SNode2`
+            Node which becomes the new root of the subtree
+
+        Returns
+        -------
+        sub_tree :  STree2
+            New tree with the node from the first argument as root node
+        """
+        ret = STree2()
+        cp = fake_root.__copy__()
+        cp.parent = None
+        ret.root = cp
+        return ret
+
+    def _gather_nodes(self, node, node_list):
+        if not node is None:
+            node_list.append(node)
+            for child in node.children:
+                self._gather_nodes(child, node_list)
+
+    def get_node_with_index(self, index):
+        """
+        Get a node with a specific name. The name is always an integer
+
+        Parameters
+        ----------
+        index : int
+            Name of the node to be found
+
+        Returns
+        -------
+        node : :class:`SNode2`
+            Node with the specific index
+        """
+        return self._find_node(self.root, index)
+
+    def get_node_in_subtree(self, index, fake_root):
+        """
+        Get a node with a specific name in a the subtree rooted at fake_root. The name is always an integer
+
+        Parameters
+        ----------
+        index : int
+            Name of the node to be found
+        fake_root: :class:`SNode2`
+            Root node of the subtree in which the node with a given index is searched for
+
+        Returns
+        -------
+        node : :class:`SNode2`
+            Node with the specific index
+        """
+        return self._find_node(fake_root, index)
+
+    def _find_node(self, node, index):
+        """
+        Sweet breadth-first/stack iteration to replace the recursive call. 
+        Traverses the tree until it finds the node you are looking for.
+
+        Parameters
+        -----------
+
+        
+        Returns
+        -------
+        node : :class:`SNode2`
+            when found and None when not found
+        """
+        stack = [];
+        stack.append(node)
+        while (len(stack) != 0):
+            for child in stack:
+                if child.index == index:
+                    return child
+                else:
+                    stack.remove(child)
+                    for cchild in child.children:
+                        stack.append(cchild)
+        return None  # Not found!
+
+    def degree_of_node(self, node):
+        """
+        Get the degree of a given node. The degree is defined as the number of leaf nodes in the subtree rooted at this node.
+
+        Parameters
+        ----------
+        node : :class:`SNode2`
+            Node of which the degree is to be computed.
+
+        Returns
+        -------
+        degree : int
+        """
+        sub_tree = self.get_sub_tree(node)
+        st_nodes = sub_tree.get_nodes()
+        leafs = 0
+        for n in st_nodes:
+            if sub_tree.is_leaf(n):
+                leafs = leafs + 1
+        return leafs
+
+    def order_of_node(self, node):
+        """
+        Get the order of a given node. The order or centrifugal order is defined as 0 for the root and increased with any bifurcation.
+        Hence, a node with 2 branch points on the shortest path between that node and the root has order 2.
+
+        Parameters
+        ----------
+        node : :class:`SNode2`
+            Node of which the order is to be computed.
+
+        Returns
+        -------
+        order : int
+        """
+        ptr = self.path_to_root(node)
+        order = 0
+        for n in ptr:
+            if len(n.children) > 1:
+                order = order + 1
+        # order is on [0,max_order] thus subtract 1 from this calculation
+        return order - 1
+
+    def path_to_root(self, node):
+        """
+        Find and return the path between a node and the root.
+
+        Parameters
+        ----------
+        node : :class:`SNode2`
+            Node at which the path starts
+
+        Returns
+        -------
+        path : list of :class:`SNode2`
+            list of :class:`SNode2` with the provided node and the root as first and last entry, respectively.
+        """
+        n = []
+        self._go_up_from(node, n)
+        return n
+
+    def _go_up_from(self, node, n):
+        n.append(node)
+        if not node.parent is None:
+            self._go_up_from(node.parent, n)
+
+    def path_between_nodes(self, from_node, to_node):
+        """
+        Find the path between two nodes. The from_node needs to be of higher \
+        order than the to_node. In case there is no path between the nodes, \
+        the path from the from_node to the soma is given.
+
+        Parameters
+        -----------
+        from_node : :class:`SNode2`
+        to_node : :class:`SNode2`
+        """
+        n = []
+        self._go_up_from_until(from_node, to_node, n)
+        return n
+
+    def _go_up_from_until(self, from_node, to_node, n):
+        n.append(from_node)
+        if from_node == to_node:
+            return
+        if not from_node.parent is None:
+            self._go_up_from_until(from_node.parent, to_node, n)
+
+
+    def _make_soma_from_cylinders(self, soma_cylinders, all_nodes):
+        """Now construct 3-point soma
+        step 1: calculate surface of all cylinders
+        step 2: make 3-point representation with the same surface"""
+
+        total_surf = 0
+        for (node, parent_index) in soma_cylinders:
+            n = node.content["p3d"]
+            p = all_nodes[parent_index][1].content["p3d"]
+            H = np.sqrt(np.sum((n.xyz - p.xyz) ** 2))
+            surf = 2 * np.pi * p.radius * H
+            total_surf = total_surf + surf
+        print("found 'multiple cylinder soma' w/ total soma surface=*.3f" % total_surf)
+
+        # define apropriate radius
+        radius = np.sqrt(total_surf / (4 * np.pi))
+
+        s_node_1 = SNode2(2)
+        r = self.root.content["p3d"]
+        rp = r.xyz
+        s_p_1 = P3D2(np.array([rp[0], rp[1] - radius, rp[2]]), radius, 1)
+        s_node_1.content = {'p3d': s_p_1}
+        s_node_2 = SNode2(3)
+        s_p_2 = P3D2(np.array([rp[0], rp[1] + radius, rp[2]]), radius, 1)
+        s_node_2.content = {'p3d': s_p_2}
+
+        return s_node_1, s_node_2
+
+    def _determine_soma_type(self, file_n):
+        """
+        Costly method to determine the soma type used in the SWC file.
+        This method searches the whole file for soma entries.  
+
+        Parameters
+        ----------
+        file_n : string
+            Name of the file containing the SWC description
+
+        Returns
+        -------
+        soma_type : int
+            Integer indicating one of the su[pported SWC soma formats.
+            1: Default three-point soma, 2: multiple cylinder description,
+            3: otherwise [not suported in btmorph]
+        """
+        file = open(file_n, "r")
+        somas = 0
+        for line in file:
+            if not line.startswith('#'):
+                split = line.split()
+                index = int(split[0].rstrip())
+                s_type = int(split[1].rstrip())
+                if s_type == 1:
+                    somas = somas + 1
+        file.close()
+        if somas == 3:
+            return 1
+        elif somas < 3:
+            return 3
+        else:
+            return 2
+
+    def __str__(self):
+        return "STree2 (" + str(len(self.get_nodes())) + " nodes)"
+
+
 class BiophysCell(object):
     """
     A Python wrapper for neuronal cell objects specified in the NEURON language hoc.
-    Extends btmorph.STree to provide an tree interface to facilitate:
+    Extends STree to provide an tree interface to facilitate:
     1) Iteration through connected neuronal compartments, and
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
@@ -32,7 +593,7 @@ class BiophysCell(object):
         """
         self._gid = gid
         self._pop_name = pop_name
-        self.tree = btmorph.STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
+        self.tree = STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
         self.count = 0  # Keep track of number of nodes
         if env is not None:
             for sec_type in env.SWC_Types:
@@ -40,27 +601,19 @@ class BiophysCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = mech_file_path
+        self.init_mech_dict = dict()
         self.mech_dict = dict()
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
+        self.spike_onset_delay = 0.
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
-            if self.axon:
-                axon_seg_locs = [seg.x for seg in self.axon[0].sec]
-                if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=axon_seg_locs[-1]) < 100.:
-                    self.spike_detector = connect2target(self, self.axon[-1].sec, loc=1.)
-                else:
-                    for loc in axon_seg_locs:
-                        if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=loc) >= 100.:
-                            self.spike_detector = connect2target(self, self.axon[-1].sec, loc=loc)
-                            break
-            elif self.soma:
-                self.spike_detector = connect2target(self, self.soma[0].sec)
-            if self.mech_file_path is not None:
-                import_mech_dict_from_file(self, self.mech_file_path)
-    
+        if self.mech_file_path is not None:
+            import_mech_dict_from_file(self, self.mech_file_path)
+        init_spike_detector(self)
+
     @property
     def gid(self):
         return self._gid
@@ -114,16 +667,17 @@ class BiophysCell(object):
         return self.nodes['hillock']
 
 
-class SHocNode(btmorph.btstructs2.SNode2):
+class SHocNode(SNode2):
     """
     Extends SNode2 with some methods for storing and retrieving additional information in the node's content
     dictionary related to running NEURON models specified in the hoc language.
     """
+
     def __init__(self, index=0):
         """
         :param index: int : unique node identifier
         """
-        btmorph.btstructs2.SNode2.__init__(self, index)
+        SNode2.__init__(self, index)
         self.content['spine_count'] = []
         self._connection_loc = None
 
@@ -217,7 +771,7 @@ class SHocNode(btmorph.btstructs2.SNode2):
                 return self.content['layer'][0]
             else:
                 for i in range(self.sec.n3d()):
-                    if self.sec.arc3d(i) / self.sec.L >= x:
+                    if (self.sec.arc3d(i) / self.sec.L) >= x:
                         return self.content['layer'][i]
         else:
             return None
@@ -295,7 +849,7 @@ def lambda_f(sec, f=freq):
     diam = np.mean([seg.diam for seg in sec])
     Ra = sec.Ra
     cm = np.mean([seg.cm for seg in sec])
-    return 1e5*math.sqrt(diam/(4.*math.pi*f*Ra*cm))
+    return 1e5 * math.sqrt(diam / (4. * math.pi * f * Ra * cm))
 
 
 def d_lambda_nseg(sec, lam=d_lambda, f=freq):
@@ -310,7 +864,7 @@ def d_lambda_nseg(sec, lam=d_lambda, f=freq):
     :return : int
     """
     L = sec.L
-    return int((L/(lam*lambda_f(sec, f))+0.9)/2)*2+1
+    return int(((L / (lam * lambda_f(sec, f))) + 0.9) / 2) * 2 + 1
 
 
 def append_section(cell, sec_type, sec_index=None, sec=None):
@@ -508,6 +1062,52 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0.):
+    """
+    Initializes the spike detector in the given cell according to the
+    given arguments or a spike detector configuration of the mechanism
+    dictionary of the cell, if one exists.
+
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode
+    :param distance: float
+    :param threshold: float
+    :param delay: float
+    :param onset_delay: float
+    """
+    if 'spike detector' in cell.mech_dict:
+        config = cell.mech_dict['spike detector']
+        node = getattr(cell, config['section'])[0]
+        distance = config['distance']
+        threshold = config['threshold']
+        delay = config['delay']
+        onset_delay = config['onset delay']
+
+    if node is None:
+        if cell.axon:
+            node = cell.axon[0]
+        elif cell.soma:
+            node = cell.soma[0]
+        else:
+            raise RuntimeError('init_spike_detector: cell has neither soma nor axon compartment')
+
+    if node in cell.axon:
+        sec_seg_locs = [seg.x for seg in node.sec]
+        if get_distance_to_node(cell, cell.tree.root, node, loc=sec_seg_locs[-1]) < distance:
+            cell.spike_detector = connect2target(cell, node.sec, loc=1., delay=delay, threshold=threshold)
+        else:
+            for loc in sec_seg_locs:
+                if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
+                    cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
+                    break
+    else:
+        cell.spike_detector = connect2target(cell, node.sec, loc=0.5, delay=delay, threshold=threshold)
+
+    cell.onset_delay = onset_delay
+            
+    return cell.spike_detector
+        
+
 def init_nseg(sec, spatial_res=0, verbose=True):
     """
     Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
@@ -682,7 +1282,8 @@ def import_mech_dict_from_file(cell, mech_file_path=None):
         raise IOError('import_mech_dict_from_file: invalid mech_file_path: %s' % mech_file_path)
     else:
         cell.mech_file_path = mech_file_path
-    cell.mech_dict = read_from_yaml(cell.mech_file_path)
+    cell.init_mech_dict = read_from_yaml(cell.mech_file_path)
+    cell.mech_dict = copy.deepcopy(cell.init_mech_dict)
 
 
 def export_mech_dict(cell, mech_file_path=None, output_dir=None):
@@ -698,13 +1299,13 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
         if output_dir is None:
             mech_file_path = mech_file_name
         elif os.path.isdir(output_dir):
-            mech_file_path = output_dir+'/'+mech_file_name
+            mech_file_path = output_dir + '/' + mech_file_name
     write_to_yaml(mech_file_path, cell.mech_dict, convert_scalars=True)
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
 
-def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False,
-                    correct_g_pas=False, verbose=True):
+def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_g_pas=False, reset_mech_dict=False,
+                    verbose=True):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
     each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance.
@@ -712,18 +1313,17 @@ def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_
     root. Warning! Do not reset cable after inserting synapses!
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
-    :param mech_file_path: str (path)
     :param reset_cable: bool
-    :param from_file: bool
     :param correct_cm: bool
     :param correct_g_pas: bool
+    :param reset_mech_dict: bool
     :param verbose: bool
     """
-    if from_file:
-        import_mech_dict_from_file(cell, mech_file_path)
     if (correct_cm or correct_g_pas) and env is None:
         raise ValueError('init_biophysics: missing Env object; required to parse network configuration and count '
                          'synapses.')
+    if reset_mech_dict:
+        cell.mech_dict = copy.deepcopy(cell.init_mech_dict)
     if reset_cable:
         for sec_type in default_ordered_sec_types:
             if sec_type in cell.mech_dict and sec_type in cell.nodes:
@@ -768,11 +1368,11 @@ def count_spines_per_seg(node, env, gid):
     """
     syn_attrs = env.synapse_attributes
     node.content['spine_count'] = []
-    
+
     filtered_synapses = syn_attrs.filter_synapses(gid, syn_sections=[node.index], \
-                                                      syn_types=[env.Synapse_Types['excitatory']])
+                                                  syn_types=[env.Synapse_Types['excitatory']])
     if len(filtered_synapses) > 0:
-        this_syn_locs = np.asarray([syn.syn_loc for _,syn in viewitems(filtered_synapses)])
+        this_syn_locs = np.asarray([syn.syn_loc for _, syn in viewitems(filtered_synapses)])
         seg_width = 1. / node.sec.nseg
         for i, seg in enumerate(node.sec):
             num_spines = len(np.where((this_syn_locs >= i * seg_width) & (this_syn_locs < (i + 1) * seg_width))[0])
@@ -798,8 +1398,8 @@ def correct_node_for_spines_g_pas(node, env, gid, soma_g_pas, verbose=True):
         SA_seg = segment.area()
         num_spines = node.spine_count[i]
 
-        g_pas_correction_factor = (SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) / \
-                                 (SA_seg * node.sec(segment.x).g_pas)
+        g_pas_correction_factor = ((SA_seg * node.sec(segment.x).g_pas + num_spines * SA_spine * soma_g_pas) /
+                                   (SA_seg * node.sec(segment.x).g_pas))
         node.sec(segment.x).g_pas *= g_pas_correction_factor
         if verbose:
             logger.info('g_pas_correction_factor for gid: %i; %s seg %i: %.3f' %
@@ -998,9 +1598,9 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
 
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
-        traceback.print_tb(sys.exc_info()[2])
+        traceback.print_exc(file=sys.stdout)
         if param_name is not None:
-            print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' % \
+            print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
                   (mech_name, param_name, node.name))
         else:
             print('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
@@ -1121,7 +1721,7 @@ def inherit_mech_param(donor, mech_name, param_name):
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
     except Exception as e:
-        print('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' % \
+        print('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' %
               (mech_name, param_name, donor.type))
         raise e
 
@@ -1144,7 +1744,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
                 node.sec.insert(mech_name)
             except Exception:
                 raise RuntimeError('set_mech_param: unable to insert mechanism: %s cell: %s in sec_type: %s ' \
-                                    % (mech_name, str(cell), node.type))
+                                   % (mech_name, str(cell), node.type))
             setattr(node.sec, param_name + "_" + mech_name, baseline)
     elif donor is None:
         raise RuntimeError('set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s '
@@ -1203,8 +1803,8 @@ def get_param_val_by_distance(distance, baseline, slope, min_distance, max_dista
             distance -= min_distance
             if tau is not None:
                 if xhalf is not None:  # sigmoidal gradient
-                    offset = baseline - slope / (1. + np.exp(xhalf / tau))
-                    value = offset + slope / (1. + np.exp((xhalf - distance) / tau))
+                    offset = baseline - (slope / (1. + np.exp(xhalf / tau)))
+                    value = offset + (slope / (1. + np.exp((xhalf - distance) / tau)))
                 else:  # exponential gradient
                     offset = baseline - slope
                     value = offset + slope * np.exp(distance / tau)
@@ -1228,9 +1828,19 @@ def zero_na(cell):
     Set na channel conductances to zero in all compartments. Used during parameter optimization.
     """
     for sec_type in (sec_type for sec_type in default_ordered_sec_types if sec_type in cell.nodes and
-                     sec_type in cell.mech_dict):
+                                                                           sec_type in cell.mech_dict):
         for na_type in (na_type for na_type in ['nas', 'nax'] if na_type in cell.mech_dict[sec_type]):
             modify_mech_param(cell, sec_type, na_type, 'gbar', 0.)
+
+
+def zero_h(cell):
+    """
+    Set Ih channel conductances to zero in all compartments. Used during parameter optimization.
+    """
+    for sec_type in (sec_type for sec_type in default_ordered_sec_types if sec_type in cell.nodes and
+                                                                           sec_type in cell.mech_dict):
+        for h_type in (h_type for h_type in ['h'] if h_type in cell.mech_dict[sec_type]):
+            modify_mech_param(cell, sec_type, h_type, 'ghbar', 0.)
 
 
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
@@ -1311,7 +1921,7 @@ def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, *
     else:
         raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
                            '%s' % node.type)
-    slope = (end_val - start_val)/node.sec.L
+    slope = (end_val - start_val) / node.sec.L
     if 'slope' in rules:
         if direction < 0.:
             slope = min(rules['slope'], slope)
@@ -1346,7 +1956,7 @@ def report_topology(cell, env, node=None):
     :param node:
     """
     if node is None:
-       node = cell.tree.root
+        node = cell.tree.root
     syn_attrs = env.synapse_attributes
     num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
                                                  syn_sections=[node.index], \
@@ -1364,7 +1974,7 @@ def report_topology(cell, env, node=None):
     for child in node.children:
         report_topology(cell, env, child)
 
-        
+
 def make_neurotree_graph(neurotree_dict):
     """
     Creates a graph of sections that follows the topological organization of the given neuron.
@@ -1374,15 +1984,15 @@ def make_neurotree_graph(neurotree_dict):
     import networkx as nx
 
     sec_nodes = neurotree_dict['section_topology']['nodes']
-    sec_src   = neurotree_dict['section_topology']['src']
-    sec_dst   = neurotree_dict['section_topology']['dst']
+    sec_src = neurotree_dict['section_topology']['src']
+    sec_dst = neurotree_dict['section_topology']['dst']
 
     sec_graph = nx.DiGraph()
     for i, j in zip(sec_src, sec_dst):
         sec_graph.add_edge(i, j)
 
     return sec_graph
-    
+
 
 def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
     """
@@ -1394,17 +2004,17 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     :param neurotree_dict:
     :return: hoc cell object
     """
-    vx       = neurotree_dict['x']
-    vy       = neurotree_dict['y']
-    vz       = neurotree_dict['z']
-    vradius  = neurotree_dict['radius']
-    vlayer   = neurotree_dict['layer']
+    vx = neurotree_dict['x']
+    vy = neurotree_dict['y']
+    vz = neurotree_dict['z']
+    vradius = neurotree_dict['radius']
+    vlayer = neurotree_dict['layer']
     vsection = neurotree_dict['section']
     secnodes = neurotree_dict['section_topology']['nodes']
-    vsrc     = neurotree_dict['section_topology']['src']
-    vdst     = neurotree_dict['section_topology']['dst']
+    vsrc = neurotree_dict['section_topology']['src']
+    vdst = neurotree_dict['section_topology']['dst']
     swc_type = neurotree_dict['swc_type']
-    cell     = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
+    cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
     return cell
 
 
@@ -1419,24 +2029,48 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     dataset_path = env.dataset_path if env.dataset_path is not None else ""
     data_file_path = env.data_file_path
     template_name = env.celltypes[pop_name]['template']
-    assert(hasattr(h, template_name))
+    assert (hasattr(h, template_name))
     template_class = getattr(h, template_name)
 
     if neurotree_dict:
         hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
                                        dataset_path=dataset_path)
     else:
-        if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
+        if pop_name in env.cell_attribute_info and 'Trees' in env.cell_attribute_info[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             data_file_path, pop_name, gid)
         else:
             hoc_cell = template_class(gid, dataset_path)
-        
+
     return hoc_cell
 
 
+def make_input_cell(env, gid, pop_id, input_source_dict):
+    """
+    Instantiates an input generator according to the given cell template.
+    """
+
+    input_sources = input_source_dict[pop_id]
+    input_gen = input_sources['gen']
+    if input_gen is None:
+        cell = h.VecStimCell(gid)
+        if 'spiketrains' in input_sources:
+            spk_inds = input_sources['spiketrains']['gid']
+            spk_ts = input_sources['spiketrains']['t']
+            data = spk_ts[np.where(spk_inds == gid)]
+            cell.pp.play(h.Vector(data))
+    else:
+        template_name = input_gen['template']
+        param_values = input_gen['params']
+        template = getattr(h, template_name)
+        params = [param_values[p] for p in env.netclamp_config.template_params[template_name]]
+        cell = template(gid, *params)
+
+    return cell
+
+
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
-                     load_weights=False, set_edge_delays=True):
+                     load_weights=False, set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -1447,13 +2081,14 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     :param load_edges: bool
     :param load_weights: bool
     :param set_edge_delays: bool
+    :param mech_file_path: str (path)
     :return: :class:'BiophysCell'
     """
     env.load_cell_template(pop_name)
     if tree_dict is None:
         tree_dict = select_tree_attributes(gid, env.comm, env.data_file_path, pop_name)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
-    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
+    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
@@ -1465,7 +2100,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if load_synapses:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, synapses_dict)
-        elif (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
+        elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
             synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
                                                           comm=env.comm)
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
@@ -1480,10 +2115,10 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                 for gid, cell_weights_dict in cell_weights_iter:
                     weights_syn_ids = cell_weights_dict['syn_id']
                     for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values  = cell_weights_dict[syn_name]
+                        weights_values = cell_weights_dict[syn_name]
                         syn_attrs.add_mech_attrs_from_iter(
                             gid, syn_name,
-                            zip_longest(weights_syn_ids, itertools.imap(lambda x: {'weight' : x}, weights_values)))
+                            zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)))
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
                                     (gid, len(cell_weights_dict[syn_name]), syn_name))
         else:
@@ -1508,6 +2143,36 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     return cell
 
 
+def register_cell(env, pop_name, gid, cell):
+    """
+    Registers a cell in a network environment.
+
+    :param env: an instance of the `dentate.Env` class
+    :param pop_name: population name
+    :param gid: gid
+    :param cell: cell instance
+    """
+    rank = env.comm.rank
+    env.gidset.add(gid)
+    env.pc.set_gid2node(gid, rank)
+    hoc_cell = getattr(cell, 'hoc_cell', cell)
+    env.cells[pop_name].append(hoc_cell)
+    # Tell the ParallelContext that this cell is a spike source
+    # for all other hosts. NetCon is temporary.
+    if hasattr(cell, 'spike_detector'):
+        nc = cell.spike_detector
+    else:
+        nc = hoc_cell.connect2target(h.nil)
+    nc.delay = max(env.dt, nc.delay)
+    env.pc.cell(gid, nc, 1)
+    # Record spikes of this cell
+    env.pc.spike_record(gid, env.t_vec, env.id_vec)
+    # if the spike detector is located in a compartment other than soma,
+    # record the spike time delay relative to soma
+    if hasattr(cell, 'spike_onset_delay'):
+        env.spike_onset_delay[gid] = cell.spike_onset_delay
+
+    
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """
     Determines minimum stimulus sufficient to induce a spike in a cell. 
@@ -1524,9 +2189,9 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
 
     if sec is None:
         sec = list(cell.soma)[0]
-    
+
     iclamp = h.IClamp(sec(loc))
-    setattr(iclamp,'del',delay)
+    setattr(iclamp, 'del', delay)
     iclamp.dur = duration
     iclamp.amp = initial_amp
 
@@ -1534,13 +2199,84 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
     apcount.thresh = -20
     apcount.time = 0.
 
-    h.tstop = duration+delay
-    h.cvode_active (1)
+    h.tstop = duration + delay
+    h.cvode_active(1)
 
-    h.load_file("nrngui.hoc")  
+    h.load_file("stdrun.hoc")
     h.load_file("thresh.hoc")  ## nrn/lib/hoc
     thr = h.threshold(iclamp._ref_amp)
 
     return thr
 
 
+def get_spike_shape(vm, spike_times, equilibrate=0., dt=0.025, th_dvdt=10.):
+    """
+    Given a voltage recording from a cell section, and a list of spike times recorded from a spike detector NetCon,
+    report features of the spike shape, including the delay between the recorded section and the spike detector.
+    :param vm: array
+    :param spike_times: array
+    :param equilibrate: float
+    :param dt: float
+    :param th_dvdt: float; slope of voltage change at spike threshold
+    :return: dict
+    """
+    start = int((equilibrate + 1.) / dt)  # start time after equilibrate, expressed in time step
+    vm = vm[start:]
+    dvdt = np.gradient(vm, dt)  # slope of voltage change
+    th_x_indexes = np.where(dvdt >= th_dvdt)[0]
+    if th_x_indexes.any():
+        th_x = th_x_indexes[0] - int(1.6 / dt)  # the true spike onset is before the slope threshold is crossed
+    else:
+        th_x_indexes = np.where(vm > -30.)[0]
+        if th_x_indexes.any():
+            th_x = th_x_indexes[0] - int(2. / dt)
+        else:
+            return None
+    th_v = vm[th_x]
+    v_before = np.mean(vm[th_x - int(0.1 / dt):th_x])
+
+    spike_detector_delay = spike_times[0] - (equilibrate + 1. + th_x * dt)
+    window_dur = 100.  # ms
+    fAHP_window_dur = 20.  # ms
+    ADP_min_start = 5.  # ms
+    ADP_window_dur = 75. # ms
+    if len(spike_times) > 1:
+        window_dur = min(window_dur, spike_times[1] - spike_times[0])
+    window_end = min(len(vm), th_x + int(window_dur / dt))
+    fAHP_window_end = min(window_end, th_x + int(fAHP_window_dur / dt))
+    ADP_min_start_len = min(window_end - th_x, int(ADP_min_start / dt))
+    ADP_window_end = min(window_end, th_x + int(ADP_window_dur / dt))
+
+    x_peak = np.argmax(vm[th_x:window_end]) + th_x
+    v_peak = vm[x_peak]
+
+    # find fAHP trough
+    rising_x = np.where(dvdt[x_peak+1:fAHP_window_end] > 0.)[0]
+    if rising_x.any():
+        fAHP_window_end = x_peak + 1 + rising_x[0]
+    x_fAHP = np.argmin(vm[x_peak:fAHP_window_end]) + x_peak
+    v_fAHP = vm[x_fAHP]
+    fAHP = v_before - v_fAHP
+
+    # find ADP and mAHP
+    rising_x = np.where(dvdt[x_fAHP:ADP_window_end] > 0.)[0]
+    if not rising_x.any():
+        ADP = 0.
+        mAHP = 0.
+    else:
+        falling_x = np.where(dvdt[x_fAHP + rising_x[0]:ADP_window_end] < 0.)[0]
+        if not falling_x.any():
+            ADP = 0.
+            mAHP = 0.
+        else:
+            x_ADP = np.argmax(vm[x_fAHP + rising_x[0]:x_fAHP + rising_x[0] + falling_x[0]]) + x_fAHP + rising_x[0]
+            if x_ADP - th_x < ADP_min_start_len:
+                ADP = 0.
+                mAHP = 0.
+            else:
+                v_ADP = vm[x_ADP]
+                ADP = v_ADP - v_fAHP
+                mAHP = v_before - np.min(vm[x_ADP:window_end])
+
+    return {'v_peak': v_peak, 'th_v': th_v, 'fAHP': fAHP, 'ADP': ADP, 'mAHP': mAHP,
+            'spike_detector_delay': spike_detector_delay}

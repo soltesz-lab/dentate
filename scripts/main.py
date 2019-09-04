@@ -3,11 +3,12 @@
 Dentate Gyrus model simulation script.
 """
 __author__ = 'See AUTHORS.md'
-import sys, click, os
-from mpi4py import MPI
+import os, sys
 import numpy as np
+import click
+from mpi4py import MPI
 import dentate
-import dentate.network as network
+from dentate import network
 from dentate.env import Env
 from dentate.utils import list_find
 
@@ -21,6 +22,7 @@ def mpi_excepthook(type, value, traceback):
     :return:
     """
     sys_excepthook(type, value, traceback)
+    sys.stderr.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 
@@ -30,6 +32,8 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
+@click.option("--arena-id", required=True, type=str,
+              help='name of arena used for spatial stimulus')
 @click.option("--cell-selection-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
               help='name of file specifying subset of cells gids to be instantiated')
 @click.option("--config-file", required=True, type=str, help='model configuration file name')
@@ -52,10 +56,16 @@ sys.excepthook = mpi_excepthook
 @click.option("--vrecord-fraction", type=float, default=0.001,
               help='fraction of cells to record intracellular voltage from')
 @click.option("--coredat", is_flag=True, help='Save CoreNEURON data')
+@click.option("--trajectory-id", required=True, type=str,
+              help='name of trajectory used for spatial stimulus')
 @click.option("--tstop", type=int, default=1, help='physical time to simulate (ms)')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
 @click.option("--stimulus-onset", type=float, default=1.0, help='starting time of stimulus (ms)')
 @click.option("--max-walltime-hours", type=float, default=1.0, help='maximum wall time (hours)')
+@click.option("--checkpoint-clear-data", is_flag=True,
+              help='delete simulation data from memory after it has been saved')
+@click.option("--checkpoint-interval", type=float, default=500.0,
+              help='checkpoint interval in ms of simulation time')
 @click.option("--results-write-time", type=float, default=360.0, help='time to write out results at end of simulation')
 @click.option("--spike-input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='path to file for input spikes when cell selection is specified')
@@ -67,18 +77,22 @@ sys.excepthook = mpi_excepthook
 @click.option('--cleanup/--no-cleanup', default=True,
               help='delete from memory the synapse attributes metadata after specifying connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage while constructing the network')
+@click.option("--write-selection", is_flag=True, help='write out cell and connectivity data for selection')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
-def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
-         results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init,
-         stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
-         dt, ldbal, lptbal, cleanup, profile_memory, verbose, dry_run):
+def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
+         results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, trajectory_id, tstop, v_init,
+         stimulus_onset, max_walltime_hours, checkpoint_clear_data, checkpoint_interval, results_write_time,
+         spike_input_path, spike_input_namespace, dt, ldbal, lptbal, cleanup, profile_memory, write_selection,
+         verbose, dry_run):
 
     profile_time = False
+
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     params = dict(locals())
+
     env = Env(**params)
 
     if profile_time:

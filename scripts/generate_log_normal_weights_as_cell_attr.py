@@ -1,13 +1,13 @@
-
-import sys, os, time, gc, click, logging
+import os, sys, time, gc
+import logging, click
 from collections import defaultdict
-import numpy as np
 from mpi4py import MPI
-from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 import h5py
-from dentate.env import Env
-import dentate.utils as utils
+import numpy as np
 import dentate.synapses as synapses
+from dentate import utils
+from dentate.env import Env
+from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -19,6 +19,7 @@ sys.excepthook = mpi_excepthook
 mu = 0.
 sigma = 1.0
 clip = (0.0, 3.0)
+
 
 @click.command()
 @click.option("--config", required=True, type=str)
@@ -80,14 +81,12 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
     gid_count = 0
     start_time = time.time()
 
-    connection_gen_list = []
-    for source in sources:
-        connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, \
-                                                        namespaces=['Synapses'], \
-                                                        comm=comm))
+    connection_gen_list = [NeuroH5ProjectionGen(connections_path, source, destination, \
+                                                    namespaces=['Synapses'], \
+                                                    comm=comm) for source in sources]
 
     weights_dict = {}
-    for itercount, attr_gen_package in enumerate(utils.zip_longest(*connection_gen_list)):
+    for attr_gen_package in utils.zip_longest(*connection_gen_list):
         local_time = time.time()
         source_syn_dict = defaultdict(list)
         source_gid_array = None
@@ -138,4 +137,3 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])
-

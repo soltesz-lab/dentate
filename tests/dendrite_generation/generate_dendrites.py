@@ -1,9 +1,12 @@
 
-import numpy as np
 import sys
 
-sys.path.insert(0,'/home/dhadjia1/soltesz-lab/ca1/test')
+import numpy as np
+
 import plot_helper as ph
+from dentate.utils import *
+
+sys.path.insert(0,'/home/dhadjia1/soltesz-lab/ca1/test')
 
 class Cell(object):
     def __init__(self, x, y, z, r, parent):
@@ -16,7 +19,7 @@ class Cell(object):
 def plot_points(cell_info):
     colors = ['r','b','g']
     fig, ax = ph.init()
-    for k in cell_info.keys():
+    for k in cell_info:
         xc, yc, zc = [], [], []
         color = colors[k-1]
         cells = cell_info[k]
@@ -80,7 +83,7 @@ def plot_pc_with_eigenvector(xy, eigenvalues, eigenvectors,fig=None, ax=None, fi
 
 def key2pc(cell_info, key):
     x,y,z = [], [], []
-    for k, v in cell_info.iteritems():
+    for k, v in viewitems(cell_info):
         if key is None or k == int(key):
             for cell in v:
                 x.append(cell.x), y.append(cell.y), z.append(cell.z)
@@ -131,7 +134,7 @@ def read_swc(fn):
 def run():
     fn = 'ex_gc.txt'
     cell_info = read_swc(fn)
-    ncells = reduce(lambda x,y: x+y, [len(v) for _,v in cell_info.iteritems()])
+    ncells = reduce(lambda x,y: x+y, [len(v) for _, v in viewitems(cell_info)])
     print('Number of points in morphology is %d' % (ncells))
 
 

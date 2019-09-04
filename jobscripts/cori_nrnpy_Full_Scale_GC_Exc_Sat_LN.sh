@@ -17,7 +17,7 @@ module unload darshan
 module load cray-hdf5-parallel
 module load python/2.7-anaconda-4.4
 
-results_path=./results/Full_Scale_Control_$SLURM_JOB_ID
+results_path=./results/Full_Scale_GC_Exc_Sat_LN_$SLURM_JOB_ID
 export results_path
 
 mkdir -p $results_path
@@ -40,7 +40,7 @@ srun -n 10240 -c 2 python ./scripts/main.py \
  --dataset-prefix="$SCRATCH/dentate" \
  --results-path=$results_path \
  --io-size=256 \
- --tstop=5000 \
+ --tstop=1200 \
  --v-init=-75 \
  --vrecord-fraction=0.001 \
  --max-walltime-hours=5.4 \

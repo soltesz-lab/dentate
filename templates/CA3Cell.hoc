@@ -1,0 +1,26 @@
+begintemplate CA3Cell
+
+public pp, connect2target, is_art
+public x, y, z, position, xpos, ypos, zpos
+objref pp, rs, spikevect
+
+proc init() { local status 
+    gid = $1
+    pp = new VecStim()
+}
+
+
+func is_art() {return 1}
+
+obfunc connect2target() { localobj nc // $o1 target point process, optional $o2 returned NetCon
+    nc = new NetCon(pp, $o1)
+    if (numarg() == 2) { $o2 = nc } // for backward compatibility
+    return nc
+}
+
+proc position(){
+    x = $1  y = $2  z = $3	
+    xpos = $1  ypos = $2  zpos = $3	
+}
+
+endtemplate CA3Cell
