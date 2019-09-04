@@ -1,13 +1,13 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=2048:ppn=16:xe
+#PBS -l nodes=16:ppn=32:xe
 ### which queue to use
-#PBS -q high
+#PBS -q normal
 ### set the wallclock time
-#PBS -l walltime=10:00:00
+#PBS -l walltime=2:00:00
 ### set the job name
-#PBS -N dentate_Full_Scale_GC_Exc_Sat_DD_LNN_Diag
+#PBS -N dentate_Test_GC_slice
 ### set the job stdout and stderr
 #PBS -e ./results/dentate.$PBS_JOBID.err
 #PBS -o ./results/dentate.$PBS_JOBID.out
@@ -29,31 +29,31 @@ export NEURONROOT=$SCRATCH/nrnintel3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
-results_path=./results/Full_Scale_GC_Exc_Sat_DD_LNN_Diag_$PBS_JOBID
+results_path=./results/Test_GC_slice_$PBS_JOBID
 export results_path
 
 cd $PBS_O_WORKDIR
 
 mkdir -p $results_path
 
-git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
-git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
+#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+#git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 32768 -N 16 -d 2 -b -- bwpy-environ -- \
-    python3.6 ./scripts/main.py  \
-    --config-file=Full_Scale_GC_Exc_Sat_DD_LNN.yaml  \
+aprun -n 256 -N 16 -d 2 -b -- bwpy-environ -- \
+    python3.6 ./scripts/main.py \
     --arena-id=A --trajectory-id=Diag \
+    --config-file=Full_Scale_GC_Exc_Sat_DD_LNN.yaml \
+    --config-prefix=./config \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
-    --io-size=256 \
-    --tstop=9500 \
+    --io-size=24 \
+    --tstop=10 \
     --v-init=-75 \
-    --results-write-time=600 \
-    --stimulus-onset=50.0 \
-    --max-walltime-hours=9.9 \
-    --vrecord-fraction=0.001 \
-    --checkpoint-interval=1000 \
-    --checkpoint-clear-data \
+    --max-walltime-hours=1.75 \
+    --cell-selection-path=./datasets/DG_slice_20190729.yaml \
+    --write-selection \
+    --spike-input-path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
+    --spike-input-namespace='Input Spikes' \
     --verbose
 

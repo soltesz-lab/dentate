@@ -299,17 +299,20 @@ def connect_cell_selection(env):
 
     input_sources = {pop_name: set([]) for pop_name in env.celltypes}
 
-    for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
+    for postsyn_name in sorted(env.projection_dict.keys()):
 
         if rank == 0:
             logger.info('*** Postsynaptic population: %s' % postsyn_name)
 
+        input_sources[postsyn_name] = set([])
+
         if postsyn_name not in selection_pop_names:
             continue
 
-        input_sources[postsyn_name] = set([])
+        presyn_names = sorted(env.projection_dict[postsyn_name])
 
-        gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
+
+        gid_range = [gid for gid in env.cell_selection[postsyn_name] if env.pc.gid_exists(gid)]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -358,9 +361,9 @@ def connect_cell_selection(env):
                 logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
             weight_attr_mask = list(syn_attrs.syn_mech_names)
             weight_attr_mask.append('syn_id')
-            for weights_namespace in sorted(weights_namespaces.keys()):
+            for weights_namespace in sorted(weights_namespaces):
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                       selection=gid_range, mask=weight_attr_mask,
+                                                                       selection=gid_range, mask=set(weight_attr_mask),
                                                                        namespace=weights_namespace, comm=env.comm)
                 first_gid = None
                 for gid, cell_weights_dict in weight_attributes_iter:
@@ -399,22 +402,27 @@ def connect_cell_selection(env):
                 except KeyError:
                     raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
                                      % (postsyn_name, gid))
+
+        logger.info('*** Rank %i: reading graph selection for gids %s' % (rank, str(gid_range)))
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
+                                          projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
                                           comm=env.comm, namespaces=['Synapses', 'Connections'])
-        env.edge_count[postsyn_name] = 0
-        for presyn_name in presyn_names:
 
-            if rank == 0:
+        env.edge_count[postsyn_name] = 0
+        if postsyn_name in graph:
+            for presyn_name in presyn_names:
+
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
-            edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
+                edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
+                
+                syn_edge_iter = compose_iter(lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
+                                             edge_iters)
+                syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
 
-            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
-                                                compose_iter(
-                                                    lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
-                                                    edge_iters))
-            del graph[postsyn_name][presyn_name]
+                del graph[postsyn_name][presyn_name]
+
 
     ##
     ## This section instantiates cells that are not part of the
@@ -490,15 +498,13 @@ def write_connection_selection(env, write_kwds={}):
 
     for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
 
-        if rank == 0:
-            logger.info('*** Writing connectivity selection for postsynaptic population: %s' % postsyn_name)
 
         if postsyn_name not in selection_pop_names:
             continue
 
         input_sources[postsyn_name] = set([])
 
-        gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
+        gid_range = [gid for gid in env.cell_selection[postsyn_name] if env.pc.gid_exists(gid)]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
 
@@ -521,7 +527,7 @@ def write_connection_selection(env, write_kwds={}):
             has_weights = False
 
         if rank == 0:
-            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
+            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
 
         syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
                                                             namespace='Synapse Attributes', comm=env.comm)
@@ -532,7 +538,7 @@ def write_connection_selection(env, write_kwds={}):
         del syn_attributes_iter
         
         if has_weights:
-            for weights_namespace in weights_namespaces:
+            for weights_namespace in sorted(weights_namespaces):
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                        selection=gid_range,
                                                                        namespace=weights_namespace, comm=env.comm)
@@ -542,29 +548,38 @@ def write_connection_selection(env, write_kwds={}):
                 del weight_attributes_iter
 
                 
+        if rank == 0:
+            logger.info('*** Writing connectivity selection for postsynaptic population: %s' % postsyn_name)
+
+        logger.info('*** Rank %i: reading graph selection for gids %s' % (rank, str(gid_range)))
         (graph, attr_info) = read_graph_selection(connectivity_file_path, selection=gid_range, \
+                                                  projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
                                                   comm=env.comm, namespaces=['Synapses', 'Connections'])
         for presyn_name in presyn_names:
 
-            edge_iter = graph[postsyn_name][presyn_name]
+            edge_iter = []
+            if postsyn_name in graph:
+                edge_iter = graph[postsyn_name][presyn_name]
 
-            if postsyn_name in attr_info and presyn_name in attr_info[postsyn_name]:
-                edge_attr_info = attr_info[postsyn_name][presyn_name]
-            else:
-                raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
-                                (presyn_name, postsyn_name))
+                if postsyn_name in attr_info and presyn_name in attr_info[postsyn_name]:
+                    edge_attr_info = attr_info[postsyn_name][presyn_name]
+                else:
+                    raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
+                                        (presyn_name, postsyn_name))
 
-            if 'Synapses' in edge_attr_info and \
-                'syn_id' in edge_attr_info['Synapses'] and \
-                'Connections' in edge_attr_info and \
-                'distance' in edge_attr_info['Connections']:
-                syn_id_attr_index = edge_attr_info['Synapses']['syn_id']
-                distance_attr_index = edge_attr_info['Connections']['distance']
-            else:
-                raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
-                                  (presyn_name, postsyn_name))
+                if 'Synapses' in edge_attr_info and \
+                        'syn_id' in edge_attr_info['Synapses'] and \
+                        'Connections' in edge_attr_info and \
+                        'distance' in edge_attr_info['Connections']:
+                    syn_id_attr_index = edge_attr_info['Synapses']['syn_id']
+                    distance_attr_index = edge_attr_info['Connections']['distance']
+                else:
+                    raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
+                                           (presyn_name, postsyn_name))
 
             gid_dict = {}
+            edge_count = 0
+            node_count = 0
             for (postsyn_gid, edges) in edge_iter:
                 presyn_gids, edge_attrs = edges
                 edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
@@ -573,9 +588,12 @@ def write_connection_selection(env, write_kwds={}):
                 gid_dict[postsyn_gid] = (presyn_gids,
                                              {'Synapses': {'syn_id': edge_syn_ids},
                                               'Connections': {'distance': edge_dists} })
-
-            write_graph(env.write_selection_file_path, presyn_name, postsyn_name, gid_dict,
-                        comm=env.comm, io_size=env.io_size)
+                edge_count += len(presyn_gids)
+                node_count += 1
+            logger.info('*** Rank %d: Writing projection %s -> %s selection: %d nodes, %d edges' % (rank, presyn_name, postsyn_name, node_count, edge_count))
+            write_graph(env.write_selection_file_path, \
+                        src_pop_name=presyn_name, dst_pop_name=postsyn_name, \
+                        edges=gid_dict, comm=env.comm, io_size=env.io_size)
 
 
 def connect_gjs(env):
@@ -872,8 +890,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
-                                                                 namespace='Coordinates', comm=env.comm)
+            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, namespace='Coordinates', comm=env.comm)
 
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
@@ -934,12 +951,13 @@ def write_cell_selection(env, write_kwds={}):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, comm=env.comm,  topology=False)
+            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
+                                                                 namespace='Trees', comm=env.comm)
              
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
-            for i, (gid, tree) in enumerate(trees):
+            for i, (gid, tree) in enumerate(cell_attributes_iter):
                 trees_output_dict[gid] = tree
                 num_cells += 1
 
@@ -959,7 +977,7 @@ def write_cell_selection(env, write_kwds={}):
 
             
         if rank == 0:
-            logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, env.results_file_path))
+            logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, env.write_selection_file_path))
         write_cell_attributes(env.write_selection_file_path, pop_name, trees_output_dict, namespace='Trees', **write_kwds)
         write_cell_attributes(env.write_selection_file_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
 
@@ -1063,7 +1081,7 @@ def init_input_cells(env, input_sources=None):
                     cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
                 else:
                     if pop_name in env.cell_selection:
-                        gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
+                        gid_range = [gid for gid in env.cell_selection[pop_name] if env.pc.gid_exists(gid)]
                         
                         cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
                                                                           namespace=vecstim_namespace, \
@@ -1078,12 +1096,11 @@ def init_input_cells(env, input_sources=None):
 
                     spiketrain = vecstim_dict[vecstim_attr]
                     if len(spiketrain) > 0:
-                        if np.min(spiketrain) < 0.:
-                            spiketrain += abs(np.min(spiketrain))
-                        if rank == 0:
-                            logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                        (gid, len(spiketrain),
-                                        spiketrain[0], spiketrain[-1]))
+                        spiketrain = np.sort(spiketrain)
+                        spiketrain += float(env.stimulus_config['Equilibration Duration'])
+                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                    (gid, len(spiketrain),
+                                     spiketrain[0], spiketrain[-1]))
                     else:
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i" %
@@ -1111,11 +1128,18 @@ def init_input_cells(env, input_sources=None):
                         this_gid_range.append(gid)
 
             has_spike_train = False
+            spike_input_source_path = []
             if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
                 if (pop_name in env.spike_input_attribute_info) and \
                    (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
                    has_spike_train = True
-                   
+                   spike_input_source_path.append(env.spike_input_path)
+            if (env.cell_attribute_info is not None) and (env.spike_input_ns is not None):
+                if (pop_name in env.cell_attribute_info) and \
+                        (env.spike_input_ns in env.cell_attribute_info[pop_name]):
+                    has_spike_train = True
+                    spike_input_source_path.append(env.input_file_path)
+
                     
             if has_spike_train:
 
@@ -1124,11 +1148,13 @@ def init_input_cells(env, input_sources=None):
                 else:
                     vecstim_attr = None
 
-                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
-                                                                 this_gid_range, \
-                                                                 namespace=env.spike_input_ns, \
-                                                                 comm=env.comm)
-                for gid, cell_spikes_dict in cell_spikes_iter:
+                    
+                cell_spikes_iters = [ read_cell_attribute_selection(input_path, pop_name, \
+                                                                    this_gid_range, \
+                                                                    namespace=env.spike_input_ns, \
+                                                                    mask=set([vecstim_attr, 't']), \
+                                                                    comm=env.comm) for input_path in spike_input_source_path ]
+                for gid, cell_spikes_dict in itertools.chain.from_iterable(cell_spikes_iters):
                     spiketrain = None
                     if vecstim_attr in cell_spikes_dict:
                         spiketrain = cell_spikes_dict[vecstim_attr]
@@ -1138,9 +1164,12 @@ def init_input_cells(env, input_sources=None):
                         raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input namespace %s" % (gid, env.spike_input_ns))
                         
                     if len(spiketrain) > 0:
-                        if rank == 0:
-                            logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                        (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                        spiketrain = np.sort(spiketrain)
+                        if np.min(spiketrain) < 0.:
+                            spiketrain += float(env.stimulus_config['Equilibration Duration'])
+
+                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
+                                    (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
                         if rank == 0:
                             logger.info("*** Spike train for gid %i is of length %i" %
@@ -1229,7 +1258,8 @@ def write_input_cell_selection(env, input_sources, write_kwds={}):
                 spikes_output_dict.update(dict(list(cell_spikes_iter)))
                 del cell_spikes_iter
                 
-        write_cell_attributes(env.write_selection_file_path, pop_name, spikes_output_dict, namespace=env.spike_input_ns, **write_kwds)
+        write_cell_attributes(env.write_selection_file_path, pop_name, spikes_output_dict,  \
+                              namespace=env.spike_input_ns, **write_kwds)
                 
                     
 
