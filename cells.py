@@ -2068,8 +2068,9 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
     return cell
 
 
-def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
-                     load_weights=False, set_edge_delays=True, mech_file_path=None):
+def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
+                     load_edges=True, connections=None, load_weights=False,
+                     set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -2128,16 +2129,23 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
         if os.path.isfile(env.connectivity_file_path):
             (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
                                               namespaces=['Synapses', 'Connections'], comm=env.comm)
-            if pop_name in env.projection_dict:
-                for presyn_name in env.projection_dict[pop_name]:
-                    edge_iter = graph[pop_name][presyn_name]
-                    syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)
-            else:
-                logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
-                raise Exception
         else:
             logger.error('get_biophys_cell: connection file %s not found' % env.connectivity_file_path)
             raise Exception
+    elif connections:
+        (graph, a) = connections
+    else:
+        (graph, a) = None, None
+            
+    if graph:
+        if pop_name in graph:
+            for presyn_name in env.projection_dict[pop_name]:
+                edge_iter = graph[pop_name][presyn_name]
+                syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)
+        else:
+            logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+            raise Exception
+        
     env.biophys_cells[pop_name][gid] = cell
     return cell
 

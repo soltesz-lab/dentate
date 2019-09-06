@@ -385,14 +385,14 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
         f.close()
     
 
-def synapse_test(template_class, gid, tree, synapses_dict, v_init, env, unique=True):
+def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, env, unique=True):
     
     postsyn_name = 'HC'
     presyn_names = ['GC', 'MC', 'CA3c', 'IS', 'HC']
 
     cell = network_clamp.load_cell(env, postsyn_name, gid, \
-                                   tree_dict=tree, synapses_dict=synapses_dict, \
-                                   correct_for_spines=True, load_edges=False)
+                                   tree_dict=tree, synapses_dict=synapses_dict, connections=connections, \
+                                   correct_for_spines=True, load_connections=False)
     cells.register_cell(env, postsyn_name, gid, cell)
     cells.report_topology(cell, env)
 
@@ -424,8 +424,9 @@ def synapse_test(template_class, gid, tree, synapses_dict, v_init, env, unique=T
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--synapses-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--connections-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def main(template_path,forest_path,synapses_path,config_path):
+def main(template_path, forest_path, synapses_path, connections_path, config_path):
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -447,10 +448,14 @@ def main(template_path,forest_path,synapses_path,config_path):
     
     template_class = getattr(h, "HIPPCell")
 
-    if synapses_path:
-        synapses_iter = read_cell_attribute_selection (synapses_path, pop_name, [gid], "Synapse Attributes", comm=env.comm)
+    if synapses_path and connections_path:
+        synapses_iter = read_cell_attribute_selection (synapses_path, pop_name, [gid],
+                                                       "Synapse Attributes", comm=env.comm)
         (_, synapses_dict) = next(synapses_iter)
-        synapse_test(template_class, gid, tree, synapses_dict, v_init, env)
+        connections = read_graph_selection(file_name=connecitons_path, selection=[gid],
+                                            namespaces=['Synapses', 'Connections'], comm=env.comm)
+
+        synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, env)
 
     passive_test(template_class, tree, v_init)
     ap_test(template_class, tree, v_init)

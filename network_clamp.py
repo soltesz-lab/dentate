@@ -71,8 +71,8 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
     return weights_dict
 
 
-def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, load_edges=True, tree_dict=None,
-              load_synapses=True, synapses_dict=None):
+def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, tree_dict=None,
+              load_synapses=True, synapses_dict=None, load_connections=True, connections=None):
     """
     Instantiates the mechanisms of a single cell.
 
@@ -91,9 +91,12 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
     """
     configure_hoc_env(env)
 
-    cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
-                            tree_dict=tree_dict, load_synapses=load_synapses,
-                            synapses_dict=synapses_dict, mech_file_path=mech_file_path)
+    cell = get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
+                            load_synapses=load_synapses,
+                            synapses_dict=synapses_dict,
+                            load_edges=load_connections,
+                            connections=connections,
+                            mech_file_path=mech_file_path)
 
     # init_spike_detector(cell)
     if mech_file_path is not None:
@@ -108,7 +111,7 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
 
 
 
-def init_cell(env, pop_name, gid, load_edges=True):
+def init_cell(env, pop_name, gid, load_connections=True):
     """
     Instantiates a cell and all its synapses.
 
@@ -136,7 +139,7 @@ def init_cell(env, pop_name, gid, load_edges=True):
     ## Load cell gid and its synaptic attributes and connection data
     cell = load_cell(env, pop_name, gid, mech_file_path=mech_file_path, \
                      correct_for_spines=correct_for_spines_flag, \
-                     load_edges=load_edges)
+                     load_edges=load_connections)
     register_cell(env, pop_name, gid, cell)
 
     rec = make_rec(0, pop_name, gid, cell, \
@@ -490,7 +493,7 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
     env = Env(**params)
     configure_hoc_env(env)
 
-    init_cell(env, population, gid, load_edges=False)
+    init_cell(env, population, gid, load_connections=False)
 
     if env.profile_memory:
         profile_memory(logger)
