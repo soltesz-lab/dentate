@@ -394,40 +394,31 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
         f.close()
     
 
-def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
+def synapse_test(template_class, gid, tree, synapses_dict, v_init, env, unique=True):
     
     postsyn_name = 'HC'
     presyn_names = ['GC', 'MC', 'CA3c', 'IS', 'HC']
     
     cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
 
-    all_syn_ids = synapses['syn_ids']
-    all_syn_layers = synapses['syn_layers']
-    all_syn_sections = synapses['syn_secs']
-
-    print ('Total %i %s synapses' % (len(all_syn_ids), postsyn_name))
-
-    env.cells.append(cell)
+    env.cells[postsyn_name].append(cell)
     env.pc.set_gid2node(gid, env.comm.rank)
 
     syn_attrs = env.synapse_attributes
-    syn_attrs.load_syn_id_attrs(gid, synapses)
-    
+    syn_attrs.init_syn_id_attrs(gid, synapses)
+
+    syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
+                                                                    cell=cell, unique=unique, \
+                                                                    insert=True, insert_netcons=True)
     for presyn_name in presyn_names:
+        syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms    
 
-        syn_ids = []
-        layers = env.connection_config[postsyn_name][presyn_name].layers
-        proportions = env.connection_config[postsyn_name][presyn_name].proportions
-        for syn_id, syn_layer in zip(all_syn_ids, all_syn_layers):
-            i = utils.list_index(syn_layer, layers) 
-            if i is not None:
-                if random.random() <= proportions[i]:
-                    syn_ids.append(syn_id)
-        
-        syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms
-        syn_obj_dict = mksyns(gid, cell, syn_ids, syn_params_dict, env, 0,
-                        add_synapse=add_unique_synapse if unique else add_shared_synapse)
+        syn_filters = synapses.get_syn_filter_dict(env, {'sources': [presyn_name]})
+        syn_obj_dict = syn_attrs.filter_synapses(gid, **syn_filters)
 
+        print(presyn_name)
+        print(syn_filters)
+        print(syn_obj_dict)
         v_holding = -60
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, v_holding, v_init)
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, v_holding, v_init)
@@ -442,7 +433,7 @@ def synapse_test(template_class, gid, tree, synapses, v_init, env, unique=True):
 @click.command()
 @click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--synapses-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--synapses-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 def main(template_path,forest_path,synapses_path,config_path):
     
@@ -456,24 +447,25 @@ def main(template_path,forest_path,synapses_path,config_path):
     h.xopen ("./tests/rn.hoc")
     h.xopen(template_path+'/HIPPCell.hoc')
     
-    pop_name = "HIPP"
+    pop_name = "HC"
     gid = 1030000
     (trees_dict,_) = read_tree_selection (forest_path, pop_name, [gid], comm=env.comm)
-    synapses_dict = read_cell_attribute_selection (synapses_path, pop_name, [gid], "Synapse Attributes", comm=env.comm)
 
     (_, tree) = next(trees_dict)
-    (_, synapses) = next(synapses_dict)
 
-    v_init = -60
+    v_init = -67
     
     template_class = getattr(h, "HIPPCell")
 
-    ap_test(template_class, tree, v_init)
     passive_test(template_class, tree, v_init)
+    ap_test(template_class, tree, v_init)
     ap_rate_test(template_class, tree, v_init)
     fi_test(template_class, tree, v_init)
-    gap_junction_test(env, template_class, tree, v_init)
-    synapse_test(template_class, gid, tree, synapses, v_init, env)
+
+    if synapses_path:
+        synapses_dict = read_cell_attribute_selection (synapses_path, pop_name, [gid], "Synapse Attributes", comm=env.comm)
+        (_, synapses_dict) = next(synapses_dict)
+        synapse_test(template_class, gid, tree, synapses_dict, v_init, env)
     
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("HIPPCellTest.py") != -1,sys.argv)+1):])

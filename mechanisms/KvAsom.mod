@@ -53,11 +53,9 @@ NEURON {
         SUFFIX KvAsom
         USEION k READ ek WRITE ik
         RANGE gmax,ik
-        GLOBAL ainf, binf, aexp, bexp, tau_b
-        RANGE myi, g
+        RANGE ainf, binf, aexp, bexp, tau_b, g
 }
  
-INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
  
 PARAMETER {
         v (mV)
@@ -76,7 +74,6 @@ ASSIGNED {
         ik (mA/cm2)
 	ainf binf aexp bexp
 	tau_b
-	myi (mA/cm2)
 	g (mho/cm2)
 }
  
@@ -84,7 +81,6 @@ BREAKPOINT {
 	SOLVE deriv METHOD derivimplicit
 	g = gmax*a*b
 	ik = g*(v - ek)
-	myi = ik
 }
  
 INITIAL {
@@ -103,14 +99,11 @@ DERIVATIVE deriv {  :Computes state variables m, h, and n rates(v)
 PROCEDURE rates(v) {  :Computes rate and other constants at current v.
                       :Call once from HOC to initialize inf at resting v.
         LOCAL alpha_b, beta_b
-	TABLE ainf, aexp, binf, bexp, tau_a, tau_b  DEPEND dt, p FROM -200 TO 100 WITH 300
 	alpha_b = 0.000009/exp((v-26)/18.5)
 	beta_b = 0.014/(exp((v+70)/(-11))+0.2)
         ainf = 1/(1 + exp(-(v + 14)/16.6))
-        aexp = 1 - exp(-dt/(tau_a))
 	tau_b = 1/(alpha_b + beta_b)
         binf = 1/(1 + exp((v + 71)/7.3))
-        bexp = 1 - exp(-dt/(tau_b))
 }
  
 UNITSON

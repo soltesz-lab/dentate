@@ -61,12 +61,8 @@ ENDCOMMENT
 NEURON {
         SUFFIX HCNsom
         USEION h READ eh WRITE ih VALENCE 1
-        RANGE gmax,ih, g
-        GLOBAL rinf, rexp, tau_r
-        RANGE myi
+        RANGE gmax, ih, g, rinf, tau_r
 }
- 
-INDEPENDENT {t FROM 0 TO 1 WITH 1 (ms)}
  
 PARAMETER {
         v (mV)
@@ -84,14 +80,12 @@ ASSIGNED {
         ih (mA/cm2)
 	rinf rexp
 	tau_r
-	myi (mA/cm2)
 }
  
 BREAKPOINT {
 	SOLVE deriv METHOD derivimplicit
 	g = gmax*r
 	ih = g*(v - eh)
-	myi = ih
 }
  
 INITIAL {
@@ -107,11 +101,8 @@ DERIVATIVE deriv { :Computes state variable h at current v and dt.
 
 PROCEDURE rates(v) {  :Computes rate and other constants at current v.
                       :Call once from HOC to initialize inf at resting v.
-        TABLE rinf, tau_r, rexp DEPEND dt FROM -200
-TO 100 WITH 300
 	rinf = 1/(1 + exp((v+84.1)/10.2))
 	tau_r = 100 + 1/(exp(-17.9-0.116*v)+exp(-1.84+0.09*v))
-	rexp = 1 - exp(-dt/(tau_r))
 }
 
 FUNCTION efun(z) {
