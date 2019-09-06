@@ -705,20 +705,21 @@ class Env(object):
         if rank == 0:
             self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
 
-    def load_cell_template(self, popName):
+    def load_cell_template(self, pop_name):
         """
 
-        :param popName: str
+        :param pop_name: str
         """
         rank = self.comm.Get_rank()
-        if not (popName in self.celltypes):
-            raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % popName)
-        templateName = self.celltypes[popName]['template']
-        if 'template file' in self.celltypes[popName]:
-            template_file = self.celltypes[popName]['template file']
+        if not (pop_name in self.celltypes):
+            raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % pop_name)
+        template_name = self.celltypes[pop_name]['template']
+        if 'template file' in self.celltypes[pop_name]:
+            template_file = self.celltypes[pop_name]['template file']
         else:
             template_file = None
-        find_template(self, templateName, template_file=template_file, path=self.template_paths)
-        assert (hasattr(h, templateName))
-        template_class = getattr(h, templateName)
+        if not hasattr(h, template_name):
+            find_template(self, template_name, template_file=template_file, path=self.template_paths)
+        assert (hasattr(h, template_name))
+        template_class = getattr(h, template_name)
         return template_class

@@ -1,30 +1,21 @@
-import itertools
-import os
-import os.path
-import random
-import sys
-
-import numpy as np
-
+import os, os.path, sys, itertools, random
+from collections import defaultdict
 import click
-from dentate import cells
-from dentate import neuron_utils
-from dentate import synapses
-from dentate import utils
-from dentate.env import Env
-from dentate.synapses import config_syn
-from dentate.utils import *
+import numpy as np
 from mpi4py import MPI  # Must come before importing NEURON
-from neuroh5.io import read_cell_attribute_selection
-from neuroh5.io import read_tree_selection
 from neuron import h
+from dentate import cells, network_clamp, neuron_utils, synapses, utils
+from dentate.env import Env
+from neuroh5.io import read_cell_attribute_selection, read_tree_selection
 
 
 def passive_test (template_class, tree, v_init):
 
     cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
+    h.topology()
+    
     h.dt = 0.025
-
+    
     prelength = 1000
     mainlength = 2000
 
@@ -181,10 +172,10 @@ def ap_rate_test (template_class, tree, v_init):
     f.write ("## ISI mean: %g\n" % isimean) 
     f.write ("## ISI variance: %g\n" % isivar)
     f.write ("## ISI stdev: %g\n" % isistdev)
-    f.write ("## ISI adaptation 1: %g\n" % (old_div(isivect.x[0], isimean)))
-    f.write ("## ISI adaptation 2: %g\n" % (old_div(isivect.x[0], isivect.x[isilast])))
-    f.write ("## ISI adaptation 3: %g\n" % (old_div(isivect.x[0], isivect.x[isi10th])))
-    f.write ("## ISI adaptation 4: %g\n" % (old_div(isivect.x[0], isivect.x[isilastgt])))
+    f.write ("## ISI adaptation 1: %g\n" % (isivect.x[0] / isimean))
+    f.write ("## ISI adaptation 2: %g\n" % (isivect.x[0] / isivect.x[isilast]))
+    f.write ("## ISI adaptation 3: %g\n" % (isivect.x[0] / isivect.x[isi10th]))
+    f.write ("## ISI adaptation 4: %g\n" % (isivect.x[0] / isivect.x[isilastgt]))
 
     f.close()
 
@@ -398,18 +389,17 @@ def synapse_test(template_class, gid, tree, synapses_dict, v_init, env, unique=T
     
     postsyn_name = 'HC'
     presyn_names = ['GC', 'MC', 'CA3c', 'IS', 'HC']
-    
-    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
 
-    env.cells[postsyn_name].append(cell)
-    env.pc.set_gid2node(gid, env.comm.rank)
+    cell = network_clamp.load_cell(env, postsyn_name, gid, \
+                                   tree_dict=tree, synapses_dict=synapses_dict, \
+                                   correct_for_spines=True, load_edges=False)
+    cells.register_cell(env, postsyn_name, gid, cell)
+    cells.report_topology(cell, env)
 
     syn_attrs = env.synapse_attributes
-    syn_attrs.init_syn_id_attrs(gid, synapses)
-
-    syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
-                                                                    cell=cell, unique=unique, \
-                                                                    insert=True, insert_netcons=True)
+    syn_count, nc_count = synapses.config_biophys_cell_syns(env, gid, postsyn_name, \
+                                                            unique=unique, \
+                                                            insert=True, insert_netcons=True)
     for presyn_name in presyn_names:
         syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms    
 
@@ -457,15 +447,15 @@ def main(template_path,forest_path,synapses_path,config_path):
     
     template_class = getattr(h, "HIPPCell")
 
+    if synapses_path:
+        synapses_iter = read_cell_attribute_selection (synapses_path, pop_name, [gid], "Synapse Attributes", comm=env.comm)
+        (_, synapses_dict) = next(synapses_iter)
+        synapse_test(template_class, gid, tree, synapses_dict, v_init, env)
+
     passive_test(template_class, tree, v_init)
     ap_test(template_class, tree, v_init)
     ap_rate_test(template_class, tree, v_init)
     fi_test(template_class, tree, v_init)
-
-    if synapses_path:
-        synapses_dict = read_cell_attribute_selection (synapses_path, pop_name, [gid], "Synapse Attributes", comm=env.comm)
-        (_, synapses_dict) = next(synapses_dict)
-        synapse_test(template_class, gid, tree, synapses_dict, v_init, env)
     
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("HIPPCellTest.py") != -1,sys.argv)+1):])
