@@ -6,7 +6,7 @@ from mpi4py import MPI  # Must come before importing NEURON
 from neuron import h
 from dentate import cells, network_clamp, neuron_utils, synapses, utils
 from dentate.env import Env
-from neuroh5.io import read_cell_attribute_selection, read_tree_selection
+from neuroh5.io import read_cell_attribute_selection, read_tree_selection, read_graph_selection
 
 
 def passive_test (template_class, tree, v_init):
@@ -256,10 +256,14 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
+    print(syn_params_dict)
     for syn_name in syn_params_dict:
+
+        syn_index = syn_attrs.syn_name_index_dict[syn_name]
+
         synlst = []
         for syn_id in selected_ids:
-            synlst.append(syn_obj_dict[syn_id][syn_name])
+            synlst.append(syn_obj_dict[syn_id].mech[syn_index])
             
         print('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
 
@@ -330,10 +334,11 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
     selected_ids = [ syn_ids[i] for i in selected ]
 
     for syn_name in syn_params_dict:
-        
+        syn_index = syn_attrs.syn_name_index_dict[syn_name]
+
         synlst = []
         for syn_id in selected_ids:
-            synlst.append(syn_obj_dict[syn_id][syn_name])
+            synlst.append(syn_obj_dict[syn_id].mech[syn_index])
     
         print ('synapse_group_rate_test: %s %s synapses: %i out of %i ' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
     
@@ -345,7 +350,7 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
         
         nclst = []
         for syn_id in selected_ids:
-            for syn_name, syn in list(syn_obj_dict[syn_id].items()):
+            for syn_name, syn in list(syn_obj_dict[syn_id].mech.items()):
                 this_nc = h.NetCon(ns,syn)
                 syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
                 config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
@@ -393,6 +398,7 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
     cell = network_clamp.load_cell(env, postsyn_name, gid, \
                                    tree_dict=tree, synapses_dict=synapses_dict, connections=connections, \
                                    correct_for_spines=True, load_connections=False)
+
     cells.register_cell(env, postsyn_name, gid, cell)
     cells.report_topology(cell, env)
 
@@ -403,7 +409,7 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
     for presyn_name in presyn_names:
         syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms    
 
-        syn_filters = synapses.get_syn_filter_dict(env, {'sources': [presyn_name]})
+        syn_filters = synapses.get_syn_filter_dict(env, {'sources': [presyn_name]}, convert=True)
         syn_obj_dict = syn_attrs.filter_synapses(gid, **syn_filters)
 
         print(presyn_name)
@@ -452,15 +458,15 @@ def main(template_path, forest_path, synapses_path, connections_path, config_pat
         synapses_iter = read_cell_attribute_selection (synapses_path, pop_name, [gid],
                                                        "Synapse Attributes", comm=env.comm)
         (_, synapses_dict) = next(synapses_iter)
-        connections = read_graph_selection(file_name=connecitons_path, selection=[gid],
+        connections = read_graph_selection(file_name=connections_path, selection=[gid],
                                             namespaces=['Synapses', 'Connections'], comm=env.comm)
 
         synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, env)
 
-    passive_test(template_class, tree, v_init)
-    ap_test(template_class, tree, v_init)
-    ap_rate_test(template_class, tree, v_init)
-    fi_test(template_class, tree, v_init)
+#    passive_test(template_class, tree, v_init)
+#    ap_test(template_class, tree, v_init)
+#    ap_rate_test(template_class, tree, v_init)
+#    fi_test(template_class, tree, v_init)
     
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("HIPPCellTest.py") != -1,sys.argv)+1):])
