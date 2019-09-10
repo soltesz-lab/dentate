@@ -2139,7 +2139,6 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
     if graph is not None:
         if pop_name in graph:
-            print(graph[pop_name])
             for presyn_name in graph[pop_name].keys():
                 edge_iter = graph[pop_name][presyn_name]
                 syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)

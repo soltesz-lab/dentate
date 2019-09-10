@@ -386,7 +386,6 @@ def run_with(env, param_dict):
 
 def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
     def gid_firing_rate(spkdict, gid):
-        print(spkdict)
         if gid in spkdict[pop_name]:
             spkdict1 = {gid: spkdict[pop_name][gid]}
         else:

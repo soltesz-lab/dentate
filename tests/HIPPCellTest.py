@@ -250,74 +250,75 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
 
     syn_ids = list(syn_obj_dict.keys())
 
-    if len(syn_ids) == 0:
+    if group_size > len(syn_ids):
+        print("synapse_group_test: gid %d: group size %d is greater than number of synapses %d" % (gid, group_size, len(syn_ids)))
         return
-    
+
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    print(syn_params_dict)
-    for syn_name in syn_params_dict:
+    for section_name, sec_syn_params_dict in utils.viewitems(syn_params_dict):
+        for syn_name in sec_syn_params_dict:
 
-        syn_index = syn_attrs.syn_name_index_dict[syn_name]
-
-        synlst = []
-        for syn_id in selected_ids:
-            synlst.append(syn_obj_dict[syn_id].mech[syn_index])
+            synlst = []
+            for syn_id in selected_ids:
+                synlst.append(syn_attrs.get_pps(gid, syn_id, syn_name))
             
-        print('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
+            print('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
 
-        ns = h.NetStim()
-        ns.interval = 1000
-        ns.number = 1
-        ns.start  = 200
-        ns.noise  = 0
+            ns = h.NetStim()
+            ns.interval = 1000
+            ns.number = 1
+            ns.start  = 200
+            ns.noise  = 0
         
-        nclst = []
-        for syn_id, syn in zip(selected_ids, synlst):
-            this_nc = h.NetCon(ns,syn)
-            syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
-            config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
-                    mech_names=syn_attrs.syn_mech_names, nc=this_nc,
-                    **syn_params_dict[syn_name])
-            nclst.append(this_nc)
+            nclst = []
+            for syn_id, syn in zip(selected_ids, synlst):
+                syn_attrs.del_netcon(gid, syn_id, syn_name, throw_error=False)
+                this_nc = h.NetCon(ns,syn)
+                syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
+                synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc,
+                                    **sec_syn_params_dict[syn_name])
+                nclst.append(this_nc)
 
-        if syn_name == 'SatAMPA':
-            v = cell.syntest_exc(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        elif syn_name == 'AMPA':
-            v = cell.syntest_exc(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        elif syn_name == 'SatGABA':
-            v = cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        elif syn_name == 'GABA':
-            v = cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        elif syn_name == 'SatGABA_A':
-            v = cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        elif syn_name == 'GABA_A':
-            v = cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        elif syn_name == 'SatGABA_B':
-            v = cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        elif syn_name == 'GABA_B':
-            v = cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
-        else:
-            raise RuntimeError('Unknown synapse mechanism type %s' % syn_name)
-        vv = vv.add(v)
+            hoc_cell = cell.hoc_cell
+            if syn_name == 'SatAMPA':
+                v = hoc_cell.syntest_exc(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            elif syn_name == 'AMPA':
+                v = hoc_cell.syntest_exc(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            elif syn_name == 'SatGABA':
+                v = hoc_cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            elif syn_name == 'GABA':
+                v = hoc_cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            elif syn_name == 'SatGABA_A':
+                v = hoc_cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            elif syn_name == 'GABA_A':
+                v = hoc_cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            elif syn_name == 'SatGABA_B':
+                v = hoc_cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            elif syn_name == 'GABA_B':
+                v = hoc_cell.syntest_inh(tstart,v_holding,v_init,"HIPPCell_%s_%s_synapse_trace_%i.dat" % (presyn_name, syn_name, group_size))
+            else:
+                raise RuntimeError('Unknown synapse mechanism type %s' % syn_name)
+            vv = vv.add(v)
     
-        amp     = vv.x[0]
-        t_10_90 = vv.x[1]
-        t_20_80 = vv.x[2]
-        t_all   = vv.x[3]
-        t_50    = vv.x[4]
-        t_decay = vv.x[5]
-
-        f=open("HIPPCell_%s_%s_synapse_results_%i.dat" % (presyn_name, syn_name, group_size), 'w')
-
-        f.write("%s synapses: \n" % syn_name)
-        f.write("  Amplitude %f\n" % amp)
-        f.write("  10-90 Rise Time %f\n" % t_10_90)
-        f.write("  20-80 Rise Time %f\n" % t_20_80)
-        f.write("  Decay Time Constant %f\n" % t_decay)
-        
-        f.close()
+            amp     = vv.x[0]
+            t_10_90 = vv.x[1]
+            t_20_80 = vv.x[2]
+            t_all   = vv.x[3]
+            t_50    = vv.x[4]
+            t_decay = vv.x[5]
+            
+            f=open("HIPPCell_%s_%s_synapse_results_%i.dat" % (presyn_name, syn_name, group_size), 'w')
+            
+            f.write("%s synapses: \n" % syn_name)
+            f.write("  Amplitude %f\n" % amp)
+            f.write("  10-90 Rise Time %f\n" % t_10_90)
+            f.write("  20-80 Rise Time %f\n" % t_20_80)
+            f.write("  Decay Time Constant %f\n" % t_decay)
+            
+            f.close()
 
 
 def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, group_size, rate, tstart = 200.):
@@ -327,67 +328,68 @@ def synapse_group_rate_test (env, presyn_name, gid, cell, syn_obj_dict, syn_para
 
     syn_ids = list(syn_obj_dict.keys())
 
-    if len(syn_ids) == 0:
+    if group_size > len(syn_ids):
         return
 
     selected = ranstream.choice(np.arange(0, len(syn_ids)), size=group_size, replace=False)
     selected_ids = [ syn_ids[i] for i in selected ]
 
-    for syn_name in syn_params_dict:
-        syn_index = syn_attrs.syn_name_index_dict[syn_name]
+    for section_name, sec_syn_params_dict in utils.viewitems(syn_params_dict):
+        for syn_name in sec_syn_params_dict:
 
-        synlst = []
-        for syn_id in selected_ids:
-            synlst.append(syn_obj_dict[syn_id].mech[syn_index])
+            synlst = []
+            for syn_id in selected_ids:
+                synlst.append(syn_attrs.get_pps(gid, syn_id, syn_name))
     
-        print ('synapse_group_rate_test: %s %s synapses: %i out of %i ' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
+            print ('synapse_group_rate_test: %s %s synapses: %i out of %i ' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
     
-        ns = h.NetStim()
-        ns.interval = 1000./rate
-        ns.number = rate
-        ns.start  = 200
-        ns.noise  = 0
+            ns = h.NetStim()
+            ns.interval = 1000./rate
+            ns.number = rate
+            ns.start  = 200
+            ns.noise  = 0
         
-        nclst = []
-        for syn_id in selected_ids:
-            for syn_name, syn in list(syn_obj_dict[syn_id].mech.items()):
+            nclst = []
+            for syn_id, syn in zip(selected_ids, synlst):
+                syn_attrs.del_netcon(gid, syn_id, syn_name, throw_error=False)
                 this_nc = h.NetCon(ns,syn)
-                syn_attrs.append_netcon(gid, syn_id, syn_name, this_nc)
-                config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
-                            mech_names=syn_attrs.syn_mech_names, nc=this_nc,
-                            **syn_params_dict[syn_name])
+                syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
+                synapses.config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
+                                    mech_names=syn_attrs.syn_mech_names, nc=this_nc,
+                                    **sec_syn_params_dict[syn_name])
                 nclst.append(this_nc)
 
-        if syn_name == 'SatAMPA':
-            v_init = -75
-        elif syn_name == 'AMPA':
-            v_init = -75
-        elif syn_name == 'SatGABA':
-            v_init = 0
-        elif syn_name == 'GABA':
-            v_init = 0
-        elif syn_name == 'SatGABA_A':
-            v_init = 0
-        elif syn_name == 'GABA_A':
-            v_init = 0
-        elif syn_name == 'SatGABA_B':
-            v_init = 0
-        elif syn_name == 'GABA_B':
-            v_init = 0
-        else:
-            raise RuntimeError('Unknown synapse mechanism type %s' % syn_name)
+            if syn_name == 'SatAMPA':
+                v_init = -65
+            elif syn_name == 'AMPA':
+                v_init = -65
+            elif syn_name == 'SatGABA':
+                v_init = 0
+            elif syn_name == 'GABA':
+                v_init = 0
+            elif syn_name == 'SatGABA_A':
+                v_init = 0
+            elif syn_name == 'GABA_A':
+                v_init = 0
+            elif syn_name == 'SatGABA_B':
+                v_init = 0
+            elif syn_name == 'GABA_B':
+                v_init = 0
+            else:
+                raise RuntimeError('Unknown synapse mechanism type %s' % syn_name)
 
-        res = cell.syntest_rate(tstart,rate,v_init)
+            hoc_cell = cell.hoc_cell
+            res = hoc_cell.syntest_rate(tstart,rate,v_init)
 
-        tlog = res.o(0)
-        vlog = res.o(1)
+            tlog = res.o(0)
+            vlog = res.o(1)
         
-        f=open("HIPPCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
+            f=open("HIPPCell_%s_%s_synapse_rate_%i.dat" % (presyn_name, syn_name, group_size),'w')
         
-        for i in range(0, int(tlog.size())):
-            f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
-            
-        f.close()
+            for i in range(0, int(tlog.size())):
+                f.write('%g %g\n' % (tlog.x[i], vlog.x[i]))
+                
+            f.close()
     
 
 def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, env, unique=True):
@@ -403,18 +405,14 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
     cells.report_topology(cell, env)
 
     syn_attrs = env.synapse_attributes
-    syn_count, nc_count = synapses.config_biophys_cell_syns(env, gid, postsyn_name, \
-                                                            unique=unique, \
-                                                            insert=True, insert_netcons=True)
+    syn_count, nc_count = synapses.config_biophys_cell_syns(env, gid, postsyn_name, unique=unique, \
+                                                            insert=True, insert_netcons=False)
     for presyn_name in presyn_names:
         syn_params_dict = env.connection_config[postsyn_name][presyn_name].mechanisms    
 
         syn_filters = synapses.get_syn_filter_dict(env, {'sources': [presyn_name]}, convert=True)
         syn_obj_dict = syn_attrs.filter_synapses(gid, **syn_filters)
 
-        print(presyn_name)
-        print(syn_filters)
-        print(syn_obj_dict)
         v_holding = -60
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, v_holding, v_init)
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, v_holding, v_init)
@@ -423,6 +421,8 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
         rate = 30
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 50, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 100, rate)
 
     
 
@@ -449,7 +449,6 @@ def main(template_path, forest_path, synapses_path, connections_path, config_pat
     (trees_dict,_) = read_tree_selection (forest_path, pop_name, [gid], comm=env.comm)
 
     (_, tree) = next(trees_dict)
-
     v_init = -67
     
     template_class = getattr(h, "HIPPCell")
