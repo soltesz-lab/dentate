@@ -453,6 +453,11 @@ def main(template_path, forest_path, synapses_path, connections_path, config_pat
     
     template_class = getattr(h, "HIPPCell")
 
+    passive_test(template_class, tree, v_init)
+    ap_test(template_class, tree, v_init)
+    ap_rate_test(template_class, tree, v_init)
+    fi_test(template_class, tree, v_init)
+
     if synapses_path and connections_path:
         synapses_iter = read_cell_attribute_selection (synapses_path, pop_name, [gid],
                                                        "Synapse Attributes", comm=env.comm)
@@ -461,11 +466,6 @@ def main(template_path, forest_path, synapses_path, connections_path, config_pat
                                             namespaces=['Synapses', 'Connections'], comm=env.comm)
 
         synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, env)
-
-#    passive_test(template_class, tree, v_init)
-#    ap_test(template_class, tree, v_init)
-#    ap_rate_test(template_class, tree, v_init)
-#    fi_test(template_class, tree, v_init)
     
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("HIPPCellTest.py") != -1,sys.argv)+1):])
