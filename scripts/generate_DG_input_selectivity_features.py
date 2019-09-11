@@ -4,7 +4,6 @@ from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.env import Env
-from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure
 from dentate.stimulus import InputSelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, \
     get_input_cell_config, generate_input_selectivity_features
 from dentate.utils import *
@@ -97,19 +96,22 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
+    if save_fig is not None:
+        plot = True
+
     if plot:
         import matplotlib.pyplot as plt
-        from dentate.plot import clean_axes
+        from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure, clean_axes
 
-    fig_options = copy.copy(default_fig_options)
-    fig_options.saveFigDir = save_fig_dir
-    fig_options.fontSize = font_size
-    fig_options.figFormat = fig_format
-    fig_options.showFig = show_fig
+        fig_options = copy.copy(default_fig_options)
+        fig_options.saveFigDir = save_fig_dir
+        fig_options.fontSize = font_size
+        fig_options.figFormat = fig_format
+        fig_options.showFig = show_fig
 
     if save_fig is not None:
         save_fig = '%s %s' % (save_fig, arena_id)
-    fig_options.saveFig = save_fig
+        fig_options.saveFig = save_fig
 
     if not dry_run and rank == 0:
         if output_path is None:
