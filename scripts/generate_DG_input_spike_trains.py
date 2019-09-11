@@ -6,7 +6,6 @@ import h5py
 from dentate.env import Env
 from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains
 from dentate.utils import *
-from dentate.plot import default_fig_options, save_figure, plot_1D_rate_map
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 
 logger = get_script_logger(os.path.basename(__file__))
@@ -18,7 +17,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 def debug_callback(context):
     fig_title = '%s %s cell %i' % (context.population, context.this_selectivity_type_name, context.gid)
@@ -99,19 +98,22 @@ def main(config, config_prefix, selectivity_path, arena_id, trajectory_id, popul
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
+    if save_fig is not None:
+        plot = True
+
     if plot:
         import matplotlib.pyplot as plt
-        from dentate.plot import clean_axes
+        from dentate.plot import default_fig_options, save_figure, plot_1D_rate_map, clean_axes
 
-    fig_options = copy.copy(default_fig_options)
-    fig_options.saveFigDir = save_fig_dir
-    fig_options.fontSize = font_size
-    fig_options.figFormat = fig_format
-    fig_options.showFig = show_fig
+        fig_options = copy.copy(default_fig_options)
+        fig_options.saveFigDir = save_fig_dir
+        fig_options.fontSize = font_size
+        fig_options.figFormat = fig_format
+        fig_options.showFig = show_fig
 
     if save_fig is not None:
         save_fig = '%s %s' % (save_fig, arena_id)
-    fig_options.saveFig = save_fig
+        fig_options.saveFig = save_fig
 
     population_ranges = read_population_ranges(selectivity_path, comm)[0]
 
