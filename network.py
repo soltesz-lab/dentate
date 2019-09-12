@@ -867,8 +867,6 @@ def init_input_cells(env, input_sources=None):
     pop_names = sorted(env.celltypes.keys())
 
     for pop_name in pop_names:
-        if rank == 0:
-            logger.info("*** Initializing stimulus population %s" % pop_name)
 
         if 'spike train' in env.celltypes[pop_name]:
             if env.arena_id and env.trajectory_id:
@@ -885,6 +883,9 @@ def init_input_cells(env, input_sources=None):
                      has_vecstim = True
 
             if has_vecstim:
+                if rank == 0:
+                    logger.info("*** Initializing stimulus population %s" % pop_name)
+
                 if env.cell_selection is None:
                     if env.node_ranks is None:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
