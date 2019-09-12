@@ -4,8 +4,7 @@ from mpi4py import MPI
 import numpy as np
 import yaml
 import dentate
-import dentate.synapses as synapses
-import dentate.utils as utils
+from dentate import utils, io_utils
 from dentate.env import Env
 from neuroh5.io import read_cell_attributes, read_graph_selection, read_population_ranges
 import h5py
@@ -28,10 +27,11 @@ sys.excepthook = mpi_excepthook
 @click.option("--coords-namespace", type=str, default='Coordinates')
 @click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
 @click.option("--distance-limits", type=(float,float))
-@click.option("--output-path", '-o', required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
+@click.option("--output-path", '-o', required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--io-size", type=int, default=-1)
+@click.option("--write-selection", is_flag=True)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, distances_namespace, distance_limits, output_path, io_size, verbose):
+def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, distances_namespace, distance_limits, output_path, io_size, write_selection, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -39,7 +39,7 @@ def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, d
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, dataset_prefix=dataset_prefix)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, dataset_prefix=dataset_prefix, results_path=output_path)
 
     if io_size == -1:
         io_size = comm.size
@@ -93,8 +93,21 @@ def main(config, config_prefix, dataset_prefix, coords_path, coords_namespace, d
         logger.info('Rank %d: population %s: %d cells' % (comm.rank, k, len(v)))
         yaml_output_dict[k] = list(v)
          
-    with open(output_path, 'w') as outfile:
+    yaml_output_path = '%s/DG_slice.yaml' % output_path
+    with open(yaml_output_path, 'w') as outfile:
         yaml.dump(yaml_output_dict, outfile)
+
+    write_selection_file_path = None
+    if write_selection:
+        write_selection_file_path =  "%s/%s_selection.h5" % (env.results_path, env.modelName)
+
+    if write_selection_file_path is not None:
+        if rank == 0:
+            io_utils.mkout(env, env.write_selection_file_path)
+        env.comm.barrier()
+        io_utils.write_cell_selection(env, write_selection_file_path)
+        input_selection = io_utils.write_connection_selection(env, write_selection_file_path)
+        io_utils.write_input_cell_selection(env, input_selection, write_selection_file_path)
 
 
 

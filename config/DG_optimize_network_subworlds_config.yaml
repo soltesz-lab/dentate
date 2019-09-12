@@ -22,4 +22,5 @@ kwargs:
   verbose: True
   cache_queries: True
   output_results: False
+  target_populations: ['GC', 'MC']
 
