@@ -58,7 +58,7 @@ class Env(object):
                  v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
                  checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
+                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
                  cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
@@ -235,6 +235,7 @@ class Env(object):
         # Spike input path
         self.spike_input_path = spike_input_path
         self.spike_input_ns = spike_input_namespace
+        self.spike_input_attr = spike_input_attr
         self.spike_input_attribute_info = None
         if self.spike_input_path is not None:
             self.spike_input_attribute_info = \

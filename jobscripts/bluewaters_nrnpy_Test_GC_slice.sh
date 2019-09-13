@@ -42,7 +42,7 @@ mkdir -p $results_path
 aprun -n 1600 -N 16 -d 2 -b -- bwpy-environ -- \
     python3.6 ./scripts/main.py \
     --arena-id=A --trajectory-id=Diag \
-    --config-file=Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
+    --config-file=Network_Clamp_GC_Exc_Sat_DD_SLN.yaml \
     --config-prefix=./config \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
@@ -54,5 +54,6 @@ aprun -n 1600 -N 16 -d 2 -b -- bwpy-environ -- \
     --cell-selection-path=./datasets/DG_slice_20190729.yaml \
     --spike-input-path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190909_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
+    --spike-input-attr='Spike Train' \
     --verbose
 

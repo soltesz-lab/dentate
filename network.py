@@ -428,7 +428,7 @@ def connect_cell_selection(env):
     ## NEURON's ParallelContext does not allow the creation of gids 
     ## after netcons including those gids are created.
     ##
-    make_input_cells(env, input_sources)
+    make_input_cell_selection(env, input_sources)
 
     ##
     ## This section instantiates the synaptic mechanisms and netcons for each connection.
@@ -794,7 +794,7 @@ def make_cell_selection(env):
         logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
 
-def make_input_cells(env, input_sources):
+def make_input_cell_selection(env, input_sources):
     """
     Creates cells with predefined spike patterns when only a subset of the network is instantiated.
 
@@ -820,12 +820,13 @@ def make_input_cells(env, input_sources):
             spike_generator = None
         else:
             if env.netclamp_config is None:
+                logger.warning("make_input_cell_selection: population %s has neither input spike trains nor input generator configuration" % pop_name)
                 spike_generator = None
             else:
                 if pop_name in env.netclamp_config.input_generators:
                     spike_generator = env.netclamp_config.input_generators[pop_name]
                 else:
-                    raise RuntimeError("make_input_cells: population %s has neither input spike trains nor input generator configuration" % pop_name)
+                    raise RuntimeError("make_input_cell_selection: population %s has neither input spike trains nor input generator configuration" % pop_name)
 
         input_source_dict = {pop_index: {'gen': spike_generator}}
 
@@ -843,12 +844,12 @@ def make_input_cells(env, input_sources):
                     cells.register_cell(env, pop_name, gid, input_cell)
                     created_input_gids.append(gid)
 
-        logger.info('*** Rank %i: created input sources for gids %s' % (rank, str(created_input_gids)))
+        logger.info('*** Rank %i: created %s input sources for gids %s' % (rank, pop_name, str(created_input_gids)))
 
 
 def init_input_cells(env, input_sources=None):
     """
-    Initializes cells with predefined spike patterns when only a subset of the network is instantiated.
+    Initializes cells with predefined spike patterns.
 
     :param env: an instance of the `dentate.Env` class
     :param input_sources: a dictionary of the form { pop_name, gid_sources }
@@ -916,12 +917,11 @@ def init_input_cells(env, input_sources=None):
                     if len(spiketrain) > 0:
                         spiketrain = np.sort(spiketrain)
                         spiketrain += float(env.stimulus_config['Equilibration Duration'])
-                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                    (gid, len(spiketrain),
-                                     spiketrain[0], spiketrain[-1]))
+                        logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
+                                    (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
-                        logger.info("*** Spike train for gid %i is of length %i" %
-                                    (gid, len(spiketrain)))
+                        logger.info("*** Spike train for %s gid %i is of length %i" %
+                                    (pop_name, gid, len(spiketrain)))
 
                     spiketrain += env.stimulus_onset
                     assert(env.pc.gid_exists(gid))
@@ -930,48 +930,55 @@ def init_input_cells(env, input_sources=None):
 
     if input_sources is not None:
         for pop_name, gid_range in sorted(viewitems(input_sources)):
-            if rank == 0:
-                logger.info("*** Initializing input source %s" % pop_name)
 
             if (env.cell_selection is not None) and (pop_name in env.cell_selection):
                 local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
             else:
                 local_gid_range = gid_range
+
             gid_ranges = env.comm.allgather(local_gid_range)
-            this_gid_range = []
+            this_gid_range = set([])
             for gid_range in gid_ranges:
                 for gid in gid_range:
                     if gid % nhosts == rank:
-                        this_gid_range.append(gid)
+                        this_gid_range.add(gid)
+
 
             has_spike_train = False
-            spike_input_source_path = []
+            spike_input_source_loc = []
             if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
                 if (pop_name in env.spike_input_attribute_info) and \
                    (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
                    has_spike_train = True
-                   spike_input_source_path.append(env.spike_input_path)
+                   spike_input_source_loc.append((env.spike_input_path, env.spike_input_ns))
             if (env.cell_attribute_info is not None) and (env.spike_input_ns is not None):
                 if (pop_name in env.cell_attribute_info) and \
                         (env.spike_input_ns in env.cell_attribute_info[pop_name]):
                     has_spike_train = True
-                    spike_input_source_path.append(input_file_path)
+                    spike_input_source_loc.append((input_file_path,env.spike_input_ns))
 
                     
             if has_spike_train:
 
+                if rank == 0:
+                    logger.info("*** Initializing input source %s" % pop_name)
+
                 vecstim_attr_set = set(['t'])
+                if env.spike_input_attr is not None:
+                    vecstim_attr_set.add(env.spike_input_attr)
                 if 'spike train' in env.celltypes[pop_name]:
                     vecstim_attr_set.add(env.celltypes[pop_name]['spike train']['attribute'])
                     
                 cell_spikes_iters = [ read_cell_attribute_selection(input_path, pop_name, \
-                                                                    this_gid_range, \
-                                                                    namespace=env.spike_input_ns, \
+                                                                    list(this_gid_range), \
+                                                                    namespace=input_ns, \
                                                                     mask=vecstim_attr_set, \
-                                                                    comm=env.comm) for input_path in spike_input_source_path ]
+                                                                    comm=env.comm) for (input_path, input_ns) in spike_input_source_loc ]
                 for gid, cell_spikes_dict in itertools.chain.from_iterable(cell_spikes_iters):
                     spiketrain = None
-                    if vecstim_attr in cell_spikes_dict:
+                    if (env.spike_input_attr is not None) and (env.spike_input_attr in cell_spikes_dict):
+                        spiketrain = cell_spikes_dict[env.spike_input_attr]
+                    elif vecstim_attr in cell_spikes_dict:
                         spiketrain = cell_spikes_dict[vecstim_attr]
                     elif 't' in cell_spikes_dict:
                         spiketrain = cell_spikes_dict['t']
@@ -983,11 +990,11 @@ def init_input_cells(env, input_sources=None):
                         if np.min(spiketrain) < 0.:
                             spiketrain += float(env.stimulus_config['Equilibration Duration'])
 
-                        logger.info("*** Spike train for input source gid %i is of length %i (%g : %g ms)" %
-                                    (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                        logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
+                                    (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
-                        logger.info("*** Spike train for input source gid %i is of length %i" %
-                                    (gid, len(spiketrain)))
+                        logger.info("*** Spike train for %s input source gid %i is of length %i" %
+                                    (pop_name, gid, len(spiketrain)))
 
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
@@ -996,7 +1003,8 @@ def init_input_cells(env, input_sources=None):
             else:
                 if rank == 0:
                     logger.warning('No spike train data found for population %s in spike input file %s; namespace: %s' % (pop_name, env.spike_input_path, env.spike_input_ns))
-                
+            
+            env.comm.barrier()
                     
 
 def init(env):
