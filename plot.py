@@ -2844,10 +2844,11 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         populations = list(population_names)
 
     this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
+    this_spike_namespace = spike_namespace_id
 
     spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
                                           spike_train_attr_name=spike_train_attr_name, time_range=time_range)
-
+    
     spkpoplst = spkdata['spkpoplst']
     spkindlst = spkdata['spkindlst']
     spktlst = spkdata['spktlst']
@@ -2878,7 +2879,6 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         MI_dict = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size,
                                                 arena_id=arena_id, trajectory_id=trajectory_id,
                                                 output_file_path=output_file_path, **kwargs)
-
         MI_lst = []
         for ind in sorted(MI_dict.keys()):
             MI = MI_dict[ind]
@@ -2888,15 +2888,15 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         MI_array = np.asarray(MI_lst, dtype=np.float32)
         del MI_lst
 
-        label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]), np.mean(MI_array))
+        label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(MI_array), np.mean(MI_array))
         plt.subplot(len(spkpoplst), 1, iplot + 1)
         plt.title(label, fontsize=fig_options.fontSize)
 
         color = dflt_colors[iplot % len(dflt_colors)]
 
-        MI_hist, bin_edges = np.histogram(MI_array, bins='auto')
+        MI_hist, bin_edges = np.histogram(MI_array, bins=10)
         bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-        plt.bar(bin_centers, MI_hist, color=color, width=0.3 * (np.mean(np.diff(bin_edges))))
+        plt.bar(bin_centers, MI_hist, color=color, align='edge', width=0.3 * (np.mean(np.diff(bin_edges))))
 
         plt.xticks(fontsize=fig_options.fontSize)
 

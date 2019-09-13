@@ -4,7 +4,7 @@ import numpy as np
 from scipy import interpolate
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
 import dentate
-from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, old_div, zip
+from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, zip
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -335,7 +335,7 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
         d_bin = d[d_bin_inds == ibin]
         if d_bin.size > 0:
             bin_max = np.max(d_bin)
-            d_prob = old_div((bin_max - prev_bin), d_extent)
+            d_prob = (bin_max - prev_bin) / d_extent
             d_bin_probs[ibin] = d_prob
             prev_bin = bin_max
         else:
@@ -357,7 +357,7 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
                 p_i = d_bin_probs[ibin]
                 R_i = rates[ibin - 1]
                 if R_i > 0.:
-                    MI += p_i * (old_div(R_i, R)) * math.log(old_div(R_i, R), 2)
+                    MI += p_i * (R_i / R) * math.log((R_i / R), 2)
 
         MI_dict[ind] = MI
 
@@ -418,7 +418,7 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
         if baseline_fraction is None:
             s = np.std(rate1)
         else:
-            k = old_div(rate1.shape[0], baseline_fraction)
+            k = rate1.shape[0] / baseline_fraction
             s = np.std(rate1[np.argpartition(rate1, k)[:k]])
         tmin = x[0]
         tmax = x[-1]
@@ -485,8 +485,8 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
                         'pf_peak_rate': np.asarray(pf_peak_rate, dtype=np.float32),
                         'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32)}
 
-    logger.info('%s place fields: min %i max %i mean %f\n' %
-                (population, pf_min, pf_max, float(pf_total_count) / float(cell_count)))
+    logger.info('%s place fields: %i cells min %i max %i mean %f\n' %
+                    (population, cell_count, pf_min, pf_max, float(pf_total_count) / float(cell_count)))
     if output_file_path is not None:
         if arena_id is None or trajectory_id is None:
             raise RuntimeError('spikedata.place_fields: arena_id and trajectory_id required to write %s namespace' %

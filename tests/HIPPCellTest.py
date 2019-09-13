@@ -112,7 +112,7 @@ def ap_rate_test (template_class, tree, v_init):
 
     h.spikelog = h.Vector()
     nc = h.NetCon(soma(0.5)._ref_v, h.nil)
-    nc.threshold = -40.0
+    nc.threshold = -20.0
     nc.record(h.spikelog)
     
     h.tstop = tstop
@@ -211,7 +211,7 @@ def fi_test (template_class, tree, v_init):
 
     h.spikelog = h.Vector()
     nc = h.NetCon(soma(0.5)._ref_v, h.nil)
-    nc.threshold = -40.0
+    nc.threshold = -20.0
     nc.record(h.spikelog)
     
     h.tstop = tstop
@@ -418,7 +418,7 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, v_holding, v_init)
         synapse_group_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 100, v_holding, v_init)
         
-        rate = 30
+        rate = 20
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 50, rate)

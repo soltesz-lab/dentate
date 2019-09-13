@@ -18,6 +18,6 @@ obfunc mkcell() { localobj i3d, morph
 
 objref cell
 
-cell = mkcell("HICAPCell_nolayer.swc")
+cell = mkcell("HIPPCell_nolayer.swc")
 
 
