@@ -41,10 +41,11 @@ context = Context()
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
+@click.option("--target-populations", type=str, multiple=True)
 @click.option("--bin-size", type=float, default=5.0)
 @click.option("--procs-per-worker", type=int, default=1)
 @click.option("--verbose", is_flag=True)
-def main(optimize_config_file_path, output_dir, export, export_file_path, label, bin_size, procs_per_worker, verbose):
+def main(optimize_config_file_path, output_dir, export, export_file_path, label, target_populations, bin_size, procs_per_worker, verbose):
     """
 
     :param optimize_config_file_path: str
@@ -77,31 +78,35 @@ def config_worker():
             context.logger.exception(err)
             raise err
         context.bin_size = 5.0
-    
-    pop_name = context.target_population
-
-    if (pop_name in context.env.netclamp_config.optimize_parameters):
-        opt_params = context.env.netclamp_config.optimize_parameters[pop_name]
-        param_ranges = opt_params['Parameter ranges']
-        opt_targets = opt_params['Targets']
-    else:
-        raise RuntimeError(
-            "optimize_network_subworlds: population %s does not have optimization configuration" % pop_name)
 
     param_bounds = {}
     param_names = []
     param_initial_dict = {}
     param_range_tuples = []
-    for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
-        for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
-            for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
-                for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
-                    param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
-                    param_key = '%s_%s_%s_%s' % (source, sec_type, syn_name, param_name)
-                    param_initial_value = (param_range[1] - param_range[0]) / 2.0
-                    param_initial_dict[param_key] = param_initial_value
-                    param_bounds[param_key] = param_range
-                    param_names.append(param_key)
+    opt_targets = {}
+
+    for pop_name in context.target_populations:
+
+        if (pop_name in context.env.netclamp_config.optimize_parameters):
+            opt_params = context.env.netclamp_config.optimize_parameters[pop_name]
+            param_ranges = opt_params['Parameter ranges']
+        else:
+            raise RuntimeError(
+                "optimize_network_subworlds: population %s does not have optimization configuration" % pop_name)
+
+        for target_name, target_val in viewitems(opt_params['Targets']):
+            opt_targets['%s %s' % (pop_name, target_name)] = target_val
+
+        for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
+            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
+                for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
+                    for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
+                        param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
+                        param_key = '%s_%s_%s_%s_%s' % (pop_name, source, sec_type, syn_name, param_name)
+                        param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                        param_initial_dict[param_key] = param_initial_value
+                        param_bounds[param_key] = param_range
+                        param_names.append(param_key)
                     
     def from_param_vector(params):
         result = []
@@ -141,49 +146,6 @@ def config_controller():
             raise err
         context.bin_size = 5.0
     
-    if (pop_name in context.env.netclamp_config.optimize_parameters):
-        opt_params = context.env.netclamp_config.optimize_parameters[pop_name]
-        param_ranges = opt_params['Parameter ranges']
-        opt_targets = opt_params['Targets']
-    else:
-        raise RuntimeError(
-            "optimize_network_subworlds: population %s does not have optimization configuration" % pop_name)
-
-    param_bounds = {}
-    param_names = []
-    param_initial_dict = {}
-    param_range_tuples = []
-    for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
-        for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
-            for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
-                for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
-                    param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
-                    param_key = '%s_%s_%s_%s' % (source, sec_type, syn_name, param_name)
-                    param_initial_value = (param_range[1] - param_range[0]) / 2.0
-                    param_initial_dict[param_key] = param_initial_value
-                    param_bounds[param_key] = param_range
-                    param_names.append(param_key)
-                    
-    def from_param_vector(params):
-        result = []
-        assert (len(params) == len(param_range_tuples))
-        for i, (source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((source, sec_type, syn_name, param_name, params[i]))
-        return result
-
-    def to_param_vector(params):
-        result = []
-        for (source, sec_type, syn_name, param_name, param_value) in params:
-            result.append(param_value)
-        return result
-
-    context.param_names = param_names
-    context.bounds = [ param_bounds[key] for key in param_names ]
-    context.x0 = param_initial_dict
-    context.from_param_vector = from_param_vector
-    context.to_param_vector = to_param_vector
-    context.target_val = opt_targets
-    context.target_range = opt_targets
         
 def init_env():
     """
@@ -209,17 +171,17 @@ def update_network(x, context=None):
     if context is None:
         raise RuntimeError('update_network: missing required Context object')
 
-    pop_name = context.target_population
-    param_values = context.from_param_vector(x)
+    for pop_name in context.target_populations:
 
-    biophys_cell_dict = context.env.biophys_cells[pop_name]
-    for gid, biophys_cell in viewitems(biophys_cell_dict):
-        for source, sec_type, syn_name, param_name, param_value in param_values:
-            synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
-                                      param_name=param_name, value=param_value,
-                                      filters={'sources': [source]},
-                                      origin='soma', update_targets=True)
-                    
+        param_values = context.from_param_vector(x)
+
+        biophys_cell_dict = context.env.biophys_cells[pop_name]
+        for gid, biophys_cell in viewitems(biophys_cell_dict):
+            for source, sec_type, syn_name, param_name, param_value in param_values:
+                synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
+                                          param_name=param_name, value=param_value,
+                                          filters={'sources': [source]},
+                                          origin='soma', update_targets=True)
     
 
 
@@ -264,20 +226,20 @@ def compute_features_firing_rate(x, export=False):
     
     time_bins  = np.arange(t_start, t_stop, context.bin_size)
 
-    pop_name = context.target_population
+    for pop_name in context.target_populations:
 
-    mean_rate_sum = 0.
-    spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
-    for gid, dens_dict in utils.viewitems(spike_density_dict):
-        mean_rate_sum += np.mean(dens_dict['rate'])
+        mean_rate_sum = 0.
+        spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
+        for gid, dens_dict in utils.viewitems(spike_density_dict):
+            mean_rate_sum += np.mean(dens_dict['rate'])
 
-    n = len(spike_density_dict)
-    if n > 0:
-        mean_rate = mean_rate_sum / n
-    else:
-        mean_rate = 0.
+        n = len(spike_density_dict)
+        if n > 0:
+            mean_rate = mean_rate_sum / n
+        else:
+            mean_rate = 0.
 
-    results['firing rate'] = mean_rate
+        results['%s firing rate' % pop_name] = mean_rate
 
     return results
 

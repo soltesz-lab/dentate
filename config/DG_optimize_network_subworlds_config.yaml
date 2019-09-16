@@ -1,9 +1,11 @@
 optimization_title: DG_optimize_network_subworlds
 param_gen: PopulationAnnealing
 feature_names:
-- firing rate
+- GC firing rate
+- MC firing rate
 objective_names:
-- firing rate
+- GC firing rate
+- MC firing rate
 update_context:
 - - optimize_network_subworlds
   - update_network
@@ -22,4 +24,5 @@ kwargs:
   verbose: True
   cache_queries: True
   output_results: False
+  target_populations: ['GC', 'MC']
 
