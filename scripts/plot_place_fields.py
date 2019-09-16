@@ -21,6 +21,7 @@ script_name = os.path.basename(__file__)
 @click.option("--trajectory-id", '-t', type=str, default='Default')
 @click.option("--bin-size", '-b', type=float, default=50.0)
 @click.option("--min-pf-width", '-m', type=float, default=10.)
+@click.option("--min-pf-rate", '-r', type=float)
 @click.option("--font-size", type=float, default=14)
 @click.option("--output-file-path", required=False, type=str, default=None)
 @click.option("--plot-dir-path", type=click.Path(exists=True, file_okay=False, dir_okay=True), default=None)
@@ -29,7 +30,7 @@ script_name = os.path.basename(__file__)
 @click.option("--progress", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(spike_events_path, spike_events_namespace, spike_train_attr_name, populations, t_max, t_min, trajectory_path,
-         arena_id, trajectory_id, bin_size, min_pf_width, font_size, output_file_path, plot_dir_path, save_fig,
+         arena_id, trajectory_id, bin_size, min_pf_width, min_pf_rate, font_size, output_file_path, plot_dir_path, save_fig,
          fig_format, progress, verbose):
     """
 
@@ -55,7 +56,8 @@ def main(spike_events_path, spike_events_namespace, spike_train_attr_name, popul
     utils.config_logging(verbose)
 
     plot.plot_place_fields(spike_events_path, spike_events_namespace, trajectory_path, arena_id, trajectory_id,
-                           populations=populations, bin_size=bin_size, min_pf_width=min_pf_width,
+                           populations=populations, bin_size=bin_size,
+                           min_pf_width=min_pf_width, min_pf_rate=min_pf_rate,
                            spike_train_attr_name=spike_train_attr_name, time_range=[t_min, t_max],
                            fontSize=font_size, output_file_path=output_file_path, plot_dir_path=plot_dir_path,
                            progress=progress, saveFig=save_fig, figFormat=fig_format, verbose=verbose)

@@ -397,8 +397,6 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
     postsyn_name = 'HC'
     presyn_names = ['GC', 'MC', 'CA3c', 'IS', 'HC']
 
-    print(tree)
-
     cell = network_clamp.load_cell(env, postsyn_name, gid, \
                                    tree_dict=tree, synapses_dict=synapses_dict, connections=connections, \
                                    correct_for_spines=True, load_connections=False)

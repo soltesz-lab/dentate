@@ -2973,7 +2973,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
 
 
 def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, populations=None,
-                      bin_size=10.0, min_pf_width=10., spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
+                      bin_size=10.0, min_pf_width=10., min_pf_rate=None, spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
                       overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of place fields per cell. Returns figure handle.
@@ -3050,7 +3050,7 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
                                                          output_file_path=output_file_path, **kwargs)
         PF_dict = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, arena_id=arena_id,
                                           trajectory_id=trajectory_id, output_file_path=output_file_path,
-                                          min_pf_width=min_pf_width, **kwargs)
+                                          min_pf_width=min_pf_width, min_pf_rate=min_pf_rate, **kwargs)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []

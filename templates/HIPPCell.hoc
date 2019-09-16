@@ -225,7 +225,7 @@ proc biophys() {
     
     Vrest = -70
     
-    Rm = 1e4
+    Rm = 5e4
     
     gH = 0.0005
     
@@ -234,7 +234,7 @@ proc biophys() {
     
     g_fKdr_axon =  0.05104*0.4
     g_fKdr_soma =  0.0319*0.2
-    g_fKdr_dend =  0.023*0.4
+    g_fKdr_dend =  0.023*0.1
     
     g_sKdr_soma =  0.0319*0.1
     g_sKdr_dend =  0.023*0.01
@@ -279,7 +279,7 @@ proc biophys() {
 	gmax_Naxsom = g_Na_dend
         for (x,0) {
 	    insert pas
-	    g_pas = (area(x)/1000)/Rm
+	    g_pas = 1/Rm
 	    e_pas = eleak  	
         }
     }
@@ -293,7 +293,7 @@ proc biophys() {
 	insert pas
         for (x,0) {
 	    insert pas
-	    g_pas = (area(x)/1000)/Rm
+	    g_pas = 1/Rm
 	    e_pas = eleak  	
         }
     }
@@ -306,7 +306,7 @@ proc biophys() {
 	insert pas
         for (x,0) {
 	    insert pas
-	    g_pas = (area(x)/1000)/Rm
+	    g_pas = 1/Rm
 	    e_pas = eleak  	
         }
     }
@@ -318,7 +318,7 @@ proc biophys() {
 	gmax_Naxsom = g_Na_axon
         for (x,0) {
 	    insert pas
-	    g_pas = (area(x)/1000)/Rm
+	    g_pas = 1/Rm
 	    e_pas = eleak  	
         }
     }

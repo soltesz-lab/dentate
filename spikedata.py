@@ -374,7 +374,7 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
 
 
 def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, trajectory_id=None, nstdev=1.5,
-                 binsteps=5, baseline_fraction=None, min_pf_width=10., output_file_path=None, progress=False, **kwargs):
+                 binsteps=5, baseline_fraction=None, min_pf_width=10., min_pf_rate=None, output_file_path=None, progress=False, **kwargs):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     :param population: str
@@ -434,7 +434,7 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
             bin_norm_rates.append(r_n)
             if r_n > nstdev * s:
                 pf_ibins.append(ibin - 1)
-
+                
         bin_rates = np.asarray(bin_rates)
         bin_norm_rates = np.asarray(bin_norm_rates)
 
@@ -442,16 +442,25 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
             pf_consecutive_ibins = []
             pf_consecutive_bins = []
             pf_widths = []
+            pf_rates = []
             for pf_ibin_array in consecutive(pf_ibins):
                 pf_ibin_range = np.asarray([np.min(pf_ibin_array), np.max(pf_ibin_array)])
                 pf_bin_range = np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
+                pf_bin_rates = [bin_rates[ibin] for ibin in pf_ibin_array]
                 pf_width = np.diff(np.interp(pf_bin_range, t, d))[0]
                 pf_consecutive_ibins.append(pf_ibin_range)
                 pf_consecutive_bins.append(pf_bin_range)
                 pf_widths.append(pf_width)
+                pf_rates.append(np.mean(pf_bin_rates))
 
-            pf_filtered_ibins = [pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths)
-                                 if pf_width >= min_pf_width]
+            if min_pf_rate is None:
+                pf_filtered_ibins = [pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths)
+                                    if pf_width >= min_pf_width]
+            else:
+                pf_filtered_ibins = [pf_consecutive_ibins[i] for i, (pf_width, pf_rate) in enumerate(zip(pf_widths,pf_rates))
+                                    if (pf_width >= min_pf_width) and (pf_rate >= min_pf_rate)]
+                
+            
 
             pf_count = len(pf_filtered_ibins)
             pf_ibins = [list(range(pf_ibin[0], pf_ibin[1] + 1)) for pf_ibin in pf_filtered_ibins]
