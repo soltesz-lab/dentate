@@ -61,7 +61,7 @@ ENDCOMMENT
 NEURON {
         SUFFIX HCNsom
         USEION h READ eh WRITE ih VALENCE 1
-        RANGE gmax, ih, g, rinf, tau_r
+        RANGE gmax, ih, g
 }
  
 PARAMETER {

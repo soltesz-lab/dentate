@@ -221,51 +221,62 @@ proc topol() {
 
 proc biophys() {
     
-    celsius = 34.0
+    celsius = 23.0
     
-    Vrest = -67
+    Vrest = -70
     
-    Rm = 1e5
+    Rm = 1e4
     
     gH = 0.0005
     
-    gKvAsoma = 0.0165*.3*1.25
-    gKvAdend = 0.004*.7*1.25
+    g_KA_soma = 0.0165*0.2 // .3 * 1.5
+    g_KA_dend = 0.004*0.4  // .7 * 1.5
     
-    // *2.3 gives 2x frequency & no depol. block
-    gKvEaxon =  0.05104*2.3
-    gKvEsoma =  0.0319*2.3
-    gKvEdend =  2*0.023*2.3
+    g_fKdr_axon =  0.05104*0.4
+    g_fKdr_soma =  0.0319*0.2
+    g_fKdr_dend =  0.023*0.4
     
-    gNasoma = 0.0107
-    gNadend = 0.0117
-    gNaaxon = 0.01712
+    g_sKdr_soma =  0.0319*0.1
+    g_sKdr_dend =  0.023*0.01
     
-    eleak = -67	
+    g_Na_soma = 0.0107
+    g_Na_dend = 3*0.0117
+    g_Na_axon = 0.01712
+    
+    eleak = -70
+
+    forsec all {
+        Ra = 150
+        cm = 1.4
+    }
     
     forsec soma { distance() }
     
     forsec soma {
-        insert KvAsom
-    	gmax_KvAsom = gKvAsoma
+        insert KAsom
+    	gmax_KAsom = g_KA_soma
+	insert fKdrsom  
+	gmax_fKdrsom = g_fKdr_soma 
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_soma 
  	insert HCNsom
 	gmax_HCNsom = gH 
-	insert Kdrsom  // Kvsoma
-	gmax_Kdrsom = gKvEsoma 
-	insert Navsom // Navsoma
-	gmax_Navsom = gNasoma
+	insert Naxsom
+	gmax_Naxsom = g_Na_soma
 	insert pas
 	g_pas = 1/Rm
 	e_pas = eleak  	
     } 
     
     forsec apical {
-	insert KvAsom
-    	gmax_KvAsom = gKvAdend
-	insert Kdrsom // Kvdend
-	gmax_Kdrsom = gKvEdend
-	insert Navsom // Navdend
-	gmax_Navsom = gNadend
+        insert KAsom
+    	gmax_KAsom = g_KA_dend
+	insert fKdrsom
+	gmax_fKdrsom = g_fKdr_dend
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_dend
+	insert Naxsom
+	gmax_Naxsom = g_Na_dend
         for (x,0) {
 	    insert pas
 	    g_pas = (area(x)/1000)/Rm
@@ -273,23 +284,12 @@ proc biophys() {
         }
     }
     
-    forsec basal {
-	insert KvAsom
-    	gmax_KvAsom = gKvAdend
-	insert Kdrsom // Kvdend
-	gmax_Kdrsom = gKvEdend
-	insert Navsom // Navdend
-	gmax_Navsom = gNadend
-	insert pas
-	g_pas = 1/Rm
-	e_pas = eleak  	
-    }
     
     forsec ais {
-	insert Kdrsom // ch_Kvsoma //ch_Kvaxon
-	gmax_Kdrsom = gKvEaxon
-	insert Navsom // ch_Navsoma //ch_Navaxon
-	gmax_Navsom = gNaaxon
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_axon
+	insert Naxsom
+	gmax_Naxsom = g_Na_axon
 	insert pas
         for (x,0) {
 	    insert pas
@@ -299,10 +299,10 @@ proc biophys() {
     }
     
     forsec hillock {
-	insert Kdrsom // ch_Kvsoma //ch_Kvaxon
-	gmax_Kdrsom = gKvEaxon
-	insert Navsom // ch_Navsoma //ch_Navaxon
-	gmax_Navsom = gNaaxon
+	insert fKdrsom
+	gmax_fKdrsom = g_fKdr_axon
+	insert Naxsom
+	gmax_Naxsom = g_Na_axon
 	insert pas
         for (x,0) {
 	    insert pas
@@ -312,22 +312,22 @@ proc biophys() {
     }
     
     forsec axon {
-	insert Kdrsom // ch_Kvsoma //ch_Kvaxon
-	gmax_Kdrsom = gKvEaxon
-	insert Navsom // ch_Navsoma //ch_Navaxon
-	gmax_Navsom = gNaaxon
+	insert fKdrsom  
+	gmax_fKdrsom = g_fKdr_axon
+	insert Naxsom
+	gmax_Naxsom = g_Na_axon
         for (x,0) {
 	    insert pas
 	    g_pas = (area(x)/1000)/Rm
 	    e_pas = eleak  	
         }
     }
+    
 
     forsec all {
-        Ra = 100
-        cm = 1.3
+        ek = -95
+        ena = 55
     }
-    
     
 }
 

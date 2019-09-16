@@ -397,6 +397,8 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
     postsyn_name = 'HC'
     presyn_names = ['GC', 'MC', 'CA3c', 'IS', 'HC']
 
+    print(tree)
+
     cell = network_clamp.load_cell(env, postsyn_name, gid, \
                                    tree_dict=tree, synapses_dict=synapses_dict, connections=connections, \
                                    correct_for_spines=True, load_connections=False)
@@ -421,8 +423,10 @@ def synapse_test(template_class, gid, tree, synapses_dict, connections, v_init, 
         rate = 20
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 1, rate)
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 10, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 20, rate)
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 50, rate)
         synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 100, rate)
+        synapse_group_rate_test(env, presyn_name, gid, cell, syn_obj_dict, syn_params_dict, 250, rate)
 
     
 
