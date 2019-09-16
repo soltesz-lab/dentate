@@ -230,14 +230,14 @@ proc biophys() {
     gH = 0.0005
     
     g_KA_soma = 0.0165*0.2 // .3 * 1.5
-    g_KA_dend = 0.004*0.4  // .7 * 1.5
+    g_KA_dend = 0.004  // .7 * 1.5
     
     g_fKdr_axon =  0.05104*0.4
     g_fKdr_soma =  0.0319*0.2
-    g_fKdr_dend =  0.023*0.1
+    g_fKdr_dend =  0.004
     
     g_sKdr_soma =  0.0319*0.1
-    g_sKdr_dend =  0.023*0.01
+    g_sKdr_dend =  0.001
     
     g_Na_soma = 0.0107
     g_Na_dend = 3*0.0117
@@ -269,15 +269,24 @@ proc biophys() {
     } 
     
     forsec apical {
-        insert KAsom
-    	gmax_KAsom = g_KA_dend
-	insert fKdrsom
-	gmax_fKdrsom = g_fKdr_dend
-	insert sKdrsom 
-	gmax_sKdrsom = g_sKdr_dend
 	insert Naxsom
 	gmax_Naxsom = g_Na_dend
         for (x,0) {
+            insert KAsom
+    	    gmax_KAsom = (1 - (4.*distance(x)/1000)) * g_KA_dend
+            if (gmax_KAsom < 0.) {
+                gmax_KAsom = 0.
+            }
+	    insert sKdrsom 
+	    gmax_sKdrsom = (1 - (4.*distance(x)/1000)) * g_sKdr_dend
+            if (gmax_sKdrsom < 0.) {
+                gmax_sKdrsom = 0.
+            }
+	    insert fKdrsom 
+	    gmax_fKdrsom = (1 - (4.*distance(x)/1000)) * g_fKdr_dend
+            if (gmax_fKdrsom < 0.) {
+                gmax_fKdrsom = 0.
+            }
 	    insert pas
 	    g_pas = 1/Rm
 	    e_pas = eleak  	
