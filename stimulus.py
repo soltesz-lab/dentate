@@ -993,7 +993,7 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
 
     gid_count = defaultdict(lambda: 0)
     process_time = dict()
-    for this_selectivity_namespace in selectivity_type_namespaces[population]:
+    for this_selectivity_namespace in sorted(selectivity_type_namespaces[population]):
 
         if rank == 0:
             logger.info('Generating input source spike trains for population %s [%s]...' % (population, this_selectivity_namespace))
@@ -1062,6 +1062,7 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
             append_cell_attributes(output_path, population, spikes_attr_dict,
                                     namespace=output_namespace, comm=comm, io_size=io_size,
                                     chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            spikes_attr_dict = dict()
         process_time[this_selectivity_type_name] = time.time() - start_time
             
         if rank == 0:

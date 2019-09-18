@@ -1,9 +1,9 @@
-import os
+import os, itertools
 import h5py
 import numpy as np
 import dentate
-from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, get_module_logger
-from neuroh5.io import write_cell_attributes, append_cell_attributes
+from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, compose_iter, get_module_logger
+from neuroh5.io import write_cell_attributes, append_cell_attributes, write_graph, read_cell_attribute_selection, read_graph_selection
 from neuron import h
 
 
@@ -347,7 +347,7 @@ def write_cell_selection(env, write_selection_file_path, write_kwds={}):
 
 
 
-def write_connection_selection(env, write_kwds={}):
+def write_connection_selection(env, write_selection_file_path, write_kwds={}):
     """
     Loads NeuroH5 connectivity file, and writes the corresponding
     synapse and network connection mechanisms for the selected postsynaptic cells.
@@ -373,11 +373,13 @@ def write_connection_selection(env, write_kwds={}):
 
     for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
 
+        if rank == 0:
+            logger.info('*** Writing connection selection of population %s' % (postsyn_name))
 
         if postsyn_name not in selection_pop_names:
             continue
 
-        gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
+        gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
 
@@ -406,7 +408,7 @@ def write_connection_selection(env, write_kwds={}):
                                                             namespace='Synapse Attributes', comm=env.comm)
         
         syn_attributes_output_dict = dict(list(syn_attributes_iter))
-        write_cell_attributes(env.write_selection_file_path, postsyn_name, syn_attributes_output_dict, namespace='Synapse Attributes', **write_kwds)
+        write_cell_attributes(write_selection_file_path, postsyn_name, syn_attributes_output_dict, namespace='Synapse Attributes', **write_kwds)
         del syn_attributes_output_dict
         del syn_attributes_iter
         
@@ -416,29 +418,30 @@ def write_connection_selection(env, write_kwds={}):
                                                                        selection=gid_range,
                                                                        namespace=weights_namespace, comm=env.comm)
                 weight_attributes_output_dict = dict(list(weight_attributes_iter))
-                write_cell_attributes(env.write_selection_file_path, postsyn_name, weight_attributes_output_dict, namespace=weights_namespace, **write_kwds)
+                write_cell_attributes(write_selection_file_path, postsyn_name, weight_attributes_output_dict, namespace=weights_namespace, **write_kwds)
                 del weight_attributes_output_dict
                 del weight_attributes_iter
 
                 
-        if rank == 0:
-            logger.info('*** Writing connectivity selection for postsynaptic population: %s' % postsyn_name)
+        logger.info('*** Rank %i: reading connectivity selection from file %s for postsynaptic population: %s: selection: %s' % (rank, connectivity_file_path, postsyn_name, str(gid_range)))
 
         (graph, attr_info) = read_graph_selection(connectivity_file_path, selection=gid_range, \
-                                                  projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
+                                                  projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ], \
                                                   comm=env.comm, namespaces=['Synapses', 'Connections'])
-        for presyn_name in presyn_names:
+        
 
-            edge_iter = []
+        for presyn_name in sorted(presyn_names):
+            gid_dict = {}
+            edge_count = 0
+            node_count = 0
             if postsyn_name in graph:
-                
 
                 if postsyn_name in attr_info and presyn_name in attr_info[postsyn_name]:
                     edge_attr_info = attr_info[postsyn_name][presyn_name]
                 else:
                     raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
-                                        (presyn_name, postsyn_name))
-
+                                       (presyn_name, postsyn_name))
+                
                 if 'Synapses' in edge_attr_info and \
                         'syn_id' in edge_attr_info['Synapses'] and \
                         'Connections' in edge_attr_info and \
@@ -448,35 +451,31 @@ def write_connection_selection(env, write_kwds={}):
                 else:
                     raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
                                            (presyn_name, postsyn_name))
-
-                edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
-                
+            
                 edge_iter = compose_iter(lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
-                                         edge_iters)
+                                         graph[postsyn_name][presyn_name])
+                for (postsyn_gid, edges) in edge_iter:
 
-            gid_dict = {}
-            edge_count = 0
-            node_count = 0
-            for (postsyn_gid, edges) in edge_iter:
-                presyn_gids, edge_attrs = edges
-                edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
-                edge_dists = edge_attrs['Connections'][distance_attr_index]
-
-                gid_dict[postsyn_gid] = (presyn_gids,
+                    presyn_gids, edge_attrs = edges
+                    edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
+                    edge_dists = edge_attrs['Connections'][distance_attr_index]
+                    
+                    gid_dict[postsyn_gid] = (presyn_gids,
                                              {'Synapses': {'syn_id': edge_syn_ids},
                                               'Connections': {'distance': edge_dists} })
-                edge_count += len(presyn_gids)
-                node_count += 1
+                    edge_count += len(presyn_gids)
+                    node_count += 1
 
             logger.info('*** Rank %d: Writing projection %s -> %s selection: %d nodes, %d edges' % (rank, presyn_name, postsyn_name, node_count, edge_count))
-            write_graph(env.write_selection_file_path, \
+            write_graph(write_selection_file_path, \
                         src_pop_name=presyn_name, dst_pop_name=postsyn_name, \
                         edges=gid_dict, comm=env.comm, io_size=env.io_size)
+        env.comm.barrier()
 
-        return input_sources
+    return input_sources
 
                     
-def write_input_cell_selection(env, input_sources, write_kwds={}):
+def write_input_cell_selection(env, input_sources, write_selection_file_path, write_kwds={}):
     """
     Writes out predefined spike trains when only a subset of the network is instantiated.
 
@@ -500,59 +499,50 @@ def write_input_cell_selection(env, input_sources, write_kwds={}):
     for pop_name, gid_range in sorted(viewitems(input_sources)):
 
         spikes_output_dict = {}
+
         if (env.cell_selection is not None) and (pop_name in env.cell_selection):
-
-            if 'spike train' in env.celltypes[pop_name]:
-                if env.arena_id and env.trajectory_id:
-                    vecstim_namespace = '%s %s %s' % (env.celltypes[pop_name]['spike train']['namespace'], \
-                                                    env.arena_id, env.trajectory_id)
-                else:
-                    vecstim_namespace = env.celltypes[pop_name]['spike train']['namespace']
-            else:
-                vecstim_namespace = None
-
-            has_vecstim = False
-            if env.cell_attribute_info is not None:
-                if (pop_name in env.cell_attribute_info) and \
-                   (vecstim_namespace in env.cell_attribute_info[pop_name]):
-                     has_vecstim = True
-
-            if has_vecstim:
-                this_gid_range = []
-                for gid in gid_range:
-                    if gid % nhosts == rank:
-                        this_gid_range.append(gid)
-
-                cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, 
-                                                                  this_gid_range, \
-                                                                  namespace=vecstim_namespace, \
-                                                                  comm=env.comm)
-                spikes_output_dict.update(dict(list(cell_vecstim_iter)))
-                del cell_vecstim_iter
-            
             local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
+        else:
+            local_gid_range = gid_range
 
-            gid_ranges = env.comm.allgather(local_gid_range)
-            this_gid_range = []
-            for gid_range in gid_ranges:
-                for gid in gid_range:
-                    if gid % nhosts == rank:
-                        this_gid_range.append(gid)
+        gid_ranges = env.comm.allgather(local_gid_range)
+        this_gid_range = set([])
+        for gid_range in gid_ranges:
+            for gid in gid_range:
+                if gid % nhosts == rank:
+                    this_gid_range.add(gid)
 
-            has_spike_train = False
-            if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
-                if (pop_name in env.spike_input_attribute_info) and \
-                   (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
-                     has_spike_train = True
+        has_spike_train = False
+        spike_input_source_loc = []
+        if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
+            if (pop_name in env.spike_input_attribute_info) and \
+                    (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
+                has_spike_train = True
+                spike_input_source_loc.append((env.spike_input_path, env.spike_input_ns))
+        if (env.cell_attribute_info is not None) and (env.spike_input_ns is not None):
+            if (pop_name in env.cell_attribute_info) and \
+                    (env.spike_input_ns in env.cell_attribute_info[pop_name]):
+                has_spike_train = True
+                spike_input_source_loc.append((input_file_path,env.spike_input_ns))
 
-            if has_spike_train:
+        if has_spike_train:
+
+            vecstim_attr_set = set(['t'])
+            if env.spike_input_attr is not None:
+                vecstim_attr_set.add(env.spike_input_attr)
+            if 'spike train' in env.celltypes[pop_name]:
+                vecstim_attr_set.add(env.celltypes[pop_name]['spike train']['attribute'])
+                    
+            cell_spikes_iters = [ read_cell_attribute_selection(input_path, pop_name, \
+                                                                list(this_gid_range), \
+                                                                namespace=input_ns, \
+                                                                mask=vecstim_attr_set, \
+                                                                comm=env.comm) for (input_path, input_ns) in spike_input_source_loc ]
+
                 
-                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
-                                                                 this_gid_range, \
-                                                                 namespace=env.spike_input_ns, \
-                                                                 comm=env.comm)
+            for cell_spikes_iter in cell_spikes_iters:
                 spikes_output_dict.update(dict(list(cell_spikes_iter)))
-                del cell_spikes_iter
+
                 
-        write_cell_attributes(env.write_selection_file_path, pop_name, spikes_output_dict,  \
+        write_cell_attributes(write_selection_file_path, pop_name, spikes_output_dict,  \
                               namespace=env.spike_input_ns, **write_kwds)
