@@ -54,6 +54,7 @@ coordinate_files = {
      'LPP':  DG_EXT_coordinate_file
 }
 
+distances_ns = 'Arc Distances'
 coordinate_ns = 'Coordinates'
 coordinate_ns_generated = 'Generated Coordinates'
 coordinate_ns_interpolated = 'Interpolated Coordinates'
@@ -128,6 +129,7 @@ with h5py.File(DG_cells_file) as f:
         coords_file = coordinate_files[p]
         coords_ns   = coordinate_namespaces[p]
         grp[p]["Coordinates"] = h5py.ExternalLink(coords_file,"/Populations/%s/%s" % (p, coords_ns))
+        grp[p]["Arc Distances"] = h5py.ExternalLink(coords_file,"/Populations/%s/%s" % (p, distances_ns))
 
 ## Creates forest entries and synapse attributes
 with h5py.File(DG_cells_file) as f:

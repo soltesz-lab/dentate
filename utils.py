@@ -589,15 +589,14 @@ def generator_ifempty(iterable):
     return itertools.chain([first], iterable)
 
 
-def compose_iter(f, iters):
+def compose_iter(f, it):
     """
-    Given a function and a tuple of iterators, apply the function to
-    the first iterator in the tuple, and returns the next element from
-    the second iterator in the tuple.
+    Given a function and an iterator, apply the function to
+    each element in the iterator and return the element.
     """
-    x = next(iters[0])
-    f(x)
-    yield next(iters[1])
+    for x in it:
+        f(x)
+        yield x
 
 
 def profile_memory(logger):

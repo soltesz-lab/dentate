@@ -412,10 +412,10 @@ def connect_cell_selection(env):
 
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
-                edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
+                edge_iter = graph[postsyn_name][presyn_name]
                 
                 syn_edge_iter = compose_iter(lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
-                                             edge_iters)
+                                             edge_iter)
                 syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
 
                 del graph[postsyn_name][presyn_name]
