@@ -1471,6 +1471,70 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     return fig
 
 
+def plot_syn_weights(population, syn_path, weights_path, config, line_width=1., sample=0.05, weights_namespace='Synaptic Weights', color_edge_scalars=True, volume_opacity=0.1):
+    
+    env = Env(config_file=config)
+
+    rotate = env.geometry['Parametric Surface']['Rotation']
+
+    pop_min_extent = np.asarray(env.geometry['Cell Layers']['Minimum Extent'][population])
+    pop_max_extent = np.asarray(env.geometry['Cell Layers']['Maximum Extent'][population])
+
+    min_extents = env.geometry['Parametric Surface']['Minimum Extent']
+    max_extents = env.geometry['Parametric Surface']['Maximum Extent']
+    layer_min_extent = None
+    layer_max_extent = None
+    for ((layer_name,max_extent),(_,min_extent)) in zip(viewitems(max_extents),viewitems(min_extents)):
+        if layer_min_extent is None:
+            layer_min_extent = np.asarray(min_extent)
+        else:
+            layer_min_extent = np.minimum(layer_min_extent, np.asarray(min_extent))
+        if layer_max_extent is None:
+            layer_max_extent = np.asarray(max_extent)
+        else:
+            layer_max_extent = np.maximum(layer_max_extent, np.asarray(max_extent))
+
+    logger.info(("Layer minimum extents: %s" % (str(layer_min_extent))))
+    logger.info(("Layer maximum extents: %s" % (str(layer_max_extent))))
+
+    (population_ranges, _) = read_population_ranges(forest_path)
+
+    population_start = population_ranges[population][0]
+    population_count = population_ranges[population][1]
+
+    import networkx as nx
+    
+    if longitudinal_extent is None:
+        #(trees, _) = NeuroH5TreeGen(forest_path, population)
+        if isinstance(sample, numbers.Real):
+            s = np.random.random_sample((population_count,))
+            selection = np.where(s <= sample) + population_start
+        else:
+            selection = list(sample)
+    else:
+        print('Reading distances...')
+        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+
+        lst = []
+        for k, v in viewitems(soma_distances):
+            if v[0] >= longitudinal_extent[0] and v[0] <= longitudinal_extent[1]:
+                lst.append(k)
+        sample_range = np.asarray(lst)
+                          
+        if isinstance(sample, numbers.Real):
+            s = np.random.random_sample(sample_range.shape)
+            selection = sample_range[np.where(s <= sample)]
+        else:
+            raise RuntimeError('Sample must be a real number')
+
+    print('%d trees selected from population %s' % (len(selection), population))
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection=selection.tolist())
+
+
+
 def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=1024, overlap=0.5, frequency_range=(0, 400.), **kwargs):
     '''
     Line plot of LFP power spectrogram. Returns figure handle.
