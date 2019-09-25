@@ -7,7 +7,7 @@
 ### set the wallclock time
 #PBS -l walltime=10:00:00
 ### set the job name
-#PBS -N dentate_Full_Scale_GC_Exc_Sat_DD_SLN_Diag
+#PBS -N dentate_Full_Scale_GC_Exc_Sat_DD_SLN_DiagU5
 ### set the job stdout and stderr
 #PBS -e ./results/dentate.$PBS_JOBID.err
 #PBS -o ./results/dentate.$PBS_JOBID.out
@@ -29,7 +29,7 @@ export NEURONROOT=$SCRATCH/nrnintel3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
-results_path=./results/Full_Scale_GC_Exc_Sat_DD_SLN_Diag_$PBS_JOBID
+results_path=./results/Full_Scale_GC_Exc_Sat_DD_SLN_DiagU5_$PBS_JOBID
 export results_path
 
 cd $PBS_O_WORKDIR
@@ -42,7 +42,7 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 aprun -n 32768 -N 16 -d 2 -b -- bwpy-environ -- \
     python3.6 ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat_DD_SLN.yaml  \
-    --arena-id=A --trajectory-id=Diag \
+    --arena-id=A --trajectory-id=DiagU5 \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
@@ -50,7 +50,7 @@ aprun -n 32768 -N 16 -d 2 -b -- bwpy-environ -- \
     --tstop=10000 \
     --v-init=-75 \
     --results-write-time=600 \
-    --stimulus-onset=0.0 \
+    --stimulus-onset=50.0 \
     --max-walltime-hours=9.9 \
     --vrecord-fraction=0.001 \
     --checkpoint-interval=1000 \

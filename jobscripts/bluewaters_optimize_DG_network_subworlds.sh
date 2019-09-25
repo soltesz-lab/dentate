@@ -55,6 +55,7 @@ aprun -n 12800 -N 8 -d 4 -b -- bwpy-environ -- \
     --cell_selection_path=$DG_HOME/datasets/DG_slice_20190729.yaml \
     --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
+    --spike-input-attr='Spike Train' \
     --max_walltime_hours=11.75 \
     --io_size=24 \
     -v
