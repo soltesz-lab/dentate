@@ -512,6 +512,7 @@ def write_input_cell_selection(env, input_sources, write_selection_file_path, wr
                 if gid % nhosts == rank:
                     this_gid_range.add(gid)
 
+
         has_spike_train = False
         spike_input_source_loc = []
         if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
@@ -524,6 +525,9 @@ def write_input_cell_selection(env, input_sources, write_selection_file_path, wr
                     (env.spike_input_ns in env.cell_attribute_info[pop_name]):
                 has_spike_train = True
                 spike_input_source_loc.append((input_file_path,env.spike_input_ns))
+
+        if rank == 0:
+            logger.info('*** Reading spike trains for population %s: %d cells: has_spike_train = %s' % (pop_name, len(this_gid_range), str(has_spike_train)))
 
         if has_spike_train:
 
@@ -542,6 +546,9 @@ def write_input_cell_selection(env, input_sources, write_selection_file_path, wr
                 
             for cell_spikes_iter in cell_spikes_iters:
                 spikes_output_dict.update(dict(list(cell_spikes_iter)))
+
+        if rank == 0:
+            logger.info('*** Writing spike trains for population %s: %s' % (pop_name, str(spikes_output_dict)))
 
                 
         write_cell_attributes(write_selection_file_path, pop_name, spikes_output_dict,  \
