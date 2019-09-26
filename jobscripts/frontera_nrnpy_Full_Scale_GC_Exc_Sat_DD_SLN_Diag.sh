@@ -11,7 +11,6 @@
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
 module unload python2 
-module swap intel intel/18.0.5
 module load python3
 module load phdf5/1.8.16
 
@@ -46,13 +45,13 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --dataset-prefix="$SCRATCH/dentate" \
     --results-path=$results_path \
     --io-size=256 \
-    --tstop=9500 \
+    --tstop=10000 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=0.0 \
     --max-walltime-hours=7.9 \
     --vrecord-fraction=0.001 \
-    --checkpoint-interval=5000.0 \
+    --checkpoint-interval=1000.0 \
     --checkpoint-clear-data \
     --verbose
 
