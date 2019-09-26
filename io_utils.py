@@ -237,7 +237,7 @@ def lfpout(env, output_path):
         else:
             namespace_id = "Local Field Potential %s %s" % (str(lfp.label), str(env.results_id))
         import h5py
-        output = h5py.File(output_path)
+        output = h5py.File(output_path, 'a')
 
         grp = output.create_group(namespace_id)
 
