@@ -149,8 +149,9 @@ def connect_cells(env):
                                                                       mask=set(weight_attr_mask),
                                                                       comm=env.comm, node_rank_map=env.node_ranks,
                                                                       io_size=env.io_size)
-
-            for weights_namespace in sorted(weight_attributes_dict.keys()):
+                
+            overwrite_weights = 'error'
+            for weights_namespace in weights_namespaces:
                 syn_weights_iter = weight_attributes_dict[weights_namespace]
                 first_gid = None
                 for gid, cell_weights_dict in syn_weights_iter:
@@ -167,11 +168,11 @@ def connect_cells(env):
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
                                                                zip_longest(weights_syn_ids,
-                                                                           [{'weight': x} for x in weights_values]))
+                                                                           [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
-
+                overwrite_weights='skip'
                 del weight_attributes_dict[weights_namespace]
 
 
@@ -359,7 +360,8 @@ def connect_cell_selection(env):
                 logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
             weight_attr_mask = list(syn_attrs.syn_mech_names)
             weight_attr_mask.append('syn_id')
-            for weights_namespace in sorted(weights_namespaces):
+            overwrite_weights='error'
+            for weights_namespace in weights_namespaces:
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                        selection=gid_range, mask=set(weight_attr_mask),
                                                                        namespace=weights_namespace, comm=env.comm)
@@ -378,10 +380,11 @@ def connect_cell_selection(env):
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
                                                                    zip_longest(weights_syn_ids, \
-                                                                                   [{'weight': x} for x in weights_values]))
+                                                                                   [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
+                overwrite_weights='skip'
                 del weight_attributes_iter
 
         first_gid = None
@@ -998,7 +1001,10 @@ def init_input_cells(env, input_sources=None):
 
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
-                    input_cell.play(h.Vector(spiketrain))
+                    if input_cell.is_art() == 1:
+                        input_cell.play(h.Vector(spiketrain))
+                    else:
+                        raise RuntimeError("init_input_cells: input cell gid %d is not an artificial cell (%s)" % (gid, str(input_cell)))
 
             else:
                 if rank == 0:
