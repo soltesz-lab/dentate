@@ -4,14 +4,13 @@
 #SBATCH -o ./results/dentate.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 128             # Total # of nodes 
+#SBATCH -N 512             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
 #SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
 module unload python2 
-module swap intel intel/18.0.5
 module load python3
 module load phdf5/1.8.16
 
@@ -33,9 +32,9 @@ git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -z
 
 export I_MPI_EXTRA_FILESYSTEM=enable
 export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
-export I_MPI_ADJUST_ALLGATHER=4
-export I_MPI_ADJUST_ALLGATHERV=4
-export I_MPI_ADJUST_ALLTOALL=4
+#export I_MPI_ADJUST_ALLGATHER=4
+#export I_MPI_ADJUST_ALLGATHERV=4
+#export I_MPI_ADJUST_ALLTOALL=4
 
 export PYTHON=`which python3`
 
@@ -54,5 +53,6 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --vrecord-fraction=0.001 \
     --checkpoint-interval=50.0 \
     --checkpoint-clear-data \
+    --lptbal --ldbal \
     --verbose
 

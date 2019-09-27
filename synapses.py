@@ -478,7 +478,7 @@ class SynapseAttributes(object):
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
 
-    def add_mech_attrs_from_iter(self, gid, syn_name, params_iter):
+    def add_mech_attrs_from_iter(self, gid, syn_name, params_iter, overwrite='error'):
         """
         Adds mechanism attributes for the given cell id/synapse id/synapse mechanism.
 
@@ -495,8 +495,16 @@ class SynapseAttributes(object):
                 raise RuntimeError('add_mech_attrs_from_iter: '
                                    'gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.attr_dict:
-                raise RuntimeError('add_mech_attrs_from_iter: '
-                                   'gid %i Synapse id %i mechanism %s already has parameters' % (gid, syn_id, syn_name))
+                if overwrite == 'error':
+                    raise RuntimeError('add_mech_attrs_from_iter: '
+                                       'gid %i Synapse id %i mechanism %s already has parameters' % (gid, syn_id, syn_name))
+                elif overwrite == 'skip':
+                    continue
+                elif overwrite == 'overwrite':
+                    pass
+                else:
+                    raise RuntimeError('add_mech_attrs_from_iter: unknown overwrite value %s' % overwrite)
+
             attr_dict = syn.attr_dict[syn_index]
             for k, v in viewitems(params_dict):
                 attr_dict[k] = v
