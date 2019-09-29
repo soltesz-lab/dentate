@@ -219,7 +219,7 @@ def compute_features_firing_rate(x, export=False):
 
     network.run(context.env, output=context.output_results, shutdown=False)
 
-    pop_spike_dict = spikedata.get_env_spike_dict(context.env)
+    pop_spike_dict = spikedata.get_env_spike_dict(context.env, include_artificial=False)
 
     t_start = 0.
     t_stop = context.env.tstop
