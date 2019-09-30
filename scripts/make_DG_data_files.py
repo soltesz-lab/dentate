@@ -167,6 +167,7 @@ with h5py.File(DG_cells_file) as f:
 
     grp = f["Populations"]
 
-    for p in DG_EXT_populations:
-        for (vecstim_ns, vecstim_file) in viewitems(vecstim_dict):
+    for (vecstim_ns, vecstim_file) in viewitems(vecstim_dict):
+        for p in DG_EXT_populations:
             grp[p][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
+        grp['GC'][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % ('GC', vecstim_ns))

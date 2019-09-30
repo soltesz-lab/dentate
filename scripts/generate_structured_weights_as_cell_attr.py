@@ -47,14 +47,46 @@ def weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=Fal
                 syn_weight_dict[int(syn_id)] = float(weight) 
     return syn_weight_dict
 
+
+def source_rate_map_dict_alltoall(comm, stimulus_attrs, query, clear=False):
+    rank = comm.rank
+    send_source_gids = []
+    send_source_rate_maps = []
+    for source_dict in query:
+        this_send_source_gids = {}
+        this_send_source_rate_maps = {}
+        for source in source_dict:
+            this_send_source_gids[source] = []
+            this_send_source_rate_maps[source] = []
+            source_gid_dict = source_dict[source]
+            for gid in source_gid_dict:
+                if gid in stimulus_attrs[source]:
+                    rate_map = stimulus_attrs[source][gid]['Trajectory Rate Map']
+                    this_send_source_gids[source].append(gid)
+                    this_send_source_rate_maps[source].append(rate_map)
+                    if clear:
+                        del(stimulus_attrs[source][gid])
+        send_source_gids.append(this_send_source_gids)
+        send_source_rate_maps.append(this_send_source_rate_maps)
+    recv_source_gids = comm.alltoall(send_source_gids)
+    recv_source_rate_maps = comm.alltoall(send_source_rate_maps)
+    source_rate_map_dict = defaultdict(lambda: defaultdict(list))
+    for source_gids, source_rate_maps in zip(recv_source_gids, recv_source_rate_maps):
+        for source in source_gids:
+            this_source_rate_map_dict = source_rate_map_dict[source]
+            for (source_gid, rate_map) in zip(source_gids[source], source_rate_maps[source]):
+                this_source_rate_map_dict[int(source_gid)] = rate_map
+    return source_rate_map_dict
+    
+
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
-peak_rate_dict = {'MPP': 20., 'LPP': 20.}  # Hz
+peak_rate_dict = {'MPP': 20., 'LPP': 20., 'CA3c': 20.}  # Hz
 
 
 @click.command()
@@ -151,15 +183,10 @@ def main(config, stimulus_path, stimulus_namespace, output_weights_path, weights
 
     this_structured_weights_namespace = '%s %s %s' % (structured_weights_namespace, arena_id, trajectory_id)
     this_stimulus_namespace = '%s %s %s' % (stimulus_namespace, arena_id, trajectory_id)
-    if rank == 0:
-        logger.info('Reading stimulus data...')
-    stimulus_attrs = {}
-    for source in sources:
-        stimulus_attr_gen = bcast_cell_attributes(stimulus_path, source, namespace=this_stimulus_namespace, root=0, comm=env.comm)
-        stimulus_attrs[source] = { gid: attr_dict for gid, attr_dict in stimulus_attr_gen }
-        if rank == 0:
-            logger.info('Read stimulus data for %i cells in population %s' % (len(stimulus_attrs[source]), source))
 
+
+    if rank == 0:
+        logger.info('Reading initial weights data from %s...' % weights_path)
     env.comm.barrier()
     cell_attributes_dict = scatter_read_cell_attributes(weights_path, destination, 
                                                         namespaces=[initial_weights_namespace], 
@@ -173,6 +200,20 @@ def main(config, stimulus_path, stimulus_namespace, output_weights_path, weights
     
     logger.info('Rank %i; destination: %s; read synaptic weights for %i cells' %
                 (rank, destination, len(initial_weights_dict)))
+
+    if rank == 0:
+        logger.info('Reading stimulus data from %s...' % stimulus_path)
+    env.comm.barrier()
+    stimulus_attrs = {}
+    for source in sources:
+        stimulus_attr_dict = scatter_read_cell_attributes(stimulus_path, source, namespaces=[this_stimulus_namespace], \
+                                                         mask=set(['Trajectory Rate Map']), io_size=env.io_size, comm=env.comm)
+        if this_stimulus_namespace in stimulus_attr_dict:
+            stimulus_attrs[source] = { gid: attr_dict for gid, attr_dict in stimulus_attr_dict[this_stimulus_namespace] }
+            if rank == 0:
+                logger.info('Read stimulus data for %i cells in population %s' % (len(stimulus_attrs[source]), source))
+        else:
+            raise RuntimeError('Stimulus namespace %s was not found in file %s' % (this_stimulus_namespace, stimulus_path))
 
     local_random = np.random.RandomState()
 
@@ -258,14 +299,20 @@ def main(config, stimulus_path, stimulus_namespace, output_weights_path, weights
                     this_syn_id = syn_ids[i]
                     this_syn_wgt = syn_weight_dict[this_syn_id]
                     this_source_syn_map[this_source_gid].append((this_syn_id, this_syn_wgt))
+
+        query_source_rate_map_dict = comm.alltoall([{source : list(source_syn_map[source].keys()) for source in sources}]*nranks)
+        source_rate_map_dict = source_rate_map_dict_alltoall(comm, stimulus_attrs, query_source_rate_map_dict)
+
+        if destination_gid is not None:
+        
             if local_random.uniform() <= target_sparsity:
                 modify_weights = True
             else:
                 modify_weights = False
-            for source in stimulus_attrs:
+            for source in sources:
                 peak_rate = peak_rate_dict[source]
                 this_source_syn_map = source_syn_map[source]
-                this_stimulus_attrs = stimulus_attrs[source]
+                this_source_rate_map = source_rate_map_dict[source]
                 if modify_weights:
                     source_syn_wgt_sum = {} 
                     for source_gid, source_syns in viewitems(this_source_syn_map):
@@ -275,8 +322,8 @@ def main(config, stimulus_path, stimulus_namespace, output_weights_path, weights
                     candidate_source_gids = [ item[0] for item in ordered_source_gids[:int(len(ordered_source_gids)*.2)] ]
                     candidate_locs = set([])
                     for this_source_gid in candidate_source_gids:
-                        rate = this_stimulus_attrs[this_source_gid]['Trajectory Rate Map']
-                        for index in np.nditer(np.where(rate >= np.median(rate))):
+                        rate_map = this_source_rate_map[this_source_gid]
+                        for index in np.nditer(np.where(rate_map >= np.median(rate_map))):
                             candidate_locs.add(d[index])
                     peak_loc = local_random.choice(list(candidate_locs))
                     this_plasticity_kernel = plasticity_kernel(d, peak_loc)
@@ -284,12 +331,12 @@ def main(config, stimulus_path, stimulus_namespace, output_weights_path, weights
                     peak_loc = None
                     this_plasticity_kernel = None
                     
-                for this_source_gid in stimulus_attrs[source]:
-                    rate = this_stimulus_attrs[this_source_gid]['Trajectory Rate Map']
-                    peak_index = np.where(rate == np.max(rate))[0][0]
+                for this_source_gid in this_source_rate_map:
+                    rate_map = this_source_rate_map[this_source_gid]
+                    peak_index = np.where(rate_map == np.max(rate_map))[0][0]
                     if modify_weights:
-                        norm_rate = rate / peak_rate
-                        this_plasticity_signal = (np.sum(np.multiply(norm_rate, this_plasticity_kernel)) * \
+                        norm_rate_map = rate_map / peak_rate
+                        this_plasticity_signal = (np.sum(np.multiply(norm_rate_map, this_plasticity_kernel)) * \
                                                  spatial_resolution) / max_plasticity_kernel_area
                         delta_weight = 2. * this_plasticity_signal
                     else:
