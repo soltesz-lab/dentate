@@ -66,7 +66,6 @@ NEURON {
  
 PARAMETER {
         v (mV)
-        dt (ms)
         gmax = 0.001385 (mho/cm2)
 		g (mho/cm2)
         eh = -32.9 (mV)
@@ -93,7 +92,7 @@ INITIAL {
 	r = rinf
 }
 
-DERIVATIVE deriv { :Computes state variable h at current v and dt.
+DERIVATIVE deriv { 
 	rates(v)
 	r' = (rinf - r)/tau_r
 }
