@@ -145,9 +145,10 @@ Arena:
       DiagL5:
         path: [[-95, -100], [100, 95]]
         run velocity: 30.  # cm/s
+
+    default run velocity: 30.  # cm/s
         
   Calibration:
     Domain:
       vertices: [[-32.5, -32.5], [-32.5, 32.5], [32.5, 32.5], [32.5, -32.5]]
       simplices: [[0,1], [1,2], [2,3], [3,0]]
-    run velocity: 30.  # cm/s

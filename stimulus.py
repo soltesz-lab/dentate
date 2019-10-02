@@ -677,7 +677,7 @@ def get_2D_arena_bounds(arena, margin=0.):
     return arena_x_bounds, arena_y_bounds
 
 
-def get_2D_arena_spatial_mesh(arena, spatial_resolution=5., margin=0.):
+def get_2D_arena_spatial_mesh(arena, spatial_resolution=5., margin=0., indexing='ij'):
     """
 
     :param arena: namedtuple
@@ -689,7 +689,7 @@ def get_2D_arena_spatial_mesh(arena, spatial_resolution=5., margin=0.):
     arena_x = np.arange(arena_x_bounds[0], arena_x_bounds[1] + spatial_resolution / 2., spatial_resolution)
     arena_y = np.arange(arena_y_bounds[0], arena_y_bounds[1] + spatial_resolution / 2., spatial_resolution)
 
-    return np.meshgrid(arena_x, arena_y, indexing='ij')
+    return np.meshgrid(arena_x, arena_y, indexing=indexing)
 
 
 def generate_spatial_offsets(N, arena, start=0, scale_factor=2.0):
