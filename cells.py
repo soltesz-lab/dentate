@@ -2,7 +2,6 @@ import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
-from neuroh5.h5py_io_utils import select_tree_attributes
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -2069,8 +2068,9 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
     return cell
 
 
-def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
-                     load_weights=False, set_edge_delays=True, mech_file_path=None):
+def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
+                     load_edges=True, connections=None, load_weights=False,
+                     set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -2086,7 +2086,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     """
     env.load_cell_template(pop_name)
     if tree_dict is None:
-        tree_dict = select_tree_attributes(gid, env.comm, env.data_file_path, pop_name)
+        tree_dict = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
     syn_attrs = env.synapse_attributes
@@ -2129,16 +2129,23 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
         if os.path.isfile(env.connectivity_file_path):
             (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
                                               namespaces=['Synapses', 'Connections'], comm=env.comm)
-            if pop_name in env.projection_dict:
-                for presyn_name in env.projection_dict[pop_name]:
-                    edge_iter = graph[pop_name][presyn_name]
-                    syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)
-            else:
-                logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
-                raise Exception
         else:
             logger.error('get_biophys_cell: connection file %s not found' % env.connectivity_file_path)
             raise Exception
+    elif connections:
+        (graph, a) = connections
+    else:
+        (graph, a) = None, None
+
+    if graph is not None:
+        if pop_name in graph:
+            for presyn_name in graph[pop_name].keys():
+                edge_iter = graph[pop_name][presyn_name]
+                syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)
+        else:
+            logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+            raise Exception
+        
     env.biophys_cells[pop_name][gid] = cell
     return cell
 

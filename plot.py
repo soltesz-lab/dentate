@@ -1514,6 +1514,70 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     return fig
 
 
+def plot_syn_weights(population, syn_path, weights_path, config, line_width=1., sample=0.05, weights_namespace='Synaptic Weights', color_edge_scalars=True, volume_opacity=0.1):
+    
+    env = Env(config_file=config)
+
+    rotate = env.geometry['Parametric Surface']['Rotation']
+
+    pop_min_extent = np.asarray(env.geometry['Cell Layers']['Minimum Extent'][population])
+    pop_max_extent = np.asarray(env.geometry['Cell Layers']['Maximum Extent'][population])
+
+    min_extents = env.geometry['Parametric Surface']['Minimum Extent']
+    max_extents = env.geometry['Parametric Surface']['Maximum Extent']
+    layer_min_extent = None
+    layer_max_extent = None
+    for ((layer_name,max_extent),(_,min_extent)) in zip(viewitems(max_extents),viewitems(min_extents)):
+        if layer_min_extent is None:
+            layer_min_extent = np.asarray(min_extent)
+        else:
+            layer_min_extent = np.minimum(layer_min_extent, np.asarray(min_extent))
+        if layer_max_extent is None:
+            layer_max_extent = np.asarray(max_extent)
+        else:
+            layer_max_extent = np.maximum(layer_max_extent, np.asarray(max_extent))
+
+    logger.info(("Layer minimum extents: %s" % (str(layer_min_extent))))
+    logger.info(("Layer maximum extents: %s" % (str(layer_max_extent))))
+
+    (population_ranges, _) = read_population_ranges(forest_path)
+
+    population_start = population_ranges[population][0]
+    population_count = population_ranges[population][1]
+
+    import networkx as nx
+    
+    if longitudinal_extent is None:
+        #(trees, _) = NeuroH5TreeGen(forest_path, population)
+        if isinstance(sample, numbers.Real):
+            s = np.random.random_sample((population_count,))
+            selection = np.where(s <= sample) + population_start
+        else:
+            selection = list(sample)
+    else:
+        print('Reading distances...')
+        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
+    
+        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+        del distances
+
+        lst = []
+        for k, v in viewitems(soma_distances):
+            if v[0] >= longitudinal_extent[0] and v[0] <= longitudinal_extent[1]:
+                lst.append(k)
+        sample_range = np.asarray(lst)
+                          
+        if isinstance(sample, numbers.Real):
+            s = np.random.random_sample(sample_range.shape)
+            selection = sample_range[np.where(s <= sample)]
+        else:
+            raise RuntimeError('Sample must be a real number')
+
+    print('%d trees selected from population %s' % (len(selection), population))
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection=selection.tolist())
+
+
+
 def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=1024, overlap=0.5, frequency_range=(0, 400.), **kwargs):
     '''
     Line plot of LFP power spectrogram. Returns figure handle.
@@ -2898,10 +2962,11 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         populations = list(population_names)
 
     this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
+    this_spike_namespace = spike_namespace_id
 
     spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
                                           spike_train_attr_name=spike_train_attr_name, time_range=time_range)
-
+    
     spkpoplst = spkdata['spkpoplst']
     spkindlst = spkdata['spkindlst']
     spktlst = spkdata['spktlst']
@@ -2932,7 +2997,6 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         MI_dict = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size,
                                                 arena_id=arena_id, trajectory_id=trajectory_id,
                                                 output_file_path=output_file_path, **kwargs)
-
         MI_lst = []
         for ind in sorted(MI_dict.keys()):
             MI = MI_dict[ind]
@@ -2942,15 +3006,15 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         MI_array = np.asarray(MI_lst, dtype=np.float32)
         del MI_lst
 
-        label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]), np.mean(MI_array))
+        label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(MI_array), np.mean(MI_array))
         plt.subplot(len(spkpoplst), 1, iplot + 1)
         plt.title(label, fontsize=fig_options.fontSize)
 
         color = dflt_colors[iplot % len(dflt_colors)]
 
-        MI_hist, bin_edges = np.histogram(MI_array, bins='auto')
+        MI_hist, bin_edges = np.histogram(MI_array, bins=10)
         bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-        plt.bar(bin_centers, MI_hist, color=color, width=0.3 * (np.mean(np.diff(bin_edges))))
+        plt.bar(bin_centers, MI_hist, color=color, align='edge', width=0.3 * (np.mean(np.diff(bin_edges))))
 
         plt.xticks(fontsize=fig_options.fontSize)
 
@@ -3027,7 +3091,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
 
 
 def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, populations=None,
-                      bin_size=10.0, min_pf_width=10., spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
+                      bin_size=10.0, min_pf_width=10., min_pf_rate=None, spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
                       overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of place fields per cell. Returns figure handle.
@@ -3104,7 +3168,7 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
                                                          output_file_path=output_file_path, **kwargs)
         PF_dict = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, arena_id=arena_id,
                                           trajectory_id=trajectory_id, output_file_path=output_file_path,
-                                          min_pf_width=min_pf_width, **kwargs)
+                                          min_pf_width=min_pf_width, min_pf_rate=min_pf_rate, **kwargs)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []
