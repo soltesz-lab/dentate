@@ -291,7 +291,6 @@ def plot_vertex_distribution(connectivity_path, coords_path, distances_namespace
                                                    distances_namespace,
                                                    destination, sources,
                                                    bin_size, cache_size, comm=comm)
-        
                     
     if rank == 0:
         for source in sources:
@@ -303,12 +302,14 @@ def plot_vertex_distribution(connectivity_path, coords_path, distances_namespace
             fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fig_options.fontSize)
 
             ax1.fill_between(dist_bin_edges, dist_hist_vals, 0, alpha=0.2)
+            ax1.plot(dist_bin_edges, dist_hist_vals)
             ax1.set_xlabel('Total distance (um)', fontsize=fig_options.fontSize)
             ax1.set_ylabel('Number of connections', fontsize=fig_options.fontSize)
         
             ax2.fill_between(dist_u_bin_edges, dist_u_hist_vals, 0, alpha=0.2)
             ax2.set_xlabel('Septal - temporal (um)', fontsize=fig_options.fontSize)
             
+            #ax3.fill_between(dist_v_bin_edges, dist_v_hist_vals, 0, alpha=0.2)
             ax3.fill_between(dist_v_bin_edges, dist_v_hist_vals, 0, alpha=0.2)
             ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fig_options.fontSize)
 
