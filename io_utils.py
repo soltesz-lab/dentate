@@ -283,7 +283,7 @@ def set_h5py_attr(attrs, key, val):
             val = np.array(val, dtype='S')
     attrs[key] = val
 
-        
+
 def write_cell_selection(env, write_selection_file_path, write_kwds={}):
     """
     Writes out the data necessary to instantiate the selected cells.
