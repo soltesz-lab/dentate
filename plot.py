@@ -386,6 +386,7 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
             if destination_gid == target_gid:
                 (source_indexes, attr_dict) = rest
                 for source_gid in source_indexes:
+                    print(source_gid)
                     dist_u = source_soma_distance_U[source_gid]
                     dist_v = source_soma_distance_V[source_gid]
                     update_bins(dist_bins, bin_size, dist_u, dist_v)
@@ -3504,78 +3505,6 @@ def plot_selectivity_metrics (env, coords_path, features_path, distances_namespa
     if fig_options.showFig:
         show_figure()
 
-
-def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, trajectory_id=None, **kwargs):
-    """
-
-        - input_path: file with stimulus data
-        - namespace_id: attribute namespace for stimulus
-        - population: str name of a valid cell population
-    """
-
-    fig_options = copy.copy(default_fig_options)
-    fig_options.update(kwargs)
-
-    if trajectory_id is not None and arena_id is not None:
-        trajectory = stimulus.read_trajectory(input_path, arena_id, trajectory_id)
-        (_, _, _, t)  = trajectory
-    else:
-        t = None
-
-    M = 0
-    if (arena_id is None):
-        ns = namespace_id
-    else:
-        ns = '%s %s' % (namespace_id, arena_id)
-
-    logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
-    fig, axes = plt.subplots(2, 5)
-    for module in range(0, 10):
-        rate_lst = []
-        for (gid, rate) in stimulus.read_feature(input_path, ns, population, module=module):
-            if np.max(rate) > 0.:
-                rate_lst.append(rate)
-        col = module % 5
-        row = module / 5
-        M = max(M, len(rate_lst))
-        N = len(rate_lst)
-        rate_matrix = np.matrix(rate_lst)
-        del(rate_lst)
-
-        if t is None:
-            extent=[0, len(rate), 0, N]
-        else:
-            extent=[t[0], t[-1], 0, N]
-        title = 'Module: %i' % module
-        axes[row][col].set_title(title, fontsize=fig_options.fontSize)
-        img = axes[row][col].imshow(rate_matrix, origin='upper', aspect='auto', cmap=cm.coolwarm,
-                                    extent=extent)
-        #axes[row][col].set_xlim([extent[0], extent[1]])
-        #axes[row][col].set_ylim(-1, N+1)
-        if col == 0:
-            axes[row][col].set_ylabel('Cell index', fontsize=fig_options.fontSize)
-        if row == 1:
-            axes[row][col].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-
-    cax, kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
-    cbar = plt.colorbar(img, cax=cax, **kw)
-    cbar.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
-
-    fig.suptitle(population, fontsize=fig_options.fontSize)
-
-    plt.show()
-    
-    # save figure
-    if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
-            filename = fig_options.saveFig
-        else:
-            filename = namespace_id+'_'+'ratemap.%s' % fig_options.figFormat
-        plt.savefig(filename)
-
-    # show fig
-    if fig_options.showFig:
-        show_figure()
 
 
 def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, trajectory_id, stimulus_namespace, distances_namespace, include, bin_size = 100., from_spikes = True, **kwargs):

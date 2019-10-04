@@ -144,6 +144,8 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
     
     for prj_gen_tuple in zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]
+        if rank == 0:
+            logger.info('%d' % destination_gid)
         if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
             raise RuntimeError('destination %s: destination_gid %i not matched across multiple projection generators: '
                                '%s' % (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
