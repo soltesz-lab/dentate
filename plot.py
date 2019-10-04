@@ -14,6 +14,7 @@ from matplotlib.colors import BoundaryNorm
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.collections import LineCollection
 
 import dentate.statedata as statedata
 from dentate.cells import default_ordered_sec_types, get_distance_to_node
@@ -361,14 +362,14 @@ def plot_vertex_dist(connectivity_path, coords_path, distances_namespace, destin
             fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10,6))
             fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fig_options.fontSize)
 
-            ax1.bar(dist_bin_edges, dist_hist_vals, width=bin_size)
+            ax1.fill_between(dist_bin_edges, dist_hist_vals, 0, alpha=0.2)
             ax1.set_xlabel('Total distance (um)', fontsize=fig_options.fontSize)
             ax1.set_ylabel('Number of connections', fontsize=fig_options.fontSize)
         
-            ax2.bar(dist_u_bin_edges, dist_u_hist_vals, width=bin_size)
+            ax2.fill_between(dist_u_bin_edges, dist_u_hist_vals, 0, alpha=0.2)
             ax2.set_xlabel('Septal - temporal (um)', fontsize=fig_options.fontSize)
             
-            ax3.bar(dist_v_bin_edges, dist_v_hist_vals, width=bin_size)
+            ax3.fill_between(dist_v_bin_edges, dist_v_hist_vals, 0, alpha=0.2)
             ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fig_options.fontSize)
 
             ax1.tick_params(labelsize=fig_options.fontSize)
@@ -1964,7 +1965,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     return fig
 
 
-def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., progress=False, **kwargs):
+def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., graph_type='raster2d', progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2007,6 +2008,9 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
+        if (max_units is not None) and len(spkdict) > max_units:
+            spksel  = list(spkdict.items())[0:max_units]
+            spkdict = dict(spksel)
         sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
         i = 0
         rate_dict = {}
@@ -2053,25 +2057,33 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
         color = color_list[iplot%len(color_list)]
 
-        plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
+        ax = plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
         if meansub:
             plt.title ('%s Mean-subtracted Instantaneous Firing Rate' % str(subset), fontsize=fig_options.fontSize)
         else:
             plt.title ('%s Instantaneous Firing Rate' % str(subset), fontsize=fig_options.fontSize)
 
-        im = plt.imshow(rate_matrix, origin='upper', aspect='auto', interpolation='none',
-                        extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=fig_options['colormap'])
-
-        im.axes.tick_params(labelsize=fig_options.fontSize)
+        if graph_type == 'raster2d':
+            im = plt.imshow(rate_matrix, origin='upper', aspect='auto', interpolation='none',
+                            extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=fig_options['colormap'])
+            im.axes.tick_params(labelsize=fig_options.fontSize)
+            cbar = plt.colorbar(im)
+            cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fig_options.fontSize)
+            cbar.ax.tick_params(labelsize=fig_options.fontSize)
+            if iplot == 0: 
+                plt.ylabel('Relative Cell Index', fontsize=fig_options.fontSize)
+        elif graph_type == 'raster1d':
+            segments = [np.column_stack((np.asarray(time_bins), np.array(rate_matrix[i,:]).flatten()))
+                        for i in range(rate_matrix.shape[0])]
+            for segment in segments:
+                plt.plot(segment[:,0], segment[:,1])
+        else:
+            raise RuntimeError('plot_rates: unknown graph type %s' % graph_type)
+            
         
-        if iplot == 0: 
-            plt.ylabel('Relative Cell Index', fontsize=fig_options.fontSize)
         if iplot == len(spkpoplst)-1:
             plt.xlabel('Time (ms)', fontsize=fig_options.fontSize)
 
-        cbar = plt.colorbar(im)
-        cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fig_options.fontSize)
-        cbar.ax.tick_params(labelsize=fig_options.fontSize)
 
     if fig_options.saveFig:
         if isinstance(fig_options.saveFig, basestring):
