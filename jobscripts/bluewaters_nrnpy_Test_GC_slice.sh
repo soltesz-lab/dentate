@@ -1,16 +1,16 @@
 #!/bin/bash
 
 ### set the number of nodes and the number of PEs per node
-#PBS -l nodes=2048:ppn=32:xe
+#PBS -l nodes=100:ppn=32:xe
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
-#PBS -l walltime=10:00:00
+#PBS -l walltime=8:00:00
 ### set the job name
-#PBS -N dentate_Full_Scale_GC_Exc_Sat_DD_SLN_Diag
+#PBS -N dentate_Test_GC_slice
 ### set the job stdout and stderr
-#PBS -e ./results/dentate.$PBS_JOBID.err
-#PBS -o ./results/dentate.$PBS_JOBID.out
+#PBS -e ./results/dentate_slice.$PBS_JOBID.err
+#PBS -o ./results/dentate_slice.$PBS_JOBID.out
 ### set email notification
 ##PBS -m bea
 ### Set umask so users in my group can read job stdout and stderr files
@@ -29,31 +29,31 @@ export NEURONROOT=$SCRATCH/nrnintel3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
-results_path=./results/Full_Scale_GC_Exc_Sat_DD_SLN_Diag_$PBS_JOBID
+results_path=./results/Test_GC_slice_$PBS_JOBID
 export results_path
 
 cd $PBS_O_WORKDIR
 
 mkdir -p $results_path
 
-git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
-git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
+#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+#git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 32768 -N 16 -d 2 -b -- bwpy-environ -- \
-    python3.6 ./scripts/main.py  \
-    --config-file=Full_Scale_GC_Exc_Sat_DD_SLN.yaml  \
+aprun -n 1600 -N 16 -d 2 -b -- bwpy-environ -- \
+    python3.6 ./scripts/main.py \
     --arena-id=A --trajectory-id=Diag \
+    --config-file=Network_Clamp_GC_Exc_Sat_DD_SLN.yaml \
+    --config-prefix=./config \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH" \
     --results-path=$results_path \
-    --io-size=256 \
+    --io-size=24 \
     --tstop=10000 \
     --v-init=-75 \
-    --results-write-time=600 \
-    --stimulus-onset=0.0 \
-    --max-walltime-hours=9.9 \
-    --vrecord-fraction=0.001 \
-    --checkpoint-interval=1000 \
-    --checkpoint-clear-data \
+    --max-walltime-hours=7.9 \
+    --cell-selection-path=./datasets/DG_slice_20190729.yaml \
+    --spike-input-path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190909_compressed.h5" \
+    --spike-input-namespace='Input Spikes A Diag' \
+    --spike-input-attr='Spike Train' \
     --verbose
 

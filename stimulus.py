@@ -919,7 +919,9 @@ def generate_input_selectivity_features(env, population, arena, selectivity_conf
             if rank == 0:
                 logger.info('generated selectivity features for %i %s cells' % (total_gid_count, population))
             if not dry_run:
-                for selectivity_type_name in selectivity_attr_dict:
+                for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
+                    if rank == 0:
+                        logger.info('writing selectivity type %s...' % selectivity_type_name)
                     selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
                     append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
                                            namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
@@ -928,11 +930,14 @@ def generate_input_selectivity_features(env, population, arena, selectivity_conf
             selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
 
     if not dry_run:
-        for selectivity_type_name in selectivity_attr_dict:
+        for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
+            if rank == 0:
+                logger.info('writing selectivity type %s...' % selectivity_type_name)
             selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
             append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
                                    namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        del selectivity_attr_dict
     if rank == 0:
         for selectivity_type_name in merged_gid_count:
             logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
@@ -988,7 +993,7 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
 
     gid_count = defaultdict(lambda: 0)
     process_time = dict()
-    for this_selectivity_namespace in selectivity_type_namespaces[population]:
+    for this_selectivity_namespace in sorted(selectivity_type_namespaces[population]):
 
         if rank == 0:
             logger.info('Generating input source spike trains for population %s [%s]...' % (population, this_selectivity_namespace))
@@ -1057,6 +1062,7 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
             append_cell_attributes(output_path, population, spikes_attr_dict,
                                     namespace=output_namespace, comm=comm, io_size=io_size,
                                     chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            spikes_attr_dict = dict()
         process_time[this_selectivity_type_name] = time.time() - start_time
             
         if rank == 0:

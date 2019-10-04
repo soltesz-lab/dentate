@@ -85,51 +85,51 @@ Synaptic Optimization:
       AAC:
         ais:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
       BC:
         soma:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
       HC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
       HCC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
       MOPP:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
       NGFC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
           GABA_B:
-            g_unit: [0.0001, 0.004]
+            g_unit: [0.0005, 0.004]
     Targets:
-      firing rate: 1.0
+      firing rate: 0.2
   MC:
     Parameter ranges:
       HC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0005, 0.002]
       HCC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0005, 0.002]
       BC:
         apical:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0005, 0.002]
         soma:
           GABA_A:
-            g_unit: [0.0001, 0.002]
+            g_unit: [0.0005, 0.002]
       AAC:
         soma:
           GABA_A:
@@ -138,7 +138,7 @@ Synaptic Optimization:
 #          GABA_A:
 #            g_unit: [0.0001, 0.003]
     Targets:
-      firing rate: 10.0
+      firing rate: 1.0
   BC:
     Parameter ranges:
       MC:

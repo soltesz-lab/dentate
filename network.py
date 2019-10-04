@@ -149,8 +149,9 @@ def connect_cells(env):
                                                                       mask=set(weight_attr_mask),
                                                                       comm=env.comm, node_rank_map=env.node_ranks,
                                                                       io_size=env.io_size)
-
-            for weights_namespace in sorted(weight_attributes_dict.keys()):
+                
+            overwrite_weights = 'error'
+            for weights_namespace in weights_namespaces:
                 syn_weights_iter = weight_attributes_dict[weights_namespace]
                 first_gid = None
                 for gid, cell_weights_dict in syn_weights_iter:
@@ -167,11 +168,11 @@ def connect_cells(env):
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
                                                                zip_longest(weights_syn_ids,
-                                                                           [{'weight': x} for x in weights_values]))
+                                                                           [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
-
+                overwrite_weights='skip'
                 del weight_attributes_dict[weights_namespace]
 
 
@@ -299,7 +300,7 @@ def connect_cell_selection(env):
 
     input_sources = {pop_name: set([]) for pop_name in env.celltypes}
 
-    for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
+    for postsyn_name in sorted(env.projection_dict.keys()):
 
         if rank == 0:
             logger.info('*** Postsynaptic population: %s' % postsyn_name)
@@ -307,9 +308,10 @@ def connect_cell_selection(env):
         if postsyn_name not in selection_pop_names:
             continue
 
-        input_sources[postsyn_name] = set([])
+        presyn_names = sorted(env.projection_dict[postsyn_name])
 
-        gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
+
+        gid_range = [gid for gid in env.cell_selection[postsyn_name] if env.pc.gid_exists(gid)]
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -358,7 +360,8 @@ def connect_cell_selection(env):
                 logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
             weight_attr_mask = list(syn_attrs.syn_mech_names)
             weight_attr_mask.append('syn_id')
-            for weights_namespace in sorted(weights_namespaces):
+            overwrite_weights='error'
+            for weights_namespace in weights_namespaces:
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                        selection=gid_range, mask=set(weight_attr_mask),
                                                                        namespace=weights_namespace, comm=env.comm)
@@ -377,10 +380,11 @@ def connect_cell_selection(env):
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
                                                                    zip_longest(weights_syn_ids, \
-                                                                                   [{'weight': x} for x in weights_values]))
+                                                                                   [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
+                overwrite_weights='skip'
                 del weight_attributes_iter
 
         first_gid = None
@@ -399,22 +403,26 @@ def connect_cell_selection(env):
                 except KeyError:
                     raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
                                      % (postsyn_name, gid))
+
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
+                                          projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
                                           comm=env.comm, namespaces=['Synapses', 'Connections'])
-        env.edge_count[postsyn_name] = 0
-        for presyn_name in presyn_names:
 
-            if rank == 0:
+        env.edge_count[postsyn_name] = 0
+        if postsyn_name in graph:
+            for presyn_name in presyn_names:
+
                 logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
 
-            edge_iters = itertools.tee(graph[postsyn_name][presyn_name])
+                edge_iter = graph[postsyn_name][presyn_name]
+                
+                syn_edge_iter = compose_iter(lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
+                                             edge_iter)
+                syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
 
-            syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, \
-                                                compose_iter(
-                                                    lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
-                                                    edge_iters))
-            del graph[postsyn_name][presyn_name]
+                del graph[postsyn_name][presyn_name]
+
 
     ##
     ## This section instantiates cells that are not part of the
@@ -423,7 +431,7 @@ def connect_cell_selection(env):
     ## NEURON's ParallelContext does not allow the creation of gids 
     ## after netcons including those gids are created.
     ##
-    make_input_cells(env, input_sources)
+    make_input_cell_selection(env, input_sources)
 
     ##
     ## This section instantiates the synaptic mechanisms and netcons for each connection.
@@ -463,119 +471,6 @@ def connect_cell_selection(env):
 
     return input_sources
 
-
-def write_connection_selection(env, write_kwds={}):
-    """
-    Loads NeuroH5 connectivity file, and writes the corresponding
-    synapse and network connection mechanisms for the selected postsynaptic cells.
-
-    :param env: an instance of the `dentate.Env` class
-    """
-    
-    if 'comm' not in write_kwds:
-        write_kwds['comm'] = env.comm
-    if 'io_size' not in write_kwds:
-        write_kwds['io_size'] = env.io_size
-
-    
-    connectivity_file_path = env.connectivity_file_path
-    forest_file_path = env.forest_file_path
-    rank = int(env.pc.id())
-    nhosts = int(env.pc.nhost())
-    syn_attrs = env.synapse_attributes
-
-    selection_pop_names = sorted(env.cell_selection.keys())
-
-    input_sources = {pop_name: set([]) for pop_name in env.celltypes}
-
-    for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
-
-        if rank == 0:
-            logger.info('*** Writing connectivity selection for postsynaptic population: %s' % postsyn_name)
-
-        if postsyn_name not in selection_pop_names:
-            continue
-
-        input_sources[postsyn_name] = set([])
-
-        gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
-
-        synapse_config = env.celltypes[postsyn_name]['synapses']
-
-        if 'weights' in synapse_config:
-            has_weights = synapse_config['weights']
-        else:
-            has_weights = False
-
-        weights_namespaces = []
-        if 'weights' in synapse_config:
-            has_weights = synapse_config['weights']
-            if has_weights:
-                if 'weights namespace' in synapse_config:
-                    weights_namespaces.append(synapse_config['weights namespace'])
-                elif 'weights namespaces' in synapse_config:
-                    weights_namespaces.extend(synapse_config['weights namespaces'])
-                else:
-                    weights_namespaces.append('Weights')
-        else:
-            has_weights = False
-
-        if rank == 0:
-            logger.info('*** Reading synapse attributes of population %s' % (postsyn_name))
-
-        syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
-                                                            namespace='Synapse Attributes', comm=env.comm)
-        
-        syn_attributes_output_dict = dict(list(syn_attributes_iter))
-        write_cell_attributes(env.write_selection_file_path, postsyn_name, syn_attributes_output_dict, namespace='Synapse Attributes', **write_kwds)
-        del syn_attributes_output_dict
-        del syn_attributes_iter
-        
-        if has_weights:
-            for weights_namespace in sorted(weights_namespaces):
-                weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                       selection=gid_range,
-                                                                       namespace=weights_namespace, comm=env.comm)
-                weight_attributes_output_dict = dict(list(weight_attributes_iter))
-                write_cell_attributes(env.write_selection_file_path, postsyn_name, weight_attributes_output_dict, namespace=weights_namespace, **write_kwds)
-                del weight_attributes_output_dict
-                del weight_attributes_iter
-
-                
-        (graph, attr_info) = read_graph_selection(connectivity_file_path, selection=gid_range, \
-                                                  comm=env.comm, namespaces=['Synapses', 'Connections'])
-        for presyn_name in presyn_names:
-
-            edge_iter = graph[postsyn_name][presyn_name]
-
-            if postsyn_name in attr_info and presyn_name in attr_info[postsyn_name]:
-                edge_attr_info = attr_info[postsyn_name][presyn_name]
-            else:
-                raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
-                                (presyn_name, postsyn_name))
-
-            if 'Synapses' in edge_attr_info and \
-                'syn_id' in edge_attr_info['Synapses'] and \
-                'Connections' in edge_attr_info and \
-                'distance' in edge_attr_info['Connections']:
-                syn_id_attr_index = edge_attr_info['Synapses']['syn_id']
-                distance_attr_index = edge_attr_info['Connections']['distance']
-            else:
-                raise RuntimeError('write_connection_selection: missing edge attributes for projection %s -> %s' % \
-                                  (presyn_name, postsyn_name))
-
-            gid_dict = {}
-            for (postsyn_gid, edges) in edge_iter:
-                presyn_gids, edge_attrs = edges
-                edge_syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
-                edge_dists = edge_attrs['Connections'][distance_attr_index]
-
-                gid_dict[postsyn_gid] = (presyn_gids,
-                                             {'Synapses': {'syn_id': edge_syn_ids},
-                                              'Connections': {'distance': edge_dists} })
-
-            write_graph(env.write_selection_file_path, presyn_name, postsyn_name, gid_dict,
-                        comm=env.comm, io_size=env.io_size)
 
 
 def connect_gjs(env):
@@ -872,8 +767,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
-                                                                 namespace='Coordinates', comm=env.comm)
+            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, namespace='Coordinates', comm=env.comm)
 
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
@@ -902,70 +796,8 @@ def make_cell_selection(env):
         h.define_shape()
         logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
-        
-def write_cell_selection(env, write_kwds={}):
-    """
-    Writes out the data necessary to instantiate the selected cells.
 
-    :param env: an instance of the `dentate.Env` class
-    """
-
-    if 'comm' not in write_kwds:
-        write_kwds['comm'] = env.comm
-    if 'io_size' not in write_kwds:
-        write_kwds['io_size'] = env.io_size
-
-    rank = int(env.pc.id())
-    nhosts = int(env.pc.nhost())
-
-    dataset_path = env.dataset_path
-    data_file_path = env.data_file_path
-
-    pop_names = sorted(env.cell_selection.keys())
-    
-    for pop_name in pop_names:
-
-        gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
-
-        trees_output_dict = {}
-        coords_output_dict = {}
-        num_cells = 0
-        if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
-            if rank == 0:
-                logger.info("*** Reading trees for population %s" % pop_name)
-
-            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
-                                                                 namespace='Trees', comm=env.comm)
-             
-            if rank == 0:
-                logger.info("*** Done reading trees for population %s" % pop_name)
-
-            for i, (gid, tree) in enumerate(cell_attributes_iter):
-                trees_output_dict[gid] = tree
-                num_cells += 1
-
-        elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
-            if rank == 0:
-                logger.info("*** Reading coordinates for population %s" % pop_name)
-
-            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
-                                                                 namespace='Coordinates', comm=env.comm)
-
-            if rank == 0:
-                logger.info("*** Done reading coordinates for population %s" % pop_name)
-
-            for i, (gid, coords) in enumerate(cell_attributes_iter):
-                coords_output_dict[gid] = coords
-                num_cells += 1
-
-            
-        if rank == 0:
-            logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, env.results_file_path))
-        write_cell_attributes(env.write_selection_file_path, pop_name, trees_output_dict, namespace='Trees', **write_kwds)
-        write_cell_attributes(env.write_selection_file_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
-
-
-def make_input_cells(env, input_sources):
+def make_input_cell_selection(env, input_sources):
     """
     Creates cells with predefined spike patterns when only a subset of the network is instantiated.
 
@@ -991,12 +823,13 @@ def make_input_cells(env, input_sources):
             spike_generator = None
         else:
             if env.netclamp_config is None:
+                logger.warning("make_input_cell_selection: population %s has neither input spike trains nor input generator configuration" % pop_name)
                 spike_generator = None
             else:
                 if pop_name in env.netclamp_config.input_generators:
                     spike_generator = env.netclamp_config.input_generators[pop_name]
                 else:
-                    raise RuntimeError("make_input_cells: population %s has neither input spike trains nor input generator configuration" % pop_name)
+                    raise RuntimeError("make_input_cell_selection: population %s has neither input spike trains nor input generator configuration" % pop_name)
 
         input_source_dict = {pop_index: {'gen': spike_generator}}
 
@@ -1006,16 +839,20 @@ def make_input_cells(env, input_sources):
             local_input_gid_range = input_gid_range
         input_gid_ranges = env.comm.allgather(local_input_gid_range)
 
+        created_input_gids = []
         for gid_range in input_gid_ranges:
             for gid in gid_range:
                 if (gid % nhosts == rank) and not env.pc.gid_exists(gid):
                     input_cell = cells.make_input_cell(env, gid, pop_index, input_source_dict)
                     cells.register_cell(env, pop_name, gid, input_cell)
+                    created_input_gids.append(gid)
+
+        logger.info('*** Rank %i: created %s input sources for gids %s' % (rank, pop_name, str(created_input_gids)))
 
 
 def init_input_cells(env, input_sources=None):
     """
-    Initializes cells with predefined spike patterns when only a subset of the network is instantiated.
+    Initializes cells with predefined spike patterns.
 
     :param env: an instance of the `dentate.Env` class
     :param input_sources: a dictionary of the form { pop_name, gid_sources }
@@ -1034,6 +871,7 @@ def init_input_cells(env, input_sources=None):
     pop_names = sorted(env.celltypes.keys())
 
     for pop_name in pop_names:
+
         if 'spike train' in env.celltypes[pop_name]:
             if env.arena_id and env.trajectory_id:
                 vecstim_namespace = '%s %s %s' % (env.celltypes[pop_name]['spike train']['namespace'], \
@@ -1049,6 +887,9 @@ def init_input_cells(env, input_sources=None):
                      has_vecstim = True
 
             if has_vecstim:
+                if rank == 0:
+                    logger.info("*** Initializing stimulus population %s" % pop_name)
+
                 if env.cell_selection is None:
                     if env.node_ranks is None:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
@@ -1064,7 +905,7 @@ def init_input_cells(env, input_sources=None):
                     cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
                 else:
                     if pop_name in env.cell_selection:
-                        gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
+                        gid_range = [gid for gid in env.cell_selection[pop_name] if env.pc.gid_exists(gid)]
                         
                         cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
                                                                           namespace=vecstim_namespace, \
@@ -1074,20 +915,16 @@ def init_input_cells(env, input_sources=None):
                         cell_vecstim_iter = []
 
                 for (gid, vecstim_dict) in cell_vecstim_iter:
-                    if rank == 0:
-                        logger.info("*** Initializing stimulus population %s" % pop_name)
 
                     spiketrain = vecstim_dict[vecstim_attr]
                     if len(spiketrain) > 0:
                         spiketrain = np.sort(spiketrain)
                         spiketrain += float(env.stimulus_config['Equilibration Duration'])
-                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                    (gid, len(spiketrain),
-                                     spiketrain[0], spiketrain[-1]))
+                        logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
+                                    (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
-                        if rank == 0:
-                            logger.info("*** Spike train for gid %i is of length %i" %
-                                        (gid, len(spiketrain)))
+                        logger.info("*** Spike train for %s gid %i is of length %i" %
+                                    (pop_name, gid, len(spiketrain)))
 
                     spiketrain += env.stimulus_onset
                     assert(env.pc.gid_exists(gid))
@@ -1096,153 +933,84 @@ def init_input_cells(env, input_sources=None):
 
     if input_sources is not None:
         for pop_name, gid_range in sorted(viewitems(input_sources)):
-            if rank == 0:
-                logger.info("*** Initializing input source %s" % pop_name)
 
             if (env.cell_selection is not None) and (pop_name in env.cell_selection):
                 local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
             else:
                 local_gid_range = gid_range
+
             gid_ranges = env.comm.allgather(local_gid_range)
-            this_gid_range = []
+            this_gid_range = set([])
             for gid_range in gid_ranges:
                 for gid in gid_range:
                     if gid % nhosts == rank:
-                        this_gid_range.append(gid)
+                        this_gid_range.add(gid)
+
 
             has_spike_train = False
-            spike_input_source_path = []
+            spike_input_source_loc = []
             if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
                 if (pop_name in env.spike_input_attribute_info) and \
                    (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
                    has_spike_train = True
-                   spike_input_source_path.append(env.spike_input_path)
+                   spike_input_source_loc.append((env.spike_input_path, env.spike_input_ns))
             if (env.cell_attribute_info is not None) and (env.spike_input_ns is not None):
                 if (pop_name in env.cell_attribute_info) and \
                         (env.spike_input_ns in env.cell_attribute_info[pop_name]):
                     has_spike_train = True
-                    spike_input_source_path.append(env.input_file_path)
+                    spike_input_source_loc.append((input_file_path,env.spike_input_ns))
 
                     
             if has_spike_train:
 
-                if 'spike train' in env.celltypes[pop_name]:
-                    vecstim_attr = env.celltypes[pop_name]['spike train']['attribute']
-                else:
-                    vecstim_attr = None
+                if rank == 0:
+                    logger.info("*** Initializing input source %s" % pop_name)
 
+                vecstim_attr_set = set(['t'])
+                if env.spike_input_attr is not None:
+                    vecstim_attr_set.add(env.spike_input_attr)
+                if 'spike train' in env.celltypes[pop_name]:
+                    vecstim_attr_set.add(env.celltypes[pop_name]['spike train']['attribute'])
                     
                 cell_spikes_iters = [ read_cell_attribute_selection(input_path, pop_name, \
-                                                                    this_gid_range, \
-                                                                    namespace=env.spike_input_ns, \
-                                                                    comm=env.comm) for input_path in spike_input_source_path ]
+                                                                    list(this_gid_range), \
+                                                                    namespace=input_ns, \
+                                                                    mask=vecstim_attr_set, \
+                                                                    comm=env.comm) for (input_path, input_ns) in spike_input_source_loc ]
                 for gid, cell_spikes_dict in itertools.chain.from_iterable(cell_spikes_iters):
                     spiketrain = None
-                    if vecstim_attr in cell_spikes_dict:
+                    if (env.spike_input_attr is not None) and (env.spike_input_attr in cell_spikes_dict):
+                        spiketrain = cell_spikes_dict[env.spike_input_attr]
+                    elif vecstim_attr in cell_spikes_dict:
                         spiketrain = cell_spikes_dict[vecstim_attr]
                     elif 't' in cell_spikes_dict:
                         spiketrain = cell_spikes_dict['t']
                     else:
-                        raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input namespace %s" % (gid, env.spike_input_ns))
+                        raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input file %s; namespace %s" % (gid, env.spike_input_path, env.spike_input_ns))
                         
                     if len(spiketrain) > 0:
                         spiketrain = np.sort(spiketrain)
                         if np.min(spiketrain) < 0.:
                             spiketrain += float(env.stimulus_config['Equilibration Duration'])
 
-                        logger.info("*** Spike train for gid %i is of length %i (%g : %g ms)" %
-                                    (gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                        logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
+                                    (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
-                        if rank == 0:
-                            logger.info("*** Spike train for gid %i is of length %i" %
-                                        (gid, len(spiketrain)))
+                        logger.info("*** Spike train for %s input source gid %i is of length %i" %
+                                    (pop_name, gid, len(spiketrain)))
 
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
-                    input_cell.play(h.Vector(spiketrain))
+                    if input_cell.is_art() == 1:
+                        input_cell.play(h.Vector(spiketrain))
+                    else:
+                        raise RuntimeError("init_input_cells: input cell gid %d is not an artificial cell (%s)" % (gid, str(input_cell)))
 
-                    
-def write_input_cell_selection(env, input_sources, write_kwds={}):
-    """
-    Writes out predefined spike trains when only a subset of the network is instantiated.
-
-    :param env: an instance of the `dentate.Env` class
-    :param input_sources: a dictionary of the form { pop_name, gid_sources }
-    """
-
-    if 'comm' not in write_kwds:
-        write_kwds['comm'] = env.comm
-    if 'io_size' not in write_kwds:
-        write_kwds['io_size'] = env.io_size
-
-    rank = int(env.pc.id())
-    nhosts = int(env.pc.nhost())
-
-    dataset_path = env.dataset_path
-    input_file_path = env.data_file_path
-
-    pop_names = sorted(env.celltypes.keys())
-
-    for pop_name, gid_range in sorted(viewitems(input_sources)):
-
-        spikes_output_dict = {}
-        if (env.cell_selection is not None) and (pop_name in env.cell_selection):
-
-            if 'spike train' in env.celltypes[pop_name]:
-                if env.arena_id and env.trajectory_id:
-                    vecstim_namespace = '%s %s %s' % (env.celltypes[pop_name]['spike train']['namespace'], \
-                                                    env.arena_id, env.trajectory_id)
-                else:
-                    vecstim_namespace = env.celltypes[pop_name]['spike train']['namespace']
             else:
-                vecstim_namespace = None
-
-            has_vecstim = False
-            if env.cell_attribute_info is not None:
-                if (pop_name in env.cell_attribute_info) and \
-                   (vecstim_namespace in env.cell_attribute_info[pop_name]):
-                     has_vecstim = True
-
-            if has_vecstim:
-                this_gid_range = []
-                for gid in gid_range:
-                    if gid % nhosts == rank:
-                        this_gid_range.append(gid)
-
-                cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, 
-                                                                  this_gid_range, \
-                                                                  namespace=vecstim_namespace, \
-                                                                  comm=env.comm)
-                spikes_output_dict.update(dict(list(cell_vecstim_iter)))
-                del cell_vecstim_iter
+                if rank == 0:
+                    logger.warning('No spike train data found for population %s in spike input file %s; namespace: %s' % (pop_name, env.spike_input_path, env.spike_input_ns))
             
-            local_gid_range = gid_range.difference(set(env.cell_selection[pop_name]))
-
-            gid_ranges = env.comm.allgather(local_gid_range)
-            this_gid_range = []
-            for gid_range in gid_ranges:
-                for gid in gid_range:
-                    if gid % nhosts == rank:
-                        this_gid_range.append(gid)
-
-            has_spike_train = False
-            if (env.spike_input_attribute_info is not None) and (env.spike_input_ns is not None):
-                if (pop_name in env.spike_input_attribute_info) and \
-                   (env.spike_input_ns in env.spike_input_attribute_info[pop_name]):
-                     has_spike_train = True
-
-            if has_spike_train:
-                
-                cell_spikes_iter = read_cell_attribute_selection(env.spike_input_path, pop_name, \
-                                                                 this_gid_range, \
-                                                                 namespace=env.spike_input_ns, \
-                                                                 comm=env.comm)
-                spikes_output_dict.update(dict(list(cell_spikes_iter)))
-                del cell_spikes_iter
-                
-        write_cell_attributes(env.write_selection_file_path, pop_name, spikes_output_dict,  \
-                              namespace=env.spike_input_ns, **write_kwds)
-                
+            env.comm.barrier()
                     
 
 def init(env):
@@ -1265,8 +1033,6 @@ def init(env):
     if rank == 0:
         logger.info("Creating results file %s" % env.results_file_path)
         io_utils.mkout(env, env.results_file_path)
-        if env.write_selection_file_path is not None:
-            io_utils.mkout(env, env.write_selection_file_path)
     if rank == 0:
         logger.info("*** Creating cells...")
     st = time.time()
@@ -1275,8 +1041,6 @@ def init(env):
         make_cells(env)
     else:
         make_cell_selection(env)
-        if env.write_selection:
-            write_cell_selection(env)
     if env.profile_memory and rank == 0:
         profile_memory(logger)
     env.pc.barrier()
@@ -1305,8 +1069,6 @@ def init(env):
         input_selection = None
     else:
         input_selection = connect_cell_selection(env)
-        if env.write_selection:
-            write_connection_selection(env)
     env.pc.set_maxstep(10.0)
     env.pc.barrier()
     env.connectcellstime = time.time() - st
@@ -1323,8 +1085,6 @@ def init(env):
 
     st = time.time()
     init_input_cells(env, input_selection)
-    if (env.cell_selection is not None) and env.write_selection: 
-        write_input_cell_selection(env, input_selection)
     env.mkstimtime = time.time() - st
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)

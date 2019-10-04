@@ -1,9 +1,9 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=400:ppn=32:xe
 ### which queue to use
-#PBS -q debug
+#PBS -q high
 ### set the wallclock time
-#PBS -l walltime=0:30:00
+#PBS -l walltime=2:30:00
 ### set the job name
 #PBS -N optimize_DG_network_subworlds_dbg
 ### set the job stdout and stderr
@@ -53,9 +53,9 @@ aprun -n 3200 -N 8 -d 4 -b -- bwpy-environ -- \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
     --cell_selection_path=$DG_HOME/datasets/DG_slice_20190729.yaml \
-    --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
-    --spike_input_namespace='Input Spikes' \
-    --target_population=GC \
-    --max_walltime_hours=0.45 \
+    --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
+    --spike_input_namespace='Input Spikes A Diag' \
+    --spike_input_attr='Spike Train' \
+    --max_walltime_hours=2.5 \
     --io_size=24 \
     -v
