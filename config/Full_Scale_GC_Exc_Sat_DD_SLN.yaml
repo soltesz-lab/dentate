@@ -1,16 +1,17 @@
 ## Model configuration of dentate gyrus network
-Model Name: dentatenet_Full_Scale_GC_Exc_Sat_LNN
+Model Name: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20190508.h5
-Connection Data: DG_Connections_Full_Scale_20190503.h5
-Gap Junction Data: DG_gapjunctions_20190424.h5
-Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat.yaml
+Cell Data: DG_Cells_Full_Scale_20190917.h5
+Connection Data: DG_Connections_Full_Scale_20190917.h5
+Gap Junction Data: DG_gapjunctions_20190717.h5
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
 LFP: !include LFP.yaml
 Stimulus: !include Input_Configuration.yaml
+Analysis: !include Analysis_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
@@ -20,14 +21,14 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights: True
-      weights namespace: Log-Normal Weights
+      weights namespaces: ['Structured Weights A Diag', 'Log-Normal Weights']
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
     synapses:
       density: !include MC_synapse_density.yaml
       weights: True
-      weights namespaces: ['Log-Normal Weights', 'Normal Weights']
+      weights namespaces: ['Log-Normal Weights']
   HC:
     template: HIPPCell
     synapses:
@@ -58,8 +59,17 @@ Cell Types:
       density: !include IS_synapse_density.yaml
   MPP:
     template: MPPCell
-    Vector Stimulus: Vector Stimulus A DiagU5
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
   LPP:
     template: LPPCell
-    Vector Stimulus: Vector Stimulus A DiagU5
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  CA3c:
+    template: CA3Cell
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
 

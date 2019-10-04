@@ -5,7 +5,7 @@ from mpi4py import MPI
 import yaml
 from dentate.neuron_utils import h, find_template
 from dentate.synapses import SynapseAttributes
-from dentate.utils import IncludeLoader, config_logging, get_root_logger, str, viewitems, zip, viewitems
+from dentate.utils import IncludeLoader, DExpr, config_logging, get_root_logger, str, viewitems, zip, viewitems
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
@@ -46,16 +46,19 @@ TrajectoryConfig = namedtuple('Trajectory',
                                'path'])
 
 
+
 class Env(object):
     """
     Network model configuration.
     """
 
-    def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None, dataset_prefix=None,
-                 config_prefix=None, results_path=None, results_id=None, node_rank_file=None, io_size=0,
-                 vrecord_fraction=0, coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
+    def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
+                 dataset_prefix=None, config_prefix=None, results_path=None, results_id=None,
+                 node_rank_file=None, io_size=0, vrecord_fraction=0, coredat=False, tstop=0,
+                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
+                 checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None,
+                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
                  cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
@@ -83,15 +86,18 @@ class Env(object):
         :param cache_queries: bool; whether to use a cache to speed up queries to filter_synapses
         :param verbose: bool; print verbose diagnostic messages while constructing the network
         """
+        self.kwargs = kwargs
+        
         self.SWC_Types = {}
         self.Synapse_Types = {}
         self.layers = {}
         self.globals = {}
 
         self.gidset = set([])
-        self.cells = []
+        self.cells = defaultdict(list)
         self.gjlist = []
         self.biophys_cells = defaultdict(dict)
+        self.spike_onset_delay = {}
         self.v_sample_dict = {}
 
         if comm is None:
@@ -127,6 +133,11 @@ class Env(object):
         # The location of required hoc libraries
         self.hoc_lib_path = hoc_lib_path
 
+        # Checkpoint interval in ms of simulation time
+        self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
+        self.checkpoint_clear_data = checkpoint_clear_data
+        self.last_checkpoint = 0.
+        
         # The location of all datasets
         self.dataset_prefix = dataset_prefix
 
@@ -175,29 +186,7 @@ class Env(object):
         # cache queries to filter_synapses
         self.cache_queries = cache_queries
 
-        # Cell selection for simulations of subsets of the network
-        self.cell_selection = None
-        self.cell_selection_path = cell_selection_path
-        if cell_selection_path is not None:
-            with open(cell_selection_path) as fp:
-                self.cell_selection = yaml.load(fp, IncludeLoader)
-
-        # Spike input path
-        self.spike_input_path = spike_input_path
-        self.spike_input_ns = spike_input_namespace
-
-        self.node_ranks = None
-        if node_rank_file:
-            with open(node_rank_file) as fp:
-                dval = {}
-                lines = fp.readlines()
-                for l in lines:
-                    a = l.split(' ')
-                    dval[int(a[0])] = int(a[1])
-                self.node_ranks = dval
-
         self.config_prefix = config_prefix
-
         if config_file is not None:
             if config_prefix is not None:
                 config_file_path = self.config_prefix + '/' + config_file
@@ -216,16 +205,15 @@ class Env(object):
         if 'Global Parameters' in self.modelConfig:
             self.parse_globals()
 
+        self.geometry = None
         if 'Geometry' in self.modelConfig:
             self.geometry = self.modelConfig['Geometry']
-        else:
-            self.geometry = None
 
         if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
 
         self.celltypes = self.modelConfig['Cell Types']
-        self.cellAttributeInfo = {}
+        self.cell_attribute_info = {}
 
         # The name of this model
         if 'Model Name' in self.modelConfig:
@@ -234,6 +222,24 @@ class Env(object):
         if 'Dataset Name' in self.modelConfig:
             self.datasetName = self.modelConfig['Dataset Name']
 
+        if rank == 0:
+            self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
+
+        # Cell selection for simulations of subsets of the network
+        self.cell_selection = None
+        self.cell_selection_path = cell_selection_path
+        if cell_selection_path is not None:
+            with open(cell_selection_path) as fp:
+                self.cell_selection = yaml.load(fp, IncludeLoader)
+
+        # Spike input path
+        self.spike_input_path = spike_input_path
+        self.spike_input_ns = spike_input_namespace
+        self.spike_input_attr = spike_input_attr
+        self.spike_input_attribute_info = None
+        if self.spike_input_path is not None:
+            self.spike_input_attribute_info = \
+              read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=self.comm)
         if results_path:
             if self.results_id is None:
                 self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
@@ -245,9 +251,6 @@ class Env(object):
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             self.parse_gapjunction_config()
-
-        if rank == 0:
-            self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
 
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
@@ -266,18 +269,24 @@ class Env(object):
             self.forest_file_path = None
             self.gapjunctions_file_path = None
 
+        self.node_ranks = None
+        if node_rank_file:
+            self.load_node_ranks(node_rank_file)
+
+        self.netclamp_config = None
         if 'Network Clamp' in self.modelConfig:
             self.parse_netclamp_config()
-        else:
-            self.netclamp_config = None
 
+        self.stimulus_config = None
+        self.arena_id = None
+        self.trajectory_id = None
         if 'Stimulus' in self.modelConfig:
             self.parse_stimulus_config()
-
+            self.init_stimulus_config(**kwargs)
+            
+        self.analysis_config = None
         if 'Analysis' in self.modelConfig:
             self.analysis_config = self.modelConfig['Analysis']
-        else:
-            self.analysis_config = None
 
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
@@ -299,10 +308,11 @@ class Env(object):
 
         self.t_vec = h.Vector()  # Spike time of all cells on this host
         self.id_vec = h.Vector()  # Ids of spike times on this host
+        self.t_rec = h.Vector() # Timestamps of intracellular traces on this host
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = {'Soma': [], 'Axon hillock': [], 'Apical dendrite': [], 'Basal dendrite': []}
-
+            
         # used to calculate model construction times and run time
         self.mkcellstime = 0
         self.mkstimtime = 0
@@ -340,6 +350,19 @@ class Env(object):
                                 np.asarray(path_y, dtype=np.float32)))
 
         return TrajectoryConfig(velocity, path)
+
+    def init_stimulus_config(self, arena_id=None, trajectory_id=None, **kwargs):
+        if arena_id is not None:
+            if trajectory_id is None:
+                raise RuntimeError('init_stimulus_config: trajectory id parameter is not provided')
+            if arena_id in self.stimulus_config['Arena']:
+                self.arena_id = arena_id
+            else:
+                raise RuntimeError('init_stimulus_config: arena id parameter not found in stimulus configuration')
+            if trajectory_id in self.stimulus_config['Arena'][arena_id].trajectories:
+                self.trajectory_id = trajectory_id
+            else:
+                raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
 
     def parse_stimulus_config(self):
         stimulus_dict = self.modelConfig['Stimulus']
@@ -434,6 +457,21 @@ class Env(object):
     def parse_globals(self):
         self.globals = self.modelConfig['Global Parameters']
 
+    def parse_syn_mechparams(self, mechparams_dict):
+        res = {}
+        for mech_name, mech_params in viewitems(mechparams_dict):
+            mech_params1 = {}
+            for k, v in viewitems(mech_params):
+                if isinstance(v, dict):
+                    if 'expr' in v:
+                        mech_params1[k] = DExpr(v['parameter'], v['expr'])
+                    else:
+                        raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
+                else:
+                    mech_params1[k] = v
+            res[mech_name] = mech_params1
+        return res
+
     def parse_connection_config(self):
         """
 
@@ -483,12 +521,12 @@ class Env(object):
                     val_contacts = syn_dict['contacts']
                 else:
                     val_contacts = 1
-                val_mechparams = None
-                val_swctype_mechparams = None
+                mechparams_dict = None
+                swctype_mechparams_dict = None
                 if 'mechanisms' in syn_dict:
-                    val_mechparams = syn_dict['mechanisms']
+                    mechparams_dict = syn_dict['mechanisms']
                 else:
-                    val_swctype_mechparams = syn_dict['swctype mechanisms']
+                    swctype_mechparams_dict = syn_dict['swctype mechanisms']
 
                 res_type = self.Synapse_Types[val_type]
                 res_synsections = []
@@ -499,12 +537,12 @@ class Env(object):
                     res_synsections.append(self.SWC_Types[name])
                 for name in val_synlayers:
                     res_synlayers.append(self.layers[name])
-                if val_swctype_mechparams is not None:
-                    for swc_type in val_swctype_mechparams:
+                if swctype_mechparams_dict is not None:
+                    for swc_type in swctype_mechparams_dict:
                         swc_type_index = self.SWC_Types[swc_type]
-                        res_mechparams[swc_type_index] = val_swctype_mechparams[swc_type]
+                        res_mechparams[swc_type_index] = self.parse_syn_mechparams(swctype_mechparams_dict[swc_type])
                 else:
-                    res_mechparams['default'] = val_mechparams
+                    res_mechparams['default'] = self.parse_syn_mechparams(mechparams_dict)
 
                 connection_dict[key_postsyn][key_presyn] = \
                     SynapseConfig(res_type, res_synsections, res_synlayers, val_proportions, val_contacts, \
@@ -598,6 +636,40 @@ class Env(object):
         else:
             self.gapjunctions = None
 
+            
+    def load_node_ranks(self, node_rank_file):
+
+        rank = 0
+        if self.comm is not None:
+            rank = self.comm.Get_rank()
+
+        with open(node_rank_file) as fp:
+            dval = {}
+            lines = fp.readlines()
+            for l in lines:
+                a = l.split(' ')
+                dval[int(a[0])] = int(a[1])
+            self.node_ranks = dval
+
+        pop_names = sorted(self.celltypes.keys())
+
+        for pop_name in pop_names:
+            present = False
+            num = self.celltypes[pop_name]['num']
+            start = self.celltypes[pop_name]['start']
+            for gid in range(start, start+num):
+                if gid in self.node_ranks:
+                    present = True
+                    break
+            if not present:
+                if rank == 0:
+                    self.logger.warning('load_node_ranks: gids assigned to population %s are not present in node ranks file %s; '
+                                        'gid to rank assignment will not be used'  % (pop_name, node_rank_file))
+                self.node_ranks = None
+                break
+        
+
+            
     def load_celltypes(self):
         """
 
@@ -625,10 +697,10 @@ class Env(object):
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
-        self.cellAttributeInfo = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
+        self.cell_attribute_info = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
         if rank == 0:
-            self.logger.info('attribute info: %s' % str(self.cellAttributeInfo))
+            self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
 
     def load_cell_template(self, popName):
         """

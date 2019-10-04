@@ -10,15 +10,17 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
+module unload python2
+module load python3
 module load phdf5/1.8.16
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython2
+export NEURONROOT=$HOME/bin/nrnpython3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 
-results_path=./results/Full_Scale_GC_Exc_Sat_LNN_$SLURM_JOB_ID
+results_path=./results/Full_Scale_GC_Exc_Sat_LNN_Diag_$SLURM_JOB_ID
 export results_path
 
 cd $SLURM_SUBMIT_DIR
@@ -28,8 +30,9 @@ mkdir -p $results_path
 git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-ibrun python2.7 ./scripts/main.py  \
-    --config-file=Full_Scale_GC_Exc_Sat_LNN.yaml  \
+ibrun python3.7 ./scripts/main.py  \
+    --config-file=Full_Scale_GC_Exc_Sat_DD_LNN.yaml  \
+    --arena-id=A --trajectory-id=Diag \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$WORK/dentate" \
     --results-path=$results_path \

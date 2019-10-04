@@ -25,33 +25,33 @@ def get_env_spike_dict(env, t_start=0.0):
         id_vec = id_vec[inds]
 
     binlst = []
-    typelst = list(env.celltypes.keys())
-    for k in typelst:
-        binlst.append(env.celltypes[k]['start'])
-
-    binvect = np.array(binlst)
+    typelst = sorted(env.celltypes.keys())
+    binvect = np.asarray([env.celltypes[k]['start'] for k in typelst ])
     sort_idx = np.argsort(binvect, axis=0)
+    pop_names = [typelst[i] for i in sort_idx]
     bins = binvect[sort_idx][1:]
-    types = [typelst[i] for i in sort_idx]
     inds = np.digitize(id_vec, bins)
 
     pop_spkdict = {}
-    for i in range(0, len(types)):
-        pop_name = types[i]
+    for i, pop_name in enumerate(pop_names):
         spkdict = {}
         sinds = np.where(inds == i)
         if len(sinds) > 0:
             ids = id_vec[sinds]
             ts = t_vec[sinds]
             for j in range(0, len(ids)):
-                id = ids[j]
+                gid = ids[j]
                 t = ts[j]
-                if id in spkdict:
-                    spkdict[id].append(t)
-                else:
-                    spkdict[id] = [t]
-            for j in spkdict:
-                spkdict[j] = np.array(spkdict[j], dtype=np.float32)
+                if t >= t_start:
+                    if gid in spkdict:
+                        spkdict[gid].append(t)
+                    else:
+                        spkdict[gid] = [t]
+            for gid in spkdict:
+                spkdict[gid] = np.array(spkdict[gid], dtype=np.float32)
+                if gid in env.spike_onset_delay:
+                    spkdict[gid] -= env.spike_onset_delay[gid]
+
         pop_spkdict[pop_name] = spkdict
 
     return pop_spkdict
@@ -95,6 +95,7 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         # Time Range
         if time_range is None or time_range[1] is None:
             for spkind, spkts in spkiter:
+
                 for spkt in spkts[spike_train_attr_name]:
                     pop_spkindlst.append(spkind)
                     pop_spktlst.append(spkt)

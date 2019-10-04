@@ -3,7 +3,7 @@ import numpy as np
 from mpi4py import MPI
 
 from dentate.utils import get_module_logger, zip
-from neuroh5.io import NeuroH5CellAttrGen, read_cell_attribute_selection, read_cell_attribute_info
+from neuroh5.io import read_cell_attributes, read_cell_attribute_selection, read_cell_attribute_info
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -50,13 +50,16 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
             if variable == attr_name:
                 cell_index = attr_cell_index
 
+        cell_set = set(cell_index)
+                
         # Limit to max_units
         if unit_no is None:
-            if (max_units is not None) and (len(cell_index) > max_units):
+            if (max_units is not None) and (len(cell_set) > max_units):
                 logger.info('  Reading only randomly sampled %i out of %i units for population %s' % (
-                max_units, len(cell_index), pop_name))
-                sample_inds = np.random.randint(0, len(cell_index) - 1, size=int(max_units))
-                unit_no = set([cell_index[i] for i in sample_inds])
+                max_units, len(cell_set), pop_name))
+                sample_inds = np.random.randint(0, len(cell_set) - 1, size=int(max_units))
+                cell_set_lst = list(cell_set)
+                unit_no = set([cell_set_lst[i] for i in sample_inds])
             else:
                 unit_no = set(cell_index)
         else:
@@ -64,7 +67,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
 
         state_dict = {}
         if unit_no is None:
-            valiter = NeuroH5CellAttrGen(input_file, pop_name, namespace=namespace_id, comm=comm)
+            valiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, comm=comm)
         else:
             valiter = read_cell_attribute_selection(input_file, pop_name, namespace=namespace_id,
                                                     selection=list(unit_no), comm=comm)

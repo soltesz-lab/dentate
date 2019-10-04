@@ -8,13 +8,11 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c", "ConMC"]
 
-DG_coords_file = "DG_coords_20190521.h5"
+DG_coords_file = "DG_coords_20190717.h5"
 
-DG_GC_coordinate_file  = "DGC_forest_reindex_20181222_compressed.h5"
-DG_IN_coordinate_file  = "dentate_Full_Scale_Control_coords_20180717.h5"
-DG_EXT_coordinate_file = "dentate_Full_Scale_Control_coords_20180717.h5"
-DG_CA3c_coordinate_file = "dentate_CA3c_coords_20190515.h5"
-DG_ConMC_coordinate_file = "dentate_ConMC_coords_20190515.h5"
+DG_GC_coordinate_file  = "DGC_coords_reindex_20190717.h5"
+DG_IN_coordinate_file  = "dentate_IN_coords_dist_20190622.h5"
+DG_EXT_coordinate_file = "dentate_IN_coords_dist_20190622.h5"
 
 
 coordinate_files = {
@@ -29,8 +27,8 @@ coordinate_files = {
      'NGFC': DG_IN_coordinate_file,
      'MPP':  DG_EXT_coordinate_file,
      'LPP':  DG_EXT_coordinate_file,
-     'CA3c':  DG_CA3c_coordinate_file,
-     'ConMC':  DG_ConMC_coordinate_file
+     'CA3c':  DG_EXT_coordinate_file,
+     'ConMC':  DG_EXT_coordinate_file
 }
 
 coordinate_ns_generated = 'Generated Coordinates'
@@ -72,3 +70,5 @@ with h5py.File(DG_coords_file) as f:
 
         with h5py.File(coords_file) as fs:
             fs.copy('/Populations/%s/%s' % (p, coords_ns), group_id, name='Coordinates')
+            if ('/Populations/%s/Arc Distances' % p) in fs:
+                fs.copy('/Populations/%s/Arc Distances' % p, group_id, name='Arc Distances')

@@ -26,7 +26,7 @@ ulimit -c unlimited
 
 set -x
 
-ibrun -np 96 python3 ./scripts/generate_distance_connections.py \
+ibrun -np 96 python3.5 ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
        --config=Test_GC_1000.yaml \
        --forest-path=$SCRATCH/dentate/Test_GC_1000/DG_Test_GC_1000_cells_20190625.h5 \
@@ -34,4 +34,4 @@ ibrun -np 96 python3 ./scripts/generate_distance_connections.py \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Test_GC_1000/DG_coords_20190625.h5 \
        --coords-namespace=Coordinates \
-       --io-size=24 --cache-size=20 --write-size=40 --value-chunk-size=200000 --chunk-size=50000 -v
+       --io-size=24 --cache-size=20 --write-size=40 --value-chunk-size=200000 --chunk-size=50000 -v --dry-run

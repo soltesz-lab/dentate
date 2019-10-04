@@ -3,7 +3,7 @@
 #SBATCH -J measure_distances
 #SBATCH -o ./results/measure_distances.%j.o
 #SBATCH --nodes=32
-#SBATCH --ntasks-per-node=20
+#SBATCH --ntasks-per-node=12
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
@@ -24,7 +24,7 @@ ulimit -c unlimited
 
 set -x
 
-mpirun -np 640 python ./scripts/measure_distances.py \
+mpirun -np 384 python ./scripts/measure_distances.py \
     --config=./config/Full_Scale_Pas.yaml --resolution 40 40 10 \
      -i GC -i MPP -i LPP -i MC -i BC -i HC -i HCC -i NGFC -i MOPP -i IS -i AAC -i CA3c -i ConMC \
     --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190521.h5 \

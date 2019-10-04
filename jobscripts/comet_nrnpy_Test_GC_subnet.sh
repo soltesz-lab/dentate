@@ -11,14 +11,16 @@
 #
 
 module load python
+module unload intel
+module load gnu
+module load openmpi_ib
+module load mkl
 module load hdf5
-module load scipy
-module load mpi4py
 
 set -x
 
-export PYTHONPATH=$HOME/.local/lib/python2.7/site-packages:/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 ulimit -c unlimited
@@ -28,11 +30,12 @@ export results_path
 
 mkdir -p $results_path
 
-git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
-git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
+#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+#git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-ibrun -np 12 python2.7 ./scripts/main.py \
-    --config-file=Full_Scale_GC_Exc_Sat_LN.yaml \
+ibrun -np 12 python3 ./scripts/main.py \
+    --arena-id=A --trajectory-id=Diag \
+    --config-file=Full_Scale_GC_Exc_Sat_DD_LNN.yaml \
     --config-prefix=./config \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH/dentate" \
@@ -40,9 +43,10 @@ ibrun -np 12 python2.7 ./scripts/main.py \
     --io-size=2 \
     --tstop=10 \
     --v-init=-75 \
-    --max-walltime-hours=1.25 \
+    --max-walltime-hours=1.75 \
     --cell-selection-path=./datasets/GC_subnet.yaml \
-    --spike-input-path=$SCRATCH/dentate/results/Full_Scale_GC_Exc_Sat_LN_9533687.bw/dentatenet_Full_Scale_GC_Exc_Sat_LN_results.h5 \
-    --spike-input-namespace='Spike Events' \
+    --write-selection \
+    --spike-input-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
+    --spike-input-namespace='Input Spikes' \
     --verbose
 

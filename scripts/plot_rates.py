@@ -1,8 +1,5 @@
 
-import gc
-import os
-import sys
-
+import gc, os, sys
 import click
 import dentate
 from dentate import plot
@@ -26,6 +23,7 @@ script_name = os.path.basename(__file__)
 @click.option("--fig-size", type=(float,float), default=(15,8))
 @click.option("--save-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
+
 
 def main(spike_events_path, spike_events_namespace, populations, max_units, t_variable, t_max, t_min, bin_size, meansub, graph_type, progress, fig_size, font_size, save_format, verbose):
 

@@ -7,10 +7,11 @@ from mpi4py import MPI
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses
-from dentate.cells import h, get_biophys_cell, init_biophysics, make_input_source,  report_topology
+from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_cell, \
+    report_topology, register_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import list_find, list_index, old_div, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -92,41 +93,19 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
 
     cell = get_biophys_cell(env, pop_name, gid, load_edges=load_edges, \
                             tree_dict=tree_dict, load_synapses=load_synapses,
-                            synapses_dict=synapses_dict)
+                            synapses_dict=synapses_dict, mech_file_path=mech_file_path)
 
+    # init_spike_detector(cell)
     if mech_file_path is not None:
-        init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
-                        correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env)
+        init_biophysics(cell, reset_cable=True, 
+                        correct_cm=correct_for_spines,
+                        correct_g_pas=correct_for_spines, env=env)
     synapses.init_syn_mech_attrs(cell, env)
 
     env.biophys_cells[pop_name][gid] = cell
 
     return cell
 
-
-def register_cell(env, population, gid, cell):
-    """
-    Registers a cell in a ParallelContext network environment.
-
-    :param env: an instance of env.Env
-    :param population: population name
-    :param gid: gid
-    :param cell: cell instance
-    """
-    rank = env.comm.rank
-    env.gidset.add(gid)
-    env.cells.append(cell)
-    env.pc.set_gid2node(gid, rank)
-    # Tell the ParallelContext that this cell is a spike source
-    # for all other hosts. NetCon is temporary.
-    hoc_cell = getattr(cell, "hoc_cell", None)
-    if hoc_cell is None:
-        nc = cell.connect2target(h.nil)
-    else:
-        nc = cell.hoc_cell.connect2target(h.nil)
-    env.pc.cell(gid, nc, 1)
-    # Record spikes of this cell
-    env.pc.spike_record(gid, env.t_vec, env.id_vec)
 
 
 def init_cell(env, pop_name, gid, load_edges=True):
@@ -204,7 +183,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
         if t_min is None:
             t_range = [0.0, t_max]
         else:
-            r_range = [t_min, t_max]
+            t_range = [t_min, t_max]
 
     ## Attribute namespace that contains recorded spike events
     if env.results_id is None:
@@ -277,7 +256,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
             ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
-                cell = make_input_source(env, presyn_gid, presyn_id, input_source_dict)
+                cell = make_input_cell(env, presyn_gid, presyn_id, input_source_dict)
                 register_cell(env, presyn_id, presyn_gid, cell)
 
     source_weight_params = generate_weights(env, weight_source_dict, this_syn_attrs)
@@ -320,7 +299,7 @@ def run(env):
     h.finitialize(env.v_init)
 
     if rank == 0:
-        logger.info("*** Running simulation with dt = %f and tstop = %f" % (h.dt, h.tstop))
+        logger.info("*** Running simulation with dt = %.02f and tstop = %.02f" % (h.dt, h.tstop))
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)
@@ -332,7 +311,7 @@ def run(env):
     comptime = env.pc.step_time()
     cwtime = comptime + env.pc.step_wait()
     maxcw = env.pc.allreduce(cwtime, 2)
-    avgcomp = old_div(env.pc.allreduce(comptime, 1), nhosts)
+    avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
     if rank == 0:
@@ -378,7 +357,7 @@ def run_with(env, param_dict):
     h.finitialize(env.v_init)
 
     if rank == 0:
-        logger.info("*** Running simulation with dt = %f and tstop = %f" % (h.dt, h.tstop))
+        logger.info("*** Running simulation with dt = %.02f and tstop = %.02f" % (h.dt, h.tstop))
         logger.info("*** Parameters: %s" % str(param_dict))
 
     env.pc.barrier()
@@ -391,7 +370,7 @@ def run_with(env, param_dict):
     comptime = env.pc.step_time()
     cwtime = comptime + env.pc.step_wait()
     maxcw = env.pc.allreduce(cwtime, 2)
-    avgcomp = old_div(env.pc.allreduce(comptime, 1), nhosts)
+    avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
     if rank == 0:
@@ -527,6 +506,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
 @click.option("--tstop", '-t', type=float, default=150.0, help='simulation end time')
+@click.option("--t-max", type=float)
+@click.option("--t-min", type=float)
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -543,8 +524,11 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--results-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
-def go(config_file, population, gid, generate_inputs, generate_weights, tstop, template_paths, dataset_prefix,
+
+def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min,
+       template_paths, dataset_prefix,
        config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, profile_memory):
+
     """
     Runs network clamp simulation for the specified cell.
     """
@@ -560,7 +544,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
          generate_inputs_pops=set(generate_inputs), \
          generate_weights_pops=set(generate_weights), \
          spike_events_namespace=spike_events_namespace, \
-         t_var='t', t_min=None, t_max=None)
+         t_var='t', t_min=t_min, t_max=t_max)
 
     run(env)
     write_output(env)
@@ -578,6 +562,8 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
 @click.option("--tstop", '-t', type=float, default=150.0, help='simulation end time')
+@click.option("--t-max", type=float)
+@click.option("--t-min", type=float)
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -593,7 +579,10 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.argument('target')
-def optimize(config_file, population, gid, generate_inputs, generate_weights, tstop, opt_iter, template_paths,
+
+
+def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
+             template_paths,
              dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
@@ -611,7 +600,7 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, ts
          generate_inputs_pops=set(generate_inputs), \
          generate_weights_pops=set(generate_weights), \
          spike_events_namespace=spike_events_namespace, \
-         t_var='t', t_min=None, t_max=None)
+         t_var='t', t_min=t_min, t_max=t_max)
 
     if target == 'rate':
         optimize_rate(env, population, gid, opt_iter=opt_iter)

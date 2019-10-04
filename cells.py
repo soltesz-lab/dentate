@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
-from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml
+from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
 from neuroh5.h5py_io_utils import select_tree_attributes
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection
 
@@ -582,7 +582,6 @@ class BiophysCell(object):
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
     """
-
     def __init__(self, gid, pop_name, hoc_cell=None, mech_file_path=None, env=None):
         """
 
@@ -602,26 +601,18 @@ class BiophysCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = mech_file_path
+        self.init_mech_dict = dict()
         self.mech_dict = dict()
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
+        self.spike_onset_delay = 0.
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
-            if self.axon:
-                axon_seg_locs = [seg.x for seg in self.axon[0].sec]
-                if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=axon_seg_locs[-1]) < 100.:
-                    self.spike_detector = connect2target(self, self.axon[-1].sec, loc=1.)
-                else:
-                    for loc in axon_seg_locs:
-                        if get_distance_to_node(self, self.tree.root, self.axon[-1], loc=loc) >= 100.:
-                            self.spike_detector = connect2target(self, self.axon[-1].sec, loc=loc)
-                            break
-            elif self.soma:
-                self.spike_detector = connect2target(self, self.soma[0].sec)
-            if self.mech_file_path is not None:
-                import_mech_dict_from_file(self, self.mech_file_path)
+        if self.mech_file_path is not None:
+            import_mech_dict_from_file(self, self.mech_file_path)
+        init_spike_detector(self)
 
     @property
     def gid(self):
@@ -1071,6 +1062,52 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0.):
+    """
+    Initializes the spike detector in the given cell according to the
+    given arguments or a spike detector configuration of the mechanism
+    dictionary of the cell, if one exists.
+
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode
+    :param distance: float
+    :param threshold: float
+    :param delay: float
+    :param onset_delay: float
+    """
+    if 'spike detector' in cell.mech_dict:
+        config = cell.mech_dict['spike detector']
+        node = getattr(cell, config['section'])[0]
+        distance = config['distance']
+        threshold = config['threshold']
+        delay = config['delay']
+        onset_delay = config['onset delay']
+
+    if node is None:
+        if cell.axon:
+            node = cell.axon[0]
+        elif cell.soma:
+            node = cell.soma[0]
+        else:
+            raise RuntimeError('init_spike_detector: cell has neither soma nor axon compartment')
+
+    if node in cell.axon:
+        sec_seg_locs = [seg.x for seg in node.sec]
+        if get_distance_to_node(cell, cell.tree.root, node, loc=sec_seg_locs[-1]) < distance:
+            cell.spike_detector = connect2target(cell, node.sec, loc=1., delay=delay, threshold=threshold)
+        else:
+            for loc in sec_seg_locs:
+                if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
+                    cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
+                    break
+    else:
+        cell.spike_detector = connect2target(cell, node.sec, loc=0.5, delay=delay, threshold=threshold)
+
+    cell.onset_delay = onset_delay
+            
+    return cell.spike_detector
+        
+
 def init_nseg(sec, spatial_res=0, verbose=True):
     """
     Initializes the number of segments in this section (nseg) based on the AC length constant. Must be re-initialized
@@ -1245,7 +1282,8 @@ def import_mech_dict_from_file(cell, mech_file_path=None):
         raise IOError('import_mech_dict_from_file: invalid mech_file_path: %s' % mech_file_path)
     else:
         cell.mech_file_path = mech_file_path
-    cell.mech_dict = read_from_yaml(cell.mech_file_path)
+    cell.init_mech_dict = read_from_yaml(cell.mech_file_path)
+    cell.mech_dict = copy.deepcopy(cell.init_mech_dict)
 
 
 def export_mech_dict(cell, mech_file_path=None, output_dir=None):
@@ -1266,8 +1304,8 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
 
-def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_file=False, correct_cm=False,
-                    correct_g_pas=False, verbose=True):
+def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_g_pas=False, reset_mech_dict=False,
+                    verbose=True):
     """
     Consults a dictionary specifying parameters of NEURON cable properties, density mechanisms, and point processes for
     each type of section in a BiophysCell. Traverses through the tree of SHocNode nodes following order of inheritance.
@@ -1275,19 +1313,17 @@ def init_biophysics(cell, env=None, mech_file_path=None, reset_cable=True, from_
     root. Warning! Do not reset cable after inserting synapses!
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
-    :param mech_file_path: str (path)
     :param reset_cable: bool
-    :param from_file: bool
     :param correct_cm: bool
     :param correct_g_pas: bool
+    :param reset_mech_dict: bool
     :param verbose: bool
     """
-
-    if from_file:
-        import_mech_dict_from_file(cell, mech_file_path)
     if (correct_cm or correct_g_pas) and env is None:
         raise ValueError('init_biophysics: missing Env object; required to parse network configuration and count '
                          'synapses.')
+    if reset_mech_dict:
+        cell.mech_dict = copy.deepcopy(cell.init_mech_dict)
     if reset_cable:
         for sec_type in default_ordered_sec_types:
             if sec_type in cell.mech_dict and sec_type in cell.nodes:
@@ -1562,7 +1598,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
 
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
-        traceback.print_tb(sys.exc_info()[2])
+        traceback.print_exc(file=sys.stdout)
         if param_name is not None:
             print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
                   (mech_name, param_name, node.name))
@@ -2000,7 +2036,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
         hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
                                        dataset_path=dataset_path)
     else:
-        if pop_name in env.cellAttributeInfo and 'Trees' in env.cellAttributeInfo[pop_name]:
+        if pop_name in env.cell_attribute_info and 'Trees' in env.cell_attribute_info[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             data_file_path, pop_name, gid)
         else:
@@ -2009,7 +2045,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
-def make_input_source(env, gid, pop_id, input_source_dict):
+def make_input_cell(env, gid, pop_id, input_source_dict):
     """
     Instantiates an input generator according to the given cell template.
     """
@@ -2034,7 +2070,7 @@ def make_input_source(env, gid, pop_id, input_source_dict):
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True, load_edges=True,
-                     load_weights=False, set_edge_delays=True):
+                     load_weights=False, set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -2045,13 +2081,14 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     :param load_edges: bool
     :param load_weights: bool
     :param set_edge_delays: bool
+    :param mech_file_path: str (path)
     :return: :class:'BiophysCell'
     """
     env.load_cell_template(pop_name)
     if tree_dict is None:
         tree_dict = select_tree_attributes(gid, env.comm, env.data_file_path, pop_name)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
-    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env)
+    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
@@ -2063,7 +2100,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if load_synapses:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, synapses_dict)
-        elif (pop_name in env.cellAttributeInfo) and ('Synapse Attributes' in env.cellAttributeInfo[pop_name]):
+        elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
             synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
                                                           comm=env.comm)
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
@@ -2106,6 +2143,36 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     return cell
 
 
+def register_cell(env, pop_name, gid, cell):
+    """
+    Registers a cell in a network environment.
+
+    :param env: an instance of the `dentate.Env` class
+    :param pop_name: population name
+    :param gid: gid
+    :param cell: cell instance
+    """
+    rank = env.comm.rank
+    env.gidset.add(gid)
+    env.pc.set_gid2node(gid, rank)
+    hoc_cell = getattr(cell, 'hoc_cell', cell)
+    env.cells[pop_name].append(hoc_cell)
+    # Tell the ParallelContext that this cell is a spike source
+    # for all other hosts. NetCon is temporary.
+    if hasattr(cell, 'spike_detector'):
+        nc = cell.spike_detector
+    else:
+        nc = hoc_cell.connect2target(h.nil)
+    nc.delay = max(env.dt, nc.delay)
+    env.pc.cell(gid, nc, 1)
+    # Record spikes of this cell
+    env.pc.spike_record(gid, env.t_vec, env.id_vec)
+    # if the spike detector is located in a compartment other than soma,
+    # record the spike time delay relative to soma
+    if hasattr(cell, 'spike_onset_delay'):
+        env.spike_onset_delay[gid] = cell.spike_onset_delay
+
+    
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """
     Determines minimum stimulus sufficient to induce a spike in a cell. 
@@ -2140,3 +2207,76 @@ def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=1
     thr = h.threshold(iclamp._ref_amp)
 
     return thr
+
+
+def get_spike_shape(vm, spike_times, equilibrate=0., dt=0.025, th_dvdt=10.):
+    """
+    Given a voltage recording from a cell section, and a list of spike times recorded from a spike detector NetCon,
+    report features of the spike shape, including the delay between the recorded section and the spike detector.
+    :param vm: array
+    :param spike_times: array
+    :param equilibrate: float
+    :param dt: float
+    :param th_dvdt: float; slope of voltage change at spike threshold
+    :return: dict
+    """
+    start = int((equilibrate + 1.) / dt)  # start time after equilibrate, expressed in time step
+    vm = vm[start:]
+    dvdt = np.gradient(vm, dt)  # slope of voltage change
+    th_x_indexes = np.where(dvdt >= th_dvdt)[0]
+    if th_x_indexes.any():
+        th_x = th_x_indexes[0] - int(1.6 / dt)  # the true spike onset is before the slope threshold is crossed
+    else:
+        th_x_indexes = np.where(vm > -30.)[0]
+        if th_x_indexes.any():
+            th_x = th_x_indexes[0] - int(2. / dt)
+        else:
+            return None
+    th_v = vm[th_x]
+    v_before = np.mean(vm[th_x - int(0.1 / dt):th_x])
+
+    spike_detector_delay = spike_times[0] - (equilibrate + 1. + th_x * dt)
+    window_dur = 100.  # ms
+    fAHP_window_dur = 20.  # ms
+    ADP_min_start = 5.  # ms
+    ADP_window_dur = 75. # ms
+    if len(spike_times) > 1:
+        window_dur = min(window_dur, spike_times[1] - spike_times[0])
+    window_end = min(len(vm), th_x + int(window_dur / dt))
+    fAHP_window_end = min(window_end, th_x + int(fAHP_window_dur / dt))
+    ADP_min_start_len = min(window_end - th_x, int(ADP_min_start / dt))
+    ADP_window_end = min(window_end, th_x + int(ADP_window_dur / dt))
+
+    x_peak = np.argmax(vm[th_x:window_end]) + th_x
+    v_peak = vm[x_peak]
+
+    # find fAHP trough
+    rising_x = np.where(dvdt[x_peak+1:fAHP_window_end] > 0.)[0]
+    if rising_x.any():
+        fAHP_window_end = x_peak + 1 + rising_x[0]
+    x_fAHP = np.argmin(vm[x_peak:fAHP_window_end]) + x_peak
+    v_fAHP = vm[x_fAHP]
+    fAHP = v_before - v_fAHP
+
+    # find ADP and mAHP
+    rising_x = np.where(dvdt[x_fAHP:ADP_window_end] > 0.)[0]
+    if not rising_x.any():
+        ADP = 0.
+        mAHP = 0.
+    else:
+        falling_x = np.where(dvdt[x_fAHP + rising_x[0]:ADP_window_end] < 0.)[0]
+        if not falling_x.any():
+            ADP = 0.
+            mAHP = 0.
+        else:
+            x_ADP = np.argmax(vm[x_fAHP + rising_x[0]:x_fAHP + rising_x[0] + falling_x[0]]) + x_fAHP + rising_x[0]
+            if x_ADP - th_x < ADP_min_start_len:
+                ADP = 0.
+                mAHP = 0.
+            else:
+                v_ADP = vm[x_ADP]
+                ADP = v_ADP - v_fAHP
+                mAHP = v_before - np.min(vm[x_ADP:window_end])
+
+    return {'v_peak': v_peak, 'th_v': th_v, 'fAHP': fAHP, 'ADP': ADP, 'mAHP': mAHP,
+            'spike_detector_delay': spike_detector_delay}

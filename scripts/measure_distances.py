@@ -57,7 +57,8 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
         coords = bcast_cell_attributes(coords_path, population, 0, \
                                        namespace=coords_namespace, comm=comm)
 
-        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0], v['L Coordinate'][0]) for (k,v) in coords }
+        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0], v['L Coordinate'][0]) 
+                                    for (k,v) in coords }
         del coords
         gc.collect()
 
@@ -80,7 +81,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
     
     if not has_ip_dist:
         if rank == 0:
-            logger.info('Computing soma distances...')
+            logger.info('Creating distance interpolant...')
         (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
         if rank == 0:
             if geometry_path is not None:
@@ -92,6 +93,8 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
                 f.close()
                 
     ip_dist = (origin_ranges, ip_dist_u, ip_dist_v)
+    if rank == 0:
+        logger.info('Measuring soma distances...')
 
     soma_distances = measure_distances(env, soma_coords, ip_dist, resolution=resolution)
                                        

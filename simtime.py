@@ -1,7 +1,7 @@
 """Routines to keep track of simulation computation time and terminate the simulation if not enough time has been allocated."""
 import time
 
-from dentate.utils import get_module_logger, old_div
+from dentate.utils import get_module_logger
 from neuron import h
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -10,11 +10,12 @@ logger = get_module_logger(__name__)
 
 class SimTimeEvent(object):
 
-    def __init__(self, pc, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
+    def __init__(self, pc, tstop, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
         if (int(pc.id()) == 0):
             logger.info("*** allocated wall time is %.2f hours" % (max_walltime_hours))
         wt = time.time()
         self.pc = pc
+        self.tstop = tstop
         self.walltime_status = wt
         self.walltime_checksimtime = wt
         self.dt_status = dt_status
@@ -46,7 +47,7 @@ class SimTimeEvent(object):
             if (int(self.pc.id()) == 0):
                 logger.info("*** rank 0 computation time at t=%.2f ms was %.2f s" % (h.t, wt - self.walltime_status))
         self.walltime_status = wt
-        if ((h.t + self.dt_status) < h.tstop):
+        if ((h.t + self.dt_status) < self.tstop):
             h.cvode.event(h.t + self.dt_status, self.simstatus)
 
     def checksimtime(self):
@@ -54,15 +55,15 @@ class SimTimeEvent(object):
         if (h.t > 0):
             tt = wt - self.walltime_checksimtime
             ## cumulative moving average wall time time per dt_checksimtime
-            self.tcma = self.tcma + old_div((tt - self.tcma), (self.nsimsteps + 1))
+            self.tcma = self.tcma + ((tt - self.tcma) / (self.nsimsteps + 1))
             self.tcsum = self.tcsum + tt
             ## remaining physical time
-            trem = h.tstop - h.t
+            trem = self.tstop - h.t
             ## remaining wall time
             walltime_rem = self.walltime_max - self.tcsum
             walltime_rem_min = self.pc.allreduce(walltime_rem, 3)  ## minimum value
             ## wall time necessary to complete the simulation
-            walltime_needed = (old_div(trem, self.dt_checksimtime)) * self.tcma + self.results_write_time
+            walltime_needed = ((trem / self.dt_checksimtime)) * self.tcma + self.results_write_time
             walltime_needed_max = self.pc.allreduce(walltime_needed, 2)  ## maximum value
             if (int(self.pc.id()) == 0):
                 logger.info("*** remaining computation time is %.2f s and remaining simulation time is %.2f ms" % (
@@ -72,17 +73,19 @@ class SimTimeEvent(object):
             ## if not enough time, reduce tstop and perform collective operations to set minimum (earliest) tstop across all ranks
             if (walltime_needed_max > walltime_rem_min):
                 tstop1 = int(
-                    old_div((walltime_rem - self.results_write_time), (old_div(self.tcma, self.dt_checksimtime)))) + h.t
+                    ((walltime_rem - self.results_write_time) / (self.tcma / self.dt_checksimtime))) + h.t
                 min_tstop = self.pc.allreduce(tstop1, 3)  ## minimum value
                 if (int(self.pc.id()) == 0):
                     logger.info(
                         "*** not enough time to complete %.2f ms simulation, simulation will likely stop around %2.f ms" % (
-                        h.tstop, min_tstop))
+                        self.tstop, min_tstop))
                 if (min_tstop <= h.t):
-                    h.tstop = h.t + h.dt
+                    self.tstop = h.t + h.dt
                 else:
-                    h.tstop = min_tstop
-                    h.cvode.event(h.tstop)
+                    self.tstop = min_tstop
+                    h.cvode.event(self.tstop)
+                if self.tstop < h.tstop:
+                    h.tstop = self.tstop
             self.nsimsteps = self.nsimsteps + 1
         else:
             init_time = wt - self.walltime_checksimtime
@@ -93,5 +96,5 @@ class SimTimeEvent(object):
                 logger.info("*** computation time so far is %.2f and total computation time is %.2f s" % (
                 self.tcsum, self.walltime_max))
         self.walltime_checksimtime = wt
-        if (h.t + self.dt_checksimtime < h.tstop):
+        if (h.t + self.dt_checksimtime < self.tstop):
             h.cvode.event(h.t + self.dt_checksimtime, self.checksimtime)

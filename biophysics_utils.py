@@ -9,8 +9,8 @@ from mpi4py import MPI
 import numpy as np
 import h5py
 import click
-from dentate.cells import get_biophys_cell, get_branch_order, get_dendrite_origin, get_distance_to_node
-from dentate.cells import init_biophysics, is_terminal, report_topology, modify_mech_param
+from dentate.cells import get_biophys_cell, get_branch_order, get_dendrite_origin, get_distance_to_node, \
+    init_biophysics, is_terminal, report_topology, modify_mech_param
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env
 from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs, modify_syn_param
@@ -111,6 +111,8 @@ class QuickSim(object):
         :param units: str
         :param description: str
         """
+        if cell.tree.root.sec.cell() != node.sec.cell():
+            raise RuntimeError('QuickSim: append_rec: target cell does not match target node')
         if name is None:
             name = 'rec%i' % len(self.recs)
         elif name in self.recs:
@@ -157,7 +159,7 @@ class QuickSim(object):
             raise KeyError('QuickSim: get_rec: cannot find recording with name: %s' % name)
 
     def modify_rec(self, name, node=None, loc=None, object=None, param='_ref_v', ylabel=None, units=None,
-                   description=None):
+                   description=None, cell=None):
         """
 
         :param name: str
@@ -168,6 +170,7 @@ class QuickSim(object):
         :param ylabel: str
         :param units: str
         :param description: str
+        :param cell: class'BiophysCell'
         """
         if not self.has_rec(name):
             raise KeyError('QuickSim: modify_rec: cannot find recording with name: %s' % name)
@@ -175,10 +178,20 @@ class QuickSim(object):
             self.recs[name]['ylabel'] = ylabel
         if units is not None:
             self.recs[name]['units'] = units
+
+        if cell is not None:
+            if node is None:
+                raise RuntimeError('QuickSim: modify_rec: cannot change target cell without specifying new target '
+                                   'node')
+            elif cell.tree.root.sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_rec: target cell does not match target node')
+            self.recs[name]['cell'] = cell
+
         if node is not None:
+            if self.recs[name]['cell'].tree.root.sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_rec: target cell does not match target node')
             self.recs[name]['node'] = node
-            if node.sec.cell() is not self.recs[name]['cell']:
-                self.recs[name]['cell'] = node.sec.cell()
+
         if loc is not None:
             self.recs[name]['loc'] = loc
         if object is None:
@@ -202,6 +215,8 @@ class QuickSim(object):
         :param dur: float
         :param description: str
         """
+        if cell.tree.root.sec.cell() != node.sec.cell():
+            raise RuntimeError('QuickSim: append_stim: target cell does not match target node')
         if name is None:
             name = 'stim%i' % len(self.stims)
         elif name in self.stims:
@@ -248,19 +263,21 @@ class QuickSim(object):
         :param cell: :class:'BiophysCell'
         """
         if cell is not None:
-            if node is None or self.stims[name]['node'].sec.cell() != node.sec.cell():
+            if node is None:
                 raise RuntimeError('QuickSim: modify_stim: cannot change target cell without specifying new target '
                                    'node')
+            elif cell.tree.root.sec.cell() != node.sec.cell():
+                raise RuntimeError('QuickSim: modify_stim: target cell does not match target node')
             self.stims[name]['cell'] = cell
         if not (node is None and loc is None):
             if node is not None:
-                if cell is None and self.stims[name]['node'].sec.cell() != node.sec.cell():
-                    raise RuntimeError('QuickSim: modify_stim: cannot change target node to new cell without '
-                                       'specifying new target cell')
+                if self.stims[name]['cell'].tree.root.sec.cell() != node.sec.cell():
+                    raise RuntimeError('QuickSim: modify_stim: target cell does not match target node')
                 self.stims[name]['node'] = node
             if loc is None:
                 loc = self.stims[name]['stim'].get_segment().x
             self.stims[name]['stim'].loc(self.stims[name]['node'].sec(loc))
+
         if amp is not None:
             self.stims[name]['stim'].amp = amp
         if delay is not None:
@@ -397,7 +414,6 @@ class QuickSim(object):
     cvode = property(get_cvode, set_cvode)
 
 
-
 @click.command()
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
@@ -437,13 +453,13 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
     configure_hoc_env(env)
 
-    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights)
-
     mech_file_path = config_prefix + '/' + mech_file
+    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights,
+                            mech_file_path=mech_file_path)
     context.update(locals())
 
-    init_biophysics(cell, reset_cable=True, from_file=True, mech_file_path=mech_file_path,
-                    correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env, verbose=verbose)
+    init_biophysics(cell, reset_cable=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines,
+                    env=env, verbose=verbose)
     init_syn_mech_attrs(cell, env)
     config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True,
                              verbose=verbose)
