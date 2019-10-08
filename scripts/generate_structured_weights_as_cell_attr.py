@@ -87,11 +87,10 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
     A = np.column_stack([plasticity_inputs[gid].reshape((-1,)).astype(np.float64) for gid in source_gids])
     b = plasticity_kernel.reshape((-1,)).astype(np.float64)
 
-    ## Instantiates a Recursive least squares model
     lb = np.ones((A.shape[1],)) * -1.
     ub = np.ones((A.shape[1],))
 
-    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=1000)
+    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=150)
     
     if interactive:
         logger.info('least squares fit status: %d (%s)' % (res.status, res.message))
@@ -108,7 +107,7 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
         if syn_count > 0:
             scaled_weight = weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = scaled_weight + initial_weight
+                syn_weights[syn_id] = max(scaled_weight + initial_weight, 0.)
     
     return syn_weights
 
@@ -219,7 +218,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
 
 
     features_attrs = defaultdict(dict)
-    features_attr_names = ['Peak Rate', 'X Offset', 'Y Offset', 'Arena Rate Map']
+    features_attr_names = ['Num Fields', 'Peak Rate', 'X Offset', 'Y Offset', 'Arena Rate Map']
         
     if scatter_io:
         if rank == 0:
@@ -288,9 +287,13 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             query_initial_weights_dict = comm.alltoall([destination_gid]*nranks)
             syn_weight_dict = syn_weights_dict_alltoall(comm, synapse_name, initial_weights_dict, query_initial_weights_dict, clear=True)
         else:
+            if destination_gid is None:
+                selection=[]
+            else:
+                selection=[destination_gid]
             initial_weights_iter = read_cell_attribute_selection(weights_path, destination, 
                                                                  namespace=initial_weights_namespace, 
-                                                                 comm=env.comm, selection=[destination_gid])
+                                                                 comm=env.comm, selection=selection)
             syn_weight_attr_dict = dict(initial_weights_iter)
             
             syn_ids = syn_weight_attr_dict[destination_gid]['syn_id']
@@ -319,13 +322,17 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             query_dest_input_features = comm.alltoall([{destination : [destination_gid]}]*nranks)
             dest_input_features = input_features_dict_alltoall(comm, features_attrs, query_dest_input_features)
         else:
+            if destination_gid is None:
+                selection=[]
+            else:
+                selection=[destination_gid]
             dest_input_features = defaultdict(dict)
             source_input_features = defaultdict(dict)
             for input_features_namespace in this_input_features_namespaces:
-                input_features_iter = read_cell_attribute_selection(input_features_path, source, 
+                input_features_iter = read_cell_attribute_selection(input_features_path, destination, 
                                                                     namespace=input_features_namespace,
                                                                     mask=set(features_attr_names), 
-                                                                    comm=env.comm, selection=[destination_gid])
+                                                                    comm=env.comm, selection=selection)
                 count = 0
                 for gid, attr_dict in input_features_iter:
                     dest_input_features[destination][gid] = attr_dict
@@ -333,7 +340,10 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 if rank == 0:
                     logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
             for source in sources:
-                source_gids = list(source_syn_map[source].keys())
+                if len(dest_input_features[destination]) > 0:
+                    source_gids = list(source_syn_map[source].keys())
+                else:
+                    source_gids = []
                 for input_features_namespace in this_input_features_namespaces:
                     input_features_iter = read_cell_attribute_selection(input_features_path, source, 
                                                                         namespace=input_features_namespace,
@@ -349,17 +359,22 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
 
         if destination_gid is not None:
 
-            modulated = False
-            if (destination_gid in dest_input_features[destination]):
-                modulated = True
-                if destination_gid in dest_input_features[destination]:
-                    this_input_features = dest_input_features[destination][destination_gid]
-                    this_x_offset = this_input_features['X Offset']
-                    this_y_offset = this_input_features['Y Offset']
-                else:
-                    this_x_offset = np.asarray([50.])
-                    this_y_offset = np.asarray([50.])
+            if destination_gid in dest_input_features[destination]:
+                this_input_features = dest_input_features[destination][destination_gid]
+                this_num_fields = this_input_features['Num Fields'][0]
+                this_x_offset = this_input_features['X Offset']
+                this_y_offset = this_input_features['Y Offset']
+            else:
+                this_input_features = None
+                this_num_fields = None
+                this_x_offset = None
+                this_y_offset = None
+
+            structured = False
+            if (this_input_features is not None) and this_num_fields > 0:
+                structured = True
                     
+            if structured:
                 this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
                 this_plasticity_kernel = reduce(np.add, [plasticity_kernel(x, y, peak_loc[0], peak_loc[1]) for peak_loc in this_peak_locs])
 
@@ -381,12 +396,12 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 this_syn_ids = sorted(this_syn_weights.keys())
             
                 structured_weights_dict[destination_gid] = \
-                  {'syn_id': np.array(this_syn_ids).astype('uint32', copy=False),
-                    synapse_name: np.array([this_syn_weights[syn_id]
-                                            for syn_id in this_syn_ids]).astype('float32', copy=False) }
+                    {'syn_id': np.array(this_syn_ids).astype('uint32', copy=False),
+                     synapse_name: np.array([this_syn_weights[syn_id]
+                                         for syn_id in this_syn_ids]).astype('float32', copy=False) }
                 logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i inputs in %.2f '
-                            's' % (rank, destination, destination_gid, len(this_syn_weights),
-                                time.time() - local_time))
+                        's' % (rank, destination, destination_gid, len(this_syn_weights),
+                               time.time() - local_time))
                 gid_count += 1
         else:
             logger.info('Rank: %i received None' % rank)
@@ -396,18 +411,25 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                        namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
+                if rank == 0:
+                    logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
             structured_weights_dict.clear()
-        gc.collect()
-        
+            gc.collect()
+        del(syn_weight_dict)
+        del(source_input_features)
+        del(dest_input_features)
     if not dry_run:
         append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        if rank == 0:
+            count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
+            logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
     global_count = comm.gather(gid_count, root=0)
     if rank == 0:
         logger.info('destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
                     (destination, comm.size, np.sum(global_count), time.time() - start_time))
-    MPI.Finalize()
 
 
 if __name__ == '__main__':
