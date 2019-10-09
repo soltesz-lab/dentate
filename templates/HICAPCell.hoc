@@ -105,6 +105,33 @@ proc subsets() { local i, ndends, ndendsec
     allaxon  = new SectionList()
     ais      = new SectionList()
     hillock  = new SectionList()
+    
+    if (hilidx.size() > 0) {
+        for i=0, hilidx.size()-1 {
+            sections[hilidx.x[i]] {
+                hillock.append()
+                allaxon.append()
+                all.append()
+            }
+        }
+    }
+    if (aisidx.size() > 0) {
+        for i=0, aisidx.size()-1 {
+            sections[aisidx.x[i]] {
+                ais.append()
+                allaxon.append()
+                all.append()
+            }
+        }
+    }
+    
+    for i=0, axonidx.size()-1 {
+        sections[axonidx.x[i]] {
+            axon.append()
+            allaxon.append()
+            all.append()
+        }
+    }
 
 }
 
@@ -195,16 +222,16 @@ proc biophys() {
     
     Vrest = -70
     
-    Rm = 1.2e5
+    Rm = 5e4
     
     gH = 0.0005
     
     g_KA_soma = 0.005 // .3 * 1.5
-    g_KA_dend = 0.004  // .7 * 1.5
+    g_KA_dend = 0.001  // .7 * 1.5
     
     g_fKdr_axon =  0.002
     g_fKdr_soma =  0.006
-    g_fKdr_dend =  0.004
+    g_fKdr_dend =  0.003
     
     g_sKdr_soma =  0.003
     g_sKdr_dend =  0.001
@@ -213,11 +240,15 @@ proc biophys() {
     g_Na_dend = 0.0117
     g_Na_axon = 0.01712
     
+    g_leak_decay_apical = 4.5 //0.6
+    g_leak_decay_basal = 4.5 //0.8
+    g_leak_decay_axon = 4. //0.8
+    
     eleak = -70
 
     forsec all {
         Ra = 150
-        cm = 1.0
+        cm = 0.9
     }
     
     forsec soma { distance() }
@@ -234,31 +265,30 @@ proc biophys() {
 	insert nas
 	gmax_nas = g_Na_soma
 	insert pas
-	g_pas = 1/Rm
+	g_pas = 0.00001
 	e_pas = eleak  	
     } 
     
     forsec apical {
 	insert nas
 	gmax_nas = g_Na_dend
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_dend
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_dend
         for (x,0) {
             insert KAsom
-    	    gmax_KAsom = (1 - (4.*distance(x)/1000)) * g_KA_dend
+            r = 10
+    	    gmax_KAsom =  g_KA_dend * r^(distance(x)/1000)
+            printf("gmax_KAsom(%f) = %f\n", distance(x), g_KA_dend * r^(distance(x)/1000))
             if (gmax_KAsom < 0.) {
                 gmax_KAsom = 0.
             }
-	    insert sKdrsom 
-	    gmax_sKdrsom = (1 - (4.*distance(x)/1000)) * g_sKdr_dend
             if (gmax_sKdrsom < 0.) {
                 gmax_sKdrsom = 0.
             }
-	    insert fKdrsom 
-	    gmax_fKdrsom = (1 - (4.*distance(x)/1000)) * g_fKdr_dend
-            if (gmax_fKdrsom < 0.) {
-                gmax_fKdrsom = 0.
-            }
 	    insert pas
-	    g_pas = 1/Rm
+	    g_pas = 1/Rm * exp(-g_leak_decay_apical * distance(x)/1000)
 	    e_pas = eleak  	
         }
     }
@@ -266,24 +296,25 @@ proc biophys() {
     forsec basal {
 	insert nas
 	gmax_nas = g_Na_dend
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_dend
+        if (gmax_sKdrsom < 0.) {
+            gmax_sKdrsom = 0.
+        }
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_dend
+        if (gmax_fKdrsom < 0.) {
+            gmax_fKdrsom = 0.
+        }
         for (x,0) {
+            r = 10
             insert KAsom
-    	    gmax_KAsom = (1 - (4.*distance(x)/1000)) * g_KA_dend
+    	    gmax_KAsom = g_KA_dend *  r^(distance(x)/1000)
             if (gmax_KAsom < 0.) {
                 gmax_KAsom = 0.
             }
-	    insert sKdrsom 
-	    gmax_sKdrsom = (1 - (4.*distance(x)/1000)) * g_sKdr_dend
-            if (gmax_sKdrsom < 0.) {
-                gmax_sKdrsom = 0.
-            }
-	    insert fKdrsom 
-	    gmax_fKdrsom = (1 - (4.*distance(x)/1000)) * g_fKdr_dend
-            if (gmax_fKdrsom < 0.) {
-                gmax_fKdrsom = 0.
-            }
 	    insert pas
-	    g_pas = 1/Rm
+	    g_pas = 1/Rm * exp(-g_leak_decay_basal * distance(x)/1000)
 	    e_pas = eleak  	
         }
     }
@@ -297,7 +328,7 @@ proc biophys() {
 	insert pas
         for (x,0) {
 	    insert pas
-	    g_pas = 1/Rm
+	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
 	    e_pas = eleak  	
         }
     }
@@ -310,7 +341,7 @@ proc biophys() {
 	insert pas
         for (x,0) {
 	    insert pas
-	    g_pas = 1/Rm
+	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
 	    e_pas = eleak  	
         }
     }
@@ -322,7 +353,7 @@ proc biophys() {
 	gmax_Naxsom = g_Na_axon
         for (x,0) {
 	    insert pas
-	    g_pas = 1/Rm
+	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
 	    e_pas = eleak  	
         }
     }

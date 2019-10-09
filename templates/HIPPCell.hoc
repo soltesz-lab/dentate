@@ -225,18 +225,18 @@ proc biophys() {
     
     Vrest = -70
     
-    Rm = 4e4
+    Rm = 8.3e4
     
     gH = 0.00005
     
-    g_KA_soma = 0.0165*0.2 // .3 * 1.5
-    g_KA_dend = 0.004  // .7 * 1.5
+    g_KA_soma = 0.0033 // .3 * 1.5
+    g_KA_dend = 0.002  // .7 * 1.5
     
-    g_fKdr_axon =  0.05104*0.4
-    g_fKdr_soma =  0.0319*0.2
+    g_fKdr_axon =  0.02
+    g_fKdr_soma =  0.0064
     g_fKdr_dend =  0.004
     
-    g_sKdr_soma =  0.0319*0.1
+    g_sKdr_soma =  0.00319
     g_sKdr_dend =  0.001
     
     g_Na_soma = 0.0107
@@ -246,8 +246,8 @@ proc biophys() {
     eleak = -70
 
     forsec all {
-        Ra = 150
-        cm = 1.3
+        Ra = 120
+        cm = 1.4
     }
     
     forsec soma { distance() }
@@ -271,26 +271,22 @@ proc biophys() {
     forsec apical {
 	insert nas
 	gmax_nas = g_Na_dend
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_dend
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_dend
         for (x,0) {
  	    insert HCNsom
-	    gmax_HCNsom = (2.*distance(x)/1000) * gH
+            r = 2
+	    gmax_HCNsom = gH * (r^(distance(x)/1000))
             if (gmax_HCNsom < 0.) {
                 gmax_HCNsom = 0.
             }
             insert KAsom
-    	    gmax_KAsom = (1 - (4.*distance(x)/1000)) * g_KA_dend
+            r = 2
+    	    gmax_KAsom =  g_KA_dend * (r^(distance(x)/1000))
             if (gmax_KAsom < 0.) {
                 gmax_KAsom = 0.
-            }
-	    insert sKdrsom 
-	    gmax_sKdrsom = (1 - (4.*distance(x)/1000)) * g_sKdr_dend
-            if (gmax_sKdrsom < 0.) {
-                gmax_sKdrsom = 0.
-            }
-	    insert fKdrsom 
-	    gmax_fKdrsom = (1 - (4.*distance(x)/1000)) * g_fKdr_dend
-            if (gmax_fKdrsom < 0.) {
-                gmax_fKdrsom = 0.
             }
 	    insert pas
 	    g_pas = 1/Rm
