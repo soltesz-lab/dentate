@@ -2,8 +2,7 @@
 import os, sys, gc, math
 import click
 import dentate
-from dentate import plot
-from dentate import utils
+from dentate import plot, utils
 from mpi4py import MPI
 
 sys_excepthook = sys.excepthook
@@ -11,7 +10,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 script_name = os.path.basename(__file__)
 

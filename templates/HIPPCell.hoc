@@ -18,6 +18,7 @@ gid = -1
 ndends   = -1
 ndendsec = -1
 nDends   = -1
+nSoma   = -1
 
 proc assert() { local test strdef errmsg
     
@@ -89,7 +90,7 @@ proc subsets() { local i, ndends, ndendsec
     
     all = new SectionList()
     sections[0] all.append()
-    for i=0, nDends-1 { 
+    for i=0, nSoma+nDends-1 { 
         sections[i+1] all.append() 
     }
     
@@ -225,18 +226,18 @@ proc biophys() {
     
     Vrest = -70
     
-    Rm = 4e4
+    Rm = 8e4
     
     gH = 0.00005
     
-    g_KA_soma = 0.0165*0.2 // .3 * 1.5
-    g_KA_dend = 0.004  // .7 * 1.5
+    g_KA_soma = 0.0033 // .3 * 1.5
+    g_KA_dend = 0.002  // .7 * 1.5
     
-    g_fKdr_axon =  0.05104*0.4
-    g_fKdr_soma =  0.0319*0.2
+    g_fKdr_axon =  0.02
+    g_fKdr_soma =  0.0064
     g_fKdr_dend =  0.004
     
-    g_sKdr_soma =  0.0319*0.1
+    g_sKdr_soma =  0.00319
     g_sKdr_dend =  0.001
     
     g_Na_soma = 0.0107
@@ -246,8 +247,8 @@ proc biophys() {
     eleak = -70
 
     forsec all {
-        Ra = 150
-        cm = 1.3
+        Ra = 120
+        cm = 1.4
     }
     
     forsec soma { distance() }
@@ -271,27 +272,17 @@ proc biophys() {
     forsec apical {
 	insert nas
 	gmax_nas = g_Na_dend
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_dend
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_dend
         for (x,0) {
  	    insert HCNsom
-	    gmax_HCNsom = (2.*distance(x)/1000) * gH
-            if (gmax_HCNsom < 0.) {
-                gmax_HCNsom = 0.
-            }
+            r = 2
+	    gmax_HCNsom(x) = gH * (r^(distance(x)/1000))
             insert KAsom
-    	    gmax_KAsom = (1 - (4.*distance(x)/1000)) * g_KA_dend
-            if (gmax_KAsom < 0.) {
-                gmax_KAsom = 0.
-            }
-	    insert sKdrsom 
-	    gmax_sKdrsom = (1 - (4.*distance(x)/1000)) * g_sKdr_dend
-            if (gmax_sKdrsom < 0.) {
-                gmax_sKdrsom = 0.
-            }
-	    insert fKdrsom 
-	    gmax_fKdrsom = (1 - (4.*distance(x)/1000)) * g_fKdr_dend
-            if (gmax_fKdrsom < 0.) {
-                gmax_fKdrsom = 0.
-            }
+            r = 2
+    	    gmax_KAsom(x) =  g_KA_dend * (r^(distance(x)/1000))
 	    insert pas
 	    g_pas = 1/Rm
 	    e_pas = eleak  	
@@ -339,6 +330,11 @@ proc biophys() {
     
 
     forsec all {
+        ek = -95
+        ena = 55
+    }
+
+    forsec allaxon {
         ek = -95
         ena = 55
     }
