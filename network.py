@@ -1001,7 +1001,10 @@ def init_input_cells(env, input_sources=None):
 
                     assert(env.pc.gid_exists(gid))
                     input_cell = env.pc.gid2cell(gid)
-                    input_cell.play(h.Vector(spiketrain))
+                    if input_cell.is_art() == 1:
+                        input_cell.play(h.Vector(spiketrain))
+                    else:
+                        raise RuntimeError("init_input_cells: input cell gid %d is not an artificial cell (%s)" % (gid, str(input_cell)))
 
             else:
                 if rank == 0:

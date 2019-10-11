@@ -14,7 +14,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -131,7 +131,6 @@ def main(arena_id, config, config_prefix, dataset_prefix, distances_namespace, d
         env.cell_selection = selection_dict
         io_utils.write_cell_selection(env, write_selection_file_path)
         input_selection = io_utils.write_connection_selection(env, write_selection_file_path)
-        logger.info("rank %i: input_selection = %s" % (rank, str(input_selection)))
         io_utils.write_input_cell_selection(env, input_selection, write_selection_file_path)
 
 

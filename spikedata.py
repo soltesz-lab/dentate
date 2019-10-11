@@ -4,14 +4,14 @@ import numpy as np
 from scipy import interpolate
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
 import dentate
-from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, old_div, zip
+from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, zip
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
 logger = get_module_logger(__name__)
 
 
-def get_env_spike_dict(env, t_start=0.0):
+def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
     """
     Constructs  a dictionary with per-gid spike times from the output vectors with spike times and gids contained in env.
     """
@@ -42,6 +42,8 @@ def get_env_spike_dict(env, t_start=0.0):
             for j in range(0, len(ids)):
                 gid = ids[j]
                 t = ts[j]
+                if (not include_artificial) and (gid in env.artificial_cells[pop_name]):
+                    continue
                 if t >= t_start:
                     if gid in spkdict:
                         spkdict[gid].append(t)
@@ -335,7 +337,7 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
         d_bin = d[d_bin_inds == ibin]
         if d_bin.size > 0:
             bin_max = np.max(d_bin)
-            d_prob = old_div((bin_max - prev_bin), d_extent)
+            d_prob = (bin_max - prev_bin) / d_extent
             d_bin_probs[ibin] = d_prob
             prev_bin = bin_max
         else:
@@ -357,7 +359,7 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
                 p_i = d_bin_probs[ibin]
                 R_i = rates[ibin - 1]
                 if R_i > 0.:
-                    MI += p_i * (old_div(R_i, R)) * math.log(old_div(R_i, R), 2)
+                    MI += p_i * ((R_i / R)) * math.log((R_i / R), 2)
 
         MI_dict[ind] = MI
 
@@ -418,7 +420,7 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
         if baseline_fraction is None:
             s = np.std(rate1)
         else:
-            k = old_div(rate1.shape[0], baseline_fraction)
+            k = rate1.shape[0] / baseline_fraction
             s = np.std(rate1[np.argpartition(rate1, k)[:k]])
         tmin = x[0]
         tmax = x[-1]

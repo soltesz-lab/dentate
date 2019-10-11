@@ -2157,6 +2157,8 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.set_gid2node(gid, rank)
     hoc_cell = getattr(cell, 'hoc_cell', cell)
     env.cells[pop_name].append(hoc_cell)
+    if hoc_cell.is_art() == 1:
+        env.artificial_cells[pop_name][gid] = hoc_cell
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
     if hasattr(cell, 'spike_detector'):
