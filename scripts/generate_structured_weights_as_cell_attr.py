@@ -90,7 +90,7 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
     lb = np.ones((A.shape[1],)) * -1.
     ub = np.ones((A.shape[1],))
 
-    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=150)
+    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=250)
     
     if interactive:
         logger.info('least squares fit status: %d (%s)' % (res.status, res.message))
@@ -295,12 +295,13 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                                                                  namespace=initial_weights_namespace, 
                                                                  comm=env.comm, selection=selection)
             syn_weight_attr_dict = dict(initial_weights_iter)
-            
-            syn_ids = syn_weight_attr_dict[destination_gid]['syn_id']
-            weights = syn_weight_attr_dict[destination_gid][synapse_name]
 
-            for (syn_id, weight) in zip(syn_ids, weights):
-                syn_weight_dict[int(syn_id)] = float(weight) 
+            if destination_gid is not None:
+                syn_ids = syn_weight_attr_dict[destination_gid]['syn_id']
+                weights = syn_weight_attr_dict[destination_gid][synapse_name]
+
+                for (syn_id, weight) in zip(syn_ids, weights):
+                    syn_weight_dict[int(syn_id)] = float(weight) 
 
         if destination_gid is not None:
 
@@ -419,6 +420,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
         del(syn_weight_dict)
         del(source_input_features)
         del(dest_input_features)
+
     if not dry_run:
         append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
@@ -426,6 +428,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
         if rank == 0:
             count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
             logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
+
     global_count = comm.gather(gid_count, root=0)
     if rank == 0:
         logger.info('destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
