@@ -230,10 +230,12 @@ def compute_features_firing_rate(x, export=False):
 
         mean_rate_sum = 0.
         spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
+        context.logger.info("computing firing rate for %s: %d units in spike density dict" % (pop_name, len(spike_density_dict)))
         for gid, dens_dict in utils.viewitems(spike_density_dict):
             mean_rate_sum += np.mean(dens_dict['rate'])
 
-        n = len(spike_density_dict)
+        mean_rate_sum = context.env.comm.allreduce(mean_rate_sum, op=MPI.SUM)
+        n = context.env.comm.allreduce(len(spike_density_dict), op=MPI.SUM)
         if n > 0:
             mean_rate = mean_rate_sum / n
         else:

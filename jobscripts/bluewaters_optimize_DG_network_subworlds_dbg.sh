@@ -52,7 +52,7 @@ aprun -n 3200 -N 8 -d 4 -b -- bwpy-environ -- \
     --dataset_prefix="$SCRATCH" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
-    --cell_selection_path=$DG_HOME/datasets/DG_slice_20190729.yaml \
+    --cell_selection_path=$DG_HOME/datasets/DG_slice_20190917.yaml \
     --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
