@@ -205,7 +205,7 @@ def compute_features_network_walltime(x, export=False):
     return results
 
 
-def compute_features_firing_rate(x, export=False):
+def compute_features_firing_rate_fraction_active(x, export=False):
     """
 
     :param x: array
@@ -235,13 +235,14 @@ def compute_features_firing_rate(x, export=False):
             mean_rate_sum += np.mean(dens_dict['rate'])
 
         mean_rate_sum = context.env.comm.allreduce(mean_rate_sum, op=MPI.SUM)
-        n = context.env.comm.allreduce(len(spike_density_dict), op=MPI.SUM)
-        if n > 0:
-            mean_rate = mean_rate_sum / n
+        n_active = context.env.comm.allreduce(len(spike_density_dict), op=MPI.SUM)
+        if n_active > 0:
+            mean_rate = mean_rate_sum / n_active
         else:
             mean_rate = 0.
 
         results['%s firing rate' % pop_name] = mean_rate
+        results['%s fraction active' % pop_name] = n_active / n_total
 
     return results
 

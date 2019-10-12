@@ -465,7 +465,10 @@ class Env(object):
             for k, v in viewitems(mech_params):
                 if isinstance(v, dict):
                     if 'expr' in v:
-                        mech_params1[k] = DExpr(v['parameter'], v['expr'])
+                        if 'const' in v:
+                            mech_params1[k] = DExpr(v['parameter'], v['expr'], v['const'])
+                        else:
+                            mech_params1[k] = DExpr(v['parameter'], v['expr'])
                     else:
                         raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
                 else:
