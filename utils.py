@@ -17,7 +17,6 @@ class DExpr(object):
         self.sympy_abc = importlib.import_module('sympy.abc')
         self.parameter = parameter
         self.expr = self.sympy_parser.parse_expr(expr)
-        print('self.expr = %s' % str(self.expr))
         if consts is not None:
             for k, v in viewitems(consts):
                 sym = self.sympy.Symbol(k)
