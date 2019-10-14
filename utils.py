@@ -17,11 +17,23 @@ class DExpr(object):
         self.sympy_abc = importlib.import_module('sympy.abc')
         self.parameter = parameter
         self.expr = self.sympy_parser.parse_expr(expr)
-        if consts is not None:
-            for k, v in viewitems(consts):
-                sym = self.sympy.Symbol(k)
-                self.expr = self.expr.subs(sym, v)
-        self.feval = self.sympy.lambdify(self.sympy_abc.x, self.expr, "numpy")
+        self.consts = {} if consts is None else consts
+        self.feval = None
+        self.__init_feval__()
+        
+    def __getitem__(self, key):
+        return self.consts[key]
+
+    def __getitem__(self, key, val):
+        self.consts[key] = val
+        self.__init_feval__()
+    
+    def __init_feval__(self):
+        fexpr = self.expr
+        for k, v in viewitems(self.consts):
+            sym = self.sympy.Symbol(k)
+            fexpr = fexpr.subs(sym, v)
+        self.feval = self.sympy.lambdify(self.sympy_abc.x, fexpr, "numpy")
 
     def __call__(self, x):
         return self.feval(x)

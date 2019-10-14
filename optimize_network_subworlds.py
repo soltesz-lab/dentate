@@ -100,13 +100,25 @@ def config_worker():
         for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
             for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
                 for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
-                    for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
-                        param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
-                        param_key = '%s_%s_%s_%s_%s' % (pop_name, source, sec_type, syn_name, param_name)
-                        param_initial_value = (param_range[1] - param_range[0]) / 2.0
-                        param_initial_dict[param_key] = param_initial_value
-                        param_bounds[param_key] = param_range
-                        param_names.append(param_key)
+                    for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
+                        if isinstance(param_rst, dict):
+                            for const_name, const_range in sorted(viewitems(param_rest)):
+                                param_name = (param_fst, const_name)
+                                param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
+                                param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_fst, const_name)
+                                param_initial_value = (const_range[1] - const_range[0]) / 2.0
+                                param_initial_dict[param_key] = param_initial_value
+                                param_bounds[param_key] = const_range
+                                param_names.append(param_key)
+                        else:
+                            param_name = param_fst
+                            param_range = param_rst
+                            param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
+                            param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
+                            param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                            param_initial_dict[param_key] = param_initial_value
+                            param_bounds[param_key] = param_range
+                            param_names.append(param_key)
                     
     def from_param_vector(params):
         result = []
