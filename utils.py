@@ -8,16 +8,19 @@ import scipy
 import yaml
 from scipy import sparse
 
-from past.utils import old_div
 from past.builtins import basestring
 
 class DExpr(object):
-    def __init__(self, parameter, expr):
+    def __init__(self, parameter, expr, consts=None):
         self.sympy = importlib.import_module('sympy')
         self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
         self.sympy_abc = importlib.import_module('sympy.abc')
         self.parameter = parameter
         self.expr = self.sympy_parser.parse_expr(expr)
+        if const is not None:
+            for k, v in viewitems(consts):
+                sym = self.sympy.Symbol(k)
+                expr = expr.subs(sym, v)
         self.feval = self.sympy.lambdify(self.sympy_abc.x, expr, "numpy")
 
     def __call__(self, x):

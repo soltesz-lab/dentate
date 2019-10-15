@@ -148,7 +148,7 @@ def pop_firing_rates(env):
     """
     Computes the mean firing rate for each population in the network.
     """
-    pop_spike_dict = spikedata.get_env_spike_dict(env)
+    pop_spike_dict = spikedata.get_env_spike_dict(env, include_artificial=False)
 
     t_start = self.t_start
     t_stop = h.t

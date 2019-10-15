@@ -125,12 +125,18 @@ Synapses:
         GABA_A:
           dur_onset: 0.5
           tau_offset: 
-            expr: 1.55*x + 9.0
+            expr: a*x + b
             parameter: delay
+            const:
+              a: 1.55
+              b: 9.0
           e: -75
           g_unit: 
-            expr: 0.001 * exp(-1.25 * x)
+            expr: a * exp(b * x)
             parameter: delay
+            const:
+              a: 0.001
+              b: -1.25
           weight: 1.0
     BC:   
       type: inhibitory
@@ -157,7 +163,9 @@ Synapses:
               expr: 1.55*x + 9.0
               parameter: delay
             e: -75
-            g_unit: 0.001
+            g_unit: 
+              expr: 0.001 * exp(-1.25 * x)
+              parameter: delay
             weight: 1.0
     HCC:  
       type: inhibitory

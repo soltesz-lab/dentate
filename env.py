@@ -94,8 +94,9 @@ class Env(object):
         self.globals = {}
 
         self.gidset = set([])
-        self.cells = defaultdict(list)
         self.gjlist = []
+        self.cells = defaultdict(list)
+        self.artificial_cells = defaultdict(dict)
         self.biophys_cells = defaultdict(dict)
         self.spike_onset_delay = {}
         self.v_sample_dict = {}
@@ -464,7 +465,10 @@ class Env(object):
             for k, v in viewitems(mech_params):
                 if isinstance(v, dict):
                     if 'expr' in v:
-                        mech_params1[k] = DExpr(v['parameter'], v['expr'])
+                        if 'const' in v:
+                            mech_params1[k] = DExpr(v['parameter'], v['expr'], v['const'])
+                        else:
+                            mech_params1[k] = DExpr(v['parameter'], v['expr'])
                     else:
                         raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
                 else:
