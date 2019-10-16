@@ -2,8 +2,8 @@
 #
 #SBATCH -J optimize_DG_network_subworlds
 #SBATCH -o ./results/optimize_DG_network_subworlds.%j.o
-#SBATCH --nodes=25
-#SBATCH --ntasks-per-node=12
+#SBATCH --nodes=30
+#SBATCH --ntasks-per-node=8
 #SBATCH -p compute
 #SBATCH -t 2:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -20,10 +20,10 @@ module load hdf5
 set -x
 
 export MODEL_HOME=$HOME/model
-export DG_HOME=${MODEL_HOME}/dentate
+export DG_HOME=$MODEL_HOME/dentate
 export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
 export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
-export PYTHONPATH=${MODEL_HOME}:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 ulimit -c unlimited
 
@@ -35,16 +35,17 @@ mkdir -p $results_path
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 #git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-ibrun -np 300 python3 -m nested.optimize  \
+#ibrun -np 300 gdb -q -batch -x $HOME/gdb_script --args \
+ibrun -np 240 python3 -m nested.optimize \
     --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds_config.yaml \
     --output-dir=$results_path \
-    --pop_size=2 \
+    --pop_size=1 \
     --max_iter=1 \
     --path_length=1 \
     --framework=pc \
     --disp \
     --verbose \
-    --procs_per_worker=150 \
+    --procs_per_worker=240 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \

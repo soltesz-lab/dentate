@@ -102,9 +102,9 @@ def config_worker():
                 for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
                     for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
                         if isinstance(param_rst, dict):
-                            for const_name, const_range in sorted(viewitems(param_rest)):
-                                param_name = (param_fst, const_name)
-                                param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
+                            for const_name, const_range in sorted(viewitems(param_rst)):
+                                param_path = (param_fst, const_name)
+                                param_range_tuples.append((source, sec_type, syn_name, param_path, const_range))
                                 param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_fst, const_name)
                                 param_initial_value = (const_range[1] - const_range[0]) / 2.0
                                 param_initial_dict[param_key] = param_initial_value
@@ -119,7 +119,9 @@ def config_worker():
                             param_initial_dict[param_key] = param_initial_value
                             param_bounds[param_key] = param_range
                             param_names.append(param_key)
-                    
+
+    print('param_range_tuples: %s' % str(param_range_tuples))
+
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))
@@ -189,9 +191,9 @@ def update_network(x, context=None):
 
         biophys_cell_dict = context.env.biophys_cells[pop_name]
         for gid, biophys_cell in viewitems(biophys_cell_dict):
-            for source, sec_type, syn_name, param_name, param_value in param_values:
+            for source, sec_type, syn_name, param_path, param_value in param_values:
                 synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
-                                          param_name=param_name, value=param_value,
+                                          param_path=param_path, value=param_value,
                                           filters={'sources': [source]},
                                           origin='soma', update_targets=True)
     
@@ -246,6 +248,7 @@ def compute_features_firing_rate_fraction_active(x, export=False):
         for gid, dens_dict in utils.viewitems(spike_density_dict):
             mean_rate_sum += np.mean(dens_dict['rate'])
 
+        n_total = len(env.biophys_cells[pop_name])
         mean_rate_sum = context.env.comm.allreduce(mean_rate_sum, op=MPI.SUM)
         n_active = context.env.comm.allreduce(len(spike_density_dict), op=MPI.SUM)
         if n_active > 0:
