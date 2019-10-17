@@ -7,6 +7,7 @@ try:
 except ImportError as e:
     print(('dentate.graph: problem importing ChainMap:', e))
 import numpy as np
+from mpi4py import MPI
 from dentate.utils import get_module_logger, list_find_all, range, str, zip, viewitems, zip_longest
 from dentate.utils import Struct, add_bins, update_bins, finalize_bins
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names
@@ -144,6 +145,8 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
     
     for prj_gen_tuple in zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]
+        if rank == 0 and destination_gid is not None:
+            logger.info('%d' % destination_gid)
         if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
             raise RuntimeError('destination %s: destination_gid %i not matched across multiple projection generators: '
                                '%s' % (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
@@ -176,7 +179,7 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
     dist_hist_dict = defaultdict(dict)
     dist_u_hist_dict = defaultdict(dict)
     dist_v_hist_dict = defaultdict(dict)
-    
+
     if rank == 0:
         for source in sources:
             dist_hist_dict[destination][source] = finalize_bins(dist_bins[source], bin_size)

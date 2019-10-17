@@ -20,9 +20,9 @@ from neuroh5.io import read_tree_selection
 from neuron import h
 
 
-def passive_test (templateClass, tree, v_init):
+def passive_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000
@@ -67,9 +67,9 @@ def passive_test (templateClass, tree, v_init):
 
     f.close()
 
-def ap_test (templateClass, tree, v_init):
+def ap_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 100.0
@@ -96,9 +96,9 @@ def ap_test (templateClass, tree, v_init):
     f.close()
 
     
-def ap_rate_test (templateClass, tree, v_init):
+def ap_rate_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     h.dt = 0.025
 
     prelength = 1000.0
@@ -193,9 +193,9 @@ def ap_rate_test (templateClass, tree, v_init):
         f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
     f.close()
 
-def fi_test (templateClass, tree, v_init):
+def fi_test (template_class, tree, v_init):
 
-    cell = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
     soma = list(cell.soma)[0]
     h.dt = 0.025
 
@@ -247,7 +247,7 @@ def fi_test (templateClass, tree, v_init):
     f.close()
 
 
-def gap_junction_test (env, templateClass, tree, v_init):
+def gap_junction_test (env, template_class, tree, v_init):
     
     h('objref gjlist, cells, Vlog1, Vlog2')
 
@@ -255,8 +255,8 @@ def gap_junction_test (env, templateClass, tree, v_init):
     h.cells  = h.List()
     h.gjlist = h.List()
     
-    cell1 = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
-    cell2 = cells.make_neurotree_cell (templateClass, neurotree_dict=tree)
+    cell1 = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
+    cell2 = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
 
     h.cells.append(cell1)
     h.cells.append(cell2)
@@ -531,24 +531,24 @@ def main(template_path,forest_path,synapses_path,config_path):
     h.xopen ("./tests/rn.hoc")
     h.xopen(template_path+'/BasketCell.hoc')
     
-    popName = "BC"
+    pop_name = "BC"
     gid = 1039000
-    (trees_dict,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
-    synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], "Synapse Attributes", comm=comm)
+    (trees_dict,_) = read_tree_selection (forest_path, pop_name, [gid], comm=env.comm)
+    synapses_dict = read_cell_attribute_selection (synapses_path, pop_name, [gid], "Synapse Attributes", comm=env.comm)
 
     (_, tree) = next(trees_dict)
     (_, synapses) = next(synapses_dict)
 
     v_init = -60
     
-    templateClass = getattr(h, "BasketCell")
+    template_class = getattr(h, "BasketCell")
 
-    ap_test(templateClass, tree, v_init)
-    #passive_test(templateClass, tree, v_init)
-    #ap_rate_test(templateClass, tree, v_init)
-    #fi_test(templateClass, tree, v_init)
-    #gap_junction_test(env, templateClass, tree, v_init)
-    #synapse_test(templateClass, gid, tree, synapses, v_init, env)
+    ap_test(template_class, tree, v_init)
+    passive_test(template_class, tree, v_init)
+    ap_rate_test(template_class, tree, v_init)
+    fi_test(template_class, tree, v_init)
+    gap_junction_test(env, template_class, tree, v_init)
+    synapse_test(template_class, gid, tree, synapses, v_init, env)
     
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda s: s.find("BasketCellTest.py") != -1,sys.argv)+1):])
