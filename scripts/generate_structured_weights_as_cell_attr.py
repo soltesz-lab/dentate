@@ -24,6 +24,16 @@ connections_path: contains existing mapping of syn_id to source_gid
     unaltered initial log-normal weights
     
 """
+
+
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
+
 def syn_weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
     rank = comm.rank
     send_syn_ids = []
@@ -90,7 +100,7 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
     lb = np.ones((A.shape[1],)) * -1.
     ub = np.ones((A.shape[1],))
 
-    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=150)
+    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=250)
     
     if interactive:
         logger.info('least squares fit status: %d (%s)' % (res.status, res.message))
@@ -105,21 +115,14 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
         weight = coeffs[i]
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
-            scaled_weight = weight / float(syn_count)
+##            scaled_weight = weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(scaled_weight + initial_weight, 0.)
+                syn_weights[syn_id] = max(weight + initial_weight, 0.)
     
     return syn_weights
 
 def norm2d(x=0, y=0, mx=0, my=0, sx=1, sy=1):
     return 1. * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
-
-sys_excepthook = sys.excepthook
-def mpi_excepthook(type, value, traceback):
-    sys_excepthook(type, value, traceback)
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -295,12 +298,13 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                                                                  namespace=initial_weights_namespace, 
                                                                  comm=env.comm, selection=selection)
             syn_weight_attr_dict = dict(initial_weights_iter)
-            
-            syn_ids = syn_weight_attr_dict[destination_gid]['syn_id']
-            weights = syn_weight_attr_dict[destination_gid][synapse_name]
 
-            for (syn_id, weight) in zip(syn_ids, weights):
-                syn_weight_dict[int(syn_id)] = float(weight) 
+            if destination_gid is not None:
+                syn_ids = syn_weight_attr_dict[destination_gid]['syn_id']
+                weights = syn_weight_attr_dict[destination_gid][synapse_name]
+
+                for (syn_id, weight) in zip(syn_ids, weights):
+                    syn_weight_dict[int(syn_id)] = float(weight) 
 
         if destination_gid is not None:
 
@@ -419,6 +423,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
         del(syn_weight_dict)
         del(source_input_features)
         del(dest_input_features)
+
     if not dry_run:
         append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
@@ -426,10 +431,13 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
         if rank == 0:
             count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
             logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
+
     global_count = comm.gather(gid_count, root=0)
     if rank == 0:
         logger.info('destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
                     (destination, comm.size, np.sum(global_count), time.time() - start_time))
+
+    MPI.Finalize()
 
 
 if __name__ == '__main__':
