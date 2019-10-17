@@ -8,7 +8,6 @@ import scipy
 import yaml
 from scipy import sparse
 
-from past.utils import old_div
 from past.builtins import basestring
 
 class DExpr(object):

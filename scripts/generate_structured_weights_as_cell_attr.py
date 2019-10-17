@@ -24,6 +24,16 @@ connections_path: contains existing mapping of syn_id to source_gid
     unaltered initial log-normal weights
     
 """
+
+
+sys_excepthook = sys.excepthook
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+sys.excepthook = mpi_excepthook
+
+
 def syn_weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
     rank = comm.rank
     send_syn_ids = []
@@ -105,21 +115,14 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
         weight = coeffs[i]
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
-            scaled_weight = weight / float(syn_count)
+##            scaled_weight = weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(scaled_weight + initial_weight, 0.)
+                syn_weights[syn_id] = max(weight + initial_weight, 0.)
     
     return syn_weights
 
 def norm2d(x=0, y=0, mx=0, my=0, sx=1, sy=1):
     return 1. * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
-
-sys_excepthook = sys.excepthook
-def mpi_excepthook(type, value, traceback):
-    sys_excepthook(type, value, traceback)
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
 
 
 @click.command()
@@ -433,6 +436,8 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
     if rank == 0:
         logger.info('destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
                     (destination, comm.size, np.sum(global_count), time.time() - start_time))
+
+    MPI.Finalize()
 
 
 if __name__ == '__main__':

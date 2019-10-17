@@ -667,7 +667,6 @@ def make_cells(env):
             for i, (gid, cell_coords_dict) in enumerate(coords):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
-                    logger.info(str(cell_coords_dict))
 
                 hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
                 cell_x = cell_coords_dict['X Coordinate'][0]
