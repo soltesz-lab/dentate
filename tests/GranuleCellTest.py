@@ -1,24 +1,12 @@
-import itertools
-import os
-import os.path
-import random
-import sys
+import os, os.path, sys, itertools, random
 from collections import defaultdict
-
-import numpy as np
-
 import click
-from dentate import cells
-from dentate import network_clamp
-from dentate import neuron_utils
-from dentate import synapses
-from dentate import utils
-from dentate.env import Env
-from dentate.utils import *
+import numpy as np
 from mpi4py import MPI  # Must come before importing NEURON
-from neuroh5.io import read_cell_attribute_selection
-from neuroh5.io import read_tree_selection
 from neuron import h
+from dentate import cells, network_clamp, neuron_utils, synapses, utils
+from dentate.env import Env
+from neuroh5.io import read_cell_attribute_selection, read_tree_selection
 
 
 def synapse_group_test (env, presyn_name, gid, cell, syn_params_dict, group_size, v_init, tstart = 200.):
@@ -237,14 +225,14 @@ def main(config_path,template_paths,forest_path,synapses_path):
     h.pc = h.ParallelContext()
 
     v_init = -75.0
-    popName = "GC"
+    pop_name = "GC"
     gid = 500500
 
-    env.load_cell_template(popName)
+    env.load_cell_template(pop_name)
     
-    (trees,_) = read_tree_selection (forest_path, popName, [gid], comm=comm)
+    (trees,_) = read_tree_selection (forest_path, pop_name, [gid], comm=comm)
     if synapses_path is not None:
-        synapses_dict = read_cell_attribute_selection (synapses_path, popName, [gid], \
+        synapses_dict = read_cell_attribute_selection (synapses_path, pop_name, [gid], \
                                                        "Synapse Attributes", comm=comm)
     else:
         synapses_dict = None
@@ -255,8 +243,8 @@ def main(config_path,template_paths,forest_path,synapses_path):
     else:
         synapses = None
 
-    if 'mech_file' in env.celltypes[popName]:
-        mech_file_path = env.config_prefix + '/' + env.celltypes[popName]['mech_file']
+    if 'mech_file' in env.celltypes[pop_name]:
+        mech_file_path = env.config_prefix + '/' + env.celltypes[pop_name]['mech_file']
     else:
         mech_file_path = None
 
