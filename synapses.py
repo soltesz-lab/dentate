@@ -90,11 +90,13 @@ class SynapseAttributes(object):
         """
         self.env = env
         self.syn_mech_names = syn_mech_names
+        
         self.syn_param_rules = syn_param_rules
         self.syn_name_index_dict = {label: index for index, label in enumerate(syn_mech_names)}  # int : mech_name dict
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
         self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: SynapsePointProcess(mech={}, netcon={}, vecstim={})))
+        self.presyn_names = {id: name for name, id in viewitems(env.Populations)}
         self.filter_cache = {}
 
     def init_syn_id_attrs_from_iter(self, cell_iter):
@@ -428,10 +430,11 @@ class SynapseAttributes(object):
             else:
                 attr_dict[k] = v
 
-    def modify_mech_attrs(self, gid, syn_id, syn_name, params, update=lambda old, new: new):
+    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, update=lambda old, new: new):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
+        :param pop_name: population name
         :param gid: cell id
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
@@ -443,6 +446,13 @@ class SynapseAttributes(object):
         syn_id_dict = self.syn_id_attr_dict[gid]
         mech_name = self.syn_mech_names[syn_name]
         syn = syn_id_dict[syn_id]
+        presyn_name = self.presyn_names[syn.source.population]
+        conn_params = self.env.connection_config[pop_name][presyn_name].mechanisms
+
+        if 'default' in conn_params:
+            mech_params = conn_params['default'][syn_name]
+        else:
+            mech_params = conn_params[syn.swc_type][syn_name]
 
         attr_dict = syn.attr_dict[syn_index]
         for k, v in viewitems(params):
@@ -450,18 +460,30 @@ class SynapseAttributes(object):
                 p, s = k
                 if p in rules[mech_name]['mech_params']:
                     if p in attr_dict:
-                        if isinstance(attr_dict[p], DExpr):
-                            attr_dict[p][s] = v
+                        mech_param = mech_params[p]
+                        if isinstance(mech_param, DExpr):
+                            mech_param = copy.deepcopy(mech_param)
+                            mech_param[s] = v
+                            if mech_param.parameter == 'delay':
+                                attr_dict[p] = mech_param(syn.source.delay)
+                            else:
+                                raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
                         else:
-                            raise RuntimeError('modify_mech_attrs: compound parameter path specified for non-expression mechanism parameter %s' % p)
+                            raise RuntimeError('modify_mech_attrs: compound parameter path specified for non-expression mechanism parameter %s: %s' % (p, str(mech_param)))
                     else:
                         attr_dict[k[0]] = v
                 elif p in rules[mech_name]['netcon_params']:
                     if p in attr_dict:
-                        if isinstance(attr_dict[p], DExpr):
-                            attr_dict[p][s] = v
+                        mech_param = mech_params[p]
+                        if isinstance(mech_param, DExpr):
+                            mech_param = copy.deepcopy(mech_param)
+                            mech_param[s] = v
+                            if rule.parameter == 'delay':
+                                attr_dict[p] = mech_param(syn.source.delay)
+                            else:
+                                raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
                         else:
-                            raise RuntimeError('modify_mech_attrs: compound parameter name specified for non-expression netcon parameter %s' % p)
+                            raise RuntimeError('modify_mech_attrs: compound parameter name specified for non-expression netcon parameter %s: %s' % (p, str(mech_param)))
                     else:
                         attr_dict[k[0]] = v
             else:
@@ -1486,7 +1508,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_path, baseline,
     syn_attrs = env.synapse_attributes
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
         for syn_id in syn_ids:
-            syn_attrs.modify_mech_attrs(cell.gid, syn_id, syn_name, {param_path: baseline})
+            syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, {param_path: baseline})
     elif donor is None:
         raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in '
                            'sec_type: %s without a provided donor node' % (syn_name, str(param_path), node.type))
@@ -1512,7 +1534,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_path, baseline,
                                               tau, xhalf, outside)
 
             if value is not None:
-                syn_attrs.modify_mech_attrs(cell.gid, syn_id, syn_name, {param_path: value})
+                syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, {param_path: value})
 
     if update_targets:
         config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False, verbose=verbose)

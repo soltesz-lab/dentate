@@ -120,8 +120,6 @@ def config_worker():
                             param_bounds[param_key] = param_range
                             param_names.append(param_key)
 
-    print('param_range_tuples: %s' % str(param_range_tuples))
-
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))

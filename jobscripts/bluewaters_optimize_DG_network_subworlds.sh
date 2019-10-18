@@ -3,7 +3,7 @@
 ### which queue to use
 #PBS -q normal
 ### set the wallclock time
-#PBS -l walltime=20:00:00
+#PBS -l walltime=24:00:00
 ### set the job name
 #PBS -N optimize_DG_network_subworlds
 ### set the job stdout and stderr
@@ -56,6 +56,6 @@ aprun -n 25600 -N 8 -d 4 -b -- bwpy-environ -- \
     --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
-    --max_walltime_hours=19.75 \
+    --max_walltime_hours=23.75 \
     --io_size=48 \
     -v
