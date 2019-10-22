@@ -28,6 +28,7 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
 
     utils.config_logging(verbose)
     comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
 
     vertex_distribution_dict = graph.vertex_distribution(connectivity_path, coords_path,
                                                          distances_namespace,
@@ -35,7 +36,7 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
                                                          bin_size, cache_size, comm=comm)
 
     if rank == 0:
-        f = h5py.File(connectivity_path, 'a')
+        f = h5py.File(connectivity_path, 'r+')
 
         for dst, src_dict in utils.viewitems(vertex_distribution_dict['Total distance']):
             for src, bins in utils.viewitems(src_dict):

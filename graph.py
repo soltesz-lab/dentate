@@ -7,6 +7,7 @@ try:
 except ImportError as e:
     print(('dentate.graph: problem importing ChainMap:', e))
 import numpy as np
+from mpi4py import MPI
 from dentate.utils import get_module_logger, list_find_all, range, str, zip, viewitems, zip_longest
 from dentate.utils import Struct, add_bins, update_bins, finalize_bins
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names
@@ -135,7 +136,9 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
         source_soma_distance_V[s] = this_source_soma_distance_V
     del(source_soma_distances)
 
-    logger.info('reading connections %s -> %s...' % (str(sources), destination))
+    if rank == 0:
+        logger.info('reading connections %s -> %s...' % (str(sources), destination))
+
     gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
 
     dist_bins = defaultdict(dict)
