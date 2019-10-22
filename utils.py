@@ -2,13 +2,12 @@ from __future__ import absolute_import, division
 import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 import pprint, string, sys, time
 from builtins import input, map, next, object, range, str, zip
+from past.builtins import basestring
 from collections import Iterable, defaultdict, namedtuple
 import numpy as np
 import scipy
-import yaml
 from scipy import sparse
-
-from past.builtins import basestring
+import yaml
 
 class DExpr(object):
     def __init__(self, parameter, expr, consts=None):
@@ -24,8 +23,8 @@ class DExpr(object):
     def __getitem__(self, key):
         return self.consts[key]
 
-    def __getitem__(self, key, val):
-        self.consts[key] = val
+    def __setitem__(self, key, value):
+        self.consts[key] = value
         self.__init_feval__()
     
     def __init_feval__(self):

@@ -120,8 +120,6 @@ def config_worker():
                             param_bounds[param_key] = param_range
                             param_names.append(param_key)
 
-    print('param_range_tuples: %s' % str(param_range_tuples))
-
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))
@@ -189,11 +187,27 @@ def update_network(x, context=None):
 
         param_values = context.from_param_vector(x)
 
+        for source, sec_type, syn_name, param_path, param_value in param_values:
+            conn_params = context.env.connection_config[pop_name][source].mechanisms
+            sec_type_index = context.env.SWC_Types[sec_type]
+            if 'default' in conn_params:
+                mech_params = conn_params['default'][syn_name]
+            else:
+                mech_params = conn_params[sec_type_index][syn_name]
+            if isinstance(param_path, tuple):
+                p, s = param_path
+                mech_param[s] = param_value
+
+                
         biophys_cell_dict = context.env.biophys_cells[pop_name]
         for gid, biophys_cell in viewitems(biophys_cell_dict):
             for source, sec_type, syn_name, param_path, param_value in param_values:
+                if isinstance(param_path, tuple):
+                    p, s = param_path
+                else:
+                    p = param_path
                 synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
-                                          param_path=param_path, value=param_value,
+                                          param_name=p, value=param_value,
                                           filters={'sources': [source]},
                                           origin='soma', update_targets=True)
     
