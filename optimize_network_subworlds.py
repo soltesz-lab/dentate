@@ -189,14 +189,14 @@ def update_network(x, context=None):
 
         for source, sec_type, syn_name, param_path, param_value in param_values:
             conn_params = context.env.connection_config[pop_name][source].mechanisms
-            sec_type_index = context.env.SWC_Types[swc_type]
+            sec_type_index = context.env.SWC_Types[sec_type]
             if 'default' in conn_params:
                 mech_params = conn_params['default'][syn_name]
             else:
                 mech_params = conn_params[sec_type_index][syn_name]
             if isinstance(param_path, tuple):
                 p, s = param_path
-                mech_param[s] = v
+                mech_param[s] = param_value
 
                 
         biophys_cell_dict = context.env.biophys_cells[pop_name]

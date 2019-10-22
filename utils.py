@@ -4,13 +4,12 @@ import pprint, string, sys, time
 from builtins import input, map, next, object, range, str, zip
 from past.builtins import basestring
 from collections import Iterable, defaultdict, namedtuple
-from collections.abc import MutableMapping
 import numpy as np
 import scipy
 from scipy import sparse
 import yaml
 
-class DExpr(MutableMapping):
+class DExpr(object):
     def __init__(self, parameter, expr, consts=None):
         self.sympy = importlib.import_module('sympy')
         self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
