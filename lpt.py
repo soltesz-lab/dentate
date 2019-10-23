@@ -2,7 +2,7 @@ from __future__ import division
 
 import heapq
 
-from dentate.utils import get_module_logger, old_div, range, str
+from dentate.utils import get_module_logger, range, str
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -45,10 +45,10 @@ def statistics(parts):
         for cx in part[1]:
             if cx[0] > max_cx:
                 max_cx = cx[0]
-    avg_part_cx = old_div(total_cx, npart)
+    avg_part_cx = total_cx / npart
     loadbal = 1.0
     if max_part_cx > 0.:
-        loadbal = old_div(avg_part_cx, max_part_cx)
+        loadbal = avg_part_cx / max_part_cx
     logger.info("*** loadbal=%g total_cx=%g npart=%d ncx=%d max_part_cx=%g max_cx=%g" % (
     loadbal, total_cx, npart, ncx, max_part_cx, max_cx))
 

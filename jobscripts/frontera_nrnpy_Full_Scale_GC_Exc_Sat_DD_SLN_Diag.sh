@@ -53,5 +53,6 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --vrecord-fraction=0.001 \
     --checkpoint-interval=1000.0 \
     --checkpoint-clear-data \
+    --node-rank-file=parts.28672 \
     --verbose
 
