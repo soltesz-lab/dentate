@@ -3972,7 +3972,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
         else:
             svg_title = svg_title + ' - ' + syn_name + '_' + param_name + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
+        fig.savefig(output_dir + '/' + svg_title, format='svg', transparent=True)
     if show:
         fig.show()
     if svg_title is not None:
@@ -4141,7 +4141,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                 else:
                     svg_title = svg_title + ' - ' + syn_name + '_' + param_name + ' distribution.svg'
                 fig.set_size_inches(5.27, 4.37)
-                fig.savefig(output_dir + svg_title, format='svg', transparent=True)
+                fig.savefig(output_dir + '/' + svg_title, format='svg', transparent=True)
             fig.show()
             if svg_title is not None:
                 mpl.rcParams['font.size'] = remember_font_size
@@ -4239,7 +4239,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
         else:
             svg_title = svg_title + ' - ' + mech_name + '_' + param_name + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
+        fig.savefig(output_dir + '/' + svg_title, format='svg', transparent=True)
     if show:
         fig.show()
     if svg_title is not None:
@@ -4363,7 +4363,7 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
         else:
             svg_title = svg_title + ' - ' + mech_name + '_' + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
+        fig.savefig(output_dir + '/' + svg_title, format='svg', transparent=True)
     if show:
         fig.show()
     if svg_title is not None:
@@ -4513,7 +4513,7 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
         else:
             svg_title = svg_title + ' - ' + mech_name + '_' + param_name + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
+        fig.savefig(output_dir + '/' + svg_title, format='svg', transparent=True)
     fig.show()
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size

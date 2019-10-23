@@ -132,6 +132,8 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
                             mech_file_path=mech_file_path)
     init_biophysics(cell, reset_cable=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines, env=env,
                     verbose=verbose)
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
     context.update(locals())
 
     standard_modify_syn_param_tests(cell, env)
